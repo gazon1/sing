@@ -32,11 +32,9 @@ import kotlinx.datetime.LocalTime
  * исчерпывающим `when` по [Domain].
  */
 sealed interface TaskDetailIntent : MviIntent {
-
     // ── Domain: owned by ViewModel ─────────────────────────────────────────
 
     sealed interface Domain : TaskDetailIntent {
-
         // ── Hero ────────────────────────────────────────────────────────────
 
         data object ToggleComplete : Domain, TaskCompletionIntent
@@ -63,13 +61,17 @@ sealed interface TaskDetailIntent : MviIntent {
          * Nothing was written, so this only closes the confirmation.
          */
         data object DismissBlockedClose : Domain
+
         data class TitleChanged(val title: String) :
             Domain,
             TaskDraftIntent
+
         data class DescriptionChanged(val description: String) :
             Domain,
             TaskDraftIntent
+
         data object ToggleSomeday : Domain, TaskEntityIntent
+
         data class SetKind(val kind: TaskKind) :
             Domain,
             TaskEntityIntent
@@ -79,15 +81,19 @@ sealed interface TaskDetailIntent : MviIntent {
         data class SetDueDate(val date: LocalDate?) :
             Domain,
             TaskEntityIntent
+
         data class SetDueTime(val time: LocalTime?) :
             Domain,
             TaskEntityIntent
+
         data class SetStartDate(val date: LocalDate?) :
             Domain,
             TaskEntityIntent
+
         data class SetStartTime(val time: LocalTime?) :
             Domain,
             TaskEntityIntent
+
         data class SetPriority(val priority: TaskPriority) :
             Domain,
             TaskEntityIntent
@@ -103,6 +109,7 @@ sealed interface TaskDetailIntent : MviIntent {
         data class SetWorkflowState(val state: TaskWorkflowState) :
             Domain,
             TaskEntityIntent
+
         data class SetProject(val projectId: ProjectId?) :
             Domain,
             TaskEntityIntent
@@ -111,19 +118,42 @@ sealed interface TaskDetailIntent : MviIntent {
 
         data class SetTags(val tagIds: List<TagId>) :
             Domain,
-            TaskEntityIntent
+            TaskTagIntent
+
         data class RemoveTag(val tagId: TagId) :
             Domain,
-            TaskEntityIntent
+            TaskTagIntent
+
+        /**
+         * Puts a removed tag back on the task.
+         *
+         * The undo of [RemoveTag]: the tag is one of the task's tags again.
+         */
+        data class RestoreTag(val tagId: TagId) :
+            Domain,
+            TaskTagIntent
 
         // ── Checklist ───────────────────────────────────────────────────────
 
         data class ToggleChecklistItem(val item: ChecklistItem) :
             Domain,
             TaskChildrenIntent
+
         data class DeleteChecklistItem(val id: ChecklistItemId) :
             Domain,
             TaskChildrenIntent
+
+        /**
+         * Puts a removed checklist item back.
+         *
+         * The undo of [DeleteChecklistItem]: the snapshot travels with the intent,
+         * because the row is gone from the database and the write has to be given
+         * the item it puts back.
+         */
+        data class RestoreChecklistItem(val item: ChecklistItem) :
+            Domain,
+            TaskChildrenIntent
+
         data class AddChecklistItem(val title: String) :
             Domain,
             TaskChildrenIntent
@@ -133,9 +163,21 @@ sealed interface TaskDetailIntent : MviIntent {
         data class ToggleSubtask(val task: Task) :
             Domain,
             TaskChildrenIntent
+
         data class DeleteSubtask(val task: Task) :
             Domain,
             TaskChildrenIntent
+
+        /**
+         * Puts a removed subtask back.
+         *
+         * The undo of [DeleteSubtask]: the subtask was soft-deleted, so it comes
+         * back with a restore of its own id.
+         */
+        data class RestoreSubtask(val taskId: TaskId) :
+            Domain,
+            TaskChildrenIntent
+
         data class AddSubtask(val title: String) :
             Domain,
             TaskChildrenIntent
@@ -145,6 +187,7 @@ sealed interface TaskDetailIntent : MviIntent {
         data class SetReminder(val offset: ReminderOffset) :
             Domain,
             TaskRemindersIntent
+
         data object DeleteReminder : Domain, TaskRemindersIntent
 
         // ── Lifecycle ─────────────────────────────────────────────────────

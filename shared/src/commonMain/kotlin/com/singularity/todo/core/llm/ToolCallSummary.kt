@@ -47,23 +47,60 @@ private val summaryJson = Json { ignoreUnknownKeys = true }
  * to be re-derived when a tool gains a string argument: a new free-text argument is elided by
  * default, and a new identifying one has to be added here.
  */
-internal val IDENTIFYING_FIELDS: Set<String> = setOf(
-    // Identifiers: the name of a row, which is all a card needs to say what was touched.
-    "id", "taskId", "noteId", "projectId", "tagId", "tagGroupId", "parentId", "parentNoteId",
-    "parentTaskId", "itemId", "attachmentId", "seriesId", "proposalId", "callId", "userId",
-    "profileId", "dependsOnTaskId", "dependsOn", "supersededBy",
-    // Titles and names: the label of the thing, not its content.
-    "title", "name", "label", "slug", "icon", "projectName",
-    // Categorical values: one word from a closed set.
-    "kind", "status", "priority", "tone", "verb", "operation", "field", "mode", "scope",
-    // Dates.
-    "dueDate", "dueTime", "startDate", "endDate", "startsAt", "endsAt", "date", "time",
-    // The ISO date that names the daily note a call touched — the row's name, like a title.
-    "dateKey",
-    // A colour is a hex string in some tools and a number in others; the number is quoted by
-    // shape, the string needs its name here.
-    "colorHex",
-)
+internal val IDENTIFYING_FIELDS: Set<String> =
+    setOf(
+        // Identifiers: the name of a row, which is all a card needs to say what was touched.
+        "id",
+        "taskId",
+        "noteId",
+        "projectId",
+        "tagId",
+        "tagGroupId",
+        "parentId",
+        "parentNoteId",
+        "parentTaskId",
+        "itemId",
+        "attachmentId",
+        "seriesId",
+        "proposalId",
+        "callId",
+        "userId",
+        "profileId",
+        "dependsOnTaskId",
+        "dependsOn",
+        "supersededBy",
+        // Titles and names: the label of the thing, not its content.
+        "title",
+        "name",
+        "label",
+        "slug",
+        "icon",
+        "projectName",
+        // Categorical values: one word from a closed set.
+        "kind",
+        "status",
+        "priority",
+        "tone",
+        "verb",
+        "operation",
+        "field",
+        "mode",
+        "scope",
+        // Dates.
+        "dueDate",
+        "dueTime",
+        "startDate",
+        "endDate",
+        "startsAt",
+        "endsAt",
+        "date",
+        "time",
+        // The ISO date that names the daily note a call touched — the row's name, like a title.
+        "dateKey",
+        // A colour is a hex string in some tools and a number in others; the number is quoted by
+        // shape, the string needs its name here.
+        "colorHex",
+    )
 
 /**
  * The field names whose values are free text and must never be quoted in a summary.
@@ -83,12 +120,37 @@ internal val IDENTIFYING_FIELDS: Set<String> = setOf(
  * [IDENTIFYING_FIELDS] if it identifies. The structural test
  * `ToolCallSummaryAllowListTest` fails otherwise.
  */
-internal val FREE_TEXT_FIELDS: Set<String> = setOf(
-    "action", "body", "bodyHtml", "bodyMarkdown", "content", "createdAt", "currentTitle",
-    "cursor", "cursorWarning", "description", "doneWhen", "error", "health", "message",
-    "newTitle", "nextCursor", "planSource", "query", "rationale", "rawIdea", "reason",
-    "selection", "suggestedTime", "summary", "text", "updatedAt", "value", "warning",
-)
+internal val FREE_TEXT_FIELDS: Set<String> =
+    setOf(
+        "action",
+        "body",
+        "bodyHtml",
+        "bodyMarkdown",
+        "content",
+        "createdAt",
+        "currentTitle",
+        "cursor",
+        "cursorWarning",
+        "description",
+        "doneWhen",
+        "error",
+        "health",
+        "message",
+        "newTitle",
+        "nextCursor",
+        "planSource",
+        "query",
+        "rationale",
+        "rawIdea",
+        "reason",
+        "selection",
+        "suggestedTime",
+        "summary",
+        "text",
+        "updatedAt",
+        "value",
+        "warning",
+    )
 
 /**
  * A short, sanitized description of what a tool call touched.
@@ -117,7 +179,10 @@ internal val FREE_TEXT_FIELDS: Set<String> = setOf(
  * @param argumentsJson the arguments, as JSON; may be absent or unreadable
  * @return a summary of at most [TOOL_CALL_SUMMARY_MAX_LENGTH] characters
  */
-fun toolCallSummary(toolName: String, argumentsJson: String?): String {
+fun toolCallSummary(
+    toolName: String,
+    argumentsJson: String?,
+): String {
     val head = toolName.ifBlank { "tool" }
     if (argumentsJson.isNullOrBlank()) return head
 
@@ -126,9 +191,12 @@ fun toolCallSummary(toolName: String, argumentsJson: String?): String {
     val fields = parsed as? JsonObject
     if (fields == null || fields.isEmpty()) return head
 
-    val described = fields.entries.take(MAX_FIELDS).map { (name, value) ->
-        "$name=${describe(name, value)}"
-    }.joinToString(", ")
+    val described =
+        fields.entries
+            .take(MAX_FIELDS)
+            .map { (name, value) ->
+                "$name=${describe(name, value)}"
+            }.joinToString(", ")
 
     val overflow = fields.size - MAX_FIELDS
     val tail = if (overflow > 0) ", +$overflow more" else ""
@@ -143,7 +211,10 @@ fun toolCallSummary(toolName: String, argumentsJson: String?): String {
  * string is quoted only when its field is in [IDENTIFYING_FIELDS] — the field decides, not
  * the length, because a short value is exactly as likely to be the reader's own words.
  */
-private fun describe(name: String, value: kotlinx.serialization.json.JsonElement): String {
+private fun describe(
+    name: String,
+    value: kotlinx.serialization.json.JsonElement,
+): String {
     val primitive = value as? JsonPrimitive ?: return "…"
     val text = primitive.content
     return when {

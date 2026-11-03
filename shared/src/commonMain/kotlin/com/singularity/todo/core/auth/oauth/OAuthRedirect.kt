@@ -29,14 +29,15 @@ data class OAuthRedirectParams(
  */
 fun parseOAuthRedirect(target: String): OAuthRedirectParams {
     val query = target.substringAfter('?', "").substringBefore('#')
-    val params = query
-        .split('&')
-        .filter { it.isNotBlank() }
-        .mapNotNull { pair ->
-            val name = pair.substringBefore('=')
-            val value = pair.substringAfter('=', "")
-            if (name.isBlank()) null else name.decode() to value.decode()
-        }.toMap()
+    val params =
+        query
+            .split('&')
+            .filter { it.isNotBlank() }
+            .mapNotNull { pair ->
+                val name = pair.substringBefore('=')
+                val value = pair.substringAfter('=', "")
+                if (name.isBlank()) null else name.decode() to value.decode()
+            }.toMap()
     return OAuthRedirectParams(
         code = params["code"],
         state = params["state"],

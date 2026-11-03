@@ -25,6 +25,7 @@ import com.singularity.todo.core.observability.DailyUsage
 import com.singularity.todo.core.observability.ModelUsage
 import com.singularity.todo.core.observability.ToolUsage
 import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.formatDecimal
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import org.koin.compose.viewmodel.koinViewModel
@@ -40,9 +41,10 @@ fun AiUsageScreen(modifier: Modifier = Modifier) {
     }
 
     LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // ─── Header card ─────────────────────────────────────────────────
@@ -111,12 +113,17 @@ fun AiUsageScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun UsageHeaderCard(totalTokens: Long, totalCostMicros: Long?, profileName: String) {
+private fun UsageHeaderCard(
+    totalTokens: Long,
+    totalCostMicros: Long?,
+    profileName: String,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-        ),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+            ),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -214,21 +221,23 @@ private fun ModelUsageRow(model: ModelUsage) {
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
-private fun formatTokens(tokens: Long): String = when {
-    tokens >= 1_000_000 -> "%.1fM".format(tokens / 1_000_000.0)
-    tokens >= 1_000 -> "%.1fK".format(tokens / 1_000.0)
-    else -> tokens.toString()
-}
+private fun formatTokens(tokens: Long): String =
+    when {
+        tokens >= 1_000_000 -> formatDecimal(tokens / 1_000_000.0, 1) + "M"
+        tokens >= 1_000 -> formatDecimal(tokens / 1_000.0, 1) + "K"
+        else -> tokens.toString()
+    }
 
 private fun formatCost(micros: Long): String {
     val dollars = micros / 1_000_000.0
-    return "$${"%.4f".format(dollars)}"
+    return "$" + formatDecimal(dollars, 4)
 }
 
 // ===== Preview =====
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AiUsageScreenPreview() = PreviewThemed {
-    AiUsageScreen()
-}
+private fun AiUsageScreenPreview() =
+    PreviewThemed {
+        AiUsageScreen()
+    }

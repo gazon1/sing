@@ -10,6 +10,9 @@ import androidx.compose.runtime.Composable
  * the screen already handles on its own.
  */
 @Composable
-actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
+actual fun PlatformBackHandler(
+    enabled: Boolean,
+    onBack: () -> Unit,
+) {
     // Nothing to listen to: there is no back gesture on the desktop.
 }

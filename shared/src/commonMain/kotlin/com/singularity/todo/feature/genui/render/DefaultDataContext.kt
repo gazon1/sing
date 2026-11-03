@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.genui.render
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.feature.genui.catalog.NodeRef
@@ -11,19 +11,19 @@ import com.singularity.todo.feature.genui.schema.DataModel
 import com.singularity.todo.feature.genui.schema.UiPath
 import com.singularity.todo.feature.genui.surface.Surface
 import com.singularity.todo.feature.genui.surface.SurfaceController
+import com.singularity.todo.feature.genui.surface.SurfaceId
 import com.singularity.todo.feature.genui.surface.component
 import com.singularity.todo.feature.genui.surface.rootRef
 import com.singularity.todo.feature.genui.surface.value
 import com.singularity.todo.feature.genui.surface.valueAt
 import com.singularity.todo.feature.genui.surface.valueAtFlow
-import com.singularity.todo.feature.genui.surface.SurfaceId
-import kotlin.time.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlin.time.Clock
 
 /**
  * Everything a renderer is allowed to reach: the components, the data they bind to, and the two
@@ -116,14 +116,18 @@ class DefaultDataContext(
      * @param path the data-model path the field is bound to.
      * @param fallback the text the field shows while the model holds nothing at [path].
      */
-    fun textSource(path: UiPath, fallback: String): BoundTextSource {
+    fun textSource(
+        path: UiPath,
+        fallback: String,
+    ): BoundTextSource {
         val existing = sources[path]
         if (existing != null && existing.fallback == fallback) return existing
-        val created = BoundTextSource(
-            current = controller.valueAt(surfaceId, path).toSource(fallback),
-            updates = controller.valueAtFlow(surfaceId, path).map { it.toSource(fallback) },
-            fallback = fallback,
-        )
+        val created =
+            BoundTextSource(
+                current = controller.valueAt(surfaceId, path).toSource(fallback),
+                updates = controller.valueAtFlow(surfaceId, path).map { it.toSource(fallback) },
+                fallback = fallback,
+            )
         sources[path] = created
         return created
     }
@@ -149,7 +153,10 @@ class DefaultDataContext(
      * immediately and so that every bound path agrees, whatever the screen does with the
      * notification afterwards.
      */
-    fun write(path: UiPath, value: JsonElement) {
+    fun write(
+        path: UiPath,
+        value: JsonElement,
+    ) {
         controller.write(surfaceId, path, value)
         onDataChange?.invoke(surfaceId, path, value)
     }
@@ -171,15 +178,16 @@ fun rememberDataContext(
     registry: ComponentRegistry,
     onDataChange: ((SurfaceId, UiPath, JsonElement) -> Unit)? = null,
     clock: Clock,
-): DefaultDataContext = remember(surfaceId, controller, registry, onDataChange, clock) {
-    DefaultDataContext(
-        surfaceId = surfaceId,
-        controller = controller,
-        registry = registry,
-        onDataChange = onDataChange,
-        clock = clock,
-    )
-}
+): DefaultDataContext =
+    remember(surfaceId, controller, registry, onDataChange, clock) {
+        DefaultDataContext(
+            surfaceId = surfaceId,
+            controller = controller,
+            registry = registry,
+            onDataChange = onDataChange,
+            clock = clock,
+        )
+    }
 
 /**
  * Dispatches a GenUI action (button press, card tap) to the host screen.
@@ -187,6 +195,7 @@ fun rememberDataContext(
  * Provided once per surface via [androidx.compose.runtime.CompositionLocalProvider],
  * so renderers reach it without it being threaded through [DefaultDataContext].
  */
-val LocalGenuiOnAction = staticCompositionLocalOf<(SurfaceId, String, kotlinx.serialization.json.JsonObject?) -> Unit> {
-    { _, _, _ -> }
-}
+val LocalGenuiOnAction =
+    staticCompositionLocalOf<(SurfaceId, String, kotlinx.serialization.json.JsonObject?) -> Unit> {
+        { _, _, _ -> }
+    }

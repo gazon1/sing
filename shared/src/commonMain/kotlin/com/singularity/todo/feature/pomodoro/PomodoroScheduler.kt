@@ -14,7 +14,11 @@ interface PomodoroScheduler {
      * @param taskId Optional task ID for display purposes (passed via PendingIntent extra).
      * @param phase Phase passed to [com.singularity.todo.feature.alarms.AlarmReceiver.handlePomodoroPhaseEnd].
      */
-    fun schedulePhaseEnd(fireAtEpochMs: Long, taskId: String?, phase: PomodoroPhase)
+    fun schedulePhaseEnd(
+        fireAtEpochMs: Long,
+        taskId: String?,
+        phase: PomodoroPhase,
+    )
 
     /** Cancels any scheduled phase-end alarm. Safe to call even if no alarm is currently scheduled. */
     fun cancelPhaseEndAlarm()

@@ -18,7 +18,6 @@ interface TasksContributor : SettingsContributor<SettingsSection.Tasks, Settings
  * @param store reads and writes task-related settings such as the staleness threshold.
  */
 class TasksSettingsContributor(private val store: TasksSettingsStore) : TasksContributor {
-
     override val section: SettingsSection.Tasks = SettingsSection.Tasks()
 
     override fun observe(): Flow<SettingsSection.Tasks> = store.observe()

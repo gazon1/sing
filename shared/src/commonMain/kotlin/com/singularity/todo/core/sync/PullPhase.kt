@@ -94,9 +94,13 @@ internal class PullPhase(
                 PullStep.Done
             }
 
-            is ApplyOutcome.Skipped -> PullStep.AppliedButUnusable(outcome.reason)
+            is ApplyOutcome.Skipped -> {
+                PullStep.AppliedButUnusable(outcome.reason)
+            }
 
-            is ApplyOutcome.Failed -> PullStep.Unappliable
+            is ApplyOutcome.Failed -> {
+                PullStep.Unappliable
+            }
         }
     }
 
@@ -112,21 +116,27 @@ internal class PullPhase(
      *
      * The in-flight marker (if any) is preserved: only `confirmed_json` moves.
      */
-    private suspend fun refreshShadow(event: SyncEvent, scope: SyncScope) {
+    private suspend fun refreshShadow(
+        event: SyncEvent,
+        scope: SyncScope,
+    ) {
         val dao = shadowDao ?: return
         val data = event.data as? kotlinx.serialization.json.JsonObject ?: return
         if (event.eventType == SyncEventType.DELETED) return
-        val json = com.singularity.todo.core.serialization.StableJson.encodeToString(
-            kotlinx.serialization.json.JsonObject.serializer(),
-            data,
-        )
-        val updated = dao.updateConfirmed(
-            ownerId = scope.ownerId,
-            profileId = scope.profileId,
-            entityType = event.entityType.key,
-            entityId = event.entityId,
-            json = json,
-        )
+        val json =
+            com.singularity.todo.core.serialization.StableJson.encodeToString(
+                kotlinx.serialization.json.JsonObject
+                    .serializer(),
+                data,
+            )
+        val updated =
+            dao.updateConfirmed(
+                ownerId = scope.ownerId,
+                profileId = scope.profileId,
+                entityType = event.entityType.key,
+                entityId = event.entityId,
+                json = json,
+            )
         if (updated == 0) {
             dao.upsert(
                 SyncShadowEntity(
@@ -165,7 +175,10 @@ internal class PullPhase(
      * Runs the paginated pull loop for a signed-in session.
      * Returns [PhaseResult.Failed] on any error (stalled event, network exception).
      */
-    private suspend fun pullWithSession(scope: SyncScope, sinceLsn: Long): PhaseResult<PullSummary> =
+    private suspend fun pullWithSession(
+        scope: SyncScope,
+        sinceLsn: Long,
+    ): PhaseResult<PullSummary> =
         try {
             when (val result = pullPages(scope, sinceLsn)) {
                 is PageResult.Ok -> {
@@ -173,7 +186,9 @@ internal class PullPhase(
                     PhaseResult.Ok(result.summary)
                 }
 
-                is PageResult.Stalled -> PhaseResult.Failed(result.error)
+                is PageResult.Stalled -> {
+                    PhaseResult.Failed(result.error)
+                }
             }
         } catch (e: CancellationException) {
             throw e
@@ -187,7 +202,10 @@ internal class PullPhase(
      * Executes the pagination loop and returns the pull outcome.
      * On a [PageResult.Stalled], records the failure and returns [PhaseResult.Failed].
      */
-    private suspend fun pullPages(scope: SyncScope, sinceLsn: Long): PageResult {
+    private suspend fun pullPages(
+        scope: SyncScope,
+        sinceLsn: Long,
+    ): PageResult {
         var maxLsn = sinceLsn
         var readFrom = sinceLsn
         var lastPageFull = false
@@ -256,6 +274,7 @@ internal class PullPhase(
     /** Result of [pullPages]. */
     private sealed class PageResult {
         data class Ok(val summary: PullSummary, val maxLsn: Long) : PageResult()
+
         data class Stalled(val error: AppError, val received: Int, val applied: Int, val dropped: Int) : PageResult()
     }
 

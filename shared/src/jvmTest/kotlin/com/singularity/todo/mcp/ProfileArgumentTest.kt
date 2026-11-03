@@ -14,7 +14,6 @@ import kotlin.test.assertIs
  */
 @Tag("fast")
 class ProfileArgumentTest {
-
     @Test
     fun `no argument means the stored profile`() {
         assertIs<ProfileSelection.Stored>(parseProfileSelection(emptyArray()))

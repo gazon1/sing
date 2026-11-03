@@ -48,7 +48,6 @@ import com.singularity.todo.core.sync.SyncScope
  * @see com.singularity.todo.core.sync.SyncScope
  */
 sealed interface Entitlement {
-
     /** The sync scope this entitlement is about. Carried on the interface, never alongside it. */
     val scope: SyncScope
 

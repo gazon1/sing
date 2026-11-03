@@ -36,7 +36,6 @@ import kotlinx.coroutines.flow.StateFlow
  * @see Entitlement
  */
 interface SubscriptionProvider {
-
     /**
      * The entitlement for [scope].
      *
@@ -88,9 +87,10 @@ data class SubscriptionInfo(
      * having a `SubscriptionInfo` at all rather than by a flag on it, so there is no way to
      * construct a purchase that both exists and grants nothing.
      */
-    fun toPurchaseState(): PurchaseState = PurchaseState(
-        hasAccount = true,
-        hasPro = true,
-        provider = provider,
-    )
+    fun toPurchaseState(): PurchaseState =
+        PurchaseState(
+            hasAccount = true,
+            hasPro = true,
+            provider = provider,
+        )
 }

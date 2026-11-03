@@ -24,18 +24,23 @@ import co.touchlab.kermit.Severity
  * log leans on is not a defence, and this is how the two are kept apart.
  */
 class StderrLogWriter : LogWriter() {
-
-    override fun log(severity: Severity, message: String, tag: String, throwable: Throwable?) {
-        val line = buildString {
-            append(severity)
-            append(": ")
-            if (tag.isNotEmpty()) {
-                append('(')
-                append(tag)
-                append(") ")
+    override fun log(
+        severity: Severity,
+        message: String,
+        tag: String,
+        throwable: Throwable?,
+    ) {
+        val line =
+            buildString {
+                append(severity)
+                append(": ")
+                if (tag.isNotEmpty()) {
+                    append('(')
+                    append(tag)
+                    append(") ")
+                }
+                append(message)
             }
-            append(message)
-        }
         System.err.println(line)
         throwable?.let { System.err.println(it.stackTraceToString()) }
         System.err.flush()

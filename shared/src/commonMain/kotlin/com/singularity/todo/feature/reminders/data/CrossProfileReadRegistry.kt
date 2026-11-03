@@ -51,7 +51,6 @@ package com.singularity.todo.feature.reminders.data
  * never built. The failure was invisible because nothing reads KDoc claims and checks them.
  */
 object CrossProfileReadRegistry {
-
     /**
      * The one sanctioned cross-profile read, as `File.method`.
      *

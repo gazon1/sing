@@ -43,7 +43,6 @@ import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
  *      without constructing PSI.
  */
 class NoUnreportedFailurePathRule(config: Config) : Rule(config, "", null) {
-
     override fun visitClass(klass: KtClass) {
         super.visitClass(klass)
         if (!NoUnreportedFailurePathPolicy.isViewModelName(klass.name)) return
@@ -86,7 +85,6 @@ class NoUnreportedFailurePathRule(config: Config) : Rule(config, "", null) {
  * decision records about.
  */
 internal object NoUnreportedFailurePathPolicy {
-
     /**
      * ViewModels by *role* rather than by name. Both are bound with `viewModel { }` in
      * `NotesDiModule` and both handle failures, so a name-based check would exempt exactly the
@@ -109,21 +107,23 @@ internal object NoUnreportedFailurePathPolicy {
      */
     fun canFail(klass: KtClass): Boolean {
         var found = false
-        klass.accept(object : KtTreeVisitorVoid() {
-            override fun visitCallExpression(expression: KtCallExpression) {
-                if (found) return
-                val callee = expression.calleeExpression?.text
-                if (callee != null && (callee in LAUNCH_CALLEES || callee in RUN_CATCHING_CALLEES)) {
-                    found = true
-                    return
+        klass.accept(
+            object : KtTreeVisitorVoid() {
+                override fun visitCallExpression(expression: KtCallExpression) {
+                    if (found) return
+                    val callee = expression.calleeExpression?.text
+                    if (callee != null && (callee in LAUNCH_CALLEES || callee in RUN_CATCHING_CALLEES)) {
+                        found = true
+                        return
+                    }
+                    super.visitCallExpression(expression)
                 }
-                super.visitCallExpression(expression)
-            }
 
-            override fun visitCatchSection(catchSection: KtCatchClause) {
-                found = true
-            }
-        })
+                override fun visitCatchSection(catchSection: KtCatchClause) {
+                    found = true
+                }
+            },
+        )
         return found
     }
 
@@ -136,30 +136,33 @@ internal object NoUnreportedFailurePathPolicy {
      * failure mode in a different costume.
      */
     fun hasReporter(klass: KtClass): Boolean {
-        val declaredAsParameter = klass.primaryConstructorParameters
-            .any { it.name == "crashReporter" }
+        val declaredAsParameter =
+            klass.primaryConstructorParameters
+                .any { it.name == "crashReporter" }
         if (declaredAsParameter) return true
         var found = false
-        klass.accept(object : KtTreeVisitorVoid() {
-            override fun visitCallExpression(expression: KtCallExpression) {
-                if (found) return
-                if (expression.calleeExpression?.text == "report") {
-                    found = true
-                    return
+        klass.accept(
+            object : KtTreeVisitorVoid() {
+                override fun visitCallExpression(expression: KtCallExpression) {
+                    if (found) return
+                    if (expression.calleeExpression?.text == "report") {
+                        found = true
+                        return
+                    }
+                    super.visitCallExpression(expression)
                 }
-                super.visitCallExpression(expression)
-            }
 
-            override fun visitReferenceExpression(expression: KtReferenceExpression) {
-                if (found) return
-                val name = (expression as? KtNameReferenceExpression)?.getReferencedName()
-                if (name == "crashReporter") {
-                    found = true
-                    return
+                override fun visitReferenceExpression(expression: KtReferenceExpression) {
+                    if (found) return
+                    val name = (expression as? KtNameReferenceExpression)?.getReferencedName()
+                    if (name == "crashReporter") {
+                        found = true
+                        return
+                    }
+                    super.visitReferenceExpression(expression)
                 }
-                super.visitReferenceExpression(expression)
-            }
-        })
+            },
+        )
         return found
     }
 
@@ -180,33 +183,39 @@ internal object NoUnreportedFailurePathPolicy {
     fun scopeBypassIn(klass: KtClass): KtElement? {
         var bypass: KtCallExpression? = null
         var bareObject: KtNameReferenceExpression? = null
-        klass.accept(object : KtTreeVisitorVoid() {
-            override fun visitCallExpression(expression: KtCallExpression) {
-                if (bypass != null) return
-                when (expression.calleeExpression?.text) {
-                    "GlobalScope", "MainScope", "CoroutineScope" -> bypass = expression
-                    else -> super.visitCallExpression(expression)
+        klass.accept(
+            object : KtTreeVisitorVoid() {
+                override fun visitCallExpression(expression: KtCallExpression) {
+                    if (bypass != null) return
+                    when (expression.calleeExpression?.text) {
+                        "GlobalScope", "MainScope", "CoroutineScope" -> bypass = expression
+                        else -> super.visitCallExpression(expression)
+                    }
                 }
-            }
 
-            override fun visitReferenceExpression(expression: KtReferenceExpression) {
-                if (bypass != null || bareObject != null) return
-                val name = (expression as? KtNameReferenceExpression)?.getReferencedName()
-                if (name == "GlobalScope") {
-                    bareObject = expression
-                    return
+                override fun visitReferenceExpression(expression: KtReferenceExpression) {
+                    if (bypass != null || bareObject != null) return
+                    val name = (expression as? KtNameReferenceExpression)?.getReferencedName()
+                    if (name == "GlobalScope") {
+                        bareObject = expression
+                        return
+                    }
+                    super.visitReferenceExpression(expression)
                 }
-                super.visitReferenceExpression(expression)
-            }
-        })
+            },
+        )
         return bypass ?: bareObject
     }
 
-    fun scopeBypassMessage(klass: KtClass, bypass: KtElement): String {
-        val written = when (bypass) {
-            is KtCallExpression -> bypass.calleeExpression?.text ?: "?"
-            else -> bypass.text
-        }
+    fun scopeBypassMessage(
+        klass: KtClass,
+        bypass: KtElement,
+    ): String {
+        val written =
+            when (bypass) {
+                is KtCallExpression -> bypass.calleeExpression?.text ?: "?"
+                else -> bypass.text
+            }
         return "$klass constructs its own scope ($written). " +
             "Every scope from the background factory carries the failure handler that turns a " +
             "failed launch into a report instead of a killed Android process; a scope built " +

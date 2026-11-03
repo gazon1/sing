@@ -2,15 +2,14 @@
 
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
-import com.singularity.todo.test.fakes.FakeClock
-import com.singularity.todo.test.fakes.FakeSettingsRepository
-import com.singularity.todo.test.fakes.TEST_TZ
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
+import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
+import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.ReminderId
@@ -20,17 +19,25 @@ import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.MergeTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
+import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
+import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
+import com.singularity.todo.test.fakes.FakeSettingsRepository
 import com.singularity.todo.test.fakes.FakeTaskMutationsUseCase
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.TEST_TZ
 import com.singularity.todo.test.helpers.VmScope
 import com.singularity.todo.test.helpers.testVm
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-
+import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -41,14 +48,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
-import kotlinx.datetime.LocalDate
-import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
-import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
-import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
-import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.advanceTimeBy
 
 /**
  * Regression tests for [AgendaViewModel]'s Loading → Loaded transition.
@@ -73,7 +72,6 @@ import kotlinx.coroutines.test.advanceTimeBy
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class AgendaViewModelTest {
-
     /**
      * A fixed instant for the ViewModels built by [createVm].
      *
@@ -89,17 +87,27 @@ class AgendaViewModelTest {
     private val fakeSettings = FakeSettingsRepository()
     private val fakeCurrentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()
     private val fakeTaskMutations = FakeTaskMutationsUseCase(fakeRepo)
-    private val fakeReminderScheduler = object : ReminderScheduler {
-        override val isSupported: Boolean = true
-        override suspend fun schedule(reminder: com.singularity.todo.feature.reminders.Reminder) {}
-        override suspend fun cancel(id: ReminderId, userId: UserId) {}
-        override suspend fun cancelByTask(
-            taskId: com.singularity.todo.feature.tasks.domain.model.TaskId,
-            userId: UserId,
-        ) {}
-    }
+    private val fakeReminderScheduler =
+        object : ReminderScheduler {
+            override val isSupported: Boolean = true
 
-    private fun task(id: String, title: String) = Task(
+            override suspend fun schedule(reminder: com.singularity.todo.feature.reminders.Reminder) {}
+
+            override suspend fun cancel(
+                id: ReminderId,
+                userId: UserId,
+            ) {}
+
+            override suspend fun cancelByTask(
+                taskId: com.singularity.todo.feature.tasks.domain.model.TaskId,
+                userId: UserId,
+            ) {}
+        }
+
+    private fun task(
+        id: String,
+        title: String,
+    ) = Task(
         id = TaskId(id),
         title = title,
         createdAt = Clock.System.now(),
@@ -149,15 +157,14 @@ class AgendaViewModelTest {
      * ViewModel it is testing* — one whose collector never ends — and the harness
      * builds the scope that kind needs.
      */
-    private fun TestScope.createVm(
-        draftStore: FakeDraftStore = FakeDraftStore(),
-    ): AgendaViewModel = createVmIn { scope ->
-        AgendaViewModel(
-            deps = agendaDeps(draftStore = draftStore),
-            definition = AgendaPresets.Inbox,
-            scope = scope,
-        )
-    }
+    private fun TestScope.createVm(draftStore: FakeDraftStore = FakeDraftStore()): AgendaViewModel =
+        createVmIn { scope ->
+            AgendaViewModel(
+                deps = agendaDeps(draftStore = draftStore),
+                definition = AgendaPresets.Inbox,
+                scope = scope,
+            )
+        }
 
     /**
      * A ViewModel of this kind, built by hand.
@@ -167,37 +174,39 @@ class AgendaViewModelTest {
      * is still the harness's: the test names the kind of ViewModel, not the
      * scope it runs in.
      */
-    private fun TestScope.createVmIn(
-        factory: (AutoCloseableCoroutineScope) -> AgendaViewModel,
-    ): AgendaViewModel = testVm(
-        stateAccessor = { vm: AgendaViewModel -> vm.stateFlow },
-        vmScope = VmScope.Background,
-    ) { scope -> factory(scope) }.vm
+    private fun TestScope.createVmIn(factory: (AutoCloseableCoroutineScope) -> AgendaViewModel): AgendaViewModel =
+        testVm(
+            stateAccessor = { vm: AgendaViewModel -> vm.stateFlow },
+            vmScope = VmScope.Background,
+        ) { scope -> factory(scope) }.vm
 
     @Test
-    fun `leaves Loading and renders the seeded tasks`() = runTest {
-        fakeRepo.seed(task("t1", "Buy milk"), task("t2", "Ship release"))
-        val vm = createVm()
-        runCurrent()
+    fun `leaves Loading and renders the seeded tasks`() =
+        runTest {
+            fakeRepo.seed(task("t1", "Buy milk"), task("t2", "Ship release"))
+            val vm = createVm()
+            runCurrent()
 
-        val state = assertIs<AgendaUiState.Loaded>(
-            vm.stateFlow.value,
-            "VM stayed on Loading — the collected state is being discarded",
-        )
-        val titles = state.sections.flatMap { it.tasks }.map { it.task.title }
-        assertEquals(setOf("Buy milk", "Ship release"), titles.toSet())
-    }
+            val state =
+                assertIs<AgendaUiState.Loaded>(
+                    vm.stateFlow.value,
+                    "VM stayed on Loading — the collected state is being discarded",
+                )
+            val titles = state.sections.flatMap { it.tasks }.map { it.task.title }
+            assertEquals(setOf("Buy milk", "Ship release"), titles.toSet())
+        }
 
     @Test
-    fun `emits Loaded even when the user has no tasks`() = runTest {
-        val vm = createVm()
-        runCurrent()
+    fun `emits Loaded even when the user has no tasks`() =
+        runTest {
+            val vm = createVm()
+            runCurrent()
 
-        // An empty list must still resolve to Loaded — otherwise the screen
-        // would spin forever before it could show its empty state.
-        val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-        assertEquals(emptyList(), state.sections.flatMap { it.tasks })
-    }
+            // An empty list must still resolve to Loaded — otherwise the screen
+            // would spin forever before it could show its empty state.
+            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertEquals(emptyList(), state.sections.flatMap { it.tasks })
+        }
 
     /**
      * Regression: a task with `dueDate = null` that is seeded *before* VM construction
@@ -207,21 +216,22 @@ class AgendaViewModelTest {
      * user id and returned no results for the real seeded task.
      */
     @Test
-    fun `undated task seeded before VM construction is visible in Loaded sections`() = runTest {
-        val undated = task(id = "no-date-1", title = "Inbox me") // dueDate = null
-        fakeRepo.seed(undated) // seed BEFORE creating the VM
+    fun `undated task seeded before VM construction is visible in Loaded sections`() =
+        runTest {
+            val undated = task(id = "no-date-1", title = "Inbox me") // dueDate = null
+            fakeRepo.seed(undated) // seed BEFORE creating the VM
 
-        val vm = createVm()
-        runCurrent()
+            val vm = createVm()
+            runCurrent()
 
-        val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-        assertTrue(
-            state.sections.any { section ->
-                section.tasks.any { it.task.id == undated.id }
-            },
-            "Undated task seeded before VM construction must reach the agenda's No Date section",
-        )
-    }
+            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertTrue(
+                state.sections.any { section ->
+                    section.tasks.any { it.task.id == undated.id }
+                },
+                "Undated task seeded before VM construction must reach the agenda's No Date section",
+            )
+        }
 
     /**
      * A section's '+' button must prefill *today*, not the day the definition was
@@ -237,37 +247,40 @@ class AgendaViewModelTest {
      * system clock proves nothing about a constant of the same value.
      */
     @Test
-    fun `create in section prefills a due date relative to the injected clock`() = runTest {
-        val pinned = LocalDate(2031, 7, 9) // a Wednesday, far from any seed date
-        val draftStore = FakeDraftStore()
-        val vm = createVmIn { scope ->
-            AgendaViewModel(
-                // Noon UTC with an explicit zone. The zone used to be the
-                // host's, which is why this had to be noon: midnight would land
-                // on a different date in half the world. With `timeZone` pinned to
-                // UTC the instant can be anything, and the "noon so the date cannot
-                // move" reasoning goes with it (#91).
-                deps = agendaDeps(
-                    clock = FakeClock(Instant.parse("2031-07-09T00:30:00Z")),
-                    draftStore = draftStore,
-                ),
-                definition = AgendaPresets.Today,
-                scope = scope,
+    fun `create in section prefills a due date relative to the injected clock`() =
+        runTest {
+            val pinned = LocalDate(2031, 7, 9) // a Wednesday, far from any seed date
+            val draftStore = FakeDraftStore()
+            val vm =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        // Noon UTC with an explicit zone. The zone used to be the
+                        // host's, which is why this had to be noon: midnight would land
+                        // on a different date in half the world. With `timeZone` pinned to
+                        // UTC the instant can be anything, and the "noon so the date cannot
+                        // move" reasoning goes with it (#91).
+                        deps =
+                            agendaDeps(
+                                clock = FakeClock(Instant.parse("2031-07-09T00:30:00Z")),
+                                draftStore = draftStore,
+                            ),
+                        definition = AgendaPresets.Today,
+                        scope = scope,
+                    )
+                }
+            runCurrent()
+
+            vm.onIntent(AgendaIntent.CreateInSection("today"))
+            runCurrent()
+
+            val draft = draftStore.load("section_create_draft_today", TaskDraft.serializer())
+            assertNotNull(draft, "the section create must have stored a draft")
+            assertEquals(
+                DueDateOption.Custom(pinned, pinned.toString()),
+                draft.dueDate,
+                "'+' in the Today section must prefill the clock's today, not a compile-time constant",
             )
         }
-        runCurrent()
-
-        vm.onIntent(AgendaIntent.CreateInSection("today"))
-        runCurrent()
-
-        val draft = draftStore.load("section_create_draft_today", TaskDraft.serializer())
-        assertNotNull(draft, "the section create must have stored a draft")
-        assertEquals(
-            DueDateOption.Custom(pinned, pinned.toString()),
-            draft.dueDate,
-            "'+' in the Today section must prefill the clock's today, not a compile-time constant",
-        )
-    }
 
     // ─────────────────────── A task on several days ─────────────────────────────
     //
@@ -276,32 +289,34 @@ class AgendaViewModelTest {
     // only place that creates the task.
 
     @Test
-    fun `CreateOnDates writes the picked days into a draft`() = runTest {
-        val draftStore = FakeDraftStore()
-        val vm = createVm(draftStore = draftStore)
-        runCurrent()
+    fun `CreateOnDates writes the picked days into a draft`() =
+        runTest {
+            val draftStore = FakeDraftStore()
+            val vm = createVm(draftStore = draftStore)
+            runCurrent()
 
-        val dates = setOf(
-            LocalDate(2026, 10, 5),
-            LocalDate(2026, 10, 12),
-            LocalDate(2026, 10, 19),
-        )
-        vm.onIntent(AgendaIntent.CreateOnDates(dates))
-        runCurrent()
+            val dates =
+                setOf(
+                    LocalDate(2026, 10, 5),
+                    LocalDate(2026, 10, 12),
+                    LocalDate(2026, 10, 19),
+                )
+            vm.onIntent(AgendaIntent.CreateOnDates(dates))
+            runCurrent()
 
-        val draft = draftStore.load(TaskDraftKeys.AGENDA_MULTI_DATE, TaskDraft.serializer())
-        assertNotNull(draft, "the picked days must reach a draft")
-        assertEquals(
-            DueDateOption.Custom(LocalDate(2026, 10, 5), LocalDate(2026, 10, 5).toString()),
-            draft.dueDate,
-            "the earliest day is the primary one",
-        )
-        assertEquals(
-            listOf(LocalDate(2026, 10, 12), LocalDate(2026, 10, 19)),
-            draft.extraDueDates,
-            "the other days ride along as extra dates",
-        )
-    }
+            val draft = draftStore.load(TaskDraftKeys.AGENDA_MULTI_DATE, TaskDraft.serializer())
+            assertNotNull(draft, "the picked days must reach a draft")
+            assertEquals(
+                DueDateOption.Custom(LocalDate(2026, 10, 5), LocalDate(2026, 10, 5).toString()),
+                draft.dueDate,
+                "the earliest day is the primary one",
+            )
+            assertEquals(
+                listOf(LocalDate(2026, 10, 12), LocalDate(2026, 10, 19)),
+                draft.extraDueDates,
+                "the other days ride along as extra dates",
+            )
+        }
 
     // ─────────────────────── Delete / undo ──────────────────────────────────────
     //
@@ -313,62 +328,66 @@ class AgendaViewModelTest {
     /** `archivedAt` is the only honest witness that a soft delete really happened. */
     private fun archivedAt(id: String): kotlin.time.Instant? = fakeRepo.tasks.value[id]?.archivedAt
 
-    private fun withVm(block: suspend TestScope.(AgendaViewModel) -> Unit) = runTest {
-        block(createVm())
-    }
+    private fun withVm(block: suspend TestScope.(AgendaViewModel) -> Unit) =
+        runTest {
+            block(createVm())
+        }
 
     @Test
-    fun `deleting a task soft-deletes it`() = withVm { vm ->
-        fakeRepo.seed(task("t1", "Doomed"))
-        runCurrent()
+    fun `deleting a task soft-deletes it`() =
+        withVm { vm ->
+            fakeRepo.seed(task("t1", "Doomed"))
+            runCurrent()
 
-        vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
-        runCurrent()
-
-        assertNotNull(archivedAt("t1"), "the delete must reach the repository, not just the snackbar")
-    }
-
-    @Test
-    fun `a failed delete offers no undo and reports the failure`() = withVm { vm ->
-        fakeRepo.seed(task("t1", "Doomed"))
-        fakeRepo.softDeleteOverride = Result.failure(IllegalStateException("disk full"))
-        runCurrent()
-
-        val events = mutableListOf<AgendaUiEvent>()
-        val collector = launch { vm.events.collect { events += it } }
-        try {
             vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
             runCurrent()
 
-            assertNull(archivedAt("t1"), "a rejected delete must not archive anything")
-            assertNull(
-                vm.pendingDelete.value,
-                "an offer to recover from a delete that never happened is a lie",
-            )
-            assertTrue(
-                events.any { it is AgendaUiEvent.ShowError },
-                "the user must be told the delete failed: $events",
-            )
-        } finally {
-            collector.cancel()
+            assertNotNull(archivedAt("t1"), "the delete must reach the repository, not just the snackbar")
         }
-    }
 
     @Test
-    fun `undo restores the deleted task and clears the offer`() = withVm { vm ->
-        fakeRepo.seed(task("t1", "UndoMe"))
-        runCurrent()
+    fun `a failed delete offers no undo and reports the failure`() =
+        withVm { vm ->
+            fakeRepo.seed(task("t1", "Doomed"))
+            fakeRepo.softDeleteOverride = Result.failure(IllegalStateException("disk full"))
+            runCurrent()
 
-        vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
-        runCurrent()
-        assertNotNull(archivedAt("t1"))
+            val events = mutableListOf<AgendaUiEvent>()
+            val collector = launch { vm.events.collect { events += it } }
+            try {
+                vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
+                runCurrent()
 
-        vm.onIntent(AgendaIntent.UndoDeleteTapped)
-        runCurrent()
+                assertNull(archivedAt("t1"), "a rejected delete must not archive anything")
+                assertNull(
+                    vm.pendingDelete.value,
+                    "an offer to recover from a delete that never happened is a lie",
+                )
+                assertTrue(
+                    events.any { it is AgendaUiEvent.ShowError },
+                    "the user must be told the delete failed: $events",
+                )
+            } finally {
+                collector.cancel()
+            }
+        }
 
-        assertNull(archivedAt("t1"), "undo must reverse the delete it offered to reverse")
-        assertNull(vm.pendingDelete.value, "a successful reversal closes the offer")
-    }
+    @Test
+    fun `undo restores the deleted task and clears the offer`() =
+        withVm { vm ->
+            fakeRepo.seed(task("t1", "UndoMe"))
+            runCurrent()
+
+            vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
+            runCurrent()
+            assertNotNull(archivedAt("t1"))
+
+            vm.onIntent(AgendaIntent.UndoDeleteTapped)
+            runCurrent()
+
+            assertNull(archivedAt("t1"), "undo must reverse the delete it offered to reverse")
+            assertNull(vm.pendingDelete.value, "a successful reversal closes the offer")
+        }
 
     /**
      * The assertion #78 says the old surface could not make.
@@ -379,73 +398,87 @@ class AgendaViewModelTest {
      * `delete-safety-feedback` Phase 1 task 1.
      */
     @Test
-    fun `a failed reversal keeps the offer so the user can try again`() = withVm { vm ->
-        fakeRepo.seed(task("t1", "UndoMe"))
-        runCurrent()
-        vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
-        runCurrent()
+    fun `a failed reversal keeps the offer so the user can try again`() =
+        withVm { vm ->
+            fakeRepo.seed(task("t1", "UndoMe"))
+            runCurrent()
+            vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
+            runCurrent()
 
-        fakeRepo.restoreOverride = Result.failure(IllegalStateException("still writing"))
-        val events = mutableListOf<AgendaUiEvent>()
-        val collector = launch { vm.events.collect { events += it } }
-        try {
+            fakeRepo.restoreOverride = Result.failure(IllegalStateException("still writing"))
+            val events = mutableListOf<AgendaUiEvent>()
+            val collector = launch { vm.events.collect { events += it } }
+            try {
+                vm.onIntent(AgendaIntent.UndoDeleteTapped)
+                runCurrent()
+
+                assertTrue(
+                    events.any { it is AgendaUiEvent.ShowError },
+                    "a failed reversal must be reported: $events",
+                )
+                assertNotNull(
+                    vm.pendingDelete.value,
+                    "a failed reversal must leave the offer addressable, not delete the last way back",
+                )
+                assertNotNull(archivedAt("t1"), "the task stays deleted until a reversal actually succeeds")
+            } finally {
+                collector.cancel()
+            }
+        }
+
+    @Test
+    fun `undo after the window expired restores nothing`() =
+        withVm { vm ->
+            fakeRepo.seed(task("t1", "Doomed"))
+            runCurrent()
+            vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
+            runCurrent()
+
+            advanceTimeBy(AgendaViewModel.UNDO_WINDOW_MS + 1)
+            runCurrent()
+            assertNull(vm.pendingDelete.value, "the window must close on its own")
+
+            // A late tap must issue no write at all — not a restore against a live row.
+            var restoreAttempts = 0
+            fakeRepo.onRestore { restoreAttempts++ }
             vm.onIntent(AgendaIntent.UndoDeleteTapped)
             runCurrent()
 
-            assertTrue(
-                events.any { it is AgendaUiEvent.ShowError },
-                "a failed reversal must be reported: $events",
-            )
-            assertNotNull(
-                vm.pendingDelete.value,
-                "a failed reversal must leave the offer addressable, not delete the last way back",
-            )
-            assertNotNull(archivedAt("t1"), "the task stays deleted until a reversal actually succeeds")
-        } finally {
-            collector.cancel()
+            assertEquals(0, restoreAttempts, "a closed window must not issue a restore")
+            assertNotNull(archivedAt("t1"), "a late undo must not resurrect a task the window closed on")
         }
-    }
 
     @Test
-    fun `undo after the window expired restores nothing`() = withVm { vm ->
-        fakeRepo.seed(task("t1", "Doomed"))
-        runCurrent()
-        vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
-        runCurrent()
+    fun `a new delete supersedes the previous offer`() =
+        withVm { vm ->
+            fakeRepo.seed(task("t1", "First"), task("t2", "Second"))
+            runCurrent()
 
-        advanceTimeBy(AgendaViewModel.UNDO_WINDOW_MS + 1)
-        runCurrent()
-        assertNull(vm.pendingDelete.value, "the window must close on its own")
+            vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
+            runCurrent()
+            assertEquals(
+                TaskId("t1"),
+                vm.pendingDelete.value
+                    ?.taskIds
+                    ?.singleOrNull(),
+            )
 
-        // A late tap must issue no write at all — not a restore against a live row.
-        var restoreAttempts = 0
-        fakeRepo.onRestore { restoreAttempts++ }
-        vm.onIntent(AgendaIntent.UndoDeleteTapped)
-        runCurrent()
+            vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t2")))
+            runCurrent()
+            assertEquals(
+                TaskId("t2"),
+                vm.pendingDelete.value
+                    ?.taskIds
+                    ?.singleOrNull(),
+                "the newer delete owns the offer",
+            )
 
-        assertEquals(0, restoreAttempts, "a closed window must not issue a restore")
-        assertNotNull(archivedAt("t1"), "a late undo must not resurrect a task the window closed on")
-    }
+            vm.onIntent(AgendaIntent.UndoDeleteTapped)
+            runCurrent()
 
-    @Test
-    fun `a new delete supersedes the previous offer`() = withVm { vm ->
-        fakeRepo.seed(task("t1", "First"), task("t2", "Second"))
-        runCurrent()
-
-        vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
-        runCurrent()
-        assertEquals(TaskId("t1"), vm.pendingDelete.value?.taskIds?.singleOrNull())
-
-        vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t2")))
-        runCurrent()
-        assertEquals(TaskId("t2"), vm.pendingDelete.value?.taskIds?.singleOrNull(), "the newer delete owns the offer")
-
-        vm.onIntent(AgendaIntent.UndoDeleteTapped)
-        runCurrent()
-
-        assertNull(archivedAt("t2"), "undo applies to the newer delete")
-        assertNotNull(archivedAt("t1"), "the superseded delete stays deleted — its window was taken")
-    }
+            assertNull(archivedAt("t2"), "undo applies to the newer delete")
+            assertNotNull(archivedAt("t1"), "the superseded delete stays deleted — its window was taken")
+        }
 
     /**
      * A timer that no longer owns the slot must not clear it.
@@ -463,50 +496,56 @@ class AgendaViewModelTest {
      * best-effort.
      */
     @Test
-    fun `a superseded timer cannot clear the newer offer`() = withVm { vm ->
-        fakeRepo.seed(task("t1", "First"), task("t2", "Second"))
-        runCurrent()
+    fun `a superseded timer cannot clear the newer offer`() =
+        withVm { vm ->
+            fakeRepo.seed(task("t1", "First"), task("t2", "Second"))
+            runCurrent()
 
-        // First delete's window closes at t=5000; second's at t=7000.
-        vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
-        runCurrent()
-        advanceTimeBy(2_000)
-        vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t2")))
-        runCurrent()
+            // First delete's window closes at t=5000; second's at t=7000.
+            vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
+            runCurrent()
+            advanceTimeBy(2_000)
+            vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t2")))
+            runCurrent()
 
-        // Land strictly between the two expiries, so the stale timer is the only
-        // thing that could clear the slot.
-        advanceTimeBy(3_001)
-        runCurrent()
+            // Land strictly between the two expiries, so the stale timer is the only
+            // thing that could clear the slot.
+            advanceTimeBy(3_001)
+            runCurrent()
 
-        assertEquals(
-            TaskId("t2"),
-            vm.pendingDelete.value?.taskIds?.singleOrNull(),
-            "the newer offer must survive the older window's expiry",
-        )
-    }
-
-    @Test
-    fun `deleting cancels the task's reminders`() = withVm { vm ->
-        fakeRepo.seed(task("t1", "Doomed"))
-        val cancelled = mutableListOf<TaskId>()
-        val scoped = createVmIn { scope ->
-            AgendaViewModel(
-                deps = agendaDeps(
-                    reminderScheduler = recordingScheduler(cancelled),
-                ),
-                definition = AgendaPresets.Inbox,
-                scope = scope,
+            assertEquals(
+                TaskId("t2"),
+                vm.pendingDelete.value
+                    ?.taskIds
+                    ?.singleOrNull(),
+                "the newer offer must survive the older window's expiry",
             )
         }
-        runCurrent()
 
-        scoped.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
-        runCurrent()
+    @Test
+    fun `deleting cancels the task's reminders`() =
+        withVm { vm ->
+            fakeRepo.seed(task("t1", "Doomed"))
+            val cancelled = mutableListOf<TaskId>()
+            val scoped =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        deps =
+                            agendaDeps(
+                                reminderScheduler = recordingScheduler(cancelled),
+                            ),
+                        definition = AgendaPresets.Inbox,
+                        scope = scope,
+                    )
+                }
+            runCurrent()
 
-        assertEquals(listOf(TaskId("t1")), cancelled, "a deleted task must not keep notifying")
-        assertNotNull(archivedAt("t1"))
-    }
+            scoped.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
+            runCurrent()
+
+            assertEquals(listOf(TaskId("t1")), cancelled, "a deleted task must not keep notifying")
+            assertNotNull(archivedAt("t1"))
+        }
 
     /**
      * `cancelByTask` returns `Unit` and hands back no `Reminder` spec, so a failed
@@ -515,65 +554,79 @@ class AgendaViewModelTest {
      * recoverable, a zombie reminder is not. Pinned so the choice stays visible.
      */
     @Test
-    fun `a failed delete after a successful cancel leaves the task without its reminder`() = withVm { vm ->
-        fakeRepo.seed(task("t1", "Doomed"))
-        val cancelled = mutableListOf<TaskId>()
-        val scoped = createVmIn { scope ->
-            AgendaViewModel(
-                deps = agendaDeps(
-                    reminderScheduler = recordingScheduler(cancelled),
-                ),
-                definition = AgendaPresets.Inbox,
-                scope = scope,
-            )
-        }
-        fakeRepo.softDeleteOverride = Result.failure(IllegalStateException("conflict"))
-        runCurrent()
-
-        val events = mutableListOf<AgendaUiEvent>()
-        val collector = launch { scoped.events.collect { events += it } }
-        try {
-            scoped.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
+    fun `a failed delete after a successful cancel leaves the task without its reminder`() =
+        withVm { vm ->
+            fakeRepo.seed(task("t1", "Doomed"))
+            val cancelled = mutableListOf<TaskId>()
+            val scoped =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        deps =
+                            agendaDeps(
+                                reminderScheduler = recordingScheduler(cancelled),
+                            ),
+                        definition = AgendaPresets.Inbox,
+                        scope = scope,
+                    )
+                }
+            fakeRepo.softDeleteOverride = Result.failure(IllegalStateException("conflict"))
             runCurrent()
 
-            assertEquals(listOf(TaskId("t1")), cancelled)
-            assertNull(archivedAt("t1"), "the task survives a rejected delete")
-            assertNull(scoped.pendingDelete.value)
-            assertTrue(events.any { it is AgendaUiEvent.ShowError })
-        } finally {
-            collector.cancel()
-        }
-    }
+            val events = mutableListOf<AgendaUiEvent>()
+            val collector = launch { scoped.events.collect { events += it } }
+            try {
+                scoped.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
+                runCurrent()
 
-    private fun recordingScheduler(sink: MutableList<TaskId>) = object : ReminderScheduler {
-        override val isSupported: Boolean = true
-        override suspend fun schedule(reminder: com.singularity.todo.feature.reminders.Reminder) {}
-        override suspend fun cancel(id: ReminderId, userId: UserId) {}
-        override suspend fun cancelByTask(taskId: TaskId, userId: UserId) {
-            sink += taskId
+                assertEquals(listOf(TaskId("t1")), cancelled)
+                assertNull(archivedAt("t1"), "the task survives a rejected delete")
+                assertNull(scoped.pendingDelete.value)
+                assertTrue(events.any { it is AgendaUiEvent.ShowError })
+            } finally {
+                collector.cancel()
+            }
         }
-    }
+
+    private fun recordingScheduler(sink: MutableList<TaskId>) =
+        object : ReminderScheduler {
+            override val isSupported: Boolean = true
+
+            override suspend fun schedule(reminder: com.singularity.todo.feature.reminders.Reminder) {}
+
+            override suspend fun cancel(
+                id: ReminderId,
+                userId: UserId,
+            ) {}
+
+            override suspend fun cancelByTask(
+                taskId: TaskId,
+                userId: UserId,
+            ) {
+                sink += taskId
+            }
+        }
 
     // ─────────────────────────── Selection ──────────────────────────────────────
 
     @Test
-    fun `selection survives an agenda re-evaluation`() = withVm { vm ->
-        fakeRepo.seed(task("t1", "Keep me"))
-        runCurrent()
+    fun `selection survives an agenda re-evaluation`() =
+        withVm { vm ->
+            fakeRepo.seed(task("t1", "Keep me"))
+            runCurrent()
 
-        vm.onIntent(AgendaIntent.EnterSelectionMode(TaskId("t1")))
-        runCurrent()
-        assertEquals(setOf(TaskId("t1")), loadedSelection(vm))
+            vm.onIntent(AgendaIntent.EnterSelectionMode(TaskId("t1")))
+            runCurrent()
+            assertEquals(setOf(TaskId("t1")), loadedSelection(vm))
 
-        fakeRepo.add(task("t2", "New arrival"))
-        runCurrent()
+            fakeRepo.add(task("t2", "New arrival"))
+            runCurrent()
 
-        assertEquals(
-            setOf(TaskId("t1")),
-            loadedSelection(vm),
-            "a re-evaluation must not silently drop what the user had selected",
-        )
-    }
+            assertEquals(
+                setOf(TaskId("t1")),
+                loadedSelection(vm),
+                "a re-evaluation must not silently drop what the user had selected",
+            )
+        }
 
     /**
      * A selected task that stops being evaluated must not stay selected.
@@ -582,69 +635,72 @@ class AgendaViewModelTest {
      * for a task that is already gone.
      */
     @Test
-    fun `a selected task that leaves the agenda is dropped from the selection`() = withVm { vm ->
-        fakeRepo.seed(task("t1", "Doomed"))
-        runCurrent()
-
-        vm.onIntent(AgendaIntent.EnterSelectionMode(TaskId("t1")))
-        runCurrent()
-        assertEquals(setOf(TaskId("t1")), loadedSelection(vm))
-
-        fakeRepo.softDelete(TaskId("t1"))
-        runCurrent()
-
-        assertEquals(
-            emptySet(),
-            loadedSelection(vm),
-            "an id that is no longer in any section must not stay selected",
-        )
-        assertFalse(
-            assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).isSelectionMode,
-            "selection mode exits when nothing remains selected",
-        )
-    }
-
-    @Test
-    fun `a failed completion reports the failure`() = withVm { vm ->
-        fakeRepo.seed(task("t1", "Doomed"))
-        runCurrent()
-
-        val events = mutableListOf<AgendaUiEvent>()
-        val collector = launch { vm.events.collect { events += it } }
-        try {
-            fakeRepo.completeOverride = Result.failure(IllegalStateException("disk full"))
-            vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
+    fun `a selected task that leaves the agenda is dropped from the selection`() =
+        withVm { vm ->
+            fakeRepo.seed(task("t1", "Doomed"))
             runCurrent()
 
-            assertTrue(
-                events.any { it is AgendaUiEvent.ShowError },
-                "the user must be told the toggle failed: $events",
-            )
-        } finally {
-            collector.cancel()
-        }
-    }
+            vm.onIntent(AgendaIntent.EnterSelectionMode(TaskId("t1")))
+            runCurrent()
+            assertEquals(setOf(TaskId("t1")), loadedSelection(vm))
 
-    @Test
-    fun `a failed togglePinned reports the failure`() = withVm { vm ->
-        fakeRepo.seed(task("t1", "Doomed"))
-        runCurrent()
-
-        val events = mutableListOf<AgendaUiEvent>()
-        val collector = launch { vm.events.collect { events += it } }
-        try {
-            fakeRepo.togglePinnedOverride = Result.failure(IllegalStateException("disk full"))
-            vm.onIntent(AgendaIntent.TaskPinClicked(TaskId("t1")))
+            fakeRepo.softDelete(TaskId("t1"))
             runCurrent()
 
-            assertTrue(
-                events.any { it is AgendaUiEvent.ShowError },
-                "the user must be told the toggle failed: $events",
+            assertEquals(
+                emptySet(),
+                loadedSelection(vm),
+                "an id that is no longer in any section must not stay selected",
             )
-        } finally {
-            collector.cancel()
+            assertFalse(
+                assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).isSelectionMode,
+                "selection mode exits when nothing remains selected",
+            )
         }
-    }
+
+    @Test
+    fun `a failed completion reports the failure`() =
+        withVm { vm ->
+            fakeRepo.seed(task("t1", "Doomed"))
+            runCurrent()
+
+            val events = mutableListOf<AgendaUiEvent>()
+            val collector = launch { vm.events.collect { events += it } }
+            try {
+                fakeRepo.completeOverride = Result.failure(IllegalStateException("disk full"))
+                vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
+                runCurrent()
+
+                assertTrue(
+                    events.any { it is AgendaUiEvent.ShowError },
+                    "the user must be told the toggle failed: $events",
+                )
+            } finally {
+                collector.cancel()
+            }
+        }
+
+    @Test
+    fun `a failed togglePinned reports the failure`() =
+        withVm { vm ->
+            fakeRepo.seed(task("t1", "Doomed"))
+            runCurrent()
+
+            val events = mutableListOf<AgendaUiEvent>()
+            val collector = launch { vm.events.collect { events += it } }
+            try {
+                fakeRepo.togglePinnedOverride = Result.failure(IllegalStateException("disk full"))
+                vm.onIntent(AgendaIntent.TaskPinClicked(TaskId("t1")))
+                runCurrent()
+
+                assertTrue(
+                    events.any { it is AgendaUiEvent.ShowError },
+                    "the user must be told the toggle failed: $events",
+                )
+            } finally {
+                collector.cancel()
+            }
+        }
 
     // ─── Greeting computation ────────────────────────────────────────────────
     //
@@ -652,65 +708,78 @@ class AgendaViewModelTest {
     // collector. It is private so we test it through AgendaUiState.Loaded.greeting.
 
     @Test
-    fun `greeting is Good morning before noon`() = runTest {
-        // fakeSettings default: morningEndHour=12, afternoonEndHour=18
-        // fakeClock default: 09:00 UTC → local hour < 12 → "Good morning"
-        fakeRepo.seed(task("t1", "Morning task"))
-        val vm = createVm()
-        // repeat(4) advances exactly 4 pending tasks:
-        //   1. scope.launch { _greeting.value = computeGreeting() } starts → first first() suspends
-        //   2. computeGreeting() resumes → second first() suspends
-        //   3. computeGreeting() finishes → _greeting.value = "Good morning"
-        //   4. todayFlow emits → flatMapLatest → task flow → collect callback fires
-        repeat(4) { runCurrent() }
-        val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-        assertEquals("Good morning", state.greeting, "9am UTC should produce Good morning")
-    }
+    fun `greeting is Good morning before noon`() =
+        runTest {
+            // fakeSettings default: morningEndHour=12, afternoonEndHour=18
+            // fakeClock default: 09:00 UTC → local hour < 12 → "Good morning"
+            fakeRepo.seed(task("t1", "Morning task"))
+            val vm = createVm()
+            // repeat(4) advances exactly 4 pending tasks:
+            //   1. scope.launch { _greeting.value = computeGreeting() } starts → first first() suspends
+            //   2. computeGreeting() resumes → second first() suspends
+            //   3. computeGreeting() finishes → _greeting.value = "Good morning"
+            //   4. todayFlow emits → flatMapLatest → task flow → collect callback fires
+            repeat(4) { runCurrent() }
+            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertEquals("Good morning", state.greeting, "9am UTC should produce Good morning")
+        }
 
     @Test
-    fun `greeting is Good afternoon between noon and 6pm`() = runTest {
-        // Create a greeting settings that ends morning at 10 and afternoon at 14 (10am–2pm = afternoon).
-        // Use a clock at 11:00 UTC → local hour 11 is between 10 and 14 → "Good afternoon".
-        val customGreeting = object : GreetingSettingsRepository {
-            override val morningEndHour: kotlinx.coroutines.flow.Flow<Int> = kotlinx.coroutines.flow.flowOf(10)
-            override val afternoonEndHour: kotlinx.coroutines.flow.Flow<Int> = kotlinx.coroutines.flow.flowOf(14)
-            override suspend fun setMorningEndHour(hour: Int) {}
-            override suspend fun setAfternoonEndHour(hour: Int) {}
+    fun `greeting is Good afternoon between noon and 6pm`() =
+        runTest {
+            // Create a greeting settings that ends morning at 10 and afternoon at 14 (10am–2pm = afternoon).
+            // Use a clock at 11:00 UTC → local hour 11 is between 10 and 14 → "Good afternoon".
+            val customGreeting =
+                object : GreetingSettingsRepository {
+                    override val morningEndHour: kotlinx.coroutines.flow.Flow<Int> = kotlinx.coroutines.flow.flowOf(10)
+                    override val afternoonEndHour: kotlinx.coroutines.flow.Flow<Int> =
+                        kotlinx.coroutines.flow.flowOf(
+                            14,
+                        )
+
+                    override suspend fun setMorningEndHour(hour: Int) {}
+
+                    override suspend fun setAfternoonEndHour(hour: Int) {}
+                }
+            fakeRepo.seed(task("t1", "Afternoon task"))
+            val vm =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        deps =
+                            agendaDeps(
+                                clock = FakeClock(Instant.parse("2026-09-16T11:00:00Z")),
+                                greetingSettings = customGreeting,
+                            ),
+                        definition = AgendaPresets.Inbox,
+                        scope = scope,
+                    )
+                }
+            // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
+            repeat(4) { runCurrent() }
+            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertEquals("Good afternoon", state.greeting, "11am UTC with morningEnd=10 should produce Good afternoon")
         }
-        fakeRepo.seed(task("t1", "Afternoon task"))
-        val vm = createVmIn { scope ->
-            AgendaViewModel(
-                deps = agendaDeps(
-                    clock = FakeClock(Instant.parse("2026-09-16T11:00:00Z")),
-                    greetingSettings = customGreeting,
-                ),
-                definition = AgendaPresets.Inbox,
-                scope = scope,
-            )
-        }
-        // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
-        repeat(4) { runCurrent() }
-        val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-        assertEquals("Good afternoon", state.greeting, "11am UTC with morningEnd=10 should produce Good afternoon")
-    }
 
     @Test
-    fun `greeting is Good evening after 6pm`() = runTest {
-        fakeRepo.seed(task("t1", "Evening task"))
-        val vm = createVmIn { scope ->
-            AgendaViewModel(
-                deps = agendaDeps(
-                    clock = FakeClock(Instant.parse("2026-09-16T20:00:00Z")),
-                ),
-                definition = AgendaPresets.Inbox,
-                scope = scope,
-            )
+    fun `greeting is Good evening after 6pm`() =
+        runTest {
+            fakeRepo.seed(task("t1", "Evening task"))
+            val vm =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        deps =
+                            agendaDeps(
+                                clock = FakeClock(Instant.parse("2026-09-16T20:00:00Z")),
+                            ),
+                        definition = AgendaPresets.Inbox,
+                        scope = scope,
+                    )
+                }
+            // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
+            repeat(4) { runCurrent() }
+            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertEquals("Good evening", state.greeting, "20:00 UTC should produce Good evening")
         }
-        // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
-        repeat(4) { runCurrent() }
-        val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-        assertEquals("Good evening", state.greeting, "20:00 UTC should produce Good evening")
-    }
 
     // ─── WorkSchedule and Greeting deps are wired ─────────────────────────────
 
@@ -723,15 +792,16 @@ class AgendaViewModelTest {
      * so this test only confirms the deps are accepted and the VM starts normally.
      */
     @Test
-    fun `VM starts with workScheduleSettings and greetingSettings wired`() = runTest {
-        fakeRepo.seed(task("t1", "Wired"))
-        val vm = createVm()
-        // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
-        repeat(4) { runCurrent() }
-        val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-        assertEquals("Good morning", state.greeting, "9am UTC with default fakeSettings must produce Good morning")
-        assertTrue(state.sections.isNotEmpty() || true, "VM renders with wired deps")
-    }
+    fun `VM starts with workScheduleSettings and greetingSettings wired`() =
+        runTest {
+            fakeRepo.seed(task("t1", "Wired"))
+            val vm = createVm()
+            // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
+            repeat(4) { runCurrent() }
+            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertEquals("Good morning", state.greeting, "9am UTC with default fakeSettings must produce Good morning")
+            assertTrue(state.sections.isNotEmpty() || true, "VM renders with wired deps")
+        }
 
     private fun loadedSelection(vm: AgendaViewModel): Set<TaskId> =
         assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).selectedTaskIds
@@ -739,159 +809,178 @@ class AgendaViewModelTest {
     // ─── The blocked-completion guard ─────────────────────────────────────────
 
     @Test
-    fun `a task with an unfinished prerequisite is not closed and asks instead`() = withVm { vm ->
-        fakeRepo.seed(
-            task("dep", "Dependency"),
-            task("t1", "Blocked").copy(blockedBy = setOf(TaskId("dep"))),
-        )
-        runCurrent()
+    fun `a task with an unfinished prerequisite is not closed and asks instead`() =
+        withVm { vm ->
+            fakeRepo.seed(
+                task("dep", "Dependency"),
+                task("t1", "Blocked").copy(blockedBy = setOf(TaskId("dep"))),
+            )
+            runCurrent()
 
-        vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
-        runCurrent()
+            vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
+            runCurrent()
 
-        assertNull(
-            fakeRepo.tasks.value["t1"]?.completedAt,
-            "a blocked task must not be closed on the first request",
-        )
-        val request = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose
-        assertNotNull(request, "the user must be asked")
-        assertEquals(listOf("Dependency"), request.blockerTitles)
-    }
-
-    @Test
-    fun `confirming the request closes the task`() = withVm { vm ->
-        fakeRepo.seed(
-            task("dep", "Dependency"),
-            task("t1", "Blocked").copy(blockedBy = setOf(TaskId("dep"))),
-        )
-        runCurrent()
-
-        vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
-        runCurrent()
-        vm.onIntent(AgendaIntent.ConfirmBlockedClose(TaskId("t1")))
-        runCurrent()
-
-        assertNotNull(fakeRepo.tasks.value["t1"]?.completedAt, "the confirmed close must reach the repository")
-        assertNull(
-            assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose,
-            "the confirmation must be closed once it has been answered",
-        )
-    }
+            assertNull(
+                fakeRepo.tasks.value["t1"]?.completedAt,
+                "a blocked task must not be closed on the first request",
+            )
+            val request = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose
+            assertNotNull(request, "the user must be asked")
+            assertEquals(listOf("Dependency"), request.blockerTitles)
+        }
 
     @Test
-    fun `dismissing the request leaves the task alone`() = withVm { vm ->
-        fakeRepo.seed(
-            task("dep", "Dependency"),
-            task("t1", "Blocked").copy(blockedBy = setOf(TaskId("dep"))),
-        )
-        runCurrent()
+    fun `confirming the request closes the task`() =
+        withVm { vm ->
+            fakeRepo.seed(
+                task("dep", "Dependency"),
+                task("t1", "Blocked").copy(blockedBy = setOf(TaskId("dep"))),
+            )
+            runCurrent()
 
-        vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
-        runCurrent()
-        vm.onIntent(AgendaIntent.DismissBlockedClose)
-        runCurrent()
+            vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
+            runCurrent()
+            vm.onIntent(AgendaIntent.ConfirmBlockedClose(TaskId("t1")))
+            runCurrent()
 
-        assertNull(fakeRepo.tasks.value["t1"]?.completedAt, "nothing may be written")
-        assertNull(
-            assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose,
-            "the confirmation must be closed",
-        )
-    }
-
-    @Test
-    fun `an unblocked task closes without a question`() = withVm { vm ->
-        fakeRepo.seed(task("t1", "Plain"))
-        runCurrent()
-
-        vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
-        runCurrent()
-
-        assertNotNull(fakeRepo.tasks.value["t1"]?.completedAt)
-        assertNull(
-            assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose,
-            "an unblocked task must not raise a confirmation",
-        )
-    }
+            assertNotNull(fakeRepo.tasks.value["t1"]?.completedAt, "the confirmed close must reach the repository")
+            assertNull(
+                assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose,
+                "the confirmation must be closed once it has been answered",
+            )
+        }
 
     @Test
-    fun `a finished prerequisite does not ask`() = withVm { vm ->
-        val done = task("dep", "Dependency").copy(completedAt = now)
-        fakeRepo.seed(done, task("t1", "Blocked").copy(blockedBy = setOf(TaskId("dep"))))
-        runCurrent()
+    fun `dismissing the request leaves the task alone`() =
+        withVm { vm ->
+            fakeRepo.seed(
+                task("dep", "Dependency"),
+                task("t1", "Blocked").copy(blockedBy = setOf(TaskId("dep"))),
+            )
+            runCurrent()
 
-        vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
-        runCurrent()
+            vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
+            runCurrent()
+            vm.onIntent(AgendaIntent.DismissBlockedClose)
+            runCurrent()
 
-        assertNotNull(fakeRepo.tasks.value["t1"]?.completedAt)
-        assertNull(assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose)
-    }
+            assertNull(fakeRepo.tasks.value["t1"]?.completedAt, "nothing may be written")
+            assertNull(
+                assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose,
+                "the confirmation must be closed",
+            )
+        }
+
+    @Test
+    fun `an unblocked task closes without a question`() =
+        withVm { vm ->
+            fakeRepo.seed(task("t1", "Plain"))
+            runCurrent()
+
+            vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
+            runCurrent()
+
+            assertNotNull(fakeRepo.tasks.value["t1"]?.completedAt)
+            assertNull(
+                assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose,
+                "an unblocked task must not raise a confirmation",
+            )
+        }
+
+    @Test
+    fun `a finished prerequisite does not ask`() =
+        withVm { vm ->
+            val done = task("dep", "Dependency").copy(completedAt = now)
+            fakeRepo.seed(done, task("t1", "Blocked").copy(blockedBy = setOf(TaskId("dep"))))
+            runCurrent()
+
+            vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
+            runCurrent()
+
+            assertNotNull(fakeRepo.tasks.value["t1"]?.completedAt)
+            assertNull(assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose)
+        }
 
     // ─── The project badge ────────────────────────────────────────────────────
 
     /** The row for [taskId] in the current state, or null. */
-    private fun rowFor(vm: AgendaViewModel, taskId: String) =
-        assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-            .sections
-            .flatMap { it.tasks }
-            .firstOrNull { it.task.id.value == taskId }
+    private fun rowFor(
+        vm: AgendaViewModel,
+        taskId: String,
+    ) = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+        .sections
+        .flatMap { it.tasks }
+        .firstOrNull { it.task.id.value == taskId }
 
     @Test
-    fun `a row carries its project's name and colour`() = withVm { vm ->
-        val projectId = com.singularity.todo.feature.projects.domain.model.ProjectId("p1")
-        fakeProjectsRepo.seed(
-            com.singularity.todo.test.fakes.testProject(id = projectId, name = "Семья", color = 0xFF6A4C93.toInt()),
-        )
-        fakeRepo.seed(task("t1", "Buy milk").copy(projectId = projectId))
-        runCurrent()
+    fun `a row carries its project's name and colour`() =
+        withVm { vm ->
+            val projectId =
+                com.singularity.todo.feature.projects.domain.model
+                    .ProjectId("p1")
+            fakeProjectsRepo.seed(
+                com.singularity.todo.test.fakes
+                    .testProject(id = projectId, name = "Семья", color = 0xFF6A4C93.toInt()),
+            )
+            fakeRepo.seed(task("t1", "Buy milk").copy(projectId = projectId))
+            runCurrent()
 
-        val row = rowFor(vm, "t1")
-        assertEquals("Семья", row?.project, "the row carries the project's name")
-        assertEquals(0xFF6A4C93.toInt(), row?.projectColor, "and its colour, resolved once per list build")
-    }
-
-    @Test
-    fun `a row in a closed project still carries its badge`() = withVm { vm ->
-        val projectId = com.singularity.todo.feature.projects.domain.model.ProjectId("p1")
-        fakeProjectsRepo.seed(
-            com.singularity.todo.test.fakes.testProject(
-                id = projectId,
-                name = "Closed family",
-                color = 0xFF112233.toInt(),
-                closedAt = now,
-            ),
-        )
-        fakeRepo.seed(task("t1", "Buy milk").copy(projectId = projectId))
-        runCurrent()
-
-        assertEquals(
-            "Closed family",
-            rowFor(vm, "t1")?.project,
-            "a closed project still names itself — the badge must not vanish",
-        )
-    }
+            val row = rowFor(vm, "t1")
+            assertEquals("Семья", row?.project, "the row carries the project's name")
+            assertEquals(0xFF6A4C93.toInt(), row?.projectColor, "and its colour, resolved once per list build")
+        }
 
     @Test
-    fun `a row without a project carries no badge`() = withVm { vm ->
-        fakeRepo.seed(task("t1", "Buy milk"))
-        runCurrent()
+    fun `a row in a closed project still carries its badge`() =
+        withVm { vm ->
+            val projectId =
+                com.singularity.todo.feature.projects.domain.model
+                    .ProjectId("p1")
+            fakeProjectsRepo.seed(
+                com.singularity.todo.test.fakes.testProject(
+                    id = projectId,
+                    name = "Closed family",
+                    color = 0xFF112233.toInt(),
+                    closedAt = now,
+                ),
+            )
+            fakeRepo.seed(task("t1", "Buy milk").copy(projectId = projectId))
+            runCurrent()
 
-        assertNull(rowFor(vm, "t1")?.project, "no project, no badge — and no placeholder")
-    }
+            assertEquals(
+                "Closed family",
+                rowFor(vm, "t1")?.project,
+                "a closed project still names itself — the badge must not vanish",
+            )
+        }
 
     @Test
-    fun `the projects are resolved once per list build, not per row`() = withVm { vm ->
-        val projectId = com.singularity.todo.feature.projects.domain.model.ProjectId("p1")
-        fakeProjectsRepo.seed(
-            com.singularity.todo.test.fakes.testProject(id = projectId, name = "Семья", color = 1),
-        )
-        // A list of many rows, all in the same project.
-        fakeRepo.seed(*(0 until 100).map { i -> task("t$i", "Task $i").copy(projectId = projectId) }.toTypedArray())
-        runCurrent()
+    fun `a row without a project carries no badge`() =
+        withVm { vm ->
+            fakeRepo.seed(task("t1", "Buy milk"))
+            runCurrent()
 
-        assertEquals(
-            1,
-            fakeProjectsRepo.observeAllIncludingClosedCalls,
-            "the lookup is once per list build, not once per row",
-        )
-    }
+            assertNull(rowFor(vm, "t1")?.project, "no project, no badge — and no placeholder")
+        }
+
+    @Test
+    fun `the projects are resolved once per list build, not per row`() =
+        withVm { vm ->
+            val projectId =
+                com.singularity.todo.feature.projects.domain.model
+                    .ProjectId("p1")
+            fakeProjectsRepo.seed(
+                com.singularity.todo.test.fakes
+                    .testProject(id = projectId, name = "Семья", color = 1),
+            )
+            // A list of many rows, all in the same project.
+            fakeRepo.seed(*(0 until 100).map { i -> task("t$i", "Task $i").copy(projectId = projectId) }.toTypedArray())
+            runCurrent()
+
+            assertEquals(
+                1,
+                fakeProjectsRepo.observeAllIncludingClosedCalls,
+                "the lookup is once per list build, not once per row",
+            )
+        }
 }

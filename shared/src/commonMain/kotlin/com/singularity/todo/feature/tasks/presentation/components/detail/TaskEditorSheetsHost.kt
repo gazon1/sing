@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
 import com.singularity.todo.core.ui.components.sheet.MultiDatePickerSheet
@@ -15,13 +16,12 @@ import com.singularity.todo.feature.tasks.presentation.components.ProjectPickerS
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toImmutableSet
-import kotlinx.collections.immutable.persistentListOf
-import androidx.compose.runtime.remember
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 /**
  * Hosts all bottom sheets for [TaskEditorContent].
@@ -54,97 +54,113 @@ fun TaskEditorSheetsHost(
         // opens the ordinary one. The switch is [TaskEditorModel.multiDateEnabled]
         // and not the presence of a callback: the callback says *where the result
         // goes*, the flag says *what the user is allowed to choose*.
-        is TaskEditorSheet.Date -> TaskEditorDateSheet(
-            model = model,
-            callbacks = callbacks,
-            now = now,
-            onSheetDismiss = onSheetDismiss,
-        )
+        is TaskEditorSheet.Date -> {
+            TaskEditorDateSheet(
+                model = model,
+                callbacks = callbacks,
+                now = now,
+                onSheetDismiss = onSheetDismiss,
+            )
+        }
 
-        is TaskEditorSheet.Time -> TimePickerSheet(
-            initialTime = model.dueTime,
-            onTimeSelected = { time ->
-                callbacks.dueDate.onChangeTime.invoke(time)
-                onSheetDismiss()
-            },
-            onDismiss = onSheetDismiss,
-        )
-
-        is TaskEditorSheet.StartDate -> DatePickerSheet(
-            initialDate = model.startDate,
-            onDateSelected = { date ->
-                callbacks.startDate?.onChangeDate?.invoke(date)
-                onSheetDismiss()
-            },
-            onDismiss = onSheetDismiss,
-        )
-
-        is TaskEditorSheet.StartTime -> TimePickerSheet(
-            initialTime = model.startTime,
-            onTimeSelected = { time ->
-                callbacks.startDate?.onChangeTime?.invoke(time)
-                onSheetDismiss()
-            },
-            onDismiss = onSheetDismiss,
-        )
-
-        // ── Priority ─────────────────────────────────────────────────────────
-        is TaskEditorSheet.Priority -> TaskEditorSheetHost(
-            title = "Приоритет",
-            onClose = onSheetDismiss,
-        ) {
-            TaskEditorPrioritySheet(
-                selected = model.priority,
-                onSelect = { p ->
-                    callbacks.priority.onChange.invoke(p)
+        is TaskEditorSheet.Time -> {
+            TimePickerSheet(
+                initialTime = model.dueTime,
+                onTimeSelected = { time ->
+                    callbacks.dueDate.onChangeTime.invoke(time)
                     onSheetDismiss()
                 },
+                onDismiss = onSheetDismiss,
             )
+        }
+
+        is TaskEditorSheet.StartDate -> {
+            DatePickerSheet(
+                initialDate = model.startDate,
+                onDateSelected = { date ->
+                    callbacks.startDate?.onChangeDate?.invoke(date)
+                    onSheetDismiss()
+                },
+                onDismiss = onSheetDismiss,
+            )
+        }
+
+        is TaskEditorSheet.StartTime -> {
+            TimePickerSheet(
+                initialTime = model.startTime,
+                onTimeSelected = { time ->
+                    callbacks.startDate?.onChangeTime?.invoke(time)
+                    onSheetDismiss()
+                },
+                onDismiss = onSheetDismiss,
+            )
+        }
+
+        // ── Priority ─────────────────────────────────────────────────────────
+        is TaskEditorSheet.Priority -> {
+            TaskEditorSheetHost(
+                title = "Приоритет",
+                onClose = onSheetDismiss,
+            ) {
+                TaskEditorPrioritySheet(
+                    selected = model.priority,
+                    onSelect = { p ->
+                        callbacks.priority.onChange.invoke(p)
+                        onSheetDismiss()
+                    },
+                )
+            }
         }
 
         // ── Workflow state ──────────────────────────────────────────────────
-        is TaskEditorSheet.WorkflowState -> TaskEditorSheetHost(
-            title = "State",
-            onClose = onSheetDismiss,
-        ) {
-            TaskEditorStateSheet(
-                selected = model.workflowState,
-                enabled = !isCompleted,
-                onSelect = { state ->
-                    callbacks.workflowState?.onChange?.invoke(state)
-                    onSheetDismiss()
-                },
-            )
+        is TaskEditorSheet.WorkflowState -> {
+            TaskEditorSheetHost(
+                title = "State",
+                onClose = onSheetDismiss,
+            ) {
+                TaskEditorStateSheet(
+                    selected = model.workflowState,
+                    enabled = !isCompleted,
+                    onSelect = { state ->
+                        callbacks.workflowState?.onChange?.invoke(state)
+                        onSheetDismiss()
+                    },
+                )
+            }
         }
 
         // ── Project ─────────────────────────────────────────────────────────
-        is TaskEditorSheet.Project -> TaskEditorSheetHost(
-            title = "Project",
-            onClose = onSheetDismiss,
-        ) {
-            ProjectPickerSheet(
-                selectedId = model.project,
-                onSelect = { id ->
-                    callbacks.project?.onChange?.invoke(id)
-                    onSheetDismiss()
-                },
-                onDismiss = onSheetDismiss,
-            )
+        is TaskEditorSheet.Project -> {
+            TaskEditorSheetHost(
+                title = "Project",
+                onClose = onSheetDismiss,
+            ) {
+                ProjectPickerSheet(
+                    selectedId = model.project,
+                    onSelect = { id ->
+                        callbacks.project?.onChange?.invoke(id)
+                        onSheetDismiss()
+                    },
+                    onDismiss = onSheetDismiss,
+                )
+            }
         }
 
         // ── Tags ──────────────────────────────────────────────────────────────
-        is TaskEditorSheet.Tags -> TaskEditorSheetHost(
-            title = "Tags",
-            onClose = onSheetDismiss,
-        ) {
-            TagsPickerSheet(
-                selectedIds = model.tags,
-                onSelect = { ids ->
-                    callbacks.tags?.onChange?.invoke(ids)
-                    onSheetDismiss()
-                },
-                onDismiss = onSheetDismiss,
-            )
+        is TaskEditorSheet.Tags -> {
+            TaskEditorSheetHost(
+                title = "Tags",
+                onClose = onSheetDismiss,
+            ) {
+                TagsPickerSheet(
+                    selectedIds = model.tags,
+                    onSelect = { ids ->
+                        callbacks.tags?.onChange?.invoke(ids)
+                        onSheetDismiss()
+                    },
+                    onDismiss = onSheetDismiss,
+                )
+            }
         }
 
         // ── Recurrence ──────────────────────────────────────────────────────
@@ -158,89 +174,102 @@ fun TaskEditorSheetsHost(
         // Wrapping the picker in that host gave the sheet two headers and two sheets,
         // and left the ✓ untagged: `sheet_confirm` was declared in the tag registry
         // and tapped by the Maestro flow, but no element ever carried it.
-        is TaskEditorSheet.Recurrence -> TaskEditorRecurrenceSheet(
-            model = model,
-            callbacks = callbacks,
-            now = now,
-            onSheetDismiss = onSheetDismiss,
-        )
+        is TaskEditorSheet.Recurrence -> {
+            TaskEditorRecurrenceSheet(
+                model = model,
+                callbacks = callbacks,
+                now = now,
+                onSheetDismiss = onSheetDismiss,
+            )
+        }
 
         // ── Checklist ────────────────────────────────────────────────────────
-        is TaskEditorSheet.Checklist -> TaskEditorSheetHost(
-            title = "Checklist",
-            onClose = onSheetDismiss,
-            testTag = TestTags.CHECKLIST_SHEET,
-        ) {
-            ChecklistEditorSheet(
-                taskId = model.taskId,
-                items = model.checklist,
-                onAdd = { callbacks.checklist?.onAdd?.invoke(it) },
-                onToggle = { callbacks.checklist?.onToggle?.invoke(it) },
-                onDelete = { callbacks.checklist?.onDelete?.invoke(it) },
-                onDismiss = onSheetDismiss,
-            )
+        is TaskEditorSheet.Checklist -> {
+            TaskEditorSheetHost(
+                title = "Checklist",
+                onClose = onSheetDismiss,
+                testTag = TestTags.CHECKLIST_SHEET,
+            ) {
+                ChecklistEditorSheet(
+                    taskId = model.taskId,
+                    items = model.checklist,
+                    onAdd = { callbacks.checklist?.onAdd?.invoke(it) },
+                    onToggle = { callbacks.checklist?.onToggle?.invoke(it) },
+                    onDelete = { callbacks.checklist?.onDelete?.invoke(it) },
+                    onDismiss = onSheetDismiss,
+                )
+            }
         }
 
         // ── Attachments ───────────────────────────────────────────────────
-        is TaskEditorSheet.Attachments -> TaskEditorSheetHost(
-            title = "Attachments",
-            onClose = onSheetDismiss,
-        ) {
-            AttachmentsSheet(
-                taskId = model.taskId,
-                attachments = model.attachments,
-                onAddUrl = { url, title -> callbacks.attachments?.onAddUrl?.invoke(url, title) },
-                onAttachFile = callbacks.attachments?.onAttachFile,
-                onDelete = { callbacks.attachments?.onDelete?.invoke(it) },
+        is TaskEditorSheet.Attachments -> {
+            TaskEditorSheetHost(
+                title = "Attachments",
+                onClose = onSheetDismiss,
+            ) {
+                AttachmentsSheet(
+                    taskId = model.taskId,
+                    attachments = model.attachments,
+                    onAddUrl = { url, title -> callbacks.attachments?.onAddUrl?.invoke(url, title) },
+                    onAttachFile = callbacks.attachments?.onAttachFile,
+                    onDelete = { callbacks.attachments?.onDelete?.invoke(it) },
+                    onDismiss = onSheetDismiss,
+                )
+            }
+        }
+
+        // ── Dependencies ────────────────────────────────────────────────────
+        is TaskEditorSheet.Dependencies -> {
+            DependencyPickerSheet(
+                currentDeps =
+                    remember(model.blockedBy, model.followsUp) {
+                        buildMap {
+                            model.blockedBy.forEach { put(it, DependencyVerb.BLOCKS) }
+                            model.followsUp.forEach { put(it, DependencyVerb.FOLLOWS_UP) }
+                        }.toImmutableMap()
+                    },
+                availableTasks = remember(model.availableTasks) { model.availableTasks.toImmutableList() },
+                onApply = { newDeps ->
+                    callbacks.dependencies?.onChange?.invoke(newDeps)
+                    onSheetDismiss()
+                },
                 onDismiss = onSheetDismiss,
             )
         }
 
-        // ── Dependencies ────────────────────────────────────────────────────
-        is TaskEditorSheet.Dependencies -> DependencyPickerSheet(
-            currentDeps = remember(model.blockedBy, model.followsUp) {
-                buildMap {
-                    model.blockedBy.forEach { put(it, DependencyVerb.BLOCKS) }
-                    model.followsUp.forEach { put(it, DependencyVerb.FOLLOWS_UP) }
-                }.toImmutableMap()
-            },
-            availableTasks = remember(model.availableTasks) { model.availableTasks.toImmutableList() },
-            onApply = { newDeps ->
-                callbacks.dependencies?.onChange?.invoke(newDeps)
-                onSheetDismiss()
-            },
-            onDismiss = onSheetDismiss,
-        )
-
         // ── Estimate ────────────────────────────────────────────────────────
-        is TaskEditorSheet.Estimate -> TaskEditorSheetHost(
-            title = "Estimate",
-            onClose = onSheetDismiss,
-        ) {
-            TaskEditorEstimateSheet(
-                selected = model.estimateMinutes,
-                onSelect = { minutes ->
-                    callbacks.estimate?.onChange?.invoke(minutes)
-                    onSheetDismiss()
-                },
-            )
+        is TaskEditorSheet.Estimate -> {
+            TaskEditorSheetHost(
+                title = "Estimate",
+                onClose = onSheetDismiss,
+            ) {
+                TaskEditorEstimateSheet(
+                    selected = model.estimateMinutes,
+                    onSelect = { minutes ->
+                        callbacks.estimate?.onChange?.invoke(minutes)
+                        onSheetDismiss()
+                    },
+                )
+            }
         }
 
         // ── Time Entry ───────────────────────────────────────────────────────
-        is TaskEditorSheet.TimeEntry -> TimeEntryEditorSheet(
-            taskStartedAtMs = model.taskStartedAtMs,
-            // The end of a new entry is "now". Passed in rather than read inside,
-            // so a host that supplies a fixed clock produces a fixed default (#91).
-            now = now,
-            onSave = { startedAtMs, endedAtMs, kind, note ->
-                callbacks.onTimeEntrySave?.invoke(startedAtMs, endedAtMs, kind, note)
-                onSheetDismiss()
-            },
-            onDismiss = onSheetDismiss,
-        )
+        is TaskEditorSheet.TimeEntry -> {
+            TimeEntryEditorSheet(
+                taskStartedAtMs = model.taskStartedAtMs,
+                // The end of a new entry is "now". Passed in rather than read inside,
+                // so a host that supplies a fixed clock produces a fixed default (#91).
+                now = now,
+                onSave = { startedAtMs, endedAtMs, kind, note ->
+                    callbacks.onTimeEntrySave?.invoke(startedAtMs, endedAtMs, kind, note)
+                    onSheetDismiss()
+                },
+                onDismiss = onSheetDismiss,
+            )
+        }
 
         null -> {
-            /* no sheet open */
+            // no sheet open
         }
     }
 }
@@ -261,11 +290,12 @@ private fun TaskEditorDateSheet(
 ) {
     if (model.multiDateEnabled) {
         MultiDatePickerSheet(
-            initialDates = remember(model.dueDates, model.dueDate) {
-                model.dueDates
-                    .ifEmpty { model.dueDate?.let { persistentListOf(it) } ?: persistentListOf() }
-                    .toImmutableSet()
-            },
+            initialDates =
+                remember(model.dueDates, model.dueDate) {
+                    model.dueDates
+                        .ifEmpty { model.dueDate?.let { persistentListOf(it) } ?: persistentListOf() }
+                        .toImmutableSet()
+                },
             onConfirm = { dates ->
                 callbacks.dueDate.onChangeDates?.invoke(dates)
                 onSheetDismiss()

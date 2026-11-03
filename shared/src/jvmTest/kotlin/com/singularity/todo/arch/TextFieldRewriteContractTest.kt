@@ -102,7 +102,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TextFieldRewriteContractTest {
-
     @Test
     fun `every bridged field site has a rewrite contract`() {
         val bridged = bridgedSites
@@ -121,9 +120,11 @@ class TextFieldRewriteContractTest {
     @Test
     fun `every rewrite contract names a file that still owns a bridged field`() {
         val bridged = bridgedSites
-        val stale = registry.mapNotNull { row ->
-            if (row.site in bridged) null else "  - ${row.site} -> ${row.kind.sourceType}"
-        }.sorted()
+        val stale =
+            registry
+                .mapNotNull { row ->
+                    if (row.site in bridged) null else "  - ${row.site} -> ${row.kind.sourceType}"
+                }.sorted()
 
         assertTrue(
             stale.isEmpty(),
@@ -157,11 +158,13 @@ class TextFieldRewriteContractTest {
      */
     @Test
     fun `the field a row names is a field the file has`() {
-        val wrong = registry.mapNotNull { row ->
-            val missing = row.fields.fieldWords().filterNot { word -> word in siteWords(row.site) }
-            if (missing.isEmpty()) return@mapNotNull null
-            "${row.site} -> has no ${missing.joinToString(", ")}"
-        }.sorted()
+        val wrong =
+            registry
+                .mapNotNull { row ->
+                    val missing = row.fields.fieldWords().filterNot { word -> word in siteWords(row.site) }
+                    if (missing.isEmpty()) return@mapNotNull null
+                    "${row.site} -> has no ${missing.joinToString(", ")}"
+                }.sorted()
 
         assertTrue(
             wrong.isEmpty(),
@@ -175,18 +178,22 @@ class TextFieldRewriteContractTest {
 
     @Test
     fun `a static row names an owner whose value names its writes`() {
-        val wrong = registry.filter { it.kind == Kind.STATIC }.mapNotNull { row ->
-            // The static kind is a promise about the upstream's writes: it replaces the
-            // value only with one the field never produced. An owner that holds a bare
-            // string can write to it from anywhere, and the write says nothing. An owner
-            // that holds a `FieldOwnedText` can only write it in the three named ways —
-            // the field's own text, a seed, a clear — so the promise is in the type.
-            val declared = TextFieldShapeScan.properties(row.owner).any { property ->
-                property.type?.bareSourceType == FIELD_OWNED
-            }
-            if (declared) return@mapNotNull null
-            "$row.site -> ${row.owner} holds no $FIELD_OWNED"
-        }.sorted()
+        val wrong =
+            registry
+                .filter { it.kind == Kind.STATIC }
+                .mapNotNull { row ->
+                    // The static kind is a promise about the upstream's writes: it replaces the
+                    // value only with one the field never produced. An owner that holds a bare
+                    // string can write to it from anywhere, and the write says nothing. An owner
+                    // that holds a `FieldOwnedText` can only write it in the three named ways —
+                    // the field's own text, a seed, a clear — so the promise is in the type.
+                    val declared =
+                        TextFieldShapeScan.properties(row.owner).any { property ->
+                            property.type?.bareSourceType == FIELD_OWNED
+                        }
+                    if (declared) return@mapNotNull null
+                    "$row.site -> ${row.owner} holds no $FIELD_OWNED"
+                }.sorted()
 
         assertTrue(
             wrong.isEmpty(),
@@ -200,19 +207,23 @@ class TextFieldRewriteContractTest {
 
     @Test
     fun `the owner a row names declares a source of that kind`() {
-        val wrong = registry.mapNotNull { row ->
-            val kind = row.kind.sourceType
-            // The owner builds the source: it keeps it in a property, or it hands it
-            // out from a function. The GenUI data context does the latter — it builds
-            // the source of a bound field and gives it to the renderer whole.
-            val declared = TextFieldShapeScan.properties(row.owner).any { property ->
-                property.declaresSourceOf(kind)
-            } || TextFieldShapeScan.functions(row.owner).any { function ->
-                function.returnsSourceOf(kind)
-            }
-            if (declared) return@mapNotNull null
-            "$row.site -> ${row.owner} declares no $kind source"
-        }.sorted()
+        val wrong =
+            registry
+                .mapNotNull { row ->
+                    val kind = row.kind.sourceType
+                    // The owner builds the source: it keeps it in a property, or it hands it
+                    // out from a function. The GenUI data context does the latter — it builds
+                    // the source of a bound field and gives it to the renderer whole.
+                    val declared =
+                        TextFieldShapeScan.properties(row.owner).any { property ->
+                            property.declaresSourceOf(kind)
+                        } ||
+                            TextFieldShapeScan.functions(row.owner).any { function ->
+                                function.returnsSourceOf(kind)
+                            }
+                    if (declared) return@mapNotNull null
+                    "$row.site -> ${row.owner} declares no $kind source"
+                }.sorted()
 
         assertTrue(
             wrong.isEmpty(),
@@ -226,20 +237,24 @@ class TextFieldRewriteContractTest {
 
     @Test
     fun `an owned row names a counter that is declared`() {
-        val missing = registry.filter { it.kind == Kind.OWNED }.mapNotNull { row ->
-            val counter = row.counter
-            if (counter.isEmpty()) return@mapNotNull "$row.site -> names no counter file"
-            // The count either travels with the value — a `Revisioned`, which carries the
-            // value and the count of its replacements in one object — or it is a plain
-            // count of the upstream's writes, the way the GenUI surface counts the
-            // server's writes. Both are counters; only the first is a value's own.
-            val declared = TextFieldShapeScan.properties(counter).any { property ->
-                property.type?.bareSourceType == REVISIONED ||
-                    property.name.contains("revision", ignoreCase = true)
-            }
-            if (declared) return@mapNotNull null
-            "$row.site -> $counter declares no revision"
-        }.sorted()
+        val missing =
+            registry
+                .filter { it.kind == Kind.OWNED }
+                .mapNotNull { row ->
+                    val counter = row.counter
+                    if (counter.isEmpty()) return@mapNotNull "$row.site -> names no counter file"
+                    // The count either travels with the value — a `Revisioned`, which carries the
+                    // value and the count of its replacements in one object — or it is a plain
+                    // count of the upstream's writes, the way the GenUI surface counts the
+                    // server's writes. Both are counters; only the first is a value's own.
+                    val declared =
+                        TextFieldShapeScan.properties(counter).any { property ->
+                            property.type?.bareSourceType == REVISIONED ||
+                                property.name.contains("revision", ignoreCase = true)
+                        }
+                    if (declared) return@mapNotNull null
+                    "$row.site -> $counter declares no revision"
+                }.sorted()
 
         assertTrue(
             missing.isEmpty(),
@@ -254,26 +269,30 @@ class TextFieldRewriteContractTest {
 
     @Test
     fun `an owned row names a counter that advances`() {
-        val frozen = registry.filter { it.kind == Kind.OWNED }.mapNotNull { row ->
-            val advancer = row.advances
-            if (advancer.isEmpty()) return@mapNotNull "$row.site -> names no file that advances the counter"
-            // A `Revisioned`'s count moves only through `replacedBy` — that is the whole
-            // point of the type — so the file that advances it says so by calling it. A
-            // plain count is incremented instead: that is the GenUI surface's count of
-            // the server's writes.
-            //
-            // `replacedIfChangedBy` is the same move, conditional on the value having
-            // changed: a replacement that lands on the value the owner already holds is
-            // the echo of the owner's own save, and it does not move the count.
-            val advances = TextFieldShapeScan.declarationTexts(advancer).any { text ->
-                val code = KotlinText.stripComments(text)
-                code.contains(REPLACED_BY) ||
-                    code.contains(REPLACED_IF_CHANGED_BY) ||
-                    ADVANCE.containsMatchIn(code)
-            }
-            if (advances) return@mapNotNull null
-            "$row.site -> $advancer never advances the counter"
-        }.sorted()
+        val frozen =
+            registry
+                .filter { it.kind == Kind.OWNED }
+                .mapNotNull { row ->
+                    val advancer = row.advances
+                    if (advancer.isEmpty()) return@mapNotNull "$row.site -> names no file that advances the counter"
+                    // A `Revisioned`'s count moves only through `replacedBy` — that is the whole
+                    // point of the type — so the file that advances it says so by calling it. A
+                    // plain count is incremented instead: that is the GenUI surface's count of
+                    // the server's writes.
+                    //
+                    // `replacedIfChangedBy` is the same move, conditional on the value having
+                    // changed: a replacement that lands on the value the owner already holds is
+                    // the echo of the owner's own save, and it does not move the count.
+                    val advances =
+                        TextFieldShapeScan.declarationTexts(advancer).any { text ->
+                            val code = KotlinText.stripComments(text)
+                            code.contains(REPLACED_BY) ||
+                                code.contains(REPLACED_IF_CHANGED_BY) ||
+                                ADVANCE.containsMatchIn(code)
+                        }
+                    if (advances) return@mapNotNull null
+                    "$row.site -> $advancer never advances the counter"
+                }.sorted()
 
         assertTrue(
             frozen.isEmpty(),
@@ -288,16 +307,20 @@ class TextFieldRewriteContractTest {
 
     @Test
     fun `a field site does not build its own source`() {
-        val built = registry.mapNotNull { row ->
-            val constructed = TextFieldShapeScan.functions(row.site)
-                .filterNot { function -> function.isPreview() }
-                .mapNotNull { function ->
-                    val code = KotlinText.stripComments(function.text)
-                    CONSTRUCTION.find(code)?.value
-                }
-            if (constructed.isEmpty()) return@mapNotNull null
-            "$row.site -> ${constructed.joinToString(", ")}"
-        }.sorted()
+        val built =
+            registry
+                .mapNotNull { row ->
+                    val constructed =
+                        TextFieldShapeScan
+                            .functions(row.site)
+                            .filterNot { function -> function.isPreview() }
+                            .mapNotNull { function ->
+                                val code = KotlinText.stripComments(function.text)
+                                CONSTRUCTION.find(code)?.value
+                            }
+                    if (constructed.isEmpty()) return@mapNotNull null
+                    "$row.site -> ${constructed.joinToString(", ")}"
+                }.sorted()
 
         assertTrue(
             built.isEmpty(),
@@ -311,15 +334,16 @@ class TextFieldRewriteContractTest {
 
     @Test
     fun `the bridge takes no revision argument`() {
-        val offending = TextFieldShapeScan.functions(BRIDGE_FILE)
-            .filter { it.name == BRIDGED_HELPER }
-            // The bridge's own implementation reads the count from the source; only a
-            // *public* declaration would let a call site write one down.
-            .filterNot { it.hasPrivateModifier }
-            .mapNotNull { function ->
-                function.parameters.firstOrNull { it.name == "revision" }?.name
-            }
-            .toList()
+        val offending =
+            TextFieldShapeScan
+                .functions(BRIDGE_FILE)
+                .filter { it.name == BRIDGED_HELPER }
+                // The bridge's own implementation reads the count from the source; only a
+                // *public* declaration would let a call site write one down.
+                .filterNot { it.hasPrivateModifier }
+                .mapNotNull { function ->
+                    function.parameters.firstOrNull { it.name == "revision" }?.name
+                }.toList()
 
         assertTrue(
             offending.isEmpty(),
@@ -340,12 +364,13 @@ class TextFieldRewriteContractTest {
      */
     @Test
     fun `the sealed parent of the two kinds is never a parameter`() {
-        val offending = TextFieldShapeScan.functionsThatCanMention(TEXT_SOURCE_QUALIFIED)
-            .filter { function ->
-                function.parameters.any { it.type?.bareSourceType == TEXT_SOURCE }
-            }
-            .map { function -> function.name }
-            .sorted()
+        val offending =
+            TextFieldShapeScan
+                .functionsThatCanMention(TEXT_SOURCE_QUALIFIED)
+                .filter { function ->
+                    function.parameters.any { it.type?.bareSourceType == TEXT_SOURCE }
+                }.map { function -> function.name }
+                .sorted()
 
         assertTrue(
             offending.isEmpty(),
@@ -359,14 +384,15 @@ class TextFieldRewriteContractTest {
 
     @Test
     fun `the bridge does not decide the kind of the source at runtime`() {
-        val offending = TextFieldShapeScan.functions(BRIDGE_FILE)
-            // A function that takes the sealed parent decides the kind with a `when`
-            // when it is called: the kind is a runtime question, and the answer is
-            // wherever the `when` happens to live.
-            .filter { function ->
-                function.parameters.any { it.type?.bareSourceType == TEXT_SOURCE }
-            }
-            .map { it.name }
+        val offending =
+            TextFieldShapeScan
+                .functions(BRIDGE_FILE)
+                // A function that takes the sealed parent decides the kind with a `when`
+                // when it is called: the kind is a runtime question, and the answer is
+                // wherever the `when` happens to live.
+                .filter { function ->
+                    function.parameters.any { it.type?.bareSourceType == TEXT_SOURCE }
+                }.map { it.name }
 
         assertTrue(
             offending.isEmpty(),
@@ -440,7 +466,8 @@ class TextFieldRewriteContractTest {
      * seconds of a 3-minute suite.
      */
     private val bridgedSites: Set<String> by lazy {
-        TextFieldShapeScan.shapes()
+        TextFieldShapeScan
+            .shapes()
             .filterValues { shapes -> FieldShape.BRIDGED in shapes }
             .keys
     }
@@ -459,7 +486,8 @@ class TextFieldRewriteContractTest {
      * row of this one.
      */
     private fun skillRewriteTable(): List<Row> =
-        SkillTables.table("File", "Field", "Source", "Owner", "Counter", "Advances")
+        SkillTables
+            .table("File", "Field", "Source", "Owner", "Counter", "Advances")
             .mapNotNull { cells ->
                 val site = cells[0].removeSurrounding("`").trim()
                 if (!site.endsWith(".kt")) return@mapNotNull null
@@ -476,8 +504,7 @@ class TextFieldRewriteContractTest {
             }
 
     /** A cell that holds a path, or nothing. */
-    private fun String.pathOrEmpty(): String =
-        if (this == "-" || isEmpty()) "" else this
+    private fun String.pathOrEmpty(): String = if (this == "-" || isEmpty()) "" else this
 
     /**
      * The words the file is made of.
@@ -516,7 +543,8 @@ class TextFieldRewriteContractTest {
 
     /** An identifier split into its camel-case parts, lowercased. */
     private fun String.splitCamelCase(): List<String> =
-        CAMEL_BOUNDARY.split(this)
+        CAMEL_BOUNDARY
+            .split(this)
             .map { it.lowercase() }
             .filter { it.isNotEmpty() }
 

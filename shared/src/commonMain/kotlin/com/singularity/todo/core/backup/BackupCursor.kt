@@ -117,7 +117,10 @@ class BackupCursorStore(private val fs: FileSystem, private val dir: String) {
      * state that cannot be read, which costs the chain and makes the next export
      * write a fresh base.
      */
-    suspend fun save(userId: UserId, state: BackupCursorState) {
+    suspend fun save(
+        userId: UserId,
+        state: BackupCursorState,
+    ) {
         fs.ensureDir(dir)
         val path = pathFor(userId)
         val temporary = "$path$TEMPORARY_SUFFIX"

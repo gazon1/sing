@@ -249,14 +249,15 @@ object SyncProtocol {
      * obligation it creates is that a code which becomes permanently unfixable has to be
      * added here deliberately — which `SyncProtocolTest` pins over the whole table.
      */
-    val TERMINAL_ERRORS: Set<String> = setOf(
-        SHADOW_MISMATCH,
-        TOO_OLD,
-        NOT_FOUND,
-        TOO_LARGE,
-        FIELD_NOT_WRITABLE,
-        ROW_UNAVAILABLE,
-    )
+    val TERMINAL_ERRORS: Set<String> =
+        setOf(
+            SHADOW_MISMATCH,
+            TOO_OLD,
+            NOT_FOUND,
+            TOO_LARGE,
+            FIELD_NOT_WRITABLE,
+            ROW_UNAVAILABLE,
+        )
 }
 
 /**
@@ -289,18 +290,24 @@ fun deltaPatchSet(
     baseVersion: Long,
     field: String,
     value: JsonElement,
-): DeltaPatch = DeltaPatch(
-    patchId = patchId,
-    entityId = entityId,
-    entityType = entityType,
-    baseVersion = baseVersion,
-    ops = listOf(FieldChange(field, FieldOp.SET, value)),
-)
+): DeltaPatch =
+    DeltaPatch(
+        patchId = patchId,
+        entityId = entityId,
+        entityType = entityType,
+        baseVersion = baseVersion,
+        ops = listOf(FieldChange(field, FieldOp.SET, value)),
+    )
 
 /**
  * Builds a delete DeltaPatch.
  */
-fun deltaPatchDelete(patchId: String, entityId: String, entityType: DocType, baseVersion: Long): DeltaPatch =
+fun deltaPatchDelete(
+    patchId: String,
+    entityId: String,
+    entityType: DocType,
+    baseVersion: Long,
+): DeltaPatch =
     DeltaPatch(
         patchId = patchId,
         entityId = entityId,

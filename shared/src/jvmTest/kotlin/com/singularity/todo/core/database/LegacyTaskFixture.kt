@@ -54,19 +54,20 @@ fun insertLegacyTask(
     userId: String = "u1",
     columns: Map<String, String> = emptyMap(),
 ) {
-    val known: Map<String, String> = mapOf(
-        "id" to id,
-        "title" to title,
-        "user_id" to userId,
-        "priority" to "None",
-        "kind" to "Task",
-        "someday" to "0",
-        "is_pinned" to "0",
-        "created_at" to "1000",
-        "updated_at" to "1000",
-        "server_version" to "0",
-        "sync_status" to "LOCAL_ONLY",
-    )
+    val known: Map<String, String> =
+        mapOf(
+            "id" to id,
+            "title" to title,
+            "user_id" to userId,
+            "priority" to "None",
+            "kind" to "Task",
+            "someday" to "0",
+            "is_pinned" to "0",
+            "created_at" to "1000",
+            "updated_at" to "1000",
+            "server_version" to "0",
+            "sync_status" to "LOCAL_ONLY",
+        )
 
     val declared = fixtureColumns(connection, "tasks")
     val names = mutableListOf<String>()
@@ -80,7 +81,9 @@ fun insertLegacyTask(
                 values += literal(override)
             }
 
-            column.hasDefault -> Unit
+            column.hasDefault -> {
+                Unit
+            }
 
             // the default applies
             column.notNull -> {
@@ -88,7 +91,9 @@ fun insertLegacyTask(
                 values += literal(known[column.name] ?: zeroOf(column.type))
             }
 
-            else -> Unit // nullable and without a default: null is right
+            else -> {
+                Unit
+            } // nullable and without a default: null is right
         }
     }
 
@@ -101,17 +106,21 @@ fun insertLegacyTask(
 /**
  * The columns of a table, as the fixture database declares them.
  */
-private fun fixtureColumns(connection: SQLiteConnection, table: String): List<FixtureColumn> {
+private fun fixtureColumns(
+    connection: SQLiteConnection,
+    table: String,
+): List<FixtureColumn> {
     val statement = connection.prepare("PRAGMA table_info($table)")
     try {
         val columns = mutableListOf<FixtureColumn>()
         while (statement.step()) {
-            columns += FixtureColumn(
-                name = statement.getText(1),
-                type = statement.getText(2),
-                notNull = statement.getInt(3) != 0,
-                hasDefault = !statement.isNull(4),
-            )
+            columns +=
+                FixtureColumn(
+                    name = statement.getText(1),
+                    type = statement.getText(2),
+                    notNull = statement.getInt(3) != 0,
+                    hasDefault = !statement.isNull(4),
+                )
         }
         return columns
     } finally {
@@ -126,11 +135,12 @@ private fun fixtureColumns(connection: SQLiteConnection, table: String): List<Fi
  * already carries its quotes would be quoted twice — a text column would hold
  * two apostrophes instead of an empty string.
  */
-private fun zeroOf(type: String): String = when (type.uppercase()) {
-    "INTEGER", "INT" -> "0"
-    "REAL", "DOUBLE", "FLOAT" -> "0.0"
-    else -> ""
-}
+private fun zeroOf(type: String): String =
+    when (type.uppercase()) {
+        "INTEGER", "INT" -> "0"
+        "REAL", "DOUBLE", "FLOAT" -> "0.0"
+        else -> ""
+    }
 
 /**
  * A value as a SQL literal — a number as itself, anything else as a quoted

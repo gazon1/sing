@@ -43,10 +43,10 @@ import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tags.domain.TagDomain
 import com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
-import org.koin.compose.koinInject
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 
 /**
  * The ids the picker's own controls carry.
@@ -56,7 +56,6 @@ import kotlinx.coroutines.launch
  * addressed from the JVM tier and not from a device flow.
  */
 object TagsPickerTestTags {
-
     /** The action that opens the create dialog. */
     const val CREATE = "tags_picker_create"
 
@@ -121,7 +120,10 @@ fun TagsPickerSheet(
      * existing one only in case is the same label to a person, so the existing
      * tag is selected and the user is told which one was used.
      */
-    fun submitCreate(name: String, color: Int) {
+    fun submitCreate(
+        name: String,
+        color: Int,
+    ) {
         scope.launch {
             when (val outcome = attemptCreate(createTag, currentUser, allTags, name, color)) {
                 is CreateOutcome.Created -> {
@@ -209,7 +211,6 @@ private const val TAG_NAME_INVALID = "Invalid tag name"
  * refused — and the last one carries the reason.
  */
 private sealed interface CreateOutcome {
-
     /** The tag was created. */
     data class Created(val id: TagId) : CreateOutcome
 
@@ -239,11 +240,12 @@ private suspend fun attemptCreate(
     val trimmed = name.trim()
     TagDomain.validateName(trimmed)?.let { return CreateOutcome.Refused(it.message ?: TAG_NAME_INVALID) }
     TagDomain.findByName(allTags, trimmed)?.let { return CreateOutcome.Existing(it) }
-    val input = CreateTagInput(
-        name = trimmed,
-        color = color,
-        userId = currentUser.scopedUserId.value,
-    )
+    val input =
+        CreateTagInput(
+            name = trimmed,
+            color = color,
+            userId = currentUser.scopedUserId.value,
+        )
     return createTag(input).fold(
         onSuccess = { CreateOutcome.Created(it) },
         // The domain's own wording wins: it is the reason the name was
@@ -260,11 +262,15 @@ private suspend fun attemptCreate(
  * host's ✓ commits a *pending* choice and this sheet has none.
  */
 @Composable
-private fun PickerButtons(onDone: () -> Unit, onCancel: () -> Unit) {
+private fun PickerButtons(
+    onDone: () -> Unit,
+    onCancel: () -> Unit,
+) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.End,
     ) {
         TextButton(
@@ -300,9 +306,10 @@ private fun TagChoices(
             text = "No tags yet",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .testTag(TestTags.TAGS_PICKER_EMPTY)
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .testTag(TestTags.TAGS_PICKER_EMPTY)
+                    .padding(16.dp),
         )
     } else {
         LazyColumn(
@@ -335,9 +342,10 @@ private fun CreateTagAction(
     messageIsFailure: Boolean,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
     ) {
         TextButton(
             onClick = onCreate,
@@ -359,14 +367,16 @@ private fun CreateTagAction(
             Text(
                 text = it,
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (messageIsFailure) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                modifier = Modifier
-                    .testTag(TagsPickerTestTags.CREATE_MESSAGE)
-                    .padding(top = 4.dp),
+                color =
+                    if (messageIsFailure) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                modifier =
+                    Modifier
+                        .testTag(TagsPickerTestTags.CREATE_MESSAGE)
+                        .padding(top = 4.dp),
             )
         }
     }
@@ -374,13 +384,18 @@ private fun CreateTagAction(
 
 @Suppress("FunctionSignature")
 @Composable
-private fun TagItem(tag: Tag, isSelected: Boolean, onToggle: () -> Unit) {
+private fun TagItem(
+    tag: Tag,
+    isSelected: Boolean,
+    onToggle: () -> Unit,
+) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onToggle() }
-            .testTag(TagsPickerTestTags.row(tag.name))
-            .padding(vertical = 8.dp, horizontal = 4.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable { onToggle() }
+                .testTag(TagsPickerTestTags.row(tag.name))
+                .padding(vertical = 8.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = isSelected, onCheckedChange = { onToggle() })
@@ -388,11 +403,12 @@ private fun TagItem(tag: Tag, isSelected: Boolean, onToggle: () -> Unit) {
         Text(
             text = tag.name,
             style = MaterialTheme.typography.bodyLarge,
-            color = if (isSelected) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
+            color =
+                if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
         )
         if (isSelected) {
             Spacer(modifier = Modifier.weight(1f))

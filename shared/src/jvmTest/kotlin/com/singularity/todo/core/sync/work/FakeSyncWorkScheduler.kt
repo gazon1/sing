@@ -5,7 +5,6 @@ package com.singularity.todo.core.sync.work
  * Does not actually schedule any background work.
  */
 class FakeSyncWorkScheduler : SyncWorkScheduler {
-
     private val _enqueueCalls = mutableListOf<Unit>()
     val enqueueCalls: List<Unit> get() = _enqueueCalls
 

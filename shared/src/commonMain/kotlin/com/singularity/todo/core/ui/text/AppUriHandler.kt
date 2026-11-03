@@ -27,9 +27,7 @@ import com.singularity.todo.core.links.InternalLinks
  * @return a handler to pass to a link, or to open an address with.
  */
 @Composable
-fun rememberAppUriHandler(
-    onInternalLink: InternalLinkHandler = LocalInternalLinkHandler.current,
-): UriHandler {
+fun rememberAppUriHandler(onInternalLink: InternalLinkHandler = LocalInternalLinkHandler.current): UriHandler {
     val platformHandler = LocalUriHandler.current
     val handler by rememberUpdatedState(onInternalLink)
     return remember(platformHandler) {

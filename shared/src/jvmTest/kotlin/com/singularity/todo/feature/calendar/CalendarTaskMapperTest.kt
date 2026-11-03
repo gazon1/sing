@@ -8,12 +8,12 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.Month
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.NullAndEmptySource
 import org.junit.jupiter.params.provider.ValueSource
-import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -25,7 +25,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class CalendarTaskMapperTest {
-
     private val testUserId = UserId("test-user")
     private val today = LocalDate(2026, Month.SEPTEMBER, 16)
 
@@ -38,39 +37,45 @@ class CalendarTaskMapperTest {
         emoji: String? = null,
         accentColor: Long? = null,
         seriesId: com.singularity.todo.feature.tasks.domain.model.TaskSeriesId? = null,
-    ): Task = Task(
-        id = TaskId.fromString(id),
-        title = title,
-        description = null,
-        priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.None,
-        kind = com.singularity.todo.feature.tasks.domain.model.TaskKind.Task,
-        projectId = null,
-        parentTaskId = null,
-        tags = emptyList(),
-        dueDate = dueDate,
-        dueTime = dueTime,
-        startDate = null,
-        startTime = null,
-        endDate = null,
-        endTime = null,
-        accentColor = accentColor,
-        emoji = emoji,
-        completedAt = completedAt,
-        someday = false,
-        archivedAt = null,
-        isPinned = false,
-        blockedBy = emptySet(),
-        createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-        updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-        userId = testUserId,
-        seriesId = seriesId,
-    )
+    ): Task =
+        Task(
+            id = TaskId.fromString(id),
+            title = title,
+            description = null,
+            priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.None,
+            kind = com.singularity.todo.feature.tasks.domain.model.TaskKind.Task,
+            projectId = null,
+            parentTaskId = null,
+            tags = emptyList(),
+            dueDate = dueDate,
+            dueTime = dueTime,
+            startDate = null,
+            startTime = null,
+            endDate = null,
+            endTime = null,
+            accentColor = accentColor,
+            emoji = emoji,
+            completedAt = completedAt,
+            someday = false,
+            archivedAt = null,
+            isPinned = false,
+            blockedBy = emptySet(),
+            createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            userId = testUserId,
+            seriesId = seriesId,
+        )
 
     // ─── series ─────────────────────────────────────────────────────────────
 
     @Test
     fun `a task of a series maps to a chip of a series`() {
-        val task = makeTask(seriesId = com.singularity.todo.feature.tasks.domain.model.TaskSeriesId("s1"))
+        val task =
+            makeTask(
+                seriesId =
+                    com.singularity.todo.feature.tasks.domain.model
+                        .TaskSeriesId("s1"),
+            )
 
         val ui = CalendarTaskMapper.toCalendarTaskUi(task, today)
 
@@ -90,7 +95,11 @@ class CalendarTaskMapperTest {
 
     @ParameterizedTest(name = "completedAt={0}, dueDate={1} → {2}")
     @MethodSource
-    fun `status mapping`(completedAt: kotlin.time.Instant?, dueDate: LocalDate, expectedStatus: CalendarTaskStatus) {
+    fun `status mapping`(
+        completedAt: kotlin.time.Instant?,
+        dueDate: LocalDate,
+        expectedStatus: CalendarTaskStatus,
+    ) {
         val task = makeTask(completedAt = completedAt, dueDate = dueDate)
         assertEquals(expectedStatus, CalendarTaskMapper.toCalendarTaskUi(task, today).status)
     }
@@ -185,16 +194,17 @@ class CalendarTaskMapperTest {
     // ═══════════════════════════════════════════════════════════════════════════
     companion object {
         @JvmStatic
-        fun `status mapping`(): List<Arguments> = listOf(
-            // today = Sept 16, 2026
-            Arguments.of(
-                kotlin.time.Instant.fromEpochMilliseconds(1),
-                LocalDate(2026, Month.SEPTEMBER, 10),
-                CalendarTaskStatus.DONE,
-            ),
-            Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 10), CalendarTaskStatus.OVERDUE),
-            Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 16), CalendarTaskStatus.PENDING),
-            Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 20), CalendarTaskStatus.PENDING),
-        )
+        fun `status mapping`(): List<Arguments> =
+            listOf(
+                // today = Sept 16, 2026
+                Arguments.of(
+                    kotlin.time.Instant.fromEpochMilliseconds(1),
+                    LocalDate(2026, Month.SEPTEMBER, 10),
+                    CalendarTaskStatus.DONE,
+                ),
+                Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 10), CalendarTaskStatus.OVERDUE),
+                Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 16), CalendarTaskStatus.PENDING),
+                Arguments.of(null, LocalDate(2026, Month.SEPTEMBER, 20), CalendarTaskStatus.PENDING),
+            )
     }
 }

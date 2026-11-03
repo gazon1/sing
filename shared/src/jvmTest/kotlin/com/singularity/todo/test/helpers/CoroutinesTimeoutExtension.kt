@@ -30,7 +30,6 @@ import java.time.Instant
 class CoroutinesTimeoutExtension :
     TestWatcher,
     TestExecutionExceptionHandler {
-
     private val buildDirPath: String by lazy {
         System.getProperty("shared.build.dir")
             ?: error("shared.build.dir system property not set — add to jvmTest task in build.gradle.kts")
@@ -53,32 +52,33 @@ class CoroutinesTimeoutExtension :
         throw throwable
     }
 
-    private fun buildCoroutinesDump(testClass: String): String = buildString {
-        appendLine("=== Coroutine timeout snapshot ===")
-        appendLine("timestamp=${Instant.now()}")
-        appendLine("testClass=$testClass")
-        appendLine("java=${System.getProperty("java.version")}")
-        appendLine()
-        appendLine("--- Coroutine dump at timeout ---")
-        if (DebugProbes.isInstalled) {
-            val infos = DebugProbes.dumpCoroutinesInfo()
-            appendLine("activeCoroutines=${infos.size}")
+    private fun buildCoroutinesDump(testClass: String): String =
+        buildString {
+            appendLine("=== Coroutine timeout snapshot ===")
+            appendLine("timestamp=${Instant.now()}")
+            appendLine("testClass=$testClass")
+            appendLine("java=${System.getProperty("java.version")}")
             appendLine()
-            infos.forEachIndexed { index, info ->
-                appendLine("--- Coroutine #${index + 1} ---")
-                appendLine("state=${info.state}")
-                appendLine("context=${info.context}")
-                appendLine("job=${info.job?.let { DebugProbes.jobToString(it) } ?: "null"}")
-                appendLine("creationStackTrace:")
-                info.creationStackTrace.forEach { element -> appendLine("    at $element") }
-                appendLine("lastObservedStackTrace:")
-                info.lastObservedStackTrace().forEach { element -> appendLine("    at $element") }
-                if (index < infos.lastIndex) appendLine()
+            appendLine("--- Coroutine dump at timeout ---")
+            if (DebugProbes.isInstalled) {
+                val infos = DebugProbes.dumpCoroutinesInfo()
+                appendLine("activeCoroutines=${infos.size}")
+                appendLine()
+                infos.forEachIndexed { index, info ->
+                    appendLine("--- Coroutine #${index + 1} ---")
+                    appendLine("state=${info.state}")
+                    appendLine("context=${info.context}")
+                    appendLine("job=${info.job?.let { DebugProbes.jobToString(it) } ?: "null"}")
+                    appendLine("creationStackTrace:")
+                    info.creationStackTrace.forEach { element -> appendLine("    at $element") }
+                    appendLine("lastObservedStackTrace:")
+                    info.lastObservedStackTrace().forEach { element -> appendLine("    at $element") }
+                    if (index < infos.lastIndex) appendLine()
+                }
+            } else {
+                appendLine("coroutines debug agent is not attached")
             }
-        } else {
-            appendLine("coroutines debug agent is not attached")
         }
-    }
 
     private fun isTimeoutException(t: Throwable): Boolean {
         val msg = t.message ?: return false

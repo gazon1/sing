@@ -32,19 +32,21 @@ import kotlin.time.Clock
  * used to sit on line 1 could be deleted rather than justified: this is a module
  * that *wires* a default, and wiring a default is what modules are for.
  */
-fun calendarModule(): Module = module {
-    viewModel { (year: Int, month: Month, mode: CalendarViewMode) ->
-        CalendarViewModel(
-            deps = CalendarDeps(
-                taskRepo = get<TaskRepository>(),
-                reminderRepo = get<ReminderRepository>(),
-                logger = Logger.withTag("Calendar"),
-                today = todayAt(get<Clock>(), get<TimeZoneProvider>().current()),
-                draftStore = get(),
-            ),
-            initialDate = LocalDate(year, month, 1),
-            initialMode = mode,
-            crashReporter = get(),
-        )
+fun calendarModule(): Module =
+    module {
+        viewModel { (year: Int, month: Month, mode: CalendarViewMode) ->
+            CalendarViewModel(
+                deps =
+                    CalendarDeps(
+                        taskRepo = get<TaskRepository>(),
+                        reminderRepo = get<ReminderRepository>(),
+                        logger = Logger.withTag("Calendar"),
+                        today = todayAt(get<Clock>(), get<TimeZoneProvider>().current()),
+                        draftStore = get(),
+                    ),
+                initialDate = LocalDate(year, month, 1),
+                initialMode = mode,
+                crashReporter = get(),
+            )
+        }
     }
-}

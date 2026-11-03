@@ -17,7 +17,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class BlockingIsBlockedTest {
-
     private val userId = UserId("test-user")
     private val epoch = kotlin.time.Instant.fromEpochMilliseconds(0)
 

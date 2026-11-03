@@ -9,8 +9,8 @@ import com.singularity.todo.feature.genui.catalog.UiNode
 import com.singularity.todo.feature.genui.function.FormatString
 import com.singularity.todo.feature.genui.function.TemplateError
 import com.singularity.todo.feature.genui.surface.SurfaceId
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -27,6 +27,7 @@ internal data class ComponentParse(val components: Map<String, UiNode>, val erro
  */
 internal sealed interface Decode {
     data class Ok(val node: UiNode) : Decode
+
     data class Bad(val error: A2uiError) : Decode
 }
 
@@ -60,7 +61,6 @@ internal class A2uiNodeFactory(
      */
     private val usage: GenuiUsageCounter = GenuiUsageCounter(),
 ) {
-
     /**
      * The messages this layer reports about a model's own output.
      *
@@ -93,13 +93,14 @@ internal class A2uiNodeFactory(
                 return@forEachIndexed
             }
             if (id in nodes) {
-                rejections += A2uiError(
-                    code = A2uiErrorCode.DUPLICATE_COMPONENT_ID,
-                    message = "Component id '$id' is defined twice in one message; the last one applies.",
-                    pointer = "$pointer/id",
-                    surfaceId = surfaceId,
-                    severity = A2uiSeverity.COMPONENT,
-                )
+                rejections +=
+                    A2uiError(
+                        code = A2uiErrorCode.DUPLICATE_COMPONENT_ID,
+                        message = "Component id '$id' is defined twice in one message; the last one applies.",
+                        pointer = "$pointer/id",
+                        surfaceId = surfaceId,
+                        severity = A2uiSeverity.COMPONENT,
+                    )
             }
             when (val decoded = decode(component, id, pointer, surfaceId)) {
                 is Decode.Ok -> nodes[id] = decoded.node
@@ -128,9 +129,10 @@ internal class A2uiNodeFactory(
         if (kind == null) {
             return Decode.Bad(errors.malformed("Component '$id' has no kind", "$pointer/kind", surfaceId, id))
         }
-        val schema: A2uiComponentSchema = catalog.component(kind) ?: return Decode.Bad(
-            errors.unknownComponent(id, kind, pointer, surfaceId, "is not a component of this catalog"),
-        )
+        val schema: A2uiComponentSchema =
+            catalog.component(kind) ?: return Decode.Bad(
+                errors.unknownComponent(id, kind, pointer, surfaceId, "is not a component of this catalog"),
+            )
         val problem: A2uiError? = checkProperties(component, id, schema, pointer, surfaceId)
         if (problem != null) return Decode.Bad(problem)
         usage.record(kind)
@@ -149,45 +151,88 @@ internal class A2uiNodeFactory(
         id: String,
         pointer: String,
         surfaceId: SurfaceId,
-    ): Decode = when (kind) {
-        "divider" -> Decode.Ok(UiNode.Divider)
+    ): Decode =
+        when (kind) {
+            "divider" -> {
+                Decode.Ok(UiNode.Divider)
+            }
 
-        "text" -> A2uiAtomDecoders.text(component, id, pointer, surfaceId, errors)
+            "text" -> {
+                A2uiAtomDecoders.text(component, id, pointer, surfaceId, errors)
+            }
 
-        "heading" -> A2uiAtomDecoders.heading(component, id, pointer, surfaceId, errors)
+            "heading" -> {
+                A2uiAtomDecoders.heading(component, id, pointer, surfaceId, errors)
+            }
 
-        "badge" -> A2uiAtomDecoders.badge(component, id, pointer, surfaceId, errors)
+            "badge" -> {
+                A2uiAtomDecoders.badge(component, id, pointer, surfaceId, errors)
+            }
 
-        "icon" -> A2uiAtomDecoders.icon(component, id, pointer, surfaceId, errors)
+            "icon" -> {
+                A2uiAtomDecoders.icon(component, id, pointer, surfaceId, errors)
+            }
 
-        "button" -> A2uiAtomDecoders.button(component, id, pointer, surfaceId, errors)
+            "button" -> {
+                A2uiAtomDecoders.button(component, id, pointer, surfaceId, errors)
+            }
 
-        "text_field" -> A2uiAtomDecoders.textField(component, id, pointer, surfaceId, errors)
+            "text_field" -> {
+                A2uiAtomDecoders.textField(component, id, pointer, surfaceId, errors)
+            }
 
-        "checkbox" -> A2uiAtomDecoders.checkbox(component, id, pointer, surfaceId, errors)
+            "checkbox" -> {
+                A2uiAtomDecoders.checkbox(component, id, pointer, surfaceId, errors)
+            }
 
-        "column" -> Decode.Ok(UiNode.Column(component.refs("children")))
+            "column" -> {
+                Decode.Ok(UiNode.Column(component.refs("children")))
+            }
 
-        "row" -> Decode.Ok(UiNode.Row(component.refs("children")))
+            "row" -> {
+                Decode.Ok(UiNode.Row(component.refs("children")))
+            }
 
-        "list" -> Decode.Ok(UiNode.ListView(component.refs("children"), component.direction()))
+            "list" -> {
+                Decode.Ok(UiNode.ListView(component.refs("children"), component.direction()))
+            }
 
-        "card" -> A2uiLayoutDecoders.card(component, id, pointer, surfaceId, errors)
+            "card" -> {
+                A2uiLayoutDecoders.card(component, id, pointer, surfaceId, errors)
+            }
 
-        "modal" -> A2uiLayoutDecoders.modal(component, id, pointer, surfaceId, errors)
+            "modal" -> {
+                A2uiLayoutDecoders.modal(component, id, pointer, surfaceId, errors)
+            }
 
-        "tabs" -> A2uiLayoutDecoders.tabs(component, id, pointer, surfaceId, errors)
+            "tabs" -> {
+                A2uiLayoutDecoders.tabs(component, id, pointer, surfaceId, errors)
+            }
 
-        "task_card" -> A2uiDomainDecoders.taskCard(component, id, pointer, surfaceId, errors)
+            "task_card" -> {
+                A2uiDomainDecoders.taskCard(component, id, pointer, surfaceId, errors)
+            }
 
-        "due_date" -> A2uiDomainDecoders.dueDate(component, id, pointer, surfaceId, errors)
+            "due_date" -> {
+                A2uiDomainDecoders.dueDate(component, id, pointer, surfaceId, errors)
+            }
 
-        "project_chip" -> A2uiDomainDecoders.projectChip(component, id, pointer, surfaceId, errors)
+            "project_chip" -> {
+                A2uiDomainDecoders.projectChip(component, id, pointer, surfaceId, errors)
+            }
 
-        else -> Decode.Bad(
-            errors.unknownComponent(id, kind, pointer, surfaceId, "is declared but not implemented by this client"),
-        )
-    }
+            else -> {
+                Decode.Bad(
+                    errors.unknownComponent(
+                        id,
+                        kind,
+                        pointer,
+                        surfaceId,
+                        "is declared but not implemented by this client",
+                    ),
+                )
+            }
+        }
 
     /**
      * Presence first, then type and legal values, then the template a string may contain.
@@ -204,14 +249,15 @@ internal class A2uiNodeFactory(
         surfaceId: SurfaceId,
     ): A2uiError? {
         for (property in schema.properties) {
-            val problem: A2uiError? = checkProperty(
-                component[property.name] ?: JsonNull,
-                property,
-                id,
-                schema,
-                pointer,
-                surfaceId,
-            )
+            val problem: A2uiError? =
+                checkProperty(
+                    component[property.name] ?: JsonNull,
+                    property,
+                    id,
+                    schema,
+                    pointer,
+                    surfaceId,
+                )
             if (problem != null) return problem
         }
         return checkChildSlot(component, id, schema, pointer, surfaceId)
@@ -280,18 +326,29 @@ internal class A2uiNodeFactory(
                 )
             }
         }
-        val acceptable: Boolean = when (property.type) {
-            A2uiType.STRING, A2uiType.NODE_REF, A2uiType.PATH -> value.asStringOrNull() != null
+        val acceptable: Boolean =
+            when (property.type) {
+                A2uiType.STRING, A2uiType.NODE_REF, A2uiType.PATH -> {
+                    value.asStringOrNull() != null
+                }
 
-            A2uiType.INT -> value.asIntOrNull() != null
+                A2uiType.INT -> {
+                    value.asIntOrNull() != null
+                }
 
-            A2uiType.BOOL -> value.asBooleanOrNull() != null
+                A2uiType.BOOL -> {
+                    value.asBooleanOrNull() != null
+                }
 
-            A2uiType.NODE_REFS -> (value as? JsonArray)
-                ?.all { it.asStringOrNull() != null } ?: false
+                A2uiType.NODE_REFS -> {
+                    (value as? JsonArray)
+                        ?.all { it.asStringOrNull() != null } ?: false
+                }
 
-            A2uiType.JSON, A2uiType.TONE, A2uiType.DIRECTION -> true
-        }
+                A2uiType.JSON, A2uiType.TONE, A2uiType.DIRECTION -> {
+                    true
+                }
+            }
         return if (acceptable) {
             null
         } else {
@@ -315,9 +372,11 @@ internal class A2uiNodeFactory(
         pointer: String,
         surfaceId: SurfaceId,
     ): A2uiError? {
-        val text: String = (value as? JsonPrimitive)?.content
-            ?.takeIf { property.type == A2uiType.STRING }
-            ?: return null
+        val text: String =
+            (value as? JsonPrimitive)
+                ?.content
+                ?.takeIf { property.type == A2uiType.STRING }
+                ?: return null
         if (FormatString.isPlain(text)) return null
         val problem: TemplateError? = FormatString.validate(text, catalog.functions.keys)
         if (problem == null) return null

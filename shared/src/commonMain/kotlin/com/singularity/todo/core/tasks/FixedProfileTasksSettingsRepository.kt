@@ -31,7 +31,6 @@ import kotlinx.coroutines.flow.flowOf
  * application is what writes them; a tool server serves a profile.
  */
 class FixedProfileTasksSettingsRepository : TasksSettingsRepository {
-
     /** The default threshold: this process has no store to read the user's from. */
     override val stalenessThresholdDays: Flow<Int> =
         flowOf(SettingsDefaults.Tasks.STALENESS_THRESHOLD_DAYS)
@@ -52,7 +51,10 @@ class FixedProfileTasksSettingsRepository : TasksSettingsRepository {
      */
     override fun recurringSeriesRepairVersion(profileScope: String): Flow<Int> = flowOf(0)
 
-    override suspend fun setRecurringSeriesRepairVersion(profileScope: String, version: Int) {
+    override suspend fun setRecurringSeriesRepairVersion(
+        profileScope: String,
+        version: Int,
+    ) {
         // Intentionally empty: this process does not own the application's settings.
     }
 }

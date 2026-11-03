@@ -17,7 +17,6 @@ import kotlinx.serialization.json.JsonObject
  * before these run; what is here is turning the wire shape into the node.
  */
 internal object A2uiLayoutDecoders {
-
     fun card(
         component: JsonObject,
         id: String,
@@ -25,8 +24,9 @@ internal object A2uiLayoutDecoders {
         surfaceId: SurfaceId,
         errors: A2uiComponentErrors,
     ): Decode {
-        val child: String = component["child"].asStringOrNull()
-            ?: return Decode.Bad(errors.missingProperty(id, "card", "child", pointer, surfaceId))
+        val child: String =
+            component["child"].asStringOrNull()
+                ?: return Decode.Bad(errors.missingProperty(id, "card", "child", pointer, surfaceId))
         return Decode.Ok(UiNode.Card(NodeRef(child)))
     }
 
@@ -37,10 +37,12 @@ internal object A2uiLayoutDecoders {
         surfaceId: SurfaceId,
         errors: A2uiComponentErrors,
     ): Decode {
-        val child: String = component["child"].asStringOrNull()
-            ?: return Decode.Bad(errors.missingProperty(id, "modal", "child", pointer, surfaceId))
-        val openPath: String = component["openPath"].asStringOrNull()
-            ?: return Decode.Bad(errors.missingProperty(id, "modal", "openPath", pointer, surfaceId))
+        val child: String =
+            component["child"].asStringOrNull()
+                ?: return Decode.Bad(errors.missingProperty(id, "modal", "child", pointer, surfaceId))
+        val openPath: String =
+            component["openPath"].asStringOrNull()
+                ?: return Decode.Bad(errors.missingProperty(id, "modal", "openPath", pointer, surfaceId))
         return Decode.Ok(UiNode.Modal(NodeRef(child), UiPath.parse(openPath)))
     }
 
@@ -58,16 +60,18 @@ internal object A2uiLayoutDecoders {
         surfaceId: SurfaceId,
         errors: A2uiComponentErrors,
     ): Decode {
-        val array: JsonArray = component["tabs"] as? JsonArray
-            ?: return Decode.Bad(
-                errors.mismatch(id, "tabs", "tabs", "an array of {title, child} objects", pointer, surfaceId),
-            )
-        val parsed: List<UiNode.Tab> = array.mapNotNull { element: JsonElement ->
-            val entry: JsonObject = element as? JsonObject ?: return@mapNotNull null
-            val title: String = entry["title"].asStringOrNull() ?: return@mapNotNull null
-            val child: String = entry["child"].asStringOrNull() ?: return@mapNotNull null
-            UiNode.Tab(title, NodeRef(child))
-        }
+        val array: JsonArray =
+            component["tabs"] as? JsonArray
+                ?: return Decode.Bad(
+                    errors.mismatch(id, "tabs", "tabs", "an array of {title, child} objects", pointer, surfaceId),
+                )
+        val parsed: List<UiNode.Tab> =
+            array.mapNotNull { element: JsonElement ->
+                val entry: JsonObject = element as? JsonObject ?: return@mapNotNull null
+                val title: String = entry["title"].asStringOrNull() ?: return@mapNotNull null
+                val child: String = entry["child"].asStringOrNull() ?: return@mapNotNull null
+                UiNode.Tab(title, NodeRef(child))
+            }
         if (parsed.isEmpty()) {
             return Decode.Bad(
                 errors.mismatch(id, "tabs", "tabs", "at least one {title, child} object", pointer, surfaceId),

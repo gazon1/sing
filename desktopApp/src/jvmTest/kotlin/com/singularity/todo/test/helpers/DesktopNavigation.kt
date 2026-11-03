@@ -36,16 +36,17 @@ object DesktopShell {
     const val ALL_PROJECTS_ENTRY = "All projects"
 
     /** The destinations behind the drawer's second group, the menu proper. */
-    val MENU_ENTRIES = listOf(
-        "Statistics",
-        "Notes",
-        "AI Chat",
-        "Search",
-        "Archive",
-        "Calendar",
-        "Profiles",
-        "Settings",
-    )
+    val MENU_ENTRIES =
+        listOf(
+            "Statistics",
+            "Notes",
+            "AI Chat",
+            "Search",
+            "Archive",
+            "Calendar",
+            "Profiles",
+            "Settings",
+        )
 }
 
 /**
@@ -82,21 +83,22 @@ private fun DesktopComposeUiTest.isDrawerOpen(): Boolean =
  * off-screen entry does not reach it.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.openDrawer() = step("openDrawer") {
-    if (isDrawerOpen()) return@step
-    // Await before clicking. `onNodeWithContentDescription` fetches once and
-    // throws if the node is not composed *yet*; the hamburger is the first thing
-    // the shell draws, so under load it has sometimes not drawn when this runs.
-    // The failure reads as "Failed to inject mouse input ... could not find any
-    // node that satisfies ContentDescription = 'Menu'", which blames the input
-    // injection and the drawer and never mentions timing — measured on
-    // `AuthFirstRunScenarioTest` in a 12-minute run, passing in isolation.
-    awaitContentDescription(DesktopShell.HAMBURGER).performClick()
-    waitUntil(
-        conditionDescription = "drawer entry '${DesktopShell.TABS.first()}' slides into view",
-        timeoutMillis = TIMEOUT_MS,
-    ) { isDrawerOpen() }
-}
+fun DesktopComposeUiTest.openDrawer() =
+    step("openDrawer") {
+        if (isDrawerOpen()) return@step
+        // Await before clicking. `onNodeWithContentDescription` fetches once and
+        // throws if the node is not composed *yet*; the hamburger is the first thing
+        // the shell draws, so under load it has sometimes not drawn when this runs.
+        // The failure reads as "Failed to inject mouse input ... could not find any
+        // node that satisfies ContentDescription = 'Menu'", which blames the input
+        // injection and the drawer and never mentions timing — measured on
+        // `AuthFirstRunScenarioTest` in a 12-minute run, passing in isolation.
+        awaitContentDescription(DesktopShell.HAMBURGER).performClick()
+        waitUntil(
+            conditionDescription = "drawer entry '${DesktopShell.TABS.first()}' slides into view",
+            timeoutMillis = TIMEOUT_MS,
+        ) { isDrawerOpen() }
+    }
 
 /**
  * Asserts that [label] is the drawer's currently selected destination.
@@ -109,10 +111,11 @@ fun DesktopComposeUiTest.openDrawer() = step("openDrawer") {
  * highlight the current tab.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.assertCurrentTab(label: String) = step("assertCurrentTab", label) {
-    onNode(drawerEntry(label))
-        .assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, true))
-}
+fun DesktopComposeUiTest.assertCurrentTab(label: String) =
+    step("assertCurrentTab", label) {
+        onNode(drawerEntry(label))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, true))
+    }
 
 /**
  * Pops the shell's navigation stack by clicking its back button.
@@ -128,18 +131,19 @@ fun DesktopComposeUiTest.assertCurrentTab(label: String) = step("assertCurrentTa
  * tab.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.goBack() = step("goBack") {
-    onNodeWithContentDescription(DesktopShell.BACK).performClick()
-    waitUntil(
-        conditionDescription = "shell returns to a drawer-openable tab",
-        timeoutMillis = TIMEOUT_MS,
-    ) {
-        onAllNodes(hasContentDescription(DesktopShell.HAMBURGER))
-            .fetchSemanticsNodes()
-            .isNotEmpty()
+fun DesktopComposeUiTest.goBack() =
+    step("goBack") {
+        onNodeWithContentDescription(DesktopShell.BACK).performClick()
+        waitUntil(
+            conditionDescription = "shell returns to a drawer-openable tab",
+            timeoutMillis = TIMEOUT_MS,
+        ) {
+            onAllNodes(hasContentDescription(DesktopShell.HAMBURGER))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        waitForIdle()
     }
-    waitForIdle()
-}
 
 /**
  * Opens the full project list from the drawer's Projects section.
@@ -149,15 +153,16 @@ fun DesktopComposeUiTest.goBack() = step("goBack") {
  * the user does.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.openAllProjects() = step("openAllProjects") {
-    openDrawer()
-    onNode(drawerEntry(DesktopShell.ALL_PROJECTS_ENTRY)).performScrollTo().performClick()
-    waitUntil(
-        conditionDescription = "drawer closes after selecting '${DesktopShell.ALL_PROJECTS_ENTRY}'",
-        timeoutMillis = TIMEOUT_MS,
-    ) { !isDrawerOpen() }
-    waitForIdle()
-}
+fun DesktopComposeUiTest.openAllProjects() =
+    step("openAllProjects") {
+        openDrawer()
+        onNode(drawerEntry(DesktopShell.ALL_PROJECTS_ENTRY)).performScrollTo().performClick()
+        waitUntil(
+            conditionDescription = "drawer closes after selecting '${DesktopShell.ALL_PROJECTS_ENTRY}'",
+            timeoutMillis = TIMEOUT_MS,
+        ) { !isDrawerOpen() }
+        waitForIdle()
+    }
 
 /**
  * Opens the drawer (if still closed), activates [label], and waits for the sheet
@@ -172,16 +177,17 @@ fun DesktopComposeUiTest.openAllProjects() = step("openAllProjects") {
  * correct app. Assert on content the destination itself renders.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.tapTab(label: String) = step("tapTab", label) {
-    openDrawer()
-    // Scroll before clicking: the drawer's trailing entries sit below the fold of the
-    // 1024x768 test window, and clicking a composed-but-off-screen node dispatches to a
-    // coordinate outside the window — a no-op that never closes the drawer, so the wait
-    // below would fail on the symptom instead of the cause.
-    onNode(drawerEntry(label)).performScrollTo().performClick()
-    waitUntil(
-        conditionDescription = "drawer closes after selecting '$label'",
-        timeoutMillis = TIMEOUT_MS,
-    ) { !isDrawerOpen() }
-    waitForIdle()
-}
+fun DesktopComposeUiTest.tapTab(label: String) =
+    step("tapTab", label) {
+        openDrawer()
+        // Scroll before clicking: the drawer's trailing entries sit below the fold of the
+        // 1024x768 test window, and clicking a composed-but-off-screen node dispatches to a
+        // coordinate outside the window — a no-op that never closes the drawer, so the wait
+        // below would fail on the symptom instead of the cause.
+        onNode(drawerEntry(label)).performScrollTo().performClick()
+        waitUntil(
+            conditionDescription = "drawer closes after selecting '$label'",
+            timeoutMillis = TIMEOUT_MS,
+        ) { !isDrawerOpen() }
+        waitForIdle()
+    }

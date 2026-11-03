@@ -23,34 +23,36 @@ class CreateTaskUseCase(
         // rebuilds a new CreateTaskInput, so any field not passed is dropped — and
         // `buildTask` then persists a task without it. `parentTaskId` was omitted here,
         // which silently turned "add subtask" into "add a top-level task".
-        val validated: Either<AppError.Validation, CreateTaskInput> = TaskDomain.createInput(
-            title = input.title,
-            description = input.description,
-            priority = input.priority,
-            kind = input.kind,
-            projectId = input.projectId,
-            parentTaskId = input.parentTaskId,
-            tagIds = input.tagIds,
-            dueDate = input.dueDate,
-            dueTime = input.dueTime,
-            startDate = input.startDate,
-            startTime = input.startTime,
-            endDate = input.endDate,
-            endTime = input.endTime,
-            accentColor = input.accentColor,
-            emoji = input.emoji,
-            someday = input.someday,
-            recurrence = input.recurrence,
-        )
+        val validated: Either<AppError.Validation, CreateTaskInput> =
+            TaskDomain.createInput(
+                title = input.title,
+                description = input.description,
+                priority = input.priority,
+                kind = input.kind,
+                projectId = input.projectId,
+                parentTaskId = input.parentTaskId,
+                tagIds = input.tagIds,
+                dueDate = input.dueDate,
+                dueTime = input.dueTime,
+                startDate = input.startDate,
+                startTime = input.startTime,
+                endDate = input.endDate,
+                endTime = input.endTime,
+                accentColor = input.accentColor,
+                emoji = input.emoji,
+                someday = input.someday,
+                recurrence = input.recurrence,
+            )
         if (validated is Either.Left) return Result.failure(validated.error)
 
         val userId = currentUser.scopedUserId.value
-        val task = TaskDomain.buildTask(
-            input = (validated as Either.Right).value,
-            createdAt = clock.now(),
-            updatedAt = clock.now(),
-            userId = userId,
-        )
+        val task =
+            TaskDomain.buildTask(
+                input = (validated as Either.Right).value,
+                createdAt = clock.now(),
+                updatedAt = clock.now(),
+                userId = userId,
+            )
         return repo.create(task).map { it.id }
     }
 }

@@ -13,10 +13,13 @@ package com.singularity.todo.feature.calendarSync.auth
  * generated its `BuildConfig`.
  */
 actual fun buildTimeGoogleClientId(): BuildTimeGoogleClientConfig? {
-    val clientId = runCatching {
-        Class.forName("com.singularity.todo.BuildConfig")
-            .getField("GOOGLE_CLIENT_ID").get(null) as? String
-    }.getOrNull()
+    val clientId =
+        runCatching {
+            Class
+                .forName("com.singularity.todo.BuildConfig")
+                .getField("GOOGLE_CLIENT_ID")
+                .get(null) as? String
+        }.getOrNull()
     if (clientId.isNullOrBlank()) return null
     return BuildTimeGoogleClientConfig(clientId)
 }

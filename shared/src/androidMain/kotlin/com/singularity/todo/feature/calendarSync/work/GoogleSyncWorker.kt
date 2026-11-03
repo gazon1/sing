@@ -48,21 +48,21 @@ import org.koin.core.component.inject
 class GoogleSyncWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params),
     KoinComponent {
-
     private val trigger: GoogleSyncPeriodicTrigger by inject()
     private val coordinator: GoogleSyncCoordinator by inject()
     private val log: Logger = Logger.withTag("GoogleSyncWorker")
 
     // See the class doc: only the precondition reads land here, and both are retryable.
     @Suppress("TooGenericExceptionCaught")
-    override suspend fun doWork(): Result = try {
-        runPass()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        log.w(e) { "Google sync pass could not be attempted; retrying" }
-        Result.retry()
-    }
+    override suspend fun doWork(): Result =
+        try {
+            runPass()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.w(e) { "Google sync pass could not be attempted; retrying" }
+            Result.retry()
+        }
 
     private suspend fun runPass(): Result {
         // The gate comes from the seam, not from the coordinator directly, so this worker
@@ -78,7 +78,9 @@ class GoogleSyncWorker(context: Context, params: WorkerParameters) :
         // and answered with success(), permanently stopping background sync with no
         // retry and nothing on screen. A failure must be a failure here.
         return when (outcome) {
-            is GoogleSyncCoordinator.Outcome.Completed -> Result.success()
+            is GoogleSyncCoordinator.Outcome.Completed -> {
+                Result.success()
+            }
 
             is GoogleSyncCoordinator.Outcome.Declined -> {
                 log.i { "Google sync pass skipped: ${outcome.reason}" }

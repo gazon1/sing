@@ -37,15 +37,17 @@ fun TaskSaveBar(
             onClick = onSaveClick,
             enabled = isEnabled,
             shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = TaskSpacing.screenPadding, vertical = TaskSpacing.md)
-                .height(52.dp)
-                .testTag(TestTags.TASK_EDITOR_SAVE),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = TaskSpacing.screenPadding, vertical = TaskSpacing.md)
+                    .height(52.dp)
+                    .testTag(TestTags.TASK_EDITOR_SAVE),
         ) {
             Text(
                 text = "Сохранить",

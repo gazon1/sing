@@ -76,82 +76,99 @@ data class BackupDelta(
  * honest: merging the next change on top of a merged payload must not carry the
  * earlier removals along, or a row that came back would be taken out again.
  */
-fun merge(base: BackupPayload, delta: BackupPayload): BackupPayload = BackupPayload(
-    schemaVersion = maxOf(base.schemaVersion, delta.schemaVersion),
-    tasks = mergeRows(base.tasks, delta.tasks, delta.removed(BackupEntityKind.TASKS)) { it.id },
-    notes = mergeRows(base.notes, delta.notes, delta.removed(BackupEntityKind.NOTES)) { it.id },
-    projects = mergeRows(base.projects, delta.projects, delta.removed(BackupEntityKind.PROJECTS)) { it.id },
-    tags = mergeRows(base.tags, delta.tags, delta.removed(BackupEntityKind.TAGS)) { it.id },
-    attachments = mergeRows(
-        base.attachments,
-        delta.attachments,
-        delta.removed(BackupEntityKind.ATTACHMENTS),
-    ) { it.id },
-    attachmentAnnotations = mergeRows(
-        base.attachmentAnnotations,
-        delta.attachmentAnnotations,
-        delta.removed(BackupEntityKind.ATTACHMENT_ANNOTATIONS),
-    ) { it.id },
-    taskTags = mergeRows(
-        base.taskTags,
-        delta.taskTags,
-        delta.removed(BackupEntityKind.TASK_TAGS),
-    ) { it.taskId.link(it.tagId) },
-    taskDependencies = mergeRows(
-        base.taskDependencies,
-        delta.taskDependencies,
-        delta.removed(BackupEntityKind.TASK_DEPENDENCIES),
-    ) {
-        it.taskId.link(it.dependsOnTaskId)
-    },
-    agendaViews = mergeRows(
-        base.agendaViews,
-        delta.agendaViews,
-        delta.removed(BackupEntityKind.AGENDA_VIEWS),
-    ) { it.id },
-    taskReminders = mergeRows(
-        base.taskReminders,
-        delta.taskReminders,
-        delta.removed(BackupEntityKind.TASK_REMINDERS),
-    ) { it.id },
-    projectReminders = mergeRows(
-        base.projectReminders,
-        delta.projectReminders,
-        delta.removed(BackupEntityKind.PROJECT_REMINDERS),
-    ) { it.id },
-    checklistItems = mergeRows(
-        base.checklistItems,
-        delta.checklistItems,
-        delta.removed(BackupEntityKind.CHECKLIST_ITEMS),
-    ) { it.id },
-    tagGroups = mergeRows(
-        base.tagGroups,
-        delta.tagGroups,
-        delta.removed(BackupEntityKind.TAG_GROUPS),
-    ) { it.id },
-    projectTagGroups = mergeRows(
-        base.projectTagGroups,
-        delta.projectTagGroups,
-        delta.removed(BackupEntityKind.PROJECT_TAG_GROUPS),
-    ) {
-        it.projectId.link(it.tagGroupId)
-    },
-    savedSearches = mergeRows(
-        base.savedSearches,
-        delta.savedSearches,
-        delta.removed(BackupEntityKind.SAVED_SEARCHES),
-    ) { it.id },
-    timeEntries = mergeRows(
-        base.timeEntries,
-        delta.timeEntries,
-        delta.removed(BackupEntityKind.TIME_ENTRIES),
-    ) { it.id },
-    profiles = mergeRows(
-        base.profiles,
-        delta.profiles,
-        delta.removed(BackupEntityKind.PROFILES),
-    ) { it.id },
-)
+fun merge(
+    base: BackupPayload,
+    delta: BackupPayload,
+): BackupPayload =
+    BackupPayload(
+        schemaVersion = maxOf(base.schemaVersion, delta.schemaVersion),
+        tasks = mergeRows(base.tasks, delta.tasks, delta.removed(BackupEntityKind.TASKS)) { it.id },
+        notes = mergeRows(base.notes, delta.notes, delta.removed(BackupEntityKind.NOTES)) { it.id },
+        projects = mergeRows(base.projects, delta.projects, delta.removed(BackupEntityKind.PROJECTS)) { it.id },
+        tags = mergeRows(base.tags, delta.tags, delta.removed(BackupEntityKind.TAGS)) { it.id },
+        attachments =
+            mergeRows(
+                base.attachments,
+                delta.attachments,
+                delta.removed(BackupEntityKind.ATTACHMENTS),
+            ) { it.id },
+        attachmentAnnotations =
+            mergeRows(
+                base.attachmentAnnotations,
+                delta.attachmentAnnotations,
+                delta.removed(BackupEntityKind.ATTACHMENT_ANNOTATIONS),
+            ) { it.id },
+        taskTags =
+            mergeRows(
+                base.taskTags,
+                delta.taskTags,
+                delta.removed(BackupEntityKind.TASK_TAGS),
+            ) { it.taskId.link(it.tagId) },
+        taskDependencies =
+            mergeRows(
+                base.taskDependencies,
+                delta.taskDependencies,
+                delta.removed(BackupEntityKind.TASK_DEPENDENCIES),
+            ) {
+                it.taskId.link(it.dependsOnTaskId)
+            },
+        agendaViews =
+            mergeRows(
+                base.agendaViews,
+                delta.agendaViews,
+                delta.removed(BackupEntityKind.AGENDA_VIEWS),
+            ) { it.id },
+        taskReminders =
+            mergeRows(
+                base.taskReminders,
+                delta.taskReminders,
+                delta.removed(BackupEntityKind.TASK_REMINDERS),
+            ) { it.id },
+        projectReminders =
+            mergeRows(
+                base.projectReminders,
+                delta.projectReminders,
+                delta.removed(BackupEntityKind.PROJECT_REMINDERS),
+            ) { it.id },
+        checklistItems =
+            mergeRows(
+                base.checklistItems,
+                delta.checklistItems,
+                delta.removed(BackupEntityKind.CHECKLIST_ITEMS),
+            ) { it.id },
+        tagGroups =
+            mergeRows(
+                base.tagGroups,
+                delta.tagGroups,
+                delta.removed(BackupEntityKind.TAG_GROUPS),
+            ) { it.id },
+        projectTagGroups =
+            mergeRows(
+                base.projectTagGroups,
+                delta.projectTagGroups,
+                delta.removed(BackupEntityKind.PROJECT_TAG_GROUPS),
+            ) {
+                it.projectId.link(it.tagGroupId)
+            },
+        savedSearches =
+            mergeRows(
+                base.savedSearches,
+                delta.savedSearches,
+                delta.removed(BackupEntityKind.SAVED_SEARCHES),
+            ) { it.id },
+        timeEntries =
+            mergeRows(
+                base.timeEntries,
+                delta.timeEntries,
+                delta.removed(BackupEntityKind.TIME_ENTRIES),
+            ) { it.id },
+        profiles =
+            mergeRows(
+                base.profiles,
+                delta.profiles,
+                delta.removed(BackupEntityKind.PROFILES),
+            ) { it.id },
+    )
 
 /**
  * Whether the payload holds no rows at all.
@@ -181,8 +198,7 @@ internal fun BackupPayload.hasNoChanges(): Boolean = hasNoRows() && removals.isE
  * The empty set when the kind is not mentioned: a change that says nothing about
  * a kind removes nothing of it.
  */
-private fun BackupPayload.removed(kind: BackupEntityKind): Set<String> =
-    removals[kind].orEmpty().toSet()
+private fun BackupPayload.removed(kind: BackupEntityKind): Set<String> = removals[kind].orEmpty().toSet()
 
 /**
  * What an export has to write beside its snapshot: a fresh base, or an entry.
@@ -193,7 +209,6 @@ private fun BackupPayload.removed(kind: BackupEntityKind): Set<String> =
  * whenever the change cannot be carried as a set of rows.
  */
 internal sealed interface BackupDeltaPlan {
-
     /** The snapshot is the base of a new chain, and no entry is written. */
     data class FreshBase(val reason: Reason) : BackupDeltaPlan
 
@@ -232,7 +247,6 @@ internal sealed interface BackupDeltaPlan {
  *   three travel: a removal travels as the key of the row that is not there.
  */
 internal object BackupDeltaPlanner {
-
     /**
      * What [payload] means, given what [previous] held.
      *
@@ -266,67 +280,88 @@ internal object BackupDeltaPlanner {
         previous: BackupRowIndex,
         current: BackupPayload,
         removals: Map<BackupEntityKind, List<String>>,
-    ): BackupPayload = BackupPayload(
-        schemaVersion = BackupFormat.SCHEMA_VERSION,
-        tasks = changed(previous, BackupEntityKind.TASKS, current.tasks, TaskDto.serializer()) { it.id },
-        notes = changed(previous, BackupEntityKind.NOTES, current.notes, NoteDto.serializer()) { it.id },
-        projects = changed(previous, BackupEntityKind.PROJECTS, current.projects, ProjectDto.serializer()) { it.id },
-        tags = changed(previous, BackupEntityKind.TAGS, current.tags, TagDto.serializer()) { it.id },
-        attachments = emptyList(),
-        attachmentAnnotations = changed(
-            previous,
-            BackupEntityKind.ATTACHMENT_ANNOTATIONS,
-            current.attachmentAnnotations,
-            AttachmentAnnotationDto.serializer(),
-        ) { it.id },
-        taskTags = current.taskTags,
-        taskDependencies = current.taskDependencies,
-        agendaViews = changed(
-            previous,
-            BackupEntityKind.AGENDA_VIEWS,
-            current.agendaViews,
-            AgendaViewDto.serializer(),
-        ) { it.id },
-        taskReminders = changed(
-            previous,
-            BackupEntityKind.TASK_REMINDERS,
-            current.taskReminders,
-            TaskReminderDto.serializer(),
-        ) { it.id },
-        projectReminders = changed(
-            previous,
-            BackupEntityKind.PROJECT_REMINDERS,
-            current.projectReminders,
-            ProjectReminderDto.serializer(),
-        ) { it.id },
-        checklistItems = changed(
-            previous,
-            BackupEntityKind.CHECKLIST_ITEMS,
-            current.checklistItems,
-            ChecklistItemDto.serializer(),
-        ) { it.id },
-        tagGroups = changed(
-            previous,
-            BackupEntityKind.TAG_GROUPS,
-            current.tagGroups,
-            TagGroupDto.serializer(),
-        ) { it.id },
-        projectTagGroups = current.projectTagGroups,
-        savedSearches = changed(
-            previous,
-            BackupEntityKind.SAVED_SEARCHES,
-            current.savedSearches,
-            SavedSearchDto.serializer(),
-        ) { it.id },
-        timeEntries = changed(
-            previous,
-            BackupEntityKind.TIME_ENTRIES,
-            current.timeEntries,
-            TimeEntryDto.serializer(),
-        ) { it.id },
-        profiles = changed(previous, BackupEntityKind.PROFILES, current.profiles, ProfileDto.serializer()) { it.id },
-        removals = removals,
-    )
+    ): BackupPayload =
+        BackupPayload(
+            schemaVersion = BackupFormat.SCHEMA_VERSION,
+            tasks = changed(previous, BackupEntityKind.TASKS, current.tasks, TaskDto.serializer()) { it.id },
+            notes = changed(previous, BackupEntityKind.NOTES, current.notes, NoteDto.serializer()) { it.id },
+            projects =
+                changed(
+                    previous,
+                    BackupEntityKind.PROJECTS,
+                    current.projects,
+                    ProjectDto.serializer(),
+                ) { it.id },
+            tags = changed(previous, BackupEntityKind.TAGS, current.tags, TagDto.serializer()) { it.id },
+            attachments = emptyList(),
+            attachmentAnnotations =
+                changed(
+                    previous,
+                    BackupEntityKind.ATTACHMENT_ANNOTATIONS,
+                    current.attachmentAnnotations,
+                    AttachmentAnnotationDto.serializer(),
+                ) { it.id },
+            taskTags = current.taskTags,
+            taskDependencies = current.taskDependencies,
+            agendaViews =
+                changed(
+                    previous,
+                    BackupEntityKind.AGENDA_VIEWS,
+                    current.agendaViews,
+                    AgendaViewDto.serializer(),
+                ) { it.id },
+            taskReminders =
+                changed(
+                    previous,
+                    BackupEntityKind.TASK_REMINDERS,
+                    current.taskReminders,
+                    TaskReminderDto.serializer(),
+                ) { it.id },
+            projectReminders =
+                changed(
+                    previous,
+                    BackupEntityKind.PROJECT_REMINDERS,
+                    current.projectReminders,
+                    ProjectReminderDto.serializer(),
+                ) { it.id },
+            checklistItems =
+                changed(
+                    previous,
+                    BackupEntityKind.CHECKLIST_ITEMS,
+                    current.checklistItems,
+                    ChecklistItemDto.serializer(),
+                ) { it.id },
+            tagGroups =
+                changed(
+                    previous,
+                    BackupEntityKind.TAG_GROUPS,
+                    current.tagGroups,
+                    TagGroupDto.serializer(),
+                ) { it.id },
+            projectTagGroups = current.projectTagGroups,
+            savedSearches =
+                changed(
+                    previous,
+                    BackupEntityKind.SAVED_SEARCHES,
+                    current.savedSearches,
+                    SavedSearchDto.serializer(),
+                ) { it.id },
+            timeEntries =
+                changed(
+                    previous,
+                    BackupEntityKind.TIME_ENTRIES,
+                    current.timeEntries,
+                    TimeEntryDto.serializer(),
+                ) { it.id },
+            profiles =
+                changed(
+                    previous,
+                    BackupEntityKind.PROFILES,
+                    current.profiles,
+                    ProfileDto.serializer(),
+                ) { it.id },
+            removals = removals,
+        )
 
     /**
      * The rows that are gone: the keys [previous] held and [current] does not.
@@ -343,12 +378,14 @@ internal object BackupDeltaPlanner {
     private fun removedRows(
         previous: BackupRowIndex,
         current: BackupRowIndex,
-    ): Map<BackupEntityKind, List<String>> = BackupEntityKind.entries.mapNotNull { kind ->
-        val before = previous[kind].orEmpty()
-        val now = current[kind].orEmpty()
-        val removed = before.keys.filter { it !in now }
-        if (removed.isEmpty()) null else kind to removed
-    }.toMap()
+    ): Map<BackupEntityKind, List<String>> =
+        BackupEntityKind.entries
+            .mapNotNull { kind ->
+                val before = previous[kind].orEmpty()
+                val now = current[kind].orEmpty()
+                val removed = before.keys.filter { it !in now }
+                if (removed.isEmpty()) null else kind to removed
+            }.toMap()
 
     /** The rows of [current] of one kind that are not the rows [previous] held. */
     private fun <T> changed(

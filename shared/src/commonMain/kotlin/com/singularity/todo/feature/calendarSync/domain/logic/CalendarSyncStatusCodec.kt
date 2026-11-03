@@ -37,7 +37,6 @@ import com.singularity.todo.feature.calendarSync.error.FailureType
  * older build, or corrupted on disk, can never throw on read.
  */
 object CalendarSyncStatusCodec {
-
     private const val TAG_DISABLED = "Disabled"
     private const val TAG_SYNCING = "Syncing"
     private const val TAG_IDLE = "Idle"
@@ -52,27 +51,36 @@ object CalendarSyncStatusCodec {
      * `Failed` with a reason that itself contains colons, backslashes, or the literal
      * words "Idle"/"Syncing" — which is what the previous `when`-based reader got wrong.
      */
-    fun encode(status: CalendarSyncStatus): String = when (status) {
-        CalendarSyncStatus.Disabled -> TAG_DISABLED
+    fun encode(status: CalendarSyncStatus): String =
+        when (status) {
+            CalendarSyncStatus.Disabled -> {
+                TAG_DISABLED
+            }
 
-        CalendarSyncStatus.Syncing -> TAG_SYNCING
+            CalendarSyncStatus.Syncing -> {
+                TAG_SYNCING
+            }
 
-        is CalendarSyncStatus.Idle -> buildString {
-            append(TAG_IDLE)
-            status.lastSyncedAt?.let {
-                append(SEPARATOR)
-                append(it)
+            is CalendarSyncStatus.Idle -> {
+                buildString {
+                    append(TAG_IDLE)
+                    status.lastSyncedAt?.let {
+                        append(SEPARATOR)
+                        append(it)
+                    }
+                }
+            }
+
+            is CalendarSyncStatus.Failed -> {
+                buildString {
+                    append(TAG_FAILED)
+                    append(SEPARATOR)
+                    append(escape(status.reason))
+                    append(SEPARATOR)
+                    append(status.type.name)
+                }
             }
         }
-
-        is CalendarSyncStatus.Failed -> buildString {
-            append(TAG_FAILED)
-            append(SEPARATOR)
-            append(escape(status.reason))
-            append(SEPARATOR)
-            append(status.type.name)
-        }
-    }
 
     /**
      * Decodes a stored value back to a [CalendarSyncStatus].
@@ -82,53 +90,67 @@ object CalendarSyncStatusCodec {
      * [fallback] (supplied by the caller, because it may need to read other preferences)
      * is returned only when [raw] is null or blank, i.e. nothing was ever written.
      */
-    fun decode(raw: String?, fallback: CalendarSyncStatus): CalendarSyncStatus {
+    fun decode(
+        raw: String?,
+        fallback: CalendarSyncStatus,
+    ): CalendarSyncStatus {
         if (raw.isNullOrBlank()) return fallback
         val parts = split(raw)
         return when (parts.firstOrNull()) {
-            TAG_DISABLED -> CalendarSyncStatus.Disabled
+            TAG_DISABLED -> {
+                CalendarSyncStatus.Disabled
+            }
 
-            TAG_SYNCING -> CalendarSyncStatus.Syncing
+            TAG_SYNCING -> {
+                CalendarSyncStatus.Syncing
+            }
 
-            TAG_IDLE -> CalendarSyncStatus.Idle(parts.getOrNull(1)?.toLongOrNull())
+            TAG_IDLE -> {
+                CalendarSyncStatus.Idle(parts.getOrNull(1)?.toLongOrNull())
+            }
 
             TAG_FAILED -> {
                 val reason = parts.getOrNull(1)?.let(::unescape).orEmpty()
-                val type = parts.getOrNull(2)?.let { name ->
-                    FailureType.entries.firstOrNull { it.name == name }
-                } ?: FailureType.Unknown
+                val type =
+                    parts.getOrNull(2)?.let { name ->
+                        FailureType.entries.firstOrNull { it.name == name }
+                    } ?: FailureType.Unknown
                 CalendarSyncStatus.Failed(reason, type)
             }
 
             // An unrecognised tag means a newer build wrote this. Reporting it as a
             // failure keeps the previous behaviour of surfacing the problem, without
             // pretending the stored text was a reason.
-            else -> CalendarSyncStatus.Failed(raw, FailureType.Unknown)
+            else -> {
+                CalendarSyncStatus.Failed(raw, FailureType.Unknown)
+            }
         }
     }
 
     /** Escapes the separator and the escape character so free text survives a round trip. */
-    private fun escape(text: String): String = buildString(text.length) {
-        for (ch in text) {
-            if (ch == SEPARATOR || ch == ESCAPE) append(ESCAPE)
-            append(ch)
-        }
-    }
-
-    /** Reverses [escape]. A trailing lone backslash is kept, because dropping data is worse. */
-    private fun unescape(text: String): String = buildString(text.length) {
-        var i = 0
-        while (i < text.length) {
-            val ch = text[i]
-            if (ch == ESCAPE && i + 1 < text.length) {
-                append(text[i + 1])
-                i += 2
-            } else {
+    private fun escape(text: String): String =
+        buildString(text.length) {
+            for (ch in text) {
+                if (ch == SEPARATOR || ch == ESCAPE) append(ESCAPE)
                 append(ch)
-                i++
             }
         }
-    }
+
+    /** Reverses [escape]. A trailing lone backslash is kept, because dropping data is worse. */
+    private fun unescape(text: String): String =
+        buildString(text.length) {
+            var i = 0
+            while (i < text.length) {
+                val ch = text[i]
+                if (ch == ESCAPE && i + 1 < text.length) {
+                    append(text[i + 1])
+                    i += 2
+                } else {
+                    append(ch)
+                    i++
+                }
+            }
+        }
 
     /** Splits on unescaped separators, honouring [ESCAPE] runs. */
     private fun split(raw: String): List<String> {

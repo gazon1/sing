@@ -29,7 +29,6 @@ import kotlin.test.assertTrue
  * re-derive it.
  */
 class NoEmptyOnClickLambdaRuleTest {
-
     private val rule = NoEmptyOnClickLambdaRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
@@ -130,13 +129,14 @@ class NoEmptyOnClickLambdaRuleTest {
     fun `the gate accepts a handler name the old list did not carry`() {
         // These are the five that shipped past PARAM_NAMES. If a future edit ever
         // reintroduces a name list, this is the test that fails.
-        val missed = listOf(
-            "onAttachFile",
-            "onAiAction",
-            "onWriteNote",
-            "onAddChecklist",
-            "onUnarchive",
-        )
+        val missed =
+            listOf(
+                "onAttachFile",
+                "onAiAction",
+                "onWriteNote",
+                "onAddChecklist",
+                "onUnarchive",
+            )
         for (name in missed) {
             assertTrue(
                 NoEmptyOnClickLambdaPolicy.isHandlerParameter(name),
@@ -148,10 +148,19 @@ class NoEmptyOnClickLambdaRuleTest {
     @Test
     fun `every name the old list carried is still accepted`() {
         // The shape must be a superset of the list, or the change loses coverage.
-        val oldList = listOf(
-            "onClick", "onConfirm", "onDelete", "onDismiss", "onRetry",
-            "onSave", "onBack", "onToggle", "onEdit", "onCheckedChange",
-        )
+        val oldList =
+            listOf(
+                "onClick",
+                "onConfirm",
+                "onDelete",
+                "onDismiss",
+                "onRetry",
+                "onSave",
+                "onBack",
+                "onToggle",
+                "onEdit",
+                "onCheckedChange",
+            )
         for (name in oldList) {
             assertTrue(
                 NoEmptyOnClickLambdaPolicy.isHandlerParameter(name),

@@ -17,7 +17,6 @@ import kotlinx.datetime.plus
  *
  */
 object RecurrenceCalculator {
-
     /**
      * Computes the next occurrence date given the current occurrence's anchor date.
      *
@@ -28,12 +27,16 @@ object RecurrenceCalculator {
      * @param anchor The date to compute the next occurrence relative to.
      * @return The next occurrence date.
      */
-    fun nextOccurrence(spec: RecurrenceSpec, anchor: LocalDate): LocalDate = when (spec) {
-        is RecurrenceSpec.Interval -> nextInterval(anchor, spec.amount, spec.unit)
-        is RecurrenceSpec.Weekly -> nextWeekly(anchor, spec.weekdays)
-        is RecurrenceSpec.Monthly -> nextMonthly(anchor, spec.dayOfMonth)
-        is RecurrenceSpec.Yearly -> nextYearly(anchor, spec.month, spec.day)
-    }
+    fun nextOccurrence(
+        spec: RecurrenceSpec,
+        anchor: LocalDate,
+    ): LocalDate =
+        when (spec) {
+            is RecurrenceSpec.Interval -> nextInterval(anchor, spec.amount, spec.unit)
+            is RecurrenceSpec.Weekly -> nextWeekly(anchor, spec.weekdays)
+            is RecurrenceSpec.Monthly -> nextMonthly(anchor, spec.dayOfMonth)
+            is RecurrenceSpec.Yearly -> nextYearly(anchor, spec.month, spec.day)
+        }
 
     /**
      * Returns how many occurrences were missed between [anchor] and [today] (inclusive),
@@ -46,21 +49,29 @@ object RecurrenceCalculator {
      * @param today  The current date (completion date).
      * @return Number of missed occurrences, in `0..MAX_MISSED`.
      */
-    fun missedCount(spec: RecurrenceSpec, anchor: LocalDate, today: LocalDate): Int {
+    fun missedCount(
+        spec: RecurrenceSpec,
+        anchor: LocalDate,
+        today: LocalDate,
+    ): Int {
         if (today <= anchor) return 0
-        val count = when (spec) {
-            is RecurrenceSpec.Interval -> countIntervalMissed(anchor, today, spec.amount, spec.unit)
-            is RecurrenceSpec.Weekly -> countWeeklyMissed(anchor, today, spec.weekdays)
-            is RecurrenceSpec.Monthly -> countMonthlyMissed(anchor, today, spec.dayOfMonth)
-            is RecurrenceSpec.Yearly -> countYearlyMissed(anchor, today, spec.month, spec.day)
-        }
+        val count =
+            when (spec) {
+                is RecurrenceSpec.Interval -> countIntervalMissed(anchor, today, spec.amount, spec.unit)
+                is RecurrenceSpec.Weekly -> countWeeklyMissed(anchor, today, spec.weekdays)
+                is RecurrenceSpec.Monthly -> countMonthlyMissed(anchor, today, spec.dayOfMonth)
+                is RecurrenceSpec.Yearly -> countYearlyMissed(anchor, today, spec.month, spec.day)
+            }
         return count.coerceIn(0, RecurrenceSpec.MAX_MISSED)
     }
 
     // ─── Interval ────────────────────────────────────────────────────────────────
 
-    private fun nextInterval(anchor: LocalDate, amount: Int, unit: DateTimeUnit.DateBased): LocalDate =
-        anchor.plus(amount, unit)
+    private fun nextInterval(
+        anchor: LocalDate,
+        amount: Int,
+        unit: DateTimeUnit.DateBased,
+    ): LocalDate = anchor.plus(amount, unit)
 
     private fun countIntervalMissed(
         anchor: LocalDate,
@@ -82,7 +93,10 @@ object RecurrenceCalculator {
 
     // ─── Weekly ─────────────────────────────────────────────────────────────────
 
-    private fun nextWeekly(anchor: LocalDate, weekdays: Set<Int>): LocalDate {
+    private fun nextWeekly(
+        anchor: LocalDate,
+        weekdays: Set<Int>,
+    ): LocalDate {
         // anchor.dayOfWeek is DayOfWeek enum (MONDAY=0.ordinal=0, ..., SUNDAY=6.ordinal=6)
         // weekdays are ISO-8601 (Monday=1, ..., Sunday=7)
         val anchorIso = anchor.dayOfWeek.ordinal + 1 // 1=Monday … 7=Sunday
@@ -96,7 +110,11 @@ object RecurrenceCalculator {
         }
     }
 
-    private fun countWeeklyMissed(anchor: LocalDate, today: LocalDate, weekdays: Set<Int>): Int {
+    private fun countWeeklyMissed(
+        anchor: LocalDate,
+        today: LocalDate,
+        weekdays: Set<Int>,
+    ): Int {
         if (today <= anchor) return 0
         var count = 0
         var current = anchor
@@ -111,13 +129,20 @@ object RecurrenceCalculator {
 
     // ─── Monthly ────────────────────────────────────────────────────────────────
 
-    private fun nextMonthly(anchor: LocalDate, dayOfMonth: Int): LocalDate {
+    private fun nextMonthly(
+        anchor: LocalDate,
+        dayOfMonth: Int,
+    ): LocalDate {
         val nextMonth = anchor.plus(1, DateTimeUnit.MONTH)
         val lastDay = lastDayOfMonth(nextMonth.year, nextMonth.month.number)
         return LocalDate(nextMonth.year, nextMonth.month.number, minOf(dayOfMonth, lastDay))
     }
 
-    private fun countMonthlyMissed(anchor: LocalDate, today: LocalDate, dayOfMonth: Int): Int {
+    private fun countMonthlyMissed(
+        anchor: LocalDate,
+        today: LocalDate,
+        dayOfMonth: Int,
+    ): Int {
         if (today <= anchor) return 0
         var count = 0
         var current = anchor
@@ -132,13 +157,22 @@ object RecurrenceCalculator {
 
     // ─── Yearly ─────────────────────────────────────────────────────────────────
 
-    private fun nextYearly(anchor: LocalDate, month: Int, day: Int): LocalDate {
+    private fun nextYearly(
+        anchor: LocalDate,
+        month: Int,
+        day: Int,
+    ): LocalDate {
         val nextYear = anchor.year + 1
         val lastDay = lastDayOfMonth(nextYear, month)
         return LocalDate(nextYear, month, minOf(day, lastDay))
     }
 
-    private fun countYearlyMissed(anchor: LocalDate, today: LocalDate, month: Int, day: Int): Int {
+    private fun countYearlyMissed(
+        anchor: LocalDate,
+        today: LocalDate,
+        month: Int,
+        day: Int,
+    ): Int {
         if (today <= anchor) return 0
         var count = 0
         var current = anchor
@@ -153,7 +187,10 @@ object RecurrenceCalculator {
 
     // ─── Helpers ────────────────────────────────────────────────────────────────
 
-    private fun lastDayOfMonth(year: Int, month: Int): Int {
+    private fun lastDayOfMonth(
+        year: Int,
+        month: Int,
+    ): Int {
         val nextMonthOrdinal = if (month == 12) 0 else month
         val nextMonthYear = if (month == 12) year + 1 else year
         val firstOfNextMonth = LocalDate(nextMonthYear, Month.entries[nextMonthOrdinal], 1)

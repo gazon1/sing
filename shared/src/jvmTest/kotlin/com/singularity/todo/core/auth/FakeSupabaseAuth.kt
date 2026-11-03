@@ -37,13 +37,13 @@ import io.github.jan.supabase.auth.user.UserUpdateBuilder
 import io.github.jan.supabase.exceptions.RestException
 import io.github.jan.supabase.logging.SupabaseLogger
 import io.ktor.client.statement.HttpResponse
-import kotlin.reflect.KType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.JsonObject
+import kotlin.reflect.KType
 
 /**
  * The SDK's auth plugin, as a test double.
@@ -67,7 +67,6 @@ import kotlinx.serialization.json.JsonObject
  * plausible instead would let a test pass against a seam that does not use it.
  */
 class FakeSupabaseAuth(override val sessionManager: SessionManager) : Auth {
-
     /** The session the plugin currently holds. */
     var session: UserSession? = null
 
@@ -144,8 +143,10 @@ class FakeSupabaseAuth(override val sessionManager: SessionManager) : Auth {
         lastOtpCreateUser = otp.createUser
     }
 
-    override suspend fun signInAnonymously(data: JsonObject?, captchaToken: String?) =
-        error("the seam never signs in anonymously")
+    override suspend fun signInAnonymously(
+        data: JsonObject?,
+        captchaToken: String?,
+    ) = error("the seam never signs in anonymously")
 
     override suspend fun linkIdentity(
         provider: OAuthProvider,
@@ -159,8 +160,10 @@ class FakeSupabaseAuth(override val sessionManager: SessionManager) : Auth {
         config: (IDToken.Config.() -> Unit),
     ) = error("the seam never links an identity")
 
-    override suspend fun unlinkIdentity(identityId: String, updateLocalUser: Boolean) =
-        error("the seam never unlinks an identity")
+    override suspend fun unlinkIdentity(
+        identityId: String,
+        updateLocalUser: Boolean,
+    ) = error("the seam never unlinks an identity")
 
     override suspend fun retrieveSSOUrl(
         redirectUrl: String?,
@@ -180,11 +183,17 @@ class FakeSupabaseAuth(override val sessionManager: SessionManager) : Auth {
         redirectUrl: String?,
     ) = error("the seam never resends an email")
 
-    override suspend fun resendPhone(type: OtpType.Phone, phone: String, captchaToken: String?) =
-        error("the seam never resends a phone code")
+    override suspend fun resendPhone(
+        type: OtpType.Phone,
+        phone: String,
+        captchaToken: String?,
+    ) = error("the seam never resends a phone code")
 
-    override suspend fun resetPasswordForEmail(email: String, redirectUrl: String?, captchaToken: String?) =
-        error("the seam never resets a password by email")
+    override suspend fun resetPasswordForEmail(
+        email: String,
+        redirectUrl: String?,
+        captchaToken: String?,
+    ) = error("the seam never resets a password by email")
 
     override suspend fun reauthenticate() = error("the seam never reauthenticates")
 
@@ -218,7 +227,11 @@ class FakeSupabaseAuth(override val sessionManager: SessionManager) : Auth {
 
     override suspend fun signOut(scope: SignOutScope) = error("the seam signs out through KMPAuth")
 
-    override suspend fun importSession(session: UserSession, autoRefresh: Boolean, source: SessionSource) {
+    override suspend fun importSession(
+        session: UserSession,
+        autoRefresh: Boolean,
+        source: SessionSource,
+    ) {
         importSessions += session
         this.session = session
         status.value = SessionStatus.Authenticated(session, source)
@@ -247,8 +260,10 @@ class FakeSupabaseAuth(override val sessionManager: SessionManager) : Auth {
 
     override fun emitEvent(event: AuthEvent) = error("the fake plugin emits nothing")
 
-    override suspend fun exchangeCodeForSession(code: String, saveSession: Boolean): UserSession =
-        error("the app's magic link carries a token, not a code")
+    override suspend fun exchangeCodeForSession(
+        code: String,
+        saveSession: Boolean,
+    ): UserSession = error("the app's magic link carries a token, not a code")
 
     override suspend fun startAutoRefreshForCurrentSession() = error("the seam never starts the auto-refresh")
 
@@ -271,8 +286,14 @@ class FakeSupabaseAuth(override val sessionManager: SessionManager) : Auth {
     override suspend fun awaitInitialization() = Unit
 
     private object FakeSerializer : SupabaseSerializer {
-        override fun <T> encode(type: KType, value: T): String = error("the fake plugin encodes nothing")
+        override fun <T> encode(
+            type: KType,
+            value: T,
+        ): String = error("the fake plugin encodes nothing")
 
-        override fun <T> decode(type: KType, value: String): T = error("the fake plugin decodes nothing")
+        override fun <T> decode(
+            type: KType,
+            value: String,
+        ): T = error("the fake plugin decodes nothing")
     }
 }

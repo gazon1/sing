@@ -4,10 +4,10 @@ import com.singularity.todo.core.backup.ArchiveEnvelopeError
 import com.singularity.todo.core.backup.BackupPayloadError
 import com.singularity.todo.core.backup.BackupStorageError
 import com.singularity.todo.core.error.AppError
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Tag
 
 /**
  * The failures the backup layer reports, said the way a person can act on.
@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Tag
  */
 @Tag("fast")
 class BackupFailureTest {
-
     /** The fallback is what a failure that is not the backup's own says. */
     private val fallback = BackupFailure("backup.something_else", "Something else went wrong")
 

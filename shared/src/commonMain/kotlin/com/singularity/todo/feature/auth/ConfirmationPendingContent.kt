@@ -48,9 +48,10 @@ fun ConfirmationPendingContent(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 32.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -102,16 +103,18 @@ fun ConfirmationPendingContent(
 
         if (isLoading) {
             ButtonSpinner(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(TestTags.AUTH_LOADING),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.AUTH_LOADING),
             )
         } else {
             TextButton(
                 onClick = onResend,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(TestTags.AUTH_RESEND_BUTTON),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.AUTH_RESEND_BUTTON),
             ) {
                 Text("Resend email")
             }
@@ -120,9 +123,10 @@ fun ConfirmationPendingContent(
 
             TextButton(
                 onClick = onBack,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(TestTags.AUTH_BACK_BUTTON),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.AUTH_BACK_BUTTON),
             ) {
                 Text("Back to sign in")
             }
@@ -134,36 +138,39 @@ fun ConfirmationPendingContent(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ConfirmationPendingPreview() = PreviewThemed(darkTheme = false) {
-    ConfirmationPendingContent(
-        email = "user@example.com",
-        message = null,
-        isLoading = false,
-        onResend = {},
-        onBack = {},
-    )
-}
+private fun ConfirmationPendingPreview() =
+    PreviewThemed(darkTheme = false) {
+        ConfirmationPendingContent(
+            email = "user@example.com",
+            message = null,
+            isLoading = false,
+            onResend = {},
+            onBack = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ConfirmationPendingWithMessagePreview() = PreviewThemed(darkTheme = false) {
-    ConfirmationPendingContent(
-        email = "user@example.com",
-        message = "Account created. Check your email to confirm the address, then sign in.",
-        isLoading = false,
-        onResend = {},
-        onBack = {},
-    )
-}
+private fun ConfirmationPendingWithMessagePreview() =
+    PreviewThemed(darkTheme = false) {
+        ConfirmationPendingContent(
+            email = "user@example.com",
+            message = "Account created. Check your email to confirm the address, then sign in.",
+            isLoading = false,
+            onResend = {},
+            onBack = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ConfirmationPendingLoadingPreview() = PreviewThemed(darkTheme = false) {
-    ConfirmationPendingContent(
-        email = "user@example.com",
-        message = null,
-        isLoading = true,
-        onResend = {},
-        onBack = {},
-    )
-}
+private fun ConfirmationPendingLoadingPreview() =
+    PreviewThemed(darkTheme = false) {
+        ConfirmationPendingContent(
+            email = "user@example.com",
+            message = null,
+            isLoading = true,
+            onResend = {},
+            onBack = {},
+        )
+    }

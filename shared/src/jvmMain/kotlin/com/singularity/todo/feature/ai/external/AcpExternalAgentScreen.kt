@@ -12,8 +12,8 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -88,15 +88,17 @@ fun AcpExternalAgentScreenContent(
 ) {
     val state by vm.stateFlow.collectAsStateWithLifecycle()
 
-    val inputState = rememberBridgedTextFieldState(
-        source = state.inputSource,
-        onTextChanged = { vm.onIntent(AcpExternalAgentViewModel.Intent.InputChanged(it)) },
-    )
+    val inputState =
+        rememberBridgedTextFieldState(
+            source = state.inputSource,
+            onTextChanged = { vm.onIntent(AcpExternalAgentViewModel.Intent.InputChanged(it)) },
+        )
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .testTag(TestTags.ACP_SCREEN),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .testTag(TestTags.ACP_SCREEN),
     ) {
         AgentHeader(
             state = state,
@@ -112,12 +114,15 @@ fun AcpExternalAgentScreenContent(
         }
 
         LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .testTag(TestTags.ACP_MESSAGES),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .testTag(TestTags.ACP_MESSAGES),
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+            contentPadding =
+                androidx.compose.foundation.layout
+                    .PaddingValues(16.dp),
         ) {
             items(state.messages, key = { it.id }) { message ->
                 MessageBubble(
@@ -168,9 +173,10 @@ fun AcpExternalAgentScreenContent(
     )
 }
 
-private fun AcpExternalAgentViewModel.UiEvent.toNotification(): Notification = when (this) {
-    is AcpExternalAgentViewModel.UiEvent.Error -> Notification.Error(message)
-}
+private fun AcpExternalAgentViewModel.UiEvent.toNotification(): Notification =
+    when (this) {
+        is AcpExternalAgentViewModel.UiEvent.Error -> Notification.Error(message)
+    }
 
 /**
  * Compact summary of the tool calls made this turn, matching the chat screen.
@@ -181,11 +187,12 @@ private fun ToolCallSummaryLine(
 ) {
     val failed = calls.any { it.status == com.singularity.todo.core.llm.ToolCallStatus.FAILED }
     val last = calls.last()
-    val statusText = when {
-        failed -> "failed"
-        calls.all { it.status == com.singularity.todo.core.llm.ToolCallStatus.COMPLETED } -> "done"
-        else -> "running"
-    }
+    val statusText =
+        when {
+            failed -> "failed"
+            calls.all { it.status == com.singularity.todo.core.llm.ToolCallStatus.COMPLETED } -> "done"
+            else -> "running"
+        }
     Text(
         text = "${calls.size} call(s) · ${humanToolName(last.name)} · $statusText",
         style = MaterialTheme.typography.bodySmall,
@@ -207,9 +214,10 @@ private fun AgentInputRow(
     onCancel: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -250,9 +258,10 @@ private fun AgentHeader(
     onBack: () -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(
@@ -275,30 +284,37 @@ private fun AgentHeader(
                 modifier = Modifier.weight(1f),
             )
             when (state.connection) {
-                is AcpConnection.Connected -> OutlinedButton(
-                    onClick = onDisconnect,
-                    modifier = Modifier.testTag(TestTags.ACP_DISCONNECT_BUTTON),
-                ) {
-                    Text("Disconnect")
+                is AcpConnection.Connected -> {
+                    OutlinedButton(
+                        onClick = onDisconnect,
+                        modifier = Modifier.testTag(TestTags.ACP_DISCONNECT_BUTTON),
+                    ) {
+                        Text("Disconnect")
+                    }
                 }
 
-                AcpConnection.Connecting -> CircularProgressIndicator(
-                    modifier = Modifier.testTag(TestTags.ACP_CONNECTING),
-                )
+                AcpConnection.Connecting -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.testTag(TestTags.ACP_CONNECTING),
+                    )
+                }
 
-                AcpConnection.Disconnected, is AcpConnection.Failed -> Button(
-                    onClick = onConnect,
-                    modifier = Modifier.testTag(TestTags.ACP_CONNECT_BUTTON),
-                ) {
-                    Text("Connect")
+                AcpConnection.Disconnected, is AcpConnection.Failed -> {
+                    Button(
+                        onClick = onConnect,
+                        modifier = Modifier.testTag(TestTags.ACP_CONNECT_BUTTON),
+                    ) {
+                        Text("Connect")
+                    }
                 }
             }
         }
 
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TestTags.ACP_AGENT_LIST),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.ACP_AGENT_LIST),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             state.agents.forEach { agent ->
@@ -316,22 +332,29 @@ private fun AgentHeader(
         }
 
         when (val connection = state.connection) {
-            is AcpConnection.Failed -> Text(
-                text = connection.reason,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.testTag(TestTags.ACP_CONNECTION_ERROR),
-            )
+            is AcpConnection.Failed -> {
+                Text(
+                    text = connection.reason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag(TestTags.ACP_CONNECTION_ERROR),
+                )
+            }
 
-            is AcpConnection.Connected -> Text(
-                text = "Connected to ${connection.agentName} (protocol version ${connection.protocolVersion}); " +
-                    "tool server build ${connection.toolServerBuild}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag(TestTags.ACP_CONNECTION_STATUS),
-            )
+            is AcpConnection.Connected -> {
+                Text(
+                    text =
+                        "Connected to ${connection.agentName} (protocol version ${connection.protocolVersion}); " +
+                            "tool server build ${connection.toolServerBuild}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag(TestTags.ACP_CONNECTION_STATUS),
+                )
+            }
 
-            else -> Unit
+            else -> {
+                Unit
+            }
         }
     }
 }
@@ -371,10 +394,11 @@ private fun ToolAccessWarning(reason: String) {
         text = "This agent cannot see your tasks: $reason",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.error,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .testTag(TestTags.ACP_NO_TOOL_ACCESS_WARNING),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .testTag(TestTags.ACP_NO_TOOL_ACCESS_WARNING),
     )
 }
 
@@ -384,25 +408,33 @@ private fun ToolAccessWarning(reason: String) {
 @Composable
 private fun TurnOutcomeLine(outcome: com.singularity.todo.core.llm.AgentTurnOutcome) {
     when (outcome) {
-        is com.singularity.todo.core.llm.AgentTurnOutcome.Failed -> Text(
-            text = outcome.reason,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .testTag(TestTags.ACP_TURN_FAILED),
-        )
+        is com.singularity.todo.core.llm.AgentTurnOutcome.Failed -> {
+            Text(
+                text = outcome.reason,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier =
+                    Modifier
+                        .padding(horizontal = 16.dp)
+                        .testTag(TestTags.ACP_TURN_FAILED),
+            )
+        }
 
-        com.singularity.todo.core.llm.AgentTurnOutcome.Cancelled -> Text(
-            text = "Cancelled",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .testTag(TestTags.ACP_TURN_CANCELLED),
-        )
+        com.singularity.todo.core.llm.AgentTurnOutcome.Cancelled -> {
+            Text(
+                text = "Cancelled",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier =
+                    Modifier
+                        .padding(horizontal = 16.dp)
+                        .testTag(TestTags.ACP_TURN_CANCELLED),
+            )
+        }
 
-        is com.singularity.todo.core.llm.AgentTurnOutcome.Completed -> Unit
+        is com.singularity.todo.core.llm.AgentTurnOutcome.Completed -> {
+            Unit
+        }
     }
 }
 
@@ -416,10 +448,11 @@ private fun TurnOutcomeLine(outcome: com.singularity.todo.core.llm.AgentTurnOutc
  */
 @Composable
 private fun PermissionAnswerLine(answer: AcpPermissionAnswer) {
-    val decided: String = when (answer.decision) {
-        is com.singularity.todo.feature.ai.acp.PermissionDecision.Selected -> "Allowed"
-        com.singularity.todo.feature.ai.acp.PermissionDecision.Declined -> "Declined"
-    }
+    val decided: String =
+        when (answer.decision) {
+            is com.singularity.todo.feature.ai.acp.PermissionDecision.Selected -> "Allowed"
+            com.singularity.todo.feature.ai.acp.PermissionDecision.Declined -> "Declined"
+        }
     Text(
         text = "$decided: ${answer.request.title}",
         style = MaterialTheme.typography.bodySmall,
@@ -437,10 +470,11 @@ private fun PermissionSheet(
     onDeny: () -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(24.dp)
-            .testTag(TestTags.ACP_PERMISSION_SHEET),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+                .testTag(TestTags.ACP_PERMISSION_SHEET),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(text = "The agent asks for permission", style = MaterialTheme.typography.titleMedium)
@@ -451,18 +485,20 @@ private fun PermissionSheet(
         request.options.filterNot { it.isRejection }.forEach { option ->
             Button(
                 onClick = { onAllow(option.optionId) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(TestTags.ACP_PERMISSION_ALLOW),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.ACP_PERMISSION_ALLOW),
             ) {
                 Text(option.label)
             }
         }
         OutlinedButton(
             onClick = onDeny,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TestTags.ACP_PERMISSION_DENY),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.ACP_PERMISSION_DENY),
         ) {
             Text("Deny")
         }

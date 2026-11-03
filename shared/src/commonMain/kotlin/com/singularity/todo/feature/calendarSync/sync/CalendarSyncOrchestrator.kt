@@ -6,12 +6,12 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.feature.calendarSync.work.CalendarSyncWorkScheduler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.consumeAsFlow
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 
@@ -51,7 +51,6 @@ class CalendarSyncOrchestrator(
     private val logger: Logger = Logger.withTag("CalendarSync"),
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
 ) {
-
     /**
      * Guards [start] against a second registration. Set before the coroutine is
      * launched, so two racing callers cannot both get past the check.
@@ -100,7 +99,8 @@ class CalendarSyncOrchestrator(
         if (started) return
         started = true
         scope.launch {
-            channel.consumeAsFlow()
+            channel
+                .consumeAsFlow()
                 .debounce(1_000L)
                 .collect { strongest ->
                     runCatchingCancellable {

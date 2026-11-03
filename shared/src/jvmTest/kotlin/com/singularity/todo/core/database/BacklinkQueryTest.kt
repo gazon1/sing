@@ -43,7 +43,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class BacklinkQueryTest {
-
     private lateinit var tempDir: File
     private lateinit var db: AppDatabase
 
@@ -61,7 +60,12 @@ class BacklinkQueryTest {
 
     // ── Fixtures ───────────────────────────────────────────────────────────────
 
-    private suspend fun task(id: String, links: List<String>, userId: String = USER_ID, archived: Boolean = false) {
+    private suspend fun task(
+        id: String,
+        links: List<String>,
+        userId: String = USER_ID,
+        archived: Boolean = false,
+    ) {
         db.taskDao().upsert(
             TaskEntity(
                 id = id,
@@ -86,7 +90,12 @@ class BacklinkQueryTest {
         )
     }
 
-    private suspend fun note(id: String, links: List<String>, userId: String = USER_ID, deleted: Boolean = false) {
+    private suspend fun note(
+        id: String,
+        links: List<String>,
+        userId: String = USER_ID,
+        deleted: Boolean = false,
+    ) {
         db.noteDao().upsert(
             NoteEntity(
                 id = id,
@@ -133,134 +142,144 @@ class BacklinkQueryTest {
     // ── The exact match ────────────────────────────────────────────────────────
 
     @Test
-    fun `a stored task link is found by its exact url`() = runTest {
-        seed()
+    fun `a stored task link is found by its exact url`() =
+        runTest {
+            seed()
 
-        assertEquals(
-            listOf("t-plain"),
-            backlinkTaskIds(taskUrl("abc")),
-            "the task that links to task://abc must be found by the query for task://abc",
-        )
-    }
-
-    @Test
-    fun `a stored note link is found by its exact url`() = runTest {
-        seed()
-
-        assertEquals(
-            listOf("n-note"),
-            backlinkNoteIds(noteUrl("abc")),
-            "the note that links to note://abc must be found by the query for note://abc",
-        )
-    }
+            assertEquals(
+                listOf("t-plain"),
+                backlinkTaskIds(taskUrl("abc")),
+                "the task that links to task://abc must be found by the query for task://abc",
+            )
+        }
 
     @Test
-    fun `a stored note link to a task is found by the task url`() = runTest {
-        seed()
+    fun `a stored note link is found by its exact url`() =
+        runTest {
+            seed()
 
-        assertEquals(
-            listOf("n-task"),
-            notesLinkingToTaskIds(taskUrl("abc")),
-            "the note that links to task://abc must be found by the query for task://abc",
-        )
-    }
+            assertEquals(
+                listOf("n-note"),
+                backlinkNoteIds(noteUrl("abc")),
+                "the note that links to note://abc must be found by the query for note://abc",
+            )
+        }
+
+    @Test
+    fun `a stored note link to a task is found by the task url`() =
+        runTest {
+            seed()
+
+            assertEquals(
+                listOf("n-task"),
+                notesLinkingToTaskIds(taskUrl("abc")),
+                "the note that links to task://abc must be found by the query for task://abc",
+            )
+        }
 
     // ── The ways the old LIKE match was wrong ──────────────────────────────────
 
     @Test
-    fun `a stored link is not found by a different case`() = runTest {
-        seed()
+    fun `a stored link is not found by a different case`() =
+        runTest {
+            seed()
 
-        assertTrue(
-            backlinkTaskIds(taskUrl("ABC")).isEmpty(),
-            "LIKE is case-insensitive for ASCII, so task://ABC must not find task://abc",
-        )
-        assertTrue(
-            backlinkNoteIds(noteUrl("ABC")).isEmpty(),
-            "LIKE is case-insensitive for ASCII, so note://ABC must not find note://abc",
-        )
-    }
-
-    @Test
-    fun `a stored link is not found by an underscore`() = runTest {
-        seed()
-
-        assertTrue(
-            backlinkTaskIds(taskUrl("a_c")).isEmpty(),
-            "LIKE reads _ as a wildcard, so task://a_c must not find task://abc",
-        )
-    }
+            assertTrue(
+                backlinkTaskIds(taskUrl("ABC")).isEmpty(),
+                "LIKE is case-insensitive for ASCII, so task://ABC must not find task://abc",
+            )
+            assertTrue(
+                backlinkNoteIds(noteUrl("ABC")).isEmpty(),
+                "LIKE is case-insensitive for ASCII, so note://ABC must not find note://abc",
+            )
+        }
 
     @Test
-    fun `a stored link is not found by a longer identifier`() = runTest {
-        seed()
+    fun `a stored link is not found by an underscore`() =
+        runTest {
+            seed()
 
-        assertEquals(
-            listOf("t-longer"),
-            backlinkTaskIds(taskUrl("abcd")),
-            "the pattern had no closing delimiter, so task://abcd must not find task://abc",
-        )
-    }
-
-    @Test
-    fun `the scheme is part of the match`() = runTest {
-        seed()
-
-        assertEquals(
-            listOf("n-task"),
-            backlinkNoteIds(taskUrl("abc")),
-            "the row that holds task://abc is the match; the row that holds note://abc is not",
-        )
-        assertTrue(
-            backlinkTaskIds(noteUrl("abc")).isEmpty(),
-            "a stored task://abc must not be found by a query for the note abc",
-        )
-    }
+            assertTrue(
+                backlinkTaskIds(taskUrl("a_c")).isEmpty(),
+                "LIKE reads _ as a wildcard, so task://a_c must not find task://abc",
+            )
+        }
 
     @Test
-    fun `a wildcard character stays a literal character`() = runTest {
-        seed()
+    fun `a stored link is not found by a longer identifier`() =
+        runTest {
+            seed()
 
-        assertEquals(
-            listOf("t-wildcard"),
-            backlinkTaskIds(taskUrl("a%c")),
-            "the stored value task://a%c holds a literal %, and the query finds exactly it",
-        )
-        assertTrue(
-            backlinkTaskIds(taskUrl("abc")).none { it == "t-wildcard" },
-            "the % of the queried url must not act as a wildcard",
-        )
-    }
+            assertEquals(
+                listOf("t-longer"),
+                backlinkTaskIds(taskUrl("abcd")),
+                "the pattern had no closing delimiter, so task://abcd must not find task://abc",
+            )
+        }
+
+    @Test
+    fun `the scheme is part of the match`() =
+        runTest {
+            seed()
+
+            assertEquals(
+                listOf("n-task"),
+                backlinkNoteIds(taskUrl("abc")),
+                "the row that holds task://abc is the match; the row that holds note://abc is not",
+            )
+            assertTrue(
+                backlinkTaskIds(noteUrl("abc")).isEmpty(),
+                "a stored task://abc must not be found by a query for the note abc",
+            )
+        }
+
+    @Test
+    fun `a wildcard character stays a literal character`() =
+        runTest {
+            seed()
+
+            assertEquals(
+                listOf("t-wildcard"),
+                backlinkTaskIds(taskUrl("a%c")),
+                "the stored value task://a%c holds a literal %, and the query finds exactly it",
+            )
+            assertTrue(
+                backlinkTaskIds(taskUrl("abc")).none { it == "t-wildcard" },
+                "the % of the queried url must not act as a wildcard",
+            )
+        }
 
     // ── The filters that were already there ───────────────────────────────────
 
     @Test
-    fun `another user's link is not a backlink`() = runTest {
-        seed()
+    fun `another user's link is not a backlink`() =
+        runTest {
+            seed()
 
-        assertTrue(
-            backlinkTaskIds(taskUrl("abc")).none { it == "t-other-user" },
-            "the query is scoped to the current user",
-        )
-        assertTrue(
-            notesLinkingToTaskIds(taskUrl("abc")).none { it == "n-other-user" },
-            "the query is scoped to the current user",
-        )
-    }
+            assertTrue(
+                backlinkTaskIds(taskUrl("abc")).none { it == "t-other-user" },
+                "the query is scoped to the current user",
+            )
+            assertTrue(
+                notesLinkingToTaskIds(taskUrl("abc")).none { it == "n-other-user" },
+                "the query is scoped to the current user",
+            )
+        }
 
     @Test
-    fun `an archived task and a deleted note are not backlinks`() = runTest {
-        seed()
+    fun `an archived task and a deleted note are not backlinks`() =
+        runTest {
+            seed()
 
-        assertTrue(
-            backlinkTaskIds(taskUrl("abc")).none { it == "t-archived" },
-            "an archived task is not a backlink",
-        )
-        assertTrue(
-            notesLinkingToTaskIds(taskUrl("abc")).none { it == "n-deleted" },
-            "a deleted note is not a backlink",
-        )
-    }
+            assertTrue(
+                backlinkTaskIds(taskUrl("abc")).none { it == "t-archived" },
+                "an archived task is not a backlink",
+            )
+            assertTrue(
+                notesLinkingToTaskIds(taskUrl("abc")).none { it == "n-deleted" },
+                "a deleted note is not a backlink",
+            )
+        }
 
     private companion object {
         const val USER_ID = "u1"
@@ -273,7 +292,6 @@ class BacklinkQueryTest {
         fun noteUrl(id: String): String = InternalLinks.urlFor(InternalLinkSchemes.NOTE, id)
 
         /** The stored form of a link list: a JSON array of URL strings. */
-        fun linksJson(links: List<String>): String =
-            Json.encodeToString(ListSerializer(String.serializer()), links)
+        fun linksJson(links: List<String>): String = Json.encodeToString(ListSerializer(String.serializer()), links)
     }
 }

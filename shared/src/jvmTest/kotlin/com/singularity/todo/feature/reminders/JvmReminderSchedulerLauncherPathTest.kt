@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.reminders
 
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -60,7 +60,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class JvmReminderSchedulerLauncherPathTest {
-
     /**
      * Reads the `packageName` jpackage will produce.
      *
@@ -69,11 +68,12 @@ class JvmReminderSchedulerLauncherPathTest {
      * adding nothing to what is being checked.
      */
     private fun packagedName(): String {
-        val script = System.getProperty("desktopApp.buildScript")
-            ?: error(
-                "desktopApp.buildScript system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
+        val script =
+            System.getProperty("desktopApp.buildScript")
+                ?: error(
+                    "desktopApp.buildScript system property is not set — " +
+                        "see the jvmTest task config in shared/build.gradle.kts",
+                )
         val file = File(script)
         assertTrue(file.isFile, "the packaging script $script does not exist, so this test is measuring nothing")
         return PACKAGE_NAME.find(file.readText())?.groupValues?.get(1)

@@ -32,26 +32,27 @@ import org.koin.dsl.module
  * a user who walks away mid-refresh still expects the archive step to
  * finish — so the run cannot live in a ViewModel's scope.
  */
-fun refreshModule(): Module = module {
-    single<CompletedTaskArchiver> { get<ArchiveRepository>() }
+fun refreshModule(): Module =
+    module {
+        single<CompletedTaskArchiver> { get<ArchiveRepository>() }
 
-    // The single owner of the refresh run.
-    single {
-        RefreshCoordinator(
-            archiver = get(),
-            syncRepository = get(),
-            scope = get(),
-        )
-    }
+        // The single owner of the refresh run.
+        single {
+            RefreshCoordinator(
+                archiver = get(),
+                syncRepository = get(),
+                scope = get(),
+            )
+        }
 
-    // One ViewModel per screen, but they all ask the same coordinator. The
-    // scope is not passed here: the ViewModel derives its own from the
-    // reporter, so the two failure paths cannot end up at different
-    // destinations.
-    viewModel {
-        RefreshViewModel(
-            coordinator = get(),
-            crashReporter = get(),
-        )
+        // One ViewModel per screen, but they all ask the same coordinator. The
+        // scope is not passed here: the ViewModel derives its own from the
+        // reporter, so the two failure paths cannot end up at different
+        // destinations.
+        viewModel {
+            RefreshViewModel(
+                coordinator = get(),
+                crashReporter = get(),
+            )
+        }
     }
-}

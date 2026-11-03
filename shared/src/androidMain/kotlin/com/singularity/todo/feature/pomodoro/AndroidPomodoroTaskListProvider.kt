@@ -24,11 +24,13 @@ import kotlinx.coroutines.launch
 class AndroidPomodoroTaskListProvider(private val taskRepository: TaskRepository, private val scope: CoroutineScope) :
     PomodoroTaskListProvider {
     private val _tasks = MutableStateFlow<ImmutableList<Task>>(persistentListOf())
+
     override fun tasks(): StateFlow<ImmutableList<Task>> = _tasks
 
     init {
         scope.launch {
-            taskRepository.observeByFilter(TaskFilter.Inbox)
+            taskRepository
+                .observeByFilter(TaskFilter.Inbox)
                 .collect { _tasks.value = it.toImmutableList() }
         }
     }

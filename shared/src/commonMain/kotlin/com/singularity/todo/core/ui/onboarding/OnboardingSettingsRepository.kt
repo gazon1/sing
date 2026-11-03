@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.first
  * this store has already decided.
  */
 interface OnboardingSettingsRepository {
-
     /** Highest tour version the user has finished. `0` means they have not. */
     val seenSpotlightVersion: Flow<Int>
 
@@ -36,7 +35,6 @@ interface OnboardingSettingsRepository {
 class DataStoreOnboardingSettingsRepository(dataStore: DataStore<Preferences>) :
     BaseSettingsRepository(dataStore),
     OnboardingSettingsRepository {
-
     private val seenVersionPref =
         intPref(nsKey(SettingsNamespace.ONBOARDING, "spotlight_seen_version"), NEVER_SEEN)
 

@@ -31,7 +31,6 @@ data class AgentActivityState(
     /** The agent's plan, as a snapshot. */
     val plan: ImmutableList<AgentPlanStep> = persistentListOf(),
 ) {
-
     /**
      * Folds one event into the activity.
      *
@@ -51,29 +50,39 @@ data class AgentActivityState(
      *   and not a patch to a plan the reader may no longer be looking at;
      * - the end of the turn changes nothing.
      */
-    operator fun plus(event: AgentEvent): AgentActivityState = when (event) {
-        is AgentEvent.TextDelta -> this
-
-        is AgentEvent.TurnCompleted -> this
-
-        is AgentEvent.ToolCallUpdated -> {
-            val call = AgentToolCall(
-                id = event.id,
-                name = event.name,
-                status = event.status,
-                summary = event.summary,
-            )
-            val existing = calls.indexOfFirst { it.id == event.id }
-            val updated = if (existing >= 0) {
-                calls.mapIndexed { index: Int, current: AgentToolCall ->
-                    if (index == existing) call else current
-                }.toImmutableList()
-            } else {
-                (calls + call).toImmutableList()
+    operator fun plus(event: AgentEvent): AgentActivityState =
+        when (event) {
+            is AgentEvent.TextDelta -> {
+                this
             }
-            copy(calls = updated)
-        }
 
-        is AgentEvent.PlanUpdated -> copy(plan = event.steps.toImmutableList())
-    }
+            is AgentEvent.TurnCompleted -> {
+                this
+            }
+
+            is AgentEvent.ToolCallUpdated -> {
+                val call =
+                    AgentToolCall(
+                        id = event.id,
+                        name = event.name,
+                        status = event.status,
+                        summary = event.summary,
+                    )
+                val existing = calls.indexOfFirst { it.id == event.id }
+                val updated =
+                    if (existing >= 0) {
+                        calls
+                            .mapIndexed { index: Int, current: AgentToolCall ->
+                                if (index == existing) call else current
+                            }.toImmutableList()
+                    } else {
+                        (calls + call).toImmutableList()
+                    }
+                copy(calls = updated)
+            }
+
+            is AgentEvent.PlanUpdated -> {
+                copy(plan = event.steps.toImmutableList())
+            }
+        }
 }

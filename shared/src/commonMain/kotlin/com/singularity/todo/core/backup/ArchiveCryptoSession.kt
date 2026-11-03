@@ -28,7 +28,6 @@ internal class ArchiveCryptoSession(
     /** The key this session holds. */
     private val key: ByteArray,
 ) {
-
     /**
      * Seals one change, with its place in the chain as part of what is
      * authenticated.
@@ -42,21 +41,41 @@ internal class ArchiveCryptoSession(
      * stream cannot be appended to, and it is the only source of randomness the
      * container has.
      */
-    fun sealEntry(index: Int, source: ByteSource, sink: ByteSink, prefix: ByteArray, nonce: ByteArray) {
+    fun sealEntry(
+        index: Int,
+        source: ByteSource,
+        sink: ByteSink,
+        prefix: ByteArray,
+        nonce: ByteArray,
+    ) {
         crypto.seal(source, sink, key, nonce, entryAad(prefix, index))
     }
 
     /** Opens one change, with the same authenticated data it was sealed with. */
-    fun openEntry(index: Int, body: ByteArray, prefix: ByteArray, nonce: ByteArray): ByteArray =
-        crypto.open(key, nonce, body, entryAad(prefix, index))
+    fun openEntry(
+        index: Int,
+        body: ByteArray,
+        prefix: ByteArray,
+        nonce: ByteArray,
+    ): ByteArray = crypto.open(key, nonce, body, entryAad(prefix, index))
 
     /** Seals the base, with the whole header as the authenticated data. */
-    fun sealBase(source: ByteSource, sink: ByteSink, nonce: ByteArray, header: ByteArray) {
+    fun sealBase(
+        source: ByteSource,
+        sink: ByteSink,
+        nonce: ByteArray,
+        header: ByteArray,
+    ) {
         crypto.seal(source, sink, key, nonce, header)
     }
 
     /** Opens the base, with the whole header as the authenticated data. */
-    fun openBase(source: ByteSource, sink: ByteSink, nonce: ByteArray, header: ByteArray) {
+    fun openBase(
+        source: ByteSource,
+        sink: ByteSink,
+        nonce: ByteArray,
+        header: ByteArray,
+    ) {
         crypto.open(source, sink, key, nonce, header)
     }
 
@@ -73,18 +92,23 @@ internal class ArchiveCryptoSession(
      * every archive, so tying it to an archive's salt would mean re-wrapping it
      * for every export.
      */
-    fun wrapDeviceKey(deviceKey: ByteArray, blockNonce: ByteArray, blockSalt: ByteArray): ByteArray =
-        crypto.seal(key, blockNonce, deviceKey, blockKeyAad(blockSalt))
+    fun wrapDeviceKey(
+        deviceKey: ByteArray,
+        blockNonce: ByteArray,
+        blockSalt: ByteArray,
+    ): ByteArray = crypto.seal(key, blockNonce, deviceKey, blockKeyAad(blockSalt))
 
     /** Unwraps a device key, with the same authenticated data it was wrapped with. */
     fun unwrapDeviceKey(block: ArchiveKeyBlock): ByteArray =
         crypto.open(key, block.nonce, block.ciphertext, blockKeyAad(block.salt))
 
     /** What a change is sealed with: this archive's prefix, then the change's place. */
-    private fun entryAad(prefix: ByteArray, index: Int): ByteArray = prefix + index.toBytes()
+    private fun entryAad(
+        prefix: ByteArray,
+        index: Int,
+    ): ByteArray = prefix + index.toBytes()
 
     companion object {
-
         /**
          * What a key block is authenticated with.
          *
@@ -98,8 +122,11 @@ internal class ArchiveCryptoSession(
         private val KEY_BLOCK_AAD = "SGBK-KEY-1".encodeToByteArray()
 
         /** A session whose key comes from the password. */
-        fun forPassword(crypto: ArchiveCrypto, password: CharArray, salt: ByteArray): ArchiveCryptoSession =
-            ArchiveCryptoSession(crypto, crypto.deriveKey(password, salt))
+        fun forPassword(
+            crypto: ArchiveCrypto,
+            password: CharArray,
+            salt: ByteArray,
+        ): ArchiveCryptoSession = ArchiveCryptoSession(crypto, crypto.deriveKey(password, salt))
 
         /**
          * A session whose key comes from the device key.
@@ -108,7 +135,10 @@ internal class ArchiveCryptoSession(
          * derivation as its hexadecimal spelling: every byte survives the trip,
          * and the same bytes always spell the same way.
          */
-        fun forDeviceKey(crypto: ArchiveCrypto, deviceKey: ByteArray, salt: ByteArray): ArchiveCryptoSession =
-            ArchiveCryptoSession(crypto, crypto.deriveKey(deviceKey.asPasswordChars(), salt))
+        fun forDeviceKey(
+            crypto: ArchiveCrypto,
+            deviceKey: ByteArray,
+            salt: ByteArray,
+        ): ArchiveCryptoSession = ArchiveCryptoSession(crypto, crypto.deriveKey(deviceKey.asPasswordChars(), salt))
     }
 }

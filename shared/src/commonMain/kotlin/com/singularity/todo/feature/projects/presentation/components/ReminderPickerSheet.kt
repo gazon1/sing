@@ -57,10 +57,11 @@ fun ReminderPickerSheet(
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp)
-                .padding(bottom = 32.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+                    .padding(bottom = 32.dp),
         ) {
             Text("Remind me", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(16.dp))

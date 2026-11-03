@@ -23,7 +23,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AgendaDefinitionRoundTripTest {
-
     private val json get() = StableJson
 
     // ─── Legacy JSON ────────────────────────────────────────────────────────────
@@ -35,7 +34,8 @@ class AgendaDefinitionRoundTripTest {
      * landed, so blobs predating that change cannot deserialize at all (see the
      * `legacy JSON without an id field fails to deserialize` test below).
      */
-    private val legacyJson = """
+    private val legacyJson =
+        """
         {
             "title": "My Saved View",
             "sections": [
@@ -61,7 +61,7 @@ class AgendaDefinitionRoundTripTest {
             ],
             "layout": "ListFlat"
         }
-    """.trimIndent()
+        """.trimIndent()
 
     @Test
     fun `legacy JSON deserializes`() {
@@ -87,9 +87,10 @@ class AgendaDefinitionRoundTripTest {
      */
     @Test
     fun `legacy JSON without id deserializes and derives effectiveId from name`() {
-        val jsonWithoutIds = legacyJson
-            .replace("\"id\": \"today\",", "")
-            .replace("\"id\": \"overdue\",", "")
+        val jsonWithoutIds =
+            legacyJson
+                .replace("\"id\": \"today\",", "")
+                .replace("\"id\": \"overdue\",", "")
 
         val decoded = json.decodeFromString<AgendaDefinition>(jsonWithoutIds)
 
@@ -114,10 +115,11 @@ class AgendaDefinitionRoundTripTest {
 
     @Test
     fun `a blob that still carries the retired transformers field deserializes`() {
-        val withTransformers = legacyJson.replace(
-            "\"layout\": \"ListFlat\"",
-            "\"layout\": \"ListFlat\", \"transformers\": []",
-        )
+        val withTransformers =
+            legacyJson.replace(
+                "\"layout\": \"ListFlat\"",
+                "\"layout\": \"ListFlat\", \"transformers\": []",
+            )
 
         val decoded = json.decodeFromString<AgendaDefinition>(withTransformers)
 
@@ -127,15 +129,17 @@ class AgendaDefinitionRoundTripTest {
 
     @Test
     fun `a modern definition round-trips`() {
-        val modern = AgendaDefinition(
-            title = "Modern View",
-            sections = agenda("Modern View") {
-                section(id = "today", name = "Today") {
-                    selector = Selector.DateBucket(RelativeBucket.Today)
-                }
-            }.sections,
-            layout = AgendaLayout.ListGrouped,
-        )
+        val modern =
+            AgendaDefinition(
+                title = "Modern View",
+                sections =
+                    agenda("Modern View") {
+                        section(id = "today", name = "Today") {
+                            selector = Selector.DateBucket(RelativeBucket.Today)
+                        }
+                    }.sections,
+                layout = AgendaLayout.ListGrouped,
+            )
 
         val encoded = json.encodeToString(AgendaDefinition.serializer(), modern)
         val decoded = json.decodeFromString<AgendaDefinition>(encoded)

@@ -12,15 +12,16 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
  * [BundledSQLiteDriver] and implements the [SQLiteDriver] interface, intercepting
  * only [open] to apply per-connection PRAGMAs. Room only ever sees the interface.
  */
-actual val wrappingDriver: SQLiteDriver = object : SQLiteDriver {
-    private val native = BundledSQLiteDriver()
+actual val wrappingDriver: SQLiteDriver =
+    object : SQLiteDriver {
+        private val native = BundledSQLiteDriver()
 
-    @Suppress("NamedArgumentsMismatch") // SQLiteDriver.open declares path as 'fileName'
-    override fun open(path: String): SQLiteConnection {
-        val conn = native.open(path)
-        PlatformPragmas.applyTo(conn)
-        return conn
+        @Suppress("NamedArgumentsMismatch") // SQLiteDriver.open declares path as 'fileName'
+        override fun open(path: String): SQLiteConnection {
+            val conn = native.open(path)
+            PlatformPragmas.applyTo(conn)
+            return conn
+        }
+
+        override val hasConnectionPool: Boolean get() = native.hasConnectionPool
     }
-
-    override val hasConnectionPool: Boolean get() = native.hasConnectionPool
-}

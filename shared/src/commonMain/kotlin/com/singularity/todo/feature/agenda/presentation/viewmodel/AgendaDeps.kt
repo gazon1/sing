@@ -9,8 +9,8 @@ import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.MergeTaskSeriesUseCase
-import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 
 /**
  * Dependencies injected into [AgendaViewModel].
@@ -43,7 +43,6 @@ data class AgendaDeps(
      * open, and a task that comes back to work brings its project with it.
      */
     val completion: TaskReopenUseCase,
-
     /**
      * Makes two series one series.
      *
@@ -53,7 +52,6 @@ data class AgendaDeps(
     val mergeSeries: MergeTaskSeriesUseCase,
     val workScheduleSettings: WorkScheduleSettingsRepository,
     val greetingSettings: GreetingSettingsRepository,
-
     /**
      * The projects, so a row can carry its project's name and colour.
      *

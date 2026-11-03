@@ -53,23 +53,35 @@ import kotlin.time.Instant
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class AgendaBulkCloseTest {
-
     private val now: Instant = Instant.parse("2026-09-16T09:00:00Z")
 
     private val fakeRepo = FakeTaskRepository()
     private val fakeSettings = FakeSettingsRepository()
     private val fakeCurrentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()
     private val fakeTaskMutations = FakeTaskMutationsUseCase(fakeRepo)
-    private val fakeReminderScheduler = object : ReminderScheduler {
-        override val isSupported: Boolean = true
-        override suspend fun schedule(reminder: com.singularity.todo.feature.reminders.Reminder) = Unit
-        override suspend fun cancel(id: ReminderId, userId: UserId) = Unit
-        override suspend fun cancelByTask(taskId: TaskId, userId: UserId) = Unit
-    }
+    private val fakeReminderScheduler =
+        object : ReminderScheduler {
+            override val isSupported: Boolean = true
+
+            override suspend fun schedule(reminder: com.singularity.todo.feature.reminders.Reminder) = Unit
+
+            override suspend fun cancel(
+                id: ReminderId,
+                userId: UserId,
+            ) = Unit
+
+            override suspend fun cancelByTask(
+                taskId: TaskId,
+                userId: UserId,
+            ) = Unit
+        }
     private val fakeProjectsRepo = FakeProjectsRepository()
     private val completion = TaskReopenUseCase(fakeRepo, fakeProjectsRepo, FakeClock(now))
 
-    private fun task(id: String, title: String) = Task(
+    private fun task(
+        id: String,
+        title: String,
+    ) = Task(
         id = TaskId(id),
         title = title,
         createdAt = Clock.System.now(),
@@ -85,79 +97,86 @@ class AgendaBulkCloseTest {
      * *what kind of ViewModel it is testing* — one whose collector never ends —
      * and the harness builds the scope that kind needs.
      */
-    private fun TestScope.createVm(): AgendaViewModel = testVm(
-        stateAccessor = { vm: AgendaViewModel -> vm.stateFlow },
-        vmScope = VmScope.Background,
-    ) { scope ->
-        AgendaViewModel(
-            deps = AgendaDeps(
-                taskRepo = fakeRepo,
-                clock = FakeClock(now),
-                timeZone = TEST_TZ,
-                logger = Logger,
-                draftStore = FakeDraftStore(),
-                reminderScheduler = fakeReminderScheduler,
-                currentUser = fakeCurrentUser,
-                taskMutations = fakeTaskMutations,
-                completion = completion,
-                mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
-                workScheduleSettings = fakeSettings.workSchedule,
-                greetingSettings = fakeSettings.greeting,
-                projectsRepository = com.singularity.todo.test.fakes.FakeProjectsRepository(),
-            ),
-            definition = AgendaPresets.Inbox,
-            scope = scope,
-        )
-    }.vm
+    private fun TestScope.createVm(): AgendaViewModel =
+        testVm(
+            stateAccessor = { vm: AgendaViewModel -> vm.stateFlow },
+            vmScope = VmScope.Background,
+        ) { scope ->
+            AgendaViewModel(
+                deps =
+                    AgendaDeps(
+                        taskRepo = fakeRepo,
+                        clock = FakeClock(now),
+                        timeZone = TEST_TZ,
+                        logger = Logger,
+                        draftStore = FakeDraftStore(),
+                        reminderScheduler = fakeReminderScheduler,
+                        currentUser = fakeCurrentUser,
+                        taskMutations = fakeTaskMutations,
+                        completion = completion,
+                        mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
+                        workScheduleSettings = fakeSettings.workSchedule,
+                        greetingSettings = fakeSettings.greeting,
+                        projectsRepository =
+                            com.singularity.todo.test.fakes
+                                .FakeProjectsRepository(),
+                    ),
+                definition = AgendaPresets.Inbox,
+                scope = scope,
+            )
+        }.vm
 
     @Test
-    fun `a blocked bulk close asks the user instead of writing`() = runTest {
-        fakeRepo.seed(task("t1", "Buy milk"), task("t2", "Ship release"))
-        fakeRepo.seed(task("dep", "Prerequisite").copy(completedAt = null))
-        // t2 waits for a prerequisite that is still open.
-        fakeRepo.setDependency(TaskId("t2"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+    fun `a blocked bulk close asks the user instead of writing`() =
+        runTest {
+            fakeRepo.seed(task("t1", "Buy milk"), task("t2", "Ship release"))
+            fakeRepo.seed(task("dep", "Prerequisite").copy(completedAt = null))
+            // t2 waits for a prerequisite that is still open.
+            fakeRepo.setDependency(TaskId("t2"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
 
-        val vm = createVm()
-        runCurrent()
+            val vm = createVm()
+            runCurrent()
 
-        vm.onIntent(AgendaIntent.EnterSelectionMode(TaskId("t1")))
-        vm.onIntent(AgendaIntent.ToggleSelection(TaskId("t2")))
-        runCurrent()
-        vm.onIntent(AgendaIntent.CompleteSelected)
-        runCurrent()
+            vm.onIntent(AgendaIntent.EnterSelectionMode(TaskId("t1")))
+            vm.onIntent(AgendaIntent.ToggleSelection(TaskId("t2")))
+            runCurrent()
+            vm.onIntent(AgendaIntent.CompleteSelected)
+            runCurrent()
 
-        val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-        val request = assertNotNull(
-            state.pendingBlockedBulkClose,
-            "the bulk close must ask, the same way the single close does",
-        )
-        assertEquals(setOf(TaskId("t2")), request.blockedTaskIds.toSet())
-        assertEquals(listOf("Ship release"), request.blockedTaskTitles)
-        assertEquals(2, request.taskIds.size, "the whole selection is what the answer applies to")
-        assertNull(fakeRepo.get(TaskId("t1"))?.completedAt, "nothing may be written before the answer")
-        assertNull(fakeRepo.get(TaskId("t2"))?.completedAt, "nothing may be written before the answer")
-    }
+            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            val request =
+                assertNotNull(
+                    state.pendingBlockedBulkClose,
+                    "the bulk close must ask, the same way the single close does",
+                )
+            assertEquals(setOf(TaskId("t2")), request.blockedTaskIds.toSet())
+            assertEquals(listOf("Ship release"), request.blockedTaskTitles)
+            assertEquals(2, request.taskIds.size, "the whole selection is what the answer applies to")
+            assertNull(fakeRepo.get(TaskId("t1"))?.completedAt, "nothing may be written before the answer")
+            assertNull(fakeRepo.get(TaskId("t2"))?.completedAt, "nothing may be written before the answer")
+        }
 
     @Test
-    fun `a confirmed bulk close closes the selection`() = runTest {
-        fakeRepo.seed(task("t1", "Buy milk"), task("t2", "Ship release"))
-        fakeRepo.seed(task("dep", "Prerequisite").copy(completedAt = null))
-        fakeRepo.setDependency(TaskId("t2"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+    fun `a confirmed bulk close closes the selection`() =
+        runTest {
+            fakeRepo.seed(task("t1", "Buy milk"), task("t2", "Ship release"))
+            fakeRepo.seed(task("dep", "Prerequisite").copy(completedAt = null))
+            fakeRepo.setDependency(TaskId("t2"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
 
-        val vm = createVm()
-        runCurrent()
+            val vm = createVm()
+            runCurrent()
 
-        vm.onIntent(AgendaIntent.EnterSelectionMode(TaskId("t1")))
-        vm.onIntent(AgendaIntent.ToggleSelection(TaskId("t2")))
-        runCurrent()
-        vm.onIntent(AgendaIntent.CompleteSelected)
-        runCurrent()
-        vm.onIntent(AgendaIntent.ConfirmBlockedBulkClose)
-        runCurrent()
+            vm.onIntent(AgendaIntent.EnterSelectionMode(TaskId("t1")))
+            vm.onIntent(AgendaIntent.ToggleSelection(TaskId("t2")))
+            runCurrent()
+            vm.onIntent(AgendaIntent.CompleteSelected)
+            runCurrent()
+            vm.onIntent(AgendaIntent.ConfirmBlockedBulkClose)
+            runCurrent()
 
-        assertNotNull(fakeRepo.get(TaskId("t1"))?.completedAt, "the free task is closed")
-        assertNotNull(fakeRepo.get(TaskId("t2"))?.completedAt, "the confirmed task is closed too")
-        val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-        assertNull(state.pendingBlockedBulkClose, "the confirmation is taken down")
-    }
+            assertNotNull(fakeRepo.get(TaskId("t1"))?.completedAt, "the free task is closed")
+            assertNotNull(fakeRepo.get(TaskId("t2"))?.completedAt, "the confirmed task is closed too")
+            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertNull(state.pendingBlockedBulkClose, "the confirmation is taken down")
+        }
 }

@@ -27,7 +27,6 @@ class AndroidFileToolCallLog(
     private val processToken: String = Random.nextLong().toString(16),
     private val nowEpochMillis: () -> Long = { System.currentTimeMillis() },
 ) : ToolCallLog {
-
     private val dir = File(directory)
 
     override fun record(event: ToolCallEvent) {
@@ -47,13 +46,16 @@ class AndroidFileToolCallLog(
      * last written, and today's file is always the one being written to.
      */
     fun purgeExpired(retentionDays: Int = RETENTION_DAYS) {
-        val cutoff = Instant.fromEpochMilliseconds(nowEpochMillis())
-            .toLocalDateTime(TimeZone.currentSystemDefault())
-            .date
+        val cutoff =
+            Instant
+                .fromEpochMilliseconds(nowEpochMillis())
+                .toLocalDateTime(TimeZone.currentSystemDefault())
+                .date
         dir.listFiles()?.forEach { file ->
             if (!file.isFile || !file.name.endsWith(SUFFIX)) return@forEach
-            val day = runCatching { LocalDate.parse(file.name.substringBefore('-')) }.getOrNull()
-                ?: return@forEach
+            val day =
+                runCatching { LocalDate.parse(file.name.substringBefore('-')) }.getOrNull()
+                    ?: return@forEach
             if (day < cutoff.minus(retentionDays, DateTimeUnit.DAY)) {
                 runCatching { file.delete() }
             }
@@ -61,9 +63,11 @@ class AndroidFileToolCallLog(
     }
 
     private fun fileFor(epochMillis: Long): File {
-        val day = Instant.fromEpochMilliseconds(epochMillis)
-            .toLocalDateTime(TimeZone.currentSystemDefault())
-            .date
+        val day =
+            Instant
+                .fromEpochMilliseconds(epochMillis)
+                .toLocalDateTime(TimeZone.currentSystemDefault())
+                .date
         return File(dir, "$day-$processToken$SUFFIX")
     }
 

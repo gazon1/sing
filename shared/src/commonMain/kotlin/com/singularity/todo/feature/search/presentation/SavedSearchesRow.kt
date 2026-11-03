@@ -7,11 +7,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Star
@@ -33,16 +33,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
-import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.feature.search.domain.SavedSearch
-import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
+import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
+import com.singularity.todo.feature.search.domain.SavedSearch
+import com.singularity.todo.feature.search.domain.SavedSearchId
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -132,10 +132,11 @@ private fun SavedSearchChipWithMenu(
                     modifier = Modifier.size(FilterChipDefaults.IconSize),
                 )
             },
-            modifier = Modifier.combinedClickable(
-                onClick = onClick,
-                onLongClick = { showMenu = true },
-            ),
+            modifier =
+                Modifier.combinedClickable(
+                    onClick = onClick,
+                    onLongClick = { showMenu = true },
+                ),
         )
 
         DropdownMenu(
@@ -150,7 +151,11 @@ private fun SavedSearchChipWithMenu(
             // Compose test API cannot reach. These tags are for Android/Maestro.
             DropdownMenuItem(
                 text = {
-                    Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
+                    Column(
+                        verticalArrangement =
+                            androidx.compose.foundation.layout.Arrangement
+                                .spacedBy(4.dp),
+                    ) {
                         Text("Rename", style = MaterialTheme.typography.bodyMedium)
                         OutlinedTextField(
                             state = renameState,
@@ -195,35 +200,42 @@ private fun SavedSearchChipWithMenu(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SavedSearchesRowPreview() = PreviewThemed(darkTheme = false) {
-    SavedSearchesRow(
-        savedSearches = listOf(
-            previewSavedSearch("s1", "Overdue", "is:overdue"),
-            previewSavedSearch("s2", "Due this week", "due:7d"),
-            previewSavedSearch("s3", "Work", "tag:work"),
-        ).toImmutableList(),
-        activeSavedSearchId = SavedSearchId.fromString("s1"),
-        onLoadSearch = { },
-        onSaveClick = noopClick,
-        onRename = { _, _ -> },
-        onDelete = { },
-    )
-}
+private fun SavedSearchesRowPreview() =
+    PreviewThemed(darkTheme = false) {
+        SavedSearchesRow(
+            savedSearches =
+                listOf(
+                    previewSavedSearch("s1", "Overdue", "is:overdue"),
+                    previewSavedSearch("s2", "Due this week", "due:7d"),
+                    previewSavedSearch("s3", "Work", "tag:work"),
+                ).toImmutableList(),
+            activeSavedSearchId = SavedSearchId.fromString("s1"),
+            onLoadSearch = { },
+            onSaveClick = noopClick,
+            onRename = { _, _ -> },
+            onDelete = { },
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SavedSearchesRowEmptyPreview() = PreviewThemed(darkTheme = false) {
-    SavedSearchesRow(
-        savedSearches = persistentListOf(),
-        activeSavedSearchId = null,
-        onLoadSearch = { },
-        onSaveClick = noopClick,
-        onRename = { _, _ -> },
-        onDelete = { },
-    )
-}
+private fun SavedSearchesRowEmptyPreview() =
+    PreviewThemed(darkTheme = false) {
+        SavedSearchesRow(
+            savedSearches = persistentListOf(),
+            activeSavedSearchId = null,
+            onLoadSearch = { },
+            onSaveClick = noopClick,
+            onRename = { _, _ -> },
+            onDelete = { },
+        )
+    }
 
-private fun previewSavedSearch(id: String, name: String, query: String) = SavedSearch(
+private fun previewSavedSearch(
+    id: String,
+    name: String,
+    query: String,
+) = SavedSearch(
     id = SavedSearchId.fromString(id),
     userId = UserId.anonymous,
     name = name,

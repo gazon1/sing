@@ -23,7 +23,6 @@ import com.singularity.todo.core.security.ArchiveCrypto
  * broken, and it finds out at restore time instead of at export time.
  */
 internal class ArchiveChainWriter(private val crypto: ArchiveCrypto) {
-
     /**
      * The chain, written to [sink].
      */
@@ -99,7 +98,10 @@ internal class ArchiveChainWriter(private val crypto: ArchiveCrypto) {
     }
 
     /** The session for a container this build is writing. */
-    private fun sessionFor(key: ContentKey, salt: ByteArray): ArchiveCryptoSession =
+    private fun sessionFor(
+        key: ContentKey,
+        salt: ByteArray,
+    ): ArchiveCryptoSession =
         when (key) {
             is ContentKey.Password -> ArchiveCryptoSession.forPassword(crypto, key.password, salt)
             is ContentKey.Device -> ArchiveCryptoSession.forDeviceKey(crypto, key.deviceKey, salt)
@@ -108,7 +110,11 @@ internal class ArchiveChainWriter(private val crypto: ArchiveCrypto) {
     /**
      * The magic, the version, the salt and the nonce.
      */
-    private fun headerPrefix(version: Int, salt: ByteArray, nonce: ByteArray): ByteArray =
+    private fun headerPrefix(
+        version: Int,
+        salt: ByteArray,
+        nonce: ByteArray,
+    ): ByteArray =
         ArchiveFormat.MAGIC.encodeToByteArray() +
             byteArrayOf(version.toByte()) +
             salt +

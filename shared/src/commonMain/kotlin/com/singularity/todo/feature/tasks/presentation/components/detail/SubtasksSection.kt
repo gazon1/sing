@@ -16,7 +16,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.touchTarget
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.checklist.components.ChecklistItemRow
 import com.singularity.todo.feature.checklist.components.ChecklistRowTags
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -71,9 +71,10 @@ fun SubtasksSection(
                 ) {
                     OutlinedTextField(
                         state = newTitleState,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag(TestTags.SUBTASK_ADD_INPUT),
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .testTag(TestTags.SUBTASK_ADD_INPUT),
                         placeholder = { Text("Add subtask...", style = MaterialTheme.typography.bodySmall) },
                         lineLimits = TextFieldLineLimits.SingleLine,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -93,10 +94,11 @@ fun SubtasksSection(
                                 newTitleState.clearText()
                             }
                         },
-                        modifier = Modifier
-                            .touchTarget(TaskListSizes.MinTouchTarget)
-                            .size(40.dp)
-                            .testTag(TestTags.SUBTASK_ADD_BUTTON),
+                        modifier =
+                            Modifier
+                                .touchTarget(TaskListSizes.MinTouchTarget)
+                                .size(40.dp)
+                                .testTag(TestTags.SUBTASK_ADD_BUTTON),
                     ) {
                         Icon(
                             Icons.Filled.Add,
@@ -131,27 +133,30 @@ fun SubtasksSection(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SubtasksSectionEmptyPreview() = PreviewThemed(darkTheme = false) {
-    SubtasksSection(
-        subtasks = persistentListOf(),
-        onToggle = { },
-        onDelete = { },
-        onOpen = { },
-        onAddSubtask = { },
-    )
-}
+private fun SubtasksSectionEmptyPreview() =
+    PreviewThemed(darkTheme = false) {
+        SubtasksSection(
+            subtasks = persistentListOf(),
+            onToggle = { },
+            onDelete = { },
+            onOpen = { },
+            onAddSubtask = { },
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SubtasksSectionWithItemsPreview() = PreviewThemed(darkTheme = false) {
-    SubtasksSection(
-        subtasks = persistentListOf(
-            PreviewSamples.task(id = "t2", title = "Collect requirements", completed = true),
-            PreviewSamples.task(id = "t3", title = "Draft the spec"),
-        ),
-        onToggle = { },
-        onDelete = { },
-        onOpen = { },
-        onAddSubtask = { },
-    )
-}
+private fun SubtasksSectionWithItemsPreview() =
+    PreviewThemed(darkTheme = false) {
+        SubtasksSection(
+            subtasks =
+                persistentListOf(
+                    PreviewSamples.task(id = "t2", title = "Collect requirements", completed = true),
+                    PreviewSamples.task(id = "t3", title = "Draft the spec"),
+                ),
+            onToggle = { },
+            onDelete = { },
+            onOpen = { },
+            onAddSubtask = { },
+        )
+    }

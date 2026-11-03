@@ -24,14 +24,24 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      # ktlint is bundled into detekt via the detekt-formatting plugin, so a
-      # single `--auto-correct` pass fixes both detekt findings and ktlint
-      # formatting. One invocation per module: `--auto-correct` only reaches
-      # the LAST detekt task of an invocation, so a task list would silently
-      # correct one module and skip the rest.
+      # detekt --auto-correct fixes what detekt knows: logic-level rules, and
+      # nothing about the layout. The layout is ktlint's, so the formatter runs
+      # here too — one invocation per module for detekt (`--auto-correct` only
+      # reaches the LAST detekt task of an invocation, so a task list would
+      # silently correct one module and skip the rest), and one ktlint pass for
+      # the whole tree.
       - name: Run detekt --auto-correct
         env:
           BASE_REF: ${{ github.base_ref }}
         run: bash scripts/lint-autofix.sh
+
+      # The formatter, pinned: the same version the gate and the local run
+      # use, so the tree this job pushes is formatted the way the gate expects.
+      - name: Format with ktlint
+        run: |
+          set -euo pipefail
+          source config/toolchain-versions.env
+          bash scripts/ci/install-ktlint.sh "$RUNNER_TEMP/ktlint-bin" "$KTLINT_VERSION"
+          KTLINT_BIN="$RUNNER_TEMP/ktlint-bin/ktlint" python3 scripts/ktlint-lint.py --format
 
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a

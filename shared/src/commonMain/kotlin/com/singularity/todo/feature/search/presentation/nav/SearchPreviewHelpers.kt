@@ -13,6 +13,8 @@ class PreviewSearchNavigator :
         onExitGraph = {},
     ) {
     override fun openTask(taskId: TaskId) { /* no-op in preview */ }
+
     override fun openNote(noteId: NoteId) { /* no-op in preview */ }
+
     override fun openProject(projectId: ProjectId) { /* no-op in preview */ }
 }

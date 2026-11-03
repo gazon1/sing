@@ -19,7 +19,11 @@ import kotlinx.collections.immutable.ImmutableList
  * @param onDismiss called when the user backs out; nothing was written.
  */
 @Composable
-fun ConfirmCloseSheet(openTaskCount: Int, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+fun ConfirmCloseSheet(
+    openTaskCount: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Close project?") },
@@ -73,11 +77,12 @@ fun ConfirmBlockedCloseDialog(
  *
  * @param openTaskCount how many of the project's tasks are still open.
  */
-fun confirmCloseText(openTaskCount: Int): String = when (openTaskCount) {
-    0 -> "This project has no open tasks. The project will be closed."
-    1 -> "1 open task will be closed with it."
-    else -> "$openTaskCount open tasks will be closed with it."
-}
+fun confirmCloseText(openTaskCount: Int): String =
+    when (openTaskCount) {
+        0 -> "This project has no open tasks. The project will be closed."
+        1 -> "1 open task will be closed with it."
+        else -> "$openTaskCount open tasks will be closed with it."
+    }
 
 /**
  * The body of the blocked close confirmation: the tasks in the way, and how many
@@ -88,12 +93,16 @@ fun confirmCloseText(openTaskCount: Int): String = when (openTaskCount) {
  * @param blockedTaskTitles the titles of the tasks that are in the way.
  * @param openTaskCount how many of the project's tasks the close will close.
  */
-fun confirmBlockedCloseText(blockedTaskTitles: List<String>, openTaskCount: Int): String {
+fun confirmBlockedCloseText(
+    blockedTaskTitles: List<String>,
+    openTaskCount: Int,
+): String {
     val names = blockedTaskTitles.joinToString(separator = "\n") { "• $it" }
-    val tasks = when (openTaskCount) {
-        0 -> "No tasks will be closed."
-        1 -> "1 task will be closed."
-        else -> "$openTaskCount tasks will be closed."
-    }
+    val tasks =
+        when (openTaskCount) {
+            0 -> "No tasks will be closed."
+            1 -> "1 task will be closed."
+            else -> "$openTaskCount tasks will be closed."
+        }
     return "These tasks have unfinished prerequisites:\n$names\n\n$tasks"
 }

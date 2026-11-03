@@ -34,25 +34,25 @@ import com.singularity.todo.feature.proposals.domain.model.TaskValue
  * operation does not make the function more complex.
  */
 object ProposalOperation {
-
     /**
      * The operations that set a field, and the value each one reads.
      *
      * The reader is the *same* reader the proposal machinery uses — [TaskValue.read] —
      * so an operation cannot accept a value the proposal would later refuse to apply.
      */
-    private val FIELD_OPERATIONS: Map<String, (String) -> ReadResult<TaskValue>> = linkedMapOf(
-        "set_title" to { text -> ReadResult.Ok(TaskValue.Title(text)) },
-        "set_description" to { text -> ReadResult.Ok(TaskValue.Description(text)) },
-        "set_priority" to { text -> TaskValue.read("Priority", text) },
-        "set_due_date" to { text -> TaskValue.read("DueDate", text) },
-        "set_estimate" to { text -> TaskValue.read("EstimateMinutes", text) },
-        "set_status" to { text -> TaskValue.read("Status", text) },
-        "set_kind" to { text -> TaskValue.read("Kind", text) },
-        "set_due_time" to { text -> TaskValue.read("DueTime", text) },
-        "set_project" to { text -> ReadResult.Ok(TaskValue.Project(text.trim())) },
-        "set_someday" to { text -> TaskValue.read("Someday", text) },
-    )
+    private val FIELD_OPERATIONS: Map<String, (String) -> ReadResult<TaskValue>> =
+        linkedMapOf(
+            "set_title" to { text -> ReadResult.Ok(TaskValue.Title(text)) },
+            "set_description" to { text -> ReadResult.Ok(TaskValue.Description(text)) },
+            "set_priority" to { text -> TaskValue.read("Priority", text) },
+            "set_due_date" to { text -> TaskValue.read("DueDate", text) },
+            "set_estimate" to { text -> TaskValue.read("EstimateMinutes", text) },
+            "set_status" to { text -> TaskValue.read("Status", text) },
+            "set_kind" to { text -> TaskValue.read("Kind", text) },
+            "set_due_time" to { text -> TaskValue.read("DueTime", text) },
+            "set_project" to { text -> ReadResult.Ok(TaskValue.Project(text.trim())) },
+            "set_someday" to { text -> TaskValue.read("Someday", text) },
+        )
 
     /**
      * The operations that add or remove entries, and the kind each one makes.
@@ -61,13 +61,14 @@ object ProposalOperation {
      * entries proposes nothing, and the tool says so rather than storing an
      * empty change.
      */
-    private val LIST_OPERATIONS: Map<String, (List<String>) -> ProposalItemKind> = linkedMapOf(
-        "add_tags" to { items -> ProposalItemKind.AddTags(items) },
-        "remove_tags" to { items -> ProposalItemKind.RemoveTags(items) },
-        "set_tags" to { items -> ProposalItemKind.SetTaskTags(items) },
-        "add_checklist" to { items -> ProposalItemKind.AddChecklistItems(items) },
-        "add_subtasks" to { items -> ProposalItemKind.AddSubtasks(items) },
-    )
+    private val LIST_OPERATIONS: Map<String, (List<String>) -> ProposalItemKind> =
+        linkedMapOf(
+            "add_tags" to { items -> ProposalItemKind.AddTags(items) },
+            "remove_tags" to { items -> ProposalItemKind.RemoveTags(items) },
+            "set_tags" to { items -> ProposalItemKind.SetTaskTags(items) },
+            "add_checklist" to { items -> ProposalItemKind.AddChecklistItems(items) },
+            "add_subtasks" to { items -> ProposalItemKind.AddSubtasks(items) },
+        )
 
     /**
      * Every operation, in the order they are offered to a reader.
@@ -86,7 +87,11 @@ object ProposalOperation {
      * hold". The last one is worth its own answer — it is the model's mistake to
      * correct, and it has to be reported as such.
      */
-    fun toItem(operation: String, value: String?, items: List<String>): Outcome {
+    fun toItem(
+        operation: String,
+        value: String?,
+        items: List<String>,
+    ): Outcome {
         val name = operation.trim().lowercase()
         FIELD_OPERATIONS[name]?.let { read ->
             val text = value ?: return Outcome.MissingValue
@@ -96,7 +101,8 @@ object ProposalOperation {
             }
         }
         LIST_OPERATIONS[name]?.let { build ->
-            return items.takeIf { it.isNotEmpty() }
+            return items
+                .takeIf { it.isNotEmpty() }
                 ?.let { Outcome.Proposed(build(it)) }
                 ?: Outcome.EmptyChange
         }

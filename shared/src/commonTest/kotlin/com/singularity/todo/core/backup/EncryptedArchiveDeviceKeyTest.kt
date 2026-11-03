@@ -33,7 +33,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class EncryptedArchiveDeviceKeyTest {
-
     private val crypto = FakeArchiveCrypto()
     private val archive = EncryptedArchive(crypto)
 
@@ -149,8 +148,9 @@ class EncryptedArchiveDeviceKeyTest {
         // byte of the ciphertext makes the tag fail, and the tag failing is the
         // password being wrong — which is what a wrong block looks like.
         val tampered = bytes.copyOf()
-        val ciphertextStart = ArchiveFormat.HEADER_BYTES_V3 - ArchiveFormat.KEY_BLOCK_BYTES +
-            ArchiveFormat.SALT_BYTES + ArchiveFormat.NONCE_BYTES
+        val ciphertextStart =
+            ArchiveFormat.HEADER_BYTES_V3 - ArchiveFormat.KEY_BLOCK_BYTES +
+                ArchiveFormat.SALT_BYTES + ArchiveFormat.NONCE_BYTES
         tampered[ciphertextStart] = (tampered[ciphertextStart] + 1).toByte()
 
         assertFailsWith<ArchiveEnvelopeError.WrongPassword> {

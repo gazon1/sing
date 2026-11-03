@@ -1,12 +1,12 @@
 package com.singularity.todo.core.log
 
 import co.touchlab.kermit.Severity
-import java.io.ByteArrayOutputStream
-import java.io.PrintStream
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
 import org.junit.jupiter.api.parallel.Isolated
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -41,7 +41,6 @@ import kotlin.test.assertTrue
 @Isolated
 @Execution(ExecutionMode.SAME_THREAD)
 class StderrLogWriterTest {
-
     @Test
     fun `a log line reaches standard error and nothing reaches standard output`() {
         val realOut = System.out

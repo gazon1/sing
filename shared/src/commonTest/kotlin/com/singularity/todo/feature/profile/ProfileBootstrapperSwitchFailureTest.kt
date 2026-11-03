@@ -50,7 +50,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ProfileBootstrapperSwitchFailureTest {
-
     private val agentProfile = ProfileBootstrapper.SeedProfile.AI_AGENT
 
     private suspend fun seeded(): FakeProfileRepository {
@@ -61,66 +60,71 @@ class ProfileBootstrapperSwitchFailureTest {
     }
 
     @Test
-    fun `a profile that was not activated is not reported as activated`() = runTest {
-        val repo = seeded()
-        val target = repo.observeAll().first().first { it.name == agentProfile.name }
-        val lockError = IllegalStateException("DataStore is closed")
-        repo.switchToFailure = lockError
+    fun `a profile that was not activated is not reported as activated`() =
+        runTest {
+            val repo = seeded()
+            val target = repo.observeAll().first().first { it.name == agentProfile.name }
+            val lockError = IllegalStateException("DataStore is closed")
+            repo.switchToFailure = lockError
 
-        val thrown = assertFailsWith<IllegalStateException> {
-            ProfileBootstrapper(repo).run(activateName = agentProfile.name)
+            val thrown =
+                assertFailsWith<IllegalStateException> {
+                    ProfileBootstrapper(repo).run(activateName = agentProfile.name)
+                }
+
+            assertSame(
+                lockError,
+                thrown,
+                "the reason DataStore refused the switch, not a wrapper — the operator reading " +
+                    "this log is the only one who can tell a closed store from a missing profile",
+            )
+            assertTrue(
+                repo.activeProfileId.value != target.id,
+                "and the active profile genuinely did not change, which is the point: the " +
+                    "previous code reported this id as activated anyway",
+            )
         }
 
-        assertSame(
-            lockError,
-            thrown,
-            "the reason DataStore refused the switch, not a wrapper — the operator reading " +
-                "this log is the only one who can tell a closed store from a missing profile",
-        )
-        assertTrue(
-            repo.activeProfileId.value != target.id,
-            "and the active profile genuinely did not change, which is the point: the " +
-                "previous code reported this id as activated anyway",
-        )
-    }
+    @Test
+    fun `a successful switch is reported`() =
+        runTest {
+            // The negative case. Without it, "always throw" would pass the control above and
+            // break every caller that legitimately activates a profile.
+            val repo = seeded()
+            val target = repo.observeAll().first().first { it.name == agentProfile.name }
+
+            val result = ProfileBootstrapper(repo).run(activateName = agentProfile.name)
+
+            assertEquals(
+                target.id,
+                result.activated,
+                "the switch succeeded, so the id is reported and the caller may migrate",
+            )
+            assertEquals(target.id, repo.activeProfileId.value, "and the store agrees")
+        }
 
     @Test
-    fun `a successful switch is reported`() = runTest {
-        // The negative case. Without it, "always throw" would pass the control above and
-        // break every caller that legitimately activates a profile.
-        val repo = seeded()
-        val target = repo.observeAll().first().first { it.name == agentProfile.name }
+    fun `a run that asked for no switch reports nothing`() =
+        runTest {
+            // The case the throw must not swallow: activateName = null is a legitimate
+            // request, not a failure, and conflating the two would change what every
+            // non-agent MCP invocation does.
+            val repo = seeded()
 
-        val result = ProfileBootstrapper(repo).run(activateName = agentProfile.name)
+            val result = ProfileBootstrapper(repo).run(activateName = null)
 
-        assertEquals(
-            target.id,
-            result.activated,
-            "the switch succeeded, so the id is reported and the caller may migrate",
-        )
-        assertEquals(target.id, repo.activeProfileId.value, "and the store agrees")
-    }
+            assertNull(result.activated, "nothing was asked for, so nothing is reported")
+        }
 
     @Test
-    fun `a run that asked for no switch reports nothing`() = runTest {
-        // The case the throw must not swallow: activateName = null is a legitimate
-        // request, not a failure, and conflating the two would change what every
-        // non-agent MCP invocation does.
-        val repo = seeded()
+    fun `a name that was not found reports nothing and does not throw`() =
+        runTest {
+            // Also a legitimate outcome, handled by the other arm of the same if. A fix that
+            // made every non-null activateName throw would break this.
+            val repo: ProfileRepository = seeded()
 
-        val result = ProfileBootstrapper(repo).run(activateName = null)
+            val result = ProfileBootstrapper(repo).run(activateName = "No Such Profile")
 
-        assertNull(result.activated, "nothing was asked for, so nothing is reported")
-    }
-
-    @Test
-    fun `a name that was not found reports nothing and does not throw`() = runTest {
-        // Also a legitimate outcome, handled by the other arm of the same if. A fix that
-        // made every non-null activateName throw would break this.
-        val repo: ProfileRepository = seeded()
-
-        val result = ProfileBootstrapper(repo).run(activateName = "No Such Profile")
-
-        assertNull(result.activated, "the profile was not seeded, so there is nothing to report")
-    }
+            assertNull(result.activated, "the profile was not seeded, so there is nothing to report")
+        }
 }

@@ -26,16 +26,16 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class ProjectsMenuLiveScenarioTest {
-
     @Test
     @DisplayName("MENU-03 the project tree reflects creations made elsewhere")
-    fun the_tree_is_live() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        openDrawer()
+    fun the_tree_is_live() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            openDrawer()
 
-        // Created while the menu is open: the tree has to show it without the
-        // menu being closed and reopened in between.
-        seedProject(koin, "robot-late", "Latecomer")
+            // Created while the menu is open: the tree has to show it without the
+            // menu being closed and reopened in between.
+            seedProject(koin, "robot-late", "Latecomer")
 
-        awaitTag(TestTags.menuProjectNode("robot-late"))
-    }
+            awaitTag(TestTags.menuProjectNode("robot-late"))
+        }
 }

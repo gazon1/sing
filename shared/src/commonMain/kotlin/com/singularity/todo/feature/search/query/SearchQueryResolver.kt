@@ -1,9 +1,9 @@
 package com.singularity.todo.feature.search.query
 
-import com.singularity.todo.core.search.FreeTextRule
-import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.platform.todayAt
+import com.singularity.todo.core.search.FreeTextRule
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -28,14 +28,21 @@ interface SearchQueryResolver {
      * @param mode The mode the free text is matched in — the rule that answers
      *   the terms, and what the index can do for them.
      */
-    suspend fun resolve(query: Query, userId: String, mode: SearchMode): ResolvedSearchQuery
+    suspend fun resolve(
+        query: Query,
+        userId: String,
+        mode: SearchMode,
+    ): ResolvedSearchQuery
 }
 
 /**
  * Looks up a tag by name for a specific user. Used by [SearchQueryResolver].
  */
 interface TagLookup {
-    suspend fun findByName(userId: String, name: String): TagLookupResult?
+    suspend fun findByName(
+        userId: String,
+        name: String,
+    ): TagLookupResult?
 }
 
 /** Result of a tag lookup — only the fields needed by the resolver. */
@@ -45,7 +52,10 @@ data class TagLookupResult(val id: String, val userId: String, val name: String)
  * Looks up a project by name for a specific user. Used by [SearchQueryResolver].
  */
 interface ProjectLookup {
-    suspend fun findByName(userId: String, name: String): ProjectLookupResult?
+    suspend fun findByName(
+        userId: String,
+        name: String,
+    ): ProjectLookupResult?
 }
 
 /** Result of a project lookup — only the fields needed by the resolver. */
@@ -80,15 +90,19 @@ class DefaultSearchQueryResolver(
     private val clock: Clock,
     private val timeZone: TimeZoneProvider,
 ) : SearchQueryResolver {
-
-    override suspend fun resolve(query: Query, userId: String, mode: SearchMode): ResolvedSearchQuery {
-        val condition = query.condition ?: return ResolvedSearchQuery(
-            taskFilter = null,
-            dateRange = null,
-            sortOrder = query.sortOrder,
-            sortDescending = query.sortDescending,
-            options = query.options,
-        )
+    override suspend fun resolve(
+        query: Query,
+        userId: String,
+        mode: SearchMode,
+    ): ResolvedSearchQuery {
+        val condition =
+            query.condition ?: return ResolvedSearchQuery(
+                taskFilter = null,
+                dateRange = null,
+                sortOrder = query.sortOrder,
+                sortDescending = query.sortDescending,
+                options = query.options,
+            )
 
         val ctx = ResolveContext(userId)
         resolveCondition(condition, ctx)
@@ -163,7 +177,10 @@ class DefaultSearchQueryResolver(
         /** Nesting depth of Not conditions — used to negate post-filters correctly. */
         var negationDepth: Int = 0
 
-        fun addText(t: String, negated: Boolean) {
+        fun addText(
+            t: String,
+            negated: Boolean,
+        ) {
             // F1 — the free text of a query is a list of terms. One term is one
             // `HasText` condition, and the terms are collected here and handed to the
             // rule as one object, so every kind of record is matched by the same
@@ -180,8 +197,7 @@ class DefaultSearchQueryResolver(
          * connective the task post-filter uses to combine its predicates, so tasks
          * and the other kinds are combined the same way.
          */
-        fun freeTextRule(): FreeTextRule =
-            FreeTextRule(terms = freeTextTerms.toList(), combinesWithOr = isOrPostFilter)
+        fun freeTextRule(): FreeTextRule = FreeTextRule(terms = freeTextTerms.toList(), combinesWithOr = isOrPostFilter)
 
         fun addPostFilter(p: (Task) -> Boolean) {
             // If inside a Not, negate the predicate before adding
@@ -196,7 +212,10 @@ class DefaultSearchQueryResolver(
 
     // ─── Condition → Context ─────────────────────────────────────────────────
 
-    private suspend fun resolveCondition(c: Condition, ctx: ResolveContext) {
+    private suspend fun resolveCondition(
+        c: Condition,
+        ctx: ResolveContext,
+    ) {
         when (c) {
             is Condition.HasText -> {
                 // The word is free text, and the free-text rule is built from all of
@@ -206,25 +225,45 @@ class DefaultSearchQueryResolver(
                 ctx.addText(c.text, negated = ctx.negationDepth > 0)
             }
 
-            is Condition.HasStatus -> handleHasStatus(c, ctx)
+            is Condition.HasStatus -> {
+                handleHasStatus(c, ctx)
+            }
 
-            is Condition.HasPriority -> ctx.addPostFilter { task -> task.priority == c.priority }
+            is Condition.HasPriority -> {
+                ctx.addPostFilter { task -> task.priority == c.priority }
+            }
 
-            is Condition.HasTag -> handleHasTag(c, ctx)
+            is Condition.HasTag -> {
+                handleHasTag(c, ctx)
+            }
 
-            is Condition.HasAllTags -> handleHasAllTags(c, ctx)
+            is Condition.HasAllTags -> {
+                handleHasAllTags(c, ctx)
+            }
 
-            is Condition.InProject -> handleInProject(c, ctx)
+            is Condition.InProject -> {
+                handleInProject(c, ctx)
+            }
 
-            is Condition.Due -> handleDue(c, ctx)
+            is Condition.Due -> {
+                handleDue(c, ctx)
+            }
 
-            is Condition.Scheduled -> handleScheduled(c, ctx)
+            is Condition.Scheduled -> {
+                handleScheduled(c, ctx)
+            }
 
-            is Condition.HasDescription -> ctx.addPostFilter { task -> !task.description.isNullOrBlank() }
+            is Condition.HasDescription -> {
+                ctx.addPostFilter { task -> !task.description.isNullOrBlank() }
+            }
 
-            is Condition.IsPinned -> ctx.addPostFilter { task -> task.isPinned }
+            is Condition.IsPinned -> {
+                ctx.addPostFilter { task -> task.isPinned }
+            }
 
-            is Condition.IsArchived -> ctx.addPostFilter { task -> task.archivedAt != null }
+            is Condition.IsArchived -> {
+                ctx.addPostFilter { task -> task.archivedAt != null }
+            }
 
             is Condition.Not -> {
                 ctx.negationDepth++
@@ -248,7 +287,10 @@ class DefaultSearchQueryResolver(
         }
     }
 
-    private suspend fun handleHasStatus(c: Condition.HasStatus, ctx: ResolveContext) {
+    private suspend fun handleHasStatus(
+        c: Condition.HasStatus,
+        ctx: ResolveContext,
+    ) {
         val status = c.status
         ctx.addPostFilter { task ->
             when (status) {
@@ -259,7 +301,10 @@ class DefaultSearchQueryResolver(
         }
     }
 
-    private suspend fun handleHasTag(c: Condition.HasTag, ctx: ResolveContext) {
+    private suspend fun handleHasTag(
+        c: Condition.HasTag,
+        ctx: ResolveContext,
+    ) {
         val entity = tagLookup.findByName(ctx.userId, c.tagName)
         if (entity != null) {
             ctx.resolvedTagIds.add(entity.id)
@@ -286,7 +331,10 @@ class DefaultSearchQueryResolver(
      * are the same query, and one of them matching work-tasks while the other does not
      * would be a rule with two answers.
      */
-    private suspend fun handleHasAllTags(c: Condition.HasAllTags, ctx: ResolveContext) {
+    private suspend fun handleHasAllTags(
+        c: Condition.HasAllTags,
+        ctx: ResolveContext,
+    ) {
         val ids = mutableSetOf<String>()
         var unresolved = false
         for (tagName in c.tagNames) {
@@ -309,7 +357,10 @@ class DefaultSearchQueryResolver(
         }
     }
 
-    private suspend fun handleInProject(c: Condition.InProject, ctx: ResolveContext) {
+    private suspend fun handleInProject(
+        c: Condition.InProject,
+        ctx: ResolveContext,
+    ) {
         val entity = projectLookup.findByName(ctx.userId, c.name)
         if (entity != null) {
             ctx.resolvedProjectId = entity.id
@@ -321,7 +372,10 @@ class DefaultSearchQueryResolver(
         }
     }
 
-    private fun handleDue(c: Condition.Due, ctx: ResolveContext) {
+    private fun handleDue(
+        c: Condition.Due,
+        ctx: ResolveContext,
+    ) {
         if (!c.interval.isNone) {
             val today = todayAt(clock, timeZone.current())
             val targetDate = today.plus(c.interval.days.toLong(), DateTimeUnit.DAY)
@@ -351,7 +405,10 @@ class DefaultSearchQueryResolver(
         }
     }
 
-    private fun handleScheduled(c: Condition.Scheduled, ctx: ResolveContext) {
+    private fun handleScheduled(
+        c: Condition.Scheduled,
+        ctx: ResolveContext,
+    ) {
         if (!c.interval.isNone) {
             val today = todayAt(clock, timeZone.current())
             val targetDate = today.plus(c.interval.days.toLong(), DateTimeUnit.DAY)
@@ -371,7 +428,10 @@ class DefaultSearchQueryResolver(
 
     // ─── Date range helpers ──────────────────────────────────────────────────
 
-    private fun computeDateRange(relation: Relation, targetDate: LocalDate): ResolvedSearchQuery.DateRange? =
+    private fun computeDateRange(
+        relation: Relation,
+        targetDate: LocalDate,
+    ): ResolvedSearchQuery.DateRange? =
         when (relation) {
             Relation.LE -> {
                 // dueDate <= targetDate → range from 1970-01-01 to targetDate
@@ -412,12 +472,16 @@ class DefaultSearchQueryResolver(
         val dateRange = ctx.dateRange
 
         return when {
-            dateRange != null && projectId == null && tagIds.isEmpty() ->
+            dateRange != null && projectId == null && tagIds.isEmpty() -> {
                 TaskFilter.ByDateRange(dateRange.from, dateRange.to)
+            }
 
-            projectId != null -> TaskFilter.ByProject(
-                com.singularity.todo.feature.projects.domain.model.ProjectId.fromString(projectId),
-            )
+            projectId != null -> {
+                TaskFilter.ByProject(
+                    com.singularity.todo.feature.projects.domain.model.ProjectId
+                        .fromString(projectId),
+                )
+            }
 
             tagIds.isNotEmpty() -> {
                 // Single tag → ByTag; multiple tags → ByTags matchAll
@@ -428,7 +492,9 @@ class DefaultSearchQueryResolver(
                 }
             }
 
-            else -> null
+            else -> {
+                null
+            }
         }
     }
 
@@ -438,11 +504,12 @@ class DefaultSearchQueryResolver(
         val parts = ctx.postFilterParts.toList()
         if (parts.isEmpty()) return { it }
 
-        val combiner: (Task) -> Boolean = if (ctx.isOrPostFilter) {
-            { task -> parts.any { it(task) } }
-        } else {
-            { task -> parts.all { it(task) } }
-        }
+        val combiner: (Task) -> Boolean =
+            if (ctx.isOrPostFilter) {
+                { task -> parts.any { it(task) } }
+            } else {
+                { task -> parts.all { it(task) } }
+            }
         return { tasks -> tasks.filter(combiner) }
     }
 }

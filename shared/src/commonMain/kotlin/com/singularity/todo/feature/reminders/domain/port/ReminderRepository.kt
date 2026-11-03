@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.Flow
  * Platform implementations: Room (Android/desktop) via [ReminderDao].
  */
 interface ReminderRepository {
-
     // ─── Generic CRUD (ambient user) ─────────────────────────────────────────
 
     /** All reminders for the current user. */
@@ -45,7 +44,10 @@ interface ReminderRepository {
     suspend fun delete(id: ReminderId): Result<Unit>
 
     /** Deletes a reminder by [id] for an explicit [userId]. Used by [AlarmReceiver] to ensure cross-profile correctness. */
-    suspend fun delete(id: ReminderId, userId: UserId): Result<Unit>
+    suspend fun delete(
+        id: ReminderId,
+        userId: UserId,
+    ): Result<Unit>
 
     // ─── Domain methods ───────────────────────────────────────────────────────
 
@@ -62,7 +64,10 @@ interface ReminderRepository {
      * Most-recent [limit] reminders due before [nowEpochMs] for the current user.
      * Used by [AlarmReceiver] to catch up past-due reminders on boot without loading all rows.
      */
-    fun watchRecentDueBefore(nowEpochMs: Long, limit: Int): Flow<List<Reminder>>
+    fun watchRecentDueBefore(
+        nowEpochMs: Long,
+        limit: Int,
+    ): Flow<List<Reminder>>
 
     /** Deletes all reminders for a task. */
     suspend fun deleteByTask(taskId: TaskId): Result<Unit>
@@ -71,5 +76,8 @@ interface ReminderRepository {
      * Records that a reminder was successfully fired at [lastFiredAt].
      * Used by [ReminderScheduler] to prevent re-firing a recurring reminder too soon.
      */
-    suspend fun markFired(reminderId: ReminderId, lastFiredAt: Long): Result<Unit>
+    suspend fun markFired(
+        reminderId: ReminderId,
+        lastFiredAt: Long,
+    ): Result<Unit>
 }

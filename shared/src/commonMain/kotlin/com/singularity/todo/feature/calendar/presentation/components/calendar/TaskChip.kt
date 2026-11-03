@@ -4,12 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Autorenew
@@ -44,55 +44,63 @@ fun TaskChip(
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalCalendarPalette.current
-    val background = when {
-        isSelected -> palette.taskSelected
-        task.status == CalendarTaskStatus.DONE -> palette.taskDone
-        task.status == CalendarTaskStatus.OVERDUE -> palette.taskOverdue
-        else -> palette.taskDefault
-    }
+    val background =
+        when {
+            isSelected -> palette.taskSelected
+            task.status == CalendarTaskStatus.DONE -> palette.taskDone
+            task.status == CalendarTaskStatus.OVERDUE -> palette.taskOverdue
+            else -> palette.taskDefault
+        }
 
     if (compact) {
         // Month grid cells are ~51 dp wide: a chip with a title renders "Re…".
         // Show a status-colored dot instead; the full title lives in the day view.
         Box(
-            modifier = modifier
-                .touchTarget(TaskListSizes.MinTouchTarget)
-                .size(8.dp)
-                .background(background, CircleShape)
-                .clickable { onClick() },
+            modifier =
+                modifier
+                    .touchTarget(TaskListSizes.MinTouchTarget)
+                    .size(8.dp)
+                    .background(background, CircleShape)
+                    .clickable { onClick() },
         )
         return
     }
 
-    val textColor = when {
-        isSelected -> Color.White
-        task.status == CalendarTaskStatus.DONE -> palette.textMuted
-        task.isLink -> palette.link
-        else -> palette.textPrimary
-    }
+    val textColor =
+        when {
+            isSelected -> Color.White
+            task.status == CalendarTaskStatus.DONE -> palette.textMuted
+            task.isLink -> palette.link
+            else -> palette.textPrimary
+        }
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(background, RoundedCornerShape(4.dp))
-            .clickable { onClick() }
-            .padding(horizontal = 6.dp, vertical = 3.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .background(background, RoundedCornerShape(4.dp))
+                .clickable { onClick() }
+                .padding(horizontal = 6.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when {
-            task.status == CalendarTaskStatus.DONE -> Icon(
-                Icons.Default.Check,
-                contentDescription = null,
-                tint = palette.textMuted,
-                modifier = Modifier.size(12.dp),
-            )
+            task.status == CalendarTaskStatus.DONE -> {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = null,
+                    tint = palette.textMuted,
+                    modifier = Modifier.size(12.dp),
+                )
+            }
 
-            task.isRecurring -> Icon(
-                Icons.Default.Autorenew,
-                contentDescription = null,
-                tint = textColor.copy(alpha = 0.8f),
-                modifier = Modifier.size(12.dp),
-            )
+            task.isRecurring -> {
+                Icon(
+                    Icons.Default.Autorenew,
+                    contentDescription = null,
+                    tint = textColor.copy(alpha = 0.8f),
+                    modifier = Modifier.size(12.dp),
+                )
+            }
         }
         if (task.status == CalendarTaskStatus.DONE || task.isRecurring) {
             Spacer(Modifier.width(4.dp))
@@ -107,11 +115,12 @@ fun TaskChip(
             SeriesMarker(isSeries = true, compact = true)
             Spacer(Modifier.width(4.dp))
         }
-        val decoration = when {
-            task.status == CalendarTaskStatus.DONE -> TextDecoration.LineThrough
-            task.isLink -> TextDecoration.Underline
-            else -> null
-        }
+        val decoration =
+            when {
+                task.status == CalendarTaskStatus.DONE -> TextDecoration.LineThrough
+                task.isLink -> TextDecoration.Underline
+                else -> null
+            }
         Text(
             text = task.title,
             color = textColor,
@@ -134,14 +143,19 @@ fun TaskChip(
  * nothing.
  */
 @Composable
-fun MoreTasksLabel(count: Int, onClick: (() -> Unit)?, modifier: Modifier = Modifier) {
+fun MoreTasksLabel(
+    count: Int,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
     val palette = LocalCalendarPalette.current
     Text(
         text = "+$count more",
         color = palette.textMuted,
         fontSize = 12.sp,
-        modifier = modifier
-            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
-            .padding(horizontal = 6.dp, vertical = 2.dp),
+        modifier =
+            modifier
+                .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
+                .padding(horizontal = 6.dp, vertical = 2.dp),
     )
 }

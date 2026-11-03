@@ -5,7 +5,6 @@ import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
-
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -97,7 +96,10 @@ suspend fun DesktopComposeUiTest.longClickTag(tag: String) {
  * Waits for the input with [tag], then replaces its text with [value].
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.typeIntoTag(tag: String, value: String) {
+fun DesktopComposeUiTest.typeIntoTag(
+    tag: String,
+    value: String,
+) {
     awaitTag(tag).performTextReplacement(value)
 }
 
@@ -116,7 +118,10 @@ fun DesktopComposeUiTest.clearTag(tag: String) {
  * Use for fields that arrive with seeded content.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.clearAndTypeIntoTag(tag: String, value: String) {
+fun DesktopComposeUiTest.clearAndTypeIntoTag(
+    tag: String,
+    value: String,
+) {
     awaitTag(tag).performTextClearance()
     onNodeWithTag(tag).performTextInput(value)
 }

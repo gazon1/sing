@@ -20,13 +20,15 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class LocalGoogleAccessTokenProviderTest {
-
     private class MapSecureStorage : SecureStorage {
         private val values = mutableMapOf<String, String>()
 
         override suspend fun read(key: String): String? = values[key]
 
-        override suspend fun write(key: String, value: String) {
+        override suspend fun write(
+            key: String,
+            value: String,
+        ) {
             values[key] = value
         }
 
@@ -44,7 +46,10 @@ class LocalGoogleAccessTokenProviderTest {
 
         override suspend fun load(userId: String): GoogleCredentials? = stored
 
-        override suspend fun save(userId: String, credentials: GoogleCredentials) {
+        override suspend fun save(
+            userId: String,
+            credentials: GoogleCredentials,
+        ) {
             stored = credentials
         }
 
@@ -80,59 +85,67 @@ class LocalGoogleAccessTokenProviderTest {
         clientId: String? = "the-client-id",
     ) = LocalGoogleAccessTokenProvider(
         credentialStore = store,
-        clientIdResolver = GoogleClientIdResolver(
-            buildTime = { clientId?.let { BuildTimeGoogleClientConfig(it) } },
-        ),
+        clientIdResolver =
+            GoogleClientIdResolver(
+                buildTime = { clientId?.let { BuildTimeGoogleClientConfig(it) } },
+            ),
         secureStorage = MapSecureStorage(),
         tokenClientFactory = { exchange },
     )
 
     /** No credential at all means "not connected", not a crash. */
     @Test
-    fun `a profile with no credential has no token`() = runTest {
-        val provider = provider(FakeCredentialStore(), FakeTokenExchange())
+    fun `a profile with no credential has no token`() =
+        runTest {
+            val provider = provider(FakeCredentialStore(), FakeTokenExchange())
 
-        assertNull(provider.accessToken(UserId.fromString("user-1")))
-    }
+            assertNull(provider.accessToken(UserId.fromString("user-1")))
+        }
 
     /** A live token is used as it is. */
     @Test
-    fun `a live token is used without renewing it`() = runTest {
-        val store = FakeCredentialStore(
-            GoogleCredentials("the-token", "the-refresh", System.currentTimeMillis() + 60_000),
-        )
-        val exchange = FakeTokenExchange()
-        val provider = provider(store, exchange)
+    fun `a live token is used without renewing it`() =
+        runTest {
+            val store =
+                FakeCredentialStore(
+                    GoogleCredentials("the-token", "the-refresh", System.currentTimeMillis() + 60_000),
+                )
+            val exchange = FakeTokenExchange()
+            val provider = provider(store, exchange)
 
-        assertEquals("the-token", provider.accessToken(UserId.fromString("user-1")))
-        assertNull(exchange.refreshedWith, "a live token must not be renewed")
-    }
+            assertEquals("the-token", provider.accessToken(UserId.fromString("user-1")))
+            assertNull(exchange.refreshedWith, "a live token must not be renewed")
+        }
 
     /** An expired token is renewed with the stored refresh token. */
     @Test
-    fun `an expired token is renewed`() = runTest {
-        val store = FakeCredentialStore(
-            GoogleCredentials("old-token", "the-refresh", System.currentTimeMillis() - 1),
-        )
-        val exchange = FakeTokenExchange()
-        val provider = provider(store, exchange)
+    fun `an expired token is renewed`() =
+        runTest {
+            val store =
+                FakeCredentialStore(
+                    GoogleCredentials("old-token", "the-refresh", System.currentTimeMillis() - 1),
+                )
+            val exchange = FakeTokenExchange()
+            val provider = provider(store, exchange)
 
-        assertEquals("new-access", provider.accessToken(UserId.fromString("user-1")))
-        assertEquals("the-refresh", exchange.refreshedWith)
-    }
+            assertEquals("new-access", provider.accessToken(UserId.fromString("user-1")))
+            assertEquals("the-refresh", exchange.refreshedWith)
+        }
 
     /** The renewed credential is stored, so the next call does not renew again. */
     @Test
-    fun `the renewed credential is stored`() = runTest {
-        val store = FakeCredentialStore(
-            GoogleCredentials("old-token", "the-refresh", System.currentTimeMillis() - 1),
-        )
-        val provider = provider(store, FakeTokenExchange())
+    fun `the renewed credential is stored`() =
+        runTest {
+            val store =
+                FakeCredentialStore(
+                    GoogleCredentials("old-token", "the-refresh", System.currentTimeMillis() - 1),
+                )
+            val provider = provider(store, FakeTokenExchange())
 
-        provider.accessToken(UserId.fromString("user-1"))
+            provider.accessToken(UserId.fromString("user-1"))
 
-        assertEquals("new-access", store.stored?.accessToken)
-    }
+            assertEquals("new-access", store.stored?.accessToken)
+        }
 
     /**
      * A grant that cannot be renewed is cleared.
@@ -142,36 +155,41 @@ class LocalGoogleAccessTokenProviderTest {
      * to connect again.
      */
     @Test
-    fun `a grant that cannot be renewed is cleared`() = runTest {
-        val store = FakeCredentialStore(
-            GoogleCredentials("old-token", "the-refresh", System.currentTimeMillis() - 1),
-        )
-        val exchange = object : GoogleTokenExchange {
-            override suspend fun exchangeCode(
-                code: String,
-                redirectUri: String,
-                codeVerifier: String?,
-            ): GoogleCredentials = throw IllegalStateException("not used")
+    fun `a grant that cannot be renewed is cleared`() =
+        runTest {
+            val store =
+                FakeCredentialStore(
+                    GoogleCredentials("old-token", "the-refresh", System.currentTimeMillis() - 1),
+                )
+            val exchange =
+                object : GoogleTokenExchange {
+                    override suspend fun exchangeCode(
+                        code: String,
+                        redirectUri: String,
+                        codeVerifier: String?,
+                    ): GoogleCredentials = throw IllegalStateException("not used")
 
-            override suspend fun refresh(refreshToken: String): GoogleCredentials =
-                throw IllegalStateException("the grant is gone")
+                    override suspend fun refresh(refreshToken: String): GoogleCredentials =
+                        throw IllegalStateException("the grant is gone")
 
-            override suspend fun revoke(refreshToken: String) = Unit
+                    override suspend fun revoke(refreshToken: String) = Unit
+                }
+            val provider = provider(store, exchange)
+
+            assertNull(provider.accessToken(UserId.fromString("user-1")))
+            assertTrue(store.cleared, "the dead credential must not be left on the device")
         }
-        val provider = provider(store, exchange)
-
-        assertNull(provider.accessToken(UserId.fromString("user-1")))
-        assertTrue(store.cleared, "the dead credential must not be left on the device")
-    }
 
     /** A credential with no refresh token cannot be renewed; it is simply not usable. */
     @Test
-    fun `an expired credential with no refresh token yields no token`() = runTest {
-        val store = FakeCredentialStore(
-            GoogleCredentials("old-token", null, System.currentTimeMillis() - 1),
-        )
-        val provider = provider(store, FakeTokenExchange())
+    fun `an expired credential with no refresh token yields no token`() =
+        runTest {
+            val store =
+                FakeCredentialStore(
+                    GoogleCredentials("old-token", null, System.currentTimeMillis() - 1),
+                )
+            val provider = provider(store, FakeTokenExchange())
 
-        assertNull(provider.accessToken(UserId.fromString("user-1")))
-    }
+            assertNull(provider.accessToken(UserId.fromString("user-1")))
+        }
 }

@@ -1,8 +1,8 @@
 name: 'Setup gate tooling'
 description: >-
   Install everything the gate suite shells out to: the sgate CLI (editable from
-  scripts/src/), junitparser, yamllint, actionlint, shellcheck and lychee — into
-  one venv, once, for whichever job calls it.
+  scripts/src/), junitparser, yamllint, actionlint, shellcheck, lychee and
+  ktlint — into one venv, once, for whichever job calls it.
 
 # Why this exists
 # --------------
@@ -57,6 +57,13 @@ inputs:
       Install the pinned lychee (the "documentation links resolve" gate needs it).
     required: false
     default: 'true'
+  with-kt-lint:
+    description: >-
+      Install the pinned ktlint CLI (the "Kotlin is formatted" check needs it).
+      It is a self-executing jar, so the job needs a JVM — every job that runs
+      this action already has one.
+    required: false
+    default: 'false'
 
 outputs:
   venv-bin:
@@ -139,6 +146,20 @@ runs:
         # fails on the next is a gate whose floor moved without anyone deciding.
         VIRTUAL_ENV="$VENV" uv pip install "lychee-bin==$LYCHEE_BIN_VERSION"
         "$VENV/bin/lychee" --version
+
+    - name: Install the Kotlin formatter (pinned)
+      if: ${{ inputs.with-kt-lint == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        VENV="$HOME/ci-venv"
+        # The same pins file the linters above read — see the comment there.
+        source config/toolchain-versions.env
+        # ktlint is a self-executing jar from a GitHub release, not a Python
+        # distribution: the download is the pinned release asset, and the pin
+        # is the tag without a leading "v" (the asset is named after it).
+        bash scripts/ci/install-ktlint.sh "$VENV/bin" "$KTLINT_VERSION"
+        "$VENV/bin/ktlint" --version
 
     - name: Verify both gate registries load
       shell: bash

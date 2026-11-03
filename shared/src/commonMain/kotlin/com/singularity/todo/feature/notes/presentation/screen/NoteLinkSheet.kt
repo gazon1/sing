@@ -6,5 +6,6 @@ package com.singularity.todo.feature.notes.presentation.screen
  */
 sealed class NoteLinkSheet {
     data object External : NoteLinkSheet()
+
     data class InternalPicker(val query: String = "") : NoteLinkSheet()
 }

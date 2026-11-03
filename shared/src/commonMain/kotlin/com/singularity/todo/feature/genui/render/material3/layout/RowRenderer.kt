@@ -9,13 +9,14 @@ import com.singularity.todo.feature.genui.render.ComponentRegistry
 import com.singularity.todo.feature.genui.render.genuiTag
 import com.singularity.todo.feature.genui.render.material3.RenderSingle
 
-internal fun ComponentRegistry.registerRow(): Unit = register("row") { node, ctx, modifier ->
-    val r = node as UiNode.Row
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.genuiTag("row", "Row"),
-    ) {
-        r.children.forEach { ref -> RenderSingle(ref, ctx) }
+internal fun ComponentRegistry.registerRow(): Unit =
+    register("row") { node, ctx, modifier ->
+        val r = node as UiNode.Row
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = modifier.genuiTag("row", "Row"),
+        ) {
+            r.children.forEach { ref -> RenderSingle(ref, ctx) }
+        }
     }
-}

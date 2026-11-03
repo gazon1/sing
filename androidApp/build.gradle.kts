@@ -18,10 +18,12 @@ plugins {
 // `providers.*` rather than System.getenv for the same configuration-cache reason the
 // Tracer tokens used to be: a raw environment read is snapshotted at configuration time
 // and silently goes stale.
-val withPro: Boolean = providers.gradleProperty("withPro")
-    .orElse("false")
-    .map { it.toBoolean() }
-    .get()
+val withPro: Boolean =
+    providers
+        .gradleProperty("withPro")
+        .orElse("false")
+        .map { it.toBoolean() }
+        .get()
 
 kotlin {
     compilerOptions {
@@ -35,9 +37,6 @@ dependencies {
     // The custom rule sets (via :detekt-rules plugin / ServiceLoader). Without this, no
     // project rule applies to androidApp at all.
     detektPlugins(project(":detekt-rules"))
-    // ktlint via detekt-formatting — required because the shared config declares a
-    //  block, and detekt rejects unknown top-level sections.
-    detektPlugins(libs.detekt.formatting)
 
     // AndroidX
     implementation(libs.androidx.activity.compose)
@@ -103,9 +102,13 @@ dependencies {
 // (a source tarball, a CI export) yields "unknown" and the check degrades to
 // comparing "unknown" with "unknown" instead of failing every build.
 // ---------------------------------------------------------------------------
-val gitShaProvider: Provider<String> = providers.exec {
-    commandLine("git", "rev-parse", "--short=12", "HEAD")
-}.standardOutput.asText.map { it.trim() }.orElse("unknown")
+val gitShaProvider: Provider<String> =
+    providers
+        .exec {
+            commandLine("git", "rev-parse", "--short=12", "HEAD")
+        }.standardOutput.asText
+        .map { it.trim() }
+        .orElse("unknown")
 
 // ---------------------------------------------------------------------------
 // Google OAuth client id
@@ -125,41 +128,44 @@ val gitShaProvider: Provider<String> = providers.exec {
 // and CI do not have one, and a missing file must not fail a build that has no use for
 // its contents.
 // ---------------------------------------------------------------------------
-val googleClientId: String = run {
-    val localProperties = rootProject.file("local.properties")
-    if (!localProperties.isFile) {
-        ""
-    } else {
-        val properties = Properties()
-        localProperties.inputStream().use(properties::load)
-        // `getProperty(key, default)` rather than a null check afterwards: an absent key
-        // and a key explicitly set to an empty value both mean "not configured", and only
-        // one of them arrives as null.
-        properties.getProperty("google.client.id", "").trim()
+val googleClientId: String =
+    run {
+        val localProperties = rootProject.file("local.properties")
+        if (!localProperties.isFile) {
+            ""
+        } else {
+            val properties = Properties()
+            localProperties.inputStream().use(properties::load)
+            // `getProperty(key, default)` rather than a null check afterwards: an absent key
+            // and a key explicitly set to an empty value both mean "not configured", and only
+            // one of them arrives as null.
+            properties.getProperty("google.client.id", "").trim()
+        }
     }
-}
 
-val supabaseUrl: String = run {
-    val localProperties = rootProject.file("local.properties")
-    if (!localProperties.isFile) {
-        ""
-    } else {
-        val properties = Properties()
-        localProperties.inputStream().use(properties::load)
-        properties.getProperty("supabase.url", "").trim()
+val supabaseUrl: String =
+    run {
+        val localProperties = rootProject.file("local.properties")
+        if (!localProperties.isFile) {
+            ""
+        } else {
+            val properties = Properties()
+            localProperties.inputStream().use(properties::load)
+            properties.getProperty("supabase.url", "").trim()
+        }
     }
-}
 
-val supabaseAnonKey: String = run {
-    val localProperties = rootProject.file("local.properties")
-    if (!localProperties.isFile) {
-        ""
-    } else {
-        val properties = Properties()
-        localProperties.inputStream().use(properties::load)
-        properties.getProperty("supabase.anonKey", "").trim()
+val supabaseAnonKey: String =
+    run {
+        val localProperties = rootProject.file("local.properties")
+        if (!localProperties.isFile) {
+            ""
+        } else {
+            val properties = Properties()
+            localProperties.inputStream().use(properties::load)
+            properties.getProperty("supabase.anonKey", "").trim()
+        }
     }
-}
 
 // ---------------------------------------------------------------------------
 // Test auth bypass
@@ -182,9 +188,11 @@ val supabaseAnonKey: String = run {
 // because the two types disagree about it: a debug build starts signed in, a
 // release build does not, and one declaration for both cannot say that.
 // ---------------------------------------------------------------------------
-val testAuthBypass: Boolean? = providers.gradleProperty("TEST_AUTH_BYPASS")
-    .orNull
-    ?.toBoolean()
+val testAuthBypass: Boolean? =
+    providers
+        .gradleProperty("TEST_AUTH_BYPASS")
+        .orNull
+        ?.toBoolean()
 
 // Escaped for embedding in a generated Java string literal.
 //
@@ -198,12 +206,21 @@ val googleClientIdLiteral: String =
 
 android {
     namespace = "com.singularity.todo"
-    compileSdk = libs.versions.sdk.compile.get().toInt()
+    compileSdk =
+        libs.versions.sdk.compile
+            .get()
+            .toInt()
 
     defaultConfig {
         applicationId = "com.singularity.todo"
-        minSdk = libs.versions.sdk.min.get().toInt()
-        targetSdk = libs.versions.sdk.target.get().toInt()
+        minSdk =
+            libs.versions.sdk.min
+                .get()
+                .toInt()
+        targetSdk =
+            libs.versions.sdk.target
+                .get()
+                .toInt()
         versionCode = (project.findProperty("VERSION_CODE") as String?)?.toIntOrNull() ?: 1
         versionName = (project.findProperty("VERSION_NAME") as String?) ?: "0.1.0"
 
@@ -213,8 +230,11 @@ android {
         // proprietary type in an Apache-2.0 module. A manifest placeholder keeps the
         // choice in one place instead of editing the manifest per configuration.
         manifestPlaceholders["appClass"] =
-            if (withPro) "com.singularity.todo.pro.ProSingularityApp"
-            else "com.singularity.todo.SingularityApp"
+            if (withPro) {
+                "com.singularity.todo.pro.ProSingularityApp"
+            } else {
+                "com.singularity.todo.SingularityApp"
+            }
 
         // Instrumentation test runner
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -275,16 +295,17 @@ android {
             val keyAlias = System.getenv("SIGNING_KEY_ALIAS")
             val keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
             if (keystorePath != null && keystorePassword != null && keyAlias != null && keyPassword != null) {
-                signingConfig = signingConfigs.create("release") {
-                    storeFile = file(keystorePath)
-                    storePassword = keystorePassword
-                    this.keyAlias = keyAlias
-                    this.keyPassword = keyPassword
-                }
+                signingConfig =
+                    signingConfigs.create("release") {
+                        storeFile = file(keystorePath)
+                        storePassword = keystorePassword
+                        this.keyAlias = keyAlias
+                        this.keyPassword = keyPassword
+                    }
             }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -329,10 +350,12 @@ android {
 // exist and should not be created unless a future change needs one.
 detekt {
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
-    baseline = rootProject.file("config/detekt/baseline-androidApp.xml")
-        .takeIf { it.isFile }
+    baseline =
+        rootProject
+            .file("config/detekt/baseline-androidApp.xml")
+            .takeIf { it.isFile }
     buildUponDefaultConfig = true
-    ignoreFailures = false   // enforcing — a baseline covers accepted debt when there is one
+    ignoreFailures = false // enforcing — a baseline covers accepted debt when there is one
     // `src/debug` is scanned. It was not, and that was the defect: a source set detekt
     // is not told about is a source set where a real defect can hide indefinitely, and
     // it is invisible from the report — detekt scans what it is told to scan and says
@@ -367,5 +390,3 @@ detekt {
         "src/pro/kotlin",
     )
 }
-
-

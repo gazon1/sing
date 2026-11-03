@@ -23,7 +23,6 @@ package com.singularity.todo.core.error
  * misstates what the value actually is.
  */
 sealed class AppError(message: String, val code: String, cause: Throwable?) : RuntimeException(message, cause) {
-
     /** Input failed validation before it reached persistence or the network. */
     class Validation(message: String, code: String = "error.validation", cause: Throwable? = null) :
         AppError(message, code, cause)
@@ -77,15 +76,20 @@ fun AppError.original(): Throwable = cause ?: this
  * differences were the bug: the sync engine's two copies attached no cause at all, and
  * the coordinator's passed a bare `""` for a missing message.
  */
-fun Throwable.toAppError(): AppError = when (this) {
-    is AppError -> this
+fun Throwable.toAppError(): AppError =
+    when (this) {
+        is AppError -> {
+            this
+        }
 
-    else -> AppError.Unknown(
-        message ?: this::class.simpleName.orEmpty(),
-        code = "error.unknown",
-        cause = this,
-    )
-}
+        else -> {
+            AppError.Unknown(
+                message ?: this::class.simpleName.orEmpty(),
+                code = "error.unknown",
+                cause = this,
+            )
+        }
+    }
 
 /**
  * Runs [block] and captures its result, mapping any [Throwable] into an [AppError].
@@ -94,6 +98,7 @@ fun Throwable.toAppError(): AppError = when (this) {
  * the cause** — the message alone loses the stack trace and the frames below it,
  * which is what makes a reported failure actionable.
  */
-inline fun <T> runCatchingResult(block: () -> T): Result<T> = runCatchingCancellable(block).recoverCatching { e ->
-    throw e.toAppError()
-}
+inline fun <T> runCatchingResult(block: () -> T): Result<T> =
+    runCatchingCancellable(block).recoverCatching { e ->
+        throw e.toAppError()
+    }

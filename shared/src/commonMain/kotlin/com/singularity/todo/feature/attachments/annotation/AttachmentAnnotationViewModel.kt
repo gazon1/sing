@@ -11,11 +11,11 @@ import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
+import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.core.text.FieldOwnedText
-import com.singularity.todo.core.text.StaticText
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -32,11 +32,12 @@ data class ResolvedAnnotation(val annotation: AttachmentAnnotation, val resoluti
 
     /** Where the note points now, or `null` when nothing in the file matches. */
     val anchorStart: Int?
-        get() = when (resolution) {
-            is AnchorResolution.Exact -> resolution.start
-            is AnchorResolution.QuoteFound -> resolution.start
-            AnchorResolution.Stale -> null
-        }
+        get() =
+            when (resolution) {
+                is AnchorResolution.Exact -> resolution.start
+                is AnchorResolution.QuoteFound -> resolution.start
+                AnchorResolution.Stale -> null
+            }
 }
 
 /**
@@ -104,6 +105,7 @@ sealed interface AttachmentAnnotationIntent : MviIntent {
     data class DocumentLoaded(val text: String) : AttachmentAnnotationIntent
 
     data object OpenSheet : AttachmentAnnotationIntent
+
     data object CloseSheet : AttachmentAnnotationIntent
 
     /** Opens the create form, prefilled with a range the caller already knows. */
@@ -113,11 +115,17 @@ sealed interface AttachmentAnnotationIntent : MviIntent {
     data class EditAnnotation(val id: AttachmentAnnotationId) : AttachmentAnnotationIntent
 
     data object CloseEditor : AttachmentAnnotationIntent
+
     data class DraftStartChanged(val value: String) : AttachmentAnnotationIntent
+
     data class DraftEndChanged(val value: String) : AttachmentAnnotationIntent
+
     data class DraftQuoteChanged(val value: String) : AttachmentAnnotationIntent
+
     data class DraftNoteChanged(val value: String) : AttachmentAnnotationIntent
+
     data object SubmitEditor : AttachmentAnnotationIntent
+
     data class Delete(val id: AttachmentAnnotationId) : AttachmentAnnotationIntent
 }
 
@@ -159,7 +167,6 @@ class AttachmentAnnotationViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     /**
      * The loaded file text.
      *
@@ -175,7 +182,8 @@ class AttachmentAnnotationViewModel(
 
     init {
         scope.launch {
-            repository.watchForAttachment(attachmentId)
+            repository
+                .watchForAttachment(attachmentId)
                 .map { annotations -> resolve(annotations, documentText) }
                 .catch { e -> updateState { AttachmentAnnotationUiState.Error(e.toMessage()) } }
                 .collect { resolved ->
@@ -194,60 +202,90 @@ class AttachmentAnnotationViewModel(
 
     override fun onIntent(intent: AttachmentAnnotationIntent) {
         when (intent) {
-            is AttachmentAnnotationIntent.DocumentLoaded -> scope.launch { onDocumentLoaded(intent.text) }
-
-            AttachmentAnnotationIntent.OpenSheet -> editContent { it.copy(sheetOpen = true) }
-
-            AttachmentAnnotationIntent.CloseSheet -> editContent { it.copy(sheetOpen = false) }
-
-            is AttachmentAnnotationIntent.OpenEditor -> editContent {
-                it.copy(
-                    sheetOpen = true,
-                    draft = AnnotationDraft(
-                        // Seeds: the range came from outside the field, so the field never
-                        // produced it and takes it as it stands.
-                        start = FieldOwnedText.empty().seeded(intent.start.toString()),
-                        end = FieldOwnedText.empty().seeded(intent.end.toString()),
-                        quote = FieldOwnedText.empty().seeded(intent.quote),
-                    ),
-                )
+            is AttachmentAnnotationIntent.DocumentLoaded -> {
+                scope.launch { onDocumentLoaded(intent.text) }
             }
 
-            is AttachmentAnnotationIntent.EditAnnotation -> editContent { content ->
-                val target = content.annotations.firstOrNull { it.annotation.id == intent.id }
-                content.copy(
-                    sheetOpen = true,
-                    draft = target?.let {
-                        AnnotationDraft(
-                            // Seeds: the stored annotation came from outside the field.
-                            start = FieldOwnedText.empty().seeded(it.annotation.range.start.toString()),
-                            end = FieldOwnedText.empty().seeded(it.annotation.range.end.toString()),
-                            quote = FieldOwnedText.empty().seeded(it.annotation.range.quote),
-                            note = FieldOwnedText.empty().seeded(it.annotation.note),
-                            editing = it.annotation.id,
-                        )
-                    } ?: content.draft,
-                )
+            AttachmentAnnotationIntent.OpenSheet -> {
+                editContent { it.copy(sheetOpen = true) }
             }
 
-            AttachmentAnnotationIntent.CloseEditor -> editContent { it.copy(draft = null) }
+            AttachmentAnnotationIntent.CloseSheet -> {
+                editContent { it.copy(sheetOpen = false) }
+            }
+
+            is AttachmentAnnotationIntent.OpenEditor -> {
+                editContent {
+                    it.copy(
+                        sheetOpen = true,
+                        draft =
+                            AnnotationDraft(
+                                // Seeds: the range came from outside the field, so the field never
+                                // produced it and takes it as it stands.
+                                start = FieldOwnedText.empty().seeded(intent.start.toString()),
+                                end = FieldOwnedText.empty().seeded(intent.end.toString()),
+                                quote = FieldOwnedText.empty().seeded(intent.quote),
+                            ),
+                    )
+                }
+            }
+
+            is AttachmentAnnotationIntent.EditAnnotation -> {
+                editContent { content ->
+                    val target = content.annotations.firstOrNull { it.annotation.id == intent.id }
+                    content.copy(
+                        sheetOpen = true,
+                        draft =
+                            target?.let {
+                                AnnotationDraft(
+                                    // Seeds: the stored annotation came from outside the field.
+                                    start =
+                                        FieldOwnedText.empty().seeded(
+                                            it.annotation.range.start
+                                                .toString(),
+                                        ),
+                                    end =
+                                        FieldOwnedText.empty().seeded(
+                                            it.annotation.range.end
+                                                .toString(),
+                                        ),
+                                    quote = FieldOwnedText.empty().seeded(it.annotation.range.quote),
+                                    note = FieldOwnedText.empty().seeded(it.annotation.note),
+                                    editing = it.annotation.id,
+                                )
+                            } ?: content.draft,
+                    )
+                }
+            }
+
+            AttachmentAnnotationIntent.CloseEditor -> {
+                editContent { it.copy(draft = null) }
+            }
 
             // Echoes: the field's own text, which the field already shows.
-            is AttachmentAnnotationIntent.DraftStartChanged ->
+            is AttachmentAnnotationIntent.DraftStartChanged -> {
                 editDraft { it.copy(start = it.start.echoed(intent.value)) }
+            }
 
-            is AttachmentAnnotationIntent.DraftEndChanged ->
+            is AttachmentAnnotationIntent.DraftEndChanged -> {
                 editDraft { it.copy(end = it.end.echoed(intent.value)) }
+            }
 
-            is AttachmentAnnotationIntent.DraftQuoteChanged ->
+            is AttachmentAnnotationIntent.DraftQuoteChanged -> {
                 editDraft { it.copy(quote = it.quote.echoed(intent.value)) }
+            }
 
-            is AttachmentAnnotationIntent.DraftNoteChanged ->
+            is AttachmentAnnotationIntent.DraftNoteChanged -> {
                 editDraft { it.copy(note = it.note.echoed(intent.value)) }
+            }
 
-            AttachmentAnnotationIntent.SubmitEditor -> scope.launch { submitEditor() }
+            AttachmentAnnotationIntent.SubmitEditor -> {
+                scope.launch { submitEditor() }
+            }
 
-            is AttachmentAnnotationIntent.Delete -> scope.launch { delete(intent.id) }
+            is AttachmentAnnotationIntent.Delete -> {
+                scope.launch { delete(intent.id) }
+            }
         }
     }
 
@@ -261,12 +299,16 @@ class AttachmentAnnotationViewModel(
         documentText = text
         updateState { current ->
             when (current) {
-                is AttachmentAnnotationUiState.Content -> current.copy(
-                    documentText = text,
-                    annotations = resolve(current.annotations.map { it.annotation }, text),
-                )
+                is AttachmentAnnotationUiState.Content -> {
+                    current.copy(
+                        documentText = text,
+                        annotations = resolve(current.annotations.map { it.annotation }, text),
+                    )
+                }
 
-                else -> AttachmentAnnotationUiState.Content(emptyList(), text, sheetOpen = false, draft = null)
+                else -> {
+                    AttachmentAnnotationUiState.Content(emptyList(), text, sheetOpen = false, draft = null)
+                }
             }
         }
     }
@@ -286,7 +328,7 @@ class AttachmentAnnotationViewModel(
         val end = draft.end.text.toIntOrNull()
 
         when {
-            start == null || end == null ->
+            start == null || end == null -> {
                 emitError(
                     errorLabel = "Annotation offsets rejected",
                     errorEvent = AttachmentAnnotationUiEvent::ShowError,
@@ -295,8 +337,9 @@ class AttachmentAnnotationViewModel(
                         IllegalArgumentException("Start and end must be whole numbers"),
                     )
                 }
+            }
 
-            end > content.documentText.length ->
+            end > content.documentText.length -> {
                 emitError(
                     errorLabel = "Annotation offsets rejected",
                     errorEvent = AttachmentAnnotationUiEvent::ShowError,
@@ -308,28 +351,32 @@ class AttachmentAnnotationViewModel(
                         ),
                     )
                 }
+            }
 
-            draft.editing != null ->
+            draft.editing != null -> {
                 emitError(
                     errorLabel = "Annotation update failed",
                     errorEvent = AttachmentAnnotationUiEvent::ShowError,
                 ) { repository.update(draft.editing, draft.note.text) }
+            }
 
-            else ->
+            else -> {
                 emitError(
                     errorLabel = "Annotation create failed",
                     errorEvent = AttachmentAnnotationUiEvent::ShowError,
                 ) {
                     repository.create(
-                        range = TextRange(
-                            attachmentId = attachmentId,
-                            start = start,
-                            end = end,
-                            quote = draft.quote.text,
-                        ),
+                        range =
+                            TextRange(
+                                attachmentId = attachmentId,
+                                start = start,
+                                end = end,
+                                quote = draft.quote.text,
+                            ),
                         note = draft.note.text,
                     )
                 }
+            }
         }
 
         // The write has been handed off; the repository will emit the row through
@@ -347,12 +394,12 @@ class AttachmentAnnotationViewModel(
         }
     }
 
-    private fun resolve(annotations: List<AttachmentAnnotation>, text: String): List<ResolvedAnnotation> =
-        annotations.map { ResolvedAnnotation(it, it.anchorIn(text)) }
+    private fun resolve(
+        annotations: List<AttachmentAnnotation>,
+        text: String,
+    ): List<ResolvedAnnotation> = annotations.map { ResolvedAnnotation(it, it.anchorIn(text)) }
 
-    private fun editContent(
-        transform: (AttachmentAnnotationUiState.Content) -> AttachmentAnnotationUiState.Content,
-    ) {
+    private fun editContent(transform: (AttachmentAnnotationUiState.Content) -> AttachmentAnnotationUiState.Content) {
         updateState { current ->
             if (current is AttachmentAnnotationUiState.Content) transform(current) else current
         }

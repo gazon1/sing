@@ -50,57 +50,57 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:compose")
 class SheetReachabilityTest {
-
     @Test
     @DisplayName("a ModalBottomSheet opens its own window, and the main tree does not change")
-    fun a_sheet_opens_its_own_window_and_the_main_tree_does_not_change() = runDesktopAppTest {
-        clickContentDescription(DesktopShell.FAB_ADD_TASK)
-        awaitTag(TestTags.TASK_EDITOR_RECURRENCE_ROW)
+    fun a_sheet_opens_its_own_window_and_the_main_tree_does_not_change() =
+        runDesktopAppTest {
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
+            awaitTag(TestTags.TASK_EDITOR_RECURRENCE_ROW)
 
-        // The editor's attribute list scrolls, and the pin row sits below the fold
-        // of the 1024x768 test window — a node that is composed but out of view is
-        // "not displayed", which is a different failure from "not there".
-        scrollToTag(TestTags.TASK_EDITOR_PIN_ROW)
-        assertTextDisplayed("Not pinned")
+            // The editor's attribute list scrolls, and the pin row sits below the fold
+            // of the 1024x768 test window — a node that is composed but out of view is
+            // "not displayed", which is a different failure from "not there".
+            scrollToTag(TestTags.TASK_EDITOR_PIN_ROW)
+            assertTextDisplayed("Not pinned")
 
-        // Control: a click that changes state in the main tree, proving clicks
-        // reach composables in this editor at all.
-        clickTagScrolled(TestTags.TASK_EDITOR_PIN_ROW)
-        assertTextDisplayed("Pinned")
-        assertTextNotExists("Not pinned")
+            // Control: a click that changes state in the main tree, proving clicks
+            // reach composables in this editor at all.
+            clickTagScrolled(TestTags.TASK_EDITOR_PIN_ROW)
+            assertTextDisplayed("Pinned")
+            assertTextNotExists("Not pinned")
 
-        val beforeSheet = mainTreeSize()
-        clickTagScrolled(TestTags.TASK_EDITOR_RECURRENCE_ROW)
+            val beforeSheet = mainTreeSize()
+            clickTagScrolled(TestTags.TASK_EDITOR_RECURRENCE_ROW)
 
-        // The sheet animates in, so the wait comes before the measurements: a
-        // one-shot count right after the click races the sheet's own window and
-        // measures a scene that has not opened yet.
-        awaitTag(TestTags.RECURRENCE_OPTION_DAILY)
+            // The sheet animates in, so the wait comes before the measurements: a
+            // one-shot count right after the click races the sheet's own window and
+            // measures a scene that has not opened yet.
+            awaitTag(TestTags.RECURRENCE_OPTION_DAILY)
 
-        // The main tree is unchanged: the sheet is not an overlay inside it.
-        assertEquals(
-            beforeSheet,
-            mainTreeSize(),
-            "the main semantics tree grew when the sheet opened; if a sheet is " +
-                "now reachable, update Maestro/CONVENTIONS.md and the coverage " +
-                "matrix — the Android column may no longer be the only tier",
-        )
-        assertEquals(
-            0,
-            countNodesWithTagInMainRoot(TestTags.RECURRENCE_OPTION_DAILY),
-            "the sheet's option was found in the main tree; the sheet is supposed " +
-                "to open its own window",
-        )
-        assertEquals(
-            1,
-            countNodesWithTagInAnyRoot(TestTags.RECURRENCE_OPTION_DAILY),
-            "the sheet's option was not found in the scene; a sheet opens its own " +
-                "window, and that window is part of the scene",
-        )
-        assertTrue(
-            mainTreeSize() > 0,
-            "the main tree should never be empty — an empty one would make the " +
-                "assertions above vacuous",
-        )
-    }
+            // The main tree is unchanged: the sheet is not an overlay inside it.
+            assertEquals(
+                beforeSheet,
+                mainTreeSize(),
+                "the main semantics tree grew when the sheet opened; if a sheet is " +
+                    "now reachable, update Maestro/CONVENTIONS.md and the coverage " +
+                    "matrix — the Android column may no longer be the only tier",
+            )
+            assertEquals(
+                0,
+                countNodesWithTagInMainRoot(TestTags.RECURRENCE_OPTION_DAILY),
+                "the sheet's option was found in the main tree; the sheet is supposed " +
+                    "to open its own window",
+            )
+            assertEquals(
+                1,
+                countNodesWithTagInAnyRoot(TestTags.RECURRENCE_OPTION_DAILY),
+                "the sheet's option was not found in the scene; a sheet opens its own " +
+                    "window, and that window is part of the scene",
+            )
+            assertTrue(
+                mainTreeSize() > 0,
+                "the main tree should never be empty — an empty one would make the " +
+                    "assertions above vacuous",
+            )
+        }
 }

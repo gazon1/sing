@@ -37,28 +37,28 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class PlatformParityTest {
-
     @Test
-    fun `platform ports resolve to test doubles`() = runDesktopAppTest { koin ->
-        // Data layer — FakeAppDatabase replaces Room SQLite
-        assertIsBoundTo<AppDatabase>(koin, "FakeAppDatabase")
+    fun `platform ports resolve to test doubles`() =
+        runDesktopAppTest { koin ->
+            // Data layer — FakeAppDatabase replaces Room SQLite
+            assertIsBoundTo<AppDatabase>(koin, "FakeAppDatabase")
 
-        // OS-access ports: would touch filesystem, secrets, or notifications
-        assertIsBoundTo<AuthRepository>(koin, "FakeAuthRepository")
-        assertIsBoundTo<SecureStoragePort>(koin, "InMemorySecureStorage")
-        assertIsBoundTo<FileSystem>(koin, "InMemoryFileSystem")
-        assertIsBoundTo<FileRevealer>(koin, "FakeFileRevealer")
-        // Opening an attachment for real would hand a file to the desktop's file
-        // associations — process-global, and the point of this test is that it cannot.
-        assertIsBoundTo<FileOpener>(koin, "FakeFileOpener")
-        assertIsBoundTo<FileSourceFactory>(koin, "InertFileSourceFactory")
-        assertIsBoundTo<SharePort>(koin, "InertSharePort")
-        assertIsBoundTo<BackupCodec>(koin, "UnusedBackupCodec")
-        assertIsBoundTo<RemoteConfigPort>(koin, "FakeRemoteConfigPort")
+            // OS-access ports: would touch filesystem, secrets, or notifications
+            assertIsBoundTo<AuthRepository>(koin, "FakeAuthRepository")
+            assertIsBoundTo<SecureStoragePort>(koin, "InMemorySecureStorage")
+            assertIsBoundTo<FileSystem>(koin, "InMemoryFileSystem")
+            assertIsBoundTo<FileRevealer>(koin, "FakeFileRevealer")
+            // Opening an attachment for real would hand a file to the desktop's file
+            // associations — process-global, and the point of this test is that it cannot.
+            assertIsBoundTo<FileOpener>(koin, "FakeFileOpener")
+            assertIsBoundTo<FileSourceFactory>(koin, "InertFileSourceFactory")
+            assertIsBoundTo<SharePort>(koin, "InertSharePort")
+            assertIsBoundTo<BackupCodec>(koin, "UnusedBackupCodec")
+            assertIsBoundTo<RemoteConfigPort>(koin, "FakeRemoteConfigPort")
 
-        // Calendar sync — no JVM implementation; production no-op is the correct double
-        assertIsBoundTo<CalendarProviderPort>(koin, "NoopCalendarProvider")
-    }
+            // Calendar sync — no JVM implementation; production no-op is the correct double
+            assertIsBoundTo<CalendarProviderPort>(koin, "NoopCalendarProvider")
+        }
 }
 
 /**

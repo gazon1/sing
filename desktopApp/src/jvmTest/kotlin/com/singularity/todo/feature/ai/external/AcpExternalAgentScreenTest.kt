@@ -47,77 +47,83 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:compose")
 class AcpExternalAgentScreenTest {
+    @Test
+    fun `the agents of the registry are offered and one is preselected`() =
+        runIsolatedComposeTest {
+            setContent { AcpExternalAgentScreenContent(vm = viewModel()) }
+
+            assertTagExists(TestTags.acpAgentChip("gemini-cli"))
+            assertTagExists(TestTags.acpAgentChip("claude-code"))
+            assertTagExists(TestTags.acpAgentChip("codex"))
+        }
 
     @Test
-    fun `the agents of the registry are offered and one is preselected`() = runIsolatedComposeTest {
-        setContent { AcpExternalAgentScreenContent(vm = viewModel()) }
+    fun `the command that will be launched is on screen`() =
+        runIsolatedComposeTest {
+            setContent { AcpExternalAgentScreenContent(vm = viewModel()) }
 
-        assertTagExists(TestTags.acpAgentChip("gemini-cli"))
-        assertTagExists(TestTags.acpAgentChip("claude-code"))
-        assertTagExists(TestTags.acpAgentChip("codex"))
-    }
-
-    @Test
-    fun `the command that will be launched is on screen`() = runIsolatedComposeTest {
-        setContent { AcpExternalAgentScreenContent(vm = viewModel()) }
-
-        assertTagExists(TestTags.ACP_AGENT_COMMAND)
-    }
+            assertTagExists(TestTags.ACP_AGENT_COMMAND)
+        }
 
     @Test
-    fun `the connect button is there before anything is connected`() = runIsolatedComposeTest {
-        setContent { AcpExternalAgentScreenContent(vm = viewModel()) }
+    fun `the connect button is there before anything is connected`() =
+        runIsolatedComposeTest {
+            setContent { AcpExternalAgentScreenContent(vm = viewModel()) }
 
-        assertTagExists(TestTags.ACP_CONNECT_BUTTON)
-    }
-
-    @Test
-    fun `the warning that the agent cannot see the tasks is on screen`() = runIsolatedComposeTest {
-        val vm = viewModel(toolServerAvailable = false)
-
-        setContent { AcpExternalAgentScreenContent(vm = vm) }
-
-        // The tool access is resolved when the connection is opened, so the screen has
-        // to be told to try before the warning can be on it.
-        vm.onIntent(AcpExternalAgentViewModel.Intent.Connect)
-        waitUntil { vm.stateFlow.value.toolAccess is AcpToolAccess.Unavailable }
-
-        assertTagDisplayed(TestTags.ACP_NO_TOOL_ACCESS_WARNING)
-    }
+            assertTagExists(TestTags.ACP_CONNECT_BUTTON)
+        }
 
     @Test
-    fun `the agent that cannot be started is reported with the reason`() = runIsolatedComposeTest {
-        val vm = viewModel()
+    fun `the warning that the agent cannot see the tasks is on screen`() =
+        runIsolatedComposeTest {
+            val vm = viewModel(toolServerAvailable = false)
 
-        setContent { AcpExternalAgentScreenContent(vm = vm) }
+            setContent { AcpExternalAgentScreenContent(vm = vm) }
 
-        vm.onIntent(AcpExternalAgentViewModel.Intent.Connect)
-        waitUntil { vm.stateFlow.value.connection is AcpConnection.Failed }
+            // The tool access is resolved when the connection is opened, so the screen has
+            // to be told to try before the warning can be on it.
+            vm.onIntent(AcpExternalAgentViewModel.Intent.Connect)
+            waitUntil { vm.stateFlow.value.toolAccess is AcpToolAccess.Unavailable }
 
-        assertTagDisplayed(TestTags.ACP_CONNECTION_ERROR)
-    }
-
-    @Test
-    fun `picking another agent shows that agent's command`() = runIsolatedComposeTest {
-        val vm = viewModel()
-
-        setContent { AcpExternalAgentScreenContent(vm = vm) }
-
-        clickTag(TestTags.acpAgentChip("codex"))
-        waitUntil { vm.stateFlow.value.selectedAgentId == "codex" }
-
-        assertTagExists(TestTags.ACP_AGENT_COMMAND)
-    }
+            assertTagDisplayed(TestTags.ACP_NO_TOOL_ACCESS_WARNING)
+        }
 
     @Test
-    fun `the back button leaves the screen`() = runIsolatedComposeTest {
-        var left = false
-        setContent { AcpExternalAgentScreenContent(vm = viewModel(), onBack = { left = true }) }
+    fun `the agent that cannot be started is reported with the reason`() =
+        runIsolatedComposeTest {
+            val vm = viewModel()
 
-        clickTag(TestTags.ACP_BACK_BUTTON)
+            setContent { AcpExternalAgentScreenContent(vm = vm) }
 
-        assertTrue(left, "the back button hands the reader back to where they came from")
-    }
+            vm.onIntent(AcpExternalAgentViewModel.Intent.Connect)
+            waitUntil { vm.stateFlow.value.connection is AcpConnection.Failed }
+
+            assertTagDisplayed(TestTags.ACP_CONNECTION_ERROR)
+        }
+
+    @Test
+    fun `picking another agent shows that agent's command`() =
+        runIsolatedComposeTest {
+            val vm = viewModel()
+
+            setContent { AcpExternalAgentScreenContent(vm = vm) }
+
+            clickTag(TestTags.acpAgentChip("codex"))
+            waitUntil { vm.stateFlow.value.selectedAgentId == "codex" }
+
+            assertTagExists(TestTags.ACP_AGENT_COMMAND)
+        }
+
+    @Test
+    fun `the back button leaves the screen`() =
+        runIsolatedComposeTest {
+            var left = false
+            setContent { AcpExternalAgentScreenContent(vm = viewModel(), onBack = { left = true }) }
+
+            clickTag(TestTags.ACP_BACK_BUTTON)
+
+            assertTrue(left, "the back button hands the reader back to where they came from")
+        }
 
     /**
      * The input stays enabled while a turn runs, and the refusal reaches the reader.
@@ -273,10 +279,11 @@ class AcpExternalAgentScreenTest {
     private object CrashingSession : AcpAgentSession {
         override suspend fun connect(): AcpAgentInfo = AcpAgentInfo("crashing-agent", "1.0", 1)
 
-        override fun prompt(message: String): Flow<AcpTurnEvent> = flow {
-            emit(AcpTurnEvent.Activity(AgentEvent.TextDelta("half an answer")))
-            // No Finished: the agent died mid-turn.
-        }
+        override fun prompt(message: String): Flow<AcpTurnEvent> =
+            flow {
+                emit(AcpTurnEvent.Activity(AgentEvent.TextDelta("half an answer")))
+                // No Finished: the agent died mid-turn.
+            }
 
         override suspend fun cancel() = Unit
 

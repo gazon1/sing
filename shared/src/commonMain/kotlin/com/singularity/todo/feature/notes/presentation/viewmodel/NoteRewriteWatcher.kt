@@ -48,23 +48,29 @@ internal class NoteRewriteWatcher(private val repo: NotesRepository, private val
      *
      * [onRewrite] receives the rewritten note and its body HTML.
      */
-    fun start(noteId: NoteId, current: () -> Editing, onRewrite: (Note, String) -> Unit) {
+    fun start(
+        noteId: NoteId,
+        current: () -> Editing,
+        onRewrite: (Note, String) -> Unit,
+    ) {
         job?.cancel()
-        job = scope.launch {
-            repo.observe(noteId).collect { note ->
-                if (note == null) return@collect
-                val draft = current()
-                if (draft.id != note.id.value) return@collect
-                val html = note.bodyHtml
-                    ?: note.bodyMarkdown?.let { NoteContentMapper.toHtml(it) }
-                    ?: ""
-                // The echo of our own save, or a note that did not change.
-                if (draft.title.value == note.title && draft.html.value == html) return@collect
-                // The user is typing: their text wins over the other writer's.
-                if (draft.isDirty) return@collect
-                onRewrite(note, html)
+        job =
+            scope.launch {
+                repo.observe(noteId).collect { note ->
+                    if (note == null) return@collect
+                    val draft = current()
+                    if (draft.id != note.id.value) return@collect
+                    val html =
+                        note.bodyHtml
+                            ?: note.bodyMarkdown?.let { NoteContentMapper.toHtml(it) }
+                            ?: ""
+                    // The echo of our own save, or a note that did not change.
+                    if (draft.title.value == note.title && draft.html.value == html) return@collect
+                    // The user is typing: their text wins over the other writer's.
+                    if (draft.isDirty) return@collect
+                    onRewrite(note, html)
+                }
             }
-        }
     }
 
     /** Stop watching. The watcher must not re-seed an editor on its way out. */

@@ -15,15 +15,16 @@ class GreetingSettingsStore(private val greeting: GreetingSettingsRepository) {
     /**
      * Greeting settings section — morning and afternoon hour boundaries.
      */
-    fun observe(): Flow<SettingsSection.Greeting> = combine(
-        greeting.morningEndHour,
-        greeting.afternoonEndHour,
-    ) { morningEnd, afternoonEnd ->
-        SettingsSection.Greeting(
-            morningEndHour = morningEnd,
-            afternoonEndHour = afternoonEnd,
-        )
-    }
+    fun observe(): Flow<SettingsSection.Greeting> =
+        combine(
+            greeting.morningEndHour,
+            greeting.afternoonEndHour,
+        ) { morningEnd, afternoonEnd ->
+            SettingsSection.Greeting(
+                morningEndHour = morningEnd,
+                afternoonEndHour = afternoonEnd,
+            )
+        }
 
     suspend fun process(intent: SettingsIntent.Greeting) {
         when (intent) {

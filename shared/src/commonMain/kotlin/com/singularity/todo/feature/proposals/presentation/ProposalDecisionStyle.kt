@@ -60,5 +60,8 @@ fun interface ProposalFailureText {
      * @param label what was being done, in the surface's own words.
      * @param error the failure itself.
      */
-    fun text(label: String, error: Throwable): String
+    fun text(
+        label: String,
+        error: Throwable,
+    ): String
 }

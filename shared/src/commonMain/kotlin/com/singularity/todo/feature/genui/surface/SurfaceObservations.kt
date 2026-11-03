@@ -31,17 +31,24 @@ import kotlinx.serialization.json.JsonElement
  * Empty when the surface is absent, and it starts emitting if the surface appears — which is
  * what lets a renderer mount before the surface has been created.
  */
-fun SurfaceController.component(surfaceId: SurfaceId, id: String): Flow<UiNode?> =
-    surfaces.flatMapLatest { open: Map<SurfaceId, Surface> ->
-        open[surfaceId]?.componentStore?.flow(id) ?: emptyFlow()
-    }.distinctUntilChanged()
+fun SurfaceController.component(
+    surfaceId: SurfaceId,
+    id: String,
+): Flow<UiNode?> =
+    surfaces
+        .flatMapLatest { open: Map<SurfaceId, Surface> ->
+            open[surfaceId]?.componentStore?.flow(id) ?: emptyFlow()
+        }.distinctUntilChanged()
 
 /** The root reference of a surface, which is not itself a component and has no flow of its own. */
 fun SurfaceController.rootRef(surfaceId: SurfaceId): Flow<NodeRef?> =
     surfaces.map { open: Map<SurfaceId, Surface> -> open[surfaceId]?.rootId }.distinctUntilChanged()
 
 /** The value at [path] in a surface's data model. */
-fun SurfaceController.value(surfaceId: SurfaceId, path: UiPath): Flow<JsonElement?> =
+fun SurfaceController.value(
+    surfaceId: SurfaceId,
+    path: UiPath,
+): Flow<JsonElement?> =
     surfaces.flatMapLatest { open: Map<SurfaceId, Surface> ->
         val model: DataModel? = open[surfaceId]?.dataModel
         if (model == null) emptyFlow() else model.flow(path).distinctUntilChanged()
@@ -55,8 +62,10 @@ fun SurfaceController.value(surfaceId: SurfaceId, path: UiPath): Flow<JsonElemen
  * was rewritten from outside", and it is the count of *this path's* rewrites. A caller
  * that read the value and the count separately could pair them wrongly.
  */
-fun SurfaceController.valueAt(surfaceId: SurfaceId, path: UiPath): Revisioned<JsonElement?> =
-    snapshot(surfaceId)?.dataModel?.valueAt(path) ?: Revisioned.initial<JsonElement?>(null)
+fun SurfaceController.valueAt(
+    surfaceId: SurfaceId,
+    path: UiPath,
+): Revisioned<JsonElement?> = snapshot(surfaceId)?.dataModel?.valueAt(path) ?: Revisioned.initial<JsonElement?>(null)
 
 /**
  * The value at [path] in a surface's data model and the count of the server's rewrites
@@ -64,7 +73,10 @@ fun SurfaceController.valueAt(surfaceId: SurfaceId, path: UiPath): Revisioned<Js
  *
  * One emission carries both.
  */
-fun SurfaceController.valueAtFlow(surfaceId: SurfaceId, path: UiPath): Flow<Revisioned<JsonElement?>> =
+fun SurfaceController.valueAtFlow(
+    surfaceId: SurfaceId,
+    path: UiPath,
+): Flow<Revisioned<JsonElement?>> =
     surfaces.flatMapLatest { open: Map<SurfaceId, Surface> ->
         val model: DataModel? = open[surfaceId]?.dataModel
         if (model == null) emptyFlow() else model.flowAt(path).distinctUntilChanged()

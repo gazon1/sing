@@ -34,23 +34,24 @@ class DeleteTagTool(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : SimpleTool<DeleteTagInput>(TypeToken.of(DeleteTagInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: DeleteTagInput): String {
-        val result = runCatchingCancellable {
-            TagId.fromString(args.tagId) // validate
-            val userId = currentUser.scopedUserId.value
+        val result =
+            runCatchingCancellable {
+                TagId.fromString(args.tagId) // validate
+                val userId = currentUser.scopedUserId.value
 
-            val (proposal, _) = ProposalBuilder.forTarget(
-                kind = ProposalItemKind.DeleteTag(args.reason),
-                targetId = args.tagId,
-                userId = userId,
-                source = ProposalSource.Agent,
-                clock = clock,
-            )
+                val (proposal, _) =
+                    ProposalBuilder.forTarget(
+                        kind = ProposalItemKind.DeleteTag(args.reason),
+                        targetId = args.tagId,
+                        userId = userId,
+                        source = ProposalSource.Agent,
+                        clock = clock,
+                    )
 
-            proposals.save(proposal).getOrThrow()
-            proposal.id.value to Unit
-        }
+                proposals.save(proposal).getOrThrow()
+                proposal.id.value to Unit
+            }
 
         return Json.encodeToString(
             DeleteTagOutput.serializer(),

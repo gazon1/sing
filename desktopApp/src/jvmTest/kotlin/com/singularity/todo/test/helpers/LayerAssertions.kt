@@ -25,7 +25,10 @@ import org.koin.core.Koin
  * @param expected The exact number of tasks the data layer should hold.
  */
 @Suppress("NoRunBlocking") // Test helper — blocking bridge is correct here
-fun assertSeeded(koin: Koin, expected: Int) {
+fun assertSeeded(
+    koin: Koin,
+    expected: Int,
+) {
     val taskRepo = koin.get<TaskRepository>()
     val tasks = runBlocking { taskRepo.observeAll().first() }
     check(tasks.size == expected) {

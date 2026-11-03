@@ -25,9 +25,11 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class BackupRemovalTest {
-
     /** A task, with a title that says which one it is. */
-    private fun task(id: String, title: String) = TaskDto(
+    private fun task(
+        id: String,
+        title: String,
+    ) = TaskDto(
         id = id,
         title = title,
         createdAt = 1L,
@@ -44,10 +46,11 @@ class BackupRemovalTest {
      */
     @Test
     fun `the payload holds the rows that are gone`() {
-        val payload = BackupPayload(
-            schemaVersion = BackupFormat.SCHEMA_VERSION,
-            removals = mapOf(BackupEntityKind.TASKS to listOf("t-1", "t-2")),
-        )
+        val payload =
+            BackupPayload(
+                schemaVersion = BackupFormat.SCHEMA_VERSION,
+                removals = mapOf(BackupEntityKind.TASKS to listOf("t-1", "t-2")),
+            )
 
         assertEquals(
             listOf("t-1", "t-2"),
@@ -64,10 +67,11 @@ class BackupRemovalTest {
      */
     @Test
     fun `the removals survive the trip through the archive's format`() {
-        val payload = BackupPayload(
-            schemaVersion = BackupFormat.SCHEMA_VERSION,
-            removals = mapOf(BackupEntityKind.TASKS to listOf("t-1")),
-        )
+        val payload =
+            BackupPayload(
+                schemaVersion = BackupFormat.SCHEMA_VERSION,
+                removals = mapOf(BackupEntityKind.TASKS to listOf("t-1")),
+            )
 
         val bytes = StableJson.encodeToString(BackupPayload.serializer(), payload).encodeToByteArray()
         val read = StableJson.decodeFromString(BackupPayload.serializer(), bytes.decodeToString())
@@ -88,15 +92,17 @@ class BackupRemovalTest {
      */
     @Test
     fun `the merge takes the rows the change says are gone out`() {
-        val base = BackupPayload(
-            schemaVersion = 1,
-            tasks = listOf(task("t-1", "before"), task("t-2", "untouched")),
-        )
-        val delta = BackupPayload(
-            schemaVersion = 1,
-            tasks = listOf(task("t-3", "new")),
-            removals = mapOf(BackupEntityKind.TASKS to listOf("t-1")),
-        )
+        val base =
+            BackupPayload(
+                schemaVersion = 1,
+                tasks = listOf(task("t-1", "before"), task("t-2", "untouched")),
+            )
+        val delta =
+            BackupPayload(
+                schemaVersion = 1,
+                tasks = listOf(task("t-3", "new")),
+                removals = mapOf(BackupEntityKind.TASKS to listOf("t-1")),
+            )
 
         val merged = merge(base, delta)
 
@@ -114,10 +120,11 @@ class BackupRemovalTest {
     @Test
     fun `the merged payload does not carry the removals along`() {
         val base = BackupPayload(schemaVersion = 1, tasks = listOf(task("t-1", "before")))
-        val delta = BackupPayload(
-            schemaVersion = 1,
-            removals = mapOf(BackupEntityKind.TASKS to listOf("t-1")),
-        )
+        val delta =
+            BackupPayload(
+                schemaVersion = 1,
+                removals = mapOf(BackupEntityKind.TASKS to listOf("t-1")),
+            )
 
         val merged = merge(base, delta)
 
@@ -139,10 +146,13 @@ class BackupRemovalTest {
 
         val element = StableJson.parseToJsonElement(written).jsonObject
         val migrated = BackupMigrations.migrate(element, 6)
-        val bytes = StableJson.encodeToString(
-            kotlinx.serialization.json.JsonObject.serializer(),
-            migrated,
-        ).encodeToByteArray()
+        val bytes =
+            StableJson
+                .encodeToString(
+                    kotlinx.serialization.json.JsonObject
+                        .serializer(),
+                    migrated,
+                ).encodeToByteArray()
         val payload = StableJson.decodeFromString(BackupPayload.serializer(), bytes.decodeToString())
 
         assertTrue(

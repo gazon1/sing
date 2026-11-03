@@ -13,9 +13,10 @@ import io.ktor.client.engine.okhttp.OkHttp
  * on both platforms — including connection pooling, which matters for a background sync
  * that fires every few minutes and should not pay a TLS handshake each time.
  */
-actual fun createHttpClient(): HttpClient = HttpClient(OkHttp) {
-    // Callers map status codes onto AppError; see the common declaration for why
-    // expectSuccess stays off.
-    expectSuccess = false
-    installSharedTimeouts()
-}
+actual fun createHttpClient(): HttpClient =
+    HttpClient(OkHttp) {
+        // Callers map status codes onto AppError; see the common declaration for why
+        // expectSuccess stays off.
+        expectSuccess = false
+        installSharedTimeouts()
+    }

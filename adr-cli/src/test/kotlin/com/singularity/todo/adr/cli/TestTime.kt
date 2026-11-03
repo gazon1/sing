@@ -15,6 +15,7 @@ import kotlinx.datetime.TimeZone
  * over" wants the boundary to be unambiguous, and a test that means a specific offset
  * should say so at the call site rather than inheriting one.
  */
-val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
-    override fun current(): TimeZone = TimeZone.UTC
-}
+val TEST_TZ: TimeZoneProvider =
+    object : TimeZoneProvider {
+        override fun current(): TimeZone = TimeZone.UTC
+    }

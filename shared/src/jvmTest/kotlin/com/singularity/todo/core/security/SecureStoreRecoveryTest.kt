@@ -20,15 +20,15 @@ import kotlin.test.assertFailsWith
  */
 @Tag("fast")
 class SecureStoreRecoveryTest {
-
     @Test
     fun `a store that opens first time is not erased`() {
         var erases = 0
 
-        val result = SecureStoreRecovery.openOrErase(
-            open = { "opened" },
-            erase = { erases++ },
-        )
+        val result =
+            SecureStoreRecovery.openOrErase(
+                open = { "opened" },
+                erase = { erases++ },
+            )
 
         assertEquals("opened", result)
         assertEquals(0, erases, "nothing was wrong, so nothing should have been deleted")
@@ -41,14 +41,15 @@ class SecureStoreRecoveryTest {
 
         // The shape of the real failure: the first open throws because the ciphertext does
         // not match the key, and the second succeeds because the file is gone.
-        val result = SecureStoreRecovery.openOrErase(
-            open = {
-                attempts++
-                if (attempts == 1) throw IllegalStateException("no such key")
-                "opened after erase"
-            },
-            erase = { erases++ },
-        )
+        val result =
+            SecureStoreRecovery.openOrErase(
+                open = {
+                    attempts++
+                    if (attempts == 1) throw IllegalStateException("no such key")
+                    "opened after erase"
+                },
+                erase = { erases++ },
+            )
 
         assertEquals("opened after erase", result)
         assertEquals(1, erases)
@@ -62,15 +63,16 @@ class SecureStoreRecoveryTest {
         // that never completes, so the second failure is the caller's to interpret.
         var attempts = 0
 
-        val thrown = assertFailsWith<Exception> {
-            SecureStoreRecovery.openOrErase(
-                open = {
-                    attempts++
-                    throw IllegalStateException("attempt $attempts")
-                },
-                erase = {},
-            )
-        }
+        val thrown =
+            assertFailsWith<Exception> {
+                SecureStoreRecovery.openOrErase(
+                    open = {
+                        attempts++
+                        throw IllegalStateException("attempt $attempts")
+                    },
+                    erase = {},
+                )
+            }
 
         assertEquals(2, attempts, "exactly one retry, then the failure surfaces")
         assertEquals("attempt 2", thrown.message, "the second failure is the one that surfaces")
@@ -83,15 +85,16 @@ class SecureStoreRecoveryTest {
         // the two problems the device actually has.
         var attempts = 0
 
-        val thrown = assertFailsWith<Exception> {
-            SecureStoreRecovery.openOrErase(
-                open = {
-                    attempts++
-                    throw IllegalStateException(if (attempts == 1) "ciphertext" else "locked")
-                },
-                erase = {},
-            )
-        }
+        val thrown =
+            assertFailsWith<Exception> {
+                SecureStoreRecovery.openOrErase(
+                    open = {
+                        attempts++
+                        throw IllegalStateException(if (attempts == 1) "ciphertext" else "locked")
+                    },
+                    erase = {},
+                )
+            }
 
         assertEquals(1, thrown.suppressed.size)
         assertEquals("ciphertext", thrown.suppressed[0].message)

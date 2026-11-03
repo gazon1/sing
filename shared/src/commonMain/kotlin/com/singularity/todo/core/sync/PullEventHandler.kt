@@ -96,13 +96,14 @@ internal class PullEventHandler(
                     }
                     return ApplyOutcome.Skipped("the event carries no document")
                 }
-                val obj = data as? kotlinx.serialization.json.JsonObject
-                    ?: run {
-                        log.w {
-                            "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: data is not JsonObject, skipping"
+                val obj =
+                    data as? kotlinx.serialization.json.JsonObject
+                        ?: run {
+                            log.w {
+                                "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: data is not JsonObject, skipping"
+                            }
+                            return ApplyOutcome.Skipped("the event payload is not a document")
                         }
-                        return ApplyOutcome.Skipped("the event payload is not a document")
-                    }
                 applyRemote(obj)
                 log.d { "Pull event [${event.eventType}][lsn=${event.serverLsn}]: applied" }
                 ApplyOutcome.Applied

@@ -25,7 +25,6 @@ import kotlin.test.assertTrue
  * vacuously.
  */
 class NoCollectionMaterializationInComposableRuleTest {
-
     private val rule = NoCollectionMaterializationInComposableRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 

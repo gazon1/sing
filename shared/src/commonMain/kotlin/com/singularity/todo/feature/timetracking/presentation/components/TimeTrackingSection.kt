@@ -58,9 +58,10 @@ fun TimeTrackingSection(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             // Header row: icon + title + action buttons
@@ -202,10 +203,11 @@ fun TimeTrackingSection(
 
             // Add manual entry button
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onAddManual)
-                    .padding(vertical = 4.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onAddManual)
+                        .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
@@ -226,14 +228,18 @@ fun TimeTrackingSection(
 }
 
 @Composable
-private fun TimeEntryRow(entry: TimeEntry, modifier: Modifier = Modifier) {
+private fun TimeEntryRow(
+    entry: TimeEntry,
+    modifier: Modifier = Modifier,
+) {
     val startStr = formatMonthDayTime(entry.startedAt)
     val durationStr = entry.durationMs?.let { formatDuration(it) } ?: "in progress"
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 2.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {

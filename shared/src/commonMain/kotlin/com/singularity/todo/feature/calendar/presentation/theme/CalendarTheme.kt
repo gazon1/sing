@@ -32,9 +32,10 @@ data class CalendarPalette(
     val nowIndicator: Color,
 )
 
-val LocalCalendarPalette = compositionLocalOf<CalendarPalette> {
-    error("CalendarPalette not provided — wrap CalendarScreen with ProvideCalendarPalette")
-}
+val LocalCalendarPalette =
+    compositionLocalOf<CalendarPalette> {
+        error("CalendarPalette not provided — wrap CalendarScreen with ProvideCalendarPalette")
+    }
 
 /** Provides the [CalendarPalette] for all composables in [content]. */
 @Composable

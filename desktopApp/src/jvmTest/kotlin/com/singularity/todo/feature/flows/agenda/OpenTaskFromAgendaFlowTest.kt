@@ -1,11 +1,10 @@
 package com.singularity.todo.feature.flows.agenda
 
-import kotlinx.datetime.LocalDate
-import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.assertTextNotExists
@@ -14,6 +13,7 @@ import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
+import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.time.Instant
@@ -52,58 +52,61 @@ import kotlin.time.Instant
 @Tag("slow:compose")
 class OpenTaskFromAgendaFlowTest {
     @Test
-    fun clicking_task_in_today_section_opens_task_detail_editor() = runDesktopAppTest(
-        clock = CLOCK,
-        checkA11y = true,
-    ) { koin ->
-        tasks(koin).given(due = today, title = "Existing task")
+    fun clicking_task_in_today_section_opens_task_detail_editor() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            checkA11y = true,
+        ) { koin ->
+            tasks(koin).given(due = today, title = "Existing task")
 
-        tapTab("Today")
-        assertTagDisplayed(TestTags.taskItem("Existing task"))
+            tapTab("Today")
+            assertTagDisplayed(TestTags.taskItem("Existing task"))
 
-        // Click the task row → should open TaskDetailScreen (not TaskCreateScreen)
-        awaitTag(TestTags.taskItem("Existing task")).performClick()
+            // Click the task row → should open TaskDetailScreen (not TaskCreateScreen)
+            awaitTag(TestTags.taskItem("Existing task")).performClick()
 
-        // The editor must show the task title, not be empty
-        awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
-        assertTextDisplayed("Existing task")
-    }
-
-    @Test
-    fun task_editor_shows_correct_due_date_from_agenda() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        tasks(koin).given(due = today, title = "Dated task")
-
-        tapTab("Today")
-        awaitTag(TestTags.taskItem("Dated task")).performClick()
-
-        awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
-        // Due date row shows ISO date, not the placeholder. The attribute rows sit
-        // below the fold on a 1024x768 window, so scroll before asserting display.
-        scrollToTag(TestTags.TASK_EDITOR_DUE_ROW)
-        assertTagDisplayed(TestTags.TASK_EDITOR_DUE_ROW)
-        assertTextDisplayed(today.toString())
-        assertTextNotExists("Добавить дату")
-    }
+            // The editor must show the task title, not be empty
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+            assertTextDisplayed("Existing task")
+        }
 
     @Test
-    fun task_editor_shows_correct_priority_from_agenda() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        tasks(koin).given(
-            due = today,
-            title = "High priority task",
-            priority = TaskPriority.High,
-        )
+    fun task_editor_shows_correct_due_date_from_agenda() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            tasks(koin).given(due = today, title = "Dated task")
 
-        tapTab("Today")
-        awaitTag(TestTags.taskItem("High priority task")).performClick()
+            tapTab("Today")
+            awaitTag(TestTags.taskItem("Dated task")).performClick()
 
-        awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
-        // Priority row shows the label for High priority.
-        // The attribute rows sit below the fold on a 1024x768 window, so scroll
-        // before asserting display — the same reason the due-date test above does.
-        scrollToTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
-        assertTagDisplayed(TestTags.TASK_EDITOR_PRIORITY_ROW)
-        assertTextDisplayed("High priority")
-    }
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+            // Due date row shows ISO date, not the placeholder. The attribute rows sit
+            // below the fold on a 1024x768 window, so scroll before asserting display.
+            scrollToTag(TestTags.TASK_EDITOR_DUE_ROW)
+            assertTagDisplayed(TestTags.TASK_EDITOR_DUE_ROW)
+            assertTextDisplayed(today.toString())
+            assertTextNotExists("Добавить дату")
+        }
+
+    @Test
+    fun task_editor_shows_correct_priority_from_agenda() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            tasks(koin).given(
+                due = today,
+                title = "High priority task",
+                priority = TaskPriority.High,
+            )
+
+            tapTab("Today")
+            awaitTag(TestTags.taskItem("High priority task")).performClick()
+
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+            // Priority row shows the label for High priority.
+            // The attribute rows sit below the fold on a 1024x768 window, so scroll
+            // before asserting display — the same reason the due-date test above does.
+            scrollToTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
+            assertTagDisplayed(TestTags.TASK_EDITOR_PRIORITY_ROW)
+            assertTextDisplayed("High priority")
+        }
 
     private companion object {
         /** Mid-month, so no assertion in this file straddles a boundary. */

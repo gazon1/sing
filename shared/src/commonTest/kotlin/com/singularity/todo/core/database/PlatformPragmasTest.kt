@@ -20,7 +20,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class PlatformPragmasTest {
-
     @Test
     fun fileLevelCommandsAreWALOnly() {
         assertEquals(listOf("PRAGMA journal_mode = WAL"), PlatformPragmas.FileLevelCommands)

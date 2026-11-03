@@ -47,40 +47,41 @@ import kotlin.test.assertNotSame
 @Tag("slow")
 @Tag("slow:compose")
 class NestedEntryViewModelScopeTest {
-
     /** A route of a nested graph. */
     private data object ProbeRoute : NavKey
 
     @Test
-    fun `a nested entry does not share the outer view model store`() = runIsolatedComposeTest {
-        val entryStores = mutableListOf<Any>()
-        val owner = TestViewModelStoreOwner()
+    fun `a nested entry does not share the outer view model store`() =
+        runIsolatedComposeTest {
+            val entryStores = mutableListOf<Any>()
+            val owner = TestViewModelStoreOwner()
 
-        setContent {
-            CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
-                NavDisplay(
-                    backStack = NavBackStack(ProbeRoute),
-                    entryDecorators = rememberAppEntryDecorators(),
-                    entryProvider = entryProvider {
-                        entry<ProbeRoute> {
-                            entryStores += requireNotNull(LocalViewModelStoreOwner.current).viewModelStore
-                        }
-                    },
-                )
+            setContent {
+                CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
+                    NavDisplay(
+                        backStack = NavBackStack(ProbeRoute),
+                        entryDecorators = rememberAppEntryDecorators(),
+                        entryProvider =
+                            entryProvider {
+                                entry<ProbeRoute> {
+                                    entryStores += requireNotNull(LocalViewModelStoreOwner.current).viewModelStore
+                                }
+                            },
+                    )
+                }
             }
-        }
-        waitForIdle()
+            waitForIdle()
 
-        assertEquals(
-            1,
-            entryStores.size,
-            "The nested entry never composed — the test measured nothing.",
-        )
-        assertNotSame(
-            owner.viewModelStore,
-            entryStores[0],
-            "The nested entry resolved the outer ViewModel store — the nested NavDisplay " +
-                "does not scope the store per entry.",
-        )
-    }
+            assertEquals(
+                1,
+                entryStores.size,
+                "The nested entry never composed — the test measured nothing.",
+            )
+            assertNotSame(
+                owner.viewModelStore,
+                entryStores[0],
+                "The nested entry resolved the outer ViewModel store — the nested NavDisplay " +
+                    "does not scope the store per entry.",
+            )
+        }
 }

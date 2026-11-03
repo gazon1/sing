@@ -50,7 +50,6 @@ data class TaskDraft(
  * would make it sort and remind as if it were a midnight appointment.
  */
 object GoogleEventTaskMapper {
-
     /**
      * The title an event with [title] should give its task.
      *
@@ -67,7 +66,10 @@ object GoogleEventTaskMapper {
      * Returns null for a cancelled event: there is no task to describe, and a cancelled
      * event must never become a task the user then has to delete by hand.
      */
-    fun draftFor(event: GoogleEvent, timeZone: TimeZone): TaskDraft? {
+    fun draftFor(
+        event: GoogleEvent,
+        timeZone: TimeZone,
+    ): TaskDraft? {
         if (!event.isLive) return null
 
         val start = event.startsAt?.toLocalDateTime(timeZone)
@@ -188,18 +190,19 @@ object GoogleEventTaskMapper {
         val isAllDay = remote.allDay == true
 
         return TaskEdits(
-            changed = buildSet {
-                if (title != null) add(TaskField.Title)
-                if (description != null) add(TaskField.Description)
-                if (start != null) {
-                    add(TaskField.DueDate)
-                    add(TaskField.DueTime)
-                }
-                if (end != null) {
-                    add(TaskField.EndDate)
-                    add(TaskField.EndTime)
-                }
-            },
+            changed =
+                buildSet {
+                    if (title != null) add(TaskField.Title)
+                    if (description != null) add(TaskField.Description)
+                    if (start != null) {
+                        add(TaskField.DueDate)
+                        add(TaskField.DueTime)
+                    }
+                    if (end != null) {
+                        add(TaskField.EndDate)
+                        add(TaskField.EndTime)
+                    }
+                },
             title = title?.value as? String,
             description = description?.value as? String,
             dueDate = startLocal?.date,

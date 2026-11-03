@@ -3,8 +3,8 @@ package com.singularity.todo.feature.ai.acp
 import com.singularity.todo.core.mcp.ToolServerCommand
 import com.singularity.todo.core.process.ProcessTree
 import com.singularity.todo.core.process.Subprocess
-import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
+import java.io.IOException
 
 /**
  * Starts an external agent and opens a session on it.
@@ -17,7 +17,6 @@ import kotlinx.coroutines.CoroutineScope
  * something that can happen to a process.
  */
 fun interface AcpAgentLauncher {
-
     /**
      * Starts the agent and opens a session on it.
      *
@@ -50,7 +49,6 @@ fun interface AcpAgentLauncher {
  * The result of starting an agent.
  */
 sealed interface AcpAgentLaunch {
-
     /** The agent is running and the session is open. */
     data class Started(val session: AcpAgentSession) : AcpAgentLaunch
 
@@ -78,7 +76,6 @@ sealed interface AcpAgentLaunch {
  * not found" ends the search.
  */
 object SubprocessAcpAgentLauncher : AcpAgentLauncher {
-
     private const val DIAGNOSTIC_LINES = 20
 
     override fun launch(
@@ -91,13 +88,14 @@ object SubprocessAcpAgentLauncher : AcpAgentLauncher {
         val diagnostics = ArrayDeque<String>()
         val argv = listOf(profile.command) + profile.args
         return try {
-            val process = Subprocess.spawnDuplex(
-                argv = argv,
-                stderrSink = { line ->
-                    if (diagnostics.size >= DIAGNOSTIC_LINES) diagnostics.removeFirst()
-                    diagnostics.addLast(line)
-                },
-            )
+            val process =
+                Subprocess.spawnDuplex(
+                    argv = argv,
+                    stderrSink = { line ->
+                        if (diagnostics.size >= DIAGNOSTIC_LINES) diagnostics.removeFirst()
+                        diagnostics.addLast(line)
+                    },
+                )
             val tree = ProcessTree(process.process.toHandle())
             AcpAgentLaunch.Started(
                 AcpClient(

@@ -8,20 +8,22 @@ import com.singularity.todo.feature.genui.render.LocalGenuiOnAction
 import com.singularity.todo.feature.genui.render.genuiTag
 import com.singularity.todo.feature.genui.render.templateResolver
 
-internal fun ComponentRegistry.registerButton(): Unit = register("button") { node, ctx, modifier ->
-    val b = node as UiNode.Button
-    // Resolved here, at the press, rather than when the surface was drawn: the values in a payload
-    // are usually ones the user typed, and they did not exist a moment ago.
-    val resolver = ctx.templateResolver()
-    val onAction = LocalGenuiOnAction.current
-    Button(
-        onClick = {
-            val payload = resolver.json(b.data) as? kotlinx.serialization.json.JsonObject
-            onAction(ctx.surfaceId, b.action ?: "", payload)
-        },
-        modifier = modifier.genuiTag(
-            name = "btn_${b.label.replace(" ", "_")}",
-            description = "Button: ${b.label}",
-        ),
-    ) { Text(b.label) }
-}
+internal fun ComponentRegistry.registerButton(): Unit =
+    register("button") { node, ctx, modifier ->
+        val b = node as UiNode.Button
+        // Resolved here, at the press, rather than when the surface was drawn: the values in a payload
+        // are usually ones the user typed, and they did not exist a moment ago.
+        val resolver = ctx.templateResolver()
+        val onAction = LocalGenuiOnAction.current
+        Button(
+            onClick = {
+                val payload = resolver.json(b.data) as? kotlinx.serialization.json.JsonObject
+                onAction(ctx.surfaceId, b.action ?: "", payload)
+            },
+            modifier =
+                modifier.genuiTag(
+                    name = "btn_${b.label.replace(" ", "_")}",
+                    description = "Button: ${b.label}",
+                ),
+        ) { Text(b.label) }
+    }

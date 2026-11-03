@@ -19,7 +19,6 @@ expect fun rememberCalendarPermissionRequester(): CalendarPermissionRequester
  * Call [requestPermissions] to launch the system permission dialog.
  */
 interface CalendarPermissionRequester {
-
     /**
      * Whether the calendar permission is held right now.
      *

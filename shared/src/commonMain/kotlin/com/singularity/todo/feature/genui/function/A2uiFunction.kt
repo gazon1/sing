@@ -22,5 +22,8 @@ data class A2uiFunctionContext(val today: LocalDate, val dataModel: DataModel)
  */
 fun interface A2uiFunction {
     /** Returns null when the arguments cannot be used, so the caller can report rather than print. */
-    fun call(args: List<JsonElement>, ctx: A2uiFunctionContext): JsonElement?
+    fun call(
+        args: List<JsonElement>,
+        ctx: A2uiFunctionContext,
+    ): JsonElement?
 }

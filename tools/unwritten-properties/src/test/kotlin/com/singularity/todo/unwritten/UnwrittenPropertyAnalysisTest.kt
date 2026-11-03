@@ -14,7 +14,6 @@ import kotlin.test.assertTrue
  * so "does not report" matters at least as much as "reports".
  */
 class UnwrittenPropertyAnalysisTest {
-
     private val owner = "com.singularity.todo.feature.auth.LoginUiState"
 
     private fun declaration(
@@ -23,30 +22,36 @@ class UnwrittenPropertyAnalysisTest {
         ctor: Boolean = true,
     ) = Declaration(owner = owner, name = name, isConstructorParameter = ctor)
 
-    private fun read(name: String, owner: String = this.owner) =
-        Reference(owner = owner, name = name, isWrite = false)
+    private fun read(
+        name: String,
+        owner: String = this.owner,
+    ) = Reference(owner = owner, name = name, isWrite = false)
 
-    private fun write(name: String, owner: String = this.owner) =
-        Reference(owner = owner, name = name, isWrite = true)
+    private fun write(
+        name: String,
+        owner: String = this.owner,
+    ) = Reference(owner = owner, name = name, isWrite = true)
 
     // ── the defect ────────────────────────────────────────────────────────────
 
     @Test
     fun `a read with no write is reported`() {
-        val findings = findNeverWritten(
-            declarations = listOf(declaration("isLoading")),
-            references = listOf(read("isLoading")),
-        )
+        val findings =
+            findNeverWritten(
+                declarations = listOf(declaration("isLoading")),
+                references = listOf(read("isLoading")),
+            )
         assertEquals(1, findings.size)
         assertEquals("isLoading", findings.single().name)
     }
 
     @Test
     fun `the reported property is named and located`() {
-        val finding = findNeverWritten(
-            listOf(declaration("isLoading")),
-            listOf(read("isLoading")),
-        ).single()
+        val finding =
+            findNeverWritten(
+                listOf(declaration("isLoading")),
+                listOf(read("isLoading")),
+            ).single()
         assertEquals(owner, finding.owner)
         assertTrue(
             finding.explanation.contains("never"),
@@ -62,19 +67,21 @@ class UnwrittenPropertyAnalysisTest {
         // `copy`, not anything spelled like an assignment. Every state update in this
         // codebase is written this way, so a scan that misses it reports most of the
         // healthy state classes as broken.
-        val findings = findNeverWritten(
-            declarations = listOf(declaration("isLoading")),
-            references = listOf(read("isLoading"), write("isLoading")),
-        )
+        val findings =
+            findNeverWritten(
+                declarations = listOf(declaration("isLoading")),
+                references = listOf(read("isLoading"), write("isLoading")),
+            )
         assertTrue(findings.isEmpty(), "a copy-assigned property is written: $findings")
     }
 
     @Test
     fun `a property written once is not reported`() {
-        val findings = findNeverWritten(
-            declarations = listOf(declaration("isLoading")),
-            references = listOf(read("isLoading"), write("isLoading"), write("isLoading")),
-        )
+        val findings =
+            findNeverWritten(
+                declarations = listOf(declaration("isLoading")),
+                references = listOf(read("isLoading"), write("isLoading"), write("isLoading")),
+            )
         assertTrue(findings.isEmpty())
     }
 
@@ -82,10 +89,11 @@ class UnwrittenPropertyAnalysisTest {
     fun `a write in one file suppresses a read in another`() {
         // The reason this is a KSP processor and not a detekt rule: the read and the
         // write are different files, and a per-file scan cannot see the write.
-        val findings = findNeverWritten(
-            declarations = listOf(declaration("isLoading")),
-            references = listOf(read("isLoading"), write("isLoading")),
-        )
+        val findings =
+            findNeverWritten(
+                declarations = listOf(declaration("isLoading")),
+                references = listOf(read("isLoading"), write("isLoading")),
+            )
         assertTrue(findings.isEmpty())
     }
 
@@ -93,10 +101,11 @@ class UnwrittenPropertyAnalysisTest {
     fun `a property never read is not reported`() {
         // A different smell with a different fix. Reporting it here would put two
         // defects in one gate.
-        val findings = findNeverWritten(
-            declarations = listOf(declaration("orphan")),
-            references = listOf(write("orphan")),
-        )
+        val findings =
+            findNeverWritten(
+                declarations = listOf(declaration("orphan")),
+                references = listOf(write("orphan")),
+            )
         assertTrue(findings.isEmpty())
     }
 
@@ -110,20 +119,22 @@ class UnwrittenPropertyAnalysisTest {
     @Test
     fun `a non-state class is out of scope`() {
         // Repository and domain classes hold plenty of vals written by a framework.
-        val findings = findNeverWritten(
-            declarations = listOf(declaration("cache", owner = "com.singularity.todo.TaskRepository")),
-            references = listOf(read("cache", owner = "com.singularity.todo.TaskRepository")),
-        )
+        val findings =
+            findNeverWritten(
+                declarations = listOf(declaration("cache", owner = "com.singularity.todo.TaskRepository")),
+                references = listOf(read("cache", owner = "com.singularity.todo.TaskRepository")),
+            )
         assertTrue(findings.isEmpty())
     }
 
     @Test
     fun `a Room DAO is exempt`() {
         val daoOwner = "com.singularity.todo.TaskDao"
-        val findings = findNeverWritten(
-            declarations = listOf(declaration("pending", owner = daoOwner)),
-            references = listOf(read("pending", owner = daoOwner)),
-        )
+        val findings =
+            findNeverWritten(
+                declarations = listOf(declaration("pending", owner = daoOwner)),
+                references = listOf(read("pending", owner = daoOwner)),
+            )
         assertTrue(findings.isEmpty(), "Room writes DAO properties itself")
     }
 
@@ -132,17 +143,20 @@ class UnwrittenPropertyAnalysisTest {
         // A name is not an identity. Matching on `name` alone is how a healthy class
         // gets implicated by another class's defect.
         val other = "com.singularity.todo.feature.other.SearchUiState"
-        val findings = findNeverWritten(
-            declarations = listOf(
-                declaration("query"),
-                declaration("query", owner = other),
-            ),
-            references = listOf(
-                read("query"),
-                read("query", owner = other),
-                write("query", owner = other),
-            ),
-        )
+        val findings =
+            findNeverWritten(
+                declarations =
+                    listOf(
+                        declaration("query"),
+                        declaration("query", owner = other),
+                    ),
+                references =
+                    listOf(
+                        read("query"),
+                        read("query", owner = other),
+                        write("query", owner = other),
+                    ),
+            )
         assertEquals(1, findings.size, "only the unwritten one is a finding: $findings")
         assertEquals(owner, findings.single().owner)
     }
@@ -155,16 +169,18 @@ class UnwrittenPropertyAnalysisTest {
         // baseline nobody can read is a baseline nobody maintains.
         val second = "com.singularity.todo.feature.bbb.SecondUiState"
         val third = "com.singularity.todo.feature.aaa.FirstUiState"
-        val declarations = listOf(
-            declaration("zeta", owner = second),
-            declaration("alpha", owner = third),
-            declaration("mid", owner = second),
-        )
-        val references = listOf(
-            read("zeta", owner = second),
-            read("alpha", owner = third),
-            read("mid", owner = second),
-        )
+        val declarations =
+            listOf(
+                declaration("zeta", owner = second),
+                declaration("alpha", owner = third),
+                declaration("mid", owner = second),
+            )
+        val references =
+            listOf(
+                read("zeta", owner = second),
+                read("alpha", owner = third),
+                read("mid", owner = second),
+            )
         val once = findNeverWritten(declarations, references)
         val twice = findNeverWritten(declarations.reversed(), references.reversed())
         assertEquals(once.map { it.owner to it.name }, twice.map { it.owner to it.name })
@@ -178,13 +194,15 @@ class UnwrittenPropertyAnalysisTest {
     @Test
     fun `a constructor property and a body property read the same`() {
         // The two declaration shapes a state class uses; both are in scope.
-        val findings = findNeverWritten(
-            declarations = listOf(
-                declaration("fromCtor", ctor = true),
-                declaration("fromBody", ctor = false),
-            ),
-            references = listOf(read("fromCtor"), read("fromBody")),
-        )
+        val findings =
+            findNeverWritten(
+                declarations =
+                    listOf(
+                        declaration("fromCtor", ctor = true),
+                        declaration("fromBody", ctor = false),
+                    ),
+                references = listOf(read("fromCtor"), read("fromBody")),
+            )
         assertEquals(2, findings.size)
     }
 

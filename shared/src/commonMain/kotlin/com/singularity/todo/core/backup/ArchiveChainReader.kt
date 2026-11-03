@@ -21,7 +21,6 @@ import com.singularity.todo.core.files.ByteSource
  * this whole family exists to prevent.
  */
 internal object ArchiveChainReader {
-
     /**
      * Reads the changes of [container]'s chain and hands each one to [onEntry].
      *
@@ -39,22 +38,27 @@ internal object ArchiveChainReader {
     ): Long {
         var consumed = 0L
         for (index in 0 until container.head.count) {
-            val frameHead = archiveErrors { ArchiveFrame.readHead(source) }
-                ?: throw ArchiveEnvelopeError.BrokenChain("it ends before the changes its head promised")
+            val frameHead =
+                archiveErrors { ArchiveFrame.readHead(source) }
+                    ?: throw ArchiveEnvelopeError.BrokenChain("it ends before the changes its head promised")
             checkFrameIndex(index, frameHead.index)
             val body = readFrameBody(source, frameHead)
             consumed += ArchiveFormat.ENTRY_HEAD_BYTES + frameHead.length
 
-            val plain = archiveErrors {
-                session.openEntry(index, body, container.prefix, frameHead.nonce)
-            }
+            val plain =
+                archiveErrors {
+                    session.openEntry(index, body, container.prefix, frameHead.nonce)
+                }
             onEntry(index, plain)
         }
         return consumed
     }
 
     /** The change is where the chain says it is, or the chain does not hold together. */
-    private fun checkFrameIndex(expected: Int, actual: Int) {
+    private fun checkFrameIndex(
+        expected: Int,
+        actual: Int,
+    ) {
         if (actual != expected) {
             throw ArchiveEnvelopeError.BrokenChain(
                 "an entry that should be number $expected says it is $actual",
@@ -68,7 +72,10 @@ internal object ArchiveChainReader {
      * A length read out of a corrupt frame is not a length: allocating it would be
      * the corruption, not the reading of it.
      */
-    private fun readFrameBody(source: ByteSource, head: ArchiveFrameHead): ByteArray {
+    private fun readFrameBody(
+        source: ByteSource,
+        head: ArchiveFrameHead,
+    ): ByteArray {
         if (head.length <= 0 || head.length > ArchiveFormat.MAX_ENTRY_BYTES) {
             throw ArchiveEnvelopeError.BrokenChain("a change claims to be ${head.length} bytes long")
         }

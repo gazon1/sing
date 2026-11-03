@@ -27,17 +27,18 @@ object KnownModels {
 }
 
 /** Maps a user-supplied model identifier to a Koog [LLModel] constant. */
-fun resolveModel(modelId: String): LLModel = when (modelId) {
-    "gpt-4o" -> KnownModels.GPT4o
-    "gpt-4o-mini" -> KnownModels.GPT4oMini
-    "gpt-4.1" -> KnownModels.GPT4_1
-    "gpt-4.1-nano" -> KnownModels.GPT4_1Nano
-    "gpt-4.1-mini" -> KnownModels.GPT4_1Mini
-    "o1" -> KnownModels.O1
-    "o3" -> KnownModels.O3
-    "o3-mini" -> KnownModels.O3Mini
-    "o4-mini" -> KnownModels.O4Mini
-    "gpt-5" -> KnownModels.GPT5
-    "gpt-5-mini" -> KnownModels.GPT5Mini
-    else -> KnownModels.GPT4oMini
-}
+fun resolveModel(modelId: String): LLModel =
+    when (modelId) {
+        "gpt-4o" -> KnownModels.GPT4o
+        "gpt-4o-mini" -> KnownModels.GPT4oMini
+        "gpt-4.1" -> KnownModels.GPT4_1
+        "gpt-4.1-nano" -> KnownModels.GPT4_1Nano
+        "gpt-4.1-mini" -> KnownModels.GPT4_1Mini
+        "o1" -> KnownModels.O1
+        "o3" -> KnownModels.O3
+        "o3-mini" -> KnownModels.O3Mini
+        "o4-mini" -> KnownModels.O4Mini
+        "gpt-5" -> KnownModels.GPT5
+        "gpt-5-mini" -> KnownModels.GPT5Mini
+        else -> KnownModels.GPT4oMini
+    }

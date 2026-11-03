@@ -15,19 +15,20 @@ class NotificationsSettingsStore(private val notifications: NotificationsSetting
     /**
      * Notification settings section — all 4 fields from [NotificationsSettingsRepository].
      */
-    fun observe(): Flow<SettingsSection.Notifications> = combine(
-        notifications.enabled,
-        notifications.sound,
-        notifications.vibration,
-        notifications.reminderDefault,
-    ) { enabled, sound, vibration, reminderDefault ->
-        SettingsSection.Notifications(
-            enabled = enabled,
-            sound = sound,
-            vibration = vibration,
-            reminderDefault = reminderDefault,
-        )
-    }
+    fun observe(): Flow<SettingsSection.Notifications> =
+        combine(
+            notifications.enabled,
+            notifications.sound,
+            notifications.vibration,
+            notifications.reminderDefault,
+        ) { enabled, sound, vibration, reminderDefault ->
+            SettingsSection.Notifications(
+                enabled = enabled,
+                sound = sound,
+                vibration = vibration,
+                reminderDefault = reminderDefault,
+            )
+        }
 
     suspend fun process(intent: SettingsIntent.Notifications) {
         when (intent) {

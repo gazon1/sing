@@ -54,20 +54,22 @@ sealed class ThemeMode {
      * Serialises to the storage string.
      * Matching is case-insensitive on read; write produces lowercase.
      */
-    fun toStorageString(): String = when (this) {
-        System -> "system"
-        Light -> "light"
-        Dark -> "dark"
-    }
+    fun toStorageString(): String =
+        when (this) {
+            System -> "system"
+            Light -> "light"
+            Dark -> "dark"
+        }
 
     companion object {
         const val STORAGE_KEY = "theme_mode"
 
-        fun fromStorageString(value: String): ThemeMode = when (value.lowercase()) {
-            "dark" -> Dark
-            "light" -> Light
-            else -> System
-        }
+        fun fromStorageString(value: String): ThemeMode =
+            when (value.lowercase()) {
+                "dark" -> Dark
+                "light" -> Light
+                else -> System
+            }
 
         /**
          * Translates a legacy boolean dark-theme preference.

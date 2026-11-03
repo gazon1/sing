@@ -14,8 +14,9 @@ data class BackupManifest(
     val payloadChecksum: String,
 ) {
     val isCompatibleWith: Boolean
-        get() = formatVersion <= BackupFormat.FORMAT_VERSION &&
-            schemaVersion <= BackupFormat.SCHEMA_VERSION
+        get() =
+            formatVersion <= BackupFormat.FORMAT_VERSION &&
+                schemaVersion <= BackupFormat.SCHEMA_VERSION
 }
 
 @Serializable

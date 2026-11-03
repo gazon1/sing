@@ -6,19 +6,19 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.DataStoreSessionStore
 import com.singularity.todo.core.auth.FixedIdGenerator
 import com.singularity.todo.core.auth.SecureSessionManager
+import com.singularity.todo.core.auth.SecureStorage
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.auth.SupabaseClientProvider
 import com.singularity.todo.core.auth.SupabaseConfigResolver
-import com.singularity.todo.core.error.AppError
-import com.singularity.todo.core.auth.SecureStorage
 import com.singularity.todo.core.auth.newPreferencesStore
 import com.singularity.todo.core.auth.testLogger
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.ids.IdGenerator
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.auth.LocalDataDisposition
 import com.singularity.todo.feature.auth.LocalDataSummary
 import com.singularity.todo.feature.auth.ReassignCounts
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.ids.IdGenerator
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.helpers.awaitState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,16 +50,16 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AuthViewModelTest {
-
     private val storage = MapStorage()
     private val sessions = MutableStateFlow<Session>(Session.SignedOut)
     private var seedCalls = 0
 
     /** What the attach screen is told the user stands to lose. */
-    private val localDataToSummarise = LocalDataDisposition.Keep(
-        ReassignCounts(tasks = 7, notes = 2),
-        LocalDataSummary(tasks = 7, notes = 2),
-    )
+    private val localDataToSummarise =
+        LocalDataDisposition.Keep(
+            ReassignCounts(tasks = 7, notes = 2),
+            LocalDataSummary(tasks = 7, notes = 2),
+        )
 
     /** What a successful `ContinueOffline` leaves behind: a local, claims-able session. */
     private val sessionAfterOffline = Session.Anonymous(UserId.fromString("local:dev-0"))
@@ -69,9 +69,10 @@ class AuthViewModelTest {
         signUp: Result<Unit> = Result.success(Unit),
         signOut: Result<Unit> = Result.success(Unit),
         startLocalSession: Result<Unit> = Result.success(Unit),
-        claim: Flow<ClaimStep> = flowOf(
-            ClaimStep.Done(LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0))),
-        ),
+        claim: Flow<ClaimStep> =
+            flowOf(
+                ClaimStep.Done(LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0))),
+            ),
         verifyMagicLink: Result<Unit> = Result.success(Unit),
         sendMagicLink: Result<Unit> = Result.success(Unit),
         /**
@@ -83,63 +84,77 @@ class AuthViewModelTest {
          * address still to be confirmed — so a view model that treated every success
          * as entry would pass here.
          */
-        sessionAfterSuccess: Session = Session.SignedIn(
-            userId = UserId.generate(),
-            email = "a@b.c",
-            accessToken = "access",
-            refreshToken = "refresh",
-        ),
-    ): AuthViewModel {
-        val provider = SupabaseClientProvider(
-            resolver = SupabaseConfigResolver(idGenerator = FixedIds()),
-            store = storage,
-            sessionStore = SecureSessionManager(
-                log = testLogger(),
-                secure = storage,
-                legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
+        sessionAfterSuccess: Session =
+            Session.SignedIn(
+                userId = UserId.generate(),
+                email = "a@b.c",
+                accessToken = "access",
+                refreshToken = "refresh",
             ),
-        )
-        val repository = object : AuthRepository {
-            override val currentSession = sessions.asStateFlow()
-            override val isLoading = MutableStateFlow(false)
-            override suspend fun signIn(email: String, password: String): Result<Unit> {
-                if (signIn.isSuccess) sessions.value = sessionAfterSuccess
-                return signIn
-            }
+    ): AuthViewModel {
+        val provider =
+            SupabaseClientProvider(
+                resolver = SupabaseConfigResolver(idGenerator = FixedIds()),
+                store = storage,
+                sessionStore =
+                    SecureSessionManager(
+                        log = testLogger(),
+                        secure = storage,
+                        legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
+                    ),
+            )
+        val repository =
+            object : AuthRepository {
+                override val currentSession = sessions.asStateFlow()
+                override val isLoading = MutableStateFlow(false)
 
-            override suspend fun signUp(email: String, password: String): Result<Unit> {
-                if (signUp.isSuccess) sessions.value = sessionAfterSuccess
-                return signUp
-            }
-
-            override suspend fun startLocalSession(): Result<Unit> {
-                if (startLocalSession.isSuccess) sessions.value = sessionAfterOffline
-                return startLocalSession
-            }
-
-            /**
-             * A sign-out that fails leaves the session standing.
-             *
-             * That is the shape that made the dropped failure expensive: the user is
-             * told nothing, walks away from the screen believing the account is closed,
-             * and the session it should have ended is still on the device.
-             */
-            override suspend fun signOut(): Result<Unit> {
-                if (signOut.isSuccess) sessions.value = Session.SignedOut
-                return signOut
-            }
-
-            override suspend fun updatePassword(newPassword: String): Result<Unit> = Result.success(Unit)
-
-            override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> {
-                if (verifyMagicLink.isSuccess) {
-                    sessions.value = sessionAfterSuccess
+                override suspend fun signIn(
+                    email: String,
+                    password: String,
+                ): Result<Unit> {
+                    if (signIn.isSuccess) sessions.value = sessionAfterSuccess
+                    return signIn
                 }
-                return verifyMagicLink
-            }
 
-            override suspend fun sendMagicLink(email: String): Result<Unit> = sendMagicLink
-        }
+                override suspend fun signUp(
+                    email: String,
+                    password: String,
+                ): Result<Unit> {
+                    if (signUp.isSuccess) sessions.value = sessionAfterSuccess
+                    return signUp
+                }
+
+                override suspend fun startLocalSession(): Result<Unit> {
+                    if (startLocalSession.isSuccess) sessions.value = sessionAfterOffline
+                    return startLocalSession
+                }
+
+                /**
+                 * A sign-out that fails leaves the session standing.
+                 *
+                 * That is the shape that made the dropped failure expensive: the user is
+                 * told nothing, walks away from the screen believing the account is closed,
+                 * and the session it should have ended is still on the device.
+                 */
+                override suspend fun signOut(): Result<Unit> {
+                    if (signOut.isSuccess) sessions.value = Session.SignedOut
+                    return signOut
+                }
+
+                override suspend fun updatePassword(newPassword: String): Result<Unit> = Result.success(Unit)
+
+                override suspend fun verifyMagicLink(
+                    email: String,
+                    token: String,
+                ): Result<Unit> {
+                    if (verifyMagicLink.isSuccess) {
+                        sessions.value = sessionAfterSuccess
+                    }
+                    return verifyMagicLink
+                }
+
+                override suspend fun sendMagicLink(email: String): Result<Unit> = sendMagicLink
+            }
         return AuthViewModel(
             authRepository = repository,
             clients = provider,
@@ -157,252 +172,285 @@ class AuthViewModelTest {
     // ── Naming the server ───────────────────────────────────────────────────
 
     @Test
-    fun `with nothing configured the screen asks for the server first`() = runTest {
-        val viewModel = viewModel()
+    fun `with nothing configured the screen asks for the server first`() =
+        runTest {
+            val viewModel = viewModel()
 
-        awaitState { viewModel.stateFlow.value is AuthUiState.SignedOutWithNoServer }
-        assertIs<AuthUiState.SignedOutWithNoServer>(viewModel.stateFlow.value)
-    }
-
-    @Test
-    fun `a stored configuration puts the credential form first`() = runTest {
-        storage.values[SupabaseConfigResolver.KEY_URL] = "https://project.supabase.co"
-        storage.values[SupabaseConfigResolver.KEY_ANON_KEY] = "anon-key"
-
-        val viewModel = viewModel()
-
-        awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
-        assertIs<AuthUiState.Idle>(viewModel.stateFlow.value)
-    }
+            awaitState { viewModel.stateFlow.value is AuthUiState.SignedOutWithNoServer }
+            assertIs<AuthUiState.SignedOutWithNoServer>(viewModel.stateFlow.value)
+        }
 
     @Test
-    fun `saving a configuration stores it and reveals the credential form`() = runTest {
-        val viewModel = viewModel()
-        awaitState { viewModel.stateFlow.value is AuthUiState.SignedOutWithNoServer }
+    fun `a stored configuration puts the credential form first`() =
+        runTest {
+            storage.values[SupabaseConfigResolver.KEY_URL] = "https://project.supabase.co"
+            storage.values[SupabaseConfigResolver.KEY_ANON_KEY] = "anon-key"
 
-        viewModel.onIntent(AuthIntent.SaveServerConfig("https://p.supabase.co", "anon-key"))
-        awaitState { storage.values.containsKey(SupabaseConfigResolver.KEY_ANON_KEY) }
+            val viewModel = viewModel()
 
-        assertEquals("https://p.supabase.co", storage.values[SupabaseConfigResolver.KEY_URL])
-        assertEquals("anon-key", storage.values[SupabaseConfigResolver.KEY_ANON_KEY])
-        awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
-    }
+            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+            assertIs<AuthUiState.Idle>(viewModel.stateFlow.value)
+        }
 
     @Test
-    fun `a half-typed configuration is refused and names what is missing`() = runTest {
-        val viewModel = viewModel()
-        awaitState { viewModel.stateFlow.value is AuthUiState.SignedOutWithNoServer }
+    fun `saving a configuration stores it and reveals the credential form`() =
+        runTest {
+            val viewModel = viewModel()
+            awaitState { viewModel.stateFlow.value is AuthUiState.SignedOutWithNoServer }
 
-        viewModel.onIntent(AuthIntent.SaveServerConfig("https://p.supabase.co", "  "))
+            viewModel.onIntent(AuthIntent.SaveServerConfig("https://p.supabase.co", "anon-key"))
+            awaitState { storage.values.containsKey(SupabaseConfigResolver.KEY_ANON_KEY) }
 
-        // A stored URL with no key is indistinguishable from "not configured" until
-        // the first request fails, and that failure arrives as a network error that
-        // points at the wrong thing entirely.
-        assertTrue(storage.values.isEmpty(), "a half-configuration must not be stored")
-        assertEquals(AuthUiState.SignedOutWithNoServer, viewModel.stateFlow.value)
-    }
+            assertEquals("https://p.supabase.co", storage.values[SupabaseConfigResolver.KEY_URL])
+            assertEquals("anon-key", storage.values[SupabaseConfigResolver.KEY_ANON_KEY])
+            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+        }
+
+    @Test
+    fun `a half-typed configuration is refused and names what is missing`() =
+        runTest {
+            val viewModel = viewModel()
+            awaitState { viewModel.stateFlow.value is AuthUiState.SignedOutWithNoServer }
+
+            viewModel.onIntent(AuthIntent.SaveServerConfig("https://p.supabase.co", "  "))
+
+            // A stored URL with no key is indistinguishable from "not configured" until
+            // the first request fails, and that failure arrives as a network error that
+            // points at the wrong thing entirely.
+            assertTrue(storage.values.isEmpty(), "a half-configuration must not be stored")
+            assertEquals(AuthUiState.SignedOutWithNoServer, viewModel.stateFlow.value)
+        }
 
     // ── Seeding on first entry ──────────────────────────────────────────────
 
     @Test
-    fun `a successful sign-in runs the seed`() = runTest {
-        val viewModel = viewModel()
+    fun `a successful sign-in runs the seed`() =
+        runTest {
+            val viewModel = viewModel()
 
-        viewModel.onIntent(AuthIntent.SignIn("a@b.c", "password123"))
-        awaitState { viewModel.stateFlow.value is AuthUiState.Success }
+            viewModel.onIntent(AuthIntent.SignIn("a@b.c", "password123"))
+            awaitState { viewModel.stateFlow.value is AuthUiState.Success }
 
-        assertEquals(1, seedCalls)
-    }
-
-    @Test
-    fun `a successful sign-up runs the seed`() = runTest {
-        val viewModel = viewModel()
-
-        viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
-        awaitState { viewModel.stateFlow.value is AuthUiState.Success }
-
-        assertEquals(1, seedCalls)
-    }
-
-    @Test
-    fun `a failed sign-in does not seed`() = runTest {
-        val viewModel = viewModel(signIn = Result.failure(AppError.Unauthorized("nope")))
-
-        viewModel.onIntent(AuthIntent.SignIn("a@b.c", "password123"))
-        awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
-
-        assertEquals(0, seedCalls, "uploading data on behalf of a sign-in that did not happen")
-    }
-
-    @Test
-    fun `the pending state is cleared after a failure`() = runTest {
-        val viewModel = viewModel(signIn = Result.failure(AppError.Unauthorized("nope")))
-
-        viewModel.onIntent(AuthIntent.SignIn("a@b.c", "password123"))
-
-        awaitState { viewModel.stateFlow.value !is AuthUiState.Loading }
-        assertTrue(viewModel.stateFlow.value is AuthUiState.Idle)
-    }
-
-    @Test
-    fun `a seed that fails does not prevent the sign-in`() = runTest {
-        val provider = SupabaseClientProvider(
-            SupabaseConfigResolver(FixedIds()),
-            storage,
-            SecureSessionManager(
-                log = testLogger(),
-                secure = storage,
-                legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            ),
-        )
-        val repository = object : AuthRepository {
-            override val currentSession = sessions.asStateFlow()
-            override val isLoading = MutableStateFlow(false)
-            override suspend fun signIn(email: String, password: String): Result<Unit> {
-                sessions.value = Session.SignedIn(UserId.generate(), "a@b.c", "access", "refresh")
-                return Result.success(Unit)
-            }
-
-            override suspend fun signUp(email: String, password: String) = Result.success(Unit)
-            override suspend fun startLocalSession() = Result.success(Unit)
-            override suspend fun signOut() = Result.success(Unit)
-            override suspend fun updatePassword(newPassword: String) = Result.success(Unit)
-            override suspend fun sendMagicLink(email: String): Result<Unit> = Result.success(Unit)
-            override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> = Result.success(Unit)
+            assertEquals(1, seedCalls)
         }
-        val viewModel = AuthViewModel(
-            authRepository = repository,
-            clients = provider,
-            onFirstSignIn = { error("the queue is full") },
-            scope = AutoCloseableCoroutineScope(coroutineContext),
-        )
 
-        viewModel.onIntent(AuthIntent.SignIn("a@b.c", "password123"))
+    @Test
+    fun `a successful sign-up runs the seed`() =
+        runTest {
+            val viewModel = viewModel()
 
-        // The user is signed in. A seeding problem is a sync problem, and reporting
-        // it as a failed sign-in would send them round the password loop again for
-        // something that has already succeeded.
-        awaitState { viewModel.stateFlow.value is AuthUiState.Success }
-    }
+            viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
+            awaitState { viewModel.stateFlow.value is AuthUiState.Success }
+
+            assertEquals(1, seedCalls)
+        }
+
+    @Test
+    fun `a failed sign-in does not seed`() =
+        runTest {
+            val viewModel = viewModel(signIn = Result.failure(AppError.Unauthorized("nope")))
+
+            viewModel.onIntent(AuthIntent.SignIn("a@b.c", "password123"))
+            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+
+            assertEquals(0, seedCalls, "uploading data on behalf of a sign-in that did not happen")
+        }
+
+    @Test
+    fun `the pending state is cleared after a failure`() =
+        runTest {
+            val viewModel = viewModel(signIn = Result.failure(AppError.Unauthorized("nope")))
+
+            viewModel.onIntent(AuthIntent.SignIn("a@b.c", "password123"))
+
+            awaitState { viewModel.stateFlow.value !is AuthUiState.Loading }
+            assertTrue(viewModel.stateFlow.value is AuthUiState.Idle)
+        }
+
+    @Test
+    fun `a seed that fails does not prevent the sign-in`() =
+        runTest {
+            val provider =
+                SupabaseClientProvider(
+                    SupabaseConfigResolver(FixedIds()),
+                    storage,
+                    SecureSessionManager(
+                        log = testLogger(),
+                        secure = storage,
+                        legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
+                    ),
+                )
+            val repository =
+                object : AuthRepository {
+                    override val currentSession = sessions.asStateFlow()
+                    override val isLoading = MutableStateFlow(false)
+
+                    override suspend fun signIn(
+                        email: String,
+                        password: String,
+                    ): Result<Unit> {
+                        sessions.value = Session.SignedIn(UserId.generate(), "a@b.c", "access", "refresh")
+                        return Result.success(Unit)
+                    }
+
+                    override suspend fun signUp(
+                        email: String,
+                        password: String,
+                    ) = Result.success(Unit)
+
+                    override suspend fun startLocalSession() = Result.success(Unit)
+
+                    override suspend fun signOut() = Result.success(Unit)
+
+                    override suspend fun updatePassword(newPassword: String) = Result.success(Unit)
+
+                    override suspend fun sendMagicLink(email: String): Result<Unit> = Result.success(Unit)
+
+                    override suspend fun verifyMagicLink(
+                        email: String,
+                        token: String,
+                    ): Result<Unit> = Result.success(Unit)
+                }
+            val viewModel =
+                AuthViewModel(
+                    authRepository = repository,
+                    clients = provider,
+                    onFirstSignIn = { error("the queue is full") },
+                    scope = AutoCloseableCoroutineScope(coroutineContext),
+                )
+
+            viewModel.onIntent(AuthIntent.SignIn("a@b.c", "password123"))
+
+            // The user is signed in. A seeding problem is a sync problem, and reporting
+            // it as a failed sign-in would send them round the password loop again for
+            // something that has already succeeded.
+            awaitState { viewModel.stateFlow.value is AuthUiState.Success }
+        }
 
     // ── REQ-UA-014 — a sign-up with no session is not a completed sign-in ────
 
     @Test
-    fun `a sign-up awaiting confirmation does not enter the application`() = runTest {
-        val viewModel = viewModel(sessionAfterSuccess = Session.SignedOut)
-
-        viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
-        awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
-
-        assertIs<AuthUiState.AwaitingEmailConfirmation>(viewModel.stateFlow.value)
-    }
-
-    @Test
-    fun `a sign-up awaiting confirmation emits no navigation`() = runTest {
-        // The user landed inside the app with no session: a task list that cannot be
-        // saved, and nothing on screen that says why.
-        val viewModel = viewModel(sessionAfterSuccess = Session.SignedOut)
-        val events = mutableListOf<AuthUiEvent>()
-        // A foreground `launch` on the test scope, not `backgroundScope`: the
-        // collector has to be subscribed before `onIntent`, and a background coroutine
-        // is not guaranteed to have been scheduled by the time the intent runs.
-        // A foreground `launch` on the test scope, not `backgroundScope`: the
-        // collector has to be subscribed before `onIntent`, and a background coroutine
-        // is not guaranteed to have been scheduled by the time the intent runs.
-        //
-        // The `finally` is not decoration. `runTest` waits for every foreground
-        // coroutine, so a collector left running by a failed assertion turns a red
-        // test into a hung build — and a hang hides the failure it was reporting.
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
+    fun `a sign-up awaiting confirmation does not enter the application`() =
+        runTest {
+            val viewModel = viewModel(sessionAfterSuccess = Session.SignedOut)
 
             viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
             awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
-            runCurrent()
 
-            assertTrue(
-                events.filterIsInstance<AuthUiEvent.Message>().isNotEmpty(),
-                "the collector saw nothing at all, so 'no navigation' would pass for the wrong reason: $events",
-            )
-            assertTrue(
-                events.none { it is AuthUiEvent.NavigateToHome },
-                "navigating on a session-less success put the user in with no session: $events",
-            )
-        } finally {
-            collector.cancel()
+            assertIs<AuthUiState.AwaitingEmailConfirmation>(viewModel.stateFlow.value)
         }
-    }
 
     @Test
-    fun `a sign-up awaiting confirmation does not seed`() = runTest {
-        // Seeding runs on behalf of an account. With no session there is no account to
-        // seed for, and the rows it would upload have no owner to be attributed to.
-        val viewModel = viewModel(sessionAfterSuccess = Session.SignedOut)
+    fun `a sign-up awaiting confirmation emits no navigation`() =
+        runTest {
+            // The user landed inside the app with no session: a task list that cannot be
+            // saved, and nothing on screen that says why.
+            val viewModel = viewModel(sessionAfterSuccess = Session.SignedOut)
+            val events = mutableListOf<AuthUiEvent>()
+            // A foreground `launch` on the test scope, not `backgroundScope`: the
+            // collector has to be subscribed before `onIntent`, and a background coroutine
+            // is not guaranteed to have been scheduled by the time the intent runs.
+            // A foreground `launch` on the test scope, not `backgroundScope`: the
+            // collector has to be subscribed before `onIntent`, and a background coroutine
+            // is not guaranteed to have been scheduled by the time the intent runs.
+            //
+            // The `finally` is not decoration. `runTest` waits for every foreground
+            // coroutine, so a collector left running by a failed assertion turns a red
+            // test into a hung build — and a hang hides the failure it was reporting.
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
 
-        viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
-        awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
+                viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
+                awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
+                runCurrent()
 
-        assertEquals(0, seedCalls)
-    }
+                assertTrue(
+                    events.filterIsInstance<AuthUiEvent.Message>().isNotEmpty(),
+                    "the collector saw nothing at all, so 'no navigation' would pass for the wrong reason: $events",
+                )
+                assertTrue(
+                    events.none { it is AuthUiEvent.NavigateToHome },
+                    "navigating on a session-less success put the user in with no session: $events",
+                )
+            } finally {
+                collector.cancel()
+            }
+        }
 
     @Test
-    fun `a sign-up awaiting confirmation says what to do, and not as an error`() = runTest {
-        val viewModel = viewModel(sessionAfterSuccess = Session.SignedOut)
-        val events = mutableListOf<AuthUiEvent>()
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
+    fun `a sign-up awaiting confirmation does not seed`() =
+        runTest {
+            // Seeding runs on behalf of an account. With no session there is no account to
+            // seed for, and the rows it would upload have no owner to be attributed to.
+            val viewModel = viewModel(sessionAfterSuccess = Session.SignedOut)
 
             viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
             awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
-            runCurrent()
 
-            val message = events.filterIsInstance<AuthUiEvent.Message>().singleOrNull()
-            assertNotNull(message, "the user has to check their mail; nothing says so: $events")
-            assertTrue(
-                message.message.contains("email", ignoreCase = true),
-                "the message has to name the step that unblocks them: ${message.message}",
-            )
-            assertTrue(
-                events.none { it is AuthUiEvent.Error },
-                "the account was created; reporting it in the error colour reads as a failed sign-up: $events",
-            )
-        } finally {
-            collector.cancel()
+            assertEquals(0, seedCalls)
         }
-    }
 
     @Test
-    fun `a completed sign-up still enters the application`() = runTest {
-        // The guard on the guard: the session-less branch must not swallow the ordinary
-        // case, or nobody could ever sign up.
-        val viewModel = viewModel()
-        val events = mutableListOf<AuthUiEvent>()
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
+    fun `a sign-up awaiting confirmation says what to do, and not as an error`() =
+        runTest {
+            val viewModel = viewModel(sessionAfterSuccess = Session.SignedOut)
+            val events = mutableListOf<AuthUiEvent>()
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
+
+                viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
+                awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
+                runCurrent()
+
+                val message = events.filterIsInstance<AuthUiEvent.Message>().singleOrNull()
+                assertNotNull(message, "the user has to check their mail; nothing says so: $events")
+                assertTrue(
+                    message.message.contains("email", ignoreCase = true),
+                    "the message has to name the step that unblocks them: ${message.message}",
+                )
+                assertTrue(
+                    events.none { it is AuthUiEvent.Error },
+                    "the account was created; reporting it in the error colour reads as a failed sign-up: $events",
+                )
+            } finally {
+                collector.cancel()
+            }
+        }
+
+    @Test
+    fun `a completed sign-up still enters the application`() =
+        runTest {
+            // The guard on the guard: the session-less branch must not swallow the ordinary
+            // case, or nobody could ever sign up.
+            val viewModel = viewModel()
+            val events = mutableListOf<AuthUiEvent>()
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
+
+                viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
+                awaitState { viewModel.stateFlow.value is AuthUiState.Success }
+                runCurrent()
+
+                assertEquals(1, events.filterIsInstance<AuthUiEvent.NavigateToHome>().size)
+                assertEquals(1, seedCalls)
+            } finally {
+                collector.cancel()
+            }
+        }
+
+    @Test
+    fun `a failed sign-up is reported as a failure, not as "check your mail"`() =
+        runTest {
+            val viewModel = viewModel(signUp = Result.failure(AppError.Unauthorized("nope")))
 
             viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
-            awaitState { viewModel.stateFlow.value is AuthUiState.Success }
-            runCurrent()
+            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
 
-            assertEquals(1, events.filterIsInstance<AuthUiEvent.NavigateToHome>().size)
-            assertEquals(1, seedCalls)
-        } finally {
-            collector.cancel()
+            assertIs<AuthUiState.Idle>(viewModel.stateFlow.value)
         }
-    }
-
-    @Test
-    fun `a failed sign-up is reported as a failure, not as "check your mail"`() = runTest {
-        val viewModel = viewModel(signUp = Result.failure(AppError.Unauthorized("nope")))
-
-        viewModel.onIntent(AuthIntent.SignUp("a@b.c", "password123"))
-        awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
-
-        assertIs<AuthUiState.Idle>(viewModel.stateFlow.value)
-    }
 
     // ── Signing out ──────────────────────────────────────────────────────
 
@@ -420,417 +468,457 @@ class AuthViewModelTest {
      * actually suffered.
      */
     @Test
-    fun `a sign-out that fails is reported rather than swallowed`() = runTest {
-        sessions.value = Session.SignedIn(
-            userId = UserId.generate(),
-            email = "a@b.c",
-            accessToken = "access",
-            refreshToken = "refresh",
-        )
-        val viewModel = viewModel(signOut = Result.failure(AppError.Network("offline")))
-        val events = mutableListOf<AuthUiEvent>()
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
+    fun `a sign-out that fails is reported rather than swallowed`() =
+        runTest {
+            sessions.value =
+                Session.SignedIn(
+                    userId = UserId.generate(),
+                    email = "a@b.c",
+                    accessToken = "access",
+                    refreshToken = "refresh",
+                )
+            val viewModel = viewModel(signOut = Result.failure(AppError.Network("offline")))
+            val events = mutableListOf<AuthUiEvent>()
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
 
-            viewModel.onIntent(AuthIntent.SignOut)
-            runCurrent()
+                viewModel.onIntent(AuthIntent.SignOut)
+                runCurrent()
 
-            val error = events.filterIsInstance<AuthUiEvent.Error>().singleOrNull()
-            assertNotNull(
-                error,
-                "the sign-out did not happen and nothing told the user so: $events",
-            )
-            assertTrue(
-                error.message.contains("sign out", ignoreCase = true),
-                "the message has to name what failed: ${error.message}",
-            )
-            assertIs<Session.SignedIn>(
-                sessions.value,
-                "the session survives a sign-out that failed — which is the whole " +
-                    "reason the user has to be told",
-            )
-        } finally {
-            collector.cancel()
+                val error = events.filterIsInstance<AuthUiEvent.Error>().singleOrNull()
+                assertNotNull(
+                    error,
+                    "the sign-out did not happen and nothing told the user so: $events",
+                )
+                assertTrue(
+                    error.message.contains("sign out", ignoreCase = true),
+                    "the message has to name what failed: ${error.message}",
+                )
+                assertIs<Session.SignedIn>(
+                    sessions.value,
+                    "the session survives a sign-out that failed — which is the whole " +
+                        "reason the user has to be told",
+                )
+            } finally {
+                collector.cancel()
+            }
         }
-    }
 
     @Test
-    fun `a successful sign-out reports no error`() = runTest {
-        sessions.value = Session.SignedIn(
-            userId = UserId.generate(),
-            email = "a@b.c",
-            accessToken = "access",
-            refreshToken = "refresh",
-        )
-        val viewModel = viewModel()
-        val events = mutableListOf<AuthUiEvent>()
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
+    fun `a successful sign-out reports no error`() =
+        runTest {
+            sessions.value =
+                Session.SignedIn(
+                    userId = UserId.generate(),
+                    email = "a@b.c",
+                    accessToken = "access",
+                    refreshToken = "refresh",
+                )
+            val viewModel = viewModel()
+            val events = mutableListOf<AuthUiEvent>()
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
 
-            viewModel.onIntent(AuthIntent.SignOut)
-            runCurrent()
+                viewModel.onIntent(AuthIntent.SignOut)
+                runCurrent()
 
-            assertEquals(
-                emptyList(),
-                events.filterIsInstance<AuthUiEvent.Error>(),
-                "the sign-out worked; an error here would teach users to ignore it",
-            )
-            assertEquals(Session.SignedOut, sessions.value)
-        } finally {
-            collector.cancel()
+                assertEquals(
+                    emptyList(),
+                    events.filterIsInstance<AuthUiEvent.Error>(),
+                    "the sign-out worked; an error here would teach users to ignore it",
+                )
+                assertEquals(Session.SignedOut, sessions.value)
+            } finally {
+                collector.cancel()
+            }
         }
-    }
 
     // ── ContinueOffline ──────────────────────────────────────────────────────
 
     @Test
-    fun `ContinueOffline enters the app and navigates home`() = runTest {
-        val viewModel = viewModel()
-        val events = mutableListOf<AuthUiEvent>()
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
+    fun `ContinueOffline enters the app and navigates home`() =
+        runTest {
+            val viewModel = viewModel()
+            val events = mutableListOf<AuthUiEvent>()
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
+
+                viewModel.onIntent(AuthIntent.ContinueOffline)
+                awaitState { viewModel.stateFlow.value is AuthUiState.Success }
+                runCurrent()
+
+                assertEquals(1, events.filterIsInstance<AuthUiEvent.NavigateToHome>().size)
+                assertIs<Session.Anonymous>(sessions.value)
+            } finally {
+                collector.cancel()
+            }
+        }
+
+    @Test
+    fun `ContinueOffline works with no server configured at all`() =
+        runTest {
+            // The reported bug: a button labelled "Continue Offline" that fails because a
+            // Supabase project was never configured. There is nothing here to configure, and
+            // nothing that should be required.
+            val viewModel = viewModel()
+            awaitState { viewModel.stateFlow.value is AuthUiState.SignedOutWithNoServer }
 
             viewModel.onIntent(AuthIntent.ContinueOffline)
+
             awaitState { viewModel.stateFlow.value is AuthUiState.Success }
-            runCurrent()
-
-            assertEquals(1, events.filterIsInstance<AuthUiEvent.NavigateToHome>().size)
             assertIs<Session.Anonymous>(sessions.value)
-        } finally {
-            collector.cancel()
         }
-    }
 
     @Test
-    fun `ContinueOffline works with no server configured at all`() = runTest {
-        // The reported bug: a button labelled "Continue Offline" that fails because a
-        // Supabase project was never configured. There is nothing here to configure, and
-        // nothing that should be required.
-        val viewModel = viewModel()
-        awaitState { viewModel.stateFlow.value is AuthUiState.SignedOutWithNoServer }
+    fun `a refused local session reports an error and stays on the screen`() =
+        runTest {
+            val viewModel = viewModel(startLocalSession = Result.failure(AppError.Persistence("no disk", code = "x")))
+            val events = mutableListOf<AuthUiEvent>()
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
 
-        viewModel.onIntent(AuthIntent.ContinueOffline)
+                viewModel.onIntent(AuthIntent.ContinueOffline)
+                awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+                runCurrent()
 
-        awaitState { viewModel.stateFlow.value is AuthUiState.Success }
-        assertIs<Session.Anonymous>(sessions.value)
-    }
-
-    @Test
-    fun `a refused local session reports an error and stays on the screen`() = runTest {
-        val viewModel = viewModel(startLocalSession = Result.failure(AppError.Persistence("no disk", code = "x")))
-        val events = mutableListOf<AuthUiEvent>()
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
-
-            viewModel.onIntent(AuthIntent.ContinueOffline)
-            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
-            runCurrent()
-
-            assertNotNull(events.filterIsInstance<AuthUiEvent.Error>().singleOrNull())
-            assertTrue(
-                events.none { it is AuthUiEvent.NavigateToHome },
-                "a failed offline start must not enter the app",
-            )
-        } finally {
-            collector.cancel()
+                assertNotNull(events.filterIsInstance<AuthUiEvent.Error>().singleOrNull())
+                assertTrue(
+                    events.none { it is AuthUiEvent.NavigateToHome },
+                    "a failed offline start must not enter the app",
+                )
+            } finally {
+                collector.cancel()
+            }
         }
-    }
 
     @Test
-    fun `the local data summary is published for the attach screen`() = runTest {
-        sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
+    fun `the local data summary is published for the attach screen`() =
+        runTest {
+            sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
 
-        val viewModel = viewModel()
-        awaitState { viewModel.localData.value == localDataToSummarise }
+            val viewModel = viewModel()
+            awaitState { viewModel.localData.value == localDataToSummarise }
 
-        val keep = viewModel.localData.value as LocalDataDisposition.Keep
-        assertEquals(7, keep.transferCounts.tasks)
-        assertEquals(2, keep.transferCounts.notes)
-    }
+            val keep = viewModel.localData.value as LocalDataDisposition.Keep
+            assertEquals(7, keep.transferCounts.tasks)
+            assertEquals(2, keep.transferCounts.notes)
+        }
 
     // ── AttachAccount ───────────────────────────────────────────────────────
 
     @Test
-    fun `a successful AttachAccount transitions session and navigates home`() = runTest {
-        // Start in a local session — the only valid state for attach.
-        sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
-        val viewModel = viewModel()
-        val events = mutableListOf<AuthUiEvent>()
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
+    fun `a successful AttachAccount transitions session and navigates home`() =
+        runTest {
+            // Start in a local session — the only valid state for attach.
+            sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
+            val viewModel = viewModel()
+            val events = mutableListOf<AuthUiEvent>()
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
 
-            viewModel.onIntent(
-                AuthIntent.AttachAccount(
-                    "alice@example.com",
-                    "password123",
-                    LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
-                ),
-            )
+                viewModel.onIntent(
+                    AuthIntent.AttachAccount(
+                        "alice@example.com",
+                        "password123",
+                        LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
+                    ),
+                )
+                awaitState { viewModel.stateFlow.value is AuthUiState.Success }
+                runCurrent()
+
+                assertEquals(1, events.filterIsInstance<AuthUiEvent.NavigateToHome>().size)
+                assertIs<Session.SignedIn>(sessions.value)
+            } finally {
+                collector.cancel()
+            }
+        }
+
+    @Test
+    fun `both dispositions reach the repository rather than one being assumed`() =
+        runTest {
+            // REQ-UA-005. A view model that dropped the parameter and always chose would pass
+            // every test above, so the choice is asserted to arrive intact in both directions.
+            val seen = mutableListOf<LocalDataDisposition>()
+            sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
+            val viewModel =
+                viewModel().also { vm ->
+                    // A second view model over the same session, wired to record what it was told.
+                    vm.onIntent(
+                        AuthIntent.AttachAccount(
+                            "a@b.c",
+                            "password123",
+                            LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
+                        ),
+                    )
+                }
             awaitState { viewModel.stateFlow.value is AuthUiState.Success }
-            runCurrent()
-
-            assertEquals(1, events.filterIsInstance<AuthUiEvent.NavigateToHome>().size)
-            assertIs<Session.SignedIn>(sessions.value)
-        } finally {
-            collector.cancel()
-        }
-    }
-
-    @Test
-    fun `both dispositions reach the repository rather than one being assumed`() = runTest {
-        // REQ-UA-005. A view model that dropped the parameter and always chose would pass
-        // every test above, so the choice is asserted to arrive intact in both directions.
-        val seen = mutableListOf<LocalDataDisposition>()
-        sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
-        val viewModel = viewModel().also { vm ->
-            // A second view model over the same session, wired to record what it was told.
-            vm.onIntent(
-                AuthIntent.AttachAccount(
-                    "a@b.c",
-                    "password123",
-                    LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
-                ),
-            )
-        }
-        awaitState { viewModel.stateFlow.value is AuthUiState.Success }
-
-        viewModel.onIntent(
-            AuthIntent.AttachAccount("a@b.c", "password123", LocalDataDisposition.Discard(EraseCounts())),
-        )
-        awaitState { viewModel.stateFlow.value !is AuthUiState.Loading }
-
-        assertEquals(seen, emptyList<LocalDataDisposition>())
-    }
-
-    @Test
-    fun `a failed AttachAccount reports an error and keeps the local session`() = runTest {
-        sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
-        val viewModel = viewModel(
-            claim = flowOf(ClaimStep.Refused(AppError.Unauthorized("Could not attach the account: wrong password"))),
-        )
-        val events = mutableListOf<AuthUiEvent>()
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
 
             viewModel.onIntent(
-                AuthIntent.AttachAccount(
-                    "alice@example.com",
-                    "password123",
-                    LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
-                ),
+                AuthIntent.AttachAccount("a@b.c", "password123", LocalDataDisposition.Discard(EraseCounts())),
             )
-            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
-            runCurrent()
+            awaitState { viewModel.stateFlow.value !is AuthUiState.Loading }
 
-            val error = events.filterIsInstance<AuthUiEvent.Error>().singleOrNull()
-            assertNotNull(error, "an attach failure must be reported: $events")
-            assertTrue(
-                error.message.contains("attach", ignoreCase = true),
-                "the error message has to name what failed: ${error.message}",
-            )
-            // Session stays local — the device still works and the data is still there.
-            assertIs<Session.Anonymous>(sessions.value)
-        } finally {
-            collector.cancel()
+            assertEquals(seen, emptyList<LocalDataDisposition>())
         }
-    }
 
     @Test
-    fun `a failed AttachAccount does not navigate home`() = runTest {
-        sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
-        val viewModel = viewModel(
-            claim = flowOf(ClaimStep.Refused(AppError.Unauthorized("nope"))),
-        )
-        val events = mutableListOf<AuthUiEvent>()
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
+    fun `a failed AttachAccount reports an error and keeps the local session`() =
+        runTest {
+            sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
+            val viewModel =
+                viewModel(
+                    claim =
+                        flowOf(
+                            ClaimStep.Refused(AppError.Unauthorized("Could not attach the account: wrong password")),
+                        ),
+                )
+            val events = mutableListOf<AuthUiEvent>()
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
 
-            viewModel.onIntent(
-                AuthIntent.AttachAccount(
-                    "alice@example.com",
-                    "password123",
-                    LocalDataDisposition.Discard(EraseCounts()),
-                ),
-            )
-            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
-            runCurrent()
+                viewModel.onIntent(
+                    AuthIntent.AttachAccount(
+                        "alice@example.com",
+                        "password123",
+                        LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
+                    ),
+                )
+                awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+                runCurrent()
 
-            assertTrue(
-                events.none { it is AuthUiEvent.NavigateToHome },
-                "no navigation on failed attach: $events",
-            )
-        } finally {
-            collector.cancel()
+                val error = events.filterIsInstance<AuthUiEvent.Error>().singleOrNull()
+                assertNotNull(error, "an attach failure must be reported: $events")
+                assertTrue(
+                    error.message.contains("attach", ignoreCase = true),
+                    "the error message has to name what failed: ${error.message}",
+                )
+                // Session stays local — the device still works and the data is still there.
+                assertIs<Session.Anonymous>(sessions.value)
+            } finally {
+                collector.cancel()
+            }
         }
-    }
 
     @Test
-    fun `a SignOutFailed step during attach emits a message so the user knows credentials survived`() = runTest {
-        sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
-        val signOutError = AppError.Network("credentials could not be cleared")
-        // A flow that goes through the restore path and emits SignOutFailed.
-        val claimFlow = kotlinx.coroutines.flow.flow {
-            emit(ClaimStep.SigningIn)
-            emit(ClaimStep.MovingData(UserId.fromString("local:dev-0"), UserId.fromString("acct-1"), ReassignCounts()))
-            // Trigger restoreLocalFlow: it emits Restoring, then SignOutFailed, then Refused.
-            emit(ClaimStep.Restoring(UserId.fromString("local:dev-0"), AppError.Unknown("transfer failed")))
-            emit(ClaimStep.SignOutFailed(UserId.fromString("local:dev-0"), signOutError))
-            emit(ClaimStep.Refused(signOutError))
-        }
-        val viewModel = viewModel(claim = claimFlow)
-        val events = mutableListOf<AuthUiEvent>()
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
+    fun `a failed AttachAccount does not navigate home`() =
+        runTest {
+            sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
+            val viewModel =
+                viewModel(
+                    claim = flowOf(ClaimStep.Refused(AppError.Unauthorized("nope"))),
+                )
+            val events = mutableListOf<AuthUiEvent>()
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
 
-            viewModel.onIntent(
-                AuthIntent.AttachAccount(
-                    "alice@example.com",
-                    "password123",
-                    LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
-                ),
-            )
-            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
-            runCurrent()
+                viewModel.onIntent(
+                    AuthIntent.AttachAccount(
+                        "alice@example.com",
+                        "password123",
+                        LocalDataDisposition.Discard(EraseCounts()),
+                    ),
+                )
+                awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+                runCurrent()
 
-            val message = events.filterIsInstance<AuthUiEvent.Message>().singleOrNull()
-            assertNotNull(message, "a SignOutFailed must emit AuthUiEvent.Message: $events")
-            assertTrue(
-                message.message.contains("credentials") || message.message.contains("sign out"),
-                "the message must warn about credentials surviving: ${message.message}",
-            )
-        } finally {
-            collector.cancel()
+                assertTrue(
+                    events.none { it is AuthUiEvent.NavigateToHome },
+                    "no navigation on failed attach: $events",
+                )
+            } finally {
+                collector.cancel()
+            }
         }
-    }
+
+    @Test
+    fun `a SignOutFailed step during attach emits a message so the user knows credentials survived`() =
+        runTest {
+            sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
+            val signOutError = AppError.Network("credentials could not be cleared")
+            // A flow that goes through the restore path and emits SignOutFailed.
+            val claimFlow =
+                kotlinx.coroutines.flow.flow {
+                    emit(ClaimStep.SigningIn)
+                    emit(
+                        ClaimStep.MovingData(
+                            UserId.fromString("local:dev-0"),
+                            UserId.fromString("acct-1"),
+                            ReassignCounts(),
+                        ),
+                    )
+                    // Trigger restoreLocalFlow: it emits Restoring, then SignOutFailed, then Refused.
+                    emit(ClaimStep.Restoring(UserId.fromString("local:dev-0"), AppError.Unknown("transfer failed")))
+                    emit(ClaimStep.SignOutFailed(UserId.fromString("local:dev-0"), signOutError))
+                    emit(ClaimStep.Refused(signOutError))
+                }
+            val viewModel = viewModel(claim = claimFlow)
+            val events = mutableListOf<AuthUiEvent>()
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
+
+                viewModel.onIntent(
+                    AuthIntent.AttachAccount(
+                        "alice@example.com",
+                        "password123",
+                        LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
+                    ),
+                )
+                awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+                runCurrent()
+
+                val message = events.filterIsInstance<AuthUiEvent.Message>().singleOrNull()
+                assertNotNull(message, "a SignOutFailed must emit AuthUiEvent.Message: $events")
+                assertTrue(
+                    message.message.contains("credentials") || message.message.contains("sign out"),
+                    "the message must warn about credentials surviving: ${message.message}",
+                )
+            } finally {
+                collector.cancel()
+            }
+        }
 
     // ── VerifyMagicLink ─────────────────────────────────────────────────────
 
     @Test
-    fun `a successful VerifyMagicLink transitions to Success and navigates home`() = runTest {
-        val viewModel = viewModel()
-        val events = mutableListOf<AuthUiEvent>()
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
+    fun `a successful VerifyMagicLink transitions to Success and navigates home`() =
+        runTest {
+            val viewModel = viewModel()
+            val events = mutableListOf<AuthUiEvent>()
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
 
-            viewModel.onIntent(AuthIntent.VerifyMagicLink("alice@example.com", "token-abc"))
-            awaitState { viewModel.stateFlow.value is AuthUiState.Success }
-            runCurrent()
+                viewModel.onIntent(AuthIntent.VerifyMagicLink("alice@example.com", "token-abc"))
+                awaitState { viewModel.stateFlow.value is AuthUiState.Success }
+                runCurrent()
 
-            assertEquals(1, events.filterIsInstance<AuthUiEvent.NavigateToHome>().size)
-        } finally {
-            collector.cancel()
+                assertEquals(1, events.filterIsInstance<AuthUiEvent.NavigateToHome>().size)
+            } finally {
+                collector.cancel()
+            }
         }
-    }
 
     @Test
-    fun `a failed VerifyMagicLink reports error and returns to Idle`() = runTest {
-        val viewModel = viewModel(
-            verifyMagicLink = Result.failure(AppError.Unauthorized("invalid token")),
-        )
-        val events = mutableListOf<AuthUiEvent>()
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
+    fun `a failed VerifyMagicLink reports error and returns to Idle`() =
+        runTest {
+            val viewModel =
+                viewModel(
+                    verifyMagicLink = Result.failure(AppError.Unauthorized("invalid token")),
+                )
+            val events = mutableListOf<AuthUiEvent>()
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
 
-            viewModel.onIntent(AuthIntent.VerifyMagicLink("alice@example.com", "bad-token"))
-            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
-            runCurrent()
+                viewModel.onIntent(AuthIntent.VerifyMagicLink("alice@example.com", "bad-token"))
+                awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+                runCurrent()
 
-            val error = events.filterIsInstance<AuthUiEvent.Error>().singleOrNull()
-            assertNotNull(error, "a verify failure must emit an Error event: $events")
-        } finally {
-            collector.cancel()
+                val error = events.filterIsInstance<AuthUiEvent.Error>().singleOrNull()
+                assertNotNull(error, "a verify failure must emit an Error event: $events")
+            } finally {
+                collector.cancel()
+            }
         }
-    }
 
     @Test
-    fun `a failed VerifyMagicLink does not navigate home`() = runTest {
-        val viewModel = viewModel(
-            verifyMagicLink = Result.failure(AppError.Unauthorized("nope")),
-        )
-        val events = mutableListOf<AuthUiEvent>()
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
+    fun `a failed VerifyMagicLink does not navigate home`() =
+        runTest {
+            val viewModel =
+                viewModel(
+                    verifyMagicLink = Result.failure(AppError.Unauthorized("nope")),
+                )
+            val events = mutableListOf<AuthUiEvent>()
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
 
-            viewModel.onIntent(AuthIntent.VerifyMagicLink("alice@example.com", "bad-token"))
-            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
-            runCurrent()
+                viewModel.onIntent(AuthIntent.VerifyMagicLink("alice@example.com", "bad-token"))
+                awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+                runCurrent()
 
-            assertTrue(
-                events.none { it is AuthUiEvent.NavigateToHome },
-                "no navigation on failed verify: $events",
-            )
-        } finally {
-            collector.cancel()
+                assertTrue(
+                    events.none { it is AuthUiEvent.NavigateToHome },
+                    "no navigation on failed verify: $events",
+                )
+            } finally {
+                collector.cancel()
+            }
         }
-    }
 
     // ── SendMagicLink (resend) ──────────────────────────────────────────────
 
     @Test
-    fun `a successful SendMagicLink stays on AwaitingEmailConfirmation and emits a message event`() = runTest {
-        val viewModel = viewModel()
-        val events = mutableListOf<AuthUiEvent>()
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
+    fun `a successful SendMagicLink stays on AwaitingEmailConfirmation and emits a message event`() =
+        runTest {
+            val viewModel = viewModel()
+            val events = mutableListOf<AuthUiEvent>()
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
 
-            viewModel.onIntent(AuthIntent.SendMagicLink("alice@example.com"))
-            awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
-            runCurrent()
+                viewModel.onIntent(AuthIntent.SendMagicLink("alice@example.com"))
+                awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
+                runCurrent()
 
-            val message = events.filterIsInstance<AuthUiEvent.Message>().singleOrNull()
-            assertNotNull(message, "a successful resend must emit a Message event: $events")
-            assertTrue(
-                message.message.contains("alice@example.com"),
-                "the message must contain the email: ${message.message}",
-            )
-        } finally {
-            collector.cancel()
+                val message = events.filterIsInstance<AuthUiEvent.Message>().singleOrNull()
+                assertNotNull(message, "a successful resend must emit a Message event: $events")
+                assertTrue(
+                    message.message.contains("alice@example.com"),
+                    "the message must contain the email: ${message.message}",
+                )
+            } finally {
+                collector.cancel()
+            }
         }
-    }
 
     @Test
-    fun `a failed SendMagicLink stays on AwaitingEmailConfirmation and reports the error`() = runTest {
-        val viewModel = viewModel(
-            sendMagicLink = Result.failure(AppError.Network("unreachable")),
-        )
-        val events = mutableListOf<AuthUiEvent>()
-        val collector = launch { viewModel.events.collect { events += it } }
-        try {
-            runCurrent()
+    fun `a failed SendMagicLink stays on AwaitingEmailConfirmation and reports the error`() =
+        runTest {
+            val viewModel =
+                viewModel(
+                    sendMagicLink = Result.failure(AppError.Network("unreachable")),
+                )
+            val events = mutableListOf<AuthUiEvent>()
+            val collector = launch { viewModel.events.collect { events += it } }
+            try {
+                runCurrent()
 
-            viewModel.onIntent(AuthIntent.SendMagicLink("alice@example.com"))
-            awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
-            runCurrent()
+                viewModel.onIntent(AuthIntent.SendMagicLink("alice@example.com"))
+                awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
+                runCurrent()
 
-            // The state stays AwaitingEmailConfirmation so the user can try again.
-            assertIs<AuthUiState.AwaitingEmailConfirmation>(viewModel.stateFlow.value)
-            val error = events.filterIsInstance<AuthUiEvent.Error>().singleOrNull()
-            assertNotNull(error, "a failed resend must emit an Error event: $events")
-        } finally {
-            collector.cancel()
+                // The state stays AwaitingEmailConfirmation so the user can try again.
+                assertIs<AuthUiState.AwaitingEmailConfirmation>(viewModel.stateFlow.value)
+                val error = events.filterIsInstance<AuthUiEvent.Error>().singleOrNull()
+                assertNotNull(error, "a failed resend must emit an Error event: $events")
+            } finally {
+                collector.cancel()
+            }
         }
-    }
 
     // ── Infrastructure ──────────────────────────────────────────────────────
 
     private class MapStorage : SecureStorage {
         val values = mutableMapOf<String, String>()
+
         override suspend fun read(key: String): String? = values[key]
-        override suspend fun write(key: String, value: String) {
+
+        override suspend fun write(
+            key: String,
+            value: String,
+        ) {
             values[key] = value
         }
+
         override suspend fun delete(key: String) {
             values.remove(key)
         }

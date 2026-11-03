@@ -42,7 +42,6 @@ import kotlinx.serialization.json.jsonObject
  * and what an absent one defaults to.
  */
 class SupabaseSyncApiClient(private val rpc: SyncRpc) : SyncApiClient {
-
     // No-op: production has no use for a post-batchPush callback.
     override var onBeforeResponseLoop: (
         pending: MutableList<SyncOutboxEntity>,
@@ -50,34 +49,43 @@ class SupabaseSyncApiClient(private val rpc: SyncRpc) : SyncApiClient {
     ) -> Unit = { _, _ -> }
 
     override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
-        val body = callRpc("sync_batch_apply") { function ->
-            rpc.call(function, buildJsonObject { put("p_patches", request.buildPatches()) })
-        }
+        val body =
+            callRpc("sync_batch_apply") { function ->
+                rpc.call(function, buildJsonObject { put("p_patches", request.buildPatches()) })
+            }
         return BatchPushResponse(
-            results = body.readObject("the batch push response")
-                .requiredArray("results", "the batch push response")
-                .map { it.jsonObject.toPatchResult() },
+            results =
+                body
+                    .readObject("the batch push response")
+                    .requiredArray("results", "the batch push response")
+                    .map { it.jsonObject.toPatchResult() },
         )
     }
 
-    override suspend fun getEventsSince(sinceLsn: Long, limit: Int): List<SyncEvent> {
-        val body = callRpc("sync_events_since") { function ->
-            rpc.call(
-                function,
-                buildJsonObject {
-                    put("p_since_lsn", JsonPrimitive(sinceLsn))
-                    put("p_limit", JsonPrimitive(limit))
-                },
-            )
-        }
-        val array = body.readJson("the event feed") as? JsonArray
-            ?: throw malformed("the event feed was not a list; the cursor cannot advance past it")
+    override suspend fun getEventsSince(
+        sinceLsn: Long,
+        limit: Int,
+    ): List<SyncEvent> {
+        val body =
+            callRpc("sync_events_since") { function ->
+                rpc.call(
+                    function,
+                    buildJsonObject {
+                        put("p_since_lsn", JsonPrimitive(sinceLsn))
+                        put("p_limit", JsonPrimitive(limit))
+                    },
+                )
+            }
+        val array =
+            body.readJson("the event feed") as? JsonArray
+                ?: throw malformed("the event feed was not a list; the cursor cannot advance past it")
         return array.map { it.jsonObject.toSyncEvent() }
     }
 
-    override suspend fun testConnection(): Result<Unit> = runCatchingCancellable {
-        callRpc("sync_health") { function -> rpc.call(function, JsonObject(emptyMap())) }
-    }
+    override suspend fun testConnection(): Result<Unit> =
+        runCatchingCancellable {
+            callRpc("sync_health") { function -> rpc.call(function, JsonObject(emptyMap())) }
+        }
 
     /**
      * Remote configuration is not served by this schema.
@@ -107,27 +115,31 @@ class SupabaseSyncApiClient(private val rpc: SyncRpc) : SyncApiClient {
      * write" ended up in the same place.
      */
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun callRpc(function: String, call: suspend (String) -> String): String = try {
-        call(function)
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: AppError) {
-        throw e
-    } catch (e: TransportException) {
-        throw transportError(
-            area = "sync",
-            failure = e.failure,
-            message = e.message ?: "$function failed",
-            cause = e,
-            rejectedCode = REJECTED_CODE,
-        )
-    } catch (e: Exception) {
-        throw AppError.Network(
-            "$function failed: ${e.message ?: e::class.simpleName}",
-            code = REJECTED_CODE,
-            cause = e,
-        )
-    }
+    private suspend fun callRpc(
+        function: String,
+        call: suspend (String) -> String,
+    ): String =
+        try {
+            call(function)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: AppError) {
+            throw e
+        } catch (e: TransportException) {
+            throw transportError(
+                area = "sync",
+                failure = e.failure,
+                message = e.message ?: "$function failed",
+                cause = e,
+                rejectedCode = REJECTED_CODE,
+            )
+        } catch (e: Exception) {
+            throw AppError.Network(
+                "$function failed: ${e.message ?: e::class.simpleName}",
+                code = REJECTED_CODE,
+                cause = e,
+            )
+        }
 
     /**
      * Builds the patch array the batch function consumes.
@@ -148,39 +160,42 @@ class SupabaseSyncApiClient(private val rpc: SyncRpc) : SyncApiClient {
      * means nothing, and the server is right to make it — but the local cause was
      * a builder that forgot a clock, and refusing here says so.
      */
-    private fun BatchPushRequest.buildPatches(): JsonArray = buildJsonArray {
-        patches.forEach { patch ->
-            val clock = patch.hlc
-                ?: throw AppError.Validation(
-                    "Patch ${patch.patchId} carries no logical clock and cannot be merged.",
-                    code = "sync.patch_without_clock",
+    private fun BatchPushRequest.buildPatches(): JsonArray =
+        buildJsonArray {
+            patches.forEach { patch ->
+                val clock =
+                    patch.hlc
+                        ?: throw AppError.Validation(
+                            "Patch ${patch.patchId} carries no logical clock and cannot be merged.",
+                            code = "sync.patch_without_clock",
+                        )
+                add(
+                    buildJsonObject {
+                        put("patchId", JsonPrimitive(patch.patchId))
+                        put("entityId", JsonPrimitive(patch.entityId))
+                        put("entityType", JsonPrimitive(patch.entityType.key))
+                        put("profileId", JsonPrimitive(profileId))
+                        put("protocolVersion", JsonPrimitive(patch.protocolVersion))
+                        put("isDelete", JsonPrimitive(patch.isDelete))
+                        put("ops", patch.buildOps())
+                        put("hlc", clock.toWire())
+                    },
                 )
-            add(
-                buildJsonObject {
-                    put("patchId", JsonPrimitive(patch.patchId))
-                    put("entityId", JsonPrimitive(patch.entityId))
-                    put("entityType", JsonPrimitive(patch.entityType.key))
-                    put("profileId", JsonPrimitive(profileId))
-                    put("protocolVersion", JsonPrimitive(patch.protocolVersion))
-                    put("isDelete", JsonPrimitive(patch.isDelete))
-                    put("ops", patch.buildOps())
-                    put("hlc", clock.toWire())
-                },
-            )
+            }
         }
-    }
 
-    private fun DeltaPatch.buildOps(): JsonArray = buildJsonArray {
-        ops.forEach { op ->
-            add(
-                buildJsonObject {
-                    put("field", JsonPrimitive(op.field))
-                    put("op", JsonPrimitive(op.op.wireName))
-                    if (op.op.carriesValue) put("value", op.value ?: JsonPrimitive(null))
-                },
-            )
+    private fun DeltaPatch.buildOps(): JsonArray =
+        buildJsonArray {
+            ops.forEach { op ->
+                add(
+                    buildJsonObject {
+                        put("field", JsonPrimitive(op.field))
+                        put("op", JsonPrimitive(op.op.wireName))
+                        if (op.op.carriesValue) put("value", op.value ?: JsonPrimitive(null))
+                    },
+                )
+            }
         }
-    }
 
     private companion object {
         /**

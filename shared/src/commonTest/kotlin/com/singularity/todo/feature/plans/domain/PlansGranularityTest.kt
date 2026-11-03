@@ -10,7 +10,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class PlansGranularityTest {
-
     @Test
     fun `the horizons are thirty days, twelve weeks and twelve months`() {
         assertEquals(30, PlansGranularity.Day.periodCount)

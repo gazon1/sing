@@ -53,7 +53,6 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:compose")
 class AgendaBadgePolicyFlowTest {
-
     @Test
     @DisplayName("TASK-MARK-01 a task row shows every marking that applies")
     fun a_task_that_is_blocked_and_overdue_shows_both_markings() =
@@ -61,7 +60,8 @@ class AgendaBadgePolicyFlowTest {
             val repository = koin.get<TaskRepository>()
             val blocker = seed(koin, "blocker", "Blocking task", due = today)
             val blocked = seed(koin, "blocked", "Overdue blocked", due = yesterday)
-            repository.setDependency(blocked, blocker, DependencyVerb.BLOCKS, enabled = true)
+            repository
+                .setDependency(blocked, blocker, DependencyVerb.BLOCKS, enabled = true)
                 .getOrThrow()
 
             tapTab("Today")
@@ -77,7 +77,8 @@ class AgendaBadgePolicyFlowTest {
             val repository = koin.get<TaskRepository>()
             val goal = seed(koin, "goal", "Goal task", due = today)
             val follower = seed(koin, "follower", "Follower", due = today)
-            repository.setDependency(follower, goal, DependencyVerb.FOLLOWS_UP, enabled = true)
+            repository
+                .setDependency(follower, goal, DependencyVerb.FOLLOWS_UP, enabled = true)
                 .getOrThrow()
 
             tapTab("Today")
@@ -88,30 +89,32 @@ class AgendaBadgePolicyFlowTest {
         }
 
     @Test
-    fun an_in_progress_task_says_so() = runDesktopAppTest(checkA11y = true, clock = CLOCK) { koin ->
-        seed(
-            koin,
-            "started",
-            "Started task",
-            due = today,
-            workflowState = TaskWorkflowState.InProgress,
-        )
+    fun an_in_progress_task_says_so() =
+        runDesktopAppTest(checkA11y = true, clock = CLOCK) { koin ->
+            seed(
+                koin,
+                "started",
+                "Started task",
+                due = today,
+                workflowState = TaskWorkflowState.InProgress,
+            )
 
-        tapTab("Today")
-        awaitTag(TestTags.taskItem("Started task"))
+            tapTab("Today")
+            awaitTag(TestTags.taskItem("Started task"))
 
-        assertMarkingCount("Задача в работе", expected = 1)
-    }
+            assertMarkingCount("Задача в работе", expected = 1)
+        }
 
     @Test
-    fun a_pinned_task_says_so() = runDesktopAppTest(checkA11y = true, clock = CLOCK) { koin ->
-        seed(koin, "pinned", "Pinned task", due = today, isPinned = true)
+    fun a_pinned_task_says_so() =
+        runDesktopAppTest(checkA11y = true, clock = CLOCK) { koin ->
+            seed(koin, "pinned", "Pinned task", due = today, isPinned = true)
 
-        tapTab("Today")
-        awaitTag(TestTags.taskItem("Pinned task"))
+            tapTab("Today")
+            awaitTag(TestTags.taskItem("Pinned task"))
 
-        assertMarkingCount("Задача закреплена", expected = 1)
-    }
+            assertMarkingCount("Задача закреплена", expected = 1)
+        }
 
     @Test
     fun an_undated_task_does_not_get_a_mark_saying_it_has_no_date() =
@@ -134,17 +137,20 @@ class AgendaBadgePolicyFlowTest {
             val repository = koin.get<TaskRepository>()
             val blocker = seed(koin, "hidden-blocker", "Hidden blocker", due = today)
             val goal = seed(koin, "hidden-goal", "Hidden goal", due = today)
-            val busy = seed(
-                koin,
-                "busy",
-                "Busy task",
-                due = today,
-                isPinned = true,
-                workflowState = TaskWorkflowState.InProgress,
-            )
-            repository.setDependency(busy, blocker, DependencyVerb.BLOCKS, enabled = true)
+            val busy =
+                seed(
+                    koin,
+                    "busy",
+                    "Busy task",
+                    due = today,
+                    isPinned = true,
+                    workflowState = TaskWorkflowState.InProgress,
+                )
+            repository
+                .setDependency(busy, blocker, DependencyVerb.BLOCKS, enabled = true)
                 .getOrThrow()
-            repository.setDependency(busy, goal, DependencyVerb.FOLLOWS_UP, enabled = true)
+            repository
+                .setDependency(busy, goal, DependencyVerb.FOLLOWS_UP, enabled = true)
                 .getOrThrow()
 
             tapTab("Today")
@@ -166,12 +172,13 @@ class AgendaBadgePolicyFlowTest {
         workflowState: TaskWorkflowState = TaskWorkflowState.Open,
     ): TaskId {
         val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
-        val task = testTask(
-            id = TaskId(id),
-            title = title,
-            dueDate = due,
-            userId = userId,
-        ).copy(isPinned = isPinned, workflowState = workflowState)
+        val task =
+            testTask(
+                id = TaskId(id),
+                title = title,
+                dueDate = due,
+                userId = userId,
+            ).copy(isPinned = isPinned, workflowState = workflowState)
         koin.get<TaskRepository>().upsert(TaskDocument.of(task))
         return task.id
     }
@@ -203,7 +210,10 @@ class AgendaBadgePolicyFlowTest {
         val today: LocalDate = LocalDate(2026, 9, 16)
 
         /** The day before `today`, derived from the same instant the clock reports. */
-        val yesterday: LocalDate = FIXED_NOW.toLocalDateTime(TimeZone.UTC).date
-            .minus(1, DateTimeUnit.DAY)
+        val yesterday: LocalDate =
+            FIXED_NOW
+                .toLocalDateTime(TimeZone.UTC)
+                .date
+                .minus(1, DateTimeUnit.DAY)
     }
 }

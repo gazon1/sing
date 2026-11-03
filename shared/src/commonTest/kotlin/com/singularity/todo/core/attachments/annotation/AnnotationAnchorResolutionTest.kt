@@ -20,11 +20,13 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AnnotationAnchorResolutionTest {
-
     private val attachment = AttachmentId.fromString("att_test")
 
-    private fun range(start: Int, end: Int, quote: String) =
-        TextRange(attachmentId = attachment, start = start, end = end, quote = quote)
+    private fun range(
+        start: Int,
+        end: Int,
+        quote: String,
+    ) = TextRange(attachmentId = attachment, start = start, end = end, quote = quote)
 
     // ─── Construction ───────────────────────────────────────────────────────────
 
@@ -63,9 +65,10 @@ class AnnotationAnchorResolutionTest {
 
     @Test
     fun `a range without an attachment cannot be constructed`() {
-        val failure = assertFailsWith<IllegalArgumentException> {
-            TextRange(attachmentId = AttachmentId.fromString(""), start = 0, end = 1, quote = "x")
-        }
+        val failure =
+            assertFailsWith<IllegalArgumentException> {
+                TextRange(attachmentId = AttachmentId.fromString(""), start = 0, end = 1, quote = "x")
+            }
         assertTrue(
             failure.message!!.contains("attachmentId"),
             "the message should name the missing attachment: ${failure.message}",
@@ -149,21 +152,23 @@ class AnnotationAnchorResolutionTest {
         // offsets that actually moved are 6..10, the same pair the dedicated
         // `a note whose offsets moved` test uses.
         val text = "alpha beta gamma"
-        val outcomes = listOf(
-            resolveAnchor(range(start = 6, end = 10, quote = "beta"), text),
-            resolveAnchor(range(start = 6, end = 10, quote = "beta"), "XXalpha beta gamma"),
-            resolveAnchor(range(start = 6, end = 10, quote = "beta"), "unrelated"),
-        )
+        val outcomes =
+            listOf(
+                resolveAnchor(range(start = 6, end = 10, quote = "beta"), text),
+                resolveAnchor(range(start = 6, end = 10, quote = "beta"), "XXalpha beta gamma"),
+                resolveAnchor(range(start = 6, end = 10, quote = "beta"), "unrelated"),
+            )
 
         // Each outcome is one of the three, and all three are distinct values — the check
         // that the ordering is genuinely three-way and not two branches with a name change.
-        val classified = outcomes.map {
-            when (it) {
-                is AnchorResolution.Exact -> "exact"
-                is AnchorResolution.QuoteFound -> "quote"
-                AnchorResolution.Stale -> "stale"
+        val classified =
+            outcomes.map {
+                when (it) {
+                    is AnchorResolution.Exact -> "exact"
+                    is AnchorResolution.QuoteFound -> "quote"
+                    AnchorResolution.Stale -> "stale"
+                }
             }
-        }
 
         assertEquals(listOf("exact", "quote", "stale"), classified)
         assertEquals(3, outcomes.distinct().size, "the three outcomes must be three distinct values")
@@ -173,14 +178,15 @@ class AnnotationAnchorResolutionTest {
 
     @Test
     fun `an annotation reports itself stale only against the text it no longer appears in`() {
-        val annotation = AttachmentAnnotation(
-            id = AttachmentAnnotationId.generate(),
-            range = range(start = 6, end = 10, quote = "beta"),
-            note = "the second word",
-            userId = com.singularity.todo.core.ids.UserId.anonymous,
-            createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-        )
+        val annotation =
+            AttachmentAnnotation(
+                id = AttachmentAnnotationId.generate(),
+                range = range(start = 6, end = 10, quote = "beta"),
+                note = "the second word",
+                userId = com.singularity.todo.core.ids.UserId.anonymous,
+                createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+                updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            )
 
         assertFalse(annotation.isStaleIn("alpha beta gamma"), "the note still matches the file")
         assertTrue(annotation.isStaleIn("nothing like it here"), "the quote is gone from the file")

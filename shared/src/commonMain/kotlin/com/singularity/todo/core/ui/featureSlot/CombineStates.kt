@@ -41,14 +41,21 @@ import kotlinx.coroutines.flow.combine
  * @see FeatureSlot
  * @see docs/decisions/2026-09-27-feature-slot-pattern.md
  */
-fun <S1, S2, R> combineStates(f1: Flow<S1>, f2: Flow<S2>, transform: (S1, S2) -> R): Flow<R> =
-    combine(f1, f2) { a, b -> transform(a, b) }
+fun <S1, S2, R> combineStates(
+    f1: Flow<S1>,
+    f2: Flow<S2>,
+    transform: (S1, S2) -> R,
+): Flow<R> = combine(f1, f2) { a, b -> transform(a, b) }
 
 /**
  * Combines three flows. See [combineStates].
  */
-fun <S1, S2, S3, R> combineStates(f1: Flow<S1>, f2: Flow<S2>, f3: Flow<S3>, transform: (S1, S2, S3) -> R): Flow<R> =
-    combine(f1, f2, f3) { a, b, c -> transform(a, b, c) }
+fun <S1, S2, S3, R> combineStates(
+    f1: Flow<S1>,
+    f2: Flow<S2>,
+    f3: Flow<S3>,
+    transform: (S1, S2, S3) -> R,
+): Flow<R> = combine(f1, f2, f3) { a, b, c -> transform(a, b, c) }
 
 /**
  * Combines four flows. See [combineStates].
@@ -155,8 +162,10 @@ fun <S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, R> combineStates(
  * only needed on the way back out, when the packed array is unpacked into the typed
  * transform. Keeping it here means every call site above stays type-safe.
  */
-private fun <R> combinePacked(flows: Array<Flow<Any?>>, transform: (Array<Any?>) -> R): Flow<R> =
-    combine(flows.toList()) { packed -> transform(packed) }
+private fun <R> combinePacked(
+    flows: Array<Flow<Any?>>,
+    transform: (Array<Any?>) -> R,
+): Flow<R> = combine(flows.toList()) { packed -> transform(packed) }
 
 /**
  * Unpacks the elements of [Flow.combine]'s `Array<Any?>` into the transform's parameters.
@@ -192,46 +201,49 @@ private inline fun <S1, S2, S3, S4, S5, S6, S7, R> Array<Any?>.pack(transform: (
 @Suppress("UNCHECKED_CAST")
 private inline fun <S1, S2, S3, S4, S5, S6, S7, S8, R> Array<Any?>.pack(
     transform: (S1, S2, S3, S4, S5, S6, S7, S8) -> R,
-): R = transform(
-    this[0] as S1,
-    this[1] as S2,
-    this[2] as S3,
-    this[3] as S4,
-    this[4] as S5,
-    this[5] as S6,
-    this[6] as S7,
-    this[7] as S8,
-)
+): R =
+    transform(
+        this[0] as S1,
+        this[1] as S2,
+        this[2] as S3,
+        this[3] as S4,
+        this[4] as S5,
+        this[5] as S6,
+        this[6] as S7,
+        this[7] as S8,
+    )
 
 /** Unpacks nine elements. See [pack]. */
 @Suppress("UNCHECKED_CAST")
 private inline fun <S1, S2, S3, S4, S5, S6, S7, S8, S9, R> Array<Any?>.pack(
     transform: (S1, S2, S3, S4, S5, S6, S7, S8, S9) -> R,
-): R = transform(
-    this[0] as S1,
-    this[1] as S2,
-    this[2] as S3,
-    this[3] as S4,
-    this[4] as S5,
-    this[5] as S6,
-    this[6] as S7,
-    this[7] as S8,
-    this[8] as S9,
-)
+): R =
+    transform(
+        this[0] as S1,
+        this[1] as S2,
+        this[2] as S3,
+        this[3] as S4,
+        this[4] as S5,
+        this[5] as S6,
+        this[6] as S7,
+        this[7] as S8,
+        this[8] as S9,
+    )
 
 /** Unpacks ten elements. See [pack]. */
 @Suppress("UNCHECKED_CAST")
 private inline fun <S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, R> Array<Any?>.pack(
     transform: (S1, S2, S3, S4, S5, S6, S7, S8, S9, S10) -> R,
-): R = transform(
-    this[0] as S1,
-    this[1] as S2,
-    this[2] as S3,
-    this[3] as S4,
-    this[4] as S5,
-    this[5] as S6,
-    this[6] as S7,
-    this[7] as S8,
-    this[8] as S9,
-    this[9] as S10,
-)
+): R =
+    transform(
+        this[0] as S1,
+        this[1] as S2,
+        this[2] as S3,
+        this[3] as S4,
+        this[4] as S5,
+        this[5] as S6,
+        this[6] as S7,
+        this[7] as S8,
+        this[8] as S9,
+        this[9] as S10,
+    )

@@ -21,7 +21,6 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
  * the harness, not the code, is wrong.
  */
 class TestLifecycleOwner : LifecycleOwner {
-
     private val registry: LifecycleRegistry = LifecycleRegistry(this)
 
     override val lifecycle: Lifecycle get() = registry
@@ -40,7 +39,6 @@ class TestLifecycleOwner : LifecycleOwner {
  * bare `setContent` does not.
  */
 class TestViewModelStoreOwner : ViewModelStoreOwner {
-
     override val viewModelStore: ViewModelStore = ViewModelStore()
 }
 

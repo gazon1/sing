@@ -1,8 +1,8 @@
 package com.singularity.todo.shell
 
-import kotlinx.datetime.LocalDate
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
+import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -11,7 +11,6 @@ import kotlin.test.assertNull
 
 @Tag("fast")
 class FabActionResolverTest {
-
     /**
      * The date the shell claims today is. The resolver used to read the system clock
      * itself, so this assertion compared the host's date against the host's date and
@@ -24,6 +23,7 @@ class FabActionResolverTest {
     private val navigate: (AppDestination) -> Unit = { navigatedTo = it }
 
     private fun FabAction?.label() = this?.label
+
     private fun FabAction?.click() {
         assertIs<FabAction>(this)
         this.onClick()
@@ -70,11 +70,12 @@ class FabActionResolverTest {
 
     @Test
     fun projectsGraph_list_returnsAddProject() {
-        val result = fabActionForNav3(
-            AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.List),
-            today,
-            navigate,
-        )
+        val result =
+            fabActionForNav3(
+                AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.List),
+                today,
+                navigate,
+            )
         assertEquals("Add project", result.label())
         result.click()
         assertEquals(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()), navigatedTo)
@@ -82,11 +83,12 @@ class FabActionResolverTest {
 
     @Test
     fun projectsGraph_editor_returnsAddProject() {
-        val result = fabActionForNav3(
-            AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()),
-            today,
-            navigate,
-        )
+        val result =
+            fabActionForNav3(
+                AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()),
+                today,
+                navigate,
+            )
         assertEquals("Add project", result.label())
     }
 

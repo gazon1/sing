@@ -14,12 +14,12 @@ import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionRequest
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionResolver
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.days
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 
 /**
  * The parts of reading a task that two tools share.
@@ -30,7 +30,6 @@ import kotlinx.datetime.toLocalDateTime
  * lives here, once.
  */
 internal object TaskToolSupport {
-
     /**
      * The reference date and the blocked set the rules are evaluated against.
      *
@@ -38,16 +37,21 @@ internal object TaskToolSupport {
      * task would make classifying a list quadratic — the same reason the statistics
      * screen computes it once.
      */
-    fun context(tasks: List<Task>, clock: Clock, zone: TimeZone): SelectorContext = SelectorContext(
-        today = clock.now().toLocalDateTime(zone).date,
-        now = clock.now(),
-        blockedIds = Blocking.blockedTaskIds(tasks),
-        // A task completed an hour ago may still carry an old `updatedAt`, so the
-        // finished moment counts as the last movement. The statistics screen uses the
-        // same rule, and a reader told "stagnant" by one screen and "fine" by the
-        // other has been told two things.
-        lastActivityOf = { task -> maxOf(task.updatedAt, task.completedAt ?: task.updatedAt) },
-    )
+    fun context(
+        tasks: List<Task>,
+        clock: Clock,
+        zone: TimeZone,
+    ): SelectorContext =
+        SelectorContext(
+            today = clock.now().toLocalDateTime(zone).date,
+            now = clock.now(),
+            blockedIds = Blocking.blockedTaskIds(tasks),
+            // A task completed an hour ago may still carry an old `updatedAt`, so the
+            // finished moment counts as the last movement. The statistics screen uses the
+            // same rule, and a reader told "stagnant" by one screen and "fine" by the
+            // other has been told two things.
+            lastActivityOf = { task -> maxOf(task.updatedAt, task.completedAt ?: task.updatedAt) },
+        )
 
     /**
      * The tasks of [selection], named by their titles.
@@ -64,8 +68,9 @@ internal object TaskToolSupport {
     ): List<String> {
         val all = taskRepository.observeByFilter(TaskSelectionResolver.baseFilter()).first()
         val context = context(all, clock, zone)
-        val matched = all
-            .filter { TaskSelectionResolver.matches(TaskSelectionRequest(selection = selection), it, context) }
+        val matched =
+            all
+                .filter { TaskSelectionResolver.matches(TaskSelectionRequest(selection = selection), it, context) }
         // Cap the set sent to the model; report the remainder as a count.
         val capped = matched.take(50)
         return capped.map { it.title } +
@@ -105,8 +110,10 @@ internal object TaskToolSupport {
         checklistRepository: ChecklistRepository,
     ): TaskDetail {
         val checklist = checklistRepository.watchByTask(task.id.value).firstOrNull().orEmpty()
-        val blockers = Blocking.activeBlockers(task, allTasks)
-            .map { it.title }
+        val blockers =
+            Blocking
+                .activeBlockers(task, allTasks)
+                .map { it.title }
 
         val steps = subtaskCount(task, allTasks) + checklist.size
         val load = cognitiveLoad(task, context, stepCount = steps)
@@ -143,7 +150,11 @@ internal object TaskToolSupport {
      * The counts come from the app's own health classification, so they are the counts
      * the statistics screen would show for the same tasks.
      */
-    fun health(tasks: List<Task>, context: SelectorContext, stalenessDays: Int): TaskHealthSummary {
+    fun health(
+        tasks: List<Task>,
+        context: SelectorContext,
+        stalenessDays: Int,
+    ): TaskHealthSummary {
         val open = tasks.filter { !it.isCompleted && !it.isTrashed }
         val perTask = open.map { task -> bucket(task, context, stalenessDays) }
         val loads = open.map { task -> TaskCognitiveLoadCalculator.loadOf(task.estimateMinutes, 0) }
@@ -167,7 +178,11 @@ internal object TaskToolSupport {
      * that is both overdue and blocked is reported as overdue, because that is the one
      * the user can act on today — and the card still says what it is waiting on.
      */
-    private fun bucket(task: Task, context: SelectorContext, stalenessDays: Int): TaskHealthBucket {
+    private fun bucket(
+        task: Task,
+        context: SelectorContext,
+        stalenessDays: Int,
+    ): TaskHealthBucket {
         if (task.isCompleted) return TaskHealthBucket.FINE
 
         val overdue = Selector.DateBucket(RelativeBucket.Overdue)
@@ -183,27 +198,36 @@ internal object TaskToolSupport {
     }
 
     /** How many steps the task is broken into, by subtask. */
-    private fun subtaskCount(task: Task, allTasks: List<Task>): Int = allTasks.count { it.parentTaskId == task.id }
+    private fun subtaskCount(
+        task: Task,
+        allTasks: List<Task>,
+    ): Int = allTasks.count { it.parentTaskId == task.id }
 
     /** How much the task weighs on the user. */
     private fun cognitiveLoad(
         task: Task,
         context: SelectorContext,
         stepCount: Int,
-    ): TaskCognitiveLoad = TaskCognitiveLoadCalculator.of(
-        estimateMinutes = task.estimateMinutes,
-        stepCount = stepCount,
-        blocked = task.id in context.blockedIds,
-        staleDays = staleDaysOf(task, context),
-        priority = task.priority,
-    )
+    ): TaskCognitiveLoad =
+        TaskCognitiveLoadCalculator.of(
+            estimateMinutes = task.estimateMinutes,
+            stepCount = stepCount,
+            blocked = task.id in context.blockedIds,
+            staleDays = staleDaysOf(task, context),
+            priority = task.priority,
+        )
 
     /** Whether the task is a burden rather than a big task. */
-    private fun isToxic(task: Task, context: SelectorContext): Boolean =
-        cognitiveLoad(task, context, stepCount = 0).isToxic
+    private fun isToxic(
+        task: Task,
+        context: SelectorContext,
+    ): Boolean = cognitiveLoad(task, context, stepCount = 0).isToxic
 
     /** How many days the task has sat without movement. */
-    private fun staleDaysOf(task: Task, context: SelectorContext): Long {
+    private fun staleDaysOf(
+        task: Task,
+        context: SelectorContext,
+    ): Long {
         val elapsed = context.now - context.lastActivityOf(task)
         return elapsed.inWholeDays.coerceAtLeast(0)
     }

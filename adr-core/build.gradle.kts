@@ -7,7 +7,7 @@ plugins {
     alias(libs.plugins.detekt)
 }
 
-/**
+/*
  * `:adr-core` — how an ADR is read, written and validated. No transport.
  *
  * This module is the whole reason `:adr-cli` used to ship 127 MB. It contained
@@ -31,8 +31,14 @@ kotlin {
 
     android {
         namespace = "com.singularity.todo.adrcore"
-        compileSdk = libs.versions.sdk.compile.get().toInt()
-        minSdk = libs.versions.sdk.min.get().toInt()
+        compileSdk =
+            libs.versions.sdk.compile
+                .get()
+                .toInt()
+        minSdk =
+            libs.versions.sdk.min
+                .get()
+                .toInt()
 
         compilerOptions {
             jvmTarget = JvmTarget.JVM_11
@@ -72,11 +78,10 @@ detekt {
 }
 
 dependencies {
-    detektPlugins(libs.detekt.formatting)
     detektPlugins(project(":detekt-rules"))
 }
 
-/**
+/*
  * `:adr-core:koverGenerateArtifact` consumes `:adr-core:compileKotlinJvm`'s output
  * directory, and Gradle 9 reports that as an implicit dependency unless one side
  * declares it. CI hit it on 2026-10-16 during `koverMarkdownTable`:
@@ -114,8 +119,11 @@ tasks.withType<Test>().configureEach {
     failOnNoDiscoveredTests = true
 
     useJUnitPlatform {
-        val tags = (project.findProperty("test.tags") as String?)
-            ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+        val tags =
+            (project.findProperty("test.tags") as String?)
+                ?.split(",")
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() } ?: emptyList()
         when {
             tags.isEmpty() -> excludeTags("slow")
             tags == listOf("all") -> Unit

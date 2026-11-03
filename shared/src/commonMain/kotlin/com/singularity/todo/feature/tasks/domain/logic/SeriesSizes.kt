@@ -19,6 +19,7 @@ import com.singularity.todo.feature.tasks.domain.model.Task
  * anything about.
  */
 fun seriesSizes(tasks: List<Task>): Map<String, Int> =
-    tasks.mapNotNull { it.seriesId?.value }
+    tasks
+        .mapNotNull { it.seriesId?.value }
         .groupingBy { it }
         .eachCount()

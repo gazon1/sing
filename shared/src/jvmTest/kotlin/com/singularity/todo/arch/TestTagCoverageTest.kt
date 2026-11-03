@@ -70,35 +70,36 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TestTagCoverageTest {
-
     /**
      * The repository root. `commonMain.root` points at
      * `shared/src/commonMain/kotlin`; three levels up is `shared/`, one more is the
      * root that also holds `desktopApp/` and `mcp-server/`.
      */
-    private val repoRoot: File = File(
-        System.getProperty("commonMain.root")
-            ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
-    ).parentFile.parentFile.parentFile.parentFile
+    private val repoRoot: File =
+        File(
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
+        ).parentFile.parentFile.parentFile.parentFile
 
     /** Source sets whose Gradle task translates `-Ptest.tags` into a JUnit tag filter. */
-    private val testSourceDirs = listOf(
-        "shared/src/commonTest",
-        "shared/src/jvmTest",
-        // `shared/src/androidHostTest` was here from 2026-10-07 to 2026-10-08, on the
-        // rationale that it "applies the same `includeTags` filter as the other two".
-        // That stopped being true the same day: `testAndroidHostTest` was exempted from
-        // the filter, because a Robolectric class is JUnit4 and JUnit4 has no `@Tag`, so
-        // the filter could only ever exclude it. Requiring a tag in a source set where
-        // tags cannot work is not a check — it is a rule that can only be satisfied by a
-        // test that does not exist. `AndroidNotifierTest` is the proof: untagged, JUnit4,
-        // runs, and is held in place by a floor rather than by a tag.
-        //
-        // Put this back if the exemption is ever removed — at which point the filter is
-        // back, and the requirement is back, and they have to agree.
-        "desktopApp/src/jvmTest",
-        "mcp-server/src/test",
-    )
+    private val testSourceDirs =
+        listOf(
+            "shared/src/commonTest",
+            "shared/src/jvmTest",
+            // `shared/src/androidHostTest` was here from 2026-10-07 to 2026-10-08, on the
+            // rationale that it "applies the same `includeTags` filter as the other two".
+            // That stopped being true the same day: `testAndroidHostTest` was exempted from
+            // the filter, because a Robolectric class is JUnit4 and JUnit4 has no `@Tag`, so
+            // the filter could only ever exclude it. Requiring a tag in a source set where
+            // tags cannot work is not a check — it is a rule that can only be satisfied by a
+            // test that does not exist. `AndroidNotifierTest` is the proof: untagged, JUnit4,
+            // runs, and is held in place by a floor rather than by a tag.
+            //
+            // Put this back if the exemption is ever removed — at which point the filter is
+            // back, and the requirement is back, and they have to agree.
+            "desktopApp/src/jvmTest",
+            "mcp-server/src/test",
+        )
 
     @Test
     fun every_test_class_declares_a_tag() {
@@ -107,7 +108,8 @@ class TestTagCoverageTest {
         testSourceDirs.forEach { dir ->
             val root = File(repoRoot, dir)
             assertTrue(root.isDirectory, "missing test source dir: ${root.path}")
-            root.walkTopDown()
+            root
+                .walkTopDown()
                 .filter { it.isFile && it.name.endsWith("Test.kt") }
                 .forEach { file ->
                     untagged += untaggedClassesIn(file)
@@ -127,7 +129,8 @@ class TestTagCoverageTest {
         val offenders = mutableListOf<String>()
 
         testSourceDirs.forEach { dir ->
-            File(repoRoot, dir).walkTopDown()
+            File(repoRoot, dir)
+                .walkTopDown()
                 .filter { it.isFile && it.name.endsWith("Test.kt") }
                 .forEach { file -> offenders += unselectableTagValuesIn(file) }
         }
@@ -148,7 +151,8 @@ class TestTagCoverageTest {
         val offenders = mutableListOf<String>()
 
         testSourceDirs.forEach { dir ->
-            File(repoRoot, dir).walkTopDown()
+            File(repoRoot, dir)
+                .walkTopDown()
                 .filter { it.isFile && it.name.endsWith("Test.kt") }
                 .forEach { file -> offenders += junit4OffendersIn(file) }
         }
@@ -241,19 +245,23 @@ class TestTagCoverageTest {
             val subTags = present.filter { it !in CI_SELECTABLE_TAGS }
 
             when {
-                primary.isEmpty() ->
+                primary.isEmpty() -> {
                     offenders += "$relative:${index + 1} $name — no @Tag(\"fast\") or @Tag(\"slow\"): " +
                         "CI selects on those, so the class would be in no run"
+                }
 
-                subTags.any { it !in SLOW_SUBTAGS } ->
+                subTags.any { it !in SLOW_SUBTAGS } -> {
                     offenders += "$relative:${index + 1} $name — " +
-                        subTags.filter { it !in SLOW_SUBTAGS }
+                        subTags
+                            .filter { it !in SLOW_SUBTAGS }
                             .joinToString { "@Tag(\"$it\")" } +
                         " is not a known sub-tag"
+                }
 
-                subTags.isNotEmpty() && primary.size > 1 ->
+                subTags.isNotEmpty() && primary.size > 1 -> {
                     offenders += "$relative:${index + 1} $name — more than one primary tag: " +
                         primary.joinToString { "@Tag(\"$it\")" }
+                }
             }
         }
         return offenders
@@ -274,9 +282,10 @@ class TestTagCoverageTest {
         if (!RunnableTestMember.hasRunnableTest(text)) return emptyList()
         val lines = text.split("\n")
         val relative = file.relativeTo(repoRoot).path
-        val markers = lines.filter {
-            JUNIT4_IMPORT.containsMatchIn(it) || JUNIT4_RUN_WITH.containsMatchIn(it)
-        }
+        val markers =
+            lines.filter {
+                JUNIT4_IMPORT.containsMatchIn(it) || JUNIT4_RUN_WITH.containsMatchIn(it)
+            }
         if (markers.isEmpty()) return emptyList()
         return listOf("$relative — ${markers.joinToString("; ") { it.trim() }}")
     }
@@ -305,13 +314,19 @@ class TestTagCoverageTest {
      * on purpose (so `@Tag` inside prose is not mistaken for an import), and a
      * joined string has one start and one end, not one per line.
      */
-    private fun aliasTagName(lines: List<String>): String? = lines.asSequence()
-        .mapNotNull { TAG_ALIAS_IMPORT.find(it) }
-        .firstOrNull()
-        ?.groupValues?.get(1)
+    private fun aliasTagName(lines: List<String>): String? =
+        lines
+            .asSequence()
+            .mapNotNull { TAG_ALIAS_IMPORT.find(it) }
+            .firstOrNull()
+            ?.groupValues
+            ?.get(1)
 
     /** The contiguous `@…` lines immediately above [classLineIndex]. */
-    private fun annotationBlockAbove(lines: List<String>, classLineIndex: Int): List<String> {
+    private fun annotationBlockAbove(
+        lines: List<String>,
+        classLineIndex: Int,
+    ): List<String> {
         val block = mutableListOf<String>()
         var i = classLineIndex - 1
         while (i >= 0 && ANNOTATION.matchEntire(lines[i].trim()) != null) {
@@ -345,13 +360,14 @@ class TestTagCoverageTest {
          * run the typo was meant for, and every gate that checks the tag still
          * passes.
          */
-        private val SLOW_SUBTAGS = setOf(
-            "slow:konsist",
-            "slow:migration",
-            "slow:compose",
-            "slow:data",
-            "slow:platform",
-        )
+        private val SLOW_SUBTAGS =
+            setOf(
+                "slow:konsist",
+                "slow:migration",
+                "slow:compose",
+                "slow:data",
+                "slow:platform",
+            )
 
         /**
          * Both the imported `@Tag("…")` and the fully-qualified
@@ -388,8 +404,9 @@ class TestTagCoverageTest {
          * `@Anything(` is not a tag, and widening the regex to "any annotation ending in
          * Tag" would let `@Suppress`-style lookalikes pass.
          */
-        private val TAG_ALIAS_IMPORT = Regex(
-            """^\s*import\s+org\.junit\.jupiter\.api\.Tag\s+as\s+(\w+)\s*$""",
-        )
+        private val TAG_ALIAS_IMPORT =
+            Regex(
+                """^\s*import\s+org\.junit\.jupiter\.api\.Tag\s+as\s+(\w+)\s*$""",
+            )
     }
 }

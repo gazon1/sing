@@ -10,14 +10,14 @@ import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.UserId
-import java.io.File
-import java.io.IOException
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.IOException
 
 /**
  * The debug-only install path for a session.
@@ -47,7 +47,6 @@ import kotlinx.coroutines.launch
  * therefore has no way to install a session — not a hidden one, none.
  */
 object TestAuthStubs {
-
     /** The account the E2E build signs in as. */
     const val DEFAULT_EMAIL = "test@singularity.test"
 
@@ -120,16 +119,16 @@ object TestAuthStubs {
     const val FLAG_ATTACH_FAILURE = "attach_failure"
 
     /** The session the E2E build installs when it has none. */
-    fun defaultSession(email: String = DEFAULT_EMAIL): Session.SignedIn = Session.SignedIn(
-        userId = UserId.fromString(DEFAULT_USER_ID),
-        email = email,
-        accessToken = DEFAULT_ACCESS_TOKEN,
-        refreshToken = DEFAULT_REFRESH_TOKEN,
-    )
+    fun defaultSession(email: String = DEFAULT_EMAIL): Session.SignedIn =
+        Session.SignedIn(
+            userId = UserId.fromString(DEFAULT_USER_ID),
+            email = email,
+            accessToken = DEFAULT_ACCESS_TOKEN,
+            refreshToken = DEFAULT_REFRESH_TOKEN,
+        )
 
     /** The file the app's encrypted store is written to. */
-    fun secureStoreFile(context: Context): File =
-        File(context.applicationInfo.dataDir, SECURE_STORE_PATH)
+    fun secureStoreFile(context: Context): File = File(context.applicationInfo.dataDir, SECURE_STORE_PATH)
 
     /** The file that records that this install has a session. */
     fun installedMarkerFile(context: Context): File = File(context.filesDir, INSTALLED_MARKER)
@@ -142,8 +141,10 @@ object TestAuthStubs {
      * right about the path, so the name of the flag is the only thing it has
      * to know — the prefix is this function's business.
      */
-    fun flagFile(context: Context, flag: String): File =
-        File(context.filesDir, FLAG_FILE_PREFIX + flag)
+    fun flagFile(
+        context: Context,
+        flag: String,
+    ): File = File(context.filesDir, FLAG_FILE_PREFIX + flag)
 
     /** Whether this install has a session that was not signed out of. */
     fun hasInstalledSession(context: Context): Boolean = installedMarkerFile(context).exists()
@@ -172,10 +173,11 @@ object TestAuthStubs {
         sessionStore: SecureSessionManager,
         context: Context,
         email: String = DEFAULT_EMAIL,
-    ): Result<Unit> = runCatchingCancellable {
-        sessionStore.save(defaultSession(email))
-        installedMarkerFile(context).writeText(email)
-    }
+    ): Result<Unit> =
+        runCatchingCancellable {
+            sessionStore.save(defaultSession(email))
+            installedMarkerFile(context).writeText(email)
+        }
 
     /**
      * The session the store holds, or null when it holds none.
@@ -184,8 +186,7 @@ object TestAuthStubs {
      * worse than no session, and a store that keeps one value cannot be read
      * halfway through a write.
      */
-    suspend fun storedSession(sessionStore: SecureSessionManager): Session.SignedIn? =
-        sessionStore.currentSession()
+    suspend fun storedSession(sessionStore: SecureSessionManager): Session.SignedIn? = sessionStore.currentSession()
 }
 
 /**
@@ -224,7 +225,6 @@ class StubAuthRepository(
     private val context: Context,
     private val scope: AutoCloseableCoroutineScope,
 ) : AuthRepository {
-
     private val log = Logger.withTag("StubAuthRepository")
 
     // Explicit Session type: Kotlin would otherwise infer MutableStateFlow<Session.SignedIn>
@@ -306,9 +306,10 @@ class StubAuthRepository(
         }
     }
 
-    private fun networkFailure(): Result<Nothing> = Result.failure(
-        Exception("StubAuthRepository: simulated network error"),
-    )
+    private fun networkFailure(): Result<Nothing> =
+        Result.failure(
+            Exception("StubAuthRepository: simulated network error"),
+        )
 
     /**
      * Restores the session the way the app does — from the store — and decides
@@ -348,7 +349,10 @@ class StubAuthRepository(
         _currentSession.value = TestAuthStubs.defaultSession()
     }
 
-    override suspend fun signUp(email: String, password: String): Result<Unit> {
+    override suspend fun signUp(
+        email: String,
+        password: String,
+    ): Result<Unit> {
         if (signUpFailure || isFlagSet(TestAuthStubs.FLAG_SIGN_UP_FAILURE)) {
             signUpFailure = false
             return networkFailure()
@@ -361,7 +365,10 @@ class StubAuthRepository(
         return establishSession(email)
     }
 
-    override suspend fun signIn(email: String, password: String): Result<Unit> {
+    override suspend fun signIn(
+        email: String,
+        password: String,
+    ): Result<Unit> {
         // The attach screen and the sign-in screen reach the same repository
         // call, so a flag that fails one fails the other. The flag file names
         // the flow's intent; the repository cannot tell the two screens apart.
@@ -404,9 +411,10 @@ class StubAuthRepository(
         )
 
     override suspend fun startLocalSession(): Result<Unit> {
-        _currentSession.value = Session.Anonymous(
-            userId = UserId.fromString(TestAuthStubs.DEFAULT_USER_ID),
-        )
+        _currentSession.value =
+            Session.Anonymous(
+                userId = UserId.fromString(TestAuthStubs.DEFAULT_USER_ID),
+            )
         return Result.success(Unit)
     }
 
@@ -427,7 +435,10 @@ class StubAuthRepository(
 
     override suspend fun sendMagicLink(email: String): Result<Unit> = Result.success(Unit)
 
-    override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> = Result.success(Unit)
+    override suspend fun verifyMagicLink(
+        email: String,
+        token: String,
+    ): Result<Unit> = Result.success(Unit)
 }
 
 /**
@@ -435,11 +446,15 @@ class StubAuthRepository(
  * All operations return success immediately with a dummy session.
  */
 class NoOpAuthGateway : AuthGateway {
-    override suspend fun signUp(email: String, password: String): Result<RemoteSession> =
-        Result.success(dummySignedInSession())
+    override suspend fun signUp(
+        email: String,
+        password: String,
+    ): Result<RemoteSession> = Result.success(dummySignedInSession())
 
-    override suspend fun signIn(email: String, password: String): Result<RemoteSession> =
-        Result.success(dummySignedInSession())
+    override suspend fun signIn(
+        email: String,
+        password: String,
+    ): Result<RemoteSession> = Result.success(dummySignedInSession())
 
     override suspend fun signOut(): Result<Unit> = Result.success(Unit)
 
@@ -453,15 +468,19 @@ class NoOpAuthGateway : AuthGateway {
      */
     override suspend fun currentSession(): RemoteSession? = dummySignedInSession()
 
-    override suspend fun refresh(accessToken: String, refreshToken: String): Result<RemoteSession?> =
-        Result.success(dummySignedInSession())
+    override suspend fun refresh(
+        accessToken: String,
+        refreshToken: String,
+    ): Result<RemoteSession?> = Result.success(dummySignedInSession())
 
     override suspend fun updatePassword(newPassword: String): Result<Unit> = Result.success(Unit)
 
     override suspend fun sendMagicLink(email: String): Result<Unit> = Result.success(Unit)
 
-    override suspend fun verifyMagicLink(email: String, token: String): Result<RemoteSession> =
-        Result.success(dummySignedInSession())
+    override suspend fun verifyMagicLink(
+        email: String,
+        token: String,
+    ): Result<RemoteSession> = Result.success(dummySignedInSession())
 
     /**
      * Nothing changes, so nothing is observed.
@@ -472,18 +491,20 @@ class NoOpAuthGateway : AuthGateway {
     override fun sessionChanges(): Flow<RemoteSession?> = emptyFlow()
 }
 
-private fun dummySignedInSession() = RemoteSession(
-    userId = "00000000-0000-0000-0000-000000000001",
-    email = "test@singularity.test",
-    accessToken = "test-access-token",
-    refreshToken = "test-refresh-token",
-    isAnonymous = false,
-)
+private fun dummySignedInSession() =
+    RemoteSession(
+        userId = "00000000-0000-0000-0000-000000000001",
+        email = "test@singularity.test",
+        accessToken = "test-access-token",
+        refreshToken = "test-refresh-token",
+        isAnonymous = false,
+    )
 
-private fun dummyAnonymousSession() = RemoteSession(
-    userId = "00000000-0000-0000-0000-000000000001",
-    email = null,
-    accessToken = "test-access-token",
-    refreshToken = "test-refresh-token",
-    isAnonymous = true,
-)
+private fun dummyAnonymousSession() =
+    RemoteSession(
+        userId = "00000000-0000-0000-0000-000000000001",
+        email = null,
+        accessToken = "test-access-token",
+        refreshToken = "test-refresh-token",
+        isAnonymous = true,
+    )

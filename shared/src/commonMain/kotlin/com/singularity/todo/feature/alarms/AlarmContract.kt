@@ -20,12 +20,14 @@ import com.singularity.todo.feature.reminders.ReminderId
  * Intent extras and must match [PomodoroPhase.name] values (Work, ShortBreak, LongBreak).
  */
 object AlarmContract {
-
     /**
      * Builds the alarm tag for a reminder.
      * Used as the PendingIntent key to ensure one alarm per (user, reminder) pair.
      */
-    fun tagFor(userId: UserId, id: ReminderId): String = "reminder:${userId.value}:${id.value}"
+    fun tagFor(
+        userId: UserId,
+        id: ReminderId,
+    ): String = "reminder:${userId.value}:${id.value}"
 
     // ─── Intent extra keys ──────────────────────────────────────────────────────
 

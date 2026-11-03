@@ -102,7 +102,10 @@ data class ToolsetSnapshot(
      * configuration was available" is the observable fact — not "the read threw".
      */
     companion object {
-        fun statusOf(snapshot: RemoteConfigSnapshot, nowEpochMillis: Long): ConfigurationStatus {
+        fun statusOf(
+            snapshot: RemoteConfigSnapshot,
+            nowEpochMillis: Long,
+        ): ConfigurationStatus {
             val fetchedAt = snapshot.fetchedAtEpochMillis
             val age = nowEpochMillis - fetchedAt
             return when {
@@ -123,32 +126,33 @@ data class ToolsetSnapshot(
  * parameters were rewritten.
  */
 object ToolboxIdentityFactory {
-
     private val log = Logger.withTag("ToolboxIdentity")
 
     /** How much of the digest is reported. Enough to compare, short enough to read. */
     private const val FINGERPRINT_LENGTH = 16
 
     fun catalogFingerprint(): String {
-        val canonical = McpToolCatalog.catalog
-            .sortedBy { it.name }
-            .joinToString("\n") { entry ->
-                val annotations = entry.annotations
-                "${entry.name}|${entry.domain}|" +
-                    "ro=${annotations.readOnlyHint}|d=${annotations.destructiveHint}|" +
-                    "id=${annotations.idempotentHint}"
-            }
+        val canonical =
+            McpToolCatalog.catalog
+                .sortedBy { it.name }
+                .joinToString("\n") { entry ->
+                    val annotations = entry.annotations
+                    "${entry.name}|${entry.domain}|" +
+                        "ro=${annotations.readOnlyHint}|d=${annotations.destructiveHint}|" +
+                        "id=${annotations.idempotentHint}"
+                }
         return sha256(canonical)
     }
 
     fun activeToolsetFingerprint(tools: List<ToolboxToolEntry>): String {
-        val canonical = tools
-            .sortedBy { it.name }
-            .joinToString("\n") { tool ->
-                "${tool.name}|${tool.description}|" +
-                    "req=${tool.requiredParameters.sorted().joinToString(",")}|" +
-                    "opt=${tool.optionalParameters.sorted().joinToString(",")}"
-            }
+        val canonical =
+            tools
+                .sortedBy { it.name }
+                .joinToString("\n") { tool ->
+                    "${tool.name}|${tool.description}|" +
+                        "req=${tool.requiredParameters.sorted().joinToString(",")}|" +
+                        "opt=${tool.optionalParameters.sorted().joinToString(",")}"
+                }
         return sha256(canonical)
     }
 
@@ -198,7 +202,10 @@ object ToolboxIdentityFactory {
      * in the order that cannot deadlock, and this file is inside `:shared` now — which
      * is what the confinement rule checks.
      */
-    private fun runGit(root: File, vararg args: String): String? {
+    private fun runGit(
+        root: File,
+        vararg args: String,
+    ): String? {
         val output = Subprocess.runCapturing(listOf("git", *args), workingDirectory = root)
         if (output == null) {
             // Git is not installed, or the command failed. The checkout is unknown; that

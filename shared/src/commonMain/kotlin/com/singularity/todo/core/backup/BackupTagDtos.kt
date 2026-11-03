@@ -5,10 +5,11 @@ import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.TagGroupEntity
 import kotlinx.serialization.Serializable
 
+// ─── TagDto ────────────────────────────────────────────────────────────────────
+
 /**
  * The tag rows of a payload: the tags, and the groups they hang off.
  */
-// ─── TagDto ────────────────────────────────────────────────────────────────────
 
 @Serializable
 data class TagDto(

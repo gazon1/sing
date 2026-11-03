@@ -67,7 +67,6 @@ class AdrStorage(
     private val clock: Clock,
     private val timeZone: TimeZoneProvider,
 ) {
-
     /**
      * The nearest ancestor of the working directory that looks like a project checkout,
      * or `null` if this process was not launched from one.
@@ -80,12 +79,13 @@ class AdrStorage(
      * A checkout is recognised by either marker, because they fail independently: a
      * repository can have decisions before it has corpus rules, and vice versa.
      */
-    private val projectRoot: String? = ancestorsFromCwd()
-        .plus(host.homeDirectory())
-        .firstOrNull {
-            Path("$it/$DECISIONS_DIR_NAME").isDirectory() ||
-                Path("$it/$CORPUS_CONFIG_PATH").exists()
-        }
+    private val projectRoot: String? =
+        ancestorsFromCwd()
+            .plus(host.homeDirectory())
+            .firstOrNull {
+                Path("$it/$DECISIONS_DIR_NAME").isDirectory() ||
+                    Path("$it/$CORPUS_CONFIG_PATH").exists()
+            }
 
     /**
      * The absolute path to the decisions directory: the checkout's when there is one,
@@ -95,9 +95,10 @@ class AdrStorage(
      * a directory that appears after the tools are built would be a different process
      * — and resolving per call would re-stat the filesystem on every read.
      */
-    private val decisionsDir: String = projectRoot
-        ?.let { Path("$it/$DECISIONS_DIR_NAME").toString() }
-        ?: Path(host.homeDirectory(), ".singularity-todo", DECISIONS_DIR_NAME).toString()
+    private val decisionsDir: String =
+        projectRoot
+            ?.let { Path("$it/$DECISIONS_DIR_NAME").toString() }
+            ?: Path(host.homeDirectory(), ".singularity-todo", DECISIONS_DIR_NAME).toString()
 
     /**
      * Corpus rules, read from `config/docs/adr-corpus.json` (#520).
@@ -118,17 +119,18 @@ class AdrStorage(
      * The engine is exposed rather than wrapped: a wrapper would be a second name for
      * the same two answers, and the storage has no reason to own the search.
      */
-    val search: CorpusSearch = CorpusSearch(
-        projectRoot = projectRoot,
-        decisionsDir = decisionsDir,
-        corpus = corpus,
-        readAdr = { path -> readAdrAt(Path(path)) },
-        // The document corpora live in their own policy, read from the checkout this
-        // storage was built for. A checkout without the file falls back to the roots the
-        // policy declares by default — the same directories the search used to name in
-        // code — so a missing policy changes what is *declared*, never what is found.
-        documents = DocumentCorpusConfig.loadOrDefault(projectRoot),
-    )
+    val search: CorpusSearch =
+        CorpusSearch(
+            projectRoot = projectRoot,
+            decisionsDir = decisionsDir,
+            corpus = corpus,
+            readAdr = { path -> readAdrAt(Path(path)) },
+            // The document corpora live in their own policy, read from the checkout this
+            // storage was built for. A checkout without the file falls back to the roots the
+            // policy declares by default — the same directories the search used to name in
+            // code — so a missing policy changes what is *declared*, never what is found.
+            documents = DocumentCorpusConfig.loadOrDefault(projectRoot),
+        )
 
     /**
      * The working directory and every ancestor up to the filesystem root.
@@ -191,11 +193,17 @@ class AdrStorage(
         val tags = mutableListOf<String>()
         for (line in yaml.lines()) {
             when {
-                line.startsWith("title:") -> title = line.removePrefix("title:").trim().trim('"')
+                line.startsWith("title:") -> {
+                    title = line.removePrefix("title:").trim().trim('"')
+                }
 
-                line.startsWith("date:") -> date = line.removePrefix("date:").trim()
+                line.startsWith("date:") -> {
+                    date = line.removePrefix("date:").trim()
+                }
 
-                line.startsWith("status:") -> status = line.removePrefix("status:").trim().trim('"')
+                line.startsWith("status:") -> {
+                    status = line.removePrefix("status:").trim().trim('"')
+                }
 
                 line.startsWith("tags:") -> {
                     val rest = line.removePrefix("tags:").trim().removeSurrounding("[", "]")
@@ -221,25 +229,27 @@ class AdrStorage(
      * rebuilding one from a bare slug silently drops every file that is not at the
      * top level — which is the entire `deferred/` backlog.
      */
-    private fun readAdrAt(path: Path): AdrFile? = runCatching {
-        if (!path.exists()) return@runCatching null
-        if (path.isDirectory()) return@runCatching null
-        val slug = path.fileName.toString().removeSuffix(".md")
-        val content = path.readText(Charsets.UTF_8)
-        val frontmatter = parseFrontmatter(content)
-        val bodyStart = content.indexOf("---", 3)
-        val body = if (bodyStart != -1) content.substring(bodyStart + 3).trim() else content
-        AdrFile(
-            slug = slug,
-            title = frontmatter?.title ?: "(no title)",
-            date = frontmatter?.date ?: "",
-            tags = frontmatter?.tags ?: emptyList(),
-            body = body,
-            path = path.toString(),
-            status = frontmatter?.status?.takeIf { it.isNotBlank() }
-                ?: inlineStatusIn(content),
-        )
-    }.getOrNull()
+    private fun readAdrAt(path: Path): AdrFile? =
+        runCatching {
+            if (!path.exists()) return@runCatching null
+            if (path.isDirectory()) return@runCatching null
+            val slug = path.fileName.toString().removeSuffix(".md")
+            val content = path.readText(Charsets.UTF_8)
+            val frontmatter = parseFrontmatter(content)
+            val bodyStart = content.indexOf("---", 3)
+            val body = if (bodyStart != -1) content.substring(bodyStart + 3).trim() else content
+            AdrFile(
+                slug = slug,
+                title = frontmatter?.title ?: "(no title)",
+                date = frontmatter?.date ?: "",
+                tags = frontmatter?.tags ?: emptyList(),
+                body = body,
+                path = path.toString(),
+                status =
+                    frontmatter?.status?.takeIf { it.isNotBlank() }
+                        ?: inlineStatusIn(content),
+            )
+        }.getOrNull()
 
     /**
      * The decisions — and only the decisions.
@@ -255,7 +265,8 @@ class AdrStorage(
      * written down twice.
      */
     fun listAdrs(): List<AdrSummary> =
-        corpus.discover(decisionsDir, corpus.discoverMaxDepth)
+        corpus
+            .discover(decisionsDir, corpus.discoverMaxDepth)
             .filter { corpus.isDecision(it) }
             .mapNotNull { readAdrAt(Path(it)) }
             .map { AdrSummary(it.slug, it.title, it.date, it.tags, it.status) }
@@ -282,7 +293,12 @@ class AdrStorage(
      * future field cannot be added here and silently break the normalizer — which is
      * precisely how `review-by` did it in #527.
      */
-    fun writeAdr(slug: String, title: String, tags: List<String>, body: String): String {
+    fun writeAdr(
+        slug: String,
+        title: String,
+        tags: List<String>,
+        body: String,
+    ): String {
         requireValidSlug(slug)
         // Title and tags land in the frontmatter unquoted-ish (quoted, but not escaped):
         // a newline or a quote in either breaks the YAML block or the normalizer.
@@ -308,12 +324,13 @@ class AdrStorage(
         // instead of accepting whatever day it happens to run on (#91).
         val date = todayAt(clock, timeZone.current()).toString()
         val tagsStr = tags.joinToString(", ", "[", "]") { "\"$it\"" }
-        val values = mapOf(
-            "title" to "\"$title\"",
-            "date" to date,
-            "status" to corpus.newAdrStatus,
-            "tags" to tagsStr,
-        )
+        val values =
+            mapOf(
+                "title" to "\"$title\"",
+                "date" to date,
+                "status" to corpus.newAdrStatus,
+                "tags" to tagsStr,
+            )
         // Refuse before writing, not after. A key outside the allowlist would be
         // rejected by `normalize-adr-frontmatter.py` as `unknown frontmatter key`, and
         // the failure would surface on some later run against a corpus the writer no
@@ -326,11 +343,12 @@ class AdrStorage(
                 "this file as structurally broken"
         }
         val orderedKeys = order + values.keys.filterNot { it in order }
-        val frontmatter = buildString {
-            append("---\n")
-            orderedKeys.forEach { key -> append(key).append(": ").append(values.getValue(key)).append('\n') }
-            append("---\n\n")
-        }
+        val frontmatter =
+            buildString {
+                append("---\n")
+                orderedKeys.forEach { key -> append(key).append(": ").append(values.getValue(key)).append('\n') }
+                append("---\n\n")
+            }
         path.writeText(frontmatter + body, Charsets.UTF_8)
         return path.toString()
     }
@@ -422,9 +440,11 @@ class AdrStorage(
         // archive and backlog — because a superseded ADR may point at any of them.
         val resolved = slugFromSupersededBy(supersededBy)
         if (resolved != null) {
-            val known = corpus.discover(decisionsDir, corpus.discoverMaxDepth)
-                .map { it.substringAfterLast('/').removeSuffix(".md") }
-                .toSet() + corpus.deferred(decisionsDir)
+            val known =
+                corpus
+                    .discover(decisionsDir, corpus.discoverMaxDepth)
+                    .map { it.substringAfterLast('/').removeSuffix(".md") }
+                    .toSet() + corpus.deferred(decisionsDir)
             require(resolved in known) {
                 "supersededBy '$resolved' does not exist in ${corpus.root} or its ${corpus.deferredDir}/."
             }
@@ -435,12 +455,13 @@ class AdrStorage(
         // A missing closing fence yields -1, which `end > start` rejects.
         // An unparseable date is refused rather than written: a `review-by` the gate
         // cannot compare against a date is a promise nobody can be held to.
-        val reviewed = reviewBy?.trim()?.takeIf { it.isNotEmpty() }?.also { candidate ->
-            val parsed = runCatching { kotlinx.datetime.LocalDate.parse(candidate) }
-            require(parsed.isSuccess) {
-                "reviewBy '$candidate' is not an ISO date (YYYY-MM-DD)."
+        val reviewed =
+            reviewBy?.trim()?.takeIf { it.isNotEmpty() }?.also { candidate ->
+                val parsed = runCatching { kotlinx.datetime.LocalDate.parse(candidate) }
+                require(parsed.isSuccess) {
+                    "reviewBy '$candidate' is not an ISO date (YYYY-MM-DD)."
+                }
             }
-        }
 
         val start = lines.indexOfFirst { it.trim() == "---" }
         val closing = lines.drop(start + 1).indexOfFirst { it.trim() == "---" }
@@ -460,34 +481,26 @@ class AdrStorage(
         // allowlist, so `normalize-adr-frontmatter.py` rejected the repo's own output
         // as `unknown frontmatter key`. All three keys below are known today; the
         // check is what keeps the fourth one from repeating it.
-        val writtenKeys = buildList {
-            add("status")
-            if (resolved != null) add("superseded-by")
-            if (reviewed != null) add("review-by")
-        }
+        val writtenKeys =
+            buildList {
+                add("status")
+                if (resolved != null) add("superseded-by")
+                if (reviewed != null) add("review-by")
+            }
         require(writtenKeys.all { corpus.isKnownFrontmatterKey(it) }) {
             "refusing to update '$slug': frontmatter key(s) " +
                 "${writtenKeys.filterNot { corpus.isKnownFrontmatterKey(it) }} are not in " +
                 "${CORPUS_CONFIG_PATH} -> frontmatter.knownKeys, so the normalizer would " +
                 "reject this file as structurally broken"
         }
-        val rebuilt = buildList {
-            add("status: $status")
-            if (resolved != null) add("superseded-by: $resolved")
-            if (reviewed != null) add("review-by: $reviewed")
-            val kept = lines.subList(1, end).filterNot { line ->
-                line.startsWith("status:") || line.startsWith("superseded-by:") ||
-                    line.startsWith("superseded_by:") || line.startsWith("review-by:") ||
-                    line.startsWith("review_by:")
+        val rebuilt = rebuiltFrontmatter(lines, end, status, resolved, reviewed)
+        val out =
+            buildString {
+                append("---").append('\n')
+                append(rebuilt.joinToString("\n")).append('\n')
+                append("---").append('\n')
+                append(body.joinToString("\n"))
             }
-            addAll(kept)
-        }
-        val out = buildString {
-            append("---").append('\n')
-            append(rebuilt.joinToString("\n")).append('\n')
-            append("---").append('\n')
-            append(body.joinToString("\n"))
-        }
         // Keep the previous version beside the file so a bad rewrite is recoverable.
         runCatching {
             Path(filePath(slug) + ".bak.${clock.now().toEpochMilliseconds()}").writeText(original, Charsets.UTF_8)
@@ -495,6 +508,39 @@ class AdrStorage(
         path.writeText(out, Charsets.UTF_8)
         return path.toString()
     }
+
+    /**
+     * The frontmatter lines to write: the three known keys first, then the lines the file
+     * already had that are not one of them.
+     *
+     * A job of its own, split out of [updateAdr] — and split out because that method had
+     * grown past detekt's `LongMethod` limit once the formatter started putting the body
+     * of an expression on its own line.
+     *
+     * @param lines the whole file, one entry per line.
+     * @param end the index of the closing `---` fence.
+     * @param resolved the slug this decision is superseded by, or null.
+     * @param reviewed the ISO date this decision is due to be revisited on, or null.
+     */
+    private fun rebuiltFrontmatter(
+        lines: List<String>,
+        end: Int,
+        status: String,
+        resolved: String?,
+        reviewed: String?,
+    ): List<String> =
+        buildList {
+            add("status: $status")
+            if (resolved != null) add("superseded-by: $resolved")
+            if (reviewed != null) add("review-by: $reviewed")
+            val kept =
+                lines.subList(1, end).filterNot { line ->
+                    line.startsWith("status:") || line.startsWith("superseded-by:") ||
+                        line.startsWith("superseded_by:") || line.startsWith("review-by:") ||
+                        line.startsWith("review_by:")
+                }
+            addAll(kept)
+        }
 
     // ─── Data classes ─────────────────────────────────────────────────────────
 
@@ -572,7 +618,8 @@ class AdrStorage(
         // The two listings now read the two parts of the corpus, and the rule that
         // says a backlog entry is not a decision is applied where the decisions are
         // listed.
-        return corpus.deferred(decisionsDir)
+        return corpus
+            .deferred(decisionsDir)
             .mapNotNull { slug -> readAdrAt(Path(decisionsDir, corpus.deferredDir, "$slug.md")) }
             .filter { corpus.normalizeStatus(it.status) in OPEN_DEFERRED_STATES }
             .map { AdrSummary(it.slug, it.title, it.date, it.tags, it.status) }
@@ -591,7 +638,8 @@ class AdrStorage(
         val body = if (bodyStart != -1) content.substring(bodyStart + 3) else content
         return INLINE_STATUS
             .find(body)
-            ?.groupValues?.get(1)
+            ?.groupValues
+            ?.get(1)
             ?.trim()
             ?.split(" ")
             ?.firstOrNull()

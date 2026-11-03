@@ -35,7 +35,6 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class ProjectReminderCoordinatorTest {
-
     private val projectId = ProjectId("p1")
     private val owner = UserId("test-user")
     private val due = LocalDate(2026, 10, 15)
@@ -58,87 +57,92 @@ class ProjectReminderCoordinatorTest {
         defaultOffset = default,
     )
 
-    private fun project(dueDate: LocalDate?) = Project(
-        id = projectId,
-        name = "Test Project",
-        color = 0,
-        createdAt = at,
-        updatedAt = at,
-        dueDate = dueDate,
-        userId = owner,
-    )
+    private fun project(dueDate: LocalDate?) =
+        Project(
+            id = projectId,
+            name = "Test Project",
+            color = 0,
+            createdAt = at,
+            updatedAt = at,
+            dueDate = dueDate,
+            userId = owner,
+        )
 
-    private fun dueStartOfDayMillis() =
-        due.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+    private fun dueStartOfDayMillis() = due.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
 
     // ─── Reading the offset back ────────────────────────────────────────────────
 
     @Test
-    fun `with no reminder the project has no offset of its own`() = runTest {
-        val offsets = coordinator().offsets.first()
+    fun `with no reminder the project has no offset of its own`() =
+        runTest {
+            val offsets = coordinator().offsets.first()
 
-        assertEquals(null, offsets.current)
-        assertEquals(ReminderOffset.ONE_HOUR, offsets.default)
-    }
-
-    @Test
-    fun `a stored instant is read back as an offset from the due date`() = runTest {
-        val wanted = ReminderOffset.ONE_DAY
-        reminders.seed(
-            ProjectReminder(
-                id = ProjectReminderId("r1"),
-                projectId = projectId,
-                userId = owner,
-                fireAt = dueStartOfDayMillis() - wanted.minutes * 60_000L,
-            ),
-        )
-
-        assertEquals(wanted.minutes, coordinator().offsets.first().current)
-    }
+            assertEquals(null, offsets.current)
+            assertEquals(ReminderOffset.ONE_HOUR, offsets.default)
+        }
 
     @Test
-    fun `a project with no due date reports no offset even when a row exists`() = runTest {
-        currentProject.value = project(dueDate = null)
-        reminders.seed(
-            ProjectReminder(
-                id = ProjectReminderId("r1"),
-                projectId = projectId,
-                userId = owner,
-                fireAt = dueStartOfDayMillis(),
-            ),
-        )
+    fun `a stored instant is read back as an offset from the due date`() =
+        runTest {
+            val wanted = ReminderOffset.ONE_DAY
+            reminders.seed(
+                ProjectReminder(
+                    id = ProjectReminderId("r1"),
+                    projectId = projectId,
+                    userId = owner,
+                    fireAt = dueStartOfDayMillis() - wanted.minutes * 60_000L,
+                ),
+            )
 
-        assertEquals(
-            null,
-            coordinator().offsets.first().current,
-            "there is nothing to measure the offset from",
-        )
-    }
+            assertEquals(wanted.minutes, coordinator().offsets.first().current)
+        }
+
+    @Test
+    fun `a project with no due date reports no offset even when a row exists`() =
+        runTest {
+            currentProject.value = project(dueDate = null)
+            reminders.seed(
+                ProjectReminder(
+                    id = ProjectReminderId("r1"),
+                    projectId = projectId,
+                    userId = owner,
+                    fireAt = dueStartOfDayMillis(),
+                ),
+            )
+
+            assertEquals(
+                null,
+                coordinator().offsets.first().current,
+                "there is nothing to measure the offset from",
+            )
+        }
 
     // ─── The round trip ─────────────────────────────────────────────────────────
 
     @Test
-    fun `set stores fireAt exactly one offset before the start of the due date`() = runTest {
-        val outcome = coordinator().set(ReminderOffset.ONE_DAY.minutes)
+    fun `set stores fireAt exactly one offset before the start of the due date`() =
+        runTest {
+            val outcome = coordinator().set(ReminderOffset.ONE_DAY.minutes)
 
-        assertEquals(SetReminderOutcome.Applied, outcome)
-        val stored = reminders.all().single()
-        assertEquals(
-            ReminderOffset.ONE_DAY.minutes * 60_000L,
-            dueStartOfDayMillis() - stored.fireAt,
-            "the alarm must be anchored to the due date, not to 'now'",
-        )
-    }
+            assertEquals(SetReminderOutcome.Applied, outcome)
+            val stored = reminders.all().single()
+            assertEquals(
+                ReminderOffset.ONE_DAY.minutes * 60_000L,
+                dueStartOfDayMillis() - stored.fireAt,
+                "the alarm must be anchored to the due date, not to 'now'",
+            )
+        }
 
     @Test
-    fun `what set writes is what offsets reads back`() = runTest {
-        val chosen = ReminderOffset.ONE_HOUR.minutes
-        val subject = coordinator()
+    fun `what set writes is what offsets reads back`() =
+        runTest {
+            val chosen = ReminderOffset.ONE_HOUR.minutes
+            val subject = coordinator()
 
-        subject.set(chosen)
+            subject.set(chosen)
 
-        assertEquals(chosen, subject.offsets.first().current)
-    }
+            assertEquals(chosen, subject.offsets.first().current)
+        }
 
     /**
      * Re-picking must update the existing row.
@@ -148,67 +152,73 @@ class ProjectReminderCoordinatorTest {
      * first — a silent drift between what the picker shows and what is stored.
      */
     @Test
-    fun `setting twice updates in place instead of stacking rows`() = runTest {
-        val subject = coordinator()
+    fun `setting twice updates in place instead of stacking rows`() =
+        runTest {
+            val subject = coordinator()
 
-        subject.set(ReminderOffset.ONE_HOUR.minutes)
-        val firstId = reminders.all().single().id
+            subject.set(ReminderOffset.ONE_HOUR.minutes)
+            val firstId = reminders.all().single().id
 
-        subject.set(ReminderOffset.ONE_DAY.minutes)
+            subject.set(ReminderOffset.ONE_DAY.minutes)
 
-        assertEquals(1, reminders.all().size)
-        assertEquals(firstId, reminders.all().single().id)
-    }
+            assertEquals(1, reminders.all().size)
+            assertEquals(firstId, reminders.all().single().id)
+        }
 
     // ─── Removal ────────────────────────────────────────────────────────────────
 
     @Test
-    fun `a null offset removes the reminder`() = runTest {
-        val subject = coordinator()
-        subject.set(ReminderOffset.ONE_HOUR.minutes)
+    fun `a null offset removes the reminder`() =
+        runTest {
+            val subject = coordinator()
+            subject.set(ReminderOffset.ONE_HOUR.minutes)
 
-        val outcome = subject.set(null)
+            val outcome = subject.set(null)
 
-        assertEquals(SetReminderOutcome.Removed, outcome)
-        assertEquals(emptyList(), reminders.all())
-    }
+            assertEquals(SetReminderOutcome.Removed, outcome)
+            assertEquals(emptyList(), reminders.all())
+        }
 
     @Test
-    fun `a null offset on a project with no reminder is not an error`() = runTest {
-        assertEquals(SetReminderOutcome.Removed, coordinator().set(null))
-    }
+    fun `a null offset on a project with no reminder is not an error`() =
+        runTest {
+            assertEquals(SetReminderOutcome.Removed, coordinator().set(null))
+        }
 
     // ─── Refusals ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `an offset with no due date is rejected, not silently dropped`() = runTest {
-        currentProject.value = project(dueDate = null)
+    fun `an offset with no due date is rejected, not silently dropped`() =
+        runTest {
+            currentProject.value = project(dueDate = null)
 
-        val outcome = coordinator().set(ReminderOffset.ONE_HOUR.minutes)
+            val outcome = coordinator().set(ReminderOffset.ONE_HOUR.minutes)
 
-        assertEquals(SetReminderOutcome.NoDueDate, outcome)
-        assertEquals(emptyList(), reminders.all(), "a rejected request must not write a row")
-    }
-
-    @Test
-    fun `a refused write is reported rather than thrown`() = runTest {
-        val boom = IllegalStateException("disk full")
-        reminders.upsertOverride = Result.failure(boom)
-
-        val outcome = coordinator().set(ReminderOffset.ONE_HOUR.minutes)
-
-        assertEquals(SetReminderOutcome.Failed(boom), outcome)
-    }
+            assertEquals(SetReminderOutcome.NoDueDate, outcome)
+            assertEquals(emptyList(), reminders.all(), "a rejected request must not write a row")
+        }
 
     @Test
-    fun `a refused delete is reported rather than thrown`() = runTest {
-        val subject = coordinator()
-        subject.set(ReminderOffset.ONE_HOUR.minutes)
-        val boom = IllegalStateException("locked")
-        reminders.deleteByProjectOverride = Result.failure(boom)
+    fun `a refused write is reported rather than thrown`() =
+        runTest {
+            val boom = IllegalStateException("disk full")
+            reminders.upsertOverride = Result.failure(boom)
 
-        assertIs<SetReminderOutcome.Failed>(subject.set(null))
-    }
+            val outcome = coordinator().set(ReminderOffset.ONE_HOUR.minutes)
+
+            assertEquals(SetReminderOutcome.Failed(boom), outcome)
+        }
+
+    @Test
+    fun `a refused delete is reported rather than thrown`() =
+        runTest {
+            val subject = coordinator()
+            subject.set(ReminderOffset.ONE_HOUR.minutes)
+            val boom = IllegalStateException("locked")
+            reminders.deleteByProjectOverride = Result.failure(boom)
+
+            assertIs<SetReminderOutcome.Failed>(subject.set(null))
+        }
 
     // ─── The default never writes ───────────────────────────────────────────────
 
@@ -220,12 +230,13 @@ class ProjectReminderCoordinatorTest {
      * on the way in.
      */
     @Test
-    fun `reading the default does not create a reminder`() = runTest {
-        defaultOffset.value = ReminderOffset.ONE_DAY
+    fun `reading the default does not create a reminder`() =
+        runTest {
+            defaultOffset.value = ReminderOffset.ONE_DAY
 
-        val offsets = coordinator().offsets.first()
+            val offsets = coordinator().offsets.first()
 
-        assertEquals(ReminderOffset.ONE_DAY, offsets.default)
-        assertEquals(emptyList(), reminders.all())
-    }
+            assertEquals(ReminderOffset.ONE_DAY, offsets.default)
+            assertEquals(emptyList(), reminders.all())
+        }
 }

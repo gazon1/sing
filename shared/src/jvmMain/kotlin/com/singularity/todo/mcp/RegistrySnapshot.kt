@@ -20,7 +20,6 @@ import java.io.File
  * best-effort: a server that cannot write its registry still serves its tools.
  */
 object RegistrySnapshot {
-
     /**
      * The version of the snapshot's shape.
      *
@@ -37,7 +36,10 @@ object RegistrySnapshot {
     private const val TAG = "RegistrySnapshot"
 
     @Suppress("TooGenericExceptionCaught")
-    fun write(snapshot: ToolsetSnapshot, dataDirectory: String) {
+    fun write(
+        snapshot: ToolsetSnapshot,
+        dataDirectory: String,
+    ) {
         try {
             val dir = File(dataDirectory, DIRECTORY)
             dir.mkdirs()
@@ -50,22 +52,24 @@ object RegistrySnapshot {
         }
     }
 
-    private fun payload(snapshot: ToolsetSnapshot) = buildJsonObject {
-        put("schemaVersion", SCHEMA_VERSION)
-        put("startedAt", System.currentTimeMillis())
-        put("registeredTools", toolNames(snapshot.registered))
-        put("disabledTools", toolNames(snapshot.disabled))
-        put("configurationStatus", snapshot.configurationStatus.name.lowercase())
-        put("buildVersion", snapshot.identity.buildVersion)
-        put("catalogFingerprint", snapshot.identity.catalogFingerprint)
-        put("activeToolsetFingerprint", snapshot.identity.activeToolsetFingerprint)
-        // The flags that named no tool. The report is the operator's window on a
-        // running server, and "a flag names a tool this build does not have" is
-        // exactly the thing an operator looks for.
-        put("unmatchedFlags", JsonArray(snapshot.unmatchedFlags.map { JsonPrimitive(it) }))
-    }
+    private fun payload(snapshot: ToolsetSnapshot) =
+        buildJsonObject {
+            put("schemaVersion", SCHEMA_VERSION)
+            put("startedAt", System.currentTimeMillis())
+            put("registeredTools", toolNames(snapshot.registered))
+            put("disabledTools", toolNames(snapshot.disabled))
+            put("configurationStatus", snapshot.configurationStatus.name.lowercase())
+            put("buildVersion", snapshot.identity.buildVersion)
+            put("catalogFingerprint", snapshot.identity.catalogFingerprint)
+            put("activeToolsetFingerprint", snapshot.identity.activeToolsetFingerprint)
+            // The flags that named no tool. The report is the operator's window on a
+            // running server, and "a flag names a tool this build does not have" is
+            // exactly the thing an operator looks for.
+            put("unmatchedFlags", JsonArray(snapshot.unmatchedFlags.map { JsonPrimitive(it) }))
+        }
 
-    private fun toolNames(tools: List<ToolboxToolEntry>): JsonArray = buildJsonArray {
-        tools.sortedBy { it.name }.forEach { tool -> add(buildJsonObject { put("name", tool.name) }) }
-    }
+    private fun toolNames(tools: List<ToolboxToolEntry>): JsonArray =
+        buildJsonArray {
+            tools.sortedBy { it.name }.forEach { tool -> add(buildJsonObject { put("name", tool.name) }) }
+        }
 }

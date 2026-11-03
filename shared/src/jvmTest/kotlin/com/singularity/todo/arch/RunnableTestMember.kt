@@ -31,7 +31,6 @@ package com.singularity.todo.arch
  * classes against the classes that actually produced JUnit XML.
  */
 internal object RunnableTestMember {
-
     /**
      * Every JUnit 5 annotation that makes a member an actual test, plus the
      * `kotlin.test` spelling this project also uses.
@@ -46,10 +45,11 @@ internal object RunnableTestMember {
      * `@TestFactory` prefix, and a lookalike annotation such as `@TestFoo` would
      * read as a test.
      */
-    val TEST_MEMBER: Regex = Regex(
-        """^\s*@(?:(?:kotlin\.test|org\.junit\.jupiter\.api)\.)?""" +
-            """(?:Test|ParameterizedTest|RepeatedTest|TestFactory|TestTemplate)\b""",
-    )
+    val TEST_MEMBER: Regex =
+        Regex(
+            """^\s*@(?:(?:kotlin\.test|org\.junit\.jupiter\.api)\.)?""" +
+                """(?:Test|ParameterizedTest|RepeatedTest|TestFactory|TestTemplate)\b""",
+        )
 
     /**
      * The file with its comments and its string and character literal
@@ -71,8 +71,7 @@ internal object RunnableTestMember {
      * character is replaced by a space, so a line number from the result still
      * points at the same line of the source.
      */
-    fun codeLines(source: List<String>): List<String> =
-        stripCode(source.joinToString("\n")).split("\n")
+    fun codeLines(source: List<String>): List<String> = stripCode(source.joinToString("\n")).split("\n")
 
     /**
      * Lines of [codeLines] that belong to the body of the class declared at
@@ -86,7 +85,10 @@ internal object RunnableTestMember {
      * `EntityMapperCompletenessTest` declares its first test 340 lines below its
      * header, and a fixed window in N lines read that real test as absent.
      */
-    fun classBody(codeLines: List<String>, classIndex: Int): List<String> {
+    fun classBody(
+        codeLines: List<String>,
+        classIndex: Int,
+    ): List<String> {
         val declaration = codeLines[classIndex]
         // A bodyless declaration — `data object Alpha`, a sealed-interface
         // member — has no '{' here. Without this guard the counter would run to
@@ -105,7 +107,9 @@ internal object RunnableTestMember {
                         opened = true
                     }
 
-                    '}' -> depth--
+                    '}' -> {
+                        depth--
+                    }
                 }
             }
             if (opened && depth == 0) break
@@ -114,8 +118,10 @@ internal object RunnableTestMember {
     }
 
     /** True when the class at [classIndex] declares a member JUnit will execute. */
-    fun classHasTestMember(codeLines: List<String>, classIndex: Int): Boolean =
-        classBody(codeLines, classIndex).any { TEST_MEMBER.containsMatchIn(it) }
+    fun classHasTestMember(
+        codeLines: List<String>,
+        classIndex: Int,
+    ): Boolean = classBody(codeLines, classIndex).any { TEST_MEMBER.containsMatchIn(it) }
 
     /**
      * True when [source] declares a runnable test class.
@@ -143,15 +149,18 @@ internal object RunnableTestMember {
      * `find`, not `matchEntire`: a declaration continues with " {" or " :", and
      * an anchored full match silently skips every class in the repo.
      */
-    fun classHeaderAt(lines: List<String>, index: Int): String? =
-        CLASS_HEADER.find(lines[index].trim())
+    fun classHeaderAt(
+        lines: List<String>,
+        index: Int,
+    ): String? =
+        CLASS_HEADER
+            .find(lines[index].trim())
             ?.takeIf { it.range.first == 0 }
             ?.groupValues
             ?.get(1)
 
     /** `abstract class` / `open class` — a declaration that produces no run. */
-    fun abstractOrOpen(declaration: String): Boolean =
-        MODIFIER_BEFORE_CLASS.find(declaration.trim()) != null
+    fun abstractOrOpen(declaration: String): Boolean = MODIFIER_BEFORE_CLASS.find(declaration.trim()) != null
 
     private const val MODIFIERS =
         "(?:public |internal |private |protected |abstract |open |final |sealed |data |value )*"

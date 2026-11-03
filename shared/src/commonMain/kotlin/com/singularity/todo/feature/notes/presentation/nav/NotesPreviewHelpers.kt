@@ -18,11 +18,15 @@ class PreviewNotesNavigator(
         onExitGraph = {},
     ) {
     override fun openPreview(noteId: NoteId) { /* no-op for preview */ }
+
     override fun openEditor(noteId: NoteId?) { /* no-op for preview */ }
+
     override fun openTask(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) {
         onOpenTask(taskId)
     }
+
     override fun back() { /* no-op for preview */ }
+
     override fun closeGraph() { /* no-op for preview */ }
 }
 

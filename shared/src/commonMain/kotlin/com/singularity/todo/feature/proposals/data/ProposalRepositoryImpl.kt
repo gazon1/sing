@@ -2,11 +2,12 @@ package com.singularity.todo.feature.proposals.data
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.database.SyncColumns
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.ProposalId
-import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
@@ -26,7 +27,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
-import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Room-backed [ProposalRepository].
@@ -49,23 +49,24 @@ class ProposalRepositoryImpl(
     private val log: Logger = Logger.withTag("ProposalRepositoryImpl"),
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
 ) : ProposalRepository {
-
     override fun watchProposalsForTask(taskId: TaskId): Flow<List<AiProposal>> =
         currentUser.scopedUserId.flatMapLatest { userId ->
-            dao.watchProposalsForTarget(
-                taskId.value,
-                ProposalTargetKind.Task.storageValue,
-                userId.value,
-            ).map { rows -> rows.map { row -> hydrate(row) } }
+            dao
+                .watchProposalsForTarget(
+                    taskId.value,
+                    ProposalTargetKind.Task.storageValue,
+                    userId.value,
+                ).map { rows -> rows.map { row -> hydrate(row) } }
         }
 
     override fun watchProposalsForNote(noteId: NoteId): Flow<List<AiProposal>> =
         currentUser.scopedUserId.flatMapLatest { userId ->
-            dao.watchProposalsForTarget(
-                noteId.value,
-                ProposalTargetKind.Note.storageValue,
-                userId.value,
-            ).map { rows -> rows.map { row -> hydrate(row) } }
+            dao
+                .watchProposalsForTarget(
+                    noteId.value,
+                    ProposalTargetKind.Note.storageValue,
+                    userId.value,
+                ).map { rows -> rows.map { row -> hydrate(row) } }
         }
 
     override fun watchProposal(id: ProposalId): Flow<AiProposal?> =
@@ -84,28 +85,30 @@ class ProposalRepositoryImpl(
      */
     override fun watchWaitingProposals(): Flow<List<AiProposal>> =
         currentUser.scopedUserId.flatMapLatest { userId ->
-            dao.watchWaitingProposals(userId.value)
+            dao
+                .watchWaitingProposals(userId.value)
                 .map { rows -> rows.map { row -> hydrate(row) } }
                 .map { proposals -> proposals.filter { it.isWaiting } }
         }
 
-    override suspend fun save(proposal: AiProposal): Result<Unit> = runCatchingCancellable {
-        val now = clock.now().toEpochMilliseconds()
-        dao.upsertProposal(
-            AiProposalEntity(
-                id = proposal.id.value,
-                userId = proposal.userId.value,
-                source = proposal.source.name,
-                status = proposal.status.name,
-                targetKind = proposal.targetKind.storageValue,
-                targetId = proposal.targetId,
-                createdAt = proposal.createdAt.toEpochMilliseconds(),
-                updatedAt = now,
-                sync = SyncColumns(),
-            ),
-        )
-        proposal.items.forEach { item -> insertIfAbsent(item) }
-    }
+    override suspend fun save(proposal: AiProposal): Result<Unit> =
+        runCatchingCancellable {
+            val now = clock.now().toEpochMilliseconds()
+            dao.upsertProposal(
+                AiProposalEntity(
+                    id = proposal.id.value,
+                    userId = proposal.userId.value,
+                    source = proposal.source.name,
+                    status = proposal.status.name,
+                    targetKind = proposal.targetKind.storageValue,
+                    targetId = proposal.targetId,
+                    createdAt = proposal.createdAt.toEpochMilliseconds(),
+                    updatedAt = now,
+                    sync = SyncColumns(),
+                ),
+            )
+            proposal.items.forEach { item -> insertIfAbsent(item) }
+        }
 
     override suspend fun getItem(id: ProposalItemId): ProposalItem? = items.getItem(id.value)?.toDomain()
 
@@ -121,17 +124,19 @@ class ProposalRepositoryImpl(
         id: ProposalItemId,
         kind: ProposalItemKind,
         userId: UserId,
-    ): Result<ProposalItem?> = runCatchingCancellable {
-        val stored = items.getItem(id.value)?.toDomain() ?: return@runCatchingCancellable null
-        val rewritten = items.updatePendingItem(
-            userId = userId.value,
-            id = id.value,
-            kindJson = kind.toJsonString(),
-            humanSummary = kind.humanSummary,
-            fingerprint = ProposalFingerprint.of(kind, stored.targetId),
-        )
-        if (rewritten == 0) null else items.getItem(id.value)?.toDomain()
-    }
+    ): Result<ProposalItem?> =
+        runCatchingCancellable {
+            val stored = items.getItem(id.value)?.toDomain() ?: return@runCatchingCancellable null
+            val rewritten =
+                items.updatePendingItem(
+                    userId = userId.value,
+                    id = id.value,
+                    kindJson = kind.toJsonString(),
+                    humanSummary = kind.humanSummary,
+                    fingerprint = ProposalFingerprint.of(kind, stored.targetId),
+                )
+            if (rewritten == 0) null else items.getItem(id.value)?.toDomain()
+        }
 
     override suspend fun claim(
         id: ProposalItemId,
@@ -140,15 +145,17 @@ class ProposalRepositoryImpl(
         actor: DecidedActor,
         reason: String?,
         userId: UserId,
-    ): ProposalItem? = items.claimAndRead(
-        id = id.value,
-        userId = userId.value,
-        status = status.name,
-        expectedStatus = expected.name,
-        decidedAt = clock.now().toEpochMilliseconds(),
-        actor = actor.name,
-        reason = reason,
-    )?.toDomain()
+    ): ProposalItem? =
+        items
+            .claimAndRead(
+                id = id.value,
+                userId = userId.value,
+                status = status.name,
+                expectedStatus = expected.name,
+                decidedAt = clock.now().toEpochMilliseconds(),
+                actor = actor.name,
+                reason = reason,
+            )?.toDomain()
 
     /**
      * Puts a confirmed item back into `Pending`.
@@ -158,23 +165,28 @@ class ProposalRepositoryImpl(
      * stored here — the row keeps the decision fields empty, because there is no
      * decision.
      */
-    override suspend fun release(id: ProposalItemId, userId: UserId): Result<Unit> = runCatchingCancellable {
-        val released = items.releaseClaim(
-            userId = userId.value,
-            id = id.value,
-            actor = DecidedActor.User.name,
-        )
-        require(released > 0) {
-            "Proposal item ${id.value} was not released — it is no longer a confirmed change of this user"
+    override suspend fun release(
+        id: ProposalItemId,
+        userId: UserId,
+    ): Result<Unit> =
+        runCatchingCancellable {
+            val released =
+                items.releaseClaim(
+                    userId = userId.value,
+                    id = id.value,
+                    actor = DecidedActor.User.name,
+                )
+            require(released > 0) {
+                "Proposal item ${id.value} was not released — it is no longer a confirmed change of this user"
+            }
+        }.also { result ->
+            val error = result.exceptionOrNull() ?: return@also
+            log.e(error) {
+                "proposal item ${id.value}: the claim could not be released, so the change stays " +
+                    "decided although it was not applied"
+            }
+            crashReporter.report(error, "proposals.release_failed")
         }
-    }.also { result ->
-        val error = result.exceptionOrNull() ?: return@also
-        log.e(error) {
-            "proposal item ${id.value}: the claim could not be released, so the change stays " +
-                "decided although it was not applied"
-        }
-        crashReporter.report(error, "proposals.release_failed")
-    }
 
     /**
      * Recomputes a proposal's aggregate status from its items.
@@ -192,7 +204,10 @@ class ProposalRepositoryImpl(
      *
      * @see REQ-PROP-001
      */
-    override suspend fun refreshStatus(proposalId: ProposalId, userId: UserId): Result<Unit> =
+    override suspend fun refreshStatus(
+        proposalId: ProposalId,
+        userId: UserId,
+    ): Result<Unit> =
         // Explicit <Unit>: the last expression is `dao.updateProposalStatus`, which returns
         // Int, and chaining `.also` stops the declared return type from propagating into the
         // inference. Without it this compiles to Result<Int> and fails to assign.
@@ -209,18 +224,24 @@ class ProposalRepositoryImpl(
             crashReporter.report(error, "proposals.refresh_status_failed")
         }
 
-    override suspend fun retract(id: ProposalId, userId: UserId): Result<Unit> = runCatchingCancellable {
-        items.retractPendingItems(id.value, userId.value)
-        dao.updateProposalStatus(
-            id.value,
-            ProposalStatus.Retracted.name,
-            clock.now().toEpochMilliseconds(),
-            userId.value,
-        )
-    }
+    override suspend fun retract(
+        id: ProposalId,
+        userId: UserId,
+    ): Result<Unit> =
+        runCatchingCancellable {
+            items.retractPendingItems(id.value, userId.value)
+            dao.updateProposalStatus(
+                id.value,
+                ProposalStatus.Retracted.name,
+                clock.now().toEpochMilliseconds(),
+                userId.value,
+            )
+        }
 
-    override suspend fun rejectedFingerprints(userId: UserId, limit: Int): List<String> =
-        items.rejectedFingerprints(userId.value, limit)
+    override suspend fun rejectedFingerprints(
+        userId: UserId,
+        limit: Int,
+    ): List<String> = items.rejectedFingerprints(userId.value, limit)
 
     /**
      * Loads a proposal row with its items resolved.

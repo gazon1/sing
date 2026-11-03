@@ -39,7 +39,6 @@ import com.singularity.todo.core.security.ArchiveCryptoParams
  * | 3 | a chain sealed under a device key, with that key wrapped under the password |
  */
 object ArchiveFormat {
-
     /** The bytes that say "an encrypted archive follows". */
     const val MAGIC = "SGBK"
 

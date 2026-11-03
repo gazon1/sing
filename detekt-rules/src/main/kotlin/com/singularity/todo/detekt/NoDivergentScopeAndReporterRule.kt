@@ -56,7 +56,6 @@ import org.jetbrains.kotlin.psi.KtValueArgumentList
  * @see NoUnwiredReporterInBindingRule for the rule this is the sibling of.
  */
 class NoDivergentScopeAndReporterRule(config: Config) : Rule(config, "", null) {
-
     override fun visitClass(klass: KtClass) {
         super.visitClass(klass)
         if (!NoUnreportedFailurePathPolicy.isViewModelName(klass.name)) return
@@ -106,7 +105,6 @@ class NoDivergentScopeAndReporterRule(config: Config) : Rule(config, "", null) {
  * Split out so every branch has a test that does not need a detekt harness.
  */
 internal object NoDivergentScopeAndReporterPolicy {
-
     /** The primary constructor's parameter named `scope`, or null when there is none. */
     fun scopeParameter(klass: KtClass): KtParameter? =
         klass.primaryConstructorParameters.firstOrNull { it.name == "scope" }
@@ -166,18 +164,19 @@ class NoDivergentScopeAndReporterProvider : RuleSetProvider {
      * passed no reporter at all, and once for a class whose scope could be pointed somewhere
      * else entirely. Each was found by reading code, not by a gate.
      */
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoUnreportedFailurePath") to { cfg: Config ->
-                NoUnreportedFailurePathRule(cfg)
-            },
-            RuleName("NoUnwiredReporterInBinding") to { cfg: Config ->
-                NoUnwiredReporterInBindingRule(cfg)
-            },
-            RuleName("NoDivergentScopeAndReporter") to { cfg: Config ->
-                NoDivergentScopeAndReporterRule(cfg)
-            },
-        ),
-    )
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoUnreportedFailurePath") to { cfg: Config ->
+                    NoUnreportedFailurePathRule(cfg)
+                },
+                RuleName("NoUnwiredReporterInBinding") to { cfg: Config ->
+                    NoUnwiredReporterInBindingRule(cfg)
+                },
+                RuleName("NoDivergentScopeAndReporter") to { cfg: Config ->
+                    NoDivergentScopeAndReporterRule(cfg)
+                },
+            ),
+        )
 }

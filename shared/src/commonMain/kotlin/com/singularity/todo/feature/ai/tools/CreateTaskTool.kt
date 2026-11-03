@@ -5,9 +5,9 @@ import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.ProposedTask
 import com.singularity.todo.feature.proposals.domain.model.ReadResult
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
-import com.singularity.todo.feature.proposals.domain.model.ProposedTask
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -70,7 +70,6 @@ class CreateTaskTool(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : SimpleTool<CreateTaskInput>(TypeToken.of(CreateTaskInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: CreateTaskInput): String {
         val title = args.title.trim()
         if (title.isEmpty()) {
@@ -80,52 +79,64 @@ class CreateTaskTool(
         // The values the task will hold, read through the vocabulary. A name the
         // model invented is reported here, where the model can fix the call — not
         // later, when the user approves a proposal that cannot be applied.
-        val values = when (val read = readTaskValues(args)) {
-            is ReadResult.Ok -> read.value
-            is ReadResult.Rejected -> return failure(title, read.reason)
-        }
+        val values =
+            when (val read = readTaskValues(args)) {
+                is ReadResult.Ok -> read.value
+                is ReadResult.Rejected -> return failure(title, read.reason)
+            }
 
         // The id the task will have if the user says yes. Naming it now means the
         // proposal and the task agree on what it is.
         val taskId = TaskId.generate()
-        val kind = ProposalItemKind.CreateTask(
-            ProposedTask(
-                title = title,
-                description = args.description,
-                priority = values.priority,
-                kind = values.kind,
-                projectId = args.projectId,
-                parentTaskId = args.parentTaskId,
-                tagIds = args.tagIds,
-                dueDate = values.dueDate,
-                dueTime = values.dueTime,
-                someday = args.someday,
-            ),
-        )
+        val kind =
+            ProposalItemKind.CreateTask(
+                ProposedTask(
+                    title = title,
+                    description = args.description,
+                    priority = values.priority,
+                    kind = values.kind,
+                    projectId = args.projectId,
+                    parentTaskId = args.parentTaskId,
+                    tagIds = args.tagIds,
+                    dueDate = values.dueDate,
+                    dueTime = values.dueTime,
+                    someday = args.someday,
+                ),
+            )
 
-        val result = proposeChange(
-            proposals = proposals,
-            userId = currentUser.scopedUserId.value,
-            clock = clock,
-            items = proposalItems(listOf(kind), taskId.value),
-            targetId = taskId.value,
-        )
+        val result =
+            proposeChange(
+                proposals = proposals,
+                userId = currentUser.scopedUserId.value,
+                clock = clock,
+                items = proposalItems(listOf(kind), taskId.value),
+                targetId = taskId.value,
+            )
 
         return ToolOutputJson.encodeToString(
             CreateTaskOutput.serializer(),
             CreateTaskOutput(
                 proposalCreated = result.isSuccess,
-                proposalId = result.getOrNull()?.id?.value.orEmpty(),
+                proposalId =
+                    result
+                        .getOrNull()
+                        ?.id
+                        ?.value
+                        .orEmpty(),
                 title = title,
                 error = result.exceptionOrNull()?.message,
             ),
         )
     }
 
-    private fun failure(title: String, message: String): String = ToolOutputJson.encodeToString(
-        CreateTaskOutput.serializer(),
-        CreateTaskOutput(proposalCreated = false, proposalId = "", title = title, error = message),
-    )
+    private fun failure(
+        title: String,
+        message: String,
+    ): String =
+        ToolOutputJson.encodeToString(
+            CreateTaskOutput.serializer(),
+            CreateTaskOutput(proposalCreated = false, proposalId = "", title = title, error = message),
+        )
 
     companion object {
         const val NAME = "create_task"
@@ -150,35 +161,40 @@ class CreateTaskTool(
      * to report, and the model fixes the call and tries again.
      */
     private fun readTaskValues(args: CreateTaskInput): ReadResult<TaskValues> {
-        val priority = when (val read = TaskValue.readPriority(args.priority)) {
-            is ReadResult.Ok -> read.value
-            is ReadResult.Rejected -> return read
-        }
-        val kind = when (val read = TaskValue.readKind(args.kind)) {
-            is ReadResult.Ok -> read.value
-            is ReadResult.Rejected -> return read
-        }
-        val times = when (val read = readTaskTimes(args)) {
-            is ReadResult.Ok -> read.value
-            is ReadResult.Rejected -> return read
-        }
+        val priority =
+            when (val read = TaskValue.readPriority(args.priority)) {
+                is ReadResult.Ok -> read.value
+                is ReadResult.Rejected -> return read
+            }
+        val kind =
+            when (val read = TaskValue.readKind(args.kind)) {
+                is ReadResult.Ok -> read.value
+                is ReadResult.Rejected -> return read
+            }
+        val times =
+            when (val read = readTaskTimes(args)) {
+                is ReadResult.Ok -> read.value
+                is ReadResult.Rejected -> return read
+            }
         return ReadResult.Ok(TaskValues(priority, kind, times.dueDate, times.dueTime))
     }
 
     /** The dates a task proposal carries, read through the vocabulary. */
     private fun readTaskTimes(args: CreateTaskInput): ReadResult<TaskTimes> {
-        val dueDate = args.dueDate?.let { raw ->
-            when (val read = TaskValue.readDate(raw)) {
-                is ReadResult.Ok -> read.value
-                is ReadResult.Rejected -> return read
+        val dueDate =
+            args.dueDate?.let { raw ->
+                when (val read = TaskValue.readDate(raw)) {
+                    is ReadResult.Ok -> read.value
+                    is ReadResult.Rejected -> return read
+                }
             }
-        }
-        val dueTime = args.dueTime?.let { raw ->
-            when (val read = TaskValue.readTime(raw)) {
-                is ReadResult.Ok -> read.value
-                is ReadResult.Rejected -> return read
+        val dueTime =
+            args.dueTime?.let { raw ->
+                when (val read = TaskValue.readTime(raw)) {
+                    is ReadResult.Ok -> read.value
+                    is ReadResult.Rejected -> return read
+                }
             }
-        }
         return ReadResult.Ok(TaskTimes(dueDate, dueTime))
     }
 

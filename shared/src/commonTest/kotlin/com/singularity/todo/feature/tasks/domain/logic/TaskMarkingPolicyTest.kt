@@ -31,7 +31,6 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class TaskMarkingPolicyTest {
-
     private val today = LocalDate(2026, 10, 14)
     private val epoch0 = Instant.fromEpochMilliseconds(0)
 
@@ -45,33 +44,35 @@ class TaskMarkingPolicyTest {
         blockedBy: List<String> = emptyList(),
         followsUp: List<String> = emptyList(),
         workflowState: TaskWorkflowState = TaskWorkflowState.Open,
-    ): Task = Task(
-        id = TaskId(id),
-        title = "Task $id",
-        createdAt = epoch0,
-        updatedAt = epoch0,
-        userId = UserId("test"),
-        kind = TaskKind.Task,
-        priority = TaskPriority.None,
-        completedAt = if (completed) epoch0 else null,
-        archivedAt = if (trashed) epoch0 else null,
-        someday = false,
-        isPinned = pinned,
-        recurrence = if (recurring) {
-            RecurrenceSpec.Interval(
-                base = RecurrenceSpec.RecurrenceBase.FROM_DUE,
-                amount = 1,
-                unit = DateTimeUnit.DAY,
-            )
-        } else {
-            null
-        },
-        blockedBy = blockedBy.map { TaskId(it) }.toSet(),
-        followsUp = followsUp.map { TaskId(it) }.toSet(),
-        workflowState = workflowState,
-        dueDate = dueDate,
-        tags = emptyList(),
-    )
+    ): Task =
+        Task(
+            id = TaskId(id),
+            title = "Task $id",
+            createdAt = epoch0,
+            updatedAt = epoch0,
+            userId = UserId("test"),
+            kind = TaskKind.Task,
+            priority = TaskPriority.None,
+            completedAt = if (completed) epoch0 else null,
+            archivedAt = if (trashed) epoch0 else null,
+            someday = false,
+            isPinned = pinned,
+            recurrence =
+                if (recurring) {
+                    RecurrenceSpec.Interval(
+                        base = RecurrenceSpec.RecurrenceBase.FROM_DUE,
+                        amount = 1,
+                        unit = DateTimeUnit.DAY,
+                    )
+                } else {
+                    null
+                },
+            blockedBy = blockedBy.map { TaskId(it) }.toSet(),
+            followsUp = followsUp.map { TaskId(it) }.toSet(),
+            workflowState = workflowState,
+            dueDate = dueDate,
+            tags = emptyList(),
+        )
 
     // ─── The stored workflow state ──────────────────────────────────────
 

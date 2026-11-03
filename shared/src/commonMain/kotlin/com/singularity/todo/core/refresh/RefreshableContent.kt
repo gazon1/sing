@@ -91,9 +91,10 @@ fun RefreshableContent(
                 PullToRefreshDefaults.Indicator(
                     state = pullState,
                     isRefreshing = isRefreshing,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .testTag(TestTags.REFRESH_INDICATOR),
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopCenter)
+                            .testTag(TestTags.REFRESH_INDICATOR),
                 )
             },
         ) {

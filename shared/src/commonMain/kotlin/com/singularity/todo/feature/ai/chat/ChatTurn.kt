@@ -46,7 +46,6 @@ internal class ChatTurn(
     /** The conversation this turn belongs to. */
     private val history: List<ChatTurnRecord>,
 ) {
-
     /**
      * Runs the turn and emits its activity.
      *
@@ -54,50 +53,55 @@ internal class ChatTurn(
      * second turn, and a reader who saw the first attempt's text should not see the screen
      * arrive as if it were a different answer.
      */
-    fun run(prompt: String): Flow<AgentEvent> = flow {
-        // The filter exists only where there is something to hide: with no screen, a line that
-        // opens with a brace is the answer, not a message.
-        val answer: AnswerText? = if (surface != null) AnswerText() else null
-        var request: String = historyBlock() + prompt
-        var attempt: Int = 0
-        // Whether the attempt that is running finished. The agent completes a *call*, and a
-        // turn may be several calls: only the last attempt's completion says the turn is
-        // complete. An earlier attempt that completed and was corrected says nothing about
-        // the answer the reader ends up with.
-        var completed: Boolean = false
+    fun run(prompt: String): Flow<AgentEvent> =
+        flow {
+            // The filter exists only where there is something to hide: with no screen, a line that
+            // opens with a brace is the answer, not a message.
+            val answer: AnswerText? = if (surface != null) AnswerText() else null
+            var request: String = historyBlock() + prompt
+            var attempt: Int = 0
+            // Whether the attempt that is running finished. The agent completes a *call*, and a
+            // turn may be several calls: only the last attempt's completion says the turn is
+            // complete. An earlier attempt that completed and was corrected says nothing about
+            // the answer the reader ends up with.
+            var completed: Boolean = false
 
-        while (true) {
-            surface?.beginAttempt()
-            completed = false
-            agent.streamChat(request, instructions = surface?.instructions.orEmpty()).collect { event: AgentEvent ->
-                when (event) {
-                    is AgentEvent.TextDelta -> {
-                        surface?.accept(event.text)
-                        val shown: String = answer?.accept(event.text) ?: event.text
-                        if (shown.isNotEmpty()) emit(AgentEvent.TextDelta(shown))
+            while (true) {
+                surface?.beginAttempt()
+                completed = false
+                agent.streamChat(request, instructions = surface?.instructions.orEmpty()).collect { event: AgentEvent ->
+                    when (event) {
+                        is AgentEvent.TextDelta -> {
+                            surface?.accept(event.text)
+                            val shown: String = answer?.accept(event.text) ?: event.text
+                            if (shown.isNotEmpty()) emit(AgentEvent.TextDelta(shown))
+                        }
+
+                        is AgentEvent.TurnCompleted -> {
+                            completed = true
+                        }
+
+                        else -> {
+                            emit(event)
+                        }
                     }
-
-                    is AgentEvent.TurnCompleted -> completed = true
-
-                    else -> emit(event)
                 }
+                surface?.finish()
+
+                val rejections = surface?.rejections.orEmpty()
+                if (rejections.isEmpty() || attempt >= MAX_CORRECTIONS) break
+                attempt++
+                request = historyBlock() + prompt + surface!!.correctionRequest()
             }
-            surface?.finish()
 
-            val rejections = surface?.rejections.orEmpty()
-            if (rejections.isEmpty() || attempt >= MAX_CORRECTIONS) break
-            attempt++
-            request = historyBlock() + prompt + surface!!.correctionRequest()
+            // The turn completes once, and it completes on the strength of the last attempt: an
+            // answer that was corrected and then cut off is not a complete answer.
+            if (completed) emit(AgentEvent.TurnCompleted)
+
+            val tail: String = answer?.finish().orEmpty()
+            if (tail.isNotEmpty()) emit(AgentEvent.TextDelta(tail))
+            surface?.report()
         }
-
-        // The turn completes once, and it completes on the strength of the last attempt: an
-        // answer that was corrected and then cut off is not a complete answer.
-        if (completed) emit(AgentEvent.TurnCompleted)
-
-        val tail: String = answer?.finish().orEmpty()
-        if (tail.isNotEmpty()) emit(AgentEvent.TextDelta(tail))
-        surface?.report()
-    }
 
     /**
      * The conversation so far, in a form a model can use.
@@ -109,13 +113,15 @@ internal class ChatTurn(
      */
     private fun historyBlock(): String {
         if (history.isEmpty()) return ""
-        val lines: List<String> = history.takeLast(MAX_HISTORY).map { record: ChatTurnRecord ->
-            val answer: String = when {
-                record.answer.isBlank() -> "(showed a screen)"
-                else -> record.answer.take(REPLY_EXCERPT)
+        val lines: List<String> =
+            history.takeLast(MAX_HISTORY).map { record: ChatTurnRecord ->
+                val answer: String =
+                    when {
+                        record.answer.isBlank() -> "(showed a screen)"
+                        else -> record.answer.take(REPLY_EXCERPT)
+                    }
+                "user: ${record.user.take(REPLY_EXCERPT)}\nassistant: $answer"
             }
-            "user: ${record.user.take(REPLY_EXCERPT)}\nassistant: $answer"
-        }
         return buildString {
             append("Conversation so far:\n")
             lines.forEach { line: String ->

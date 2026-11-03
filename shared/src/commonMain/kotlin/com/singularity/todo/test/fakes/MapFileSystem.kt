@@ -24,7 +24,10 @@ class MapFileSystem(
 ) : FileSystem {
     override suspend fun readBytes(path: String): ByteArray = storage[path] ?: throw NoSuchFileException(path)
 
-    override suspend fun writeBytes(path: String, data: ByteArray) {
+    override suspend fun writeBytes(
+        path: String,
+        data: ByteArray,
+    ) {
         storage[path] = data
     }
 
@@ -34,7 +37,10 @@ class MapFileSystem(
      * The in-memory map has no rename, so the move is a removal and an
      * insertion — which is what a rename does to a directory anyway.
      */
-    override suspend fun move(from: String, to: String) {
+    override suspend fun move(
+        from: String,
+        to: String,
+    ) {
         val bytes = storage.remove(from) ?: throw NoSuchFileException(from)
         storage[to] = bytes
     }
@@ -83,7 +89,11 @@ class MapFileSystem(
         val bytes = storage[path] ?: throw NoSuchFileException(path)
         var position = 0
         return object : ByteSource {
-            override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            override fun read(
+                buffer: ByteArray,
+                offset: Int,
+                length: Int,
+            ): Int {
                 if (position >= bytes.size) return -1
                 val count = minOf(length, bytes.size - position)
                 bytes.copyInto(buffer, offset, position, position + count)
@@ -99,7 +109,11 @@ class MapFileSystem(
     override fun openWrite(path: String): ByteSink {
         var written = ByteArray(0)
         return object : ByteSink {
-            override fun write(buffer: ByteArray, offset: Int, length: Int) {
+            override fun write(
+                buffer: ByteArray,
+                offset: Int,
+                length: Int,
+            ) {
                 written += buffer.copyOfRange(offset, offset + length)
                 storage[path] = written
             }

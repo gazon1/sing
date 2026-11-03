@@ -36,7 +36,6 @@ import kotlin.test.assertNull
 @Tag("slow")
 @Tag("slow:migration")
 class Migration38To39Test {
-
     private lateinit var tempDir: File
     private lateinit var dbPath: String
 
@@ -52,7 +51,11 @@ class Migration38To39Test {
     }
 
     /** A profile as it existed at v38: no owner, because the column did not exist. */
-    private fun seedProfile(connection: SQLiteConnection, id: String, name: String) {
+    private fun seedProfile(
+        connection: SQLiteConnection,
+        id: String,
+        name: String,
+    ) {
         connection.execSQL(
             "INSERT INTO profiles (id,name,emoji,color_idx,is_default,created_at,updated_at) " +
                 "VALUES ('$id','$name','🏠',0,0,100,100)",
@@ -67,7 +70,10 @@ class Migration38To39Test {
      * by an empty id read identically — exactly the distinction this test exists to make.
      * `isNull()` is the API for it.
      */
-    private fun readUserId(connection: SQLiteConnection, id: String): String? {
+    private fun readUserId(
+        connection: SQLiteConnection,
+        id: String,
+    ): String? {
         val statement = connection.prepare("SELECT user_id FROM profiles WHERE id = ?")
         return try {
             statement.bindText(1, id)
@@ -92,68 +98,72 @@ class Migration38To39Test {
     }
 
     @Test
-    fun `an existing profile survives the upgrade`() = runTest {
-        createSqlDriver().open(dbPath).use { connection ->
-            applyExportedSchema(38, connection)
-            seedProfile(connection, "p-default", "Personal")
-            seedProfile(connection, "p-work", "Work")
+    fun `an existing profile survives the upgrade`() =
+        runTest {
+            createSqlDriver().open(dbPath).use { connection ->
+                applyExportedSchema(38, connection)
+                seedProfile(connection, "p-default", "Personal")
+                seedProfile(connection, "p-work", "Work")
 
-            Migration38To39().migrate(connection)
+                Migration38To39().migrate(connection)
 
-            assertEquals(2, countProfiles(connection), "the upgrade dropped a profile row")
+                assertEquals(2, countProfiles(connection), "the upgrade dropped a profile row")
+            }
         }
-    }
 
     /** The load-bearing assertion: a pre-existing profile is **not** attributed. */
     @Test
-    fun `an existing profile is unowned after the upgrade, not guessed at`() = runTest {
-        createSqlDriver().open(dbPath).use { connection ->
-            applyExportedSchema(38, connection)
-            seedProfile(connection, "p-default", "Personal")
+    fun `an existing profile is unowned after the upgrade, not guessed at`() =
+        runTest {
+            createSqlDriver().open(dbPath).use { connection ->
+                applyExportedSchema(38, connection)
+                seedProfile(connection, "p-default", "Personal")
 
-            Migration38To39().migrate(connection)
+                Migration38To39().migrate(connection)
 
-            assertNull(
-                readUserId(connection, "p-default"),
-                "the upgrade attributed an existing profile instead of leaving it unowned",
-            )
+                assertNull(
+                    readUserId(connection, "p-default"),
+                    "the upgrade attributed an existing profile instead of leaving it unowned",
+                )
+            }
         }
-    }
 
     @Test
-    fun `a profile written after the upgrade keeps the owner it was given`() = runTest {
-        createSqlDriver().open(dbPath).use { connection ->
-            applyExportedSchema(38, connection)
-            Migration38To39().migrate(connection)
+    fun `a profile written after the upgrade keeps the owner it was given`() =
+        runTest {
+            createSqlDriver().open(dbPath).use { connection ->
+                applyExportedSchema(38, connection)
+                Migration38To39().migrate(connection)
 
-            connection.execSQL(
-                "INSERT INTO profiles (id,name,emoji,color_idx,is_default,created_at,updated_at,user_id) " +
-                    "VALUES ('p-new','New','🤖',1,0,200,200,'owner-1')",
-            )
+                connection.execSQL(
+                    "INSERT INTO profiles (id,name,emoji,color_idx,is_default,created_at,updated_at,user_id) " +
+                        "VALUES ('p-new','New','🤖',1,0,200,200,'owner-1')",
+                )
 
-            assertEquals(
-                "owner-1",
-                readUserId(connection, "p-new"),
-                "the column did not store the owner it was given",
-            )
+                assertEquals(
+                    "owner-1",
+                    readUserId(connection, "p-new"),
+                    "the column did not store the owner it was given",
+                )
+            }
         }
-    }
 
     @Test
-    fun `a profile may be created unowned after the upgrade too`() = runTest {
-        createSqlDriver().open(dbPath).use { connection ->
-            applyExportedSchema(38, connection)
-            Migration38To39().migrate(connection)
+    fun `a profile may be created unowned after the upgrade too`() =
+        runTest {
+            createSqlDriver().open(dbPath).use { connection ->
+                applyExportedSchema(38, connection)
+                Migration38To39().migrate(connection)
 
-            connection.execSQL(
-                "INSERT INTO profiles (id,name,emoji,color_idx,is_default,created_at,updated_at) " +
-                    "VALUES ('p-anon','Anon','🏠',0,0,300,300)",
-            )
+                connection.execSQL(
+                    "INSERT INTO profiles (id,name,emoji,color_idx,is_default,created_at,updated_at) " +
+                        "VALUES ('p-anon','Anon','🏠',0,0,300,300)",
+                )
 
-            assertNull(
-                readUserId(connection, "p-anon"),
-                "a profile created without an owner must read as unowned, not as an empty owner",
-            )
+                assertNull(
+                    readUserId(connection, "p-anon"),
+                    "a profile created without an owner must read as unowned, not as an empty owner",
+                )
+            }
         }
-    }
 }

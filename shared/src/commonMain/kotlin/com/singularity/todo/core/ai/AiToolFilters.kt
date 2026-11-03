@@ -31,17 +31,24 @@ import com.singularity.todo.core.llm.resolveModel
  * The LLM model is resolved through [RemoteConfigSnapshot.modelFlags]:
  * if `flags["model.gpt-4o"] == false`, [resolveModel] falls back to [KnownModels.GPT4oMini].
  */
-fun filterTools(tools: List<Tool<*, *>>, flags: Map<String, Boolean>): List<Tool<*, *>> = tools.filter { tool ->
-    // A flag explicitly says false → the tool is disabled.
-    // Missing flag = not disabled (default true).
-    flags[tool.descriptor.name] != false
-}
+fun filterTools(
+    tools: List<Tool<*, *>>,
+    flags: Map<String, Boolean>,
+): List<Tool<*, *>> =
+    tools.filter { tool ->
+        // A flag explicitly says false → the tool is disabled.
+        // Missing flag = not disabled (default true).
+        flags[tool.descriptor.name] != false
+    }
 
 /**
  * Resolves [modelId] through [flags], falling back to [KnownModels.GPT4oMini]
  * when the flag explicitly disables the requested model.
  */
-fun resolveModelWithFlags(modelId: String, flags: Map<String, Boolean>): LLModel {
+fun resolveModelWithFlags(
+    modelId: String,
+    flags: Map<String, Boolean>,
+): LLModel {
     val modelKey = "model.$modelId"
     return if (flags[modelKey] == false) {
         KnownModels.GPT4oMini

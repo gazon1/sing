@@ -31,17 +31,18 @@ import org.koin.dsl.module
  * (a dummy URL + anon key). No network calls are made until the app actually needs
  * to talk to Supabase (e.g. sync), which the smoke flows don't exercise.
  */
-fun testAuthModule(): Module = module {
-    // Override: all methods are no-ops, no network calls.
-    single<AuthGateway> { NoOpAuthGateway() }
+fun testAuthModule(): Module =
+    module {
+        // Override: all methods are no-ops, no network calls.
+        single<AuthGateway> { NoOpAuthGateway() }
 
-    // Override: restores the session from the app's encrypted store, and installs
-    // a test session when the store holds none.
-    single<AuthRepository> {
-        StubAuthRepository(
-            sessionStore = get(),
-            context = get<Context>(),
-            scope = get(),
-        )
+        // Override: restores the session from the app's encrypted store, and installs
+        // a test session when the store holds none.
+        single<AuthRepository> {
+            StubAuthRepository(
+                sessionStore = get(),
+                context = get<Context>(),
+                scope = get(),
+            )
+        }
     }
-}

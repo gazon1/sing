@@ -19,7 +19,6 @@ open class ProjectsNavigator(
     private val backStack: NavBackStack<ProjectsRoute>,
     protected val onExitGraph: (AppDestination?) -> Unit,
 ) {
-
     /** Push a project detail onto the stack. */
     open fun openDetail(id: ProjectId) {
         backStack.add(ProjectsRoute.Detail(id))

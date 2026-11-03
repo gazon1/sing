@@ -7,15 +7,14 @@ import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
 import com.singularity.todo.feature.agenda.domain.selector.matches
-import kotlin.time.Duration.Companion.days
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.logic.computeTaskMarkings
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -27,39 +26,47 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
 
 @Tag("fast")
 class AgendaEvaluatorTest {
-
     // Fixed date so tests are deterministic regardless of the machine's system date.
     private val today: LocalDate = LocalDate(2026, Month.SEPTEMBER, 16)
 
     // SelectorContext for all Selector.matches calls in this class.
     // blockedIds is empty since no tests exercise the blocked path here.
-    private val context = SelectorContext(
-        today = today,
-        now = kotlin.time.Instant.fromEpochMilliseconds(0),
-        blockedIds = emptySet(),
-    )
+    private val context =
+        SelectorContext(
+            today = today,
+            now = kotlin.time.Instant.fromEpochMilliseconds(0),
+            blockedIds = emptySet(),
+        )
 
     /**
      * Context for [Selector.Stagnant] tests where `now - updatedAt >= 21.days`.
      * With [kotlin.time.Instant] epoch 0, set `updatedAt = -22.days` to get a 22-day gap.
      */
-    private val staleContext = SelectorContext(
-        today = today,
-        now = kotlin.time.Instant.fromEpochMilliseconds(0),
-        blockedIds = emptySet(),
-    )
+    private val staleContext =
+        SelectorContext(
+            today = today,
+            now = kotlin.time.Instant.fromEpochMilliseconds(0),
+            blockedIds = emptySet(),
+        )
 
     /**
      * Context for [Selector.Blocked] tests with a non-empty [SelectorContext.blockedIds].
      */
-    private fun blockedContext(vararg blocked: String) = SelectorContext(
-        today = today,
-        now = kotlin.time.Instant.fromEpochMilliseconds(0),
-        blockedIds = blocked.map { com.singularity.todo.feature.tasks.domain.model.TaskId(it) }.toSet(),
-    )
+    private fun blockedContext(vararg blocked: String) =
+        SelectorContext(
+            today = today,
+            now = kotlin.time.Instant.fromEpochMilliseconds(0),
+            blockedIds =
+                blocked
+                    .map {
+                        com.singularity.todo.feature.tasks.domain.model
+                            .TaskId(it)
+                    }.toSet(),
+        )
 
     private fun makeTask(
         id: String,
@@ -72,21 +79,26 @@ class AgendaEvaluatorTest {
         tags: List<TagId> = emptyList(),
         projectId: ProjectId? = null,
         updatedAt: kotlin.time.Instant = kotlin.time.Instant.fromEpochMilliseconds(0),
-    ): Task = Task(
-        id = com.singularity.todo.feature.tasks.domain.model.TaskId(id),
-        title = title,
-        dueDate = dueDate,
-        priority = priority,
-        isPinned = isPinned,
-        tags = tags,
-        projectId = projectId,
-        kind = TaskKind.Task,
-        completedAt = if (isCompleted) kotlin.time.Instant.fromEpochMilliseconds(0) else null,
-        archivedAt = if (isTrashed) kotlin.time.Instant.fromEpochMilliseconds(0) else null,
-        createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-        updatedAt = updatedAt,
-        userId = com.singularity.todo.core.ids.UserId("test-user"),
-    )
+    ): Task =
+        Task(
+            id =
+                com.singularity.todo.feature.tasks.domain.model
+                    .TaskId(id),
+            title = title,
+            dueDate = dueDate,
+            priority = priority,
+            isPinned = isPinned,
+            tags = tags,
+            projectId = projectId,
+            kind = TaskKind.Task,
+            completedAt = if (isCompleted) kotlin.time.Instant.fromEpochMilliseconds(0) else null,
+            archivedAt = if (isTrashed) kotlin.time.Instant.fromEpochMilliseconds(0) else null,
+            createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            updatedAt = updatedAt,
+            userId =
+                com.singularity.todo.core.ids
+                    .UserId("test-user"),
+        )
 
     // ─── Selector: DateBucket ──────────────────────────────────────────────────
 
@@ -260,12 +272,13 @@ class AgendaEvaluatorTest {
 
     @Test
     fun `Overdue does not match a trashed task that is past its due date`() {
-        val task = makeTask(
-            "1",
-            "Archived and late",
-            dueDate = today.minus(1, DateTimeUnit.DAY),
-            isTrashed = true,
-        )
+        val task =
+            makeTask(
+                "1",
+                "Archived and late",
+                dueDate = today.minus(1, DateTimeUnit.DAY),
+                isTrashed = true,
+            )
 
         assertFalse(
             Selector.Overdue.matches(task, context),
@@ -283,12 +296,13 @@ class AgendaEvaluatorTest {
 
     @Test
     fun `the overdue selector and the overdue marking agree on a trashed task`() {
-        val task = makeTask(
-            "1",
-            "Archived and late",
-            dueDate = today.minus(1, DateTimeUnit.DAY),
-            isTrashed = true,
-        )
+        val task =
+            makeTask(
+                "1",
+                "Archived and late",
+                dueDate = today.minus(1, DateTimeUnit.DAY),
+                isTrashed = true,
+            )
 
         val markedOverdue = computeTaskMarkings(task, today).contains(TaskMarking.Overdue)
         assertEquals(
@@ -443,22 +457,30 @@ class AgendaEvaluatorTest {
 
     @Test
     fun `evaluate produces sections in order`() {
-        val definition = AgendaDefinition(
-            title = "Test",
-            sections = listOf(
-                Section(
-                    id = "second",
-                    name = "Second",
-                    order = 1,
-                    selector = Selector.DateBucket(RelativeBucket.Tomorrow),
-                ),
-                Section(id = "first", name = "First", order = 0, selector = Selector.DateBucket(RelativeBucket.Today)),
-            ),
-        )
-        val tasks = listOf(
-            makeTask("1", "Today task", dueDate = today),
-            makeTask("2", "Tomorrow task", dueDate = today.plus(1, DateTimeUnit.DAY)),
-        )
+        val definition =
+            AgendaDefinition(
+                title = "Test",
+                sections =
+                    listOf(
+                        Section(
+                            id = "second",
+                            name = "Second",
+                            order = 1,
+                            selector = Selector.DateBucket(RelativeBucket.Tomorrow),
+                        ),
+                        Section(
+                            id = "first",
+                            name = "First",
+                            order = 0,
+                            selector = Selector.DateBucket(RelativeBucket.Today),
+                        ),
+                    ),
+            )
+        val tasks =
+            listOf(
+                makeTask("1", "Today task", dueDate = today),
+                makeTask("2", "Tomorrow task", dueDate = today.plus(1, DateTimeUnit.DAY)),
+            )
         val result = AgendaEvaluator.evaluate(tasks, definition, today, context.now)
         assertEquals(2, result.size)
         assertEquals("First", result[0].name)
@@ -467,22 +489,31 @@ class AgendaEvaluatorTest {
 
     @Test
     fun `evaluate applies discard semantics`() {
-        val definition = AgendaDefinition(
-            title = "Test",
-            sections = listOf(
-                Section(id = "all", name = "All", order = 0, selector = Selector.Anything, discard = true), // discard removes matched tasks
-                Section(
-                    id = "only-overdue",
-                    name = "Only Overdue",
-                    order = 1,
-                    selector = Selector.DateBucket(RelativeBucket.Overdue),
-                ),
-            ),
-        )
-        val tasks = listOf(
-            makeTask("1", "Overdue task", dueDate = today.minus(1, DateTimeUnit.DAY)),
-            makeTask("2", "Today task", dueDate = today),
-        )
+        val definition =
+            AgendaDefinition(
+                title = "Test",
+                sections =
+                    listOf(
+                        Section(
+                            id = "all",
+                            name = "All",
+                            order = 0,
+                            selector = Selector.Anything,
+                            discard = true, // discard removes matched tasks
+                        ),
+                        Section(
+                            id = "only-overdue",
+                            name = "Only Overdue",
+                            order = 1,
+                            selector = Selector.DateBucket(RelativeBucket.Overdue),
+                        ),
+                    ),
+            )
+        val tasks =
+            listOf(
+                makeTask("1", "Overdue task", dueDate = today.minus(1, DateTimeUnit.DAY)),
+                makeTask("2", "Today task", dueDate = today),
+            )
         val result = AgendaEvaluator.evaluate(tasks, definition, today, context.now)
         // "All" section captures both tasks; discard=true removes them from remaining.
         // "Only Overdue" section has 0 tasks (remaining is empty) and is dropped by mapNotNull.
@@ -493,17 +524,19 @@ class AgendaEvaluatorTest {
 
     @Test
     fun `evaluate marks an overdue task as overdue`() {
-        val definition = AgendaDefinition(
-            title = "Test",
-            sections = listOf(
-                Section(
-                    id = "overdue",
-                    name = "Overdue",
-                    order = 0,
-                    selector = Selector.DateBucket(RelativeBucket.Overdue),
-                ),
-            ),
-        )
+        val definition =
+            AgendaDefinition(
+                title = "Test",
+                sections =
+                    listOf(
+                        Section(
+                            id = "overdue",
+                            name = "Overdue",
+                            order = 0,
+                            selector = Selector.DateBucket(RelativeBucket.Overdue),
+                        ),
+                    ),
+            )
         val task = makeTask("1", "Late!", dueDate = today.minus(1, DateTimeUnit.DAY))
         val result = AgendaEvaluator.evaluate(listOf(task), definition, today, context.now)
         assertEquals(1, result.size)
@@ -515,23 +548,25 @@ class AgendaEvaluatorTest {
 
     @Test
     fun `evaluate skips empty sections`() {
-        val definition = AgendaDefinition(
-            title = "Test",
-            sections = listOf(
-                Section(
-                    id = "empty",
-                    name = "Empty",
-                    order = 0,
-                    selector = Selector.DateBucket(RelativeBucket.Tomorrow),
-                ),
-                Section(
-                    id = "has-today",
-                    name = "Has Today",
-                    order = 1,
-                    selector = Selector.DateBucket(RelativeBucket.Today),
-                ),
-            ),
-        )
+        val definition =
+            AgendaDefinition(
+                title = "Test",
+                sections =
+                    listOf(
+                        Section(
+                            id = "empty",
+                            name = "Empty",
+                            order = 0,
+                            selector = Selector.DateBucket(RelativeBucket.Tomorrow),
+                        ),
+                        Section(
+                            id = "has-today",
+                            name = "Has Today",
+                            order = 1,
+                            selector = Selector.DateBucket(RelativeBucket.Today),
+                        ),
+                    ),
+            )
         val tasks = listOf(makeTask("1", "Today task", dueDate = today))
         val result = AgendaEvaluator.evaluate(tasks, definition, today, context.now)
         assertEquals(1, result.size)
@@ -543,28 +578,33 @@ class AgendaEvaluatorTest {
         // Task is a data class — equality includes id (UUID), not just content.
         // This means two tasks with identical title/dates but different UUIDs are
         // distinct, which is the correct semantics for a globally unique identifier.
-        val definition = AgendaDefinition(
-            title = "Test",
-            sections = listOf(
-                Section(id = "all", name = "All", order = 0, selector = Selector.Anything),
-            ),
-        )
+        val definition =
+            AgendaDefinition(
+                title = "Test",
+                sections =
+                    listOf(
+                        Section(id = "all", name = "All", order = 0, selector = Selector.Anything),
+                    ),
+            )
         val base = makeTask("base", "Same title", dueDate = today)
         // task with different id but identical content
-        val duplicate = Task(
-            id = com.singularity.todo.feature.tasks.domain.model.TaskId.generate(),
-            title = "Same title",
-            dueDate = today,
-            priority = base.priority,
-            isPinned = base.isPinned,
-            tags = base.tags,
-            projectId = base.projectId,
-            kind = base.kind,
-            completedAt = base.completedAt,
-            createdAt = base.createdAt,
-            updatedAt = base.updatedAt,
-            userId = base.userId,
-        )
+        val duplicate =
+            Task(
+                id =
+                    com.singularity.todo.feature.tasks.domain.model.TaskId
+                        .generate(),
+                title = "Same title",
+                dueDate = today,
+                priority = base.priority,
+                isPinned = base.isPinned,
+                tags = base.tags,
+                projectId = base.projectId,
+                kind = base.kind,
+                completedAt = base.completedAt,
+                createdAt = base.createdAt,
+                updatedAt = base.updatedAt,
+                userId = base.userId,
+            )
         val tasks = listOf(base, duplicate)
         // Both appear because ids differ — toSet() uses UUID-based equality.
         val result = AgendaEvaluator.evaluate(tasks, definition, today, context.now)
@@ -575,12 +615,14 @@ class AgendaEvaluatorTest {
     fun `evaluate deduplicates by object identity when same id is passed twice`() {
         // If the same Task instance (same id) is passed twice, toSet() keeps one.
         // This is the correct semantics — the agenda never shows the same task twice.
-        val definition = AgendaDefinition(
-            title = "Test",
-            sections = listOf(
-                Section(id = "all", name = "All", order = 0, selector = Selector.Anything),
-            ),
-        )
+        val definition =
+            AgendaDefinition(
+                title = "Test",
+                sections =
+                    listOf(
+                        Section(id = "all", name = "All", order = 0, selector = Selector.Anything),
+                    ),
+            )
         val task = makeTask("1", "One task", dueDate = today)
         val tasks = listOf(task, task) // same instance twice
         val result = AgendaEvaluator.evaluate(tasks, definition, today, context.now)
@@ -589,16 +631,24 @@ class AgendaEvaluatorTest {
 
     @Test
     fun `evaluate sets badge to task count`() {
-        val definition = AgendaDefinition(
-            title = "Test",
-            sections = listOf(
-                Section(id = "today", name = "Today", order = 0, selector = Selector.DateBucket(RelativeBucket.Today)),
-            ),
-        )
-        val tasks = listOf(
-            makeTask("1", "Task 1", dueDate = today),
-            makeTask("2", "Task 2", dueDate = today),
-        )
+        val definition =
+            AgendaDefinition(
+                title = "Test",
+                sections =
+                    listOf(
+                        Section(
+                            id = "today",
+                            name = "Today",
+                            order = 0,
+                            selector = Selector.DateBucket(RelativeBucket.Today),
+                        ),
+                    ),
+            )
+        val tasks =
+            listOf(
+                makeTask("1", "Task 1", dueDate = today),
+                makeTask("2", "Task 2", dueDate = today),
+            )
         val result = AgendaEvaluator.evaluate(tasks, definition, today, context.now)
         assertEquals(2, result[0].badge)
     }

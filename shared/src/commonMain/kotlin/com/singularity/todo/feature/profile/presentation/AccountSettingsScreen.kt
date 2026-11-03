@@ -56,9 +56,10 @@ fun AccountSettingsScreen(
     var showSignOutConfirm by remember { mutableStateOf(false) }
 
     Column(
-        modifier = modifier
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+        modifier =
+            modifier
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         activeProfile?.let { profile ->
@@ -98,25 +99,27 @@ fun AccountSettingsScreen(
 
 @Preview
 @Composable
-private fun AccountSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    AccountSettingsScreenPreviewContent(
-        activeProfile = PreviewSamples.previewProfile,
-        onNavigateToProfileSwitcher = {},
-        onChangePassword = {},
-        onSignOut = {},
-    )
-}
+private fun AccountSettingsScreenLightPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        AccountSettingsScreenPreviewContent(
+            activeProfile = PreviewSamples.previewProfile,
+            onNavigateToProfileSwitcher = {},
+            onChangePassword = {},
+            onSignOut = {},
+        )
+    }
 
 @Preview
 @Composable
-private fun AccountSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    AccountSettingsScreenPreviewContent(
-        activeProfile = PreviewSamples.previewProfile,
-        onNavigateToProfileSwitcher = {},
-        onChangePassword = {},
-        onSignOut = {},
-    )
-}
+private fun AccountSettingsScreenDarkPreview() =
+    PreviewThemed(darkTheme = true, useSurface = false) {
+        AccountSettingsScreenPreviewContent(
+            activeProfile = PreviewSamples.previewProfile,
+            onNavigateToProfileSwitcher = {},
+            onChangePassword = {},
+            onSignOut = {},
+        )
+    }
 
 /**
  * Stateless preview variant that takes an explicit callback instead of [LocalSettingsNavigator].
@@ -128,18 +131,22 @@ internal fun AccountSettingsScreenPreviewContent(
     onNavigateToProfileSwitcher: () -> Unit,
     onChangePassword: () -> Unit,
     onSignOut: () -> Unit,
-    session: Session = Session.SignedIn(
-        userId = com.singularity.todo.core.ids.UserId.fromString("preview-user-id"),
-        email = "alice@example.com",
-        accessToken = "preview-token",
-        refreshToken = "preview-refresh",
-    ),
+    session: Session =
+        Session.SignedIn(
+            userId =
+                com.singularity.todo.core.ids.UserId
+                    .fromString("preview-user-id"),
+            email = "alice@example.com",
+            accessToken = "preview-token",
+            refreshToken = "preview-refresh",
+        ),
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+        modifier =
+            modifier
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         activeProfile?.let { profile ->
@@ -180,9 +187,10 @@ private fun ActiveProfileSection(profile: Profile) {
             Text(
                 text = profile.emoji,
                 style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape),
+                modifier =
+                    Modifier
+                        .size(40.dp)
+                        .clip(CircleShape),
             )
             Column {
                 Text(
@@ -233,8 +241,9 @@ private fun ProfileSwitcherSection(onSwitchProfile: () -> Unit) {
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
         }
         SelectableText(
-            text = "Switch to a different profile (Personal, AI Agent, etc.). Each profile has " +
-                "its own tasks, projects, and tags.",
+            text =
+                "Switch to a different profile (Personal, AI Agent, etc.). Each profile has " +
+                    "its own tasks, projects, and tags.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),

@@ -26,7 +26,11 @@ import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
  * Priority selection sheet with colored flag icons and radio buttons.
  */
 @Composable
-fun TaskEditorPrioritySheet(selected: TaskPriority, onSelect: (TaskPriority) -> Unit, modifier: Modifier = Modifier) {
+fun TaskEditorPrioritySheet(
+    selected: TaskPriority,
+    onSelect: (TaskPriority) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier.padding(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -34,11 +38,12 @@ fun TaskEditorPrioritySheet(selected: TaskPriority, onSelect: (TaskPriority) -> 
         TaskPriority.entries.forEach { priority ->
             val meta = priorityMeta(priority)
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(priority.testTag())
-                    .clickable { onSelect(priority) }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(priority.testTag())
+                        .clickable { onSelect(priority) }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
@@ -50,9 +55,10 @@ fun TaskEditorPrioritySheet(selected: TaskPriority, onSelect: (TaskPriority) -> 
                 Text(
                     text = meta.label,
                     style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 12.dp),
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .padding(start = 12.dp),
                 )
                 RadioButton(
                     selected = priority == selected,
@@ -75,10 +81,11 @@ fun TaskEditorPrioritySheet(selected: TaskPriority, onSelect: (TaskPriority) -> 
  * locale but the one it was written in. `TestTags.PRIORITY_OPTION_*` already
  * exists for exactly this, and this mapping is the only place the two meet.
  */
-private fun TaskPriority.testTag(): String = when (this) {
-    TaskPriority.None -> TestTags.PRIORITY_OPTION_NONE
-    TaskPriority.Low -> TestTags.PRIORITY_OPTION_LOW
-    TaskPriority.Medium -> TestTags.PRIORITY_OPTION_MEDIUM
-    TaskPriority.High -> TestTags.PRIORITY_OPTION_HIGH
-    TaskPriority.Urgent -> TestTags.PRIORITY_OPTION_URGENT
-}
+private fun TaskPriority.testTag(): String =
+    when (this) {
+        TaskPriority.None -> TestTags.PRIORITY_OPTION_NONE
+        TaskPriority.Low -> TestTags.PRIORITY_OPTION_LOW
+        TaskPriority.Medium -> TestTags.PRIORITY_OPTION_MEDIUM
+        TaskPriority.High -> TestTags.PRIORITY_OPTION_HIGH
+        TaskPriority.Urgent -> TestTags.PRIORITY_OPTION_URGENT
+    }

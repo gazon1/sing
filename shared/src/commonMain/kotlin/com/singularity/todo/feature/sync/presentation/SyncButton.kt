@@ -38,7 +38,11 @@ import com.singularity.todo.core.sync.SyncEngineStatus
  * Tapping triggers [SyncIntent.SyncNow].
  */
 @Composable
-fun SyncButton(status: SyncEngineStatus, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun SyncButton(
+    status: SyncEngineStatus,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val isRunning = status.isRunning()
 
     // Wrapping in key(status) means: when status changes, the entire block is
@@ -49,30 +53,33 @@ fun SyncButton(status: SyncEngineStatus, onClick: () -> Unit, modifier: Modifier
         val rotation by infiniteTransition.animateFloat(
             initialValue = 0f,
             targetValue = 360f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 1_500, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
+            animationSpec =
+                infiniteRepeatable(
+                    animation = tween(durationMillis = 1_500, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart,
+                ),
             label = "rotation",
         )
 
-        val icon = when (status) {
-            is SyncEngineStatus.Idle -> Icons.Default.CloudDone
+        val icon =
+            when (status) {
+                is SyncEngineStatus.Idle -> Icons.Default.CloudDone
 
-            is SyncEngineStatus.Pushing,
-            is SyncEngineStatus.Pulling,
-            -> Icons.Default.Refresh
+                is SyncEngineStatus.Pushing,
+                is SyncEngineStatus.Pulling,
+                -> Icons.Default.Refresh
 
-            is SyncEngineStatus.NoConnection -> Icons.Default.CloudOff
+                is SyncEngineStatus.NoConnection -> Icons.Default.CloudOff
 
-            is SyncEngineStatus.Failure -> Icons.Default.SyncProblem
-        }
+                is SyncEngineStatus.Failure -> Icons.Default.SyncProblem
+            }
 
-        val tint = when (status) {
-            is SyncEngineStatus.Failure -> MaterialTheme.colorScheme.error
-            is SyncEngineStatus.NoConnection -> MaterialTheme.colorScheme.outline
-            else -> MaterialTheme.colorScheme.onSurface
-        }
+        val tint =
+            when (status) {
+                is SyncEngineStatus.Failure -> MaterialTheme.colorScheme.error
+                is SyncEngineStatus.NoConnection -> MaterialTheme.colorScheme.outline
+                else -> MaterialTheme.colorScheme.onSurface
+            }
 
         IconButton(
             onClick = onClick,
@@ -81,19 +88,21 @@ fun SyncButton(status: SyncEngineStatus, onClick: () -> Unit, modifier: Modifier
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = when (status) {
-                    is SyncEngineStatus.Idle -> "Synced"
-                    is SyncEngineStatus.Pushing -> "Syncing…"
-                    is SyncEngineStatus.Pulling -> "Syncing…"
-                    is SyncEngineStatus.NoConnection -> "Offline"
-                    is SyncEngineStatus.Failure -> "Sync error"
-                },
+                contentDescription =
+                    when (status) {
+                        is SyncEngineStatus.Idle -> "Synced"
+                        is SyncEngineStatus.Pushing -> "Syncing…"
+                        is SyncEngineStatus.Pulling -> "Syncing…"
+                        is SyncEngineStatus.NoConnection -> "Offline"
+                        is SyncEngineStatus.Failure -> "Sync error"
+                    },
                 tint = tint,
-                modifier = Modifier
-                    .size(24.dp)
-                    .then(
-                        if (isRunning) Modifier.rotate(rotation) else Modifier,
-                    ),
+                modifier =
+                    Modifier
+                        .size(24.dp)
+                        .then(
+                            if (isRunning) Modifier.rotate(rotation) else Modifier,
+                        ),
             )
         }
     }

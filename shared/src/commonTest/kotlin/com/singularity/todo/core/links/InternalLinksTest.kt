@@ -15,7 +15,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class InternalLinksTest {
-
     // ─── parse ───────────────────────────────────────────────────────────────
 
     @Test

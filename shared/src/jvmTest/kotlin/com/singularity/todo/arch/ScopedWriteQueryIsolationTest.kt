@@ -1,7 +1,7 @@
 package com.singularity.todo.arch
 
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -41,7 +41,6 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class ScopedWriteQueryIsolationTest {
-
     @Test
     fun rule_accepts_a_scoped_update() {
         assertTrue(
@@ -93,24 +92,31 @@ class ScopedWriteQueryIsolationTest {
 
     @Test
     fun every_update_and_delete_query_scopes_itself_to_a_user() {
-        val root = System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
-        val offenders = File(root).walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .flatMap { file ->
-                queriesIn(file.readText()).mapNotNull { query ->
-                    val sql = query.text
-                    val head = sql.trim().substringBefore(' ').trim().uppercase()
-                    if (head != "UPDATE" && head != "DELETE") return@mapNotNull null
-                    if (!missingUserPredicate(sql)) return@mapNotNull null
-                    val key = sql.trim().replace(Regex("\\s+"), " ").take(80)
-                    if (key in ALLOWED_UNSCOPED) null else "${file.name} — $key"
-                }
-            }
-            .toList()
+        val root =
+            System.getProperty("commonMain.root")
+                ?: error(
+                    "commonMain.root system property is not set — " +
+                        "see the jvmTest task config in shared/build.gradle.kts",
+                )
+        val offenders =
+            File(root)
+                .walkTopDown()
+                .filter { it.isFile && it.extension == "kt" }
+                .flatMap { file ->
+                    queriesIn(file.readText()).mapNotNull { query ->
+                        val sql = query.text
+                        val head =
+                            sql
+                                .trim()
+                                .substringBefore(' ')
+                                .trim()
+                                .uppercase()
+                        if (head != "UPDATE" && head != "DELETE") return@mapNotNull null
+                        if (!missingUserPredicate(sql)) return@mapNotNull null
+                        val key = sql.trim().replace(Regex("\\s+"), " ").take(80)
+                        if (key in ALLOWED_UNSCOPED) null else "${file.name} — $key"
+                    }
+                }.toList()
 
         if (offenders.isNotEmpty()) {
             fail(
@@ -134,15 +140,17 @@ class ScopedWriteQueryIsolationTest {
         // would sail through. The real instance: the outbox's `markFailed` query was
         // wrapped to satisfy line length and its allowlist entry immediately reported
         // itself stale — the gate was reporting on a query it could no longer see.
-        val wrapped = """
+        val wrapped =
+            """
             @Query(
                 "UPDATE sync_outbox SET attempts = attempts + 1, last_error = :error, " +
                     "next_attempt_at = :nextAttemptAt WHERE patch_id = :id",
             )
-        """.trimIndent()
-        val onOneLine = "@Query(" +
-            "\"UPDATE sync_outbox SET attempts = attempts + 1, last_error = :error, " +
-            "next_attempt_at = :nextAttemptAt WHERE patch_id = :id\")"
+            """.trimIndent()
+        val onOneLine =
+            "@Query(" +
+                "\"UPDATE sync_outbox SET attempts = attempts + 1, last_error = :error, " +
+                "next_attempt_at = :nextAttemptAt WHERE patch_id = :id\")"
 
         assertEquals(
             queriesIn(onOneLine).map { normalise(it.text) },
@@ -153,12 +161,13 @@ class ScopedWriteQueryIsolationTest {
 
     @Test
     fun a_wrapped_unscoped_write_is_still_reported() {
-        val wrapped = """
+        val wrapped =
+            """
             @Query(
                 "DELETE FROM sync_something WHERE patch_id = :id " +
                     "AND entity_id = :entityId",
             )
-        """.trimIndent()
+            """.trimIndent()
 
         assertTrue(
             queriesIn(wrapped).any { missingUserPredicate(it.text) },
@@ -178,10 +187,12 @@ class ScopedWriteQueryIsolationTest {
     fun every_allowlist_entry_is_still_present() {
         """A stale allowlist entry hides a query that has since been fixed."""
         val root = System.getProperty("commonMain.root") ?: return
-        val allSql = File(root).walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .flatMap { queriesIn(it.readText()).map { q -> normalise(q.text) } }
-            .toList()
+        val allSql =
+            File(root)
+                .walkTopDown()
+                .filter { it.isFile && it.extension == "kt" }
+                .flatMap { queriesIn(it.readText()).map { q -> normalise(q.text) } }
+                .toList()
         val stale = ALLOWED_UNSCOPED.keys.filterNot { it in allSql }
         assertTrue(
             stale.isEmpty(),
@@ -190,6 +201,9 @@ class ScopedWriteQueryIsolationTest {
     }
 
     private data class Query(val text: String)
+
+    /** The key form the allowlist is written in: collapsed whitespace, 80 chars. */
+    private fun normalise(sql: String): String = sql.trim().replace(Regex("\\s+"), " ").take(80)
 
     /**
      * Every `@Query` string in [source], with concatenated literals joined.
@@ -204,24 +218,19 @@ class ScopedWriteQueryIsolationTest {
      * "went stale" the moment the query was wrapped. Reformatting a query silently
      * removed it from the gate.
      */
-
-    // The key form the allowlist is written in: collapsed whitespace, 80 chars.
-    private fun normalise(sql: String): String = sql.trim().replace(Regex("\\s+"), " ").take(80)
-
     private fun queriesIn(source: String): List<Query> =
         Regex(
             """@Query\(\s*((?:"(?:[^"\\]|\\.)*"\s*\+\s*)*"(?:[^"\\]|\\.)*")\s*,?\s*\)""",
             RegexOption.DOT_MATCHES_ALL,
-        )
-            .findAll(source)
+        ).findAll(source)
             .map { match ->
-                val literals = Regex(""""((?:[^"\\]|\\.)*)"""")
-                    .findAll(match.groupValues[1])
-                    .map { it.groupValues[1].replace("\\n", " ") }
-                    .toList()
+                val literals =
+                    Regex(""""((?:[^"\\]|\\.)*)"""")
+                        .findAll(match.groupValues[1])
+                        .map { it.groupValues[1].replace("\\n", " ") }
+                        .toList()
                 Query(literals.joinToString(" "))
-            }
-            .toList()
+            }.toList()
 
     private fun missingUserPredicate(sql: String): Boolean {
         val trimmed = sql.trim()
@@ -254,44 +263,45 @@ class ScopedWriteQueryIsolationTest {
          * than an entity — and retention/maintenance sweeps that are cross-user by
          * definition.
          */
-        val ALLOWED_UNSCOPED = mapOf(
-            "DELETE FROM llm_usage WHERE created_at < :cutoffEpochMs" to
-                "retention purge: rows are deleted by age, across every profile",
-            "DELETE FROM profiles WHERE id = :id" to
-                "the profiles table is not user-scoped — it defines the scopes",
-            "DELETE FROM remote_config_cache WHERE id = 'default'" to
-                "single global config row, no user dimension",
-            "DELETE FROM remote_configs WHERE id = 'default'" to
-                "single global config row, no user dimension",
-            "DELETE FROM sync_outbox WHERE patch_id = :id" to
-                "sync_outbox is a transport queue with no user_id column; patch_id is a UUID",
-            "UPDATE sync_outbox SET claim_token = :token WHERE patch_id IN (:ids) AND claim_t" to
-                "claiming rows for a push — patch_id is a UUID, rows already scoped by getPending",
-            "UPDATE sync_outbox SET claim_token = NULL WHERE patch_id IN (:ids) AND claim_tok" to
-                "releasing rows back onto the queue — patch_id is a UUID, guarded by the claim token",
-            // Exactly the 80-character normalised prefix the gate compares against.
-            "UPDATE sync_outbox SET attempts = attempts + 1, last_error = :error, next_attemp" to
-                "retry bookkeeping on a transport row keyed by a UUID",
-            // `DELETE FROM sync_outbox WHERE entity_id = :entityId` used to sit here,
-            // allowlisted on the grounds that a UUID cannot collide across profiles. It
-            // is gone rather than re-allowlisted: the query now scopes by `owner_id`,
-            // which this gate already recognises as a scoping column, so it is a scoped
-            // write and needs no exemption. Keeping the entry would have been a stale
-            // allowlist entry, which is exactly what `every_allowlist_entry_is_still_present`
-            // exists to catch — and it caught it. #209.
-            "DELETE FROM sync_outbox" to
-                "full outbox drain after a successful push — deliberately cross-profile",
-            "DELETE FROM sync_dead_letter WHERE patch_id = :id" to
-                "same transport queue, same absence of a user dimension; patch_id is a UUID",
-            "DELETE FROM sync_dead_letter" to
-                "full dead-letter drain — deliberately cross-profile",
-            "DELETE FROM sync_shadow" to
-                "drains every scope at once, alongside sync_state; leaving another " +
-                "account's shadow behind would make the next sign-in diff against a " +
-                "base describing someone else's uploads",
-            "DELETE FROM sync_state" to
-                "drains every scope at once — used on sign-out; leaving another " +
-                "account's cursor behind would resume it inside the wrong history",
-        )
+        val ALLOWED_UNSCOPED =
+            mapOf(
+                "DELETE FROM llm_usage WHERE created_at < :cutoffEpochMs" to
+                    "retention purge: rows are deleted by age, across every profile",
+                "DELETE FROM profiles WHERE id = :id" to
+                    "the profiles table is not user-scoped — it defines the scopes",
+                "DELETE FROM remote_config_cache WHERE id = 'default'" to
+                    "single global config row, no user dimension",
+                "DELETE FROM remote_configs WHERE id = 'default'" to
+                    "single global config row, no user dimension",
+                "DELETE FROM sync_outbox WHERE patch_id = :id" to
+                    "sync_outbox is a transport queue with no user_id column; patch_id is a UUID",
+                "UPDATE sync_outbox SET claim_token = :token WHERE patch_id IN (:ids) AND claim_t" to
+                    "claiming rows for a push — patch_id is a UUID, rows already scoped by getPending",
+                "UPDATE sync_outbox SET claim_token = NULL WHERE patch_id IN (:ids) AND claim_tok" to
+                    "releasing rows back onto the queue — patch_id is a UUID, guarded by the claim token",
+                // Exactly the 80-character normalised prefix the gate compares against.
+                "UPDATE sync_outbox SET attempts = attempts + 1, last_error = :error, next_attemp" to
+                    "retry bookkeeping on a transport row keyed by a UUID",
+                // `DELETE FROM sync_outbox WHERE entity_id = :entityId` used to sit here,
+                // allowlisted on the grounds that a UUID cannot collide across profiles. It
+                // is gone rather than re-allowlisted: the query now scopes by `owner_id`,
+                // which this gate already recognises as a scoping column, so it is a scoped
+                // write and needs no exemption. Keeping the entry would have been a stale
+                // allowlist entry, which is exactly what `every_allowlist_entry_is_still_present`
+                // exists to catch — and it caught it. #209.
+                "DELETE FROM sync_outbox" to
+                    "full outbox drain after a successful push — deliberately cross-profile",
+                "DELETE FROM sync_dead_letter WHERE patch_id = :id" to
+                    "same transport queue, same absence of a user dimension; patch_id is a UUID",
+                "DELETE FROM sync_dead_letter" to
+                    "full dead-letter drain — deliberately cross-profile",
+                "DELETE FROM sync_shadow" to
+                    "drains every scope at once, alongside sync_state; leaving another " +
+                    "account's shadow behind would make the next sign-in diff against a " +
+                    "base describing someone else's uploads",
+                "DELETE FROM sync_state" to
+                    "drains every scope at once — used on sign-out; leaving another " +
+                    "account's cursor behind would resume it inside the wrong history",
+            )
     }
 }

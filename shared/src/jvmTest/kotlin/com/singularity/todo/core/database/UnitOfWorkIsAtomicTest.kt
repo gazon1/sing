@@ -39,7 +39,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class UnitOfWorkIsAtomicTest {
-
     private lateinit var tempDir: File
     private lateinit var db: AppDatabase
     private lateinit var unitOfWork: UnitOfWork
@@ -57,101 +56,110 @@ class UnitOfWorkIsAtomicTest {
         tempDir.deleteRecursively()
     }
 
-    private val note = NoteEntity(
-        id = "n1",
-        userId = "u1",
-        title = "a note",
-        bodyMarkdown = null,
-        bodyHtml = null,
-        parentNoteId = null,
-        createdAt = 1L,
-        updatedAt = 1L,
-        deletedAt = null,
-        archivedAt = null,
-    )
-
-    private val outboxRow = SyncOutboxEntity(
-        patchId = "p1",
-        ownerId = "u1",
-        entityId = "n1",
-        entityType = DocType.Note.key,
-        payload = "{}",
-        createdAt = 1L,
-    )
-
-    @Test
-    fun `a write and the patch describing it both land`() = runTest {
-        unitOfWork.write {
-            db.noteDao().upsert(note)
-            db.syncOutboxDao().insert(outboxRow)
-        }
-
-        assertEquals(1, db.noteDao().getByIdForUser("n1", "u1")?.let { 1 } ?: 0, "the row did not land")
-        assertEquals(
-            1,
-            db.syncOutboxDao().getPending(now = 1L, ownerId = "u1", profileId = "").size,
-            "the patch did not land",
+    private val note =
+        NoteEntity(
+            id = "n1",
+            userId = "u1",
+            title = "a note",
+            bodyMarkdown = null,
+            bodyHtml = null,
+            parentNoteId = null,
+            createdAt = 1L,
+            updatedAt = 1L,
+            deletedAt = null,
+            archivedAt = null,
         )
-    }
+
+    private val outboxRow =
+        SyncOutboxEntity(
+            patchId = "p1",
+            ownerId = "u1",
+            entityId = "n1",
+            entityType = DocType.Note.key,
+            payload = "{}",
+            createdAt = 1L,
+        )
 
     @Test
-    fun `a failure between the row and the patch rolls the row back too`() = runTest {
-        // The half that loses the user's edit silently: the row is written, the patch
-        // never is, and the device carries an edit no future cycle will ever send.
-        assertFailsWith<IllegalStateException> {
-            unitOfWork.write {
-                db.noteDao().upsert(note)
-                error("the patch could not be built")
-            }
-        }
-
-        assertNull(db.noteDao().getByIdForUser("n1", "u1"), "the row survived a failed unit of work")
-    }
-
-    @Test
-    fun `a failure after the patch rolls the patch back too`() = runTest {
-        // The other half, and the worse one: the server is told about a document this
-        // device does not have.
-        assertFailsWith<IllegalStateException> {
+    fun `a write and the patch describing it both land`() =
+        runTest {
             unitOfWork.write {
                 db.noteDao().upsert(note)
                 db.syncOutboxDao().insert(outboxRow)
-                error("the row's timestamp could not be written")
             }
-        }
 
-        assertNull(
-            db.syncOutboxDao().getPending(now = 1L, ownerId = "u1", profileId = "").singleOrNull(),
-            "a patch outlived the row it describes",
-        )
-        assertNull(db.noteDao().getByIdForUser("n1", "u1"), "the row survived the rollback")
-    }
+            assertEquals(1, db.noteDao().getByIdForUser("n1", "u1")?.let { 1 } ?: 0, "the row did not land")
+            assertEquals(
+                1,
+                db.syncOutboxDao().getPending(now = 1L, ownerId = "u1", profileId = "").size,
+                "the patch did not land",
+            )
+        }
 
     @Test
-    fun `the value the block returns reaches the caller`() = runTest {
-        val written = unitOfWork.write {
-            db.noteDao().upsert(note)
-            db.noteDao().getByIdForUser("n1", "u1")
-        }
+    fun `a failure between the row and the patch rolls the row back too`() =
+        runTest {
+            // The half that loses the user's edit silently: the row is written, the patch
+            // never is, and the device carries an edit no future cycle will ever send.
+            assertFailsWith<IllegalStateException> {
+                unitOfWork.write {
+                    db.noteDao().upsert(note)
+                    error("the patch could not be built")
+                }
+            }
 
-        assertTrue(written != null, "a call site that needs the written row must still have it")
-    }
+            assertNull(db.noteDao().getByIdForUser("n1", "u1"), "the row survived a failed unit of work")
+        }
 
     @Test
-    fun `a nested unit of work commits once, not twice`() = runTest {
-        // Repositories call one another, and a nested `write` that opened its own
-        // transaction would either deadlock or commit the outer work early — which
-        // would reintroduce the split this port exists to remove.
-        unitOfWork.write {
-            db.noteDao().upsert(note)
-            unitOfWork.write { db.syncOutboxDao().insert(outboxRow) }
+    fun `a failure after the patch rolls the patch back too`() =
+        runTest {
+            // The other half, and the worse one: the server is told about a document this
+            // device does not have.
+            assertFailsWith<IllegalStateException> {
+                unitOfWork.write {
+                    db.noteDao().upsert(note)
+                    db.syncOutboxDao().insert(outboxRow)
+                    error("the row's timestamp could not be written")
+                }
+            }
+
+            assertNull(
+                db.syncOutboxDao().getPending(now = 1L, ownerId = "u1", profileId = "").singleOrNull(),
+                "a patch outlived the row it describes",
+            )
+            assertNull(db.noteDao().getByIdForUser("n1", "u1"), "the row survived the rollback")
         }
 
-        val noteLanded = db.noteDao().getByIdForUser("n1", "u1") != null
-        val patchLanded = db.syncOutboxDao().getPending(now = 1L, ownerId = "u1", profileId = "").singleOrNull() != null
-        assertTrue(
-            noteLanded && patchLanded,
-            "a nested write did not join the outer transaction",
-        )
-    }
+    @Test
+    fun `the value the block returns reaches the caller`() =
+        runTest {
+            val written =
+                unitOfWork.write {
+                    db.noteDao().upsert(note)
+                    db.noteDao().getByIdForUser("n1", "u1")
+                }
+
+            assertTrue(written != null, "a call site that needs the written row must still have it")
+        }
+
+    @Test
+    fun `a nested unit of work commits once, not twice`() =
+        runTest {
+            // Repositories call one another, and a nested `write` that opened its own
+            // transaction would either deadlock or commit the outer work early — which
+            // would reintroduce the split this port exists to remove.
+            unitOfWork.write {
+                db.noteDao().upsert(note)
+                unitOfWork.write { db.syncOutboxDao().insert(outboxRow) }
+            }
+
+            val noteLanded = db.noteDao().getByIdForUser("n1", "u1") != null
+            val patchLanded =
+                db.syncOutboxDao().getPending(now = 1L, ownerId = "u1", profileId = "").singleOrNull() != null
+            assertTrue(
+                noteLanded && patchLanded,
+                "a nested write did not join the outer transaction",
+            )
+        }
 }

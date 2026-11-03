@@ -8,7 +8,10 @@ package com.singularity.todo.core.analytics
  * useful when no real SDK is connected or when the user has opted out.
  */
 class NoopAnalytics : Analytics {
-    override fun logEvent(event: String, vararg params: Pair<String, Any>) {
+    override fun logEvent(
+        event: String,
+        vararg params: Pair<String, Any>,
+    ) {
         // no-op
     }
 

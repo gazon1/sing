@@ -5,24 +5,25 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
+import com.singularity.todo.core.search.SearchMode
+import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.core.text.FieldOwnedText
-import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.featureSlot.combineStates
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
 import com.singularity.todo.feature.search.query.Query
-import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.query.SimpleFilterMapper
 import com.singularity.todo.feature.search.query.UnsupportedSimpleFilterException
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,9 +33,8 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 
 // ─── UI contracts ─────────────────────────────────────────────────────────────
 
@@ -102,11 +102,17 @@ sealed interface SearchUiEvent : MviEvent {
  */
 sealed interface SearchIntent : MviIntent {
     data class OnQueryChange(val query: String) : SearchIntent
+
     data class OnApplyFilter(val filter: SimpleFilter?) : SearchIntent
+
     data class OnSaveCurrentSearch(val name: String) : SearchIntent
+
     data class OnLoadSavedSearch(val id: SavedSearchId) : SearchIntent
+
     data class OnDeleteSavedSearch(val id: SavedSearchId) : SearchIntent
+
     data class OnRenameSavedSearch(val id: SavedSearchId, val newName: String) : SearchIntent
+
     data class OnTogglePin(val taskId: TaskId) : SearchIntent
 
     /** The mode the free text is matched in was changed. */
@@ -138,7 +144,6 @@ class SearchViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     /**
      * Secondary constructor used by Koin, which does not supply a query parser.
      *
@@ -157,7 +162,11 @@ class SearchViewModel(
         searchUseCase = searchUseCase,
         savedSearchRepo = savedSearchRepo,
         taskRepo = taskRepo,
-        parseQuery = { input -> com.singularity.todo.feature.search.query.SingularityQueryParser(input).parse() },
+        parseQuery = { input ->
+            com.singularity.todo.feature.search.query
+                .SingularityQueryParser(input)
+                .parse()
+        },
         clock = clock,
         crashReporter = crashReporter,
     )
@@ -197,8 +206,7 @@ class SearchViewModel(
                             searchUseCase(q, userId, mode).collect { send(it) }
                         }
                     }
-                }
-                .collect { results ->
+                }.collect { results ->
                     updateState {
                         it.copy(results = results, isSearching = false)
                     }
@@ -361,14 +369,15 @@ class SearchViewModel(
             // Fetch once — avoid duplicate get() calls
             val existingEntity = existingId?.let { savedSearchRepo.get(it) }
 
-            val savedSearch = SavedSearch(
-                id = existingEntity?.id ?: SavedSearchId.generate(),
-                userId = UserId.anonymous,
-                name = name,
-                queryString = queryString,
-                createdAt = existingEntity?.createdAt ?: now,
-                updatedAt = now,
-            )
+            val savedSearch =
+                SavedSearch(
+                    id = existingEntity?.id ?: SavedSearchId.generate(),
+                    userId = UserId.anonymous,
+                    name = name,
+                    queryString = queryString,
+                    createdAt = existingEntity?.createdAt ?: now,
+                    updatedAt = now,
+                )
 
             savedSearchRepo.upsert(savedSearch).fold(
                 onSuccess = { updated ->
@@ -397,12 +406,16 @@ class SearchViewModel(
         }
     }
 
-    private fun onRenameSavedSearch(id: SavedSearchId, newName: String) {
+    private fun onRenameSavedSearch(
+        id: SavedSearchId,
+        newName: String,
+    ) {
         vmScope.launch {
-            val existing = savedSearchRepo.get(id) ?: run {
-                emit(SearchUiEvent.Error("Saved search not found"))
-                return@launch
-            }
+            val existing =
+                savedSearchRepo.get(id) ?: run {
+                    emit(SearchUiEvent.Error("Saved search not found"))
+                    return@launch
+                }
             val updated = existing.copy(name = newName, updatedAt = clock.now())
             savedSearchRepo.upsert(updated).fold(
                 onSuccess = {},

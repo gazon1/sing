@@ -1,18 +1,18 @@
 package com.singularity.todo.test.helpers
 
 import androidx.compose.ui.graphics.toAwtImage
-import java.awt.Color as AwtColor
+import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.isRoot
-import androidx.compose.ui.semantics.SemanticsNode
-import androidx.compose.ui.semantics.getOrNull
 import java.awt.BasicStroke
 import java.awt.Font
 import java.awt.Graphics2D
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
+import java.awt.Color as AwtColor
 
 /**
  * Draws bounding-box overlays onto a Compose screenshot.
@@ -70,8 +70,11 @@ fun DesktopComposeUiTest.captureAnnotated(
     writeNodesFile(
         nodesFile,
         tagged,
-        if (ambiguous) "$highlightTag [NOTE: ${roots.size} semantics roots; overlay roots appended]".trim()
-        else highlightTag,
+        if (ambiguous) {
+            "$highlightTag [NOTE: ${roots.size} semantics roots; overlay roots appended]".trim()
+        } else {
+            highlightTag
+        },
     )
 
     // Draw the annotated image.
@@ -90,9 +93,12 @@ fun DesktopComposeUiTest.captureAnnotated(
         annotatedGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
         annotatedGraphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
 
-        val nearby = highlightTag?.let { wanted ->
-            tagged.map { it.second }.filter { it.contains(wanted.take(4), ignoreCase = true) }
-        }.orEmpty().toSet()
+        val nearby =
+            highlightTag
+                ?.let { wanted ->
+                    tagged.map { it.second }.filter { it.contains(wanted.take(4), ignoreCase = true) }
+                }.orEmpty()
+                .toSet()
 
         for ((node, tag) in tagged) {
             val color = if (tag == highlightTag || tag in nearby) AwtColor(255, 0, 0) else AwtColor(128, 128, 128)
@@ -222,35 +228,43 @@ private fun writeNodesFile(
     tagged: List<Pair<SemanticsNode, String>>,
     highlightTag: String?,
 ) {
-    val nearby = highlightTag?.let { wanted ->
-        tagged.map { it.second }.filter { it.contains(wanted.take(4), ignoreCase = true) }
-    }.orEmpty().toSet()
+    val nearby =
+        highlightTag
+            ?.let { wanted ->
+                tagged.map { it.second }.filter { it.contains(wanted.take(4), ignoreCase = true) }
+            }.orEmpty()
+            .toSet()
 
-    val lines = buildList<String> {
-        add("Semantic nodes with testTag (${tagged.size} total)")
-        add("Highlighted: ${highlightTag ?: "(none)"}")
-        if (nearby.isNotEmpty()) {
-            add("Nearby candidates: ${nearby.joinToString { "'$it'" }}")
+    val lines =
+        buildList<String> {
+            add("Semantic nodes with testTag (${tagged.size} total)")
+            add("Highlighted: ${highlightTag ?: "(none)"}")
+            if (nearby.isNotEmpty()) {
+                add("Nearby candidates: ${nearby.joinToString { "'$it'" }}")
+            }
+            add("")
+            for ((node, tag) in tagged) {
+                val text =
+                    node.config
+                        .getOrNull(SemanticsProperties.Text)
+                        ?.joinToString(" / ") { it.text }
+                        ?.take(60)
+                        ?: ""
+                val desc =
+                    node.config
+                        .getOrNull(SemanticsProperties.ContentDescription)
+                        ?.joinToString(" / ")
+                        ?: ""
+                val selected = node.config.getOrNull(SemanticsProperties.Selected)
+                val b = node.boundsInRoot
+                val flag = if (tag == highlightTag || tag in nearby) " ←" else ""
+                add("  $tag$flag")
+                if (text.isNotEmpty()) add("    text=$text")
+                if (desc.isNotEmpty()) add("    contentDescription=$desc")
+                if (selected != null) add("    selected=$selected")
+                add("    bounds=(${b.left.toInt()},${b.top.toInt()}) w=${b.width.toInt()} h=${b.height.toInt()}")
+            }
         }
-        add("")
-        for ((node, tag) in tagged) {
-            val text = node.config.getOrNull(SemanticsProperties.Text)
-                ?.joinToString(" / ") { it.text }
-                ?.take(60)
-                ?: ""
-            val desc = node.config.getOrNull(SemanticsProperties.ContentDescription)
-                ?.joinToString(" / ")
-                ?: ""
-            val selected = node.config.getOrNull(SemanticsProperties.Selected)
-            val b = node.boundsInRoot
-            val flag = if (tag == highlightTag || tag in nearby) " ←" else ""
-            add("  $tag$flag")
-            if (text.isNotEmpty()) add("    text=$text")
-            if (desc.isNotEmpty()) add("    contentDescription=$desc")
-            if (selected != null) add("    selected=$selected")
-            add("    bounds=(${b.left.toInt()},${b.top.toInt()}) w=${b.width.toInt()} h=${b.height.toInt()}")
-        }
-    }
     runCatching { file.writeText(lines.joinToString("\n")) }
 }
 
@@ -258,7 +272,10 @@ private fun writeNodesFile(
  * Visits every [SemanticsNode] in the subtree rooted at [root], calling [visit]
  * for each one (including the root itself). Traversal is depth-first.
  */
-private fun visitNodes(root: SemanticsNode, visit: (SemanticsNode) -> Unit) {
+private fun visitNodes(
+    root: SemanticsNode,
+    visit: (SemanticsNode) -> Unit,
+) {
     fun recurse(node: SemanticsNode) {
         visit(node)
         node.children.forEach { recurse(it) }

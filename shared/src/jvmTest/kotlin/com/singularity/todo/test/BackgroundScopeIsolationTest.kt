@@ -62,7 +62,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class BackgroundScopeIsolationTest {
-
     /**
      * Minimal VM that collects a flow in its init block — the exact pattern
      * that breaks with `backgroundScope`.
@@ -80,19 +79,20 @@ class BackgroundScopeIsolationTest {
     }
 
     @Test
-    fun `testScope drives collectors with advanceUntilIdle`() = runTest {
-        val source = MutableStateFlow("seeded")
+    fun `testScope drives collectors with advanceUntilIdle`() =
+        runTest {
+            val source = MutableStateFlow("seeded")
 
-        // Correct pattern: testScope uses the body's scheduler.
-        val vmScope = testScope(this)
-        val vm = TestViewModel(source, vmScope)
+            // Correct pattern: testScope uses the body's scheduler.
+            val vmScope = testScope(this)
+            val vm = TestViewModel(source, vmScope)
 
-        advanceUntilIdle()
+            advanceUntilIdle()
 
-        assertEquals("seeded", vm.state.value, "collector on testScope must see the seeded value")
+            assertEquals("seeded", vm.state.value, "collector on testScope must see the seeded value")
 
-        vmScope.job?.cancel()
-    }
+            vmScope.job?.cancel()
+        }
 
     // ── The broken pattern ─────────────────────────────────────────────────────
 

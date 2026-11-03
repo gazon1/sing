@@ -54,7 +54,6 @@ import kotlin.test.assertEquals
 @Tag("slow")
 @Tag("slow:compose")
 class TextFieldBridgeFlowTest {
-
     /**
      * The task title is the clearest case of the field → app state direction:
      * the editor's Save button is derived from `validate(draft)`, so it enables
@@ -62,26 +61,27 @@ class TextFieldBridgeFlowTest {
      * own text.
      */
     @Test
-    fun the_task_title_reaches_the_draft_and_clearing_it_disables_save() = runDesktopAppTest(checkA11y = true) {
-        clickContentDescription(DesktopShell.FAB_ADD_TASK)
+    fun the_task_title_reaches_the_draft_and_clearing_it_disables_save() =
+        runDesktopAppTest(checkA11y = true) {
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
 
-        typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
+            typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
 
-        // The field shows what was typed ...
-        assertTagTextEquals(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
-        // ... and the draft behind it accepted it: Save is enabled only while
-        // validate(draft) accepts the title, so an enabled button is proof the
-        // text crossed the bridge into the ViewModel.
-        awaitEnabledState(TestTags.TASK_EDITOR_SAVE, enabled = true)
-        assertTagEnabled(TestTags.TASK_EDITOR_SAVE)
+            // The field shows what was typed ...
+            assertTagTextEquals(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
+            // ... and the draft behind it accepted it: Save is enabled only while
+            // validate(draft) accepts the title, so an enabled button is proof the
+            // text crossed the bridge into the ViewModel.
+            awaitEnabledState(TestTags.TASK_EDITOR_SAVE, enabled = true)
+            assertTagEnabled(TestTags.TASK_EDITOR_SAVE)
 
-        // Clearing must cross the bridge as well. A title that only ever lived
-        // in the field would leave the draft holding "Buy milk" and the editor
-        // would happily save a task the user had emptied.
-        clearTag(TestTags.TASK_EDITOR_TITLE_INPUT)
-        awaitEnabledState(TestTags.TASK_EDITOR_SAVE, enabled = false)
-        assertTagNotEnabled(TestTags.TASK_EDITOR_SAVE)
-    }
+            // Clearing must cross the bridge as well. A title that only ever lived
+            // in the field would leave the draft holding "Buy milk" and the editor
+            // would happily save a task the user had emptied.
+            clearTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+            awaitEnabledState(TestTags.TASK_EDITOR_SAVE, enabled = false)
+            assertTagNotEnabled(TestTags.TASK_EDITOR_SAVE)
+        }
 
     /**
      * The project name, same shape as the task title: `canSave` is
@@ -89,21 +89,22 @@ class TextFieldBridgeFlowTest {
      * the ViewModel's copy of the name and not the field's.
      */
     @Test
-    fun the_project_name_reaches_the_draft_and_clearing_it_disables_save() = runDesktopAppTest(checkA11y = true) {
-        openAllProjects()
-        clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
+    fun the_project_name_reaches_the_draft_and_clearing_it_disables_save() =
+        runDesktopAppTest(checkA11y = true) {
+            openAllProjects()
+            clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
 
-        typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
+            typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
 
-        assertFieldText(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
-        awaitEnabledState(TestTags.PROJECT_EDITOR_SAVE, enabled = true)
-        assertTagEnabled(TestTags.PROJECT_EDITOR_SAVE)
+            assertFieldText(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
+            awaitEnabledState(TestTags.PROJECT_EDITOR_SAVE, enabled = true)
+            assertTagEnabled(TestTags.PROJECT_EDITOR_SAVE)
 
-        // A blank name must not be savable, so the clear has to reach the draft.
-        clearTag(TestTags.PROJECT_EDITOR_NAME_INPUT)
-        awaitEnabledState(TestTags.PROJECT_EDITOR_SAVE, enabled = false)
-        assertTagNotEnabled(TestTags.PROJECT_EDITOR_SAVE)
-    }
+            // A blank name must not be savable, so the clear has to reach the draft.
+            clearTag(TestTags.PROJECT_EDITOR_NAME_INPUT)
+            awaitEnabledState(TestTags.PROJECT_EDITOR_SAVE, enabled = false)
+            assertTagNotEnabled(TestTags.PROJECT_EDITOR_SAVE)
+        }
 
     /**
      * The projects search field.
@@ -127,40 +128,42 @@ class TextFieldBridgeFlowTest {
      * loses the query cannot take the text away with it.
      */
     @Test
-    fun the_project_search_query_filters_the_list() = runDesktopAppTest(checkA11y = true) {
-        openAllProjects()
-        clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
-        typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
-        // The name has to reach the draft before Save means anything: the button is
-        // enabled by the draft, not by the field.
-        awaitEnabledState(TestTags.PROJECT_EDITOR_SAVE, enabled = true)
-        clickTag(TestTags.PROJECT_EDITOR_SAVE)
-        // The list comes back asynchronously after the save, so the card is waited
-        // for rather than asserted once.
-        awaitTag(TestTags.projectCard("Project Alpha"))
+    fun the_project_search_query_filters_the_list() =
+        runDesktopAppTest(checkA11y = true) {
+            openAllProjects()
+            clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
+            typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
+            // The name has to reach the draft before Save means anything: the button is
+            // enabled by the draft, not by the field.
+            awaitEnabledState(TestTags.PROJECT_EDITOR_SAVE, enabled = true)
+            clickTag(TestTags.PROJECT_EDITOR_SAVE)
+            // The list comes back asynchronously after the save, so the card is waited
+            // for rather than asserted once.
+            awaitTag(TestTags.projectCard("Project Alpha"))
 
-        // A query that matches nothing must reach the ViewModel: the card is
-        // filtered out of the list.
-        typeIntoTag(TestTags.PROJECTS_SEARCH_INPUT, "zzz")
-        assertFieldText(TestTags.PROJECTS_SEARCH_INPUT, "zzz")
-        awaitTagGone(TestTags.projectCard("Project Alpha"))
-    }
+            // A query that matches nothing must reach the ViewModel: the card is
+            // filtered out of the list.
+            typeIntoTag(TestTags.PROJECTS_SEARCH_INPUT, "zzz")
+            assertFieldText(TestTags.PROJECTS_SEARCH_INPUT, "zzz")
+            awaitTagGone(TestTags.projectCard("Project Alpha"))
+        }
 
     /**
      * The saved-agenda name. The field arrives with a seeded default, so the
      * test replaces it wholesale — the same way a rename does.
      */
     @Test
-    fun the_saved_agenda_name_reaches_the_draft() = runDesktopAppTest(checkA11y = true) {
-        // Boot lands on the Today agenda; its top bar carries the bookmark-add
-        // control that opens the saved-agenda editor.
-        clickTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
-        awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT)
+    fun the_saved_agenda_name_reaches_the_draft() =
+        runDesktopAppTest(checkA11y = true) {
+            // Boot lands on the Today agenda; its top bar carries the bookmark-add
+            // control that opens the saved-agenda editor.
+            clickTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
+            awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT)
 
-        typeIntoTag(TestTags.SAVED_AGENDA_NAME_INPUT, "Saved By Test")
+            typeIntoTag(TestTags.SAVED_AGENDA_NAME_INPUT, "Saved By Test")
 
-        assertFieldText(TestTags.SAVED_AGENDA_NAME_INPUT, "Saved By Test")
-    }
+            assertFieldText(TestTags.SAVED_AGENDA_NAME_INPUT, "Saved By Test")
+        }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -172,7 +175,10 @@ class TextFieldBridgeFlowTest {
      * keystroke. A one-shot assertion would race the very transition it is
      * about, so the wait comes first and the assertion only confirms it.
      */
-    private fun DesktopComposeUiTest.awaitEnabledState(tag: String, enabled: Boolean) {
+    private fun DesktopComposeUiTest.awaitEnabledState(
+        tag: String,
+        enabled: Boolean,
+    ) {
         waitUntil(
             conditionDescription = "node with testTag '$tag' is ${if (enabled) "enabled" else "disabled"}",
             timeoutMillis = TIMEOUT_MS,
@@ -191,7 +197,10 @@ class TextFieldBridgeFlowTest {
      * field's decoration (its placeholder) is merged into the same node and
      * would otherwise be mistaken for the field's own content.
      */
-    private fun DesktopComposeUiTest.awaitTagText(tag: String, expected: String) {
+    private fun DesktopComposeUiTest.awaitTagText(
+        tag: String,
+        expected: String,
+    ) {
         waitUntil(
             conditionDescription = "node with testTag '$tag' holds the text '$expected'",
             timeoutMillis = TIMEOUT_MS,
@@ -209,14 +218,16 @@ class TextFieldBridgeFlowTest {
      * a field with a placeholder is "Project name" + the value — and `assertTextEquals`
      * compares that combination, not the value.
      */
-    private fun DesktopComposeUiTest.assertFieldText(tag: String, expected: String) {
+    private fun DesktopComposeUiTest.assertFieldText(
+        tag: String,
+        expected: String,
+    ) {
         val node = awaitTag(tag).fetchSemanticsNode()
         assertEquals(expected, node.editableText(), "the field '$tag' holds")
     }
 
     /** The text a text field holds, or null when the node is not a text field. */
-    private fun SemanticsNode.editableText(): String? =
-        config.getOrNull(SemanticsProperties.EditableText)?.text
+    private fun SemanticsNode.editableText(): String? = config.getOrNull(SemanticsProperties.EditableText)?.text
 
     private companion object {
         /** Generous upper bound; real transitions settle in well under a second. */

@@ -22,7 +22,6 @@ package com.singularity.todo.feature.calendarSync.auth
  * in one place that a test can drive with a canned body.
  */
 interface GoogleTokenGateway {
-
     /**
      * Redeems a server auth code for an access token.
      *

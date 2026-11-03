@@ -9,8 +9,8 @@ import com.singularity.todo.core.ui.components.sheet.ListPickerItem
 import com.singularity.todo.core.ui.components.sheet.ListPickerSheet
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Modal bottom sheet that lists every AI action available for [task].
@@ -21,7 +21,11 @@ import kotlinx.collections.immutable.ImmutableList
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TaskAiBottomSheet(task: Task, onAction: (TaskAiAction) -> Unit, onDismiss: () -> Unit) {
+fun TaskAiBottomSheet(
+    task: Task,
+    onAction: (TaskAiAction) -> Unit,
+    onDismiss: () -> Unit,
+) {
     ListPickerSheet(
         title = "AI Actions for: ${task.title}",
         items = AI_ACTION_ITEMS,
@@ -38,19 +42,21 @@ fun TaskAiBottomSheet(task: Task, onAction: (TaskAiAction) -> Unit, onDismiss: (
  * recomposition of the sheet that shows it.
  */
 private val AI_ACTION_ITEMS: ImmutableList<ListPickerItem<TaskAiAction>> =
-    TaskAiAction.entries.map { action ->
-        ListPickerItem(
-            key = action,
-            label = action.label(),
-            leading = @Composable { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
-        )
-    }.toImmutableList()
+    TaskAiAction.entries
+        .map { action ->
+            ListPickerItem(
+                key = action,
+                label = action.label(),
+                leading = @Composable { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
+            )
+        }.toImmutableList()
 
-private fun TaskAiAction.label(): String = when (this) {
-    TaskAiAction.RefineTitle -> "Refine title"
-    TaskAiAction.GenerateDescription -> "Generate description"
-    TaskAiAction.GenerateChecklist -> "Generate checklist"
-    TaskAiAction.Decompose -> "Decompose into sub-tasks"
-    TaskAiAction.SuggestTime -> "Suggest time"
-    TaskAiAction.FirstStep -> "Find the first step"
-}
+private fun TaskAiAction.label(): String =
+    when (this) {
+        TaskAiAction.RefineTitle -> "Refine title"
+        TaskAiAction.GenerateDescription -> "Generate description"
+        TaskAiAction.GenerateChecklist -> "Generate checklist"
+        TaskAiAction.Decompose -> "Decompose into sub-tasks"
+        TaskAiAction.SuggestTime -> "Suggest time"
+        TaskAiAction.FirstStep -> "Find the first step"
+    }

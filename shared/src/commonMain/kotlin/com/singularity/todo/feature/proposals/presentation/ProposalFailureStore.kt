@@ -25,14 +25,16 @@ import kotlinx.coroutines.flow.asStateFlow
  * its own: it reads the reasons the decisions hold.
  */
 class ProposalFailureStore {
-
     private val reasons = MutableStateFlow<Map<ProposalItemId, String>>(emptyMap())
 
     /** The reasons, as the surface's state shows them. */
     val state: StateFlow<Map<ProposalItemId, String>> = reasons.asStateFlow()
 
     /** Keeps [message] next to the change it belongs to. */
-    fun record(itemId: ProposalItemId, message: String) {
+    fun record(
+        itemId: ProposalItemId,
+        message: String,
+    ) {
         reasons.value = reasons.value + (itemId to message)
     }
 

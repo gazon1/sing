@@ -47,9 +47,10 @@ fun runIsolatedComposeTest(
         // Attach the unmerged semantics tree as a suppressed exception.
         // A bare `println` is lost when only the XML report is read; a suppressed
         // exception rides the stack trace into every runner's report.
-        val tree = runCatching {
-            semanticsTree(maxDepth = 25)
-        }.getOrElse { "<semantics tree unavailable: ${it.message}>" }
+        val tree =
+            runCatching {
+                semanticsTree(maxDepth = 25)
+            }.getOrElse { "<semantics tree unavailable: ${it.message}>" }
         t.addSuppressed(AssertionError("Semantics tree at failure:\n$tree"))
         throw t
     }

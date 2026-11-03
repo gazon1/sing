@@ -11,8 +11,9 @@ import kotlinx.serialization.json.Json
  *
  * Replaces 3 identical copies in: [SyncEngine], [BackupImporter], [BackupExporter].
  */
-val StableJson: Json = Json {
-    classDiscriminator = "_type"
-    encodeDefaults = true
-    ignoreUnknownKeys = true
-}
+val StableJson: Json =
+    Json {
+        classDiscriminator = "_type"
+        encodeDefaults = true
+        ignoreUnknownKeys = true
+    }

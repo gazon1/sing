@@ -22,7 +22,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class TaskOutgoingLinksTest {
-
     // ─── extractOutgoingLinks ─────────────────────────────────────────────────
 
     @Test

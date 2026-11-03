@@ -50,7 +50,8 @@ import kotlinx.collections.immutable.persistentSetOf
 data class TaskUi(
     val id: TaskId,
     val title: String,
-    val project: String?, // null -> no badge
+    // null -> no badge
+    val project: String?,
     /**
      * The project's ARGB colour, or `null` when there is no project.
      *
@@ -58,7 +59,7 @@ data class TaskUi(
      * project up. The Compose conversion is `Color(projectColor)`.
      */
     val projectColor: Int? = null,
-    val dueLabel: String?, // pre-formatted date: "Сб, 05 сент 2026"
+    val dueLabel: String?, // pre-formatted date: "Сб, 05 сен 2026"
     val parentId: String? = null, // null = top-level, otherwise parent TaskId.value
     val indentLevel: Int = 0, // 0 for top-level, 1 for direct child
     val isPinned: Boolean = false, // MR-1: lifted from domainTask to avoid reference
@@ -84,10 +85,11 @@ data class TaskUi(
 /** Counters for the header / filter chips — computed from the list once. */
 data class TaskListStats(val total: Int, val active: Int, val completed: Int) {
     companion object {
-        fun from(tasks: List<TaskUi>): TaskListStats = TaskListStats(
-            total = tasks.size,
-            active = tasks.count { !it.isCompleted },
-            completed = tasks.count { it.isCompleted },
-        )
+        fun from(tasks: List<TaskUi>): TaskListStats =
+            TaskListStats(
+                total = tasks.size,
+                active = tasks.count { !it.isCompleted },
+                completed = tasks.count { it.isCompleted },
+            )
     }
 }

@@ -28,29 +28,29 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class PlansHorizonFollowsScenarioTest {
-
     @Test
     @DisplayName("PLANS-07 the horizon follows the granularity")
-    fun the_horizon_follows_the_granularity() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        // One robot for both: a fresh robot starts its id counter again, and
-        // two tasks with the same id are one task.
-        tasks(koin)
-            .given(due = TODAY.plus(1, DateTimeUnit.DAY), title = "Due tomorrow")
-            .given(due = TODAY.plus(45, DateTimeUnit.DAY), title = "Due in forty-five days")
+    fun the_horizon_follows_the_granularity() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            // One robot for both: a fresh robot starts its id counter again, and
+            // two tasks with the same id are one task.
+            tasks(koin)
+                .given(due = TODAY.plus(1, DateTimeUnit.DAY), title = "Due tomorrow")
+                .given(due = TODAY.plus(45, DateTimeUnit.DAY), title = "Due in forty-five days")
 
-        tapTab("Plans")
-        assertTagDisplayed(TestTags.taskItem("Due tomorrow"))
-        // Thirty days of days end before the task that is due in forty-five.
-        awaitTagGone(TestTags.taskItem("Due in forty-five days"))
+            tapTab("Plans")
+            assertTagDisplayed(TestTags.taskItem("Due tomorrow"))
+            // Thirty days of days end before the task that is due in forty-five.
+            awaitTagGone(TestTags.taskItem("Due in forty-five days"))
 
-        clickTag(TestTags.PLANS_GRANULARITY_WEEK)
-        assertTagDisplayed(TestTags.taskItem("Due tomorrow"))
-        // Twelve weeks reach forty-five days.
-        assertTagDisplayed(TestTags.taskItem("Due in forty-five days"))
+            clickTag(TestTags.PLANS_GRANULARITY_WEEK)
+            assertTagDisplayed(TestTags.taskItem("Due tomorrow"))
+            // Twelve weeks reach forty-five days.
+            assertTagDisplayed(TestTags.taskItem("Due in forty-five days"))
 
-        clickTag(TestTags.PLANS_GRANULARITY_MONTH)
-        assertTagDisplayed(TestTags.taskItem("Due tomorrow"))
-        // Twelve months of months reach the task too.
-        assertTagDisplayed(TestTags.taskItem("Due in forty-five days"))
-    }
+            clickTag(TestTags.PLANS_GRANULARITY_MONTH)
+            assertTagDisplayed(TestTags.taskItem("Due tomorrow"))
+            // Twelve months of months reach the task too.
+            assertTagDisplayed(TestTags.taskItem("Due in forty-five days"))
+        }
 }

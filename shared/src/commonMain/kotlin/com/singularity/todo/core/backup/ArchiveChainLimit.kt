@@ -18,7 +18,10 @@ package com.singularity.todo.core.backup
  *   time, `reads` at restore time. The message says it, because "more than
  *   this build writes" would be a lie to a person reading a restore.
  */
-internal fun requireChainFits(count: Int, direction: String) {
+internal fun requireChainFits(
+    count: Int,
+    direction: String,
+) {
     if (count < 0 || count > ArchiveFormat.MAX_CHAIN_ENTRIES) {
         throw ArchiveEnvelopeError.ChainTooLong(
             "it promises $count changes, and this build $direction at most " +

@@ -31,7 +31,6 @@ open class FakeReminderScheduler(
     private val failOnSchedule: Boolean = false,
     override val isSupported: Boolean = true,
 ) : ReminderScheduler {
-
     /** Every alarm this scheduler has been asked to arm, in order. */
     val scheduled = mutableListOf<Reminder>()
 
@@ -47,20 +46,33 @@ open class FakeReminderScheduler(
         armed[armKey(reminder.id, reminder.userId)] = reminder
     }
 
-    override suspend fun cancel(id: ReminderId, userId: UserId) {
+    override suspend fun cancel(
+        id: ReminderId,
+        userId: UserId,
+    ) {
         cancelled += id
         armed.remove(armKey(id, userId))
     }
 
-    override suspend fun cancelByTask(taskId: TaskId, userId: UserId) {
-        cancelled += armed.values
-            .filter { it.taskId == taskId && it.userId == userId }
-            .map { it.id }
+    override suspend fun cancelByTask(
+        taskId: TaskId,
+        userId: UserId,
+    ) {
+        cancelled +=
+            armed.values
+                .filter { it.taskId == taskId && it.userId == userId }
+                .map { it.id }
         armed.entries.removeAll { it.value.taskId == taskId && it.value.userId == userId }
     }
 
     /** The alarm believed armed for [id], or null. The question the table cannot answer. */
-    fun armedFor(id: ReminderId, userId: UserId): Reminder? = armed[armKey(id, userId)]
+    fun armedFor(
+        id: ReminderId,
+        userId: UserId,
+    ): Reminder? = armed[armKey(id, userId)]
 
-    private fun armKey(id: ReminderId, userId: UserId) = "reminder:${userId.value}:${id.value}"
+    private fun armKey(
+        id: ReminderId,
+        userId: UserId,
+    ) = "reminder:${userId.value}:${id.value}"
 }

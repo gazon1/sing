@@ -26,30 +26,32 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class NotesFlowTest {
+    @Test
+    fun the_notes_list_opens_from_the_drawer() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Notes")
+
+            assertTagDisplayed(TestTags.NOTES_QUICK_ADD_INPUT)
+        }
 
     @Test
-    fun the_notes_list_opens_from_the_drawer() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Notes")
+    fun an_empty_notes_list_offers_to_create_the_first_note() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Notes")
 
-        assertTagDisplayed(TestTags.NOTES_QUICK_ADD_INPUT)
-    }
-
-    @Test
-    fun an_empty_notes_list_offers_to_create_the_first_note() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Notes")
-
-        assertTextDisplayed("No notes yet")
-        assertTextDisplayed("Create your first note")
-    }
+            assertTextDisplayed("No notes yet")
+            assertTextDisplayed("Create your first note")
+        }
 
     @Test
-    fun the_filter_chips_are_offered_on_the_notes_list() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Notes")
+    fun the_filter_chips_are_offered_on_the_notes_list() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Notes")
 
-        // The chips carry no testTag on either platform, so they are selected by
-        // their visible labels — the same choice the Android flow makes.
-        assertTextDisplayed("All")
-        assertTextDisplayed("Pinned")
-        assertTextDisplayed("Archived")
-    }
+            // The chips carry no testTag on either platform, so they are selected by
+            // their visible labels — the same choice the Android flow makes.
+            assertTextDisplayed("All")
+            assertTextDisplayed("Pinned")
+            assertTextDisplayed("Archived")
+        }
 }

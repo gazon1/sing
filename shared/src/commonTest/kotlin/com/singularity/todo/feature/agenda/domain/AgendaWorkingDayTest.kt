@@ -3,10 +3,10 @@ package com.singularity.todo.feature.agenda.domain
 import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import kotlinx.datetime.DayOfWeek
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
-import org.junit.jupiter.api.Tag
 
 /**
  * Tests for [AgendaPresets.forToday] — the decision of whether the work-day
@@ -23,13 +23,13 @@ import org.junit.jupiter.api.Tag
  */
 @Tag("fast")
 class AgendaWorkingDayTest {
-
-    private val workDay = AgendaPresets.workDayPreset(
-        dayStartMinutes = 540,
-        dayEndMinutes = 1020,
-        lunchStartMinutes = 720,
-        lunchEndMinutes = 780,
-    )
+    private val workDay =
+        AgendaPresets.workDayPreset(
+            dayStartMinutes = 540,
+            dayEndMinutes = 1020,
+            lunchStartMinutes = 720,
+            lunchEndMinutes = 780,
+        )
 
     private fun forToday(
         dayOfWeek: DayOfWeek,

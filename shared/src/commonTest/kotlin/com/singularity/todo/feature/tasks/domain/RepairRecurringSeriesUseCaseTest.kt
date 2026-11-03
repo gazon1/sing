@@ -35,7 +35,6 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class RepairRecurringSeriesUseCaseTest {
-
     private val today = LocalDate(2026, 6, 15)
     private val clock = FakeClock(Instant.parse("2026-06-15T10:00:00Z"))
     private val repo = FakeTaskRepository()
@@ -50,14 +49,15 @@ class RepairRecurringSeriesUseCaseTest {
     private val settings = FakeTasksSettingsRepository()
     private val currentUser = FakeProfileAwareCurrentUser(initialUserId = TestUsers.DEFAULT)
 
-    private fun useCase() = RepairRecurringSeriesUseCase(
-        repo,
-        FakeUnitOfWork(),
-        clock,
-        materialize(),
-        settings,
-        currentUser,
-    )
+    private fun useCase() =
+        RepairRecurringSeriesUseCase(
+            repo,
+            FakeUnitOfWork(),
+            clock,
+            materialize(),
+            settings,
+            currentUser,
+        )
 
     private fun legacy(
         id: String = "legacy",
@@ -75,119 +75,134 @@ class RepairRecurringSeriesUseCaseTest {
     )
 
     @Test
-    fun `a rolled-forward row becomes the current occurrence of a series`() = runTest {
-        // Closed with a future date — exactly the row the old roll-forward left.
-        repo.seed(legacy(dueDate = today.plus(7, DateTimeUnit.DAY), completedAt = closedNow))
+    fun `a rolled-forward row becomes the current occurrence of a series`() =
+        runTest {
+            // Closed with a future date — exactly the row the old roll-forward left.
+            repo.seed(legacy(dueDate = today.plus(7, DateTimeUnit.DAY), completedAt = closedNow))
 
-        val result = useCase()()
+            val result = useCase()()
 
-        assertTrue(result.isSuccess, "the repair runs: ${result.exceptionOrNull()}")
-        assertEquals(1, result.getOrNull(), "one row adopted")
-        val row = repo.get(TaskId("legacy"))
-        assertNotNull(row?.seriesId, "the row now belongs to a series")
-        assertNull(row?.completedAt, "and it is reopened — it is the current occurrence")
-        assertTrue(
-            repo.tasks.value.values.any { it.seriesId == row?.seriesId && it.id != TaskId("legacy") },
-            "the series holds the materialised future",
-        )
-    }
-
-    @Test
-    fun `history stays closed`() = runTest {
-        // Closed with a past date — legitimate history.
-        repo.seed(legacy(dueDate = today.minus(7, DateTimeUnit.DAY), completedAt = closedNow))
-
-        useCase()()
-
-        val row = repo.get(TaskId("legacy"))
-        assertNotNull(row?.seriesId, "the row joins a series")
-        assertNotNull(row?.completedAt, "but a row closed in the past stays closed — it is finished work")
-    }
+            assertTrue(result.isSuccess, "the repair runs: ${result.exceptionOrNull()}")
+            assertEquals(1, result.getOrNull(), "one row adopted")
+            val row = repo.get(TaskId("legacy"))
+            assertNotNull(row?.seriesId, "the row now belongs to a series")
+            assertNull(row?.completedAt, "and it is reopened — it is the current occurrence")
+            assertTrue(
+                repo.tasks.value.values
+                    .any { it.seriesId == row?.seriesId && it.id != TaskId("legacy") },
+                "the series holds the materialised future",
+            )
+        }
 
     @Test
-    fun `the repair is idempotent`() = runTest {
-        repo.seed(legacy(dueDate = today, completedAt = null))
+    fun `history stays closed`() =
+        runTest {
+            // Closed with a past date — legitimate history.
+            repo.seed(legacy(dueDate = today.minus(7, DateTimeUnit.DAY), completedAt = closedNow))
 
-        useCase()()
-        val afterFirst = repo.tasks.value.values.size
-        // A fresh marker, so this pass really reads the candidates instead of
-        // being skipped: idempotency has to hold for a profile the gate does not
-        // remember, too.
-        val second = RepairRecurringSeriesUseCase(
-            repo,
-            FakeUnitOfWork(),
-            clock,
-            materialize(),
-            FakeTasksSettingsRepository(),
-            currentUser,
-        )
-        val result = second()
+            useCase()()
 
-        assertEquals(0, result.getOrNull(), "a second launch finds nothing to repair")
-        assertEquals(afterFirst, repo.tasks.value.values.size, "and no occurrence is duplicated")
-    }
+            val row = repo.get(TaskId("legacy"))
+            assertNotNull(row?.seriesId, "the row joins a series")
+            assertNotNull(row?.completedAt, "but a row closed in the past stays closed — it is finished work")
+        }
 
     @Test
-    fun `a second launch in the same profile performs no repair query`() = runTest {
-        repo.seed(legacy(dueDate = today, completedAt = null))
+    fun `the repair is idempotent`() =
+        runTest {
+            repo.seed(legacy(dueDate = today, completedAt = null))
 
-        val first = useCase()()
-        assertEquals(1, first.getOrNull(), "the first launch adopts the legacy row")
-        assertEquals(1, repo.legacyRecurringQueries, "the first launch asks the candidate query once")
+            useCase()()
+            val afterFirst = repo.tasks.value.values.size
+            // A fresh marker, so this pass really reads the candidates instead of
+            // being skipped: idempotency has to hold for a profile the gate does not
+            // remember, too.
+            val second =
+                RepairRecurringSeriesUseCase(
+                    repo,
+                    FakeUnitOfWork(),
+                    clock,
+                    materialize(),
+                    FakeTasksSettingsRepository(),
+                    currentUser,
+                )
+            val result = second()
 
-        val second = useCase()()
-
-        assertEquals(0, second.getOrNull(), "a repaired profile has nothing to adopt")
-        assertEquals(
-            1,
-            repo.legacyRecurringQueries,
-            "the marker means a second launch runs no repair query at all — " +
-                "the count is the only way to tell the gate from a query that found nothing",
-        )
-    }
-
-    @Test
-    fun `the marker is keyed by the scoped user id, not the profile`() = runTest {
-        // The rows live in the scoped user's namespace, and two accounts on the
-        // same profile id hold different rows. A marker keyed by the profile alone
-        // would be stale for the second account, which is the one failure the gate
-        // must not have.
-        repo.seed(legacy(dueDate = today, completedAt = null))
-        settings.setRecurringSeriesRepairVersion(
-            currentUser.scopedUserId.value.value,
-            RepairRecurringSeriesUseCase.VERSION,
-        )
-
-        val result = useCase()()
-
-        assertEquals(0, result.getOrNull(), "the marker for this namespace skips the pass")
-        assertEquals(0, repo.legacyRecurringQueries, "and no candidate query is made")
-    }
+            assertEquals(0, result.getOrNull(), "a second launch finds nothing to repair")
+            assertEquals(afterFirst, repo.tasks.value.values.size, "and no occurrence is duplicated")
+        }
 
     @Test
-    fun `a row that already belongs to a series is not touched`() = runTest {
-        repo.seed(legacy().copy(seriesId = com.singularity.todo.feature.tasks.domain.model.TaskSeriesId("existing")))
+    fun `a second launch in the same profile performs no repair query`() =
+        runTest {
+            repo.seed(legacy(dueDate = today, completedAt = null))
 
-        val result = useCase()()
+            val first = useCase()()
+            assertEquals(1, first.getOrNull(), "the first launch adopts the legacy row")
+            assertEquals(1, repo.legacyRecurringQueries, "the first launch asks the candidate query once")
 
-        assertEquals(0, result.getOrNull(), "a row that already carries a series id is not a candidate")
-    }
+            val second = useCase()()
+
+            assertEquals(0, second.getOrNull(), "a repaired profile has nothing to adopt")
+            assertEquals(
+                1,
+                repo.legacyRecurringQueries,
+                "the marker means a second launch runs no repair query at all — " +
+                    "the count is the only way to tell the gate from a query that found nothing",
+            )
+        }
 
     @Test
-    fun `a repeating task with no rule-carriers at all is a clean pass`() = runTest {
-        repo.seed(
-            Task(
-                id = TaskId("plain"),
-                title = "Buy milk",
-                dueDate = today,
-                createdAt = Instant.parse("2026-01-01T00:00:00Z"),
-                updatedAt = Instant.parse("2026-01-01T00:00:00Z"),
-                userId = TestUsers.DEFAULT,
-            ),
-        )
+    fun `the marker is keyed by the scoped user id, not the profile`() =
+        runTest {
+            // The rows live in the scoped user's namespace, and two accounts on the
+            // same profile id hold different rows. A marker keyed by the profile alone
+            // would be stale for the second account, which is the one failure the gate
+            // must not have.
+            repo.seed(legacy(dueDate = today, completedAt = null))
+            settings.setRecurringSeriesRepairVersion(
+                currentUser.scopedUserId.value.value,
+                RepairRecurringSeriesUseCase.VERSION,
+            )
 
-        val result = useCase()()
+            val result = useCase()()
 
-        assertEquals(0, result.getOrNull(), "an ordinary task is not a legacy repeating task")
-    }
+            assertEquals(0, result.getOrNull(), "the marker for this namespace skips the pass")
+            assertEquals(0, repo.legacyRecurringQueries, "and no candidate query is made")
+        }
+
+    @Test
+    fun `a row that already belongs to a series is not touched`() =
+        runTest {
+            repo.seed(
+                legacy().copy(
+                    seriesId =
+                        com.singularity.todo.feature.tasks.domain.model
+                            .TaskSeriesId("existing"),
+                ),
+            )
+
+            val result = useCase()()
+
+            assertEquals(0, result.getOrNull(), "a row that already carries a series id is not a candidate")
+        }
+
+    @Test
+    fun `a repeating task with no rule-carriers at all is a clean pass`() =
+        runTest {
+            repo.seed(
+                Task(
+                    id = TaskId("plain"),
+                    title = "Buy milk",
+                    dueDate = today,
+                    createdAt = Instant.parse("2026-01-01T00:00:00Z"),
+                    updatedAt = Instant.parse("2026-01-01T00:00:00Z"),
+                    userId = TestUsers.DEFAULT,
+                ),
+            )
+
+            val result = useCase()()
+
+            assertEquals(0, result.getOrNull(), "an ordinary task is not a legacy repeating task")
+        }
 }

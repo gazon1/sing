@@ -14,10 +14,11 @@ import com.singularity.todo.feature.genui.render.genuiTag
 import com.singularity.todo.feature.genui.render.resolveText
 import kotlinx.serialization.json.JsonPrimitive
 
-internal fun ComponentRegistry.registerTextField(): Unit = register("text_field") { node, ctx, modifier ->
-    val f = node as UiNode.TextField
-    BoundTextField(f, ctx, modifier)
-}
+internal fun ComponentRegistry.registerTextField(): Unit =
+    register("text_field") { node, ctx, modifier ->
+        val f = node as UiNode.TextField
+        BoundTextField(f, ctx, modifier)
+    }
 
 /**
  * A text field bound to the data model in both directions.
@@ -62,19 +63,25 @@ internal fun ComponentRegistry.registerTextField(): Unit = register("text_field"
  * See ADR `2026-10-19-text-field-state-migration`.
  */
 @Composable
-private fun BoundTextField(f: UiNode.TextField, ctx: DataContext, modifier: Modifier) {
+private fun BoundTextField(
+    f: UiNode.TextField,
+    ctx: DataContext,
+    modifier: Modifier,
+) {
     val bound = ctx.textSource(f.path, f.initial)
     val source by bound.updates.collectAsStateWithLifecycle(initialValue = bound.current)
-    val state = rememberBridgedTextFieldState(
-        source = source,
-        onTextChanged = { newValue: String -> ctx.write(f.path, JsonPrimitive(newValue)) },
-    )
+    val state =
+        rememberBridgedTextFieldState(
+            source = source,
+            onTextChanged = { newValue: String -> ctx.write(f.path, JsonPrimitive(newValue)) },
+        )
     OutlinedTextField(
         state = state,
         label = { Text(ctx.resolveText(f.label)) },
-        modifier = modifier.genuiTag(
-            name = "textfield_${f.label.replace(" ", "_")}",
-            description = "TextField: ${f.label}",
-        ),
+        modifier =
+            modifier.genuiTag(
+                name = "textfield_${f.label.replace(" ", "_")}",
+                description = "TextField: ${f.label}",
+            ),
     )
 }

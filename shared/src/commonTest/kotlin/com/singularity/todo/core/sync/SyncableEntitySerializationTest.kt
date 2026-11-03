@@ -35,11 +35,13 @@ import kotlin.time.Clock
  */
 @org.junit.jupiter.api.Tag("fast")
 class SyncableEntitySerializationTest {
-
     private val user = UserId("u1")
     private val now = Clock.System.now()
 
-    private fun assertRoundTrips(entity: SyncableEntity, expectedId: String) {
+    private fun assertRoundTrips(
+        entity: SyncableEntity,
+        expectedId: String,
+    ) {
         val json = entity.toJson()
         assertTrue(
             json.isNotEmpty(),
@@ -132,13 +134,14 @@ class SyncableEntitySerializationTest {
      */
     @Test
     fun `soft delete state survives serialisation`() {
-        val trashed = Note(
-            id = NoteId("n1"),
-            userId = user,
-            createdAt = now,
-            updatedAt = now,
-            deletedAt = now,
-        )
+        val trashed =
+            Note(
+                id = NoteId("n1"),
+                userId = user,
+                createdAt = now,
+                updatedAt = now,
+                deletedAt = now,
+            )
         val json = trashed.toJson()
         assertTrue("deletedAt" in json.toString(), "deletedAt must reach the wire")
 
@@ -153,14 +156,15 @@ class SyncableEntitySerializationTest {
     @Test
     fun `every DocType has a serialisable entity`() {
         val docTypes = DocType.entries.toSet()
-        val covered = setOf(
-            DocType.Task,
-            DocType.Note,
-            DocType.Project,
-            DocType.Tag,
-            DocType.TagGroup,
-            DocType.TimeEntry,
-        )
+        val covered =
+            setOf(
+                DocType.Task,
+                DocType.Note,
+                DocType.Project,
+                DocType.Tag,
+                DocType.TagGroup,
+                DocType.TimeEntry,
+            )
         assertEquals(
             docTypes,
             covered,

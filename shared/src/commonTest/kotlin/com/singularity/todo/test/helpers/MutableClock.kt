@@ -2,8 +2,8 @@ package com.singularity.todo.test.helpers
 
 import kotlin.time.Clock
 import kotlin.time.Duration
-import kotlin.time.Instant
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Instant
 
 /**
  * A clock a test moves by hand.
@@ -28,7 +28,6 @@ import kotlin.time.Duration.Companion.milliseconds
  * across threads is a race the test would have to reproduce deliberately.
  */
 class MutableClock(private var current: Instant = Instant.fromEpochMilliseconds(1_700_000_000_000)) : Clock {
-
     override fun now(): Instant = current
 
     /** Moves the clock to [instant], forwards or backwards. */

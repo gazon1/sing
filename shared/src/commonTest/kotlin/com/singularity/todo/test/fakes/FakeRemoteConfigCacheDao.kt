@@ -33,7 +33,6 @@ class FakeRemoteConfigCacheDao(
     private val readBehaviour: ReadBehaviour = ReadBehaviour.Answer,
     private val blockMs: Long = 60_000L,
 ) : RemoteConfigCacheDao {
-
     /** What the cached read does. */
     enum class ReadBehaviour {
         /** Answers [cached] (or null). */
@@ -58,14 +57,20 @@ class FakeRemoteConfigCacheDao(
     override suspend fun getDefault(): RemoteConfigCacheEntity? {
         readCount++
         return when (readBehaviour) {
-            ReadBehaviour.Answer -> cached
-
-            ReadBehaviour.Blocks -> withContext(NonCancellable) {
-                withTimeoutOrNull(blockMs) { awaitCancellation() }
+            ReadBehaviour.Answer -> {
                 cached
             }
 
-            ReadBehaviour.Throws -> throw IllegalStateException("cache unavailable")
+            ReadBehaviour.Blocks -> {
+                withContext(NonCancellable) {
+                    withTimeoutOrNull(blockMs) { awaitCancellation() }
+                    cached
+                }
+            }
+
+            ReadBehaviour.Throws -> {
+                throw IllegalStateException("cache unavailable")
+            }
         }
     }
 

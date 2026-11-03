@@ -23,7 +23,6 @@ import kotlin.test.assertTrue
  * a comment.
  */
 class NoMutableCollectionCastRuleTest {
-
     private val rule = NoMutableCollectionCastRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 

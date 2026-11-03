@@ -12,6 +12,9 @@ import androidx.compose.runtime.Composable
  * the navigation.
  */
 @Composable
-actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
+actual fun PlatformBackHandler(
+    enabled: Boolean,
+    onBack: () -> Unit,
+) {
     BackHandler(enabled = enabled, onBack = onBack)
 }

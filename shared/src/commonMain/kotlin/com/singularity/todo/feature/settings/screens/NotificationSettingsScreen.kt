@@ -9,10 +9,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -25,9 +25,10 @@ fun NotificationSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+        modifier =
+            modifier
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SettingsSection(title = "Notifications") {
@@ -64,29 +65,35 @@ fun NotificationSettingsScreen(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun NotificationSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    NotificationSettingsScreen(
-        state = SettingsUiState.Content(
-            notifications = SettingsSection.Notifications(
-                enabled = true,
-                sound = true,
-                vibration = true,
-                reminderDefault = ReminderOffset.AT_DUE,
-            ),
-        ),
-        onIntent = {},
-    )
-}
+private fun NotificationSettingsScreenLightPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        NotificationSettingsScreen(
+            state =
+                SettingsUiState.Content(
+                    notifications =
+                        SettingsSection.Notifications(
+                            enabled = true,
+                            sound = true,
+                            vibration = true,
+                            reminderDefault = ReminderOffset.AT_DUE,
+                        ),
+                ),
+            onIntent = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun NotificationSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    NotificationSettingsScreen(
-        state = SettingsUiState.Content(
-            notifications = SettingsSection.Notifications(
-                enabled = false,
-            ),
-        ),
-        onIntent = {},
-    )
-}
+private fun NotificationSettingsScreenDarkPreview() =
+    PreviewThemed(darkTheme = true, useSurface = false) {
+        NotificationSettingsScreen(
+            state =
+                SettingsUiState.Content(
+                    notifications =
+                        SettingsSection.Notifications(
+                            enabled = false,
+                        ),
+                ),
+            onIntent = {},
+        )
+    }

@@ -10,12 +10,12 @@ import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
 import com.singularity.todo.feature.tasks.presentation.state.TaskCompletionIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Marking the task complete.
@@ -59,26 +59,28 @@ class TaskCompletionSlot(
     /** Raised when a close is refused until the user confirms. */
     private val onBlockedClose: (BlockedCloseRequest) -> Unit,
 ) : FeatureSlot<TaskCompletionState, TaskCompletionIntent> {
-
     private val _state = MutableStateFlow(TaskCompletionState())
     override val state: StateFlow<TaskCompletionState> = _state.asStateFlow()
 
     init {
         scope.launch {
-            taskFlow.map { task ->
-                TaskCompletionState(
-                    isCompleted = task?.isCompleted == true,
-                    completedAt = task?.completedAt,
-                    hasRecurrence = task?.recurrence != null,
-                )
-            }.collect { _state.value = it }
+            taskFlow
+                .map { task ->
+                    TaskCompletionState(
+                        isCompleted = task?.isCompleted == true,
+                        completedAt = task?.completedAt,
+                        hasRecurrence = task?.recurrence != null,
+                    )
+                }.collect { _state.value = it }
         }
     }
 
     override fun onIntent(intent: TaskCompletionIntent) {
         val task = taskFlow.value ?: return
         when (intent) {
-            TaskDetailIntent.Domain.ToggleComplete -> toggleComplete(task)
+            TaskDetailIntent.Domain.ToggleComplete -> {
+                toggleComplete(task)
+            }
 
             is TaskDetailIntent.Domain.ConfirmBlockedClose -> {
                 // The confirmation names a task; this slot owns the task on this
@@ -88,7 +90,10 @@ class TaskCompletionSlot(
         }
     }
 
-    private fun toggleComplete(task: Task, force: Boolean = false) {
+    private fun toggleComplete(
+        task: Task,
+        force: Boolean = false,
+    ) {
         val completing = task.completedAt == null
         if (completing && task.recurrence != null) {
             // A recurring task is closed by rolling the recurrence forward,
@@ -98,7 +103,8 @@ class TaskCompletionSlot(
             // has a window between the two, and the window is where another
             // device reopens the prerequisite.
             scope.launch {
-                core.completeRecurring(task.id, force)
+                core
+                    .completeRecurring(task.id, force)
                     .onSuccess { onSaved("Recurrence completed") }
                     .onFailure { error ->
                         if (error is BlockedTasksException) {
@@ -120,10 +126,11 @@ class TaskCompletionSlot(
                 // The write decides: it refuses while a prerequisite is open,
                 // and the refusal is part of the statement rather than a check
                 // that runs before it.
-                val completed = core.taskRepo.complete(task.id, force).getOrElse {
-                    onError("Save failed")
-                    return@launch
-                }
+                val completed =
+                    core.taskRepo.complete(task.id, force).getOrElse {
+                        onError("Save failed")
+                        return@launch
+                    }
                 if (!completed) {
                     val blockers = Blocking.activeBlockers(task, allTasks.value)
                     if (blockers.isEmpty()) {
@@ -137,14 +144,18 @@ class TaskCompletionSlot(
             } else {
                 // Taking a task back into work is never gated — and it brings
                 // its project back with it when that project was closed.
-                core.completion.reopen(task.id)
+                core.completion
+                    .reopen(task.id)
                     .onSuccess { onSaved("Marked active") }
                     .onFailure { onError("Save failed") }
             }
         }
     }
 
-    private fun askAboutBlockers(task: Task, blockers: List<Task>) {
+    private fun askAboutBlockers(
+        task: Task,
+        blockers: List<Task>,
+    ) {
         onBlockedClose(
             BlockedCloseRequest(
                 taskId = task.id,

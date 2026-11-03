@@ -38,33 +38,34 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class FixedProfileGraphTest {
-
     /**
      * The store, and the refusal to build it.
      *
      * It replaces the test platform module's own binding: Koin 4 allows a definition to
      * be overridden, and the later definition is the one that is used.
      */
-    private val forbiddenStore = module {
-        single<DataStore<Preferences>>(qualifier = named("profile_state")) {
-            error("The profile-state store was built — a process told which profile to serve must never open it.")
+    private val forbiddenStore =
+        module {
+            single<DataStore<Preferences>>(qualifier = named("profile_state")) {
+                error("The profile-state store was built — a process told which profile to serve must never open it.")
+            }
         }
-    }
 
     @Test
     fun `a process told which profile to serve never opens the profile state`() {
-        val app = koinApplication {
-            // KOIN-W003 here is an accepted, documented tradeoff — the same one
-            // `DomainGraphResolutionTest` takes: the module set is computed at
-            // runtime, so the compile-time graph check cannot see it. This test
-            // is the runtime validation that replaces it.
-            @Suppress("KoinCompilationForInternal")
-            modules(
-                listOf(coreLoggingModule()) +
-                    listOf(testPlatformModule(), forbiddenStore) +
-                    domainModule(ProfileId.fromString("profile-1")),
-            )
-        }
+        val app =
+            koinApplication {
+                // KOIN-W003 here is an accepted, documented tradeoff — the same one
+                // `DomainGraphResolutionTest` takes: the module set is computed at
+                // runtime, so the compile-time graph check cannot see it. This test
+                // is the runtime validation that replaces it.
+                @Suppress("KoinCompilationForInternal")
+                modules(
+                    listOf(coreLoggingModule()) +
+                        listOf(testPlatformModule(), forbiddenStore) +
+                        domainModule(ProfileId.fromString("profile-1")),
+                )
+            }
         try {
             // Resolving the repository is what builds it, and building it is what would
             // have asked for the store. The graph answers, so the store was never asked for.
@@ -78,22 +79,24 @@ class FixedProfileGraphTest {
 
     @Test
     fun `a process without a fixed profile does ask for the profile state`() {
-        val app = koinApplication {
-            @Suppress("KoinCompilationForInternal")
-            modules(
-                listOf(coreLoggingModule()) +
-                    listOf(testPlatformModule(), forbiddenStore) +
-                    domainModule(),
-            )
-        }
+        val app =
+            koinApplication {
+                @Suppress("KoinCompilationForInternal")
+                modules(
+                    listOf(coreLoggingModule()) +
+                        listOf(testPlatformModule(), forbiddenStore) +
+                        domainModule(),
+                )
+            }
         try {
             // The control. Without a fixed profile the repository takes the store, the
             // store refuses to be built, and the refusal is what the test expects. A
             // fixed-profile test that passed on its own would pass here too if the
             // fixed branch had quietly stopped being taken.
-            val failure = assertFails {
-                app.koin.get<ProfileRepository>()
-            }
+            val failure =
+                assertFails {
+                    app.koin.get<ProfileRepository>()
+                }
 
             assertTrue(
                 generateSequence(failure) { it.cause }

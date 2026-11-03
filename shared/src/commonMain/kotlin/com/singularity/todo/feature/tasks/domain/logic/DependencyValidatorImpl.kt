@@ -22,8 +22,10 @@ import kotlinx.coroutines.flow.first
  */
 class DependencyValidatorImpl(private val taskDao: TaskDao, private val currentUser: ProfileAwareCurrentUser) :
     DependencyValidator {
-
-    override suspend fun assertNoCycles(taskId: TaskId, newDeps: Set<TaskId>): Result<Unit> {
+    override suspend fun assertNoCycles(
+        taskId: TaskId,
+        newDeps: Set<TaskId>,
+    ): Result<Unit> {
         // Self-loop check
         if (taskId.value in newDeps.map { it.value }) {
             return Result.failure(IllegalArgumentException("Task cannot depend on itself: ${taskId.value}"))
@@ -47,7 +49,11 @@ class DependencyValidatorImpl(private val taskDao: TaskDao, private val currentU
      * BFS from [startId] following outgoing dependency edges.
      * Returns the set of all task IDs reachable from [startId].
      */
-    private suspend fun bfsReachableFrom(startId: String, targetId: String, uid: String): Set<String> {
+    private suspend fun bfsReachableFrom(
+        startId: String,
+        targetId: String,
+        uid: String,
+    ): Set<String> {
         val visited = mutableSetOf<String>()
         val worklist = ArrayDeque<String>()
         worklist.add(startId)
@@ -138,17 +144,18 @@ class DependencyValidatorImpl(private val taskDao: TaskDao, private val currentU
         }
 
         // Convert cycle edges to TaskDependency objects
-        val cycleDependencies = cycleEdges.mapNotNull { (from, to) ->
-            val allDeps = taskDao.observeTypedDependenciesForUser(from, uid.value).first()
-            val crossRef = allDeps.find { it.dependsOnTaskId == to }
-            crossRef?.let {
-                TaskDependency(
-                    ownerTaskId = TaskId.fromString(from),
-                    dependencyTaskId = TaskId.fromString(to),
-                    verb = DependencyVerb.valueOf(it.verb),
-                )
+        val cycleDependencies =
+            cycleEdges.mapNotNull { (from, to) ->
+                val allDeps = taskDao.observeTypedDependenciesForUser(from, uid.value).first()
+                val crossRef = allDeps.find { it.dependsOnTaskId == to }
+                crossRef?.let {
+                    TaskDependency(
+                        ownerTaskId = TaskId.fromString(from),
+                        dependencyTaskId = TaskId.fromString(to),
+                        verb = DependencyVerb.valueOf(it.verb),
+                    )
+                }
             }
-        }
 
         return DependencyAnalysis(containsCycle = true, cycleEdges = cycleDependencies)
     }

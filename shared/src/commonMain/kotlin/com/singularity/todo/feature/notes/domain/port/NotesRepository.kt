@@ -19,7 +19,6 @@ import kotlinx.coroutines.flow.Flow
 interface NotesRepository :
     GenericUserScopedRepository<Note, NoteId>,
     SoftDeletable<Note, NoteId> {
-
     /**
      * Upserts a note from a remote sync event.
      *
@@ -69,16 +68,29 @@ interface NotesRepository :
      * @param mode the mode the text is matched in (F6, F8) — the surface states
      *   it, so that the answer never comes from a rule the caller did not name.
      */
-    fun search(query: String, mode: SearchMode): Flow<List<Note>>
+    fun search(
+        query: String,
+        mode: SearchMode,
+    ): Flow<List<Note>>
 
     /** Creates a note with content (autosave path). Returns the saved note. */
-    suspend fun createWithContent(id: NoteId, title: String, bodyMarkdown: String, bodyHtml: String): Result<NoteId>
+    suspend fun createWithContent(
+        id: NoteId,
+        title: String,
+        bodyMarkdown: String,
+        bodyHtml: String,
+    ): Result<NoteId>
 
     /** Creates a note with an initial title (quick-add path). Returns the new id. */
     suspend fun createNoteWithTitle(title: String): Result<NoteId>
 
     /** Updates title and body content (autosave path). */
-    suspend fun updateContent(id: NoteId, title: String, bodyMarkdown: String, bodyHtml: String): Result<Unit>
+    suspend fun updateContent(
+        id: NoteId,
+        title: String,
+        bodyMarkdown: String,
+        bodyHtml: String,
+    ): Result<Unit>
 
     /** Archives a note. */
     suspend fun archive(id: NoteId): Result<Unit>
@@ -87,16 +99,28 @@ interface NotesRepository :
     suspend fun unarchive(id: NoteId): Result<Unit>
 
     /** Pins or unpins a note. */
-    suspend fun setPinned(id: NoteId, pinned: Boolean): Result<Unit>
+    suspend fun setPinned(
+        id: NoteId,
+        pinned: Boolean,
+    ): Result<Unit>
 
     /** Sets note color. */
-    suspend fun setColor(id: NoteId, color: NoteColor?): Result<Unit>
+    suspend fun setColor(
+        id: NoteId,
+        color: NoteColor?,
+    ): Result<Unit>
 
     /** Sets sort order. */
-    suspend fun setSortOrder(id: NoteId, sortOrder: Int): Result<Unit>
+    suspend fun setSortOrder(
+        id: NoteId,
+        sortOrder: Int,
+    ): Result<Unit>
 
     /** Updates the outgoing links column for a note. Called after each save. */
-    suspend fun setOutgoingLinks(id: NoteId, links: List<String>): Result<Unit>
+    suspend fun setOutgoingLinks(
+        id: NoteId,
+        links: List<String>,
+    ): Result<Unit>
 
     // ─── Templates ───────────────────────────────────────────────────────────────
 
@@ -104,17 +128,27 @@ interface NotesRepository :
     fun watchTemplates(): Flow<List<Note>>
 
     /** Watches all daily notes within a date range (for calendar navigation). */
-    fun watchDailyNotesInRange(from: String, to: String): Flow<List<Note>>
+    fun watchDailyNotesInRange(
+        from: String,
+        to: String,
+    ): Flow<List<Note>>
 
     /** Returns the daily note for [dateKey] (ISO date string), optionally scoped to [projectId], or null if none exists. */
-    suspend fun getDailyNote(dateKey: String, projectId: ProjectId? = null): Note?
+    suspend fun getDailyNote(
+        dateKey: String,
+        projectId: ProjectId? = null,
+    ): Note?
 
     /**
      * Creates a new note from a template.
      * Copies the template's title, bodyMarkdown, bodyHtml, and color.
      * @return the newly created note's id.
      */
-    suspend fun createFromTemplate(templateId: NoteId, targetTitle: String, targetDateKey: String?): Result<NoteId>
+    suspend fun createFromTemplate(
+        templateId: NoteId,
+        targetTitle: String,
+        targetDateKey: String?,
+    ): Result<NoteId>
 
     /**
      * Saves a note as a template (changes kind to Template).

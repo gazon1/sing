@@ -19,7 +19,6 @@ import android.content.Context
  * to throwing or to writing somewhere no user could find.
  */
 class AndroidHostEnvironment(context: Context) : HostEnvironmentPort {
-
     private val dataDirectory: String = context.filesDir.absolutePath
 
     override fun workingDirectory(): String = dataDirectory

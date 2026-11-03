@@ -47,7 +47,6 @@ import androidx.compose.runtime.Immutable
  */
 @Immutable
 class FieldOwnedText private constructor(val text: String) {
-
     /**
      * The upstream loaded a value.
      *

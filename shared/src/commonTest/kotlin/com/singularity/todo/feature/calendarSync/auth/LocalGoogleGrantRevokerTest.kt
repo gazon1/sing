@@ -23,14 +23,16 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class LocalGoogleGrantRevokerTest {
-
     private class FakeCredentialStore(initial: GoogleCredentials? = null) : GoogleCredentialStore {
         var stored: GoogleCredentials? = initial
             private set
 
         override suspend fun load(userId: String): GoogleCredentials? = stored
 
-        override suspend fun save(userId: String, credentials: GoogleCredentials) {
+        override suspend fun save(
+            userId: String,
+            credentials: GoogleCredentials,
+        ) {
             stored = credentials
         }
 
@@ -50,8 +52,7 @@ class LocalGoogleGrantRevokerTest {
             codeVerifier: String?,
         ): GoogleCredentials = throw IllegalStateException("not used")
 
-        override suspend fun refresh(refreshToken: String): GoogleCredentials =
-            throw IllegalStateException("not used")
+        override suspend fun refresh(refreshToken: String): GoogleCredentials = throw IllegalStateException("not used")
 
         override suspend fun revoke(refreshToken: String) {
             revokedWith = refreshToken
@@ -77,15 +78,16 @@ class LocalGoogleGrantRevokerTest {
      * a live refresh token behind.
      */
     @Test
-    fun `the stored refresh token is revoked at Google`() = runTest {
-        val store = FakeCredentialStore(GoogleCredentials("access", "the-refresh", Long.MAX_VALUE))
-        val exchange = FakeTokenExchange()
+    fun `the stored refresh token is revoked at Google`() =
+        runTest {
+            val store = FakeCredentialStore(GoogleCredentials("access", "the-refresh", Long.MAX_VALUE))
+            val exchange = FakeTokenExchange()
 
-        val result = revoker(store, exchange).revoke("user-1")
+            val result = revoker(store, exchange).revoke("user-1")
 
-        assertTrue(result.isSuccess, "the revoke must succeed: $result")
-        assertEquals("the-refresh", exchange.revokedWith)
-    }
+            assertTrue(result.isSuccess, "the revoke must succeed: $result")
+            assertEquals("the-refresh", exchange.revokedWith)
+        }
 
     /**
      * An account that was never connected has nothing to revoke.
@@ -94,26 +96,28 @@ class LocalGoogleGrantRevokerTest {
      * when it is exactly what the person wanted.
      */
     @Test
-    fun `an account with no credential is already disconnected`() = runTest {
-        val exchange = FakeTokenExchange()
+    fun `an account with no credential is already disconnected`() =
+        runTest {
+            val exchange = FakeTokenExchange()
 
-        val result = revoker(FakeCredentialStore(null), exchange).revoke("user-1")
+            val result = revoker(FakeCredentialStore(null), exchange).revoke("user-1")
 
-        assertTrue(result.isSuccess, "nothing to revoke is not a failure: $result")
-        assertNull(exchange.revokedWith, "there was no token to cancel")
-    }
+            assertTrue(result.isSuccess, "nothing to revoke is not a failure: $result")
+            assertNull(exchange.revokedWith, "there was no token to cancel")
+        }
 
     /** A credential with no refresh token cannot be revoked — and there is nothing to cancel. */
     @Test
-    fun `a credential with no refresh token has nothing to revoke`() = runTest {
-        val store = FakeCredentialStore(GoogleCredentials("access", null, Long.MAX_VALUE))
-        val exchange = FakeTokenExchange()
+    fun `a credential with no refresh token has nothing to revoke`() =
+        runTest {
+            val store = FakeCredentialStore(GoogleCredentials("access", null, Long.MAX_VALUE))
+            val exchange = FakeTokenExchange()
 
-        val result = revoker(store, exchange).revoke("user-1")
+            val result = revoker(store, exchange).revoke("user-1")
 
-        assertTrue(result.isSuccess, "nothing to revoke is not a failure: $result")
-        assertNull(exchange.revokedWith)
-    }
+            assertTrue(result.isSuccess, "nothing to revoke is not a failure: $result")
+            assertNull(exchange.revokedWith)
+        }
 
     /**
      * A revoke Google refuses is a failure the caller has to hear about.
@@ -122,13 +126,14 @@ class LocalGoogleGrantRevokerTest {
      * and the user is the only one who can cancel it.
      */
     @Test
-    fun `a refused revoke is reported`() = runTest {
-        val store = FakeCredentialStore(GoogleCredentials("access", "the-refresh", Long.MAX_VALUE))
-        val exchange = FakeTokenExchange(failure = IllegalStateException("Google refused"))
+    fun `a refused revoke is reported`() =
+        runTest {
+            val store = FakeCredentialStore(GoogleCredentials("access", "the-refresh", Long.MAX_VALUE))
+            val exchange = FakeTokenExchange(failure = IllegalStateException("Google refused"))
 
-        val result = revoker(store, exchange).revoke("user-1")
+            val result = revoker(store, exchange).revoke("user-1")
 
-        assertTrue(result.isFailure, "a refused revoke must not look like a success")
-        assertNotNull(result.exceptionOrNull())
-    }
+            assertTrue(result.isFailure, "a refused revoke must not look like a success")
+            assertNotNull(result.exceptionOrNull())
+        }
 }

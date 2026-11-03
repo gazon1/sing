@@ -70,7 +70,6 @@ class RefreshCallLog {
  */
 class FakeSyncRepository(var outcome: SyncOutcome = COMPLETED, private val log: RefreshCallLog? = null) :
     SyncRepository {
-
     /** How many times a synchronisation was asked for. */
     var syncOnceCalls: Int = 0
         private set
@@ -126,10 +125,11 @@ class FakeSyncRepository(var outcome: SyncOutcome = COMPLETED, private val log: 
 
     companion object {
         /** A cycle that ran and did not lose a phase. */
-        val COMPLETED: SyncOutcome = SyncOutcome.Completed(
-            push = Result.success(PushSummary(processed = 0, succeeded = 0, failed = 0)),
-            pull = Result.success(PullSummary(received = 0, applied = 0)),
-        )
+        val COMPLETED: SyncOutcome =
+            SyncOutcome.Completed(
+                push = Result.success(PushSummary(processed = 0, succeeded = 0, failed = 0)),
+                pull = Result.success(PullSummary(received = 0, applied = 0)),
+            )
     }
 }
 
@@ -146,7 +146,6 @@ class FakeCompletedTaskArchiver(
     var outcome: Result<Int> = Result.success(0),
     private val log: RefreshCallLog? = null,
 ) : CompletedTaskArchiver {
-
     /** How many times the archive step ran. */
     var archiveCalls: Int = 0
         private set

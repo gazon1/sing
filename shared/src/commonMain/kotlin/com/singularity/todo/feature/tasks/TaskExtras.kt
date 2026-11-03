@@ -49,39 +49,55 @@ import kotlinx.coroutines.flow.map
  * @param uid the user whose tasks are being read.
  * @param source the task rows to enrich.
  */
-internal fun TaskDao.withExtras(uid: UserId, source: Flow<List<TaskEntity>>): Flow<List<Task>> {
-    val tagsFlow = observeTagCrossRefs(uid.value).map { rows ->
-        rows.groupBy { it.taskId }.mapValues { (_, rows) -> rows.map { it.tagId } }
-    }
-    val depsFlow = observeDependencyCrossRefs(uid.value).map { rows ->
-        rows.filter { it.verb == DependencyVerb.BLOCKS.name }
-            .groupBy { it.taskId }
-            .mapValues { (_, rows) -> rows.map { it.dependsOnTaskId }.toSet() }
-    }
+internal fun TaskDao.withExtras(
+    uid: UserId,
+    source: Flow<List<TaskEntity>>,
+): Flow<List<Task>> {
+    val tagsFlow =
+        observeTagCrossRefs(uid.value).map { rows ->
+            rows.groupBy { it.taskId }.mapValues { (_, rows) -> rows.map { it.tagId } }
+        }
+    val depsFlow =
+        observeDependencyCrossRefs(uid.value).map { rows ->
+            rows
+                .filter { it.verb == DependencyVerb.BLOCKS.name }
+                .groupBy { it.taskId }
+                .mapValues { (_, rows) -> rows.map { it.dependsOnTaskId }.toSet() }
+        }
     // The other half of the same table: the relations that order two pieces of
     // work without making either wait for the other. They are read here, by the
     // same cross-reference flow, and asked a different question of — which is
     // why they are a separate map rather than a second kind of entry in the
     // dependency map.
-    val followUpsFlow = observeDependencyCrossRefs(uid.value).map { rows ->
-        rows.filter { it.verb == DependencyVerb.FOLLOWS_UP.name }
-            .groupBy { it.taskId }
-            .mapValues { (_, rows) -> rows.map { it.dependsOnTaskId }.toSet() }
-    }
-    val extrasFlow = combine(tagsFlow, depsFlow, followUpsFlow) { tags, deps, followUps ->
-        TaskExtras(
-            tagsByTask = tags,
-            depsByTask = deps,
-            followUpsByTask = followUps,
-        )
-    }
+    val followUpsFlow =
+        observeDependencyCrossRefs(uid.value).map { rows ->
+            rows
+                .filter { it.verb == DependencyVerb.FOLLOWS_UP.name }
+                .groupBy { it.taskId }
+                .mapValues { (_, rows) -> rows.map { it.dependsOnTaskId }.toSet() }
+        }
+    val extrasFlow =
+        combine(tagsFlow, depsFlow, followUpsFlow) { tags, deps, followUps ->
+            TaskExtras(
+                tagsByTask = tags,
+                depsByTask = deps,
+                followUpsByTask = followUps,
+            )
+        }
     return combine(source, extrasFlow) { rows, extras ->
         rows.map { entity ->
             entity.toTask(
                 tags = extras.tagsByTask[entity.id].orEmpty().map { TagId.fromString(it) },
-                blockedBy = extras.depsByTask[entity.id].orEmpty().map { TaskId.fromString(it) }.toSet(),
-                followsUp = extras.followUpsByTask[entity.id].orEmpty()
-                    .map { TaskId.fromString(it) }.toSet(),
+                blockedBy =
+                    extras.depsByTask[entity.id]
+                        .orEmpty()
+                        .map { TaskId.fromString(it) }
+                        .toSet(),
+                followsUp =
+                    extras.followUpsByTask[entity.id]
+                        .orEmpty()
+                        .map { TaskId.fromString(it) }
+                        .toSet(),
             )
         }
     }
@@ -105,8 +121,10 @@ private data class TaskExtras(
  * @param taskId the task whose dependencies are read.
  * @param userId the owner of the task.
  */
-internal fun TaskDao.blockingDependencyIdsForUser(taskId: String, userId: String): Flow<List<String>> =
-    getBlockingEdgeIdsForUser(taskId, userId, DependencyVerb.BLOCKS.name)
+internal fun TaskDao.blockingDependencyIdsForUser(
+    taskId: String,
+    userId: String,
+): Flow<List<String>> = getBlockingEdgeIdsForUser(taskId, userId, DependencyVerb.BLOCKS.name)
 
 /**
  * The ids of the tasks [taskId] follows up on.
@@ -118,8 +136,10 @@ internal fun TaskDao.blockingDependencyIdsForUser(taskId: String, userId: String
  * @param taskId the task whose follow-up edges are read.
  * @param userId the owner of the task.
  */
-internal fun TaskDao.followUpDependencyIdsForUser(taskId: String, userId: String): Flow<List<String>> =
-    getBlockingEdgeIdsForUser(taskId, userId, DependencyVerb.FOLLOWS_UP.name)
+internal fun TaskDao.followUpDependencyIdsForUser(
+    taskId: String,
+    userId: String,
+): Flow<List<String>> = getBlockingEdgeIdsForUser(taskId, userId, DependencyVerb.FOLLOWS_UP.name)
 
 /**
  * The task as the database holds it — the row, the tags and the blocking edges.
@@ -139,12 +159,18 @@ internal fun TaskDao.followUpDependencyIdsForUser(taskId: String, userId: String
  * @param uid the owner of the task.
  * @return the task as the database holds it, or null when there is no such row.
  */
-internal suspend fun TaskDao.freshTask(id: String, uid: UserId): Task? {
+internal suspend fun TaskDao.freshTask(
+    id: String,
+    uid: UserId,
+): Task? {
     val row = getByIdForUser(id, uid.value) ?: return null
     val tags = getTagIdsForUser(id, uid.value).first().map { TagId.fromString(it) }
     val deps = blockingDependencyIdsForUser(id, uid.value).first().map { TaskId.fromString(it) }.toSet()
-    val followUps = getBlockingEdgeIdsForUser(id, uid.value, DependencyVerb.FOLLOWS_UP.name)
-        .first().map { TaskId.fromString(it) }.toSet()
+    val followUps =
+        getBlockingEdgeIdsForUser(id, uid.value, DependencyVerb.FOLLOWS_UP.name)
+            .first()
+            .map { TaskId.fromString(it) }
+            .toSet()
     return row.toTask(tags = tags, blockedBy = deps, followsUp = followUps)
 }
 
@@ -160,19 +186,25 @@ internal suspend fun TaskDao.freshTask(id: String, uid: UserId): Task? {
  * @param rows the task rows to assemble.
  * @param uid the owner of the tasks.
  */
-internal suspend fun TaskDao.freshTasks(rows: List<TaskEntity>, uid: UserId): List<Task> {
+internal suspend fun TaskDao.freshTasks(
+    rows: List<TaskEntity>,
+    uid: UserId,
+): List<Task> {
     if (rows.isEmpty()) return emptyList()
-    val tagsByTask = listAllTagsForUser(uid.value)
-        .groupBy { it.taskId }
-        .mapValues { (_, refs) -> refs.map { TagId.fromString(it.tagId) } }
-    val depsByTask = listAllDependenciesForUser(uid.value)
-        .filter { it.verb == DependencyVerb.BLOCKS.name }
-        .groupBy { it.taskId }
-        .mapValues { (_, refs) -> refs.map { TaskId.fromString(it.dependsOnTaskId) }.toSet() }
-    val followUpsByTask = listAllDependenciesForUser(uid.value)
-        .filter { it.verb == DependencyVerb.FOLLOWS_UP.name }
-        .groupBy { it.taskId }
-        .mapValues { (_, refs) -> refs.map { TaskId.fromString(it.dependsOnTaskId) }.toSet() }
+    val tagsByTask =
+        listAllTagsForUser(uid.value)
+            .groupBy { it.taskId }
+            .mapValues { (_, refs) -> refs.map { TagId.fromString(it.tagId) } }
+    val depsByTask =
+        listAllDependenciesForUser(uid.value)
+            .filter { it.verb == DependencyVerb.BLOCKS.name }
+            .groupBy { it.taskId }
+            .mapValues { (_, refs) -> refs.map { TaskId.fromString(it.dependsOnTaskId) }.toSet() }
+    val followUpsByTask =
+        listAllDependenciesForUser(uid.value)
+            .filter { it.verb == DependencyVerb.FOLLOWS_UP.name }
+            .groupBy { it.taskId }
+            .mapValues { (_, refs) -> refs.map { TaskId.fromString(it.dependsOnTaskId) }.toSet() }
     return rows.map { row ->
         row.toTask(
             tags = tagsByTask[row.id].orEmpty(),

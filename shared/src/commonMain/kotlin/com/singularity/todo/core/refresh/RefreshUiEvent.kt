@@ -39,41 +39,48 @@ fun RefreshOutcome.toNotification(): Notification {
     if (archiveFailure != null) {
         val archiveMessage = "Could not move completed tasks to the archive: ${archiveFailure.toMessage()}"
         return Notification.Toast(
-            message = if (syncFailure != null) {
-                "$archiveMessage. Sync failed: ${syncFailure.toMessage()}"
-            } else {
-                archiveMessage
-            },
+            message =
+                if (syncFailure != null) {
+                    "$archiveMessage. Sync failed: ${syncFailure.toMessage()}"
+                } else {
+                    archiveMessage
+                },
         )
     }
 
     val moved = archived.getOrDefault(0)
-    val movedText = if (moved > 0) {
-        if (moved == 1) "1 task moved to the archive" else "$moved tasks moved to the archive"
-    } else {
-        "Nothing to move to the archive"
-    }
+    val movedText =
+        if (moved > 0) {
+            if (moved == 1) "1 task moved to the archive" else "$moved tasks moved to the archive"
+        } else {
+            "Nothing to move to the archive"
+        }
 
     return Notification.Toast(
-        message = when {
-            syncFailure != null ->
-                "$movedText on this device. Sync failed: ${syncFailure.toMessage()}"
+        message =
+            when {
+                syncFailure != null -> {
+                    "$movedText on this device. Sync failed: ${syncFailure.toMessage()}"
+                }
 
-            sync is SyncOutcome.NothingToDo ->
-                "$movedText. Sync is unavailable without signing in."
+                sync is SyncOutcome.NothingToDo -> {
+                    "$movedText. Sync is unavailable without signing in."
+                }
 
-            else ->
-                "Synced. $movedText."
-        },
+                else -> {
+                    "Synced. $movedText."
+                }
+            },
     )
 }
 
 /**
  * The report of a finished refresh.
  */
-fun RefreshUiEvent.toNotification(): Notification = when (this) {
-    is RefreshUiEvent.Finished -> outcome.toNotification()
-}
+fun RefreshUiEvent.toNotification(): Notification =
+    when (this) {
+        is RefreshUiEvent.Finished -> outcome.toNotification()
+    }
 
 /**
  * The synchronisation's failure, if it failed.
@@ -82,8 +89,9 @@ fun RefreshUiEvent.toNotification(): Notification = when (this) {
  * because there was no synchronisation to run is not one — that is the
  * signed-out case, and it gets its own message.
  */
-private fun SyncOutcome.failureOrNull(): AppError? = when (this) {
-    is SyncOutcome.Completed -> (push.exceptionOrNull() ?: pull.exceptionOrNull())?.toAppError()
-    is SyncOutcome.CouldNotStart -> error
-    SyncOutcome.NothingToDo -> null
-}
+private fun SyncOutcome.failureOrNull(): AppError? =
+    when (this) {
+        is SyncOutcome.Completed -> (push.exceptionOrNull() ?: pull.exceptionOrNull())?.toAppError()
+        is SyncOutcome.CouldNotStart -> error
+        SyncOutcome.NothingToDo -> null
+    }

@@ -127,7 +127,6 @@ class GoogleAuthorizationService(
     private val revoker: GoogleGrantRevoker,
     private val credentialStore: GoogleCredentialStore,
 ) : GoogleAuthorizer {
-
     /**
      * Prepares a sign-in.
      *
@@ -137,18 +136,20 @@ class GoogleAuthorizationService(
      */
     override suspend fun beginAuthorization(): Result<PendingGoogleAuthorization> =
         runCatchingCancellable {
-            val clientId = clientIdResolver.resolve(secureStorage)?.clientId
-                ?: throw GoogleAuthorizationException(
-                    "No Google client id is configured. Add one in the Calendar settings.",
-                )
+            val clientId =
+                clientIdResolver.resolve(secureStorage)?.clientId
+                    ?: throw GoogleAuthorizationException(
+                        "No Google client id is configured. Add one in the Calendar settings.",
+                    )
             val pkce = generatePkcePair()
             PendingGoogleAuthorization(
-                request = GoogleAuthorizationRequest(
-                    clientId = clientId,
-                    scopes = listOf(GOOGLE_CALENDAR_SCOPE),
-                    state = secureRandomBytes(STATE_BYTES).base64Url(),
-                    codeChallenge = pkce.challenge,
-                ),
+                request =
+                    GoogleAuthorizationRequest(
+                        clientId = clientId,
+                        scopes = listOf(GOOGLE_CALENDAR_SCOPE),
+                        state = secureRandomBytes(STATE_BYTES).base64Url(),
+                        codeChallenge = pkce.challenge,
+                    ),
                 codeVerifier = pkce.verifier,
             )
         }
@@ -164,11 +165,12 @@ class GoogleAuthorizationService(
         pending: PendingGoogleAuthorization,
         grant: GoogleGrant,
         userId: String,
-    ): Result<GoogleCredentials> = runCatchingCancellable {
-        val credentials = redeemer.redeem(grant, pending.request.clientId, pending.codeVerifier).getOrThrow()
-        credentialStore.save(userId, credentials)
-        credentials
-    }
+    ): Result<GoogleCredentials> =
+        runCatchingCancellable {
+            val credentials = redeemer.redeem(grant, pending.request.clientId, pending.codeVerifier).getOrThrow()
+            credentialStore.save(userId, credentials)
+            credentials
+        }
 
     /**
      * Makes the credential stop working.

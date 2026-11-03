@@ -34,7 +34,6 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 @LargeTest
 class NavigationSmokeTest : InstrumentedTestBase() {
-
     @Before
     fun setup() {
         // Unlock the lock screen so ActivityScenario can land on the app.

@@ -5,7 +5,6 @@ package com.singularity.todo.feature.calendarSync.domain.model
  * desired state for a task. Determines what CalendarProvider operation to run.
  */
 sealed interface SyncPlan {
-
     /** No action needed — existing event matches desired state. */
     data object NoOp : SyncPlan
 

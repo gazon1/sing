@@ -73,10 +73,11 @@ fun MenuBottomSheet(
     //
     // The sheet is a menu, not a peeker: it opens to show what it holds. See
     // docs/decisions/2026-10-22-a-sheet-opens-to-what-it-holds.md.
-    val sheetState = rememberBottomSheetState(
-        initialValue = SheetValue.Hidden,
-        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-    )
+    val sheetState =
+        rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+        )
 
     LaunchedEffect(Unit) { sheetState.show() }
     // The canonical sheet host, not a bare ModalBottomSheet: it applies the
@@ -95,18 +96,21 @@ fun MenuBottomSheet(
             // projects tree and three headers, and a screen shorter than that
             // would clip the last ones again — the same defect the settings
             // rail had, and the reason the rail scrolls on every form factor.
-            modifier = Modifier.mapTestTagsAsResourceIds()
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier =
+                Modifier
+                    .mapTestTagsAsResourceIds()
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             val accountItems = AppMenu.accountEntries(showAttachAccount)
-            val sections = listOf(
-                MenuSection(title = "Account", items = accountItems),
-                MenuSection(title = "Search", items = AppMenu.search),
-                MenuSection(title = "Destinations", items = AppMenu.sheetDestinations),
-            )
+            val sections =
+                listOf(
+                    MenuSection(title = "Account", items = accountItems),
+                    MenuSection(title = "Search", items = AppMenu.search),
+                    MenuSection(title = "Destinations", items = AppMenu.sheetDestinations),
+                )
             sections.forEach { section ->
                 SectionHeader(section.title)
                 section.items.forEach { item ->
@@ -119,10 +123,11 @@ fun MenuBottomSheet(
                         // mapTestTagsAsResourceIds() on the Column covers descendants, but
                         // NavigationDrawerItem may establish its own semantics scope.
                         // Applying it here too is idempotent and guarantees propagation.
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .mapTestTagsAsResourceIds()
-                            .testTag(item.id),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .mapTestTagsAsResourceIds()
+                                .testTag(item.id),
                     )
                 }
                 HorizontalDivider()

@@ -58,15 +58,17 @@ data class DocumentCorpusConfig(
          * a search can see — it must only mean that the policy is not there, which is
          * the reader's problem to report, not the corpus's.
          */
-        val DEFAULT = DocumentCorpusConfig(
-            maxDepth = 6,
-            fileExtension = ".md",
-            roots = mapOf(
-                "architecture" to listOf("docs/architecture"),
-                "skills" to listOf(".agents/skills"),
-                "specs" to listOf("openspec/specs"),
-            ),
-        )
+        val DEFAULT =
+            DocumentCorpusConfig(
+                maxDepth = 6,
+                fileExtension = ".md",
+                roots =
+                    mapOf(
+                        "architecture" to listOf("docs/architecture"),
+                        "skills" to listOf(".agents/skills"),
+                        "specs" to listOf("openspec/specs"),
+                    ),
+            )
 
         private val json = Json { ignoreUnknownKeys = true }
 
@@ -86,13 +88,17 @@ data class DocumentCorpusConfig(
         internal fun parse(text: String): DocumentCorpusConfig {
             val obj = json.parseToJsonElement(text).jsonObject
             val corpora = obj["corpora"]?.jsonObject ?: JsonObject(emptyMap())
-            val roots = corpora.mapNotNull { (scope, value) ->
-                val declared = value.jsonObject["roots"]?.jsonArray
-                    ?.mapNotNull { it.jsonPrimitive.content }
-                    ?.filter { it.isNotBlank() }
-                    ?: return@mapNotNull null
-                if (declared.isEmpty()) null else scope to declared
-            }.toMap()
+            val roots =
+                corpora
+                    .mapNotNull { (scope, value) ->
+                        val declared =
+                            value.jsonObject["roots"]
+                                ?.jsonArray
+                                ?.mapNotNull { it.jsonPrimitive.content }
+                                ?.filter { it.isNotBlank() }
+                                ?: return@mapNotNull null
+                        if (declared.isEmpty()) null else scope to declared
+                    }.toMap()
             return DocumentCorpusConfig(
                 maxDepth = obj["maxDepth"]?.jsonPrimitive?.content?.toIntOrNull() ?: DEFAULT.maxDepth,
                 fileExtension = obj["fileExtension"]?.jsonPrimitive?.content ?: DEFAULT.fileExtension,

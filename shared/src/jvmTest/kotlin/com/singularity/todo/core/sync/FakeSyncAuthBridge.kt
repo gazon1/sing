@@ -1,9 +1,9 @@
 package com.singularity.todo.core.sync
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
-import co.touchlab.kermit.Logger
 import kotlinx.coroutines.SupervisorJob
 
 /**

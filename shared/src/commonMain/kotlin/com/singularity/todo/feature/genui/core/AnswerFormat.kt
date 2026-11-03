@@ -43,7 +43,6 @@ fun looksLikeMessage(line: String): Boolean = line.startsWith("{")
  * one, a quote opens it.
  */
 class JsonMessageDepth {
-
     private var depth: Int = 0
     private var inString: Boolean = false
     private var escaped: Boolean = false

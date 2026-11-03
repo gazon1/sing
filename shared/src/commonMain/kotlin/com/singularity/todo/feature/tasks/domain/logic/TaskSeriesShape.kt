@@ -17,7 +17,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
  * answers both invites a caller to reach for the wrong answer.
  */
 object TaskSeriesShape {
-
     /**
      * Whether a row carries a repeat rule without belonging to a series.
      *

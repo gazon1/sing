@@ -27,27 +27,27 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.platform.systemToday
+import com.singularity.todo.core.search.SearchColumn
+import com.singularity.todo.core.search.TextMatchRange
+import com.singularity.todo.core.search.inColumn
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.AiActionButton
 import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.highlightedText
-import com.singularity.todo.core.search.SearchColumn
-import com.singularity.todo.core.search.TextMatchRange
-import com.singularity.todo.core.search.inColumn
 import com.singularity.todo.feature.tasks.domain.logic.computeTaskMarkings
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
-import com.singularity.todo.feature.tasks.presentation.components.list.TaskMarkingsRow
-import kotlinx.datetime.LocalDate
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.core.platform.systemToday
+import com.singularity.todo.feature.tasks.presentation.components.list.TaskMarkingsRow
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
-import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.datetime.LocalDate
 
 /**
  * Card representation of a single task. Stateless — every piece of behavior is
@@ -81,17 +81,20 @@ fun TaskCard(
     trailing: @Composable RowScope.() -> Unit = { DefaultTaskCardTrailing(task, actions) },
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag(TestTags.taskItem(task.title))
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
-        colors = CardDefaults.cardColors(
-            containerColor = if (task.isPinned) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            } else {
-                MaterialTheme.colorScheme.surface
-            },
-        ),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag(TestTags.taskItem(task.title))
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    if (task.isPinned) {
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    },
+            ),
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -119,8 +122,9 @@ internal fun RowScope.DefaultTaskCardBody(
     isBlocked: Boolean = false,
     markings: ImmutableSet<TaskMarking>? = null,
 ) {
-    val computedMarkings: ImmutableSet<TaskMarking> = markings
-        ?: computeTaskMarkings(task, today, isBlocked || task.id in blockedTaskIds)
+    val computedMarkings: ImmutableSet<TaskMarking> =
+        markings
+            ?: computeTaskMarkings(task, today, isBlocked || task.id in blockedTaskIds)
     actions.onToggle?.let { onToggle ->
         ToggleButton(isCompleted = task.isCompleted, onClick = onToggle, taskTitle = task.title)
     }
@@ -137,14 +141,21 @@ internal fun RowScope.DefaultTaskCardBody(
  * Each button is conditionally rendered only when the corresponding callback is non-null.
  */
 @Composable
-internal fun DefaultTaskCardTrailing(task: Task, actions: TaskCardActions) {
+internal fun DefaultTaskCardTrailing(
+    task: Task,
+    actions: TaskCardActions,
+) {
     actions.onPin?.let { PinButton(isPinned = task.isPinned, onClick = it) }
     actions.onAiClick?.let { AiActionButton(onClick = it) }
     actions.onDelete?.let { DeleteActionButton(onClick = it) }
 }
 
 @Composable
-private fun ToggleButton(isCompleted: Boolean, onClick: () -> Unit, taskTitle: String = "") {
+private fun ToggleButton(
+    isCompleted: Boolean,
+    onClick: () -> Unit,
+    taskTitle: String = "",
+) {
     IconButton(
         onClick = onClick,
         modifier = Modifier.testTag(TestTags.taskCheckbox(taskTitle)),
@@ -152,11 +163,12 @@ private fun ToggleButton(isCompleted: Boolean, onClick: () -> Unit, taskTitle: S
         Icon(
             imageVector = if (isCompleted) Icons.Filled.Check else Icons.Filled.RadioButtonUnchecked,
             contentDescription = "Toggle complete",
-            tint = if (isCompleted) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+            tint =
+                if (isCompleted) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
         )
     }
 }
@@ -186,16 +198,20 @@ private fun TaskText(
 }
 
 @Composable
-private fun PinButton(isPinned: Boolean, onClick: () -> Unit) {
+private fun PinButton(
+    isPinned: Boolean,
+    onClick: () -> Unit,
+) {
     IconButton(onClick = onClick) {
         Icon(
             imageVector = Icons.Filled.PushPin,
             contentDescription = if (isPinned) "Unpin" else "Pin",
-            tint = if (isPinned) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+            tint =
+                if (isPinned) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
         )
     }
 }
@@ -213,12 +229,12 @@ private fun SubtaskChip(modifier: Modifier = Modifier) {
         text = "Sub-task",
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSecondaryContainer,
-        modifier = modifier
-            .background(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = MaterialTheme.shapes.extraSmall,
-            )
-            .padding(horizontal = 6.dp, vertical = 2.dp),
+        modifier =
+            modifier
+                .background(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = MaterialTheme.shapes.extraSmall,
+                ).padding(horizontal = 6.dp, vertical = 2.dp),
     )
 }
 
@@ -226,33 +242,36 @@ private fun SubtaskChip(modifier: Modifier = Modifier) {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun TaskCardLightPreview() = PreviewThemed(darkTheme = false) {
-    TaskCard(
-        task = PreviewSamples.task(),
-        onClick = {},
-        onLongClick = {},
-    )
-}
+private fun TaskCardLightPreview() =
+    PreviewThemed(darkTheme = false) {
+        TaskCard(
+            task = PreviewSamples.task(),
+            onClick = {},
+            onLongClick = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun TaskCardCompletedDarkPreview() = PreviewThemed(darkTheme = true) {
-    TaskCard(
-        task = PreviewSamples.task(completed = true),
-        onClick = {},
-        onLongClick = {},
-    )
-}
+private fun TaskCardCompletedDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        TaskCard(
+            task = PreviewSamples.task(completed = true),
+            onClick = {},
+            onLongClick = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun TaskCardPinnedPurpleDarkPreview() = PreviewThemed(
-    darkTheme = true,
-    accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple,
-) {
-    TaskCard(
-        task = PreviewSamples.task(pinned = true, priority = TaskPriority.High),
-        onClick = {},
-        onLongClick = {},
-    )
-}
+private fun TaskCardPinnedPurpleDarkPreview() =
+    PreviewThemed(
+        darkTheme = true,
+        accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple,
+    ) {
+        TaskCard(
+            task = PreviewSamples.task(pinned = true, priority = TaskPriority.High),
+            onClick = {},
+            onLongClick = {},
+        )
+    }

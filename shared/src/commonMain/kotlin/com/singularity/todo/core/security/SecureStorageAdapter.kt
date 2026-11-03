@@ -19,7 +19,10 @@ import com.singularity.todo.core.auth.SecureStorage
 class SecureStorageAdapter(private val port: SecureStoragePort) : SecureStorage {
     override suspend fun read(key: String): String? = port.read(key)
 
-    override suspend fun write(key: String, value: String) = port.write(key, value)
+    override suspend fun write(
+        key: String,
+        value: String,
+    ) = port.write(key, value)
 
     override suspend fun delete(key: String) = port.delete(key)
 }

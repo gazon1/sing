@@ -31,7 +31,6 @@ import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
  * and a proposal that was edited is a proposal the user still has to agree to.
  */
 class EditProposalItemUseCase(private val proposals: ProposalRepository) {
-
     /**
      * Replaces the value of [itemId] with what [newText] reads as.
      *
@@ -40,18 +39,24 @@ class EditProposalItemUseCase(private val proposals: ProposalRepository) {
      *   value a person would type, or the value the user typed does not read — the
      *   message is the reason the user is shown.
      */
-    suspend fun edit(itemId: ProposalItemId, newText: String, userId: UserId): Result<ProposalItem> =
+    suspend fun edit(
+        itemId: ProposalItemId,
+        newText: String,
+        userId: UserId,
+    ): Result<ProposalItem> =
         runCatchingCancellable {
             val stored = proposals.getItem(itemId) ?: error("The proposal is no longer there.")
             check(stored.status == ProposalItemStatus.Pending) {
                 stored.statusFailure ?: "This change was already ${stored.status.name.lowercase()}."
             }
-            val editable = stored.kind.editableProposal()
-                ?: error("This change has no value you can change.")
-            val kind = when (val changed = editable.change(newText.trim())) {
-                is ReadResult.Ok -> changed.value
-                is ReadResult.Rejected -> error(changed.reason)
-            }
+            val editable =
+                stored.kind.editableProposal()
+                    ?: error("This change has no value you can change.")
+            val kind =
+                when (val changed = editable.change(newText.trim())) {
+                    is ReadResult.Ok -> changed.value
+                    is ReadResult.Rejected -> error(changed.reason)
+                }
             proposals.updatePendingItem(itemId, kind, userId).getOrThrow()
                 ?: error("This change was decided before it could be changed.")
         }

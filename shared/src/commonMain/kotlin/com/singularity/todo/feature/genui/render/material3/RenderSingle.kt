@@ -20,13 +20,18 @@ import com.singularity.todo.feature.genui.render.DataContext
  * will define, and that is a wait, not an error.
  */
 @Composable
-internal fun RenderSingle(ref: NodeRef, ctx: DataContext, modifier: Modifier = Modifier) {
+internal fun RenderSingle(
+    ref: NodeRef,
+    ctx: DataContext,
+    modifier: Modifier = Modifier,
+) {
     // UI-derived: one component's node, derived from the surface's component store.
     val surfacesState = ctx.surfaces.collectAsStateWithLifecycle()
     val store = surfacesState.value[ctx.surfaceId]?.componentStore ?: return
     val componentsState = store.all.collectAsStateWithLifecycle()
-    val nodeState = remember(store, ref.id) {
-        derivedStateOf { componentsState.value[ref.id] }
-    }
+    val nodeState =
+        remember(store, ref.id) {
+            derivedStateOf { componentsState.value[ref.id] }
+        }
     ctx.registry.render(nodeState.value ?: return, ctx, modifier)
 }

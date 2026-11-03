@@ -30,21 +30,22 @@ private data class TaskLinkKey(val taskId: String)
  * возвращает на Today.
  */
 class TaskDeepLink : AppDeepLink {
-
     override val id: String = "task"
 
-    private val matcher = UriDeepLinkMatcher(
-        uriPattern = DeepLinkUri(TaskLinkSpec.URI),
-        serializer = TaskLinkKey.serializer(),
-    )
+    private val matcher =
+        UriDeepLinkMatcher(
+            uriPattern = DeepLinkUri(TaskLinkSpec.URI),
+            serializer = TaskLinkKey.serializer(),
+        )
 
     override fun match(request: DeepLinkRequest): DeepLinkTarget? {
         val hit = matcher.match(request) ?: return null
         return DeepLinkTarget(
             tab = AppDestination.AgendaGraph(AgendaStartRoute.Today),
-            screen = AppDestination.TasksGraph(
-                AppDestination.TasksStartRoute.Detail(TaskId(hit.key.taskId)),
-            ),
+            screen =
+                AppDestination.TasksGraph(
+                    AppDestination.TasksStartRoute.Detail(TaskId(hit.key.taskId)),
+                ),
         )
     }
 }

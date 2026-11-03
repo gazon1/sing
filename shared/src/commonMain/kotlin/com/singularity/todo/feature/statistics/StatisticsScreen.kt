@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -23,8 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -33,20 +33,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.refresh.RefreshableContent
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.formatDecimal
 import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.theme.DataSeriesColors
 import com.singularity.todo.core.ui.theme.DataStatusColors
-import com.singularity.todo.core.ui.text.SelectableText
-import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
@@ -110,13 +111,14 @@ fun StatisticsScreen(
                         // Health tab, the screen opens on Tasks, and a flow that
                         // waits for a bucket without selecting the tab is waiting
                         // for something on the next tab.
-                        modifier = Modifier.testTag(
-                            when (index) {
-                                0 -> TestTags.STATISTICS_TAB_TASKS
-                                1 -> TestTags.STATISTICS_TAB_TIME
-                                else -> TestTags.STATISTICS_TAB_HEALTH
-                            },
-                        ),
+                        modifier =
+                            Modifier.testTag(
+                                when (index) {
+                                    0 -> TestTags.STATISTICS_TAB_TASKS
+                                    1 -> TestTags.STATISTICS_TAB_TIME
+                                    else -> TestTags.STATISTICS_TAB_HEALTH
+                                },
+                            ),
                         text = { Text(title) },
                     )
                 }
@@ -125,15 +127,19 @@ fun StatisticsScreen(
             Spacer(Modifier.height(16.dp))
 
             when (selectedTab) {
-                0 -> TasksTabContent(state = state)
+                0 -> {
+                    TasksTabContent(state = state)
+                }
 
-                1 -> InsightsTabContent(
-                    viewModel = viewModel,
-                    insightsState = state.insights,
-                    rangeDays = state.rangeDays,
-                )
+                1 -> {
+                    InsightsTabContent(
+                        viewModel = viewModel,
+                        insightsState = state.insights,
+                        rangeDays = state.rangeDays,
+                    )
+                }
 
-                2 ->
+                2 -> {
                     HealthTabContent(
                         health = state.health,
                         onBucketClick = { bucket ->
@@ -158,6 +164,7 @@ fun StatisticsScreen(
                             }
                         },
                     )
+                }
             }
         }
     }
@@ -196,7 +203,7 @@ private fun TasksTabContent(state: StatisticsUiState) {
             )
             StatCard(
                 title = "Avg/Day",
-                value = "%.1f".format(snapshot?.averagePerDay ?: 0.0),
+                value = formatDecimal(snapshot?.averagePerDay ?: 0.0, 1),
                 modifier = Modifier.weight(1f),
             )
         }
@@ -485,7 +492,7 @@ private fun ProjectTimeRow(
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = "%.0f%%".format(fraction * 100),
+            text = formatDecimal(fraction * 100, 0) + "%",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -561,12 +568,13 @@ private fun HealthTabContent(
 
         health.actionable.forEach { bucket ->
             val clickable = bucket in health.actionable
-            val testTag = when (bucket) {
-                TaskHealthBucket.OVERDUE -> TestTags.HEALTH_BUCKET_OVERDUE
-                TaskHealthBucket.BLOCKED -> TestTags.HEALTH_BUCKET_BLOCKED
-                TaskHealthBucket.STAGNANT -> TestTags.HEALTH_BUCKET_STAGNANT
-                TaskHealthBucket.FINE -> null
-            }
+            val testTag =
+                when (bucket) {
+                    TaskHealthBucket.OVERDUE -> TestTags.HEALTH_BUCKET_OVERDUE
+                    TaskHealthBucket.BLOCKED -> TestTags.HEALTH_BUCKET_BLOCKED
+                    TaskHealthBucket.STAGNANT -> TestTags.HEALTH_BUCKET_STAGNANT
+                    TaskHealthBucket.FINE -> null
+                }
             StatCard(
                 title = bucket.displayLabel(),
                 value = health[bucket].toString(),

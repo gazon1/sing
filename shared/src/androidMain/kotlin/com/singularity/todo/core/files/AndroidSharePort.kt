@@ -14,13 +14,16 @@ import android.content.Intent
  * and what a "Share" affordance is expected to look like.
  */
 class AndroidSharePort(private val context: Context) : SharePort {
-
-    override fun shareText(title: String, text: String): Boolean {
-        val send = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, text)
-            putExtra(Intent.EXTRA_SUBJECT, title)
-        }
+    override fun shareText(
+        title: String,
+        text: String,
+    ): Boolean {
+        val send =
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+                putExtra(Intent.EXTRA_SUBJECT, title)
+            }
         val chooser = Intent.createChooser(send, title)
         // Launched from a Composable, so the caller is (transitively) an Activity and the
         // share lands in the back stack when the target app finishes.

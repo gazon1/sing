@@ -40,15 +40,17 @@ import kotlin.test.assertTrue
  * debt they carried is paid. The rule is not asked about them.
  */
 class NoUnstableCollectionParamRuleTest {
-
-    private val register = mapOf(
-        "com.singularity.todo.core.ui.components.BlockedCompletionDialog" to mapOf(
-            "blockerTitles" to "List<String>",
-        ),
-        "com.singularity.todo.feature.nav.Nav3State.toDecoratedEntries" to mapOf(
-            "entryDecorators" to "List<NavEntryDecorator<NavKey>>",
-        ),
-    )
+    private val register =
+        mapOf(
+            "com.singularity.todo.core.ui.components.BlockedCompletionDialog" to
+                mapOf(
+                    "blockerTitles" to "List<String>",
+                ),
+            "com.singularity.todo.feature.nav.Nav3State.toDecoratedEntries" to
+                mapOf(
+                    "entryDecorators" to "List<NavEntryDecorator<NavKey>>",
+                ),
+        )
 
     private val rule = NoUnstableCollectionParamRule(TestConfig(), register)
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
@@ -298,10 +300,11 @@ class NoUnstableCollectionParamRuleTest {
             }
         """
         val withoutRegister = NoUnstableCollectionParamRule(TestConfig(), emptyMap())
-        val found = withoutRegister.visitFile(
-            compileContentForTest(code.trimIndent(), Path.of("Fixture.kt")),
-            languageSettings,
-        )
+        val found =
+            withoutRegister.visitFile(
+                compileContentForTest(code.trimIndent(), Path.of("Fixture.kt")),
+                languageSettings,
+            )
         assertEquals(1, found.size)
         assertEquals(0, findings(code).size)
     }

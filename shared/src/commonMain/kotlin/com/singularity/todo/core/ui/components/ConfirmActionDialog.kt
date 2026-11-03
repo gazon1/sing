@@ -47,9 +47,10 @@ fun ConfirmActionDialog(
         title = {
             Text(
                 text = title,
-                modifier = Modifier
-                    .testTag(TestTags.Dialog.title(title))
-                    .mapTestTagsAsResourceIds(),
+                modifier =
+                    Modifier
+                        .testTag(TestTags.Dialog.title(title))
+                        .mapTestTagsAsResourceIds(),
             )
         },
         text = { Text(text) },
@@ -59,9 +60,10 @@ fun ConfirmActionDialog(
                 // A dialog is its own Android window, so the app-root
                 // testTagsAsResourceId never reaches it. Without this the tag is
                 // invisible to Maestro and the flow has to select by label.
-                modifier = Modifier
-                    .testTag(TestTags.Dialog.CONFIRM)
-                    .mapTestTagsAsResourceIds(),
+                modifier =
+                    Modifier
+                        .testTag(TestTags.Dialog.CONFIRM)
+                        .mapTestTagsAsResourceIds(),
             ) {
                 Text(confirmButtonText)
             }
@@ -69,9 +71,10 @@ fun ConfirmActionDialog(
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
-                modifier = Modifier
-                    .testTag(TestTags.Dialog.DISMISS)
-                    .mapTestTagsAsResourceIds(),
+                modifier =
+                    Modifier
+                        .testTag(TestTags.Dialog.DISMISS)
+                        .mapTestTagsAsResourceIds(),
             ) {
                 Text(dismissButtonText)
             }

@@ -12,10 +12,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.sync.ATTACHMENTS_SYNC_TRANSPORT_AVAILABLE
 import com.singularity.todo.core.sync.ATTACHMENTS_SYNC_UNAVAILABLE_REASON
 import com.singularity.todo.core.sync.ConnectionTestResult
 import com.singularity.todo.core.sync.SyncEngineStatus
-import com.singularity.todo.core.sync.ATTACHMENTS_SYNC_TRANSPORT_AVAILABLE
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsActionRow
 import com.singularity.todo.core.ui.components.SettingsSection
@@ -68,10 +68,11 @@ fun SyncSettingsContent(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .padding(16.dp)
-            .testTag(TestTags.Settings.content(TestTags.Sync.TAB_SLUG))
-            .verticalScroll(rememberScrollState()),
+        modifier =
+            modifier
+                .padding(16.dp)
+                .testTag(TestTags.Settings.content(TestTags.Sync.TAB_SLUG))
+                .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SettingsSection(title = "Status") {
@@ -95,11 +96,12 @@ fun SyncSettingsContent(
             SettingsValueRow(
                 title = "Interval",
                 value = intervalLabel(state.intervalMinutes),
-                subtitle = if (state.autoSyncEnabled) {
-                    "Tap to cycle through ${INTERVAL_CHOICES.joinToString(", ")} minutes"
-                } else {
-                    "Turn on automatic sync to apply this"
-                },
+                subtitle =
+                    if (state.autoSyncEnabled) {
+                        "Tap to cycle through ${INTERVAL_CHOICES.joinToString(", ")} minutes"
+                    } else {
+                        "Turn on automatic sync to apply this"
+                    },
                 onClick = { onIntent(SyncIntent.SetInterval(nextInterval(state.intervalMinutes))) },
                 testTag = TestTags.Sync.INTERVAL_ROW,
             )
@@ -108,11 +110,12 @@ fun SyncSettingsContent(
         SettingsSection(title = "Attachments") {
             SettingsSwitchRow(
                 title = "Sync attachments",
-                subtitle = if (ATTACHMENTS_SYNC_TRANSPORT_AVAILABLE) {
-                    "Upload file contents along with the tasks that reference them"
-                } else {
-                    ATTACHMENTS_SYNC_UNAVAILABLE_REASON
-                },
+                subtitle =
+                    if (ATTACHMENTS_SYNC_TRANSPORT_AVAILABLE) {
+                        "Upload file contents along with the tasks that reference them"
+                    } else {
+                        ATTACHMENTS_SYNC_UNAVAILABLE_REASON
+                    },
                 checked = state.attachmentsSyncEnabled,
                 // Null, not a handler that calls into a stage that does not exist.
                 // `SettingsSwitchRow` treats that as inert, so the row cannot be
@@ -150,35 +153,40 @@ private fun nextInterval(current: Int): Int {
 
 private fun intervalLabel(minutes: Int): String = if (minutes < 60) "$minutes min" else "${minutes / 60} h"
 
-private fun connectionSubtitle(state: SyncState): String? = when (val result = state.connectionTestResult) {
-    null -> if (state.isTestingConnection) "Checking…" else null
-    is ConnectionTestResult.Success -> "Connection OK"
-    is ConnectionTestResult.Failure -> result.error.message
-}
+private fun connectionSubtitle(state: SyncState): String? =
+    when (val result = state.connectionTestResult) {
+        null -> if (state.isTestingConnection) "Checking…" else null
+        is ConnectionTestResult.Success -> "Connection OK"
+        is ConnectionTestResult.Failure -> result.error.message
+    }
 
-private fun SyncEngineStatus.label(): String = when (this) {
-    is SyncEngineStatus.Idle -> "Idle"
-    is SyncEngineStatus.Pushing, is SyncEngineStatus.Pulling -> "Syncing…"
-    is SyncEngineStatus.NoConnection -> "Offline"
-    is SyncEngineStatus.Failure -> "Error"
-}
-
-@Preview
-@Composable
-private fun SyncSettingsIdlePreview() = PreviewThemed {
-    SyncSettingsContent(state = SyncState(), onIntent = {})
-}
+private fun SyncEngineStatus.label(): String =
+    when (this) {
+        is SyncEngineStatus.Idle -> "Idle"
+        is SyncEngineStatus.Pushing, is SyncEngineStatus.Pulling -> "Syncing…"
+        is SyncEngineStatus.NoConnection -> "Offline"
+        is SyncEngineStatus.Failure -> "Error"
+    }
 
 @Preview
 @Composable
-private fun SyncSettingsOfflinePreview() = PreviewThemed(darkTheme = true) {
-    SyncSettingsContent(
-        state = SyncState(
-            status = SyncEngineStatus.NoConnection,
-            errorMessage = "Server unreachable",
-            autoSyncEnabled = true,
-            intervalMinutes = 60,
-        ),
-        onIntent = {},
-    )
-}
+private fun SyncSettingsIdlePreview() =
+    PreviewThemed {
+        SyncSettingsContent(state = SyncState(), onIntent = {})
+    }
+
+@Preview
+@Composable
+private fun SyncSettingsOfflinePreview() =
+    PreviewThemed(darkTheme = true) {
+        SyncSettingsContent(
+            state =
+                SyncState(
+                    status = SyncEngineStatus.NoConnection,
+                    errorMessage = "Server unreachable",
+                    autoSyncEnabled = true,
+                    intervalMinutes = 60,
+                ),
+            onIntent = {},
+        )
+    }

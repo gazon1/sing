@@ -1,10 +1,10 @@
 package com.singularity.todo.feature.nav.entries
 
 import androidx.navigation3.runtime.EntryProviderScope
-import com.singularity.todo.feature.attachments.viewer.AttachmentViewerRoute
 import com.singularity.todo.feature.ai.chat.ChatScreen
 import com.singularity.todo.feature.ai.usage.AiUsageScreen
 import com.singularity.todo.feature.archive.ArchiveScreen
+import com.singularity.todo.feature.attachments.viewer.AttachmentViewerRoute
 import com.singularity.todo.feature.auth.presentation.AttachAccountScreen
 import com.singularity.todo.feature.auth.presentation.MagicLinkConfirmScreen
 import com.singularity.todo.feature.nav.AppDestination

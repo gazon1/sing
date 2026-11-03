@@ -23,7 +23,6 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * @see NoRunBlockingProvider for registration.
  */
 class NoRunBlockingRule(config: Config) : Rule(config, "", null) {
-
     override fun visitCallExpression(expression: KtCallExpression) {
         // Without super the tree traversal stops at this node and runBlocking calls
         // deeper in the file would never be visited.
@@ -34,9 +33,10 @@ class NoRunBlockingRule(config: Config) : Rule(config, "", null) {
         report(
             Finding(
                 entity = Entity.from(expression),
-                message = "runBlocking is banned in production code. " +
-                    "Use 'CoroutineScope.launch { ... }' or inject a scope and call " +
-                    "'scope.launch { ... }' instead.",
+                message =
+                    "runBlocking is banned in production code. " +
+                        "Use 'CoroutineScope.launch { ... }' or inject a scope and call " +
+                        "'scope.launch { ... }' instead.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -49,10 +49,12 @@ class NoRunBlockingRule(config: Config) : Rule(config, "", null) {
  */
 class NoRunBlockingProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-runblocking")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoRunBlocking") to { cfg: Config -> NoRunBlockingRule(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoRunBlocking") to { cfg: Config -> NoRunBlockingRule(cfg) },
+            ),
+        )
 }

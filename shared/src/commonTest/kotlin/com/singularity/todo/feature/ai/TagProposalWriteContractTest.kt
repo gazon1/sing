@@ -10,12 +10,11 @@ import com.singularity.todo.feature.ai.tools.CreateTagTool
 import com.singularity.todo.feature.ai.tools.DeleteTagInput
 import com.singularity.todo.feature.ai.tools.DeleteTagOutput
 import com.singularity.todo.feature.ai.tools.DeleteTagTool
+import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
-import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
-import com.singularity.todo.feature.tags.Tag as DomainTag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
@@ -36,6 +35,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.singularity.todo.feature.tags.Tag as DomainTag
 
 /**
  * The write contract of [CreateTagTool] and [DeleteTagTool]: the call proposes,
@@ -63,7 +63,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TagProposalWriteContractTest {
-
     private val clock = FakeClock()
     private val user: UserId = TestUsers.DEFAULT
 
@@ -78,15 +77,26 @@ class TagProposalWriteContractTest {
 
     private val currentUser = FakeProfileAwareCurrentUser(user)
 
-    private val apply = ApplyProposalItemUseCase(
-        proposals = proposals,
-        tasks = tasks,
-        notes = notes,
-        projects = projectsFake,
-        tags = tags,
-        planner = ProposalPlanner(clock),
-        dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, projectsFake, deleteProject, clock),
-    )
+    private val apply =
+        ApplyProposalItemUseCase(
+            proposals = proposals,
+            tasks = tasks,
+            notes = notes,
+            projects = projectsFake,
+            tags = tags,
+            planner = ProposalPlanner(clock),
+            dispatch =
+                ProposalDispatch(
+                    tasks,
+                    tags,
+                    checklist,
+                    timeTracking,
+                    notes,
+                    projectsFake,
+                    deleteProject,
+                    clock,
+                ),
+        )
 
     // ── The catalogue and the behaviour must agree ──────────────────────────────
 
@@ -110,79 +120,87 @@ class TagProposalWriteContractTest {
     // ── create_tag: the tag must not exist until the user says yes ─────────────
 
     @Test
-    fun `create_tag proposes the tag and creates nothing`() = runTest {
-        val output = decodeCreate(
-            CreateTagTool(proposals, currentUser, clock).execute(CreateTagInput(name = "home")),
-        )
+    fun `create_tag proposes the tag and creates nothing`() =
+        runTest {
+            val output =
+                decodeCreate(
+                    CreateTagTool(proposals, currentUser, clock).execute(CreateTagInput(name = "home")),
+                )
 
-        assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
-        assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
-        assertEquals("home", output.name, "the tool names the tag it proposed")
-        assertTrue(
-            tags.observeAll().first().isEmpty(),
-            "no tag was created: ${tags.observeAll().first().map { it.name }}",
-        )
+            assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
+            assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
+            assertEquals("home", output.name, "the tool names the tag it proposed")
+            assertTrue(
+                tags.observeAll().first().isEmpty(),
+                "no tag was created: ${tags.observeAll().first().map { it.name }}",
+            )
 
-        val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
-        assertNotNull(stored, "the proposal is in the store")
-        assertEquals(1, stored.items.size, "the proposal holds one change")
-        assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
-    }
-
-    @Test
-    fun `confirming a create_tag proposal creates the tag`() = runTest {
-        val output = decodeCreate(
-            CreateTagTool(proposals, currentUser, clock).execute(CreateTagInput(name = "home")),
-        )
-        val result = apply.confirm(singleItemId(output.proposalId), user)
-        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
-
-        val created = assertNotNull(tags.get(proposedTagId(output.proposalId)), "the tag exists")
-        assertEquals("home", created.name, "the tag is the one that was proposed")
-        assertNull(created.deletedAt, "the tag is not deleted")
-    }
+            val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
+            assertNotNull(stored, "the proposal is in the store")
+            assertEquals(1, stored.items.size, "the proposal holds one change")
+            assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
+        }
 
     @Test
-    fun `declining a create_tag proposal creates nothing`() = runTest {
-        val output = decodeCreate(
-            CreateTagTool(proposals, currentUser, clock).execute(CreateTagInput(name = "home")),
-        )
-        val itemId = singleItemId(output.proposalId)
-        val result = apply.reject(itemId, user, reason = "not a tag I want")
-        assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+    fun `confirming a create_tag proposal creates the tag`() =
+        runTest {
+            val output =
+                decodeCreate(
+                    CreateTagTool(proposals, currentUser, clock).execute(CreateTagInput(name = "home")),
+                )
+            val result = apply.confirm(singleItemId(output.proposalId), user)
+            assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
 
-        assertTrue(
-            tags.observeAll().first().isEmpty(),
-            "no tag was created: ${tags.observeAll().first().map { it.name }}",
-        )
-        assertEquals(
-            ProposalItemStatus.Rejected,
-            proposals.getItem(itemId)?.status,
-            "the change was refused, not left pending",
-        )
-    }
+            val created = assertNotNull(tags.get(proposedTagId(output.proposalId)), "the tag exists")
+            assertEquals("home", created.name, "the tag is the one that was proposed")
+            assertNull(created.deletedAt, "the tag is not deleted")
+        }
+
+    @Test
+    fun `declining a create_tag proposal creates nothing`() =
+        runTest {
+            val output =
+                decodeCreate(
+                    CreateTagTool(proposals, currentUser, clock).execute(CreateTagInput(name = "home")),
+                )
+            val itemId = singleItemId(output.proposalId)
+            val result = apply.reject(itemId, user, reason = "not a tag I want")
+            assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+
+            assertTrue(
+                tags.observeAll().first().isEmpty(),
+                "no tag was created: ${tags.observeAll().first().map { it.name }}",
+            )
+            assertEquals(
+                ProposalItemStatus.Rejected,
+                proposals.getItem(itemId)?.status,
+                "the change was refused, not left pending",
+            )
+        }
 
     // ── delete_tag: the tag must survive the refusal ───────────────────────────
 
     @Test
-    fun `delete_tag proposes the deletion and deletes nothing`() = runTest {
-        val tag = seedTag("home")
+    fun `delete_tag proposes the deletion and deletes nothing`() =
+        runTest {
+            val tag = seedTag("home")
 
-        val output = decodeDelete(
-            DeleteTagTool(proposals, currentUser, clock)
-                .execute(DeleteTagInput(tagId = tag.id.value, reason = "no longer used")),
-        )
+            val output =
+                decodeDelete(
+                    DeleteTagTool(proposals, currentUser, clock)
+                        .execute(DeleteTagInput(tagId = tag.id.value, reason = "no longer used")),
+                )
 
-        assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
-        assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
-        val stillThere = assertNotNull(tags.get(tag.id), "the tag is still there")
-        assertNull(stillThere.deletedAt, "the tag is not deleted")
+            assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
+            assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
+            val stillThere = assertNotNull(tags.get(tag.id), "the tag is still there")
+            assertNull(stillThere.deletedAt, "the tag is not deleted")
 
-        val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
-        assertNotNull(stored, "the proposal is in the store")
-        assertEquals(1, stored.items.size, "the proposal holds one change")
-        assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
-    }
+            val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
+            assertNotNull(stored, "the proposal is in the store")
+            assertEquals(1, stored.items.size, "the proposal holds one change")
+            assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
+        }
 
     /**
      * The tool proposes a deletion without reading the tag; the confirmation is
@@ -198,64 +216,71 @@ class TagProposalWriteContractTest {
      * different things.
      */
     @Test
-    fun `delete_tag proposes without reading the tag, and the confirmation is what needs it`() = runTest {
-        val output = decodeDelete(
-            DeleteTagTool(proposals, currentUser, clock)
-                .execute(DeleteTagInput(tagId = "no-such-tag", reason = "no longer used")),
-        )
+    fun `delete_tag proposes without reading the tag, and the confirmation is what needs it`() =
+        runTest {
+            val output =
+                decodeDelete(
+                    DeleteTagTool(proposals, currentUser, clock)
+                        .execute(DeleteTagInput(tagId = "no-such-tag", reason = "no longer used")),
+                )
 
-        assertTrue(output.proposalCreated, "the tool proposed without reading the tag: ${output.error}")
-        assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
-        assertNull(tags.get(TagId.fromString("no-such-tag")), "there is no tag to delete")
-    }
-
-    @Test
-    fun `confirming a delete_tag proposal deletes the tag`() = runTest {
-        val tag = seedTag("home")
-
-        val output = decodeDelete(
-            DeleteTagTool(proposals, currentUser, clock)
-                .execute(DeleteTagInput(tagId = tag.id.value, reason = "no longer used")),
-        )
-        val result = apply.confirm(singleItemId(output.proposalId), user)
-        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
-
-        val deleted = assertNotNull(tags.get(tag.id), "the tag row is still readable")
-        assertNotNull(deleted.deletedAt, "the confirmed deletion took the tag out of use")
-    }
+            assertTrue(output.proposalCreated, "the tool proposed without reading the tag: ${output.error}")
+            assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
+            assertNull(tags.get(TagId.fromString("no-such-tag")), "there is no tag to delete")
+        }
 
     @Test
-    fun `declining a delete_tag proposal leaves the tag in place`() = runTest {
-        val tag = seedTag("home")
+    fun `confirming a delete_tag proposal deletes the tag`() =
+        runTest {
+            val tag = seedTag("home")
 
-        val output = decodeDelete(
-            DeleteTagTool(proposals, currentUser, clock)
-                .execute(DeleteTagInput(tagId = tag.id.value, reason = "no longer used")),
-        )
-        val itemId = singleItemId(output.proposalId)
-        val result = apply.reject(itemId, user, reason = "keep it")
-        assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+            val output =
+                decodeDelete(
+                    DeleteTagTool(proposals, currentUser, clock)
+                        .execute(DeleteTagInput(tagId = tag.id.value, reason = "no longer used")),
+                )
+            val result = apply.confirm(singleItemId(output.proposalId), user)
+            assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
 
-        val survivor = assertNotNull(tags.get(tag.id), "the tag survived the refusal")
-        assertNull(survivor.deletedAt, "the tag was not deleted")
-        assertEquals(
-            ProposalItemStatus.Rejected,
-            proposals.getItem(itemId)?.status,
-            "the change was refused, not left pending",
-        )
-    }
+            val deleted = assertNotNull(tags.get(tag.id), "the tag row is still readable")
+            assertNotNull(deleted.deletedAt, "the confirmed deletion took the tag out of use")
+        }
+
+    @Test
+    fun `declining a delete_tag proposal leaves the tag in place`() =
+        runTest {
+            val tag = seedTag("home")
+
+            val output =
+                decodeDelete(
+                    DeleteTagTool(proposals, currentUser, clock)
+                        .execute(DeleteTagInput(tagId = tag.id.value, reason = "no longer used")),
+                )
+            val itemId = singleItemId(output.proposalId)
+            val result = apply.reject(itemId, user, reason = "keep it")
+            assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+
+            val survivor = assertNotNull(tags.get(tag.id), "the tag survived the refusal")
+            assertNull(survivor.deletedAt, "the tag was not deleted")
+            assertEquals(
+                ProposalItemStatus.Rejected,
+                proposals.getItem(itemId)?.status,
+                "the change was refused, not left pending",
+            )
+        }
 
     // ── Fixtures ────────────────────────────────────────────────────────────────
 
     private fun seedTag(name: String): DomainTag {
-        val tag = DomainTag(
-            id = TagId.generate(),
-            name = name,
-            color = 0xFF2196F3.toInt(),
-            createdAt = clock.now(),
-            updatedAt = clock.now(),
-            userId = user,
-        )
+        val tag =
+            DomainTag(
+                id = TagId.generate(),
+                name = name,
+                color = 0xFF2196F3.toInt(),
+                createdAt = clock.now(),
+                updatedAt = clock.now(),
+                userId = user,
+            )
         tags.seed(tag)
         return tag
     }
@@ -265,7 +290,13 @@ class TagProposalWriteContractTest {
     private fun decodeCreate(raw: String): CreateTagOutput = Json.decodeFromString(CreateTagOutput.serializer(), raw)
 
     private suspend fun singleItemId(proposalId: String) =
-        requireNotNull(proposals.watchProposal(ProposalId(proposalId)).first()?.items?.singleOrNull()).id
+        requireNotNull(
+            proposals
+                .watchProposal(ProposalId(proposalId))
+                .first()
+                ?.items
+                ?.singleOrNull(),
+        ).id
 
     /**
      * The id the tag will have if the user says yes.

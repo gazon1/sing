@@ -1,5 +1,8 @@
 package com.singularity.todo.test.helpers
 
+import com.singularity.todo.core.auth.oauth.OAuthBrowser
+import com.singularity.todo.core.auth.oauth.OAuthConsentException
+import com.singularity.todo.core.auth.oauth.OAuthRedirectSocket
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.files.ByteArraySink
 import com.singularity.todo.core.files.ByteArraySource
@@ -18,6 +21,11 @@ import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.core.work.BackgroundWorkScheduler
 import com.singularity.todo.core.work.JobSchedule
+import com.singularity.todo.feature.calendarSync.auth.GoogleAccessTokenProvider
+import com.singularity.todo.feature.calendarSync.auth.GoogleCredentials
+import com.singularity.todo.feature.calendarSync.auth.GoogleGrant
+import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRevoker
 import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.pomodoro.PomodoroConfig
 import com.singularity.todo.feature.pomodoro.PomodoroPhase
@@ -29,7 +37,6 @@ import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import kotlin.time.Duration
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CoroutineScope
@@ -39,16 +46,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import com.singularity.todo.core.auth.oauth.OAuthBrowser
-import com.singularity.todo.core.auth.oauth.OAuthConsentException
-import com.singularity.todo.core.auth.oauth.OAuthRedirectSocket
-import com.singularity.todo.feature.calendarSync.auth.GoogleAccessTokenProvider
-import com.singularity.todo.feature.calendarSync.auth.GoogleCredentials
-import com.singularity.todo.feature.calendarSync.auth.GoogleGrant
-import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRedeemer
-import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRevoker
+import kotlin.time.Duration
 
-/**
+/*
  * Inert implementations of the JVM ports a desktop flow test would otherwise
  * reach through `platformModule()`.
  *
@@ -65,7 +65,10 @@ class InMemorySecureStorage : SecureStoragePort {
 
     override suspend fun read(key: String): String? = values[key]
 
-    override suspend fun write(key: String, value: String) {
+    override suspend fun write(
+        key: String,
+        value: String,
+    ) {
         values[key] = value
     }
 
@@ -83,12 +86,18 @@ class InMemoryFileSystem : FileSystem {
     override suspend fun readBytes(path: String): ByteArray =
         files[path] ?: error("no such file in InMemoryFileSystem: $path")
 
-    override suspend fun writeBytes(path: String, data: ByteArray) {
+    override suspend fun writeBytes(
+        path: String,
+        data: ByteArray,
+    ) {
         files[path] = data
     }
 
     /** The file moves, and the old name is gone. */
-    override suspend fun move(from: String, to: String) {
+    override suspend fun move(
+        from: String,
+        to: String,
+    ) {
         val bytes = files.remove(from) ?: error("no such file in InMemoryFileSystem: $from")
         files[to] = bytes
     }
@@ -99,8 +108,7 @@ class InMemoryFileSystem : FileSystem {
 
     override suspend fun ensureDir(dir: String) = Unit
 
-    override suspend fun listDir(dir: String): List<String> =
-        files.keys.filter { it.startsWith("$dir/") }
+    override suspend fun listDir(dir: String): List<String> = files.keys.filter { it.startsWith("$dir/") }
 
     override suspend fun stat(path: String): FileStat? =
         files[path]?.let {
@@ -129,7 +137,11 @@ class InMemoryFileSystem : FileSystem {
     override fun openWrite(path: String): ByteSink {
         val collected = ByteArraySink()
         return object : ByteSink {
-            override fun write(buffer: ByteArray, offset: Int, length: Int) {
+            override fun write(
+                buffer: ByteArray,
+                offset: Int,
+                length: Int,
+            ) {
                 collected.write(buffer, offset, length)
             }
 
@@ -144,7 +156,10 @@ class InMemoryFileSystem : FileSystem {
 class InertSharePort : SharePort {
     val shared = mutableListOf<Pair<String, String>>()
 
-    override fun shareText(title: String, text: String): Boolean {
+    override fun shareText(
+        title: String,
+        text: String,
+    ): Boolean {
         shared += title to text
         return true
     }
@@ -162,7 +177,10 @@ class InertSharePort : SharePort {
 class InertFileSharePort : FileSharePort {
     val sharedFiles = mutableListOf<Pair<String, String>>()
 
-    override fun shareFile(filePath: String, mimeType: String): Boolean {
+    override fun shareFile(
+        filePath: String,
+        mimeType: String,
+    ): Boolean {
         sharedFiles += filePath to mimeType
         return true
     }
@@ -178,8 +196,10 @@ class UnusedBackupCodec : BackupCodec {
         fs: FileSystem,
     ): Result<Unit> = error("BackupCodec is not available in desktop flow tests")
 
-    override suspend fun import(sourcePath: String, fs: FileSystem): Result<BackupCodec.CodecReadResult> =
-        error("BackupCodec is not available in desktop flow tests")
+    override suspend fun import(
+        sourcePath: String,
+        fs: FileSystem,
+    ): Result<BackupCodec.CodecReadResult> = error("BackupCodec is not available in desktop flow tests")
 
     override suspend fun importFromSource(source: FileSource): Result<BackupCodec.CodecReadResult> =
         error("BackupCodec is not available in desktop flow tests")
@@ -209,9 +229,15 @@ class InertReminderScheduler : ReminderScheduler {
         scheduled += reminder
     }
 
-    override suspend fun cancel(id: ReminderId, userId: UserId) = Unit
+    override suspend fun cancel(
+        id: ReminderId,
+        userId: UserId,
+    ) = Unit
 
-    override suspend fun cancelByTask(taskId: TaskId, userId: UserId) = Unit
+    override suspend fun cancelByTask(
+        taskId: TaskId,
+        userId: UserId,
+    ) = Unit
 }
 
 /** Empty focus-task list; the flow suite seeds tasks through the database instead. */
@@ -228,11 +254,8 @@ class EmptyPomodoroTaskListProvider : PomodoroTaskListProvider {
  * skip and the resulting `isRunning` flip — with no clock behind it, which is what
  * lets a flow assert the play/pause control swap.
  */
-class TestPomodoroTimer(
-    private val taskListProvider: PomodoroTaskListProvider,
-    override val config: PomodoroConfig,
-) : PomodoroTimer {
-
+class TestPomodoroTimer(private val taskListProvider: PomodoroTaskListProvider, override val config: PomodoroConfig) :
+    PomodoroTimer {
     private val _state = MutableStateFlow(PomodoroState())
     override val state: StateFlow<PomodoroState> = _state.asStateFlow()
 
@@ -249,11 +272,12 @@ class TestPomodoroTimer(
     }
 
     override fun stop() {
-        _state.value = PomodoroState(
-            phase = PomodoroPhase.Work,
-            remainingSeconds = config.phaseSecondsOf(PomodoroPhase.Work),
-            phaseDurationSeconds = config.phaseSecondsOf(PomodoroPhase.Work),
-        )
+        _state.value =
+            PomodoroState(
+                phase = PomodoroPhase.Work,
+                remainingSeconds = config.phaseSecondsOf(PomodoroPhase.Work),
+                phaseDurationSeconds = config.phaseSecondsOf(PomodoroPhase.Work),
+            )
     }
 
     override fun skip() {
@@ -307,7 +331,10 @@ class InertBackgroundWorkScheduler : BackgroundWorkScheduler {
     val scheduled = mutableListOf<String>()
     val ranNow = mutableListOf<String>()
 
-    override fun schedule(jobId: String, schedule: JobSchedule) {
+    override fun schedule(
+        jobId: String,
+        schedule: JobSchedule,
+    ) {
         scheduled += jobId
     }
 
@@ -346,8 +373,7 @@ class InertGoogleSyncPeriodicTrigger : GoogleSyncPeriodicTrigger {
  * launch into it throws `CancellationException` immediately, which is a loud failure
  * rather than a thread that quietly never ends.
  */
-fun alreadyCancelledScope(): CoroutineScope =
-    CoroutineScope(SupervisorJob() + Dispatchers.Default).also { it.cancel() }
+fun alreadyCancelledScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default).also { it.cancel() }
 
 /**
  * Records notifications instead of showing them.
@@ -371,7 +397,12 @@ class RecordingNotifier : Notifier {
      */
     override val isSupported: Boolean = false
 
-    override fun post(tag: String, title: String, body: String, viewId: String?) {
+    override fun post(
+        tag: String,
+        title: String,
+        body: String,
+        viewId: String?,
+    ) {
         posted += Triple(tag, title, body)
     }
 }
@@ -423,8 +454,7 @@ class InertGoogleGrantRedeemer : GoogleGrantRedeemer {
         grant: GoogleGrant,
         clientId: String,
         codeVerifier: String?,
-    ): Result<GoogleCredentials> =
-        Result.failure(IllegalStateException("No Google grant is redeemed in a test"))
+    ): Result<GoogleCredentials> = Result.failure(IllegalStateException("No Google grant is redeemed in a test"))
 }
 
 /**

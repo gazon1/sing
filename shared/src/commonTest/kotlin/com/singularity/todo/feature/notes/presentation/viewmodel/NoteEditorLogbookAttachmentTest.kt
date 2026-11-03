@@ -47,18 +47,31 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class NoteEditorLogbookAttachmentTest {
-
     private val taskId = TaskId("task-1")
 
-    private val emptyLinkRepo = object : InternalLinkRepository {
-        override suspend fun searchNotes(query: String, mode: SearchMode): List<Note> = emptyList()
-        override suspend fun searchTasks(query: String, mode: SearchMode): List<Task> = emptyList()
-        override suspend fun getBacklinkNotes(noteId: String): List<Note> = emptyList()
-        override suspend fun getBacklinkTasks(taskId: String): List<Task> = emptyList()
-        override suspend fun getNotesLinkingToTask(taskId: String): List<Note> = emptyList()
-    }
+    private val emptyLinkRepo =
+        object : InternalLinkRepository {
+            override suspend fun searchNotes(
+                query: String,
+                mode: SearchMode,
+            ): List<Note> = emptyList()
 
-    private fun createVm(notesRepo: FakeNotesRepository = FakeNotesRepository(), scope: CoroutineScope): NoteEditor {
+            override suspend fun searchTasks(
+                query: String,
+                mode: SearchMode,
+            ): List<Task> = emptyList()
+
+            override suspend fun getBacklinkNotes(noteId: String): List<Note> = emptyList()
+
+            override suspend fun getBacklinkTasks(taskId: String): List<Task> = emptyList()
+
+            override suspend fun getNotesLinkingToTask(taskId: String): List<Note> = emptyList()
+        }
+
+    private fun createVm(
+        notesRepo: FakeNotesRepository = FakeNotesRepository(),
+        scope: CoroutineScope,
+    ): NoteEditor {
         val clock = FakeClock()
         val currentUser = FakeProfileAwareCurrentUser()
         val projects: ProjectsRepository = FakeProjectsRepository(currentUser)
@@ -76,118 +89,128 @@ class NoteEditorLogbookAttachmentTest {
     }
 
     @Test
-    fun `opening the logbook's editor writes nothing`() = runTest {
-        val notesRepo = FakeNotesRepository()
-        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+    fun `opening the logbook's editor writes nothing`() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
-        vm.createNoteForTask(taskId)
-        advanceTimeBy(1_000)
-        runCurrent()
+            vm.createNoteForTask(taskId)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        // The user has not written anything yet, so there is no note to leave behind.
-        assertTrue(notesRepo.notes.isEmpty(), "an untouched draft must not be written")
-    }
-
-    @Test
-    fun `the first save creates the note attached to the task`() = runTest {
-        val notesRepo = FakeNotesRepository()
-        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
-
-        vm.createNoteForTask(taskId)
-        advanceTimeBy(1_000)
-        runCurrent()
-
-        vm.onIntent(NotesEditorIntent.EditBody("<p>Bought the good one</p>"))
-        runCurrent()
-        advanceTimeBy(600L)
-        runCurrent()
-
-        val note = notesRepo.notes.values.single()
-        assertEquals(taskId, note.taskId, "the note must be created already attached")
-        assertEquals("<p>Bought the good one</p>", note.bodyHtml)
-    }
+            // The user has not written anything yet, so there is no note to leave behind.
+            assertTrue(notesRepo.notes.isEmpty(), "an untouched draft must not be written")
+        }
 
     @Test
-    fun `a later edit does not detach the note — the note stays in the logbook`() = runTest {
-        val notesRepo = FakeNotesRepository()
-        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+    fun `the first save creates the note attached to the task`() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
-        vm.createNoteForTask(taskId)
-        advanceTimeBy(1_000)
-        runCurrent()
+            vm.createNoteForTask(taskId)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        vm.onIntent(NotesEditorIntent.EditBody("<p>First</p>"))
-        runCurrent()
-        advanceTimeBy(600L)
-        runCurrent()
+            vm.onIntent(NotesEditorIntent.EditBody("<p>Bought the good one</p>"))
+            runCurrent()
+            advanceTimeBy(600L)
+            runCurrent()
 
-        // The user keeps typing — every debounced keystroke is another save.
-        vm.onIntent(NotesEditorIntent.EditBody("<p>Second</p>"))
-        runCurrent()
-        advanceTimeBy(600L)
-        runCurrent()
-
-        vm.onIntent(NotesEditorIntent.EditBody("<p>Third</p>"))
-        runCurrent()
-        advanceTimeBy(600L)
-        runCurrent()
-
-        val note = notesRepo.notes.values.single()
-        assertEquals(taskId, note.taskId, "a content save must not detach the note")
-        assertEquals("<p>Third</p>", note.bodyHtml)
-    }
+            val note = notesRepo.notes.values.single()
+            assertEquals(taskId, note.taskId, "the note must be created already attached")
+            assertEquals("<p>Bought the good one</p>", note.bodyHtml)
+        }
 
     @Test
-    fun `the explicit save keeps the note attached`() = runTest {
-        val notesRepo = FakeNotesRepository()
-        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+    fun `a later edit does not detach the note — the note stays in the logbook`() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
-        vm.createNoteForTask(taskId)
-        advanceTimeBy(1_000)
-        runCurrent()
+            vm.createNoteForTask(taskId)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        vm.onIntent(NotesEditorIntent.EditBody("<p>Bought the good one</p>"))
-        vm.onIntent(NotesEditorIntent.SaveNow)
-        advanceTimeBy(1_000)
-        runCurrent()
+            vm.onIntent(NotesEditorIntent.EditBody("<p>First</p>"))
+            runCurrent()
+            advanceTimeBy(600L)
+            runCurrent()
 
-        val note = notesRepo.notes.values.single()
-        assertEquals(taskId, note.taskId)
-        assertEquals("<p>Bought the good one</p>", note.bodyHtml)
-    }
+            // The user keeps typing — every debounced keystroke is another save.
+            vm.onIntent(NotesEditorIntent.EditBody("<p>Second</p>"))
+            runCurrent()
+            advanceTimeBy(600L)
+            runCurrent()
 
-    @Test
-    fun `the draft keeps the task while the note is still unwritten`() = runTest {
-        val notesRepo = FakeNotesRepository()
-        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+            vm.onIntent(NotesEditorIntent.EditBody("<p>Third</p>"))
+            runCurrent()
+            advanceTimeBy(600L)
+            runCurrent()
 
-        vm.createNoteForTask(taskId)
-        advanceTimeBy(1_000)
-        runCurrent()
-
-        val state = vm.stateFlow.value.draft
-        assertIs<EditorState.Editing>(state)
-        assertEquals(taskId, state.taskId, "the attachment lives in the draft until the note is created")
-        assertTrue(state.isNew)
-    }
+            val note = notesRepo.notes.values.single()
+            assertEquals(taskId, note.taskId, "a content save must not detach the note")
+            assertEquals("<p>Third</p>", note.bodyHtml)
+        }
 
     @Test
-    fun `a note that is not from a logbook has no task`() = runTest {
-        val notesRepo = FakeNotesRepository()
-        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+    fun `the explicit save keeps the note attached`() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
 
-        vm.createNote()
-        advanceTimeBy(1_000)
-        runCurrent()
+            vm.createNoteForTask(taskId)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        vm.onIntent(NotesEditorIntent.EditBody("<p>An ordinary note</p>"))
-        runCurrent()
-        advanceTimeBy(600L)
-        runCurrent()
+            vm.onIntent(NotesEditorIntent.EditBody("<p>Bought the good one</p>"))
+            vm.onIntent(NotesEditorIntent.SaveNow)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        val state = vm.stateFlow.value.draft
-        assertIs<EditorState.Editing>(state)
-        assertNull(state.taskId)
-        assertNull(notesRepo.notes.values.single().taskId)
-    }
+            val note = notesRepo.notes.values.single()
+            assertEquals(taskId, note.taskId)
+            assertEquals("<p>Bought the good one</p>", note.bodyHtml)
+        }
+
+    @Test
+    fun `the draft keeps the task while the note is still unwritten`() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+            vm.createNoteForTask(taskId)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            val state = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(state)
+            assertEquals(taskId, state.taskId, "the attachment lives in the draft until the note is created")
+            assertTrue(state.isNew)
+        }
+
+    @Test
+    fun `a note that is not from a logbook has no task`() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+            vm.createNote()
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            vm.onIntent(NotesEditorIntent.EditBody("<p>An ordinary note</p>"))
+            runCurrent()
+            advanceTimeBy(600L)
+            runCurrent()
+
+            val state = vm.stateFlow.value.draft
+            assertIs<EditorState.Editing>(state)
+            assertNull(state.taskId)
+            assertNull(
+                notesRepo.notes.values
+                    .single()
+                    .taskId,
+            )
+        }
 }

@@ -29,4 +29,7 @@ import androidx.compose.runtime.Composable
  * @param onBack called when the gesture happens.
  */
 @Composable
-expect fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit)
+expect fun PlatformBackHandler(
+    enabled: Boolean,
+    onBack: () -> Unit,
+)

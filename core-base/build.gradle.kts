@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.detekt)
 }
 
-/**
+/*
  * `:core-base` — the platform facts that are not about any feature.
  *
  * `HostEnvironmentPort`, `Clock` and `TimeZoneProvider` are here, in the package they
@@ -26,8 +26,14 @@ kotlin {
 
     android {
         namespace = "com.singularity.todo.corebase"
-        compileSdk = libs.versions.sdk.compile.get().toInt()
-        minSdk = libs.versions.sdk.min.get().toInt()
+        compileSdk =
+            libs.versions.sdk.compile
+                .get()
+                .toInt()
+        minSdk =
+            libs.versions.sdk.min
+                .get()
+                .toInt()
 
         compilerOptions {
             jvmTarget = JvmTarget.JVM_11
@@ -56,6 +62,5 @@ detekt {
 }
 
 dependencies {
-    detektPlugins(libs.detekt.formatting)
     detektPlugins(project(":detekt-rules"))
 }

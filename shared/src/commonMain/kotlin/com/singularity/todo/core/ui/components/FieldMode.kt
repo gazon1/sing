@@ -10,5 +10,6 @@ package com.singularity.todo.core.ui.components
  */
 sealed interface FieldMode {
     data object View : FieldMode
+
     data class Edit(val draft: String) : FieldMode
 }

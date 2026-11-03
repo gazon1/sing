@@ -18,12 +18,18 @@ import kotlinx.serialization.json.JsonObject
  * binds is affected — which is to say every task list the app asks for.
  */
 internal object JsonPathWriter {
-
     /** Writes [value] at [segments] (root-to-leaf) into [doc], returning the new document. */
-    fun write(doc: JsonObject, segments: List<String>, value: JsonElement): JsonObject =
-        writeInto(doc, segments, value) as? JsonObject ?: JsonObject(emptyMap())
+    fun write(
+        doc: JsonObject,
+        segments: List<String>,
+        value: JsonElement,
+    ): JsonObject = writeInto(doc, segments, value) as? JsonObject ?: JsonObject(emptyMap())
 
-    private fun writeInto(container: JsonElement, segments: List<String>, value: JsonElement): JsonElement {
+    private fun writeInto(
+        container: JsonElement,
+        segments: List<String>,
+        value: JsonElement,
+    ): JsonElement {
         if (segments.isEmpty()) return value
         val head: String = segments.first()
         val rest: List<String> = segments.drop(1)
@@ -40,17 +46,19 @@ internal object JsonPathWriter {
         value: JsonElement,
     ): JsonObject {
         val existing: JsonElement = doc[key] ?: JsonObject(emptyMap())
-        val updated: JsonElement = if (rest.isEmpty()) {
-            value
-        } else {
-            // A numeric key with something after it means an array, whatever was there before.
-            val container: JsonElement = if (rest.first().isIndex() && existing !is JsonArray) {
-                JsonArray(emptyList())
+        val updated: JsonElement =
+            if (rest.isEmpty()) {
+                value
             } else {
-                existing
+                // A numeric key with something after it means an array, whatever was there before.
+                val container: JsonElement =
+                    if (rest.first().isIndex() && existing !is JsonArray) {
+                        JsonArray(emptyList())
+                    } else {
+                        existing
+                    }
+                writeInto(container, rest, value)
             }
-            writeInto(container, rest, value)
-        }
         return JsonObject(doc.toMutableMap().apply { this[key] = updated })
     }
 
@@ -70,11 +78,12 @@ internal object JsonPathWriter {
         val list: MutableList<JsonElement> = array.toMutableList()
         while (list.size <= index) list.add(JsonNull)
         val existing: JsonElement = list[index]
-        list[index] = when {
-            rest.isEmpty() -> value
-            existing is JsonNull -> writeInto(emptyFor(rest.first()), rest, value)
-            else -> writeInto(existing, rest, value)
-        }
+        list[index] =
+            when {
+                rest.isEmpty() -> value
+                existing is JsonNull -> writeInto(emptyFor(rest.first()), rest, value)
+                else -> writeInto(existing, rest, value)
+            }
         return JsonArray(list)
     }
 

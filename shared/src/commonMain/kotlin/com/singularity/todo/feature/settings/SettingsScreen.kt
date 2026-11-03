@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,10 +23,10 @@ import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
@@ -39,6 +39,7 @@ import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
@@ -65,8 +66,6 @@ import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.files.rememberAppFilePicker
 import com.singularity.todo.core.files.toFilePickerResult
-import io.github.vinceglb.filekit.dialogs.FileKitDialogSettings
-import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.TestTags
@@ -74,7 +73,6 @@ import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
-import androidx.compose.material3.IconButton
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -102,10 +100,12 @@ import com.singularity.todo.feature.tags.presentation.screen.TagGroupsScreen
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsIntent
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsViewModel
-import org.koin.compose.koinInject
+import io.github.vinceglb.filekit.dialogs.FileKitDialogSettings
+import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 private enum class SettingsTab(val label: String) {
@@ -176,15 +176,16 @@ fun SettingsScreen(
                 // On Android the icon is published to the shell, and a null icon
                 // means the shell keeps its own back button — the shell's button
                 // knows where the shell is.
-                navigationIcon = if (navCallbacks != null) {
-                    {
-                        IconButton(onClick = { navCallbacks.goBack() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                navigationIcon =
+                    if (navCallbacks != null) {
+                        {
+                            IconButton(onClick = { navCallbacks.goBack() }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            }
                         }
-                    }
-                } else {
-                    null
-                },
+                    } else {
+                        null
+                    },
                 overrideShell = true,
             )
         },
@@ -192,7 +193,7 @@ fun SettingsScreen(
         modifier = modifier,
     ) { paddingValues ->
         when (val state = uiState) {
-            else ->
+            else -> {
                 SettingsContent(
                     state = state,
                     selectedTab = selectedTab,
@@ -204,6 +205,7 @@ fun SettingsScreen(
                     modifier = Modifier.padding(paddingValues),
                     navCallbacks = navCallbacks,
                 )
+            }
         }
     }
 }
@@ -380,24 +382,37 @@ private fun SettingsTabBody(
     onSelectTab: (SettingsTab) -> Unit,
 ) {
     previewOverrides[selectedTab]?.invoke() ?: when (selectedTab) {
-        SettingsTab.Interface ->
+        SettingsTab.Interface -> {
             InterfaceSettingsScreen(
                 state = state,
                 onIntent = onIntent,
                 onboarding = onboarding,
             )
+        }
 
-        SettingsTab.Agenda -> AgendaSettingsScreen(state = state, onIntent = onIntent)
+        SettingsTab.Agenda -> {
+            AgendaSettingsScreen(state = state, onIntent = onIntent)
+        }
 
-        SettingsTab.Notifications -> NotificationSettingsScreen(state = state, onIntent = onIntent)
+        SettingsTab.Notifications -> {
+            NotificationSettingsScreen(state = state, onIntent = onIntent)
+        }
 
-        SettingsTab.AIProvider -> AiProviderSettingsScreen(state = state, onIntent = onIntent)
+        SettingsTab.AIProvider -> {
+            AiProviderSettingsScreen(state = state, onIntent = onIntent)
+        }
 
-        SettingsTab.WorkSchedule -> WorkScheduleSettingsScreen(state = state, onIntent = onIntent)
+        SettingsTab.WorkSchedule -> {
+            WorkScheduleSettingsScreen(state = state, onIntent = onIntent)
+        }
 
-        SettingsTab.Calendar -> CalendarSyncSettingsScreen()
+        SettingsTab.Calendar -> {
+            CalendarSyncSettingsScreen()
+        }
 
-        SettingsTab.Sync -> SyncSettingsScreen()
+        SettingsTab.Sync -> {
+            SyncSettingsScreen()
+        }
 
         SettingsTab.Tags -> {
             val tagsVm: TagsViewModel = koinViewModel()
@@ -420,19 +435,26 @@ private fun SettingsTabBody(
             )
         }
 
-        SettingsTab.Tasks -> TasksSettingsScreen(state = state, onIntent = onIntent)
+        SettingsTab.Tasks -> {
+            TasksSettingsScreen(state = state, onIntent = onIntent)
+        }
 
-        SettingsTab.Files ->
+        SettingsTab.Files -> {
             FilesSettingsScreen(
                 attachmentsPath = attachmentsPath,
                 onOpenAttachmentsFolder = onOpenAttachmentsFolder,
                 logExportEphemeral = state.logExportEphemeral,
                 onExportLogs = { onIntent(SettingsIntent.ExportLogs) },
             )
+        }
 
-        SettingsTab.Backup -> BackupScreenWrapper(onBack = { onSelectTab(SettingsTab.Interface) })
+        SettingsTab.Backup -> {
+            BackupScreenWrapper(onBack = { onSelectTab(SettingsTab.Interface) })
+        }
 
-        SettingsTab.Account -> AccountSettingsScreen()
+        SettingsTab.Account -> {
+            AccountSettingsScreen()
+        }
     }
 }
 
@@ -456,20 +478,22 @@ private fun SettingsNavRail(
                 .padding(vertical = 8.dp)
                 .testTag(TestTags.Settings.NAV_RAIL_SCROLL),
     ) {
-        val groups = listOf(
-            "Appearance" to listOf(SettingsTab.Interface),
-            "Productivity" to listOf(SettingsTab.Agenda, SettingsTab.WorkSchedule, SettingsTab.Tasks),
-            "Notifications" to listOf(SettingsTab.Notifications),
-            "Data" to listOf(
-                SettingsTab.Files,
-                SettingsTab.Backup,
-                SettingsTab.Sync,
-                SettingsTab.Calendar,
-                SettingsTab.Tags,
-                SettingsTab.TagGroups,
-            ),
-            "AI & Account" to listOf(SettingsTab.AIProvider, SettingsTab.Account),
-        )
+        val groups =
+            listOf(
+                "Appearance" to listOf(SettingsTab.Interface),
+                "Productivity" to listOf(SettingsTab.Agenda, SettingsTab.WorkSchedule, SettingsTab.Tasks),
+                "Notifications" to listOf(SettingsTab.Notifications),
+                "Data" to
+                    listOf(
+                        SettingsTab.Files,
+                        SettingsTab.Backup,
+                        SettingsTab.Sync,
+                        SettingsTab.Calendar,
+                        SettingsTab.Tags,
+                        SettingsTab.TagGroups,
+                    ),
+                "AI & Account" to listOf(SettingsTab.AIProvider, SettingsTab.Account),
+            )
         groups.forEach { (group, tabs) ->
             Text(
                 text = group,
@@ -539,10 +563,11 @@ private fun SettingsTabDropdown(
     ) {
         Button(
             onClick = { expanded = !expanded },
-            modifier = Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                .fillMaxWidth()
-                .testTag(TestTags.Settings.TAB_DROPDOWN),
+            modifier =
+                Modifier
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth()
+                    .testTag(TestTags.Settings.TAB_DROPDOWN),
         ) {
             Text(selectedTab.label)
             ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)

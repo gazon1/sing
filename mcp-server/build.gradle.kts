@@ -1,5 +1,5 @@
-import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinJvm)
@@ -47,7 +47,7 @@ tasks.named<JavaExec>("run") {
     jvmArgs("-Dsingularity.version=$appVersion")
 }
 
-/**
+/*
  * Compose Multiplatform reaches `savedstate-compose-desktop` by two routes on the
  * runtime classpath, and Gradle refuses to install a distribution that lists the
  * same jar twice. One copy is the right outcome — two paths to one artefact is not a
@@ -88,7 +88,6 @@ dependencies {
     testImplementation(libs.sqlite.jdbc)
     // Allure test reporting — generates JSON results for CI integration
     testImplementation(libs.allure.kotlin.junit5)
-
 }
 
 // ---------------------------------------------------------------------------
@@ -104,8 +103,7 @@ dependencies {
 // So it is on the root configuration and on `:detekt-rules`, like every other
 // module. Whatever that finds is fixed rather than baselined.
 dependencies {
-    detektPlugins(libs.detekt.formatting)   // wires ktlint into detekt so detektFormat fixes both
-    detektPlugins(project(":detekt-rules"))  // PassThroughUseCaseRule — flags thin wrappers in *UseCase.kt
+    detektPlugins(project(":detekt-rules")) // PassThroughUseCaseRule — flags thin wrappers in *UseCase.kt
 }
 
 // ── The memory budget ───────────────────────────────────────────────────────
@@ -118,14 +116,16 @@ dependencies {
 // This module reads its OWN line of the record, so the number its test JVMs
 // run with is the number the record holds for this module.
 // `scripts/check-memory-budget.py` is what keeps the two in step.
-val memoryBudget = Properties().apply {
-    rootProject.file("config/docs/gradle-memory-budget.properties").inputStream().use { load(it) }
-}
-val testTaskHeap = memoryBudget.getProperty("test.heap.module.mcp-server")
-    ?: throw GradleException(
-        "config/docs/gradle-memory-budget.properties declares no test.heap.module.mcp-server — " +
-            "the heap of this module's test tasks has to be recorded somewhere."
-    )
+val memoryBudget =
+    Properties().apply {
+        rootProject.file("config/docs/gradle-memory-budget.properties").inputStream().use { load(it) }
+    }
+val testTaskHeap =
+    memoryBudget.getProperty("test.heap.module.mcp-server")
+        ?: throw GradleException(
+            "config/docs/gradle-memory-budget.properties declares no test.heap.module.mcp-server — " +
+                "the heap of this module's test tasks has to be recorded somewhere.",
+        )
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
@@ -136,19 +136,28 @@ tasks.withType<Test>().configureEach {
         systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "concurrent")
         systemProperty("junit.jupiter.execution.parallel.config.strategy", "dynamic")
 
-        val tags = (project.findProperty("test.tags") as String?)
-            ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+        val tags =
+            (project.findProperty("test.tags") as String?)
+                ?.split(",")
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() } ?: emptyList()
         when {
             tags.isEmpty() -> {
                 // Default: run everything EXCEPT @Tag("slow") — slow requires -Ptest.tags=slow
                 excludeTags("slow")
             }
+
             // `-Ptest.tags=all` applies no tag filter at all. JUnit's
             // includeTags() excludes untagged tests, so passing a tag list runs
             // only the tagged minority. See the deferred-backlog entry
             // `include-tags-excludes-untagged-tests`.
-            tags == listOf("all") -> Unit
-            else -> includeTags(*tags.toTypedArray())
+            tags == listOf("all") -> {
+                Unit
+            }
+
+            else -> {
+                includeTags(*tags.toTypedArray())
+            }
         }
     }
     // Was the default ~512 MB, then 3 GB. The heap is MEASURED, not chosen: the full
@@ -168,12 +177,20 @@ tasks.withType<Test>().configureEach {
     // Allure test reporting — results written to build/allure-results/
     // See shared/build.gradle.kts for the full explanation of why workingDir is used
     // instead of the allure.results.directory system property.
-    val allureDir = layout.buildDirectory.dir("allure-results").get().asFile
+    val allureDir =
+        layout.buildDirectory
+            .dir("allure-results")
+            .get()
+            .asFile
     workingDir = allureDir.also { it.mkdirs() }
     // Absolute path to the fat JAR, needed by McpServerEndToEndTest because
     // workingDir above is build/allure-results/ and the test would otherwise look
     // for the JAR at build/allure-results/build/libs/mcp-server.jar.
-    val jarPath = layout.buildDirectory.dir("libs/mcp-server.jar").get().asFile.absolutePath
+    val jarPath =
+        layout.buildDirectory
+            .dir("libs/mcp-server.jar")
+            .get()
+            .asFile.absolutePath
     systemProperty("mcp-server.jar.path", jarPath)
 }
 
@@ -218,10 +235,10 @@ tasks.withType<AbstractArchiveTask>().configureEach {
 detekt {
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
     buildUponDefaultConfig = true
-    ignoreFailures = false   // enforcing — a baseline covers accepted debt when there is one
+    ignoreFailures = false // enforcing — a baseline covers accepted debt when there is one
     source.setFrom(
         "src/main/kotlin",
-        "src/test/kotlin"
+        "src/test/kotlin",
     )
 }
 

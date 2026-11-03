@@ -1,11 +1,10 @@
 package com.singularity.todo.feature.calendarSync.presentation
 
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.test.helpers.awaitState
-import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.feature.calendarSync.auth.GoogleCredentialStore
@@ -22,8 +21,9 @@ import com.singularity.todo.feature.calendarSync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.calendarSync.sync.DirtyHashProvider
 import com.singularity.todo.feature.calendarSync.sync.GoogleSyncCoordinator
 import com.singularity.todo.feature.calendarSync.work.CalendarSyncWorkScheduler
-import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeGoogleAuthorizer
+import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.helpers.awaitState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -77,17 +77,25 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class CalendarSyncViewModelCapabilityTest {
-
     private class FakeSyncRepo(override val isSupported: Boolean = true) : CalendarSyncRepository {
         override fun observeEnabled(): Flow<Boolean> = flowOf(false)
+
         override suspend fun setEnabled(enabled: Boolean) = Unit
+
         override fun observeTargetCalendarId(): Flow<String?> = flowOf(null)
+
         override suspend fun setTargetCalendarId(calendarId: String) = Unit
+
         override fun observeLastSyncedAt(): Flow<Long?> = flowOf(null)
+
         override suspend fun setLastSyncedAt(ts: Long) = Unit
+
         override fun observeStatus(): Flow<CalendarSyncStatus> = flowOf(CalendarSyncStatus.Disabled)
+
         override suspend fun setStatus(status: CalendarSyncStatus) = Unit
+
         override fun observeTargetAppPackage(): Flow<String?> = flowOf(null)
+
         override suspend fun setTargetAppPackage(packageName: String?) = Unit
     }
 
@@ -99,34 +107,44 @@ class CalendarSyncViewModelCapabilityTest {
         override suspend fun insertEvent(event: CalendarSyncEvent): Result<Long> =
             Result.failure(UnsupportedOperationException("not available"))
 
-        override suspend fun updateEvent(eventId: Long, event: CalendarSyncEvent): Result<Long> =
-            Result.failure(UnsupportedOperationException("not available"))
+        override suspend fun updateEvent(
+            eventId: Long,
+            event: CalendarSyncEvent,
+        ): Result<Long> = Result.failure(UnsupportedOperationException("not available"))
 
         override suspend fun deleteEvent(eventId: Long): Result<Unit> =
             Result.failure(UnsupportedOperationException("not available"))
 
-        override suspend fun queryEvents(calendarId: String?, fromMs: Long, toMs: Long): Result<Map<String, Long>> =
-            Result.success(emptyMap())
+        override suspend fun queryEvents(
+            calendarId: String?,
+            fromMs: Long,
+            toMs: Long,
+        ): Result<Map<String, Long>> = Result.success(emptyMap())
     }
 
     private class WorkingProvider(override val isSupported: Boolean = true) : CalendarProviderPort {
         override suspend fun getAvailableCalendars(): Result<Map<String, String>> =
             Result.success(mapOf("work" to "Work"))
 
-        override suspend fun insertEvent(event: CalendarSyncEvent): Result<Long> =
-            Result.success(1L)
+        override suspend fun insertEvent(event: CalendarSyncEvent): Result<Long> = Result.success(1L)
 
-        override suspend fun updateEvent(eventId: Long, event: CalendarSyncEvent): Result<Long> =
-            Result.success(1L)
+        override suspend fun updateEvent(
+            eventId: Long,
+            event: CalendarSyncEvent,
+        ): Result<Long> = Result.success(1L)
 
         override suspend fun deleteEvent(eventId: Long): Result<Unit> = Result.success(Unit)
 
-        override suspend fun queryEvents(calendarId: String?, fromMs: Long, toMs: Long): Result<Map<String, Long>> =
-            Result.success(emptyMap())
+        override suspend fun queryEvents(
+            calendarId: String?,
+            fromMs: Long,
+            toMs: Long,
+        ): Result<Map<String, Long>> = Result.success(emptyMap())
     }
 
     private class FakeScheduler(override val isSupported: Boolean = true) : CalendarSyncWorkScheduler {
         override fun enqueueSync() = Unit
+
         override fun cancelSync() = Unit
     }
 
@@ -144,15 +162,23 @@ class CalendarSyncViewModelCapabilityTest {
      */
     private object DisconnectedGoogleSettings : GoogleCalendarSettingsRepository {
         override fun observeSelectedCalendarId(): Flow<String?> = flowOf(null)
+
         override suspend fun setSelectedCalendarId(calendarId: String?) = Unit
+
         override fun observeImportForeignEvents(): Flow<Boolean> = flowOf(false)
+
         override suspend fun setImportForeignEvents(enabled: Boolean) = Unit
     }
 
     /** No grant stored, so `load` answers "not connected" without touching storage. */
     private object EmptyCredentialStore : GoogleCredentialStore {
         override suspend fun load(userId: String): GoogleCredentials? = null
-        override suspend fun save(userId: String, credentials: GoogleCredentials) = Unit
+
+        override suspend fun save(
+            userId: String,
+            credentials: GoogleCredentials,
+        ) = Unit
+
         override suspend fun clear(userId: String) = Unit
     }
 
@@ -161,21 +187,38 @@ class CalendarSyncViewModelCapabilityTest {
      * and these tests never read it. Anonymous is the honest value: it is what a signed-out
      * user has, which is the state a Desktop user reading this screen is in.
      */
-    private val anonymousAuth = object : AuthRepository {
-        override val currentSession: StateFlow<Session> =
-            MutableStateFlow(Session.Anonymous(UserId.anonymous))
-        override val isLoading: StateFlow<Boolean> = MutableStateFlow(false)
-        override suspend fun signUp(email: String, password: String): Result<Unit> = unsupported()
-        override suspend fun signIn(email: String, password: String): Result<Unit> = unsupported()
-        override suspend fun startLocalSession(): Result<Unit> = unsupported()
-        override suspend fun signOut(): Result<Unit> = unsupported()
-        override suspend fun updatePassword(newPassword: String): Result<Unit> = unsupported()
-        override suspend fun sendMagicLink(email: String): Result<Unit> = unsupported()
-        override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> = unsupported()
+    private val anonymousAuth =
+        object : AuthRepository {
+            override val currentSession: StateFlow<Session> =
+                MutableStateFlow(Session.Anonymous(UserId.anonymous))
+            override val isLoading: StateFlow<Boolean> = MutableStateFlow(false)
 
-        private fun unsupported(): Result<Unit> =
-            Result.failure(UnsupportedOperationException("no auth flow is exercised by this test"))
-    }
+            override suspend fun signUp(
+                email: String,
+                password: String,
+            ): Result<Unit> = unsupported()
+
+            override suspend fun signIn(
+                email: String,
+                password: String,
+            ): Result<Unit> = unsupported()
+
+            override suspend fun startLocalSession(): Result<Unit> = unsupported()
+
+            override suspend fun signOut(): Result<Unit> = unsupported()
+
+            override suspend fun updatePassword(newPassword: String): Result<Unit> = unsupported()
+
+            override suspend fun sendMagicLink(email: String): Result<Unit> = unsupported()
+
+            override suspend fun verifyMagicLink(
+                email: String,
+                token: String,
+            ): Result<Unit> = unsupported()
+
+            private fun unsupported(): Result<Unit> =
+                Result.failure(UnsupportedOperationException("no auth flow is exercised by this test"))
+        }
 
     private fun viewModel(
         provider: CalendarProviderPort,
@@ -190,12 +233,13 @@ class CalendarSyncViewModelCapabilityTest {
             calendarProvider = provider,
             scheduler = scheduler,
             appQueries = FakeAppQueries(supported),
-            orchestrator = CalendarSyncOrchestrator(
-                scheduler = scheduler,
-                scope = scope,
-                dirtyHashProvider = DirtyHashProvider(FakeTaskRepository(), FakeSyncRepo()),
-                crashReporter = NoOpCrashReportingPort(),
-            ),
+            orchestrator =
+                CalendarSyncOrchestrator(
+                    scheduler = scheduler,
+                    scope = scope,
+                    dirtyHashProvider = DirtyHashProvider(FakeTaskRepository(), FakeSyncRepo()),
+                    crashReporter = NoOpCrashReportingPort(),
+                ),
             googleSettings = DisconnectedGoogleSettings,
             credentialStore = EmptyCredentialStore,
             // vmScope, not the test scope: CurrentUser collects its session flow forever in
@@ -207,13 +251,14 @@ class CalendarSyncViewModelCapabilityTest {
             // about the *system* calendar's capability flag, so the Google half has to be
             // inert — but it still has to be inert through the real coordinator, or the
             // guard would be exercised only by this wiring rather than by its own tests.
-            googleSync = GoogleSyncCoordinator(
-                engineProvider = { error("a declined profile must never reach an engine") },
-                googleSettings = DisconnectedGoogleSettings,
-                credentialStore = EmptyCredentialStore,
-                currentUser = UserId.anonymous,
-                clock = kotlin.time.Clock.System,
-            ),
+            googleSync =
+                GoogleSyncCoordinator(
+                    engineProvider = { error("a declined profile must never reach an engine") },
+                    googleSettings = DisconnectedGoogleSettings,
+                    credentialStore = EmptyCredentialStore,
+                    currentUser = UserId.anonymous,
+                    clock = kotlin.time.Clock.System,
+                ),
             importWindow = ImportWindow.DEFAULT,
             googleAuthorization = FakeGoogleAuthorizer(),
             crashReporter = NoOpCrashReportingPort(),
@@ -232,23 +277,28 @@ class CalendarSyncViewModelCapabilityTest {
      * dropping what it already knew.
      */
     @Test
-    fun `a failing provider settles the load instead of claiming the platform is unsupported`() = runTest {
-        val (vm, vmScope) = viewModel(UnsupportedProvider(), this)
-        try {
-            vm.onIntent(CalendarSyncIntent.LoadCalendars)
-            // Await the outcome, not isLoading: it starts false, so a predicate on it
-            // passes before the launch has even set it true.
-            awaitState { !vm.stateFlow.value.isLoading && vm.stateFlow.value.availableApps.isEmpty() }
+    fun `a failing provider settles the load instead of claiming the platform is unsupported`() =
+        runTest {
+            val (vm, vmScope) = viewModel(UnsupportedProvider(), this)
+            try {
+                vm.onIntent(CalendarSyncIntent.LoadCalendars)
+                // Await the outcome, not isLoading: it starts false, so a predicate on it
+                // passes before the launch has even set it true.
+                awaitState {
+                    !vm.stateFlow.value.isLoading &&
+                        vm.stateFlow.value.availableApps
+                            .isEmpty()
+                }
 
-            assertFalse(
-                vm.stateFlow.value.isLoading,
-                "a provider that failed must still finish loading; a stranded flag " +
-                    "leaves the screen spinning forever",
-            )
-        } finally {
-            vmScope.close()
+                assertFalse(
+                    vm.stateFlow.value.isLoading,
+                    "a provider that failed must still finish loading; a stranded flag " +
+                        "leaves the screen spinning forever",
+                )
+            } finally {
+                vmScope.close()
+            }
         }
-    }
 
     /**
      * The panel's gate is the conjunction of the four seams' flags.
@@ -260,31 +310,33 @@ class CalendarSyncViewModelCapabilityTest {
      * instead of showing a switch that does nothing.
      */
     @Test
-    fun `the panel's gate is the conjunction of the four seams`() = runTest {
-        val (supported, supportedScope) = viewModel(WorkingProvider(), this)
-        try {
-            assertTrue(
-                supported.stateFlow.value.deviceSyncSupported,
-                "a platform where all four seams can work must be offered the panel",
-            )
-        } finally {
-            supportedScope.close()
-        }
+    fun `the panel's gate is the conjunction of the four seams`() =
+        runTest {
+            val (supported, supportedScope) = viewModel(WorkingProvider(), this)
+            try {
+                assertTrue(
+                    supported.stateFlow.value.deviceSyncSupported,
+                    "a platform where all four seams can work must be offered the panel",
+                )
+            } finally {
+                supportedScope.close()
+            }
 
-        val (unsupported, unsupportedScope) = viewModel(
-            provider = UnsupportedProvider(isSupported = false),
-            scope = this,
-            supported = false,
-        )
-        try {
-            assertFalse(
-                unsupported.stateFlow.value.deviceSyncSupported,
-                "a platform where the seams cannot work must not be offered the panel",
-            )
-        } finally {
-            unsupportedScope.close()
+            val (unsupported, unsupportedScope) =
+                viewModel(
+                    provider = UnsupportedProvider(isSupported = false),
+                    scope = this,
+                    supported = false,
+                )
+            try {
+                assertFalse(
+                    unsupported.stateFlow.value.deviceSyncSupported,
+                    "a platform where the seams cannot work must not be offered the panel",
+                )
+            } finally {
+                unsupportedScope.close()
+            }
         }
-    }
 
     /**
      * A scheduler that cannot schedule closes the gate as well.
@@ -294,37 +346,43 @@ class CalendarSyncViewModelCapabilityTest {
      * promises. Its flag is read for the same reason the other three are.
      */
     @Test
-    fun `a scheduler that cannot schedule closes the gate`() = runTest {
-        val (vm, vmScope) = viewModel(
-            provider = WorkingProvider(),
-            scope = this,
-            schedulerSupported = false,
-        )
-        try {
-            assertFalse(
-                vm.stateFlow.value.deviceSyncSupported,
-                "a platform that cannot schedule the sync must not be offered the panel",
-            )
-        } finally {
-            vmScope.close()
+    fun `a scheduler that cannot schedule closes the gate`() =
+        runTest {
+            val (vm, vmScope) =
+                viewModel(
+                    provider = WorkingProvider(),
+                    scope = this,
+                    schedulerSupported = false,
+                )
+            try {
+                assertFalse(
+                    vm.stateFlow.value.deviceSyncSupported,
+                    "a platform that cannot schedule the sync must not be offered the panel",
+                )
+            } finally {
+                vmScope.close()
+            }
         }
-    }
 
     @Test
-    fun `a working provider leaves the calendars on the state`() = runTest {
-        val (vm, vmScope) = viewModel(WorkingProvider(), this)
-        try {
-            vm.onIntent(CalendarSyncIntent.LoadCalendars)
-            // Same reason: wait for the calendars to land, not for a flag that is
-            // momentarily false both before and after the load.
-            awaitState { vm.stateFlow.value.availableCalendars.isNotEmpty() }
+    fun `a working provider leaves the calendars on the state`() =
+        runTest {
+            val (vm, vmScope) = viewModel(WorkingProvider(), this)
+            try {
+                vm.onIntent(CalendarSyncIntent.LoadCalendars)
+                // Same reason: wait for the calendars to land, not for a flag that is
+                // momentarily false both before and after the load.
+                awaitState {
+                    vm.stateFlow.value.availableCalendars
+                        .isNotEmpty()
+                }
 
-            assertEquals(
-                mapOf("work" to "Work"),
-                vm.stateFlow.value.availableCalendars,
-            )
-        } finally {
-            vmScope.close()
+                assertEquals(
+                    mapOf("work" to "Work"),
+                    vm.stateFlow.value.availableCalendars,
+                )
+            } finally {
+                vmScope.close()
+            }
         }
-    }
 }

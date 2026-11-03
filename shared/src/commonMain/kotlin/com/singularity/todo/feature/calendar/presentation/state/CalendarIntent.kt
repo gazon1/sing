@@ -12,12 +12,19 @@ import kotlinx.datetime.LocalDate
  */
 sealed interface CalendarIntent : MviIntent {
     data class ViewModeChanged(val mode: CalendarViewMode) : CalendarIntent
+
     data object GoToday : CalendarIntent
+
     data object GoNext : CalendarIntent
+
     data object GoPrevious : CalendarIntent
+
     data class DayClicked(val date: LocalDate) : CalendarIntent
+
     data object ToggleMiniCalendar : CalendarIntent
+
     data class TaskClicked(val taskId: TaskId) : CalendarIntent
+
     data object DismissMiniCalendar : CalendarIntent
 
     /**

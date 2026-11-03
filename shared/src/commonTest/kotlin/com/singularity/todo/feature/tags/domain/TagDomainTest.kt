@@ -11,14 +11,15 @@ import kotlin.time.Instant
 
 private val NOW = Instant.fromEpochMilliseconds(1_700_000_000_000)
 
-private fun aTag(name: String) = Tag(
-    id = TagId.fromString("tg-${name.lowercase()}"),
-    name = name,
-    color = 0xFFE91E63.toInt(),
-    createdAt = NOW,
-    updatedAt = NOW,
-    userId = TestUsers.DEFAULT,
-)
+private fun aTag(name: String) =
+    Tag(
+        id = TagId.fromString("tg-${name.lowercase()}"),
+        name = name,
+        color = 0xFFE91E63.toInt(),
+        createdAt = NOW,
+        updatedAt = NOW,
+        userId = TestUsers.DEFAULT,
+    )
 
 /**
  * The duplicate-tag rule, and the name rules it sits next to.
@@ -30,7 +31,6 @@ private fun aTag(name: String) = Tag(
  */
 @org.junit.jupiter.api.Tag("fast")
 class TagDomainTest {
-
     @Test
     fun `a tag is found by its name whatever the case`() {
         val tags = listOf(aTag("Invoice"), aTag("work"))

@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.genui.catalog
 
+import com.singularity.todo.arch.SourceScan
 import com.singularity.todo.feature.genui.core.A2uiMessageProcessor
 import com.singularity.todo.feature.genui.core.A2uiParseOutcome
 import com.singularity.todo.feature.genui.core.A2uiSeverity
@@ -8,9 +9,8 @@ import com.singularity.todo.feature.genui.parser.A2uiParser
 import com.singularity.todo.feature.genui.parser.UiEvent
 import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.surface.SurfaceId
-import com.singularity.todo.arch.SourceScan
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -34,7 +34,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class GenuiSurfaceCorpusTest {
-
     private val parser = A2uiParser(SingularityCatalog)
     private val controller = SurfaceController()
     private val processor = A2uiMessageProcessor(A2uiValidator(SingularityCatalog), controller)
@@ -80,9 +79,10 @@ class GenuiSurfaceCorpusTest {
         // The app components are the ones a model is most likely to reach for, and the ones most
         // likely to be renamed in a refactor. Their absence from the corpus is how that would go
         // unnoticed.
-        val corpus: String = CORPUS.joinToString("\n") {
-            corpusFile(it).readText()
-        }
+        val corpus: String =
+            CORPUS.joinToString("\n") {
+                corpusFile(it).readText()
+            }
         for (kind in listOf("task_card", "due_date", "project_chip", "text_field", "list", "button")) {
             assertTrue("\"$kind\"" in corpus, "The corpus no longer exercises $kind")
         }
@@ -115,8 +115,7 @@ class GenuiSurfaceCorpusTest {
         assertEquals(CORPUS.size, owners.values.toSet().size, "Every corpus file draws its own screen")
     }
 
-    private fun corpusLines(name: String): List<String> =
-        corpusFile(name).readLines().filter { it.isNotBlank() }
+    private fun corpusLines(name: String): List<String> = corpusFile(name).readLines().filter { it.isNotBlank() }
 
     /**
      * One corpus file, located through [SourceScan.jvmTestResourcesRoot] rather than
@@ -124,17 +123,17 @@ class GenuiSurfaceCorpusTest {
      * `build/allure-results`, so the relative form resolved inside a build directory
      * and every test here failed with `FileNotFoundException` (run 39005284790).
      */
-    private fun corpusFile(name: String): File =
-        SourceScan.jvmTestResourcesRoot().resolve("genui-corpus/$name.jsonl")
+    private fun corpusFile(name: String): File = SourceScan.jvmTestResourcesRoot().resolve("genui-corpus/$name.jsonl")
 
     private companion object {
         val CORPUS: List<String> = listOf("task-list", "add-task-form")
     }
 }
 
-private fun UiEvent.surfaceId(): SurfaceId = when (this) {
-    is UiEvent.CreateSurface -> surfaceId
-    is UiEvent.UpdateComponents -> surfaceId
-    is UiEvent.UpdateData -> surfaceId
-    is UiEvent.DeleteSurface -> surfaceId
-}
+private fun UiEvent.surfaceId(): SurfaceId =
+    when (this) {
+        is UiEvent.CreateSurface -> surfaceId
+        is UiEvent.UpdateComponents -> surfaceId
+        is UiEvent.UpdateData -> surfaceId
+        is UiEvent.DeleteSurface -> surfaceId
+    }

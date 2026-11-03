@@ -53,7 +53,10 @@ import org.koin.compose.koinInject
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WhatsNewScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+fun WhatsNewScreen(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val remoteConfig: RemoteConfigPort = koinInject()
     val prefs: WhatsNewPrefs = koinInject()
     val scope = rememberCoroutineScope()
@@ -100,14 +103,15 @@ fun WhatsNewScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
         onDismiss()
     }
 
-    val ctx = rememberDataContext(
-        surfaceId = currentSurfaceId,
-        controller = controller,
-        registry = registry,
-        // WhatsNew surfaces are read-only, so there is no one to notify.
-        onDataChange = null,
-        clock = koinInject(),
-    )
+    val ctx =
+        rememberDataContext(
+            surfaceId = currentSurfaceId,
+            controller = controller,
+            registry = registry,
+            // WhatsNew surfaces are read-only, so there is no one to notify.
+            onDataChange = null,
+            clock = koinInject(),
+        )
 
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
 
@@ -117,9 +121,10 @@ fun WhatsNewScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
         modifier = modifier,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             CompositionLocalProvider(
                 LocalGenuiOnAction provides { _, action, _ ->
@@ -153,10 +158,12 @@ private fun playReleaseNotes(
     processor: A2uiMessageProcessor,
     controller: SurfaceController,
 ): Int {
-    val outcomes: List<A2uiParseOutcome> = payload.lineSequence()
-        .filter { it.isNotBlank() }
-        .map { line: String -> parser.parseLine(line) }
-        .toList()
+    val outcomes: List<A2uiParseOutcome> =
+        payload
+            .lineSequence()
+            .filter { it.isNotBlank() }
+            .map { line: String -> parser.parseLine(line) }
+            .toList()
     controller.reset()
     outcomes.forEach { outcome: A2uiParseOutcome ->
         if (outcome is A2uiParseOutcome.Parsed) {

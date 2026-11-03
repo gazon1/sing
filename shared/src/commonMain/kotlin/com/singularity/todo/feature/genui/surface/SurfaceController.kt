@@ -32,7 +32,6 @@ import kotlinx.serialization.json.JsonElement
  * field had already sent.
  */
 class SurfaceController {
-
     private val _surfaces = MutableStateFlow<Map<SurfaceId, Surface>>(emptyMap())
     val surfaces: StateFlow<Map<SurfaceId, Surface>> = _surfaces.asStateFlow()
 
@@ -85,7 +84,11 @@ class SurfaceController {
     }
 
     /** Writes a value into a surface's data model, the counterpart of [value]. */
-    fun write(surfaceId: SurfaceId, path: UiPath, value: JsonElement) {
+    fun write(
+        surfaceId: SurfaceId,
+        path: UiPath,
+        value: JsonElement,
+    ) {
         _surfaces.value[surfaceId]?.dataModel?.set(path, value)
     }
 
@@ -104,7 +107,10 @@ class SurfaceController {
     fun prune(maxSurfaces: Int = MAX_OPEN_SURFACES) {
         if (_surfaces.value.size <= maxSurfaces) return
         val excess: Int = _surfaces.value.size - maxSurfaces
-        val oldest: Set<SurfaceId> = _surfaces.value.keys.take(excess).toSet()
+        val oldest: Set<SurfaceId> =
+            _surfaces.value.keys
+                .take(excess)
+                .toSet()
         _surfaces.value -= oldest
     }
 

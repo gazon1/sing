@@ -54,7 +54,6 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class NotesFlowTagReachabilityFlowTest {
-
     /**
      * The notes list carries every id the flows tap on it.
      *
@@ -63,14 +62,15 @@ class NotesFlowTagReachabilityFlowTest {
      * the control a flow types a title into.
      */
     @Test
-    fun the_notes_list_exposes_every_tag_the_flows_address() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Notes")
+    fun the_notes_list_exposes_every_tag_the_flows_address() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Notes")
 
-        assertTagInMergedTree(TestTags.NOTES_QUICK_ADD_INPUT, "notes list")
-        assertTagInMergedTree(TestTags.noteFilterChip("All"), "notes list")
-        assertTagInMergedTree(TestTags.noteFilterChip("Pinned"), "notes list")
-        assertTagInMergedTree(TestTags.noteFilterChip("Archived"), "notes list")
-    }
+            assertTagInMergedTree(TestTags.NOTES_QUICK_ADD_INPUT, "notes list")
+            assertTagInMergedTree(TestTags.noteFilterChip("All"), "notes list")
+            assertTagInMergedTree(TestTags.noteFilterChip("Pinned"), "notes list")
+            assertTagInMergedTree(TestTags.noteFilterChip("Archived"), "notes list")
+        }
 
     /**
      * The note editor carries every id the flows type into and tap on it.
@@ -79,15 +79,16 @@ class NotesFlowTagReachabilityFlowTest {
      * submits, which creates the note and opens it in the editor.
      */
     @Test
-    fun the_note_editor_exposes_every_tag_the_flows_address() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Notes")
-        typeIntoTag(TestTags.NOTES_QUICK_ADD_INPUT, "Groceries")
-        submitTag(TestTags.NOTES_QUICK_ADD_INPUT)
+    fun the_note_editor_exposes_every_tag_the_flows_address() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Notes")
+            typeIntoTag(TestTags.NOTES_QUICK_ADD_INPUT, "Groceries")
+            submitTag(TestTags.NOTES_QUICK_ADD_INPUT)
 
-        assertTagInMergedTree(TestTags.NOTE_EDITOR_TITLE_INPUT, "note editor")
-        assertTagInMergedTree(TestTags.NOTE_EDITOR_BODY, "note editor")
-        assertTagInMergedTree(TestTags.NOTE_EDITOR_SAVE, "note editor")
-    }
+            assertTagInMergedTree(TestTags.NOTE_EDITOR_TITLE_INPUT, "note editor")
+            assertTagInMergedTree(TestTags.NOTE_EDITOR_BODY, "note editor")
+            assertTagInMergedTree(TestTags.NOTE_EDITOR_SAVE, "note editor")
+        }
 
     /**
      * A note row is addressable by the title the flow typed.

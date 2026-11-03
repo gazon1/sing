@@ -1,12 +1,11 @@
 package com.singularity.todo.core.notifications
 
 import com.singularity.todo.core.process.Subprocess
-
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Desktop notifications through `notify-send(1)`.
@@ -45,12 +44,16 @@ class JvmNotifier(
      */
     private val hostCanDisplay: () -> Boolean = ::probeNotifySend,
 ) : Notifier {
-
     private val available: Boolean by lazy { hostCanDisplay() }
 
     override val isSupported: Boolean get() = available
 
-    override fun post(tag: String, title: String, body: String, viewId: String?) {
+    override fun post(
+        tag: String,
+        title: String,
+        body: String,
+        viewId: String?,
+    ) {
         // Fire-and-forget: `post` is not suspending because it is called from
         // `AlarmReceiver.handleReminderFire`'s analogue — a process that exists only to
         // say one thing and exit. Blocking a non-suspending call here would stall a

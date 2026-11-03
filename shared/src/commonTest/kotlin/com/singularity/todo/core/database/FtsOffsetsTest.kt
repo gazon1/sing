@@ -28,7 +28,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class FtsOffsetsTest {
-
     private val title = FtsColumn(SearchColumn.TITLE, "Architecture of the house")
     private val description = FtsColumn(SearchColumn.DESCRIPTION, "the architecture plan")
 

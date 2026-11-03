@@ -24,8 +24,10 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class ScreenFamilyTest {
-
-    private fun assertFamily(expected: ScreenFamily, key: AppNavKey) {
+    private fun assertFamily(
+        expected: ScreenFamily,
+        key: AppNavKey,
+    ) {
         assertEquals(expected, familyOf(key), "familyOf($key)")
     }
 

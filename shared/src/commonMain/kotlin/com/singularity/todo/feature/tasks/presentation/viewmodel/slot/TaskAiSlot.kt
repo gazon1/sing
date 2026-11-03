@@ -14,10 +14,10 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskAiDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskCollaborationDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
-import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.presentation.state.TaskAiIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,7 +53,6 @@ class TaskAiSlot(
     private val onError: (String) -> Unit,
     private val onSaved: (String) -> Unit,
 ) : FeatureSlot<TaskAiState, TaskAiIntent> {
-
     private val _state = MutableStateFlow(TaskAiState())
     override val state: StateFlow<TaskAiState> = _state.asStateFlow()
 
@@ -63,32 +62,38 @@ class TaskAiSlot(
         }
     }
 
-    private fun run(action: TaskAiAction) = scope.launch {
-        val task = taskFlow.value ?: return@launch
-        _state.update { it.copy(isRunning = true) }
-        val result = runCatchingCancellable { execute(action, task) }
-        _state.update { it.copy(isRunning = false) }
-        result.onFailure { onError("AI action failed: ${it.message}") }
-    }
+    private fun run(action: TaskAiAction) =
+        scope.launch {
+            val task = taskFlow.value ?: return@launch
+            _state.update { it.copy(isRunning = true) }
+            val result = runCatchingCancellable { execute(action, task) }
+            _state.update { it.copy(isRunning = false) }
+            result.onFailure { onError("AI action failed: ${it.message}") }
+        }
 
-    private suspend fun execute(action: TaskAiAction, task: Task) {
-        val proposals = collaboration.proposals
-            ?: error("ProposalRepository not configured")
+    private suspend fun execute(
+        action: TaskAiAction,
+        task: Task,
+    ) {
+        val proposals =
+            collaboration.proposals
+                ?: error("ProposalRepository not configured")
         val userId = collaboration.currentUser.scopedUserId.value
         val now = context.clock.now()
         val proposalId = ProposalId.generate()
 
         val items = buildProposalItems(action, task, proposalId)
-        val proposal = AiProposal(
-            id = proposalId,
-            targetKind = ProposalTargetKind.of(items.map { it.kind }),
-            targetId = task.id.value,
-            userId = userId,
-            source = ProposalSource.Detail,
-            createdAt = now,
-            updatedAt = now,
-            items = items,
-        )
+        val proposal =
+            AiProposal(
+                id = proposalId,
+                targetKind = ProposalTargetKind.of(items.map { it.kind }),
+                targetId = task.id.value,
+                userId = userId,
+                source = ProposalSource.Detail,
+                createdAt = now,
+                updatedAt = now,
+                items = items,
+            )
         proposals.save(proposal).getOrThrow()
         onSaved("Proposal created")
     }
@@ -97,86 +102,109 @@ class TaskAiSlot(
         action: TaskAiAction,
         task: Task,
         proposalId: ProposalId,
-    ): List<ProposalItem> = when (action) {
-        TaskAiAction.RefineTitle -> listOf(
-            newItem(
-                kind = ProposalItemKind.SetTaskField(
-                    TaskValue.Title(
-                        withUseCase(ai.refineTask, "RefineTitle") { refine ->
-                            refine(task.title, task.description).getOrThrow()
-                        },
+    ): List<ProposalItem> =
+        when (action) {
+            TaskAiAction.RefineTitle -> {
+                listOf(
+                    newItem(
+                        kind =
+                            ProposalItemKind.SetTaskField(
+                                TaskValue.Title(
+                                    withUseCase(ai.refineTask, "RefineTitle") { refine ->
+                                        refine(task.title, task.description).getOrThrow()
+                                    },
+                                ),
+                            ),
+                        proposalId = proposalId,
+                        targetId = task.id.value,
+                        summary = "Refine title",
                     ),
-                ),
-                proposalId = proposalId,
-                targetId = task.id.value,
-                summary = "Refine title",
-            ),
-        )
+                )
+            }
 
-        TaskAiAction.GenerateDescription -> listOf(
-            newItem(
-                kind = ProposalItemKind.SetTaskField(
-                    TaskValue.Description(
-                        withUseCase(ai.generateDescription, "GenerateDescription") { generate ->
-                            generate(task.title).getOrThrow()
-                        },
+            TaskAiAction.GenerateDescription -> {
+                listOf(
+                    newItem(
+                        kind =
+                            ProposalItemKind.SetTaskField(
+                                TaskValue.Description(
+                                    withUseCase(ai.generateDescription, "GenerateDescription") { generate ->
+                                        generate(task.title).getOrThrow()
+                                    },
+                                ),
+                            ),
+                        proposalId = proposalId,
+                        targetId = task.id.value,
+                        summary = "Generate description",
                     ),
-                ),
-                proposalId = proposalId,
-                targetId = task.id.value,
-                summary = "Generate description",
-            ),
-        )
-
-        TaskAiAction.GenerateChecklist -> {
-            val steps = withUseCase(ai.generateChecklist, "GenerateChecklist") { generate ->
-                generate(task.title, task.description).getOrThrow()
+                )
             }
-            listOf(
-                newItem(
-                    kind = ProposalItemKind.AddChecklistItems(steps),
-                    proposalId = proposalId,
-                    targetId = task.id.value,
-                    summary = "${steps.size} checklist items",
-                ),
-            )
-        }
 
-        TaskAiAction.Decompose -> {
-            val subtasks = withUseCase(ai.decomposeTask, "DecomposeTask") { decompose ->
-                decompose(task.title, task.description).getOrThrow()
-            }
-            listOf(
-                newItem(
-                    kind = ProposalItemKind.AddSubtasks(subtasks),
-                    proposalId = proposalId,
-                    targetId = task.id.value,
-                    summary = "${subtasks.size} subtasks",
-                ),
-            )
-        }
-
-        TaskAiAction.FirstStep -> firstStepItem(task, proposalId)
-
-        TaskAiAction.SuggestTime -> {
-            val suggestion = withUseCase(ai.pickTime, "PickTime") { pick ->
-                pick(task.title, task.description).getOrThrow()
-            }
-            if (suggestion.trim() == "no-time") error("No time could be determined")
-            val start = runCatchingCancellable { kotlin.time.Instant.parse(suggestion.trim()).toEpochMilliseconds() }
-                .getOrDefault(context.clock.now().toEpochMilliseconds())
-            listOf(
-                newItem(
-                    kind = ProposalItemKind.AddTimeEntries(
-                        listOf(ProposedTimeEntry(startedAt = start, endedAt = start + 3_600_000L, note = suggestion)),
+            TaskAiAction.GenerateChecklist -> {
+                val steps =
+                    withUseCase(ai.generateChecklist, "GenerateChecklist") { generate ->
+                        generate(task.title, task.description).getOrThrow()
+                    }
+                listOf(
+                    newItem(
+                        kind = ProposalItemKind.AddChecklistItems(steps),
+                        proposalId = proposalId,
+                        targetId = task.id.value,
+                        summary = "${steps.size} checklist items",
                     ),
-                    proposalId = proposalId,
-                    targetId = task.id.value,
-                    summary = "Suggest time: $suggestion",
-                ),
-            )
+                )
+            }
+
+            TaskAiAction.Decompose -> {
+                val subtasks =
+                    withUseCase(ai.decomposeTask, "DecomposeTask") { decompose ->
+                        decompose(task.title, task.description).getOrThrow()
+                    }
+                listOf(
+                    newItem(
+                        kind = ProposalItemKind.AddSubtasks(subtasks),
+                        proposalId = proposalId,
+                        targetId = task.id.value,
+                        summary = "${subtasks.size} subtasks",
+                    ),
+                )
+            }
+
+            TaskAiAction.FirstStep -> {
+                firstStepItem(task, proposalId)
+            }
+
+            TaskAiAction.SuggestTime -> {
+                val suggestion =
+                    withUseCase(ai.pickTime, "PickTime") { pick ->
+                        pick(task.title, task.description).getOrThrow()
+                    }
+                if (suggestion.trim() == "no-time") error("No time could be determined")
+                val start =
+                    runCatchingCancellable {
+                        kotlin.time.Instant
+                            .parse(suggestion.trim())
+                            .toEpochMilliseconds()
+                    }.getOrDefault(context.clock.now().toEpochMilliseconds())
+                listOf(
+                    newItem(
+                        kind =
+                            ProposalItemKind.AddTimeEntries(
+                                listOf(
+                                    ProposedTimeEntry(
+                                        startedAt = start,
+                                        endedAt = start + 3_600_000L,
+                                        note = suggestion,
+                                    ),
+                                ),
+                            ),
+                        proposalId = proposalId,
+                        targetId = task.id.value,
+                        summary = "Suggest time: $suggestion",
+                    ),
+                )
+            }
         }
-    }
 
     /**
      * The first physical action of the task, proposed as a change.
@@ -184,10 +212,14 @@ class TaskAiSlot(
      * The checkable outcome travels in the line the user reads: a step nobody can
      * check is a step nobody can be finished with.
      */
-    private suspend fun firstStepItem(task: Task, proposalId: ProposalId): List<ProposalItem> {
-        val step = withUseCase(ai.firstStep, "FirstStep") { first ->
-            first(task.title, task.description).getOrThrow()
-        }
+    private suspend fun firstStepItem(
+        task: Task,
+        proposalId: ProposalId,
+    ): List<ProposalItem> {
+        val step =
+            withUseCase(ai.firstStep, "FirstStep") { first ->
+                first(task.title, task.description).getOrThrow()
+            }
         return listOf(
             newItem(
                 kind = ProposalItemKind.AddSubtasks(listOf(step.action)),
@@ -222,7 +254,11 @@ class TaskAiSlot(
      * "not configured" into the same failure path as a failed call, so a misconfigured
      * build reports instead of silently doing nothing.
      */
-    private suspend fun <T, R> withUseCase(useCase: T?, label: String, block: suspend (T) -> R): R {
+    private suspend fun <T, R> withUseCase(
+        useCase: T?,
+        label: String,
+        block: suspend (T) -> R,
+    ): R {
         if (useCase == null) throw IllegalStateException("$label use case not available")
         return block(useCase)
     }

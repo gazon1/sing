@@ -1,6 +1,9 @@
 package com.singularity.todo.feature.calendar.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.calendar.domain.logic.CalendarTaskMapper
 import com.singularity.todo.feature.calendar.domain.logic.firstDayOfMonth
@@ -9,19 +12,19 @@ import com.singularity.todo.feature.calendar.domain.logic.goPrevious
 import com.singularity.todo.feature.calendar.domain.logic.headerLabel
 import com.singularity.todo.feature.calendar.domain.logic.lastDayOfMonth
 import com.singularity.todo.feature.calendar.domain.logic.visibleRange
-import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.domain.model.CalendarDateSelection
+import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiEvent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
-import kotlinx.collections.immutable.toImmutableList
-import kotlinx.collections.immutable.toImmutableMap
-import kotlinx.collections.immutable.toImmutableSet
 import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,9 +32,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
-import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.observability.NoOpCrashReportingPort
-import com.singularity.todo.core.observability.reportingScope
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -63,7 +63,6 @@ class CalendarViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     /** Today's date, stable for the lifetime of this VM (captured at construction). */
     private val today: LocalDate = deps.today
 
@@ -83,13 +82,14 @@ class CalendarViewModel(
     val dateSelection: StateFlow<CalendarDateSelection> = _dateSelection.asStateFlow()
 
     /** Selection state — anchor date, view mode, mini panel open/closed. */
-    private val _calendarState = MutableStateFlow(
-        CalendarState(
-            anchor = initialDate,
-            viewMode = initialMode,
-            isMiniOpen = false,
-        ),
-    )
+    private val _calendarState =
+        MutableStateFlow(
+            CalendarState(
+                anchor = initialDate,
+                viewMode = initialMode,
+                isMiniOpen = false,
+            ),
+        )
 
     /** Public read access to the calendar's internal state (anchor, mode, mini panel). */
     val calendarState: StateFlow<CalendarState> = _calendarState.asStateFlow()
@@ -106,17 +106,18 @@ class CalendarViewModel(
                 // Extend query window by ±7 days so neighbouring months are preloaded
                 val from = firstDayOfMonth(cal.anchor).minus(7, DateTimeUnit.DAY)
                 val to = lastDayOfMonth(cal.anchor).plus(7, DateTimeUnit.DAY)
-                deps.taskRepo.observeByFilter(TaskFilter.ByDateRange(from, to))
+                deps.taskRepo
+                    .observeByFilter(TaskFilter.ByDateRange(from, to))
                     .map { tasks ->
-                        val tasksByDate = tasks
-                            .map { task ->
-                                CalendarTaskMapper.toCalendarTaskUi(
-                                    task,
-                                    today,
-                                    recurringIds.contains(task.id),
-                                )
-                            }
-                            .groupBy { it.date }
+                        val tasksByDate =
+                            tasks
+                                .map { task ->
+                                    CalendarTaskMapper.toCalendarTaskUi(
+                                        task,
+                                        today,
+                                        recurringIds.contains(task.id),
+                                    )
+                                }.groupBy { it.date }
                         cal.toLoadedState(tasksByDate, today).copy(
                             selectedDates = selection.dates.toImmutableSet(),
                             isDateSelectionMode = selection.isActive,
@@ -142,15 +143,17 @@ class CalendarViewModel(
             }
 
             CalendarIntent.GoNext -> {
-                _calendarState.value = _calendarState.value.copy(
-                    anchor = goNext(_calendarState.value.anchor, _calendarState.value.viewMode),
-                )
+                _calendarState.value =
+                    _calendarState.value.copy(
+                        anchor = goNext(_calendarState.value.anchor, _calendarState.value.viewMode),
+                    )
             }
 
             CalendarIntent.GoPrevious -> {
-                _calendarState.value = _calendarState.value.copy(
-                    anchor = goPrevious(_calendarState.value.anchor, _calendarState.value.viewMode),
-                )
+                _calendarState.value =
+                    _calendarState.value.copy(
+                        anchor = goPrevious(_calendarState.value.anchor, _calendarState.value.viewMode),
+                    )
             }
 
             is CalendarIntent.DayClicked -> {
@@ -161,14 +164,16 @@ class CalendarViewModel(
                 if (_dateSelection.value.isActive) {
                     _dateSelection.value = _dateSelection.value.toggle(intent.date)
                 } else {
-                    _calendarState.value = current.copy(
-                        viewMode = if (current.viewMode == CalendarViewMode.MONTH) {
-                            CalendarViewMode.DAY
-                        } else {
-                            current.viewMode
-                        },
-                        anchor = intent.date,
-                    )
+                    _calendarState.value =
+                        current.copy(
+                            viewMode =
+                                if (current.viewMode == CalendarViewMode.MONTH) {
+                                    CalendarViewMode.DAY
+                                } else {
+                                    current.viewMode
+                                },
+                            anchor = intent.date,
+                        )
                 }
             }
 
@@ -213,7 +218,9 @@ class CalendarViewModel(
                 _dateSelection.value = _dateSelection.value.exit()
             }
 
-            CalendarIntent.CreateTaskOnSelectedDates -> createTaskOnSelectedDates()
+            CalendarIntent.CreateTaskOnSelectedDates -> {
+                createTaskOnSelectedDates()
+            }
         }
     }
 
@@ -225,17 +232,19 @@ class CalendarViewModel(
      * pointing the editor at it means the task is created by exactly the same
      * code as a task created from the agenda.
      */
-    private fun createTaskOnSelectedDates() = vmScope.launch {
-        val dates = _dateSelection.value.dates.sorted()
-        if (dates.isEmpty()) return@launch
-        val primary = dates.first()
-        val draft = TaskDraft(
-            dueDate = DueDateOption.Custom(primary, primary.toString()),
-            extraDueDates = dates.drop(1),
-        )
-        deps.draftStore.save(TaskDraftKeys.CALENDAR_MULTI_DATE, draft, TaskDraft.serializer())
-        emit(CalendarUiEvent.NavigateToCreateWithDates(TaskDraftKeys.CALENDAR_MULTI_DATE))
-    }
+    private fun createTaskOnSelectedDates() =
+        vmScope.launch {
+            val dates = _dateSelection.value.dates.sorted()
+            if (dates.isEmpty()) return@launch
+            val primary = dates.first()
+            val draft =
+                TaskDraft(
+                    dueDate = DueDateOption.Custom(primary, primary.toString()),
+                    extraDueDates = dates.drop(1),
+                )
+            deps.draftStore.save(TaskDraftKeys.CALENDAR_MULTI_DATE, draft, TaskDraft.serializer())
+            emit(CalendarUiEvent.NavigateToCreateWithDates(TaskDraftKeys.CALENDAR_MULTI_DATE))
+        }
 
     /** Calendar state (anchor, mode, mini panel). */
     data class CalendarState(val anchor: LocalDate, val viewMode: CalendarViewMode, val isMiniOpen: Boolean) {

@@ -13,13 +13,13 @@ import com.singularity.todo.feature.ai.tools.DeleteProjectTool
 import com.singularity.todo.feature.ai.tools.UpdateProjectInput
 import com.singularity.todo.feature.ai.tools.UpdateProjectOutput
 import com.singularity.todo.feature.ai.tools.UpdateProjectTool
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
-import com.singularity.todo.feature.projects.domain.model.Project
-import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeNotesRepository
@@ -64,7 +64,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ProjectProposalWriteContractTest {
-
     private val clock = FakeClock()
     private val user: UserId = TestUsers.DEFAULT
 
@@ -79,15 +78,26 @@ class ProjectProposalWriteContractTest {
 
     private val currentUser = FakeProfileAwareCurrentUser(user)
 
-    private val apply = ApplyProposalItemUseCase(
-        proposals = proposals,
-        tasks = tasks,
-        notes = notes,
-        projects = projectsFake,
-        tags = tags,
-        planner = ProposalPlanner(clock),
-        dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, projectsFake, deleteProject, clock),
-    )
+    private val apply =
+        ApplyProposalItemUseCase(
+            proposals = proposals,
+            tasks = tasks,
+            notes = notes,
+            projects = projectsFake,
+            tags = tags,
+            planner = ProposalPlanner(clock),
+            dispatch =
+                ProposalDispatch(
+                    tasks,
+                    tags,
+                    checklist,
+                    timeTracking,
+                    notes,
+                    projectsFake,
+                    deleteProject,
+                    clock,
+                ),
+        )
 
     // ── The catalogue and the behaviour must agree ──────────────────────────────
 
@@ -106,192 +116,212 @@ class ProjectProposalWriteContractTest {
     // ── create_project: the project does not exist until the user says yes ──────
 
     @Test
-    fun `create_project proposes a project and creates nothing`() = runTest {
-        val output = decodeCreate(
-            CreateProjectTool(proposals, currentUser, clock).execute(CreateProjectInput(name = "Garden")),
-        )
+    fun `create_project proposes a project and creates nothing`() =
+        runTest {
+            val output =
+                decodeCreate(
+                    CreateProjectTool(proposals, currentUser, clock).execute(CreateProjectInput(name = "Garden")),
+                )
 
-        assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
-        assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
-        assertEquals("Garden", output.name, "the tool says what it proposed")
-        assertTrue(liveProjects().isEmpty(), "nothing was created: ${liveProjects()}")
+            assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
+            assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
+            assertEquals("Garden", output.name, "the tool says what it proposed")
+            assertTrue(liveProjects().isEmpty(), "nothing was created: ${liveProjects()}")
 
-        val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
-        assertNotNull(stored, "the proposal is in the store")
-        assertEquals(1, stored.items.size, "the proposal holds one change")
-        assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
-    }
-
-    @Test
-    fun `confirming a create_project proposal creates the project`() = runTest {
-        val output = decodeCreate(
-            CreateProjectTool(proposals, currentUser, clock).execute(CreateProjectInput(name = "Garden")),
-        )
-        val result = apply.confirm(singleItemId(output.proposalId), user)
-        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
-
-        val created = liveProjects().singleOrNull()
-        assertNotNull(created, "the project exists")
-        assertEquals("Garden", created.name)
-        assertEquals(user, created.userId)
-    }
+            val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
+            assertNotNull(stored, "the proposal is in the store")
+            assertEquals(1, stored.items.size, "the proposal holds one change")
+            assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
+        }
 
     @Test
-    fun `declining a create_project proposal creates nothing`() = runTest {
-        val output = decodeCreate(
-            CreateProjectTool(proposals, currentUser, clock).execute(CreateProjectInput(name = "Garden")),
-        )
-        val itemId = singleItemId(output.proposalId)
-        val result = apply.reject(itemId, user, reason = "not needed")
-        assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+    fun `confirming a create_project proposal creates the project`() =
+        runTest {
+            val output =
+                decodeCreate(
+                    CreateProjectTool(proposals, currentUser, clock).execute(CreateProjectInput(name = "Garden")),
+                )
+            val result = apply.confirm(singleItemId(output.proposalId), user)
+            assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
 
-        assertTrue(liveProjects().isEmpty(), "nothing was created: ${liveProjects()}")
-        assertEquals(
-            ProposalItemStatus.Rejected,
-            proposals.getItem(itemId)?.status,
-            "the change was refused, not left pending",
-        )
-    }
+            val created = liveProjects().singleOrNull()
+            assertNotNull(created, "the project exists")
+            assertEquals("Garden", created.name)
+            assertEquals(user, created.userId)
+        }
+
+    @Test
+    fun `declining a create_project proposal creates nothing`() =
+        runTest {
+            val output =
+                decodeCreate(
+                    CreateProjectTool(proposals, currentUser, clock).execute(CreateProjectInput(name = "Garden")),
+                )
+            val itemId = singleItemId(output.proposalId)
+            val result = apply.reject(itemId, user, reason = "not needed")
+            assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+
+            assertTrue(liveProjects().isEmpty(), "nothing was created: ${liveProjects()}")
+            assertEquals(
+                ProposalItemStatus.Rejected,
+                proposals.getItem(itemId)?.status,
+                "the change was refused, not left pending",
+            )
+        }
 
     // ── update_project: only what really differs is proposed ───────────────────
 
     @Test
-    fun `update_project proposes a change and writes nothing`() = runTest {
-        val project = seedProject("Home")
+    fun `update_project proposes a change and writes nothing`() =
+        runTest {
+            val project = seedProject("Home")
 
-        val output = decodeUpdate(
-            UpdateProjectTool(proposals, projectsFake, currentUser, clock)
-                .execute(UpdateProjectInput(projectId = project.id.value, name = "House")),
-        )
+            val output =
+                decodeUpdate(
+                    UpdateProjectTool(proposals, projectsFake, currentUser, clock)
+                        .execute(UpdateProjectInput(projectId = project.id.value, name = "House")),
+                )
 
-        assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
-        assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
-        assertEquals(
-            "Home",
-            projectsFake.get(project.id)?.name,
-            "the project was not touched by the call",
-        )
+            assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
+            assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
+            assertEquals(
+                "Home",
+                projectsFake.get(project.id)?.name,
+                "the project was not touched by the call",
+            )
 
-        val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
-        assertNotNull(stored, "the proposal is in the store")
-        assertEquals(1, stored.items.size, "one field changed, so one change is proposed")
-        assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
-    }
-
-    @Test
-    fun `update_project refuses a project that does not exist and proposes nothing`() = runTest {
-        val output = decodeUpdate(
-            UpdateProjectTool(proposals, projectsFake, currentUser, clock)
-                .execute(UpdateProjectInput(projectId = "no-such-project", name = "House")),
-        )
-
-        assertFalse(output.proposalCreated, "no proposal was made: ${output.error}")
-        assertNotNull(output.error, "the model is told why nothing was proposed")
-        assertTrue(output.proposalId.isBlank(), "there is no proposal to find")
-        assertTrue(liveProjects().isEmpty(), "nothing was written: ${liveProjects()}")
-    }
+            val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
+            assertNotNull(stored, "the proposal is in the store")
+            assertEquals(1, stored.items.size, "one field changed, so one change is proposed")
+            assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
+        }
 
     @Test
-    fun `confirming an update_project proposal writes the change`() = runTest {
-        val project = seedProject("Home")
+    fun `update_project refuses a project that does not exist and proposes nothing`() =
+        runTest {
+            val output =
+                decodeUpdate(
+                    UpdateProjectTool(proposals, projectsFake, currentUser, clock)
+                        .execute(UpdateProjectInput(projectId = "no-such-project", name = "House")),
+                )
 
-        val output = decodeUpdate(
-            UpdateProjectTool(proposals, projectsFake, currentUser, clock)
-                .execute(UpdateProjectInput(projectId = project.id.value, name = "House")),
-        )
-        val result = apply.confirm(singleItemId(output.proposalId), user)
-        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
-
-        assertEquals(
-            "House",
-            projectsFake.get(project.id)?.name,
-            "the confirmed change is in the user's project",
-        )
-    }
+            assertFalse(output.proposalCreated, "no proposal was made: ${output.error}")
+            assertNotNull(output.error, "the model is told why nothing was proposed")
+            assertTrue(output.proposalId.isBlank(), "there is no proposal to find")
+            assertTrue(liveProjects().isEmpty(), "nothing was written: ${liveProjects()}")
+        }
 
     @Test
-    fun `declining an update_project proposal leaves the project unchanged`() = runTest {
-        val project = seedProject("Home")
+    fun `confirming an update_project proposal writes the change`() =
+        runTest {
+            val project = seedProject("Home")
 
-        val output = decodeUpdate(
-            UpdateProjectTool(proposals, projectsFake, currentUser, clock)
-                .execute(UpdateProjectInput(projectId = project.id.value, name = "House")),
-        )
-        val itemId = singleItemId(output.proposalId)
-        val result = apply.reject(itemId, user, reason = "not now")
-        assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+            val output =
+                decodeUpdate(
+                    UpdateProjectTool(proposals, projectsFake, currentUser, clock)
+                        .execute(UpdateProjectInput(projectId = project.id.value, name = "House")),
+                )
+            val result = apply.confirm(singleItemId(output.proposalId), user)
+            assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
 
-        assertEquals(
-            "Home",
-            projectsFake.get(project.id)?.name,
-            "the project is exactly as it was",
-        )
-        assertEquals(
-            ProposalItemStatus.Rejected,
-            proposals.getItem(itemId)?.status,
-            "the change was refused, not left pending",
-        )
-    }
+            assertEquals(
+                "House",
+                projectsFake.get(project.id)?.name,
+                "the confirmed change is in the user's project",
+            )
+        }
+
+    @Test
+    fun `declining an update_project proposal leaves the project unchanged`() =
+        runTest {
+            val project = seedProject("Home")
+
+            val output =
+                decodeUpdate(
+                    UpdateProjectTool(proposals, projectsFake, currentUser, clock)
+                        .execute(UpdateProjectInput(projectId = project.id.value, name = "House")),
+                )
+            val itemId = singleItemId(output.proposalId)
+            val result = apply.reject(itemId, user, reason = "not now")
+            assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+
+            assertEquals(
+                "Home",
+                projectsFake.get(project.id)?.name,
+                "the project is exactly as it was",
+            )
+            assertEquals(
+                ProposalItemStatus.Rejected,
+                proposals.getItem(itemId)?.status,
+                "the change was refused, not left pending",
+            )
+        }
 
     // ── delete_project: the project must survive the refusal ───────────────────
 
     @Test
-    fun `delete_project proposes the deletion and deletes nothing`() = runTest {
-        val project = seedProject("Home")
+    fun `delete_project proposes the deletion and deletes nothing`() =
+        runTest {
+            val project = seedProject("Home")
 
-        val output = decodeDelete(
-            DeleteProjectTool(proposals, currentUser, clock)
-                .execute(DeleteProjectInput(projectId = project.id.value, reason = "no longer needed")),
-        )
+            val output =
+                decodeDelete(
+                    DeleteProjectTool(proposals, currentUser, clock)
+                        .execute(DeleteProjectInput(projectId = project.id.value, reason = "no longer needed")),
+                )
 
-        assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
-        assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
-        val stillThere = assertNotNull(projectsFake.get(project.id), "the project is still there")
-        assertFalse(stillThere.isDeleted, "the project is not deleted")
+            assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
+            assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
+            val stillThere = assertNotNull(projectsFake.get(project.id), "the project is still there")
+            assertFalse(stillThere.isDeleted, "the project is not deleted")
 
-        val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
-        assertNotNull(stored, "the proposal is in the store")
-        assertEquals(1, stored.items.size, "the proposal holds one change")
-        assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
-    }
-
-    @Test
-    fun `confirming a delete_project proposal deletes the project`() = runTest {
-        val project = seedProject("Home")
-
-        val output = decodeDelete(
-            DeleteProjectTool(proposals, currentUser, clock)
-                .execute(DeleteProjectInput(projectId = project.id.value, reason = "no longer needed")),
-        )
-        val result = apply.confirm(singleItemId(output.proposalId), user)
-        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
-
-        val deleted = assertNotNull(projectsFake.get(project.id), "the project row is still readable")
-        assertTrue(deleted.isDeleted, "the confirmed deletion took the project out of the user's list")
-        assertTrue(liveProjects().isEmpty(), "the project is gone: ${liveProjects()}")
-    }
+            val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
+            assertNotNull(stored, "the proposal is in the store")
+            assertEquals(1, stored.items.size, "the proposal holds one change")
+            assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
+        }
 
     @Test
-    fun `declining a delete_project proposal leaves the project in place`() = runTest {
-        val project = seedProject("Home")
+    fun `confirming a delete_project proposal deletes the project`() =
+        runTest {
+            val project = seedProject("Home")
 
-        val output = decodeDelete(
-            DeleteProjectTool(proposals, currentUser, clock)
-                .execute(DeleteProjectInput(projectId = project.id.value, reason = "no longer needed")),
-        )
-        val itemId = singleItemId(output.proposalId)
-        val result = apply.reject(itemId, user, reason = "keep it")
-        assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+            val output =
+                decodeDelete(
+                    DeleteProjectTool(proposals, currentUser, clock)
+                        .execute(DeleteProjectInput(projectId = project.id.value, reason = "no longer needed")),
+                )
+            val result = apply.confirm(singleItemId(output.proposalId), user)
+            assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
 
-        val survivor = assertNotNull(projectsFake.get(project.id), "the project survived the refusal")
-        assertFalse(survivor.isDeleted, "the project was not deleted")
-        assertEquals(1, liveProjects().size, "the project is still in the user's list")
-        assertEquals(
-            ProposalItemStatus.Rejected,
-            proposals.getItem(itemId)?.status,
-            "the change was refused, not left pending",
-        )
-    }
+            val deleted = assertNotNull(projectsFake.get(project.id), "the project row is still readable")
+            assertTrue(deleted.isDeleted, "the confirmed deletion took the project out of the user's list")
+            assertTrue(liveProjects().isEmpty(), "the project is gone: ${liveProjects()}")
+        }
+
+    @Test
+    fun `declining a delete_project proposal leaves the project in place`() =
+        runTest {
+            val project = seedProject("Home")
+
+            val output =
+                decodeDelete(
+                    DeleteProjectTool(proposals, currentUser, clock)
+                        .execute(DeleteProjectInput(projectId = project.id.value, reason = "no longer needed")),
+                )
+            val itemId = singleItemId(output.proposalId)
+            val result = apply.reject(itemId, user, reason = "keep it")
+            assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+
+            val survivor = assertNotNull(projectsFake.get(project.id), "the project survived the refusal")
+            assertFalse(survivor.isDeleted, "the project was not deleted")
+            assertEquals(1, liveProjects().size, "the project is still in the user's list")
+            assertEquals(
+                ProposalItemStatus.Rejected,
+                proposals.getItem(itemId)?.status,
+                "the change was refused, not left pending",
+            )
+        }
 
     // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -302,14 +332,15 @@ class ProjectProposalWriteContractTest {
      * project that carries one would never reach the deletion this test is about.
      */
     private fun seedProject(name: String): Project {
-        val project = Project(
-            id = ProjectId.generate(),
-            name = name,
-            color = 0xFF2196F3.toInt(),
-            createdAt = clock.now(),
-            updatedAt = clock.now(),
-            userId = user,
-        )
+        val project =
+            Project(
+                id = ProjectId.generate(),
+                name = name,
+                color = 0xFF2196F3.toInt(),
+                createdAt = clock.now(),
+                updatedAt = clock.now(),
+                userId = user,
+            )
         projectsFake.seed(project)
         return project
     }
@@ -327,5 +358,11 @@ class ProjectProposalWriteContractTest {
         Json.decodeFromString(DeleteProjectOutput.serializer(), raw)
 
     private suspend fun singleItemId(proposalId: String) =
-        requireNotNull(proposals.watchProposal(ProposalId(proposalId)).first()?.items?.singleOrNull()).id
+        requireNotNull(
+            proposals
+                .watchProposal(ProposalId(proposalId))
+                .first()
+                ?.items
+                ?.singleOrNull(),
+        ).id
 }

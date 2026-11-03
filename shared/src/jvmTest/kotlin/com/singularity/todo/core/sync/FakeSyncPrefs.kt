@@ -26,15 +26,19 @@ class FakeSyncPrefs : SyncPrefs {
     override suspend fun setAutoSyncEnabled(value: Boolean) {
         _autoSyncEnabled.value = value
     }
+
     override suspend fun setEnabledTriggers(triggers: Set<SyncTrigger>) {
         _enabledTriggers.value = triggers
     }
+
     override suspend fun setScheduledInterval(interval: Duration) {
         _scheduledInterval.value = interval
     }
+
     override suspend fun recordSuccessfulSync() {
         _lastSuccessfulSyncAt.value = System.currentTimeMillis()
     }
+
     override suspend fun setLastLsn(lsn: Long) {
         _lastLsn.value = lsn
     }

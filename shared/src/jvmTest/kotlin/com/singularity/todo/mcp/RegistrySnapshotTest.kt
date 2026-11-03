@@ -24,7 +24,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class RegistrySnapshotTest {
-
     private val temporaries = mutableListOf<Path>()
 
     @AfterTest
@@ -38,28 +37,30 @@ class RegistrySnapshotTest {
         return dir
     }
 
-    private fun entry(name: String) = ToolboxToolEntry(
-        name = name,
-        description = "The $name tool.",
-        domain = "tasks",
-        readOnly = true,
-        destructive = false,
-        idempotent = true,
-        requiredParameters = emptyList(),
-        optionalParameters = emptyList(),
-    )
+    private fun entry(name: String) =
+        ToolboxToolEntry(
+            name = name,
+            description = "The $name tool.",
+            domain = "tasks",
+            readOnly = true,
+            destructive = false,
+            idempotent = true,
+            requiredParameters = emptyList(),
+            optionalParameters = emptyList(),
+        )
 
     private fun snapshot(
         registered: List<ToolboxToolEntry> = listOf(entry("list_tasks")),
         disabled: List<ToolboxToolEntry> = emptyList(),
         unmatched: List<String> = emptyList(),
     ) = ToolsetSnapshot(
-        identity = ToolboxIdentity(
-            buildVersion = "1.2.3",
-            checkout = null,
-            catalogFingerprint = "catalog0000000000",
-            activeToolsetFingerprint = "active00000000000",
-        ),
+        identity =
+            ToolboxIdentity(
+                buildVersion = "1.2.3",
+                checkout = null,
+                catalogFingerprint = "catalog0000000000",
+                activeToolsetFingerprint = "active00000000000",
+            ),
         registered = registered,
         disabled = disabled,
         configurationStatus = ConfigurationStatus.CURRENT,
@@ -67,7 +68,10 @@ class RegistrySnapshotTest {
         unmatchedFlags = unmatched,
     )
 
-    private fun written(directory: Path, snapshot: ToolsetSnapshot): JsonObject {
+    private fun written(
+        directory: Path,
+        snapshot: ToolsetSnapshot,
+    ): JsonObject {
         RegistrySnapshot.write(snapshot, directory.toString())
         val file = directory.resolve("tool-calls").resolve("registry.json")
         assertTrue(file.exists(), "the registry snapshot was not written to $file")
@@ -80,10 +84,14 @@ class RegistrySnapshotTest {
 
         val payload = written(directory, snapshot(disabled = listOf(entry("delete_task"))))
 
-        val registered = payload["registeredTools"]?.jsonArray
-            ?.map { it.jsonObject["name"]?.jsonPrimitive?.content }
-        val disabled = payload["disabledTools"]?.jsonArray
-            ?.map { it.jsonObject["name"]?.jsonPrimitive?.content }
+        val registered =
+            payload["registeredTools"]
+                ?.jsonArray
+                ?.map { it.jsonObject["name"]?.jsonPrimitive?.content }
+        val disabled =
+            payload["disabledTools"]
+                ?.jsonArray
+                ?.map { it.jsonObject["name"]?.jsonPrimitive?.content }
         assertEquals(listOf("list_tasks"), registered)
         assertEquals(listOf("delete_task"), disabled)
     }

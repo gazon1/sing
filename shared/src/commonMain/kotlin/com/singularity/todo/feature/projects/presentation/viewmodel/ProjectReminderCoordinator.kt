@@ -91,7 +91,6 @@ internal class ProjectReminderCoordinator(
     private val reminders: ProjectRemindersRepository,
     private val defaultOffset: Flow<ReminderOffset>,
 ) {
-
     /**
      * The offset the picker shows, paired with the user's configured default.
      *
@@ -124,7 +123,10 @@ internal class ProjectReminderCoordinator(
      * the two drifting apart is exactly the bug that would show the user a
      * different offset than the one they picked.
      */
-    private fun offsetFromDueDate(due: LocalDate, reminder: ProjectReminder): Int {
+    private fun offsetFromDueDate(
+        due: LocalDate,
+        reminder: ProjectReminder,
+    ): Int {
         val dueMillis = due.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
         return ((dueMillis - reminder.fireAt) / MILLIS_PER_MINUTE).toInt()
     }
@@ -156,22 +158,23 @@ internal class ProjectReminderCoordinator(
         }
 
         val existing = reminders.watchByProject(projectId).first().firstOrNull()
-        val result = if (offsetMinutes == null) {
-            reminders.deleteByProject(projectId)
-        } else {
-            reminders.upsert(
-                ProjectReminder(
-                    // Reuse the existing id so re-picking updates in place instead of
-                    // leaving one alarm row per change.
-                    id = existing?.id ?: ProjectReminderId.generate(),
-                    projectId = projectId,
-                    // The repository asserts ownership and re-stamps the owner, so the
-                    // caller does not need to know the current user id.
-                    userId = existing?.userId ?: UserId(ANONYMOUS_SENTINEL),
-                    fireAt = fireAtFor(due!!, offsetMinutes),
-                ),
-            )
-        }
+        val result =
+            if (offsetMinutes == null) {
+                reminders.deleteByProject(projectId)
+            } else {
+                reminders.upsert(
+                    ProjectReminder(
+                        // Reuse the existing id so re-picking updates in place instead of
+                        // leaving one alarm row per change.
+                        id = existing?.id ?: ProjectReminderId.generate(),
+                        projectId = projectId,
+                        // The repository asserts ownership and re-stamps the owner, so the
+                        // caller does not need to know the current user id.
+                        userId = existing?.userId ?: UserId(ANONYMOUS_SENTINEL),
+                        fireAt = fireAtFor(due!!, offsetMinutes),
+                    ),
+                )
+            }
         return result.fold(
             onSuccess = { if (offsetMinutes == null) SetReminderOutcome.Removed else SetReminderOutcome.Applied },
             onFailure = { SetReminderOutcome.Failed(it) },
@@ -179,7 +182,10 @@ internal class ProjectReminderCoordinator(
     }
 
     /** The instant an alarm must fire for a reminder [offsetMinutes] before [due]. */
-    private fun fireAtFor(due: LocalDate, offsetMinutes: Int): Long {
+    private fun fireAtFor(
+        due: LocalDate,
+        offsetMinutes: Int,
+    ): Long {
         val startOfDay = due.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
         return startOfDay - offsetMinutes * MILLIS_PER_MINUTE
     }

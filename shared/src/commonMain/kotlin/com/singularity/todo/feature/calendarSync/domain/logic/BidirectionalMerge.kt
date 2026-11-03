@@ -188,7 +188,6 @@ data class MergeResult(
  * [FieldOutcome.Conflict] it did not expect; this function's job is to not be wrong.
  */
 object BidirectionalMerge {
-
     /**
      * Merges [ours] and [theirs] against [base].
      *
@@ -196,17 +195,22 @@ object BidirectionalMerge {
      * caller uses it to decide *which* value wins before calling, and this function only
      * reports that the two sides disagree.
      */
-    fun merge(ours: GoogleEvent, theirs: GoogleEvent, base: EventShadow): MergeResult {
+    fun merge(
+        ours: GoogleEvent,
+        theirs: GoogleEvent,
+        base: EventShadow,
+    ): MergeResult {
         val baseKnown = base.isKnown
-        val fields = listOf(
-            decide(ours.title, theirs.title, base.title, baseKnown),
-            decide(ours.description, theirs.description, base.description, baseKnown),
-            decide(ours.startsAt, theirs.startsAt, base.startsAt, baseKnown),
-            decide(ours.endsAt, theirs.endsAt, base.endsAt, baseKnown),
-            decide(ours.allDay, theirs.allDay, base.allDay, baseKnown),
-            decide(ours.location, theirs.location, base.location, baseKnown),
-            decide(ours.recurrenceRule, theirs.recurrenceRule, base.recurrenceRule, baseKnown),
-        )
+        val fields =
+            listOf(
+                decide(ours.title, theirs.title, base.title, baseKnown),
+                decide(ours.description, theirs.description, base.description, baseKnown),
+                decide(ours.startsAt, theirs.startsAt, base.startsAt, baseKnown),
+                decide(ours.endsAt, theirs.endsAt, base.endsAt, baseKnown),
+                decide(ours.allDay, theirs.allDay, base.allDay, baseKnown),
+                decide(ours.location, theirs.location, base.location, baseKnown),
+                decide(ours.recurrenceRule, theirs.recurrenceRule, base.recurrenceRule, baseKnown),
+            )
         return MergeResult(
             eventId = theirs.id,
             fields = fields,
@@ -214,7 +218,12 @@ object BidirectionalMerge {
         )
     }
 
-    private inline fun <T> decide(ours: T, theirs: T, base: T?, baseKnown: Boolean): FieldOutcome {
+    private inline fun <T> decide(
+        ours: T,
+        theirs: T,
+        base: T?,
+        baseKnown: Boolean,
+    ): FieldOutcome {
         // Converged, whatever the base said. Checked first on purpose: two sides that
         // arrived at the same value have not disagreed, and calling that a conflict would
         // report a problem where there is none.
@@ -249,29 +258,31 @@ object BidirectionalMerge {
 }
 
 /** The local task rendered as the provider event we would like to see. */
-fun CalendarSyncEvent.toGoogleEvent(id: GoogleEventId): GoogleEvent = GoogleEvent(
-    id = id,
-    calendarId = calendarId,
-    title = title,
-    description = description,
-    startsAt = Instant.fromEpochMilliseconds(startMs),
-    endsAt = Instant.fromEpochMilliseconds(endMs),
-    allDay = allDay,
-    location = null,
-    recurrenceRule = null,
-    status = GoogleEventStatus.Confirmed,
-    etag = null,
-    updatedAt = null,
-    taskId = taskId.value,
-)
+fun CalendarSyncEvent.toGoogleEvent(id: GoogleEventId): GoogleEvent =
+    GoogleEvent(
+        id = id,
+        calendarId = calendarId,
+        title = title,
+        description = description,
+        startsAt = Instant.fromEpochMilliseconds(startMs),
+        endsAt = Instant.fromEpochMilliseconds(endMs),
+        allDay = allDay,
+        location = null,
+        recurrenceRule = null,
+        status = GoogleEventStatus.Confirmed,
+        etag = null,
+        updatedAt = null,
+        taskId = taskId.value,
+    )
 
 /** The shadow for a state we have just written to the provider. */
-fun GoogleEvent.toShadow(): EventShadow = EventShadow(
-    title = title,
-    description = description,
-    startsAt = startsAt,
-    endsAt = endsAt,
-    allDay = allDay,
-    location = location,
-    recurrenceRule = recurrenceRule,
-)
+fun GoogleEvent.toShadow(): EventShadow =
+    EventShadow(
+        title = title,
+        description = description,
+        startsAt = startsAt,
+        endsAt = endsAt,
+        allDay = allDay,
+        location = location,
+        recurrenceRule = recurrenceRule,
+    )

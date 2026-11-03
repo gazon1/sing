@@ -42,12 +42,12 @@ import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.llm.OpenAiConfig
 import com.singularity.todo.core.settings.SettingsIntent
-import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.text.FieldOwnedText
-import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
-import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
+import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.settings.SettingsUiState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
@@ -76,9 +76,10 @@ fun AiProviderSettingsScreen(
     }
 
     Column(
-        modifier = modifier
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+        modifier =
+            modifier
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // ─── Provider ───────────────────────────────────────────────────────────
@@ -103,12 +104,12 @@ fun AiProviderSettingsScreen(
                     readOnly = true,
                     label = { Text("Provider") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    modifier = Modifier
-                        .menuAnchor(
-                            type = ExposedDropdownMenuAnchorType.PrimaryNotEditable,
-                            enabled = true,
-                        )
-                        .fillMaxWidth(),
+                    modifier =
+                        Modifier
+                            .menuAnchor(
+                                type = ExposedDropdownMenuAnchorType.PrimaryNotEditable,
+                                enabled = true,
+                            ).fillMaxWidth(),
                 )
                 DropdownMenu(
                     expanded = expanded,
@@ -148,11 +149,12 @@ fun AiProviderSettingsScreen(
                 state = apiKeyState,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 label = { Text("OpenAI API Key") },
-                textObfuscationMode = if (passwordVisible) {
-                    TextObfuscationMode.Visible
-                } else {
-                    TextObfuscationMode.Hidden
-                },
+                textObfuscationMode =
+                    if (passwordVisible) {
+                        TextObfuscationMode.Visible
+                    } else {
+                        TextObfuscationMode.Hidden
+                    },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -172,11 +174,12 @@ fun AiProviderSettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            val baseUrlState = rememberBridgedTextFieldState(
-                source = state.baseUrlSource,
-                // The field's own text: the field wrote it, and the field already shows it.
-                onTextChanged = { onIntent(SettingsIntent.Ai.UpdateBaseUrl(state.baseUrl.echoed(it))) },
-            )
+            val baseUrlState =
+                rememberBridgedTextFieldState(
+                    source = state.baseUrlSource,
+                    // The field's own text: the field wrote it, and the field already shows it.
+                    onTextChanged = { onIntent(SettingsIntent.Ai.UpdateBaseUrl(state.baseUrl.echoed(it))) },
+                )
             OutlinedTextField(
                 state = baseUrlState,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -190,11 +193,12 @@ fun AiProviderSettingsScreen(
         SettingsSection(title = "Model") {
             // Read-only anchor: the dropdown sets the model, the field only shows it.
             val modelState = rememberAnchoredTextFieldState(state.model.text)
-            val modelNameState = rememberBridgedTextFieldState(
-                source = state.modelSource,
-                // The field's own text: the field wrote it, and the field already shows it.
-                onTextChanged = { onIntent(SettingsIntent.Ai.UpdateModel(state.model.echoed(it))) },
-            )
+            val modelNameState =
+                rememberBridgedTextFieldState(
+                    source = state.modelSource,
+                    // The field's own text: the field wrote it, and the field already shows it.
+                    onTextChanged = { onIntent(SettingsIntent.Ai.UpdateModel(state.model.echoed(it))) },
+                )
             if (state.aiEphemeral.models.isNotEmpty()) {
                 var modelExpanded by remember { mutableStateOf(false) }
                 ExposedDropdownMenuBox(
@@ -207,9 +211,10 @@ fun AiProviderSettingsScreen(
                         readOnly = true,
                         label = { Text("Model") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelExpanded) },
-                        modifier = Modifier
-                            .menuAnchor(type = ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                            .fillMaxWidth(),
+                        modifier =
+                            Modifier
+                                .menuAnchor(type = ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                                .fillMaxWidth(),
                     )
                     DropdownMenu(
                         expanded = modelExpanded,
@@ -255,11 +260,12 @@ fun AiProviderSettingsScreen(
 
         // ─── System Prompt ─────────────────────────────────────────────────────
         SettingsSection(title = "System Prompt") {
-            val systemPromptState = rememberBridgedTextFieldState(
-                source = state.systemPromptSource,
-                // The field's own text: the field wrote it, and the field already shows it.
-                onTextChanged = { onIntent(SettingsIntent.Ai.UpdateSystemPrompt(state.systemPrompt.echoed(it))) },
-            )
+            val systemPromptState =
+                rememberBridgedTextFieldState(
+                    source = state.systemPromptSource,
+                    // The field's own text: the field wrote it, and the field already shows it.
+                    onTextChanged = { onIntent(SettingsIntent.Ai.UpdateSystemPrompt(state.systemPrompt.echoed(it))) },
+                )
             Text(
                 "Sent to the model on every request. Edit to specialise the assistant.",
                 style = MaterialTheme.typography.bodySmall,
@@ -269,10 +275,11 @@ fun AiProviderSettingsScreen(
                 state = systemPromptState,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 label = { Text("System prompt") },
-                lineLimits = TextFieldLineLimits.MultiLine(
-                    minHeightInLines = 3,
-                    maxHeightInLines = 6,
-                ),
+                lineLimits =
+                    TextFieldLineLimits.MultiLine(
+                        minHeightInLines = 3,
+                        maxHeightInLines = 6,
+                    ),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
             )
         }
@@ -292,7 +299,10 @@ fun AiProviderSettingsScreen(
 }
 
 @Composable
-private fun AiTestResultBanner(result: AiTestResult, modifier: Modifier = Modifier) {
+private fun AiTestResultBanner(
+    result: AiTestResult,
+    modifier: Modifier = Modifier,
+) {
     when (result) {
         AiTestResult.Idle, AiTestResult.Testing -> {
             // No banner — the button itself shows progress.
@@ -331,56 +341,67 @@ private fun AiTestResultBanner(result: AiTestResult, modifier: Modifier = Modifi
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AiProviderSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    AiProviderSettingsScreen(
-        state = SettingsUiState.Content(
-            ai = com.singularity.todo.core.settings.SettingsSection.Ai(
-                provider = LlmProvider.OPENAI,
-                baseUrl = FieldOwnedText.empty().seeded("https://api.openai.com/v1"),
-                model = FieldOwnedText.empty().seeded("gpt-4o-mini"),
-                systemPrompt = FieldOwnedText.empty().seeded("You are a helpful assistant."),
-            ),
-        ),
-        onIntent = {},
-    )
-}
+private fun AiProviderSettingsScreenLightPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        AiProviderSettingsScreen(
+            state =
+                SettingsUiState.Content(
+                    ai =
+                        com.singularity.todo.core.settings.SettingsSection.Ai(
+                            provider = LlmProvider.OPENAI,
+                            baseUrl = FieldOwnedText.empty().seeded("https://api.openai.com/v1"),
+                            model = FieldOwnedText.empty().seeded("gpt-4o-mini"),
+                            systemPrompt = FieldOwnedText.empty().seeded("You are a helpful assistant."),
+                        ),
+                ),
+            onIntent = {},
+        )
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AiProviderSettingsScreenConnectedPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    AiProviderSettingsScreen(
-        state = SettingsUiState.Content(
-            ai = com.singularity.todo.core.settings.SettingsSection.Ai(
-                provider = LlmProvider.OPENAI,
-                baseUrl = FieldOwnedText.empty().seeded("https://api.openai.com/v1"),
-                model = FieldOwnedText.empty().seeded("gpt-4o-mini"),
-                systemPrompt = FieldOwnedText.empty().seeded("You are a helpful assistant."),
-            ),
-            aiEphemeral = com.singularity.todo.core.settings.EphemeralState.Ai(
-                testResult = AiTestResult.Ok(latencyMs = 234),
-            ),
-        ),
-        onIntent = {},
-    )
-}
+private fun AiProviderSettingsScreenConnectedPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        AiProviderSettingsScreen(
+            state =
+                SettingsUiState.Content(
+                    ai =
+                        com.singularity.todo.core.settings.SettingsSection.Ai(
+                            provider = LlmProvider.OPENAI,
+                            baseUrl = FieldOwnedText.empty().seeded("https://api.openai.com/v1"),
+                            model = FieldOwnedText.empty().seeded("gpt-4o-mini"),
+                            systemPrompt = FieldOwnedText.empty().seeded("You are a helpful assistant."),
+                        ),
+                    aiEphemeral =
+                        com.singularity.todo.core.settings.EphemeralState.Ai(
+                            testResult = AiTestResult.Ok(latencyMs = 234),
+                        ),
+                ),
+            onIntent = {},
+        )
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AiProviderSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    AiProviderSettingsScreen(
-        state = SettingsUiState.Content(
-            ai = com.singularity.todo.core.settings.SettingsSection.Ai(
-                provider = LlmProvider.ANTHROPIC_COMPATIBLE,
-                baseUrl = FieldOwnedText.empty().seeded("https://api.anthropic.com/v1"),
-                model = FieldOwnedText.empty().seeded("claude-sonnet-4-20250514"),
-                systemPrompt = FieldOwnedText.empty().seeded("You are Claude."),
-            ),
-            aiEphemeral = com.singularity.todo.core.settings.EphemeralState.Ai(
-                testResult = AiTestResult.Error(message = "Connection timeout"),
-            ),
-        ),
-        onIntent = {},
-    )
-}
+private fun AiProviderSettingsScreenDarkPreview() =
+    PreviewThemed(darkTheme = true, useSurface = false) {
+        AiProviderSettingsScreen(
+            state =
+                SettingsUiState.Content(
+                    ai =
+                        com.singularity.todo.core.settings.SettingsSection.Ai(
+                            provider = LlmProvider.ANTHROPIC_COMPATIBLE,
+                            baseUrl = FieldOwnedText.empty().seeded("https://api.anthropic.com/v1"),
+                            model = FieldOwnedText.empty().seeded("claude-sonnet-4-20250514"),
+                            systemPrompt = FieldOwnedText.empty().seeded("You are Claude."),
+                        ),
+                    aiEphemeral =
+                        com.singularity.todo.core.settings.EphemeralState.Ai(
+                            testResult = AiTestResult.Error(message = "Connection timeout"),
+                        ),
+                ),
+            onIntent = {},
+        )
+    }

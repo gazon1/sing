@@ -30,7 +30,6 @@ import kotlinx.datetime.LocalDate
  * @see Blocking
  */
 object TaskComputed {
-
     /**
      * A task is overdue when:
      * - it has a `dueDate`
@@ -42,10 +41,14 @@ object TaskComputed {
      * `Selector.Overdue` and `DateBucket(RelativeBucket.Overdue)`, the task
      * marking, the calendar mapper and the task filter all ask here.
      */
-    fun isOverdue(task: Task, today: LocalDate): Boolean = task.dueDate != null &&
-        task.dueDate < today &&
-        !task.isCompleted &&
-        !task.isTrashed
+    fun isOverdue(
+        task: Task,
+        today: LocalDate,
+    ): Boolean =
+        task.dueDate != null &&
+            task.dueDate < today &&
+            !task.isCompleted &&
+            !task.isTrashed
 
     /**
      * A task is ready when:
@@ -68,7 +71,10 @@ object TaskComputed {
      * Used by calendar and agenda views to determine whether a task is currently
      * within its active window.
      */
-    fun isActive(task: Task, today: LocalDate): Boolean {
+    fun isActive(
+        task: Task,
+        today: LocalDate,
+    ): Boolean {
         if (task.isCompleted || task.isTrashed) return false
         val afterStart = task.startDate?.let { today >= it } ?: true
         val beforeEnd = task.endDate?.let { today <= it } ?: true

@@ -22,30 +22,34 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class TaskSeriesCardTest {
-
     private val epoch = Instant.fromEpochMilliseconds(0)
 
     @Test
-    fun `a series card lists every member's date`() = runIsolatedComposeTest {
-        val members = listOf(
-            member("t1", LocalDate(2026, 10, 5)),
-            member("t2", LocalDate(2026, 10, 12)),
-        ).toImmutableList()
+    fun `a series card lists every member's date`() =
+        runIsolatedComposeTest {
+            val members =
+                listOf(
+                    member("t1", LocalDate(2026, 10, 5)),
+                    member("t2", LocalDate(2026, 10, 12)),
+                ).toImmutableList()
 
-        setContent {
-            TaskSeriesCard(
-                members = members,
-                onOpenMember = {},
-                onApplyToAll = {},
-                onDetach = {},
-                onDeleteSeries = {},
-            )
+            setContent {
+                TaskSeriesCard(
+                    members = members,
+                    onOpenMember = {},
+                    onApplyToAll = {},
+                    onDetach = {},
+                    onDeleteSeries = {},
+                )
+            }
+
+            assertTextDisplayed("Серия · 2 дат")
         }
 
-        assertTextDisplayed("Серия · 2 дат")
-    }
-
-    private fun member(id: String, dueDate: LocalDate) = Task(
+    private fun member(
+        id: String,
+        dueDate: LocalDate,
+    ) = Task(
         id = TaskId(id),
         title = "Buy milk",
         dueDate = dueDate,

@@ -27,7 +27,6 @@ package com.singularity.todo.core.wipe
  * without a call of their own, because the table they index is reached.
  */
 object ProfileWipePlan {
-
     /**
      * Every table the reset deletes, mapped to the call that deletes it.
      *
@@ -35,29 +34,30 @@ object ProfileWipePlan {
      * that hang off its own rows with it (the task's tag references, its
      * dependencies, its checklist items), and those are the same delete.
      */
-    val WIPED: Map<String, String> = mapOf(
-        "agenda_views" to "savedAgendaViewsRepository.deleteAllForCurrentProfile",
-        "ai_proposal" to "proposalDao.deleteAllForUser",
-        "ai_proposal_item" to "proposalItemDao.deleteAllForUser",
-        "attachment_annotations" to "annotationDao.deleteAllForUser",
-        "attachments" to "attachmentDao.deleteAllForUser",
-        "calendar_import_event" to "calendarImportEventDao.deleteAllForUser",
-        "calendar_sync_task_map" to "calendarSyncTaskMapDao.clearAll",
-        "checklist_items" to "taskRepository.deleteAllForCurrentProfile",
-        "google_event_shadow" to "googleEventShadowDao.deleteAllForUser",
-        "notes" to "notesRepository.deleteAllForCurrentProfile",
-        "project_reminders" to "projectReminderDao.deleteAllForUser",
-        "projects" to "projectsRepository.deleteAllForCurrentProfile",
-        "project_tag_groups" to "projectsRepository.deleteAllForCurrentProfile",
-        "saved_searches" to "savedSearchDao.deleteAllForUser",
-        "tag_groups" to "tagGroupRepository.deleteAllForCurrentProfile",
-        "tags" to "tagsRepository.deleteAllForCurrentProfile",
-        "task_dependencies" to "taskRepository.deleteAllForCurrentProfile",
-        "task_reminders" to "reminderDao.deleteAllForUser",
-        "tasks" to "taskRepository.deleteAllForCurrentProfile",
-        "task_tags" to "taskRepository.deleteAllForCurrentProfile",
-        "time_entries" to "timeEntryDao.deleteAllForUser",
-    )
+    val WIPED: Map<String, String> =
+        mapOf(
+            "agenda_views" to "savedAgendaViewsRepository.deleteAllForCurrentProfile",
+            "ai_proposal" to "proposalDao.deleteAllForUser",
+            "ai_proposal_item" to "proposalItemDao.deleteAllForUser",
+            "attachment_annotations" to "annotationDao.deleteAllForUser",
+            "attachments" to "attachmentDao.deleteAllForUser",
+            "calendar_import_event" to "calendarImportEventDao.deleteAllForUser",
+            "calendar_sync_task_map" to "calendarSyncTaskMapDao.clearAll",
+            "checklist_items" to "taskRepository.deleteAllForCurrentProfile",
+            "google_event_shadow" to "googleEventShadowDao.deleteAllForUser",
+            "notes" to "notesRepository.deleteAllForCurrentProfile",
+            "project_reminders" to "projectReminderDao.deleteAllForUser",
+            "projects" to "projectsRepository.deleteAllForCurrentProfile",
+            "project_tag_groups" to "projectsRepository.deleteAllForCurrentProfile",
+            "saved_searches" to "savedSearchDao.deleteAllForUser",
+            "tag_groups" to "tagGroupRepository.deleteAllForCurrentProfile",
+            "tags" to "tagsRepository.deleteAllForCurrentProfile",
+            "task_dependencies" to "taskRepository.deleteAllForCurrentProfile",
+            "task_reminders" to "reminderDao.deleteAllForUser",
+            "tasks" to "taskRepository.deleteAllForCurrentProfile",
+            "task_tags" to "taskRepository.deleteAllForCurrentProfile",
+            "time_entries" to "timeEntryDao.deleteAllForUser",
+        )
 
     /**
      * The tables the reset empties without deleting them directly: the full-text
@@ -75,10 +75,11 @@ object ProfileWipePlan {
      * the reset deletes: an index whose content table survives would keep the
      * profile's words after the reset, and the search would find them.
      */
-    val EMPTIED_BY_CONSEQUENCE: Map<String, String> = mapOf(
-        "notes_fts" to "notes",
-        "projects_fts" to "projects",
-        "tags_fts" to "tags",
-        "tasks_fts" to "tasks",
-    )
+    val EMPTIED_BY_CONSEQUENCE: Map<String, String> =
+        mapOf(
+            "notes_fts" to "notes",
+            "projects_fts" to "projects",
+            "tags_fts" to "tags",
+            "tasks_fts" to "tasks",
+        )
 }

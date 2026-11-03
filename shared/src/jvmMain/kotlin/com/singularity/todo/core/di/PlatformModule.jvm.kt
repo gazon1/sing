@@ -3,35 +3,40 @@ package com.singularity.todo.core.di
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
-import com.singularity.todo.core.backup.BackupCodec
-import com.singularity.todo.core.backup.JvmBackupCodec
 import com.singularity.todo.core.auth.oauth.JvmOAuthBrowser
 import com.singularity.todo.core.auth.oauth.JvmOAuthRedirectSocket
 import com.singularity.todo.core.auth.oauth.OAuthBrowser
 import com.singularity.todo.core.auth.oauth.OAuthRedirectSocket
+import com.singularity.todo.core.backup.BackupCodec
+import com.singularity.todo.core.backup.JvmBackupCodec
+import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
+import com.singularity.todo.core.database.RoomUnitOfWork
+import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
 import com.singularity.todo.core.files.FileOpener
 import com.singularity.todo.core.files.FileRevealer
-import com.singularity.todo.core.files.JvmFileOpener
 import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
+import com.singularity.todo.core.files.JvmFileOpener
 import com.singularity.todo.core.files.JvmFileRevealer
-import com.singularity.todo.core.files.JvmFileSourceFactory
 import com.singularity.todo.core.files.JvmFileSharePort
+import com.singularity.todo.core.files.JvmFileSourceFactory
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.files.JvmSharePort
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.log.LogBundleExporter
+import com.singularity.todo.core.notifications.JvmNotifier
+import com.singularity.todo.core.notifications.Notifier
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.JvmCrashReportingPort
-import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.observability.JvmFileToolCallLog
 import com.singularity.todo.core.observability.ToolCallLog
 import com.singularity.todo.core.observability.ToolCallRecorder
+import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.core.platform.JvmHostEnvironment
 import com.singularity.todo.core.platform.haptics.Haptic
@@ -45,11 +50,9 @@ import com.singularity.todo.core.sync.DelayLoopSyncPeriodicTrigger
 import com.singularity.todo.core.sync.SyncCoordinator
 import com.singularity.todo.core.sync.SyncPeriodicTrigger
 import com.singularity.todo.core.sync.work.JvmSyncWorkScheduler
+import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.core.work.BackgroundWorkScheduler
 import com.singularity.todo.core.work.JvmBackgroundWorkScheduler
-import com.singularity.todo.core.sync.work.SyncWorkScheduler
-import com.singularity.todo.feature.calendarSync.data.JvmCalendarAppQueries
-import com.singularity.todo.feature.calendarSync.data.NoopCalendarProvider
 import com.singularity.todo.feature.calendarSync.auth.GoogleAccessTokenProvider
 import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRedeemer
 import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRevoker
@@ -57,6 +60,8 @@ import com.singularity.todo.feature.calendarSync.auth.GoogleTokenClient
 import com.singularity.todo.feature.calendarSync.auth.LocalGoogleAccessTokenProvider
 import com.singularity.todo.feature.calendarSync.auth.LocalGoogleGrantRedeemer
 import com.singularity.todo.feature.calendarSync.auth.LocalGoogleGrantRevoker
+import com.singularity.todo.feature.calendarSync.data.JvmCalendarAppQueries
+import com.singularity.todo.feature.calendarSync.data.NoopCalendarProvider
 import com.singularity.todo.feature.calendarSync.data.NoopCalendarSyncRepositoryImpl
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarSyncRepository
@@ -69,20 +74,15 @@ import com.singularity.todo.feature.pomodoro.JvmPomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
-import com.singularity.todo.core.notifications.JvmNotifier
-import com.singularity.todo.core.notifications.Notifier
 import com.singularity.todo.feature.reminders.JvmReminderScheduler
 import com.singularity.todo.feature.reminders.ReminderScheduler
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import java.io.File
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
-import com.singularity.todo.core.coroutines.createBackgroundScope
-import com.singularity.todo.core.database.RoomUnitOfWork
-import com.singularity.todo.core.database.UnitOfWork
 
 /**
  * JVM/desktop platform bindings — Room 3 (same stack as Android, no extra native deps).
@@ -90,296 +90,304 @@ import com.singularity.todo.core.database.UnitOfWork
  * Database layout mirrors `PlatformModule.android.kt`: one [AppDatabase] singleton, all
  * DAOs wired through Koin.
  */
-actual fun platformModule(): Module = module {
-    // ─── Dispatchers ──────────────────────────────────────────────────────
+actual fun platformModule(): Module =
+    module {
+        // ─── Dispatchers ──────────────────────────────────────────────────────
 
-    // The dispatcher the heavy work runs on: sealing an archive, exporting one,
-    // reading one. Choosing it here is the platform's business — `commonMain`
-    // is not allowed to name a dispatcher, and a test can hand in its own.
-    single<CoroutineDispatcher> { Dispatchers.IO }
+        // The dispatcher the heavy work runs on: sealing an archive, exporting one,
+        // reading one. Choosing it here is the platform's business — `commonMain`
+        // is not allowed to name a dispatcher, and a test can hand in its own.
+        single<CoroutineDispatcher> { Dispatchers.IO }
 
-    // ─── Room Database ────────────────────────────────────────────────────
+        // ─── Room Database ────────────────────────────────────────────────────
 
-    single<AppDatabase> {
-        val dbPath = System.getProperty("user.home") + "/.singularity-todo/singularity-todo.db"
-        java.io.File(dbPath).parentFile?.mkdirs()
-        // On the JVM the path may contain a pre-Room hand-rolled SQLite file
-        // (user_version=0, wrong column set). Wipe it before Room opens the connection
-        // so fallbackToDestructiveMigration can recreate the schema cleanly.
-        wipeIfNotRoomManaged(dbPath)
-        AppDatabaseFactory.build(createSqlDriver(), dbPath)
+        single<AppDatabase> {
+            val dbPath = System.getProperty("user.home") + "/.singularity-todo/singularity-todo.db"
+            java.io
+                .File(dbPath)
+                .parentFile
+                ?.mkdirs()
+            // On the JVM the path may contain a pre-Room hand-rolled SQLite file
+            // (user_version=0, wrong column set). Wipe it before Room opens the connection
+            // so fallbackToDestructiveMigration can recreate the schema cleanly.
+            wipeIfNotRoomManaged(dbPath)
+            AppDatabaseFactory.build(createSqlDriver(), dbPath)
+        }
+
+        // One write transaction for the repositories that write a synced row and the
+        // patch describing it. See ADR
+        // 2026-10-05-who-owns-a-row-and-the-patch-that-describes-it.
+        single<UnitOfWork> { RoomUnitOfWork(get()) }
+
+        single { get<AppDatabase>().taskDao() }
+        single { get<AppDatabase>().noteDao() }
+        single { get<AppDatabase>().projectDao() }
+        single { get<AppDatabase>().tagDao() }
+        single { get<AppDatabase>().ftsDao() }
+        single { get<AppDatabase>().tagGroupDao() }
+        single { get<AppDatabase>().projectInheritedTagGroupDao() }
+        single { get<AppDatabase>().syncOutboxDao() }
+        single { get<AppDatabase>().syncDeadLetterDao() }
+        single { get<AppDatabase>().syncStateDao() }
+        single { get<AppDatabase>().syncShadowDao() }
+        single { get<AppDatabase>().remoteConfigDao() }
+        single { get<AppDatabase>().remoteConfigCacheDao() }
+        single { get<AppDatabase>().attachmentDao() }
+        single { get<AppDatabase>().annotationDao() }
+        single { get<AppDatabase>().reminderDao() }
+        single { get<AppDatabase>().projectReminderDao() }
+        single { get<AppDatabase>().checklistDao() }
+        single { get<AppDatabase>().llmUsageDao() }
+        single { get<AppDatabase>().profileDao() }
+        single { get<AppDatabase>().agendaViewDao() }
+        single { get<AppDatabase>().savedSearchDao() }
+        // The three Google-sync DAOs. Bound on desktop for the same reason they are bound on
+        // Android: the engine resolves them by type, so a desktop graph without them throws
+        // NoDefinitionFoundException on the first pass instead of skipping one.
+        single { get<AppDatabase>().calendarSyncStateDao() }
+        single { get<AppDatabase>().googleEventShadowDao() }
+        single { get<AppDatabase>().calendarImportEventDao() }
+        // Bound on desktop for the same reason as the three above: the profile wipe
+        // resolves it by type, and a desktop graph without it throws
+        // NoDefinitionFoundException the moment the wipe runs.
+        single { get<AppDatabase>().calendarSyncTaskMapDao() }
+        single { get<AppDatabase>().timeEntryDao() }
+        single { get<AppDatabase>().proposalDao() }
+        single { get<AppDatabase>().proposalItemDao() }
+
+        // ─── DataStore (split: user settings + state) ─────────────────────────
+        // File-level caching: the SAME DataStore instance is returned for the same
+        // file path regardless of how many times PreferenceDataStoreFactory.create {}
+        // is called. This prevents "multiple DataStores active for the same file"
+        // errors in tests where platformModule() may be called more than once.
+        val userHome = System.getProperty("user.home")
+        val userSettingsDs: DataStore<Preferences> =
+            cachedJvmDataStore(File(userHome, ".singularity-todo/user_settings.preferences_pb"))
+        val stateDs: DataStore<Preferences> =
+            cachedJvmDataStore(File(userHome, ".singularity-todo/state.preferences_pb"))
+        val settingsLegacyDs: DataStore<Preferences> =
+            cachedJvmDataStore(File(userHome, ".singularity-todo/settings.preferences_pb"))
+
+        // One-shot migration: v0 flat-key settings → v1 split + namespaced.
+        // Idempotent: skips if state.preferences_pb already has settings_schema_version.
+        // Non-blocking: runs on Dispatchers.IO, does not stall Koin startup scope.
+        CoroutineScope(Dispatchers.IO).let { bgScope ->
+            SettingsDataStoreMigration(settingsLegacyDs, userSettingsDs, stateDs).runDeferred(bgScope)
+        }
+
+        // Named DataStore bindings — used by SettingsRepository and migration.
+        single(qualifier = named("user_settings")) { userSettingsDs }
+        single(qualifier = named("state")) { stateDs }
+        single(qualifier = named("settings")) { settingsLegacyDs }
+
+        // The active profile, in a file of its own.
+        //
+        // Its own file so that the settings file can be opened by a second process — the
+        // tool server an external agent is handed — without that file saying anything
+        // about the profile the user is working in. See ActiveProfileState.
+        single(qualifier = named("profile_state")) {
+            cachedJvmDataStore(File(userHome, ".singularity-todo/profile_state.preferences_pb"))
+        }
+
+        // Primary DataStore<Preferences> binding — what SettingsRepository consumes.
+        single<DataStore<Preferences>> { userSettingsDs }
+
+        // Separate file for the calendar-sync settings, mirroring the Android binding.
+        // Google's chosen calendar lives here, and without it the desktop trigger's first
+        // cycle cannot resolve GoogleSyncCoordinator — a missing DataStore that surfaces as
+        // "background sync silently does nothing" rather than as a startup crash.
+        single(qualifier = named("calendar_sync")) {
+            cachedJvmDataStore(File(userHome, ".singularity-todo/calendar_sync.preferences_pb"))
+        }
+
+        // ─── Platform Ports ────────────────────────────────────────────────
+
+        single<SecureStoragePort> { JvmSecureStorage() }
+
+        // The cryptography of the encrypted backup archive. The JDK's providers, so the
+        // desktop adds no dependency for it — see `ArchiveCrypto`.
+        single<ArchiveCrypto> { JvmArchiveCrypto() }
+
+        // NoOp on JVM — TaskTitleRow / ChecklistItemRow inject Haptic unconditionally,
+        // so the definition must exist or task detail composition fails.
+        single<Haptic> { createHaptic() }
+
+        single<FileSystem> { JvmFileSystem() }
+
+        single<HostEnvironmentPort> { JvmHostEnvironment() }
+
+        // The tool-call records. The same writer serves the desktop app and the MCP server,
+        // which is why it lives in the platform module rather than in one of them: two
+        // writers would be two formats, and a report that reads one of them would miss
+        // half of what happened.
+        single<ToolCallLog> {
+            JvmFileToolCallLog(
+                directory = get<HostEnvironmentPort>().applicationDataDirectory() + "/tool-calls",
+            ).also { it.purgeExpired() }
+        }
+
+        single { ToolCallRecorder(log = get(), nowEpochMillis = { System.currentTimeMillis() }) }
+
+        single<FileRevealer> { JvmFileRevealer() }
+        single<FileOpener> { JvmFileOpener() }
+
+        single<FileSourceFactory> { JvmFileSourceFactory() }
+
+        single<SharePort> { JvmSharePort() }
+
+        single<FileSharePort> { JvmFileSharePort() }
+
+        single<BackupCodec> { JvmBackupCodec() }
+
+        // ─── The OAuth consent step ─────────────────────────────────────────
+        //
+        // The browser and the loopback socket are the two pieces of the sign-in
+        // that touch the operating system. Everything that decides something about
+        // the redirect lives in common code.
+        single<OAuthBrowser> { JvmOAuthBrowser() }
+
+        single<OAuthRedirectSocket> { JvmOAuthRedirectSocket() }
+
+        // NoOp on JVM — the definition must exist even though it is inert, or
+        // injection throws inside composition and Compose retries every frame.
+        single<CrashReportingPort> { JvmCrashReportingPort() }
+
+        single<String>(BackupDirQualifier) { userHome + "/.singularity-todo/backups" }
+
+        single<String>(LogDirQualifier) { userHome + "/.singularity-todo/logs" }
+
+        // The same folder the desktop's file revealer opens.
+        single<String>(AttachmentDirQualifier) { userHome + "/.singularity-todo/attachments" }
+
+        single { LogBundleExporter(get(LogDirQualifier), get(), get()) }
+
+        // ─── Pomodoro Timer ─────────────────────────────────────────────────
+
+        single<PomodoroTaskListProvider> { JvmPomodoroTaskListProvider() }
+
+        // Present on Android and missing here, which is why the desktop graph could
+        // not be built: `DelayLoopSyncPeriodicTrigger` below resolves a CoroutineScope
+        // through a bare `get()`, so neither the Koin compiler's diagnostic nor the
+        // DAO scan in PlatformModuleMirrorTest could see the dependency — a type that
+        // is never named in a `get<X>()` is invisible to both. The binding itself is
+        // a background scope owned by the graph, identical to the Android one.
+        single<CoroutineScope> { createBackgroundScope(crashReportingFailureHandler(get())) }
+        single {
+            com.singularity.todo.feature.pomodoro
+                .PomodoroConfig()
+        }
+        factory<PomodoroTimer> {
+            JvmPomodoroTimer(
+                get(),
+                get(),
+                get(),
+                com.singularity.todo.core.coroutines
+                    .createBackgroundScope(crashReportingFailureHandler(get())),
+                get(),
+                get(),
+            )
+        }
+
+        // ─── Notifications ────────────────────────────────────────────────
+        // `JvmNotifier` probes `notify-send` once, lazily, so `isSupported` reflects the
+        // host rather than a constant. The scheduler's own capability is the conjunction of
+        // this and systemd's, so a headless box correctly reports no reminders.
+        single<Notifier> { JvmNotifier(get()) }
+
+        // ─── Reminder Scheduler ────────────────────────────────────────────
+        // Arms one `systemd --user` transient timer per reminder. `ReminderRepository` is
+        // needed by `cancelByTask` to enumerate the task's reminders; there is no
+        // system-wide job list to enumerate, which is the containment property that
+        // outlived the deleted `at` backend.
+        single<ReminderScheduler> { JvmReminderScheduler(get(), get(), get()) }
+
+        // ─── Sync Scheduler ─────────────────────────────────────────────────
+
+        // Periodic sync on the JVM: a delay loop. The desktop has no background job
+        // scheduler, and this is the trigger that actually runs — the previous type test
+        // (`scheduler is NoOpSyncScheduler`) never selected it on the JVM binding.
+        single<SyncPeriodicTrigger> {
+            DelayLoopSyncPeriodicTrigger(
+                request = { get<SyncCoordinator>().request() },
+                scope = get(),
+            )
+        }
+
+        // WorkManager scheduler — JVM no-op stub (sync is not supported on desktop).
+        // Real, not a no-op: `SyncEngine` calls enqueuePush() on every sign-in, and this used
+        // to discard it silently. Registry row `SyncWorkScheduler` records why.
+        single<SyncWorkScheduler> { JvmSyncWorkScheduler(get()) }
+        single<BackgroundWorkScheduler> { JvmBackgroundWorkScheduler(get(), get(), get(), crashReporter = get()) }
+
+        // ─── Calendar Sync ────────────────────────────────────────────────
+
+        // Calendar sync is Android-only; JVM provides no-op stubs.
+        single<CalendarSyncRepository> {
+            NoopCalendarSyncRepositoryImpl()
+        }
+
+        single<CalendarProviderPort> {
+            NoopCalendarProvider()
+        }
+
+        single<CalendarSyncWorkScheduler> {
+            NoopCalendarSyncWorkScheduler()
+        }
+
+        single<com.singularity.todo.feature.calendarSync.domain.port.CalendarAppQueries> {
+            JvmCalendarAppQueries()
+        }
+
+        // Google sync on the desktop: the same delay loop the app's own sync uses, because
+        // Google sync is network plus Room and needs no platform API. The system calendar sync
+        // above is a no-op here for the opposite reason — it is a ContentResolver projection.
+        //
+        // The coordinator is resolved per cycle rather than captured, so a profile switch is
+        // picked up by the next pass instead of being frozen at startup.
+        single<GoogleSyncPeriodicTrigger> {
+            DelayLoopGoogleSyncPeriodicTrigger(
+                coordinatorProvider = { get<GoogleSyncCoordinator>() },
+                scope = get(),
+            )
+        }
+
+        // ─── The Google grant ────────────────────────────────────────────────
+        //
+        // The grant is redeemed on the *device*, and the token is renewed there too.
+        //
+        // A Desktop OAuth client is a public client: Google lets it exchange a code and
+        // renew a refresh token without a client secret. The desktop is the user's own
+        // machine, so the refresh token belongs in the user's own keystore — and no server
+        // is involved at all.
+        single<GoogleGrantRedeemer> {
+            LocalGoogleGrantRedeemer(
+                tokenClientFactory = { clientId -> GoogleTokenClient(httpClient = get(), clientId = clientId) },
+            )
+        }
+
+        single<GoogleAccessTokenProvider> {
+            LocalGoogleAccessTokenProvider(
+                credentialStore = get(),
+                clientIdResolver = get(),
+                secureStorage = get(),
+                tokenClientFactory = { clientId -> GoogleTokenClient(httpClient = get(), clientId = clientId) },
+            )
+        }
+
+        // The revoke stays on the device: the refresh token is in the desktop's own
+        // keystore and Google's revoke endpoint needs no client secret, so there is
+        // nothing for a server to do here.
+        //
+        // The client is built without a client id on purpose: the revoke endpoint takes
+        // the token alone, and a person who removed the client id before pressing
+        // "Disconnect" must still be able to revoke what the app gave them.
+        single<GoogleGrantRevoker> {
+            LocalGoogleGrantRevoker(
+                credentialStore = get(),
+                tokenClientFactory = { GoogleTokenClient(httpClient = get()) },
+            )
+        }
     }
-
-    // One write transaction for the repositories that write a synced row and the
-    // patch describing it. See ADR
-    // 2026-10-05-who-owns-a-row-and-the-patch-that-describes-it.
-    single<UnitOfWork> { RoomUnitOfWork(get()) }
-
-    single { get<AppDatabase>().taskDao() }
-    single { get<AppDatabase>().noteDao() }
-    single { get<AppDatabase>().projectDao() }
-    single { get<AppDatabase>().tagDao() }
-    single { get<AppDatabase>().ftsDao() }
-    single { get<AppDatabase>().tagGroupDao() }
-    single { get<AppDatabase>().projectInheritedTagGroupDao() }
-    single { get<AppDatabase>().syncOutboxDao() }
-    single { get<AppDatabase>().syncDeadLetterDao() }
-    single { get<AppDatabase>().syncStateDao() }
-    single { get<AppDatabase>().syncShadowDao() }
-    single { get<AppDatabase>().remoteConfigDao() }
-    single { get<AppDatabase>().remoteConfigCacheDao() }
-    single { get<AppDatabase>().attachmentDao() }
-    single { get<AppDatabase>().annotationDao() }
-    single { get<AppDatabase>().reminderDao() }
-    single { get<AppDatabase>().projectReminderDao() }
-    single { get<AppDatabase>().checklistDao() }
-    single { get<AppDatabase>().llmUsageDao() }
-    single { get<AppDatabase>().profileDao() }
-    single { get<AppDatabase>().agendaViewDao() }
-    single { get<AppDatabase>().savedSearchDao() }
-    // The three Google-sync DAOs. Bound on desktop for the same reason they are bound on
-    // Android: the engine resolves them by type, so a desktop graph without them throws
-    // NoDefinitionFoundException on the first pass instead of skipping one.
-    single { get<AppDatabase>().calendarSyncStateDao() }
-    single { get<AppDatabase>().googleEventShadowDao() }
-    single { get<AppDatabase>().calendarImportEventDao() }
-    // Bound on desktop for the same reason as the three above: the profile wipe
-    // resolves it by type, and a desktop graph without it throws
-    // NoDefinitionFoundException the moment the wipe runs.
-    single { get<AppDatabase>().calendarSyncTaskMapDao() }
-    single { get<AppDatabase>().timeEntryDao() }
-    single { get<AppDatabase>().proposalDao() }
-    single { get<AppDatabase>().proposalItemDao() }
-
-    // ─── DataStore (split: user settings + state) ─────────────────────────
-    // File-level caching: the SAME DataStore instance is returned for the same
-    // file path regardless of how many times PreferenceDataStoreFactory.create {}
-    // is called. This prevents "multiple DataStores active for the same file"
-    // errors in tests where platformModule() may be called more than once.
-    val userHome = System.getProperty("user.home")
-    val userSettingsDs: DataStore<Preferences> =
-        cachedJvmDataStore(File(userHome, ".singularity-todo/user_settings.preferences_pb"))
-    val stateDs: DataStore<Preferences> =
-        cachedJvmDataStore(File(userHome, ".singularity-todo/state.preferences_pb"))
-    val settingsLegacyDs: DataStore<Preferences> =
-        cachedJvmDataStore(File(userHome, ".singularity-todo/settings.preferences_pb"))
-
-    // One-shot migration: v0 flat-key settings → v1 split + namespaced.
-    // Idempotent: skips if state.preferences_pb already has settings_schema_version.
-    // Non-blocking: runs on Dispatchers.IO, does not stall Koin startup scope.
-    CoroutineScope(Dispatchers.IO).let { bgScope ->
-        SettingsDataStoreMigration(settingsLegacyDs, userSettingsDs, stateDs).runDeferred(bgScope)
-    }
-
-    // Named DataStore bindings — used by SettingsRepository and migration.
-    single(qualifier = named("user_settings")) { userSettingsDs }
-    single(qualifier = named("state")) { stateDs }
-    single(qualifier = named("settings")) { settingsLegacyDs }
-
-    // The active profile, in a file of its own.
-    //
-    // Its own file so that the settings file can be opened by a second process — the
-    // tool server an external agent is handed — without that file saying anything
-    // about the profile the user is working in. See ActiveProfileState.
-    single(qualifier = named("profile_state")) {
-        cachedJvmDataStore(File(userHome, ".singularity-todo/profile_state.preferences_pb"))
-    }
-
-    // Primary DataStore<Preferences> binding — what SettingsRepository consumes.
-    single<DataStore<Preferences>> { userSettingsDs }
-
-    // Separate file for the calendar-sync settings, mirroring the Android binding.
-    // Google's chosen calendar lives here, and without it the desktop trigger's first
-    // cycle cannot resolve GoogleSyncCoordinator — a missing DataStore that surfaces as
-    // "background sync silently does nothing" rather than as a startup crash.
-    single(qualifier = named("calendar_sync")) {
-        cachedJvmDataStore(File(userHome, ".singularity-todo/calendar_sync.preferences_pb"))
-    }
-
-    // ─── Platform Ports ────────────────────────────────────────────────
-
-    single<SecureStoragePort> { JvmSecureStorage() }
-
-    // The cryptography of the encrypted backup archive. The JDK's providers, so the
-    // desktop adds no dependency for it — see `ArchiveCrypto`.
-    single<ArchiveCrypto> { JvmArchiveCrypto() }
-
-    // NoOp on JVM — TaskTitleRow / ChecklistItemRow inject Haptic unconditionally,
-    // so the definition must exist or task detail composition fails.
-    single<Haptic> { createHaptic() }
-
-    single<FileSystem> { JvmFileSystem() }
-
-    single<HostEnvironmentPort> { JvmHostEnvironment() }
-
-    // The tool-call records. The same writer serves the desktop app and the MCP server,
-    // which is why it lives in the platform module rather than in one of them: two
-    // writers would be two formats, and a report that reads one of them would miss
-    // half of what happened.
-    single<ToolCallLog> {
-        JvmFileToolCallLog(
-            directory = get<HostEnvironmentPort>().applicationDataDirectory() + "/tool-calls",
-        ).also { it.purgeExpired() }
-    }
-
-    single { ToolCallRecorder(log = get(), nowEpochMillis = { System.currentTimeMillis() }) }
-
-    single<FileRevealer> { JvmFileRevealer() }
-    single<FileOpener> { JvmFileOpener() }
-
-    single<FileSourceFactory> { JvmFileSourceFactory() }
-
-    single<SharePort> { JvmSharePort() }
-
-    single<FileSharePort> { JvmFileSharePort() }
-
-    single<BackupCodec> { JvmBackupCodec() }
-
-    // ─── The OAuth consent step ─────────────────────────────────────────
-    //
-    // The browser and the loopback socket are the two pieces of the sign-in
-    // that touch the operating system. Everything that decides something about
-    // the redirect lives in common code.
-    single<OAuthBrowser> { JvmOAuthBrowser() }
-
-    single<OAuthRedirectSocket> { JvmOAuthRedirectSocket() }
-
-    // NoOp on JVM — the definition must exist even though it is inert, or
-    // injection throws inside composition and Compose retries every frame.
-    single<CrashReportingPort> { JvmCrashReportingPort() }
-
-    single<String>(BackupDirQualifier) { userHome + "/.singularity-todo/backups" }
-
-    single<String>(LogDirQualifier) { userHome + "/.singularity-todo/logs" }
-
-    // The same folder the desktop's file revealer opens.
-    single<String>(AttachmentDirQualifier) { userHome + "/.singularity-todo/attachments" }
-
-    single { LogBundleExporter(get(LogDirQualifier), get(), get()) }
-
-    // ─── Pomodoro Timer ─────────────────────────────────────────────────
-
-    single<PomodoroTaskListProvider> { JvmPomodoroTaskListProvider() }
-
-    // Present on Android and missing here, which is why the desktop graph could
-    // not be built: `DelayLoopSyncPeriodicTrigger` below resolves a CoroutineScope
-    // through a bare `get()`, so neither the Koin compiler's diagnostic nor the
-    // DAO scan in PlatformModuleMirrorTest could see the dependency — a type that
-    // is never named in a `get<X>()` is invisible to both. The binding itself is
-    // a background scope owned by the graph, identical to the Android one.
-    single<CoroutineScope> { createBackgroundScope(crashReportingFailureHandler(get())) }
-    single { com.singularity.todo.feature.pomodoro.PomodoroConfig() }
-    factory<PomodoroTimer> {
-        JvmPomodoroTimer(
-            get(),
-            get(),
-            get(),
-            com.singularity.todo.core.coroutines.createBackgroundScope(crashReportingFailureHandler(get())),
-            get(),
-            get(),
-        )
-    }
-
-    // ─── Notifications ────────────────────────────────────────────────
-    // `JvmNotifier` probes `notify-send` once, lazily, so `isSupported` reflects the
-    // host rather than a constant. The scheduler's own capability is the conjunction of
-    // this and systemd's, so a headless box correctly reports no reminders.
-    single<Notifier> { JvmNotifier(get()) }
-
-    // ─── Reminder Scheduler ────────────────────────────────────────────
-    // Arms one `systemd --user` transient timer per reminder. `ReminderRepository` is
-    // needed by `cancelByTask` to enumerate the task's reminders; there is no
-    // system-wide job list to enumerate, which is the containment property that
-    // outlived the deleted `at` backend.
-    single<ReminderScheduler> { JvmReminderScheduler(get(), get(), get()) }
-
-    // ─── Sync Scheduler ─────────────────────────────────────────────────
-
-    // Periodic sync on the JVM: a delay loop. The desktop has no background job
-    // scheduler, and this is the trigger that actually runs — the previous type test
-    // (`scheduler is NoOpSyncScheduler`) never selected it on the JVM binding.
-    single<SyncPeriodicTrigger> {
-        DelayLoopSyncPeriodicTrigger(
-            request = { get<SyncCoordinator>().request() },
-            scope = get(),
-        )
-    }
-
-    // WorkManager scheduler — JVM no-op stub (sync is not supported on desktop).
-    // Real, not a no-op: `SyncEngine` calls enqueuePush() on every sign-in, and this used
-    // to discard it silently. Registry row `SyncWorkScheduler` records why.
-    single<SyncWorkScheduler> { JvmSyncWorkScheduler(get()) }
-    single<BackgroundWorkScheduler> { JvmBackgroundWorkScheduler(get(), get(), get(), crashReporter = get()) }
-
-    // ─── Calendar Sync ────────────────────────────────────────────────
-
-    // Calendar sync is Android-only; JVM provides no-op stubs.
-    single<CalendarSyncRepository> {
-        NoopCalendarSyncRepositoryImpl()
-    }
-
-    single<CalendarProviderPort> {
-        NoopCalendarProvider()
-    }
-
-    single<CalendarSyncWorkScheduler> {
-        NoopCalendarSyncWorkScheduler()
-    }
-
-    single<com.singularity.todo.feature.calendarSync.domain.port.CalendarAppQueries> {
-        JvmCalendarAppQueries()
-    }
-
-    // Google sync on the desktop: the same delay loop the app's own sync uses, because
-    // Google sync is network plus Room and needs no platform API. The system calendar sync
-    // above is a no-op here for the opposite reason — it is a ContentResolver projection.
-    //
-    // The coordinator is resolved per cycle rather than captured, so a profile switch is
-    // picked up by the next pass instead of being frozen at startup.
-    single<GoogleSyncPeriodicTrigger> {
-        DelayLoopGoogleSyncPeriodicTrigger(
-            coordinatorProvider = { get<GoogleSyncCoordinator>() },
-            scope = get(),
-        )
-    }
-
-    // ─── The Google grant ────────────────────────────────────────────────
-    //
-    // The grant is redeemed on the *device*, and the token is renewed there too.
-    //
-    // A Desktop OAuth client is a public client: Google lets it exchange a code and
-    // renew a refresh token without a client secret. The desktop is the user's own
-    // machine, so the refresh token belongs in the user's own keystore — and no server
-    // is involved at all.
-    single<GoogleGrantRedeemer> {
-        LocalGoogleGrantRedeemer(
-            tokenClientFactory = { clientId -> GoogleTokenClient(httpClient = get(), clientId = clientId) },
-        )
-    }
-
-    single<GoogleAccessTokenProvider> {
-        LocalGoogleAccessTokenProvider(
-            credentialStore = get(),
-            clientIdResolver = get(),
-            secureStorage = get(),
-            tokenClientFactory = { clientId -> GoogleTokenClient(httpClient = get(), clientId = clientId) },
-        )
-    }
-
-    // The revoke stays on the device: the refresh token is in the desktop's own
-    // keystore and Google's revoke endpoint needs no client secret, so there is
-    // nothing for a server to do here.
-    //
-    // The client is built without a client id on purpose: the revoke endpoint takes
-    // the token alone, and a person who removed the client id before pressing
-    // "Disconnect" must still be able to revoke what the app gave them.
-    single<GoogleGrantRevoker> {
-        LocalGoogleGrantRevoker(
-            credentialStore = get(),
-            tokenClientFactory = { GoogleTokenClient(httpClient = get()) },
-        )
-    }
-}
 
 /**
  * Process-wide cache: ensures the same [DataStore] instance is returned for the
@@ -389,6 +397,7 @@ actual fun platformModule(): Module = module {
  */
 private val dataStoreCache = mutableMapOf<String, DataStore<Preferences>>()
 
-private fun cachedJvmDataStore(file: File): DataStore<Preferences> = dataStoreCache.getOrPut(file.absolutePath) {
-    PreferenceDataStoreFactory.create { file }
-}
+private fun cachedJvmDataStore(file: File): DataStore<Preferences> =
+    dataStoreCache.getOrPut(file.absolutePath) {
+        PreferenceDataStoreFactory.create { file }
+    }

@@ -13,10 +13,10 @@ import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tags.domain.usecase.CreateTagGroupUseCase
 import com.singularity.todo.feature.tags.domain.usecase.DeleteTagGroupUseCase
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.collections.immutable.toImmutableList
 
 /**
  * State for [TagGroupsViewModel].
@@ -28,8 +28,11 @@ import kotlinx.collections.immutable.toImmutableList
  */
 sealed interface TagGroupsUiState {
     data object Loading : TagGroupsUiState
+
     data object Empty : TagGroupsUiState
+
     data class Content(val groups: List<TagGroup>) : TagGroupsUiState
+
     data class Error(val message: String) : TagGroupsUiState
 }
 
@@ -42,6 +45,7 @@ sealed interface TagGroupsUiState {
  */
 sealed interface TagGroupsIntent : MviIntent {
     data class Create(val name: String, val color: Int) : TagGroupsIntent
+
     data class Delete(val id: TagGroupId) : TagGroupsIntent
 }
 
@@ -67,19 +71,18 @@ class TagGroupsViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     init {
         addCloseable(scope)
         scope.launch {
-            tagGroupRepo.observeAll()
+            tagGroupRepo
+                .observeAll()
                 .map { groups ->
                     if (groups.isEmpty()) {
                         TagGroupsUiState.Empty
                     } else {
                         TagGroupsUiState.Content(groups.toImmutableList())
                     }
-                }
-                .catch { error ->
+                }.catch { error ->
                     // A flow that stops emitting is a defect, not a user-actionable error, so
                     // it goes to the reporter and the screen shows the message. Reported from
                     // here rather than through catchTo: this is a Flow operator, not a suspend
@@ -90,8 +93,7 @@ class TagGroupsViewModel(
                             error.toMessage(),
                         ),
                     )
-                }
-                .collect { content -> setState(content) }
+                }.collect { content -> setState(content) }
         }
     }
 
@@ -99,18 +101,22 @@ class TagGroupsViewModel(
         when (intent) {
             // These used to launch and discard the Result: a failed create or delete left the
             // screen looking unchanged, with no message and nothing in the report.
-            is TagGroupsIntent.Create -> catchTo(
-                "Failed to create tag group",
-                { msg -> setState(TagGroupsUiState.Error(msg)) },
-            ) {
-                createTagGroup(CreateTagGroupInput(name = intent.name, color = intent.color))
+            is TagGroupsIntent.Create -> {
+                catchTo(
+                    "Failed to create tag group",
+                    { msg -> setState(TagGroupsUiState.Error(msg)) },
+                ) {
+                    createTagGroup(CreateTagGroupInput(name = intent.name, color = intent.color))
+                }
             }
 
-            is TagGroupsIntent.Delete -> catchTo(
-                "Failed to delete tag group",
-                { msg -> setState(TagGroupsUiState.Error(msg)) },
-            ) {
-                deleteTagGroup(intent.id)
+            is TagGroupsIntent.Delete -> {
+                catchTo(
+                    "Failed to delete tag group",
+                    { msg -> setState(TagGroupsUiState.Error(msg)) },
+                ) {
+                    deleteTagGroup(intent.id)
+                }
             }
         }
     }

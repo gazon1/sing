@@ -21,5 +21,4 @@ import androidx.compose.ui.test.ExperimentalTestApi
  * tolerates them rather than assuming a single root.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.tagInventory(): Set<String> =
-    collectTaggedNodes().map { it.second }.toSet()
+fun DesktopComposeUiTest.tagInventory(): Set<String> = collectTaggedNodes().map { it.second }.toSet()

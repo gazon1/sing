@@ -6,9 +6,9 @@ import com.singularity.todo.feature.ai.McpToolCatalog
 import com.singularity.todo.feature.ai.WriteBehavior
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -54,12 +54,12 @@ import kotlin.time.Clock
  */
 @Tag("fast")
 class WriteToolsOnlyProposeTest {
-
     private val clock: Clock = Clock.System
     private val userId = UserId("test-user")
-    private val profileAwareUser = FakeProfileAwareCurrentUser(
-        authRepository = FakeAuthRepository(initialSession = Session.Anonymous(userId)),
-    )
+    private val profileAwareUser =
+        FakeProfileAwareCurrentUser(
+            authRepository = FakeAuthRepository(initialSession = Session.Anonymous(userId)),
+        )
 
     private val proposals = FakeProposalRepository(clock)
     private val tasks = FakeTaskRepository(explicitCurrentUser = profileAwareUser)
@@ -70,76 +70,83 @@ class WriteToolsOnlyProposeTest {
     // ─── The behavioural half ───────────────────────────────────────────────────
 
     @Test
-    fun `CreateTaskTool proposes a task instead of creating one`() = runTest {
-        CreateTaskTool(proposals, profileAwareUser, clock)
-            .execute(CreateTaskInput(title = "Buy groceries"))
+    fun `CreateTaskTool proposes a task instead of creating one`() =
+        runTest {
+            CreateTaskTool(proposals, profileAwareUser, clock)
+                .execute(CreateTaskInput(title = "Buy groceries"))
 
-        assertTrue(tasks.tasks.value.isEmpty(), "the task was not created")
-        assertEquals(1, pendingProposals().size, "the change was proposed")
-    }
-
-    @Test
-    fun `UpdateTaskTool proposes a change instead of making one`() = runTest {
-        val existing = task()
-        tasks.seed(existing)
-
-        UpdateTaskTool(proposals, tasks, profileAwareUser, clock)
-            .execute(UpdateTaskInput(taskId = existing.id.value, title = "Renamed"))
-
-        assertEquals("Existing", tasks.tasks.value[existing.id.value]?.title, "the task was not renamed")
-        assertEquals(1, pendingProposals().size, "the change was proposed")
-    }
+            assertTrue(tasks.tasks.value.isEmpty(), "the task was not created")
+            assertEquals(1, pendingProposals().size, "the change was proposed")
+        }
 
     @Test
-    fun `CreateProjectTool proposes a project instead of creating one`() = runTest {
-        CreateProjectTool(proposals, profileAwareUser, clock)
-            .execute(CreateProjectInput(name = "Kitchen"))
+    fun `UpdateTaskTool proposes a change instead of making one`() =
+        runTest {
+            val existing = task()
+            tasks.seed(existing)
 
-        assertTrue(projects.observeAll().first().isEmpty(), "the project was not created")
-        assertEquals(1, pendingProposals().size, "the change was proposed")
-    }
+            UpdateTaskTool(proposals, tasks, profileAwareUser, clock)
+                .execute(UpdateTaskInput(taskId = existing.id.value, title = "Renamed"))
 
-    @Test
-    fun `UpdateProjectTool proposes a change instead of making one`() = runTest {
-        val existing = project()
-        projects.seed(existing)
-
-        UpdateProjectTool(proposals, projects, profileAwareUser, clock)
-            .execute(UpdateProjectInput(projectId = existing.id.value, name = "Renamed"))
-
-        assertEquals("Existing", projects.get(existing.id)?.name, "the project was not renamed")
-        assertEquals(1, pendingProposals().size, "the change was proposed")
-    }
+            assertEquals("Existing", tasks.tasks.value[existing.id.value]?.title, "the task was not renamed")
+            assertEquals(1, pendingProposals().size, "the change was proposed")
+        }
 
     @Test
-    fun `CreateNoteTool proposes a note instead of creating one`() = runTest {
-        CreateNoteTool(proposals, profileAwareUser, clock)
-            .execute(CreateNoteInput(title = "Agenda"))
+    fun `CreateProjectTool proposes a project instead of creating one`() =
+        runTest {
+            CreateProjectTool(proposals, profileAwareUser, clock)
+                .execute(CreateProjectInput(name = "Kitchen"))
 
-        assertTrue(notes.notes.isEmpty(), "the note was not created")
-        assertEquals(1, pendingProposals().size, "the change was proposed")
-    }
-
-    @Test
-    fun `UpdateNoteTool proposes a change instead of making one`() = runTest {
-        val existing = note()
-        notes.seed(existing)
-
-        UpdateNoteTool(proposals, notes, profileAwareUser, clock)
-            .execute(UpdateNoteInput(noteId = existing.id.value, title = "Renamed"))
-
-        assertEquals("Existing", notes.notes[existing.id.value]?.title, "the note was not renamed")
-        assertEquals(1, pendingProposals().size, "the change was proposed")
-    }
+            assertTrue(projects.observeAll().first().isEmpty(), "the project was not created")
+            assertEquals(1, pendingProposals().size, "the change was proposed")
+        }
 
     @Test
-    fun `CreateTagTool proposes a tag instead of creating one`() = runTest {
-        CreateTagTool(proposals, profileAwareUser, clock)
-            .execute(CreateTagInput(name = "chore"))
+    fun `UpdateProjectTool proposes a change instead of making one`() =
+        runTest {
+            val existing = project()
+            projects.seed(existing)
 
-        assertTrue(tags.observeAll().first().isEmpty(), "the tag was not created")
-        assertEquals(1, pendingProposals().size, "the change was proposed")
-    }
+            UpdateProjectTool(proposals, projects, profileAwareUser, clock)
+                .execute(UpdateProjectInput(projectId = existing.id.value, name = "Renamed"))
+
+            assertEquals("Existing", projects.get(existing.id)?.name, "the project was not renamed")
+            assertEquals(1, pendingProposals().size, "the change was proposed")
+        }
+
+    @Test
+    fun `CreateNoteTool proposes a note instead of creating one`() =
+        runTest {
+            CreateNoteTool(proposals, profileAwareUser, clock)
+                .execute(CreateNoteInput(title = "Agenda"))
+
+            assertTrue(notes.notes.isEmpty(), "the note was not created")
+            assertEquals(1, pendingProposals().size, "the change was proposed")
+        }
+
+    @Test
+    fun `UpdateNoteTool proposes a change instead of making one`() =
+        runTest {
+            val existing = note()
+            notes.seed(existing)
+
+            UpdateNoteTool(proposals, notes, profileAwareUser, clock)
+                .execute(UpdateNoteInput(noteId = existing.id.value, title = "Renamed"))
+
+            assertEquals("Existing", notes.notes[existing.id.value]?.title, "the note was not renamed")
+            assertEquals(1, pendingProposals().size, "the change was proposed")
+        }
+
+    @Test
+    fun `CreateTagTool proposes a tag instead of creating one`() =
+        runTest {
+            CreateTagTool(proposals, profileAwareUser, clock)
+                .execute(CreateTagInput(name = "chore"))
+
+            assertTrue(tags.observeAll().first().isEmpty(), "the tag was not created")
+            assertEquals(1, pendingProposals().size, "the change was proposed")
+        }
 
     // ─── The structural half ────────────────────────────────────────────────────
 
@@ -234,14 +241,14 @@ class WriteToolsOnlyProposeTest {
 
     @Test
     fun `the exceptions the scan cannot see are named`() {
-        val unreachable = McpToolCatalog.catalog
-            .filter { it.writeBehavior == WriteBehavior.DIRECT_WRITE_EXCEPTION }
-            .filter { entry ->
-                val className = entry.toolClass.simpleName ?: return@filter false
-                scan.classes[className]?.userData.isNullOrEmpty()
-            }
-            .map { it.name }
-            .toSet()
+        val unreachable =
+            McpToolCatalog.catalog
+                .filter { it.writeBehavior == WriteBehavior.DIRECT_WRITE_EXCEPTION }
+                .filter { entry ->
+                    val className = entry.toolClass.simpleName ?: return@filter false
+                    scan.classes[className]?.userData.isNullOrEmpty()
+                }.map { it.name }
+                .toSet()
 
         assertEquals(
             UNVERIFIABLE_EXCEPTIONS,
@@ -255,10 +262,11 @@ class WriteToolsOnlyProposeTest {
 
     @Test
     fun `every proposal-gated tool is driven through the round trip`() {
-        val proposalGated = McpToolCatalog.catalog
-            .filter { it.writeBehavior == WriteBehavior.PROPOSAL_WRITE }
-            .mapNotNull { it.toolClass.simpleName }
-            .toSet()
+        val proposalGated =
+            McpToolCatalog.catalog
+                .filter { it.writeBehavior == WriteBehavior.PROPOSAL_WRITE }
+                .mapNotNull { it.toolClass.simpleName }
+                .toSet()
         val driven = contractTestTools()
 
         assertEquals(
@@ -376,15 +384,19 @@ class WriteToolsOnlyProposeTest {
                     // verify, the second is an exception whose class is not here.
                     found.putIfAbsent(current, Writes())
                 } else {
-                    val userData = repositoryWrite.findAll(line)
-                        .filter { !it.groupValues[1].isProposal() }
-                        .map { it.groupValues[1] + "." + it.groupValues[2] }
-                        .toList()
-                    val other = anyWrite.findAll(line)
-                        .filter { !it.groupValues[1].isProposal() }
-                        .map { it.groupValues[1] + "." + it.groupValues[2] }
-                        .filterNot { it in userData }
-                        .toList()
+                    val userData =
+                        repositoryWrite
+                            .findAll(line)
+                            .filter { !it.groupValues[1].isProposal() }
+                            .map { it.groupValues[1] + "." + it.groupValues[2] }
+                            .toList()
+                    val other =
+                        anyWrite
+                            .findAll(line)
+                            .filter { !it.groupValues[1].isProposal() }
+                            .map { it.groupValues[1] + "." + it.groupValues[2] }
+                            .filterNot { it in userData }
+                            .toList()
                     if (userData.isNotEmpty() || other.isNotEmpty()) {
                         if (owner == null) {
                             // The call belongs to no tool: no tool class stands
@@ -396,10 +408,11 @@ class WriteToolsOnlyProposeTest {
                             outside += (userData + other).distinct().sorted()
                         } else {
                             val existing = found[owner] ?: Writes()
-                            found[owner] = Writes(
-                                userData = (existing.userData + userData).distinct().sorted(),
-                                other = (existing.other + other).distinct().sorted(),
-                            )
+                            found[owner] =
+                                Writes(
+                                    userData = (existing.userData + userData).distinct().sorted(),
+                                    other = (existing.other + other).distinct().sorted(),
+                                )
                         }
                     }
                 }
@@ -427,36 +440,38 @@ class WriteToolsOnlyProposeTest {
 
     // ─── Fixtures ──────────────────────────────────────────────────────────────
 
-    private suspend fun pendingProposals(): List<AiProposal> =
-        proposals.watchWaitingProposals().first()
+    private suspend fun pendingProposals(): List<AiProposal> = proposals.watchWaitingProposals().first()
 
-    private fun note() = Note(
-        id = NoteId.generate(),
-        userId = userId,
-        title = "Existing",
-        createdAt = clock.now(),
-        updatedAt = clock.now(),
-    )
+    private fun note() =
+        Note(
+            id = NoteId.generate(),
+            userId = userId,
+            title = "Existing",
+            createdAt = clock.now(),
+            updatedAt = clock.now(),
+        )
 
-    private fun project() = Project(
-        id = ProjectId.generate(),
-        name = "Existing",
-        color = 0,
-        createdAt = clock.now(),
-        updatedAt = clock.now(),
-        userId = userId,
-    )
+    private fun project() =
+        Project(
+            id = ProjectId.generate(),
+            name = "Existing",
+            color = 0,
+            createdAt = clock.now(),
+            updatedAt = clock.now(),
+            userId = userId,
+        )
 
-    private fun task() = Task(
-        id = TaskId.generate(),
-        title = "Existing",
-        priority = TaskPriority.Medium,
-        kind = TaskKind.Task,
-        tags = emptyList(),
-        createdAt = clock.now(),
-        updatedAt = clock.now(),
-        userId = userId,
-    )
+    private fun task() =
+        Task(
+            id = TaskId.generate(),
+            title = "Existing",
+            priority = TaskPriority.Medium,
+            kind = TaskKind.Task,
+            tags = emptyList(),
+            createdAt = clock.now(),
+            updatedAt = clock.now(),
+            userId = userId,
+        )
 
     /**
      * Every file that holds a tool class.
@@ -492,9 +507,10 @@ class WriteToolsOnlyProposeTest {
          * port: a method whose name is not among these verbs is invisible to it,
          * and the check says so rather than claiming more.
          */
-        val anyWrite = Regex(
-            """\b(\w+)\.(create|update|delete|upsert|save|write|writeAdr|updateAdr|insert|put)\(""",
-        )
+        val anyWrite =
+            Regex(
+                """\b(\w+)\.(create|update|delete|upsert|save|write|writeAdr|updateAdr|insert|put)\(""",
+            )
 
         /**
          * The exceptions the scan cannot verify.
@@ -519,15 +535,16 @@ class WriteToolsOnlyProposeTest {
          * The sources are inside this module, so they are a compile input of the
          * test task: change a tool and this test runs again.
          */
-        val toolsDir: Path = run {
-            var dir: Path? = Path.of("").toAbsolutePath()
-            while (dir != null) {
-                val candidate = dir.resolve("src/commonMain/kotlin/com/singularity/todo/feature/ai/tools")
-                if (Files.isDirectory(candidate)) return@run candidate
-                dir = dir.parent
+        val toolsDir: Path =
+            run {
+                var dir: Path? = Path.of("").toAbsolutePath()
+                while (dir != null) {
+                    val candidate = dir.resolve("src/commonMain/kotlin/com/singularity/todo/feature/ai/tools")
+                    if (Files.isDirectory(candidate)) return@run candidate
+                    dir = dir.parent
+                }
+                error("the tools directory was not found above ${Path.of("").toAbsolutePath()}")
             }
-            error("the tools directory was not found above ${Path.of("").toAbsolutePath()}")
-        }
 
         /**
          * Where the round-trip contract tests live.
@@ -536,15 +553,16 @@ class WriteToolsOnlyProposeTest {
          * contract tests are shared between the platforms, and this test runs on
          * the JVM.
          */
-        val contractTestDir: Path = run {
-            var dir: Path? = Path.of("").toAbsolutePath()
-            while (dir != null) {
-                val candidate = dir.resolve("src/commonTest/kotlin/com/singularity/todo/feature/ai")
-                if (Files.isDirectory(candidate)) return@run candidate
-                dir = dir.parent
+        val contractTestDir: Path =
+            run {
+                var dir: Path? = Path.of("").toAbsolutePath()
+                while (dir != null) {
+                    val candidate = dir.resolve("src/commonTest/kotlin/com/singularity/todo/feature/ai")
+                    if (Files.isDirectory(candidate)) return@run candidate
+                    dir = dir.parent
+                }
+                error("the common test directory was not found above ${Path.of("").toAbsolutePath()}")
             }
-            error("the common test directory was not found above ${Path.of("").toAbsolutePath()}")
-        }
 
         /** An import of a tool class — how a contract test names the tool it drives. */
         val toolImport = Regex("""^import com\.singularity\.todo\.feature\.ai\.tools\.(\w+Tool)$""")

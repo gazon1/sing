@@ -11,22 +11,24 @@ import org.junit.jupiter.api.Test
 @Tag("fast")
 class SharedSyncServerSelfCheckTest {
     @Test
-    fun `push on one client is visible to another client pull`() = runTest {
-        val server = SharedSyncServer()
-        val a = server.client("account-a")
-        val b = server.client("account-b")
+    fun `push on one client is visible to another client pull`() =
+        runTest {
+            val server = SharedSyncServer()
+            val a = server.client("account-a")
+            val b = server.client("account-b")
 
-        val patch = DeltaPatch(
-            patchId = "p1",
-            entityId = "t1",
-            entityType = DocType.Task,
-            baseVersion = 0L,
-        )
-        val resp = a.batchPush(BatchPushRequest(deviceId = "dev-a", profileId = "prof-1", patches = listOf(patch)))
-        assertTrue(resp.results.single().ok)
+            val patch =
+                DeltaPatch(
+                    patchId = "p1",
+                    entityId = "t1",
+                    entityType = DocType.Task,
+                    baseVersion = 0L,
+                )
+            val resp = a.batchPush(BatchPushRequest(deviceId = "dev-a", profileId = "prof-1", patches = listOf(patch)))
+            assertTrue(resp.results.single().ok)
 
-        val events = b.getEventsSince(0L)
-        assertEquals(1, events.size)
-        assertEquals("t1", events.single().entityId)
-    }
+            val events = b.getEventsSince(0L)
+            assertEquals(1, events.size)
+            assertEquals("t1", events.single().entityId)
+        }
 }

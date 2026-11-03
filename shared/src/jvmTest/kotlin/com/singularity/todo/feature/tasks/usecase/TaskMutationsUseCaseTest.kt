@@ -15,7 +15,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class TaskMutationsUseCaseTest {
-
     /**
      * The fake's default current user. Tasks must be seeded as belonging to it:
      * `testTask` defaults to [UserId.anonymous], which no real user-scoped
@@ -31,67 +30,73 @@ class TaskMutationsUseCaseTest {
     // ─── bulkComplete ─────────────────────────────────────────────────────────
 
     @Test
-    fun `bulkComplete succeeds when all ids exist`() = runTest {
-        repo.seed(t1, t2)
+    fun `bulkComplete succeeds when all ids exist`() =
+        runTest {
+            repo.seed(t1, t2)
 
-        val result = mutations.bulkComplete(listOf(t1.id, t2.id))
+            val result = mutations.bulkComplete(listOf(t1.id, t2.id))
 
-        assertTrue(result.isSuccess)
-        // Both tasks should now be completed
-        assertTrue(repo.tasks.value[t1.id.value]!!.isCompleted)
-        assertTrue(repo.tasks.value[t2.id.value]!!.isCompleted)
-    }
-
-    @Test
-    fun `bulkComplete fails when any id does not exist`() = runTest {
-        repo.seed(t1)
-
-        val result = mutations.bulkComplete(listOf(t1.id, TaskId.fromString("nonexistent")))
-
-        assertTrue(result.isFailure)
-        assertEquals("Task ${TaskId.fromString("nonexistent")} not found", result.exceptionOrNull()?.message)
-    }
+            assertTrue(result.isSuccess)
+            // Both tasks should now be completed
+            assertTrue(repo.tasks.value[t1.id.value]!!.isCompleted)
+            assertTrue(repo.tasks.value[t2.id.value]!!.isCompleted)
+        }
 
     @Test
-    fun `bulkComplete is atomic - no side effects when one id is missing`() = runTest {
-        repo.seed(t1)
+    fun `bulkComplete fails when any id does not exist`() =
+        runTest {
+            repo.seed(t1)
 
-        mutations.bulkComplete(listOf(t1.id, TaskId.fromString("nonexistent")))
+            val result = mutations.bulkComplete(listOf(t1.id, TaskId.fromString("nonexistent")))
 
-        // t1 should NOT have been completed (atomicity)
-        assertTrue(!repo.tasks.value[t1.id.value]!!.isCompleted)
-    }
+            assertTrue(result.isFailure)
+            assertEquals("Task ${TaskId.fromString("nonexistent")} not found", result.exceptionOrNull()?.message)
+        }
+
+    @Test
+    fun `bulkComplete is atomic - no side effects when one id is missing`() =
+        runTest {
+            repo.seed(t1)
+
+            mutations.bulkComplete(listOf(t1.id, TaskId.fromString("nonexistent")))
+
+            // t1 should NOT have been completed (atomicity)
+            assertTrue(!repo.tasks.value[t1.id.value]!!.isCompleted)
+        }
 
     // ─── bulkDelete ─────────────────────────────────────────────────────────
 
     @Test
-    fun `bulkDelete succeeds when all ids exist`() = runTest {
-        repo.seed(t1, t2)
+    fun `bulkDelete succeeds when all ids exist`() =
+        runTest {
+            repo.seed(t1, t2)
 
-        val result = mutations.bulkDelete(listOf(t1.id, t2.id))
+            val result = mutations.bulkDelete(listOf(t1.id, t2.id))
 
-        assertTrue(result.isSuccess)
-        // Both tasks should now be trashed
-        assertTrue(repo.tasks.value[t1.id.value]!!.isTrashed)
-        assertTrue(repo.tasks.value[t2.id.value]!!.isTrashed)
-    }
-
-    @Test
-    fun `bulkDelete fails when any id does not exist`() = runTest {
-        repo.seed(t1)
-
-        val result = mutations.bulkDelete(listOf(t1.id, TaskId.fromString("nonexistent")))
-
-        assertTrue(result.isFailure)
-    }
+            assertTrue(result.isSuccess)
+            // Both tasks should now be trashed
+            assertTrue(repo.tasks.value[t1.id.value]!!.isTrashed)
+            assertTrue(repo.tasks.value[t2.id.value]!!.isTrashed)
+        }
 
     @Test
-    fun `bulkDelete is atomic - no side effects when one id is missing`() = runTest {
-        repo.seed(t1)
+    fun `bulkDelete fails when any id does not exist`() =
+        runTest {
+            repo.seed(t1)
 
-        mutations.bulkDelete(listOf(t1.id, TaskId.fromString("nonexistent")))
+            val result = mutations.bulkDelete(listOf(t1.id, TaskId.fromString("nonexistent")))
 
-        // t1 should NOT have been trashed
-        assertTrue(!repo.tasks.value[t1.id.value]!!.isTrashed)
-    }
+            assertTrue(result.isFailure)
+        }
+
+    @Test
+    fun `bulkDelete is atomic - no side effects when one id is missing`() =
+        runTest {
+            repo.seed(t1)
+
+            mutations.bulkDelete(listOf(t1.id, TaskId.fromString("nonexistent")))
+
+            // t1 should NOT have been trashed
+            assertTrue(!repo.tasks.value[t1.id.value]!!.isTrashed)
+        }
 }

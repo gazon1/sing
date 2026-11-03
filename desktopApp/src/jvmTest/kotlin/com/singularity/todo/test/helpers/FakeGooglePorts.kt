@@ -6,17 +6,17 @@ import com.singularity.todo.feature.calendarSync.domain.model.GoogleCalendarSumm
 import com.singularity.todo.feature.calendarSync.domain.model.GoogleEvent
 import com.singularity.todo.feature.calendarSync.domain.model.GoogleEventId
 import com.singularity.todo.feature.calendarSync.domain.model.ImportWindow
-import com.singularity.todo.feature.calendarSync.sync.GoogleSyncEngine
-import com.singularity.todo.feature.calendarSync.sync.GoogleSyncCoordinator
-import com.singularity.todo.feature.calendarSync.sync.GoogleSyncPass
-import com.singularity.todo.test.fakes.TestUsers
-import org.koin.core.module.Module
-import org.koin.dsl.module
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarEventSource
 import com.singularity.todo.feature.calendarSync.domain.port.GoogleCalendarSettingsRepository
+import com.singularity.todo.feature.calendarSync.sync.GoogleSyncCoordinator
+import com.singularity.todo.feature.calendarSync.sync.GoogleSyncEngine
+import com.singularity.todo.feature.calendarSync.sync.GoogleSyncPass
+import com.singularity.todo.test.fakes.TestUsers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.koin.core.module.Module
+import org.koin.dsl.module
 
 // In-memory fakes for the four Google seams the Settings → Calendar screen reads.
 //
@@ -55,13 +55,19 @@ class FakeGoogleCredentialStore(initial: Map<String, GoogleCredentials> = emptyM
     private val byUser = initial.toMutableMap()
 
     /** Seeds or replaces the grant so a test can start from "connected". */
-    fun connect(userId: String, canRenew: Boolean = true) {
+    fun connect(
+        userId: String,
+        canRenew: Boolean = true,
+    ) {
         byUser[userId] = connectedCredential(canRenew)
     }
 
     override suspend fun load(userId: String): GoogleCredentials? = byUser[userId]
 
-    override suspend fun save(userId: String, credentials: GoogleCredentials) {
+    override suspend fun save(
+        userId: String,
+        credentials: GoogleCredentials,
+    ) {
         byUser[userId] = credentials
     }
 
@@ -120,8 +126,10 @@ class FakeCalendarEventSource(
         syncToken: String?,
     ) = error("Not needed by a settings-screen carrier: a carrier never reads changes.")
 
-    override suspend fun insert(calendarId: String, event: GoogleEvent) =
-        error("Not needed by a settings-screen carrier: a carrier never writes an event.")
+    override suspend fun insert(
+        calendarId: String,
+        event: GoogleEvent,
+    ) = error("Not needed by a settings-screen carrier: a carrier never writes an event.")
 
     override suspend fun patch(
         calendarId: String,
@@ -130,11 +138,16 @@ class FakeCalendarEventSource(
         event: GoogleEvent,
     ) = error("Not needed by a settings-screen carrier: a carrier never writes an event.")
 
-    override suspend fun get(calendarId: String, eventId: GoogleEventId) =
-        error("Not needed by a settings-screen carrier.")
+    override suspend fun get(
+        calendarId: String,
+        eventId: GoogleEventId,
+    ) = error("Not needed by a settings-screen carrier.")
 
-    override suspend fun cancel(calendarId: String, eventId: GoogleEventId, etag: String?) =
-        error("Not needed by a settings-screen carrier.")
+    override suspend fun cancel(
+        calendarId: String,
+        eventId: GoogleEventId,
+        etag: String?,
+    ) = error("Not needed by a settings-screen carrier.")
 
     companion object {
         /**
@@ -144,10 +157,11 @@ class FakeCalendarEventSource(
          * from "the only row is selected" — with a single row a selector that
          * silently matched the wrong element would still pass.
          */
-        val DEFAULT_CALENDARS = listOf(
-            GoogleCalendarSummary(id = "primary-cal", summary = "Max Mustermann", isPrimary = true),
-            GoogleCalendarSummary(id = "work-cal", summary = "Work"),
-        )
+        val DEFAULT_CALENDARS =
+            listOf(
+                GoogleCalendarSummary(id = "primary-cal", summary = "Max Mustermann", isPrimary = true),
+                GoogleCalendarSummary(id = "work-cal", summary = "Work"),
+            )
     }
 }
 
@@ -160,11 +174,12 @@ class FakeCalendarEventSource(
  * while the test asserted on the connected one. A test that fails for that reason
  * looks like a UI bug, which is the expensive way to learn where the id came from.
  */
-fun connectedCredential(canRenew: Boolean = true): GoogleCredentials = GoogleCredentials(
-    accessToken = "test-access-token",
-    refreshToken = if (canRenew) "test-refresh-token" else null,
-    expiresAtEpochMs = Long.MAX_VALUE,
-)
+fun connectedCredential(canRenew: Boolean = true): GoogleCredentials =
+    GoogleCredentials(
+        accessToken = "test-access-token",
+        refreshToken = if (canRenew) "test-refresh-token" else null,
+        expiresAtEpochMs = Long.MAX_VALUE,
+    )
 
 /**
  * The Koin overrides a `CAL-SYNC-*` carrier needs, as one bundle.
@@ -200,38 +215,39 @@ fun googleCalendarModule(
     eventSource: CalendarEventSource,
     importWindow: ImportWindow = ImportWindow.DEFAULT,
     passFailure: String? = null,
-): Module = module {
-    single<GoogleCredentialStore> { credentials }
-    single<GoogleCalendarSettingsRepository> { settings }
-    // The ViewModel takes `eventSource` as a *factory*, so it must be re-bound as a
-    // factory too — binding a single instance here and capturing it would defeat the
-    // per-profile resolution the parameter exists for.
-    factory<CalendarEventSource> { eventSource }
+): Module =
+    module {
+        single<GoogleCredentialStore> { credentials }
+        single<GoogleCalendarSettingsRepository> { settings }
+        // The ViewModel takes `eventSource` as a *factory*, so it must be re-bound as a
+        // factory too — binding a single instance here and capturing it would defeat the
+        // per-profile resolution the parameter exists for.
+        factory<CalendarEventSource> { eventSource }
 
-    // The **coordinator**, not the pass. This was the first version's mistake and it is
-    // worth recording: binding `GoogleSyncPass` alone left the production
-    // `factory { GoogleSyncCoordinator(engineProvider = { get<GoogleSyncEngine>() }, …) }`
-    // in place, so the ViewModel still built a real engine out of four DAOs and a
-    // network client. The button then sat on "Syncing…" forever and the test failed on a
-    // *missing failure message* — the symptom pointed at the presentation layer while the
-    // cause was three layers down in a binding nobody had replaced.
-    //
-    // `factory`, matching production: the coordinator is resolved per cycle so a profile
-    // switch is picked up by the next pass. The engine seam is faked from the inside,
-    // which keeps the coordinator's own logic — which is what this scenario is about:
-    // that a throwing pass becomes `Outcome.Failed` rather than a silent decline.
-    factory<GoogleSyncCoordinator> {
-        GoogleSyncCoordinator(
-            engineProvider = { GoogleSyncPass { passOutcome(passFailure) } },
-            googleSettings = settings,
-            credentialStore = credentials,
-            currentUser = TestUsers.DEFAULT,
-            clock = get(),
-        )
+        // The **coordinator**, not the pass. This was the first version's mistake and it is
+        // worth recording: binding `GoogleSyncPass` alone left the production
+        // `factory { GoogleSyncCoordinator(engineProvider = { get<GoogleSyncEngine>() }, …) }`
+        // in place, so the ViewModel still built a real engine out of four DAOs and a
+        // network client. The button then sat on "Syncing…" forever and the test failed on a
+        // *missing failure message* — the symptom pointed at the presentation layer while the
+        // cause was three layers down in a binding nobody had replaced.
+        //
+        // `factory`, matching production: the coordinator is resolved per cycle so a profile
+        // switch is picked up by the next pass. The engine seam is faked from the inside,
+        // which keeps the coordinator's own logic — which is what this scenario is about:
+        // that a throwing pass becomes `Outcome.Failed` rather than a silent decline.
+        factory<GoogleSyncCoordinator> {
+            GoogleSyncCoordinator(
+                engineProvider = { GoogleSyncPass { passOutcome(passFailure) } },
+                googleSettings = settings,
+                credentialStore = credentials,
+                currentUser = TestUsers.DEFAULT,
+                clock = get(),
+            )
+        }
+        // Bound last so it beats the production `ImportWindow` in `calendarSyncModule()`.
+        single { importWindow }
     }
-    // Bound last so it beats the production `ImportWindow` in `calendarSyncModule()`.
-    single { importWindow }
-}
 
 private suspend fun passOutcome(failure: String?): GoogleSyncEngine.PassResult {
     if (failure != null) throw IllegalStateException(failure)

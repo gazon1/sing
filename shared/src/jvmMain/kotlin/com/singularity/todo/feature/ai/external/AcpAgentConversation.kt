@@ -37,7 +37,6 @@ import kotlinx.coroutines.CoroutineScope
  * application's data directory open, and nothing else would close it.
  */
 internal class AcpAgentConversation(private val scope: CoroutineScope, private val launcher: AcpAgentLauncher) {
-
     private var session: AcpAgentSession? = null
 
     /** The open session, or null when there is none. */
@@ -66,15 +65,18 @@ internal class AcpAgentConversation(private val scope: CoroutineScope, private v
     ): AcpConversationOutcome {
         val permissions = AcpSessionPermissions { request -> askForPermission(request) }
         return when (
-            val launch = launcher.launch(
-                profile = agent,
-                scope = scope,
-                permissions = permissions,
-                toolServer = toolServer,
-                sessionEvents = sessionEvents,
-            )
+            val launch =
+                launcher.launch(
+                    profile = agent,
+                    scope = scope,
+                    permissions = permissions,
+                    toolServer = toolServer,
+                    sessionEvents = sessionEvents,
+                )
         ) {
-            is AcpAgentLaunch.Failed -> AcpConversationOutcome.LaunchFailed(launch.reason)
+            is AcpAgentLaunch.Failed -> {
+                AcpConversationOutcome.LaunchFailed(launch.reason)
+            }
 
             is AcpAgentLaunch.Started -> {
                 session = launch.session
@@ -93,26 +95,27 @@ internal class AcpAgentConversation(private val scope: CoroutineScope, private v
         agent: AcpAgentProfile,
         agentSession: AcpAgentSession,
     ): AcpConversationOutcome {
-        val info: AcpAgentInfo = try {
-            agentSession.connect()
-        } catch (e: CancellationException) {
-            // A cancellation that did not come from us is the connection failing, not the
-            // screen going away. The client translates the protocol's own cancellation —
-            // the one a dead agent raises — into a failure, so a cancellation that
-            // reaches this point is the caller's, and it has to survive.
-            //
-            // The process was spawned before the handshake, so it exists whether or not
-            // the handshake finished. A cancelled connect ends it: the screen is going
-            // away and the agent goes with it, rather than being left running for a
-            // conversation nobody is in.
-            runCatchingCancellable { agentSession.terminate() }
-            if (session === agentSession) session = null
-            throw e
-        } catch (e: Exception) {
-            runCatchingCancellable { agentSession.close() }
-            if (session === agentSession) session = null
-            return AcpConversationOutcome.HandshakeFailed(e.message ?: "The agent did not answer.")
-        }
+        val info: AcpAgentInfo =
+            try {
+                agentSession.connect()
+            } catch (e: CancellationException) {
+                // A cancellation that did not come from us is the connection failing, not the
+                // screen going away. The client translates the protocol's own cancellation —
+                // the one a dead agent raises — into a failure, so a cancellation that
+                // reaches this point is the caller's, and it has to survive.
+                //
+                // The process was spawned before the handshake, so it exists whether or not
+                // the handshake finished. A cancelled connect ends it: the screen is going
+                // away and the agent goes with it, rather than being left running for a
+                // conversation nobody is in.
+                runCatchingCancellable { agentSession.terminate() }
+                if (session === agentSession) session = null
+                throw e
+            } catch (e: Exception) {
+                runCatchingCancellable { agentSession.close() }
+                if (session === agentSession) session = null
+                return AcpConversationOutcome.HandshakeFailed(e.message ?: "The agent did not answer.")
+            }
 
         if (session !== agentSession) {
             // The session was closed while the handshake was in flight — the reader
@@ -170,7 +173,6 @@ internal class AcpAgentConversation(private val scope: CoroutineScope, private v
  * which one happened.
  */
 internal sealed interface AcpConversationOutcome {
-
     /**
      * The agent answered the handshake.
      *

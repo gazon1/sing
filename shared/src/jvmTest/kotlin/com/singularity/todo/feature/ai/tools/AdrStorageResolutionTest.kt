@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.ai.tools
 
-import com.singularity.todo.test.fakes.TEST_TZ
-import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.core.platform.HostEnvironmentPort
+import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.TEST_TZ
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.assertTimeoutPreemptively
 import java.time.Duration
@@ -30,19 +30,21 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class AdrStorageResolutionTest {
-
     /** A path that does not exist, on either platform, and never will. */
     private class AbsentHost(private val root: String) : HostEnvironmentPort {
         override fun workingDirectory(): String = "$root/working"
+
         override fun homeDirectory(): String = "$root/home"
+
         override fun applicationDataDirectory(): String = root + "/.singularity-todo"
     }
 
-    private fun absentStorage() = AdrStorage(
-        host = AbsentHost("/singularity-adr-resolution-test-absent"),
-        clock = FakeClock(),
-        timeZone = TEST_TZ,
-    )
+    private fun absentStorage() =
+        AdrStorage(
+            host = AbsentHost("/singularity-adr-resolution-test-absent"),
+            clock = FakeClock(),
+            timeZone = TEST_TZ,
+        )
 
     @Test
     fun `with no checkout present the per-user copy is used`() {
@@ -76,9 +78,10 @@ class AdrStorageResolutionTest {
     /** Frontmatter parsing is pure, and was untested before the class took a port. */
     @Test
     fun `frontmatter round-trips through the parser`() {
-        val parsed = absentStorage().parseFrontmatter(
-            "---\ntitle: \"A title\"\ndate: 2026-10-05\ntags: [\"one\", \"two\"]\n---\n\nBody.",
-        )
+        val parsed =
+            absentStorage().parseFrontmatter(
+                "---\ntitle: \"A title\"\ndate: 2026-10-05\ntags: [\"one\", \"two\"]\n---\n\nBody.",
+            )
 
         assertEquals("A title", parsed?.title)
         assertEquals("2026-10-05", parsed?.date)
@@ -101,13 +104,14 @@ class AdrStorageResolutionTest {
      */
     @Test
     fun `resolving the corpus config terminates instead of looping at the root`() {
-        val storage = assertTimeoutPreemptively(Duration.ofSeconds(5)) {
-            AdrStorage(
-                host = AbsentHost("/singularity-adr-deep/nested/checkout"),
-                clock = FakeClock(),
-                timeZone = TEST_TZ,
-            )
-        }
+        val storage =
+            assertTimeoutPreemptively(Duration.ofSeconds(5)) {
+                AdrStorage(
+                    host = AbsentHost("/singularity-adr-deep/nested/checkout"),
+                    clock = FakeClock(),
+                    timeZone = TEST_TZ,
+                )
+            }
 
         assertEquals(
             "/singularity-adr-deep/nested/checkout/home/.singularity-todo/docs/decisions",

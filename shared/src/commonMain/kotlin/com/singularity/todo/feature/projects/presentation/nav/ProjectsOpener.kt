@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.asStateFlow
  * "no project", which the graph would have to read as "do nothing".
  */
 sealed interface ProjectsOpenRequest {
-
     /** The list of all projects. */
     data object List : ProjectsOpenRequest
 
@@ -49,7 +48,6 @@ sealed interface ProjectsOpenRequest {
  * for a project.
  */
 class ProjectsOpener {
-
     private val _requested = MutableStateFlow<ProjectsOpenRequest?>(null)
 
     /** What the menu asked for, if anything. */

@@ -25,7 +25,6 @@ import com.singularity.todo.core.database.contract.wrappingDriver
  * connection Room opens. [wrappingDriver] ensures this by intercepting `open()`.
  */
 object AppDatabaseFactory {
-
     /**
      * Build the production [AppDatabase] bound to an absolute file path.
      *
@@ -68,12 +67,16 @@ object AppDatabaseFactory {
      * [com.singularity.todo.core.database.AppDatabaseFactoryJvmTest] and
      * [com.singularity.todo.core.database.DesktopRestartSmokeTest].
      */
-    fun build(driver: SQLiteDriver, dbPath: String): AppDatabase {
+    fun build(
+        driver: SQLiteDriver,
+        dbPath: String,
+    ): AppDatabase {
         // File-level PRAGMAs (journal_mode=WAL) — once, before Room opens the file.
         // WAL is persistent in the header; applying it on every connection is unnecessary.
         PlatformPragmas.applyOnceToFile(driver, dbPath)
 
-        return Room.databaseBuilder<AppDatabase>(name = dbPath)
+        return Room
+            .databaseBuilder<AppDatabase>(name = dbPath)
             .setDriver(driver)
             .addMigrations(
                 Migration31To32(),
@@ -107,7 +110,6 @@ object AppDatabaseFactory {
                 // Creates the full-text indexes — virtual tables, which an
                 // AutoMigrationSpec cannot describe. See Migration42To43.
                 Migration42To43(),
-            )
-            .build()
+            ).build()
     }
 }

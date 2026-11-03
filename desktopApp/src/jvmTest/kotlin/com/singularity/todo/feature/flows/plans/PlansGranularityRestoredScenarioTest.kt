@@ -27,21 +27,21 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class PlansGranularityRestoredScenarioTest {
-
     @Test
     @DisplayName("PLANS-04 the chosen granularity is restored the next time Plans is opened")
-    fun the_choice_survives_leaving() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        tasks(koin).given(due = TODAY, title = "Due today")
+    fun the_choice_survives_leaving() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            tasks(koin).given(due = TODAY, title = "Due today")
 
-        tapTab("Plans")
-        clickTag(TestTags.PLANS_GRANULARITY_WEEK)
-        assertTagSelected(TestTags.PLANS_GRANULARITY_WEEK)
+            tapTab("Plans")
+            clickTag(TestTags.PLANS_GRANULARITY_WEEK)
+            assertTagSelected(TestTags.PLANS_GRANULARITY_WEEK)
 
-        // Leave for another tab and come back.
-        tapTab("Inbox")
-        tapTab("Plans")
+            // Leave for another tab and come back.
+            tapTab("Inbox")
+            tapTab("Plans")
 
-        assertTagSelected(TestTags.PLANS_GRANULARITY_WEEK)
-        awaitTag(TestTags.plansSection("week:2026-09-14"))
-    }
+            assertTagSelected(TestTags.PLANS_GRANULARITY_WEEK)
+            awaitTag(TestTags.plansSection("week:2026-09-14"))
+        }
 }

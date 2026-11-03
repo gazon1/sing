@@ -14,7 +14,8 @@ sealed interface ProjectsUiEvent : MviEvent {
     data class Error(val message: String) : ProjectsUiEvent
 }
 
-fun ProjectsUiEvent.toNotification(): Notification = when (this) {
-    is ProjectsUiEvent.ProjectReviewResult -> Notification.Text(title = "Project Review", text = text)
-    is ProjectsUiEvent.Error -> Notification.Error(message)
-}
+fun ProjectsUiEvent.toNotification(): Notification =
+    when (this) {
+        is ProjectsUiEvent.ProjectReviewResult -> Notification.Text(title = "Project Review", text = text)
+        is ProjectsUiEvent.Error -> Notification.Error(message)
+    }

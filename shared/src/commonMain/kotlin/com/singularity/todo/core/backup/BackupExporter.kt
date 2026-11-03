@@ -29,7 +29,6 @@ import kotlin.time.Clock
  * repository whose decisions nobody checks.
  */
 interface ArchiveExporter {
-
     /** Writes the archive described by [options]. */
     suspend fun export(options: ExportOptions): Result<BackupResult>
 }
@@ -171,16 +170,41 @@ class BackupExporter(
                 }
             }
 
-            // 6. Write zip
-            codec
-                .export(manifestBytes, payloadBytes, attachmentEntries, options.destPath, fs)
-                .getOrThrow()
+            // 6. Write zip, then move it into place.
+            //
+            // The archive is written under a temporary name and moved over the
+            // destination only once it is whole. An export that fails half way
+            // — an attachment that is not on the disk, a disk that fills up —
+            // used to leave the destination file behind, and the next scheduled
+            // push uploads exactly that file: it is the newest one in the
+            // directory, and it is not a backup.
+            val temporary = temporarySiblingOf(options.destPath)
+            if (temporary == null) {
+                // A destination the person picked on Android is a document, not a
+                // file: there is no sibling to write next to it and no rename to
+                // make. The archive goes straight into the document.
+                codec
+                    .export(manifestBytes, payloadBytes, attachmentEntries, options.destPath, fs)
+                    .getOrThrow()
+            } else {
+                try {
+                    codec
+                        .export(manifestBytes, payloadBytes, attachmentEntries, temporary, fs)
+                        .getOrThrow()
+                    fs.move(temporary, options.destPath)
+                } finally {
+                    // A temporary file that did not become the archive is litter,
+                    // and litter in the backup directory is a file the person may see.
+                    runCatchingCancellable { fs.delete(temporary) }
+                }
+            }
 
             // The archive's size is asked of the filesystem, not read back out of
             // it: `fs.readBytes` here would load the whole archive into memory a
             // second time, which is the cost the streaming encoder exists to avoid.
-            val byteSize = fs.stat(options.destPath)?.sizeBytes
-                ?: throw BackupStorageError.FileNotFound(options.destPath)
+            val byteSize =
+                fs.stat(options.destPath)?.sizeBytes
+                    ?: throw BackupStorageError.FileNotFound(options.destPath)
 
             // The change that follows this snapshot.
             //
@@ -231,7 +255,9 @@ class BackupExporter(
         val previous = state.rows.takeIf { it.isNotEmpty() }
 
         when (val plan = BackupDeltaPlanner.plan(previous, index, payload)) {
-            is BackupDeltaPlan.FreshBase -> restartChain(options, state, index, now)
+            is BackupDeltaPlan.FreshBase -> {
+                restartChain(options, state, index, now)
+            }
 
             is BackupDeltaPlan.Entry -> {
                 if (plan.payload.hasNoChanges()) {
@@ -270,13 +296,26 @@ class BackupExporter(
             )
         val bytes = json.encodeToString(BackupDelta.serializer(), delta).encodeToByteArray()
         val deltaPath = "${options.destPath}$DELTA_SUFFIX"
-        fs.writeBytes(deltaPath, bytes)
+        // The change is written under a temporary name and moved over the real
+        // one, like the snapshot: a failure half way leaves the previous change
+        // and not half of the new one.
+        val temporary = "$deltaPath$TEMPORARY_SUFFIX"
+        try {
+            fs.writeBytes(temporary, bytes)
+            fs.move(temporary, deltaPath)
+        } finally {
+            // A temporary file that did not become the change is litter, and
+            // litter in the backup directory is a file the person may see.
+            runCatchingCancellable { fs.delete(temporary) }
+        }
 
-        val entries = state.entries + BackupChainEntry(
-            archivePath = options.destPath,
-            deltaPath = deltaPath,
-            byteSize = bytes.size.toLong(),
-        )
+        val entries =
+            state.entries +
+                BackupChainEntry(
+                    archivePath = options.destPath,
+                    deltaPath = deltaPath,
+                    byteSize = bytes.size.toLong(),
+                )
         val tooLong =
             entries.size > ArchiveFormat.MAX_CHAIN_ENTRIES ||
                 entries.sumOf { it.byteSize } > ArchiveFormat.MAX_CHAIN_BYTES
@@ -328,8 +367,31 @@ class BackupExporter(
         return destPath == dir || destPath.startsWith("$dir/") || destPath.startsWith("$dir\\")
     }
 
+    /**
+     * The file the archive is written to before it is moved over the
+     * destination, or `null` when the destination has no sibling to write one
+     * next to.
+     *
+     * A `content://` URI is a document in somebody else's provider: the
+     * provider owns the name, there is no directory to put a temporary file
+     * in, and a rename is not a thing a document does. Writing the archive
+     * beside it and moving it over it cannot work, so the document is written
+     * directly — which is what the export did before the temporary file
+     * existed, and what the Android picker needs.
+     */
+    private fun temporarySiblingOf(destPath: String): String? =
+        if (destPath.startsWith("content:")) null else "$destPath$TEMPORARY_SUFFIX"
+
     private companion object {
         /** The suffix of the file the change is written to, beside the snapshot. */
         const val DELTA_SUFFIX = ".delta"
+
+        /**
+         * The suffix of the file that is written before it is moved into place.
+         *
+         * Not `.zip`: the backup directory is scanned for `.zip`, and a
+         * half-written archive must not be one of the files that scan finds.
+         */
+        const val TEMPORARY_SUFFIX = ".tmp"
     }
 }

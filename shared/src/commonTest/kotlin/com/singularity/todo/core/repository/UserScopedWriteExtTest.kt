@@ -8,7 +8,6 @@ import kotlin.test.assertFailsWith
 
 @Tag("fast")
 class UserScopedWriteExtTest {
-
     @Test
     fun matchesCurrentUser_doesNotThrow() {
         val cu = FakeProfileAwareCurrentUser(initialUserId = UserId("u-1"))

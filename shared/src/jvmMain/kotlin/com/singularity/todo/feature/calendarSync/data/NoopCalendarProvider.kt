@@ -8,7 +8,6 @@ import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPor
  * Calendar sync is Android-only — this implementation does nothing and returns errors.
  */
 class NoopCalendarProvider : CalendarProviderPort {
-
     /** The desktop has no system calendar this app may write to. */
     override val isSupported: Boolean = false
 
@@ -18,12 +17,17 @@ class NoopCalendarProvider : CalendarProviderPort {
     override suspend fun insertEvent(event: CalendarSyncEvent): Result<Long> =
         Result.failure(UnsupportedOperationException("Calendar sync is not available on this platform"))
 
-    override suspend fun updateEvent(eventId: Long, event: CalendarSyncEvent): Result<Long> =
-        Result.failure(UnsupportedOperationException("Calendar sync is not available on this platform"))
+    override suspend fun updateEvent(
+        eventId: Long,
+        event: CalendarSyncEvent,
+    ): Result<Long> = Result.failure(UnsupportedOperationException("Calendar sync is not available on this platform"))
 
     override suspend fun deleteEvent(eventId: Long): Result<Unit> =
         Result.failure(UnsupportedOperationException("Calendar sync is not available on this platform"))
 
-    override suspend fun queryEvents(calendarId: String?, fromMs: Long, toMs: Long): Result<Map<String, Long>> =
-        Result.success(emptyMap())
+    override suspend fun queryEvents(
+        calendarId: String?,
+        fromMs: Long,
+        toMs: Long,
+    ): Result<Map<String, Long>> = Result.success(emptyMap())
 }

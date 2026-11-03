@@ -25,10 +25,10 @@ import kotlinx.coroutines.flow.map
  */
 class GoogleCalendarSettingsRepositoryImpl(private val dataStore: DataStore<Preferences>) :
     GoogleCalendarSettingsRepository {
-
-    override fun observeSelectedCalendarId(): Flow<String?> = dataStore.data
-        .catchDataStoreIoError()
-        .map { it[GOOGLE_CALENDAR_ID] }
+    override fun observeSelectedCalendarId(): Flow<String?> =
+        dataStore.data
+            .catchDataStoreIoError()
+            .map { it[GOOGLE_CALENDAR_ID] }
 
     override suspend fun setSelectedCalendarId(calendarId: String?) {
         dataStore.edit { prefs ->
@@ -40,13 +40,14 @@ class GoogleCalendarSettingsRepositoryImpl(private val dataStore: DataStore<Pref
         }
     }
 
-    override fun observeImportForeignEvents(): Flow<Boolean> = dataStore.data
-        .catchDataStoreIoError()
-        // Default true: connecting a Google account is usually done *because* it already
-        // holds the events the user wants to see. An absent key means "never chosen", which
-        // is not the same as "chosen no" — and defaulting to false would make a first-run
-        // sync look broken when it silently imported nothing.
-        .map { it[GOOGLE_IMPORT_FOREIGN] ?: true }
+    override fun observeImportForeignEvents(): Flow<Boolean> =
+        dataStore.data
+            .catchDataStoreIoError()
+            // Default true: connecting a Google account is usually done *because* it already
+            // holds the events the user wants to see. An absent key means "never chosen", which
+            // is not the same as "chosen no" — and defaulting to false would make a first-run
+            // sync look broken when it silently imported nothing.
+            .map { it[GOOGLE_IMPORT_FOREIGN] ?: true }
 
     override suspend fun setImportForeignEvents(enabled: Boolean) {
         dataStore.edit { it[GOOGLE_IMPORT_FOREIGN] = enabled }

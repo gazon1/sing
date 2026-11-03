@@ -73,11 +73,12 @@ class SupabaseConfigResolver(
      * app has to be able to say so rather than throwing on the first frame.
      */
     suspend fun resolve(store: SecureStorage): SupabaseConfig? {
-        val stored = store.read(KEY_URL)?.let { url ->
-            store.read(KEY_ANON_KEY)?.takeIf { it.isNotBlank() }?.let { anonKey ->
-                SupabaseConfig(url = url, anonKey = anonKey)
+        val stored =
+            store.read(KEY_URL)?.let { url ->
+                store.read(KEY_ANON_KEY)?.takeIf { it.isNotBlank() }?.let { anonKey ->
+                    SupabaseConfig(url = url, anonKey = anonKey)
+                }
             }
-        }
         if (stored != null) return stored
 
         return buildTime()?.let { SupabaseConfig(url = it.url, anonKey = it.anonKey) }
@@ -90,7 +91,10 @@ class SupabaseConfigResolver(
      * indistinguishable from "not configured" until the first request fails, and the
      * failure arrives as a network error that looks like a server problem.
      */
-    suspend fun store(store: SecureStorage, config: SupabaseConfig) {
+    suspend fun store(
+        store: SecureStorage,
+        config: SupabaseConfig,
+    ) {
         require(config.url.isNotBlank() && config.anonKey.isNotBlank()) {
             "refusing to store a half-configured supabase config"
         }
@@ -120,6 +124,11 @@ class SupabaseConfigResolver(
  */
 interface SecureStorage {
     suspend fun read(key: String): String?
-    suspend fun write(key: String, value: String)
+
+    suspend fun write(
+        key: String,
+        value: String,
+    )
+
     suspend fun delete(key: String)
 }

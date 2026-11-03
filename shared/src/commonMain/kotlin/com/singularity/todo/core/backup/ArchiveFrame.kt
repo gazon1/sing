@@ -35,7 +35,6 @@ internal class ArchiveFrame(
     /** The sealed change: the ciphertext and the tag. */
     val body: ByteArray,
 ) {
-
     /** How many bytes this frame takes in the container, head included. */
     fun frameSize(): Long = ArchiveFormat.ENTRY_HEAD_BYTES.toLong() + body.size
 

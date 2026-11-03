@@ -3,6 +3,7 @@ package com.singularity.todo.feature.ai.tools
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.query.Options
@@ -11,7 +12,6 @@ import com.singularity.todo.feature.search.query.SingularityQueryParser
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import com.singularity.todo.core.search.SearchMode
 
 @Serializable
 data class SearchTasksInput(val query: String, val limit: Int = 20)
@@ -48,39 +48,41 @@ class SearchTasksTool(private val search: SearchUseCase, private val currentUser
         NAME,
         DESCRIPTION,
     ) {
-
     override suspend fun execute(args: SearchTasksInput): String {
-        val query = runCatchingCancellable { SingularityQueryParser(args.query).parse() }
-            .getOrElse { problem ->
-                return Json.encodeToString(
-                    SearchTasksOutput.serializer(),
-                    SearchTasksOutput(tasks = emptyList(), error = problem.message),
-                )
-            }
+        val query =
+            runCatchingCancellable { SingularityQueryParser(args.query).parse() }
+                .getOrElse { problem ->
+                    return Json.encodeToString(
+                        SearchTasksOutput.serializer(),
+                        SearchTasksOutput(tasks = emptyList(), error = problem.message),
+                    )
+                }
 
         val userId = currentUser.scopedUserId.value.value
         // The AI tool searches by the beginning of a word, and it says so — a caller
         // that does not name the mode does not get an answer from a rule it did not ask for.
-        val results = search(
-            query.withLimit(effectiveLimit(query, args.limit)),
-            userId,
-            SearchMode.Word,
-        ).first()
+        val results =
+            search(
+                query.withLimit(effectiveLimit(query, args.limit)),
+                userId,
+                SearchMode.Word,
+            ).first()
 
-        val tasks = results.tasks.map { found ->
-            val task = found.record
-            TaskSummary(
-                id = task.id.value,
-                title = task.title,
-                projectId = task.projectId?.value,
-                dueDate = task.dueDate?.toString(),
-                priority = task.priority.name,
-                tags = task.tags.map { tag -> tag.value },
-                status = if (task.isCompleted) "completed" else "active",
-                estimateMinutes = task.estimateMinutes,
-                isPinned = task.isPinned,
-            )
-        }
+        val tasks =
+            results.tasks.map { found ->
+                val task = found.record
+                TaskSummary(
+                    id = task.id.value,
+                    title = task.title,
+                    projectId = task.projectId?.value,
+                    dueDate = task.dueDate?.toString(),
+                    priority = task.priority.name,
+                    tags = task.tags.map { tag -> tag.value },
+                    status = if (task.isCompleted) "completed" else "active",
+                    estimateMinutes = task.estimateMinutes,
+                    isPinned = task.isPinned,
+                )
+            }
         return Json.encodeToString(SearchTasksOutput.serializer(), SearchTasksOutput(tasks = tasks))
     }
 
@@ -91,7 +93,10 @@ class SearchTasksTool(private val search: SearchUseCase, private val currentUser
      * is the more specific instruction, and silently overriding it would leave
      * the model with a number it cannot explain.
      */
-    private fun effectiveLimit(query: Query, requested: Int): Int {
+    private fun effectiveLimit(
+        query: Query,
+        requested: Int,
+    ): Int {
         val fromQuery = query.options.limit
         val limit = if (fromQuery != Options().limit) fromQuery else requested
         return limit.coerceIn(1, MAX_LIMIT)

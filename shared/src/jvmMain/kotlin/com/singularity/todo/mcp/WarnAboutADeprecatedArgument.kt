@@ -8,7 +8,6 @@ package com.singularity.todo.mcp
  * step says it is on its way out and stops there.
  */
 internal object WarnAboutADeprecatedArgument : ToolServerStartupStep {
-
     override val title: String = "warn about a deprecated argument"
 
     override suspend fun run(context: ToolServerStartupContext): ToolServerStartup.Refused? {

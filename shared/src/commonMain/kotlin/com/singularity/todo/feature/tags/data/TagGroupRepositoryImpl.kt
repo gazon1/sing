@@ -5,10 +5,12 @@ import com.singularity.todo.core.database.ProjectInheritedTagGroupDao
 import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TagGroupDao
 import com.singularity.todo.core.database.TagGroupEntity
+import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.database.projectWithInheritance
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toInstant
 import com.singularity.todo.core.database.toInstantOrNull
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
@@ -24,8 +26,6 @@ import com.singularity.todo.feature.tags.toTag
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
-import com.singularity.todo.core.error.runCatchingCancellable
-import com.singularity.todo.core.database.UnitOfWork
 
 /**
  * Room-backed production [TagGroupRepository].
@@ -40,19 +40,20 @@ class TagGroupRepositoryImpl(
     private val syncRepository: SyncRepository,
     private val unitOfWork: UnitOfWork,
 ) : TagGroupRepository {
-
     // ─── Observation ────────────────────────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<TagGroup>> = currentUser.observeForCurrentUser { uid ->
-        tagGroupDao.watchAll(uid.value).map { list ->
-            list.map { it.toTagGroup() }
+    override fun observeAll(): Flow<List<TagGroup>> =
+        currentUser.observeForCurrentUser { uid ->
+            tagGroupDao.watchAll(uid.value).map { list ->
+                list.map { it.toTagGroup() }
+            }
         }
-    }
 
     // Scoped: the unscoped `watchById` returns another profile's tag group.
-    override fun observe(id: TagGroupId): Flow<TagGroup?> = currentUser.observeForCurrentUser { uid ->
-        tagGroupDao.watchByIdForUser(id.value, uid.value).map { it?.toTagGroup() }
-    }
+    override fun observe(id: TagGroupId): Flow<TagGroup?> =
+        currentUser.observeForCurrentUser { uid ->
+            tagGroupDao.watchByIdForUser(id.value, uid.value).map { it?.toTagGroup() }
+        }
 
     override suspend fun get(id: TagGroupId): TagGroup? {
         val uid = currentUser.scopedUserId.value
@@ -61,74 +62,81 @@ class TagGroupRepositoryImpl(
 
     // ─── Write operations ───────────────────────────────────────────────────────
 
-    override suspend fun create(input: CreateTagGroupInput): Result<TagGroup> = runCatchingCancellable {
-        unitOfWork.write {
-            val uid = currentUser.scopedUserId.value
-            val now = clock.now()
-            val tagGroup = TagGroup(
-                id = TagGroupId.generate(),
-                name = input.name.trim(),
-                color = input.color,
-                createdAt = now,
-                updatedAt = now,
-                userId = uid,
-            )
-            tagGroupDao.upsert(tagGroup.toEntity())
-            syncRepository.enqueue(tagGroup).getOrThrow()
-            tagGroup
+    override suspend fun create(input: CreateTagGroupInput): Result<TagGroup> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val uid = currentUser.scopedUserId.value
+                val now = clock.now()
+                val tagGroup =
+                    TagGroup(
+                        id = TagGroupId.generate(),
+                        name = input.name.trim(),
+                        color = input.color,
+                        createdAt = now,
+                        updatedAt = now,
+                        userId = uid,
+                    )
+                tagGroupDao.upsert(tagGroup.toEntity())
+                syncRepository.enqueue(tagGroup).getOrThrow()
+                tagGroup
+            }
         }
-    }
 
-    override suspend fun update(input: UpdateTagGroupInput): Result<TagGroup> = runCatchingCancellable {
-        unitOfWork.write {
-            val uid = currentUser.scopedUserId.value
-            val existing = tagGroupDao.getByIdForUser(input.id.value, uid.value)
-                ?: throw NoSuchElementException("TagGroup not found: ${input.id}")
-            // DAO-level filter above is the first guard; explicit assertCanWrite is the
-            // second (the entity stores the raw String column, hence the wrap).
-            currentUser.assertCanWrite(
-                entityId = existing.id,
-                entityUserId = UserId(existing.userId),
-            )
-            val updated = existing.toTagGroup().copy(
-                name = input.name.trim(),
-                color = input.color,
-                updatedAt = clock.now(),
-            )
-            tagGroupDao.upsert(updated.toEntity())
-            syncRepository.enqueue(updated).getOrThrow()
-            updated
+    override suspend fun update(input: UpdateTagGroupInput): Result<TagGroup> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val uid = currentUser.scopedUserId.value
+                val existing =
+                    tagGroupDao.getByIdForUser(input.id.value, uid.value)
+                        ?: throw NoSuchElementException("TagGroup not found: ${input.id}")
+                // DAO-level filter above is the first guard; explicit assertCanWrite is the
+                // second (the entity stores the raw String column, hence the wrap).
+                currentUser.assertCanWrite(
+                    entityId = existing.id,
+                    entityUserId = UserId(existing.userId),
+                )
+                val updated =
+                    existing.toTagGroup().copy(
+                        name = input.name.trim(),
+                        color = input.color,
+                        updatedAt = clock.now(),
+                    )
+                tagGroupDao.upsert(updated.toEntity())
+                syncRepository.enqueue(updated).getOrThrow()
+                updated
+            }
         }
-    }
 
-    override suspend fun delete(id: TagGroupId): Result<Unit> = runCatchingCancellable {
-        unitOfWork.write {
-            val uid = currentUser.scopedUserId.value
-            val ts = clock.now().toEpochMillis()
-            val rows = tagGroupDao.softDeleteForUser(id.value, ts, uid.value)
-            require(rows > 0) { "TagGroup $id not found or not owned by current user" }
+    override suspend fun delete(id: TagGroupId): Result<Unit> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val uid = currentUser.scopedUserId.value
+                val ts = clock.now().toEpochMillis()
+                val rows = tagGroupDao.softDeleteForUser(id.value, ts, uid.value)
+                require(rows > 0) { "TagGroup $id not found or not owned by current user" }
 
-            // Read the members *before* releasing them: their rows change, so each one
-            // has to be pushed to sync or the server keeps the tags in the dead group.
-            val releasedTags = tagDao.listByGroupForUser(id.value, uid.value)
-            tagDao.clearGroupForUser(id.value, ts, uid.value)
-            releasedTags.forEach { tag -> syncRepository.enqueue(tag.toTag()).getOrThrow() }
+                // Read the members *before* releasing them: their rows change, so each one
+                // has to be pushed to sync or the server keeps the tags in the dead group.
+                val releasedTags = tagDao.listByGroupForUser(id.value, uid.value)
+                tagDao.clearGroupForUser(id.value, ts, uid.value)
+                releasedTags.forEach { tag -> syncRepository.enqueue(tag.toTag()).getOrThrow() }
 
-            // The join table has no deleted_at of its own and watchByProject does not
-            // filter deleted groups, so a leftover row would keep resolving this group
-            // into every project that inherited it.
-            inheritedTagGroupDao.deleteByGroupForUser(id.value, uid.value)
+                // The join table has no deleted_at of its own and watchByProject does not
+                // filter deleted groups, so a leftover row would keep resolving this group
+                // into every project that inherited it.
+                inheritedTagGroupDao.deleteByGroupForUser(id.value, uid.value)
 
-            // Push the *real* trashed group, not a placeholder. The previous form
-            // built `name = ""`, `color = 0` on the assumption that the sync handler
-            // only reads docType + syncId — but toJson() serialises the whole model,
-            // so the server received a tag group with an empty name. Deletion
-            // propagates as state (`deletedAt`), same as every other entity.
-            val row = tagGroupDao.getByIdForUser(id.value, uid.value)
-                ?: throw IllegalStateException("TagGroup $id vanished between soft delete and sync")
-            syncRepository.enqueue(row.toTagGroup()).getOrThrow()
+                // Push the *real* trashed group, not a placeholder. The previous form
+                // built `name = ""`, `color = 0` on the assumption that the sync handler
+                // only reads docType + syncId — but toJson() serialises the whole model,
+                // so the server received a tag group with an empty name. Deletion
+                // propagates as state (`deletedAt`), same as every other entity.
+                val row =
+                    tagGroupDao.getByIdForUser(id.value, uid.value)
+                        ?: throw IllegalStateException("TagGroup $id vanished between soft delete and sync")
+                syncRepository.enqueue(row.toTagGroup()).getOrThrow()
+            }
         }
-    }
 
     // ─── Inheritance ────────────────────────────────────────────────────────────
 
@@ -137,7 +145,10 @@ class TagGroupRepositoryImpl(
             list.mapTo(LinkedHashSet()) { TagGroupId.fromString(it) }
         }
 
-    override suspend fun setInheritedForProject(projectId: ProjectId, groupIds: Set<TagGroupId>): Result<Unit> =
+    override suspend fun setInheritedForProject(
+        projectId: ProjectId,
+        groupIds: Set<TagGroupId>,
+    ): Result<Unit> =
         runCatchingCancellable {
             val uid = currentUser.scopedUserId.value.value
             unitOfWork.write {
@@ -181,10 +192,11 @@ class TagGroupRepositoryImpl(
 
     // ─── Sync ───────────────────────────────────────────────────────────────────
 
-    override suspend fun upsert(tagGroup: TagGroup): TagGroup = unitOfWork.write {
-        tagGroupDao.upsert(tagGroup.toEntity())
-        tagGroup
-    }
+    override suspend fun upsert(tagGroup: TagGroup): TagGroup =
+        unitOfWork.write {
+            tagGroupDao.upsert(tagGroup.toEntity())
+            tagGroup
+        }
 
     // ─── Profile wipe ────────────────────────────────────────────────────────────
 
@@ -196,44 +208,52 @@ class TagGroupRepositoryImpl(
      * a single-group delete releases them: the profile wipe takes the tags too, so
      * there is nothing left to re-point.
      */
-    override suspend fun deleteAllForCurrentProfile(): Result<Int> = runCatchingCancellable {
-        unitOfWork.write {
-            val uid = currentUser.scopedUserId.value.value
-            val doomed = tagGroupDao.listAllForUser(uid)
-            val removed = tagGroupDao.deleteAllForUser(uid)
-            val now = clock.now()
-            doomed.forEach { row ->
-                syncRepository.enqueue(row.toTagGroup().copy(deletedAt = now)).getOrThrow()
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val uid = currentUser.scopedUserId.value.value
+                val doomed = tagGroupDao.listAllForUser(uid)
+                val removed = tagGroupDao.deleteAllForUser(uid)
+                val now = clock.now()
+                doomed.forEach { row ->
+                    syncRepository.enqueue(row.toTagGroup().copy(deletedAt = now)).getOrThrow()
+                }
+                removed
             }
-            removed
         }
-    }
 }
 
 // ─── Mappers (internal, used within the same module) ─────────────────────────
 
-private fun TagGroupEntity.toTagGroup(): TagGroup = TagGroup(
-    id = TagGroupId.fromString(id),
-    name = name,
-    color = color,
-    createdAt = createdAt.toInstant(),
-    updatedAt = updatedAt.toInstant(),
-    userId = UserId(userId),
-    deletedAt = deletedAt.toInstantOrNull(),
-    serverVersion = sync.serverVersion,
-    hlc = sync.hlc?.let { com.singularity.todo.core.sync.Hlc(it) },
-)
+private fun TagGroupEntity.toTagGroup(): TagGroup =
+    TagGroup(
+        id = TagGroupId.fromString(id),
+        name = name,
+        color = color,
+        createdAt = createdAt.toInstant(),
+        updatedAt = updatedAt.toInstant(),
+        userId = UserId(userId),
+        deletedAt = deletedAt.toInstantOrNull(),
+        serverVersion = sync.serverVersion,
+        hlc =
+            sync.hlc?.let {
+                com.singularity.todo.core.sync
+                    .Hlc(it)
+            },
+    )
 
-private fun TagGroup.toEntity(): TagGroupEntity = TagGroupEntity(
-    id = id.value,
-    userId = userId.value,
-    name = name,
-    color = color,
-    createdAt = createdAt.toEpochMillis(),
-    updatedAt = updatedAt.toEpochMillis(),
-    deletedAt = deletedAt?.toEpochMillis(),
-    sync = com.singularity.todo.core.database.SyncColumns(
-        serverVersion = serverVersion,
-        hlc = hlc?.encoded,
-    ),
-)
+private fun TagGroup.toEntity(): TagGroupEntity =
+    TagGroupEntity(
+        id = id.value,
+        userId = userId.value,
+        name = name,
+        color = color,
+        createdAt = createdAt.toEpochMillis(),
+        updatedAt = updatedAt.toEpochMillis(),
+        deletedAt = deletedAt?.toEpochMillis(),
+        sync =
+            com.singularity.todo.core.database.SyncColumns(
+                serverVersion = serverVersion,
+                hlc = hlc?.encoded,
+            ),
+    )

@@ -37,27 +37,28 @@ import kotlinx.serialization.serializer
  * and works across all KMP targets.
  */
 val Selector.typeTag: String
-    get() = when (this) {
-        is Selector.DateBucket -> "DateBucket"
-        is Selector.DateRange -> "DateRange"
-        is Selector.Tags -> "Tags"
-        is Selector.Statuses -> "Statuses"
-        is Selector.Priorities -> "Priorities"
-        is Selector.Projects -> "Projects"
-        is Selector.Pinned -> "Pinned"
-        is Selector.Completed -> "Completed"
-        is Selector.Overdue -> "Overdue"
-        is Selector.Blocked -> "Blocked"
-        is Selector.WorkflowState -> "WorkflowState"
-        is Selector.FollowUp -> "FollowUp"
-        is Selector.Stagnant -> "Stagnant"
-        is Selector.Regexp -> "Regexp"
-        is Selector.AllOf -> "AllOf"
-        is Selector.AnyOf -> "AnyOf"
-        is Selector.Not -> "Not"
-        is Selector.Anything -> "Anything"
-        is Selector.TimeOfDay -> "TimeOfDay"
-    }
+    get() =
+        when (this) {
+            is Selector.DateBucket -> "DateBucket"
+            is Selector.DateRange -> "DateRange"
+            is Selector.Tags -> "Tags"
+            is Selector.Statuses -> "Statuses"
+            is Selector.Priorities -> "Priorities"
+            is Selector.Projects -> "Projects"
+            is Selector.Pinned -> "Pinned"
+            is Selector.Completed -> "Completed"
+            is Selector.Overdue -> "Overdue"
+            is Selector.Blocked -> "Blocked"
+            is Selector.WorkflowState -> "WorkflowState"
+            is Selector.FollowUp -> "FollowUp"
+            is Selector.Stagnant -> "Stagnant"
+            is Selector.Regexp -> "Regexp"
+            is Selector.AllOf -> "AllOf"
+            is Selector.AnyOf -> "AnyOf"
+            is Selector.Not -> "Not"
+            is Selector.Anything -> "Anything"
+            is Selector.TimeOfDay -> "TimeOfDay"
+        }
 
 /**
  * A encode/decode pair for one [Selector] variant.
@@ -74,338 +75,352 @@ private data class SelectorEntry(val encode: (Selector) -> JsonObject, val decod
  */
 private class RegistryHolder {
     // Initialized in declaration order: leafEntries → compositeEntries → allEntries
-    val leafEntries: Map<String, SelectorEntry> = buildMap {
-        put(
-            "DateBucket",
-            SelectorEntry(
-                encode = { s ->
-                    JsonObject(
-                        mapOf(
-                            "_type" to JsonPrimitive("DateBucket"),
-                            "bucket" to JsonPrimitive((s as Selector.DateBucket).bucket.name),
-                        ),
-                    )
-                },
-                decode = { obj ->
-                    Selector.DateBucket(
-                        bucket = Json.decodeFromJsonElement(serializer(), obj.getValue("bucket")),
-                    )
-                },
-            ),
-        )
-
-        put(
-            "DateRange",
-            SelectorEntry(
-                encode = { s ->
-                    JsonObject(
-                        mapOf(
-                            "_type" to JsonPrimitive("DateRange"),
-                            "from" to JsonPrimitive((s as Selector.DateRange).from.toString()),
-                            "to" to JsonPrimitive(s.to.toString()),
-                        ),
-                    )
-                },
-                decode = { obj ->
-                    Selector.DateRange(
-                        from = Json.decodeFromJsonElement(serializer(), obj.getValue("from")),
-                        to = Json.decodeFromJsonElement(serializer(), obj.getValue("to")),
-                    )
-                },
-            ),
-        )
-
-        put(
-            "Tags",
-            SelectorEntry(
-                encode = { s ->
-                    JsonObject(
-                        mapOf(
-                            "_type" to JsonPrimitive("Tags"),
-                            "ids" to JsonArray((s as Selector.Tags).ids.map { JsonPrimitive(it.value) }),
-                            "matchAll" to JsonPrimitive(s.matchAll),
-                        ),
-                    )
-                },
-                decode = { obj ->
-                    Selector.Tags(
-                        ids = Json.decodeFromJsonElement(serializer(), obj.getValue("ids")),
-                        matchAll = obj["matchAll"]?.let { Json.decodeFromJsonElement(serializer(), it) } ?: false,
-                    )
-                },
-            ),
-        )
-
-        put(
-            "Statuses",
-            SelectorEntry(
-                encode = { s ->
-                    JsonObject(
-                        mapOf(
-                            "_type" to JsonPrimitive("Statuses"),
-                            "statuses" to JsonArray((s as Selector.Statuses).statuses.map { JsonPrimitive(it.name) }),
-                        ),
-                    )
-                },
-                decode = { obj ->
-                    Selector.Statuses(
-                        statuses = Json.decodeFromJsonElement(serializer(), obj.getValue("statuses")),
-                    )
-                },
-            ),
-        )
-
-        put(
-            "Priorities",
-            SelectorEntry(
-                encode = { s ->
-                    JsonObject(
-                        mapOf(
-                            "_type" to JsonPrimitive("Priorities"),
-                            "priorities" to JsonArray(
-                                (s as Selector.Priorities).priorities.map { JsonPrimitive(it.name) },
+    val leafEntries: Map<String, SelectorEntry> =
+        buildMap {
+            put(
+                "DateBucket",
+                SelectorEntry(
+                    encode = { s ->
+                        JsonObject(
+                            mapOf(
+                                "_type" to JsonPrimitive("DateBucket"),
+                                "bucket" to JsonPrimitive((s as Selector.DateBucket).bucket.name),
                             ),
-                            "atMost" to JsonPrimitive(s.atMost),
-                        ),
-                    )
-                },
-                decode = { obj ->
-                    Selector.Priorities(
-                        priorities = Json.decodeFromJsonElement(serializer(), obj.getValue("priorities")),
-                        atMost = obj["atMost"]?.let { Json.decodeFromJsonElement(serializer(), it) } ?: true,
-                    )
-                },
-            ),
-        )
+                        )
+                    },
+                    decode = { obj ->
+                        Selector.DateBucket(
+                            bucket = Json.decodeFromJsonElement(serializer(), obj.getValue("bucket")),
+                        )
+                    },
+                ),
+            )
 
-        put(
-            "Projects",
-            SelectorEntry(
-                encode = { s ->
-                    JsonObject(
-                        mapOf(
-                            "_type" to JsonPrimitive("Projects"),
-                            "ids" to JsonArray((s as Selector.Projects).ids.map { JsonPrimitive(it.value) }),
-                        ),
-                    )
-                },
-                decode = { obj ->
-                    Selector.Projects(
-                        ids = Json.decodeFromJsonElement(serializer(), obj.getValue("ids")),
-                    )
-                },
-            ),
-        )
+            put(
+                "DateRange",
+                SelectorEntry(
+                    encode = { s ->
+                        JsonObject(
+                            mapOf(
+                                "_type" to JsonPrimitive("DateRange"),
+                                "from" to JsonPrimitive((s as Selector.DateRange).from.toString()),
+                                "to" to JsonPrimitive(s.to.toString()),
+                            ),
+                        )
+                    },
+                    decode = { obj ->
+                        Selector.DateRange(
+                            from = Json.decodeFromJsonElement(serializer(), obj.getValue("from")),
+                            to = Json.decodeFromJsonElement(serializer(), obj.getValue("to")),
+                        )
+                    },
+                ),
+            )
 
-        put(
-            "Pinned",
-            SelectorEntry(
-                encode = { JsonObject(mapOf("_type" to JsonPrimitive("Pinned"))) },
-                decode = { Selector.Pinned },
-            ),
-        )
+            put(
+                "Tags",
+                SelectorEntry(
+                    encode = { s ->
+                        JsonObject(
+                            mapOf(
+                                "_type" to JsonPrimitive("Tags"),
+                                "ids" to JsonArray((s as Selector.Tags).ids.map { JsonPrimitive(it.value) }),
+                                "matchAll" to JsonPrimitive(s.matchAll),
+                            ),
+                        )
+                    },
+                    decode = { obj ->
+                        Selector.Tags(
+                            ids = Json.decodeFromJsonElement(serializer(), obj.getValue("ids")),
+                            matchAll = obj["matchAll"]?.let { Json.decodeFromJsonElement(serializer(), it) } ?: false,
+                        )
+                    },
+                ),
+            )
 
-        put(
-            "Completed",
-            SelectorEntry(
-                encode = { JsonObject(mapOf("_type" to JsonPrimitive("Completed"))) },
-                decode = { Selector.Completed },
-            ),
-        )
+            put(
+                "Statuses",
+                SelectorEntry(
+                    encode = { s ->
+                        JsonObject(
+                            mapOf(
+                                "_type" to JsonPrimitive("Statuses"),
+                                "statuses" to
+                                    JsonArray((s as Selector.Statuses).statuses.map { JsonPrimitive(it.name) }),
+                            ),
+                        )
+                    },
+                    decode = { obj ->
+                        Selector.Statuses(
+                            statuses = Json.decodeFromJsonElement(serializer(), obj.getValue("statuses")),
+                        )
+                    },
+                ),
+            )
 
-        put(
-            "Overdue",
-            SelectorEntry(
-                encode = { JsonObject(mapOf("_type" to JsonPrimitive("Overdue"))) },
-                decode = { Selector.Overdue },
-            ),
-        )
+            put(
+                "Priorities",
+                SelectorEntry(
+                    encode = { s ->
+                        JsonObject(
+                            mapOf(
+                                "_type" to JsonPrimitive("Priorities"),
+                                "priorities" to
+                                    JsonArray(
+                                        (s as Selector.Priorities).priorities.map { JsonPrimitive(it.name) },
+                                    ),
+                                "atMost" to JsonPrimitive(s.atMost),
+                            ),
+                        )
+                    },
+                    decode = { obj ->
+                        Selector.Priorities(
+                            priorities = Json.decodeFromJsonElement(serializer(), obj.getValue("priorities")),
+                            atMost = obj["atMost"]?.let { Json.decodeFromJsonElement(serializer(), it) } ?: true,
+                        )
+                    },
+                ),
+            )
 
-        put(
-            "Blocked",
-            SelectorEntry(
-                encode = { JsonObject(mapOf("_type" to JsonPrimitive("Blocked"))) },
-                decode = { Selector.Blocked },
-            ),
-        )
+            put(
+                "Projects",
+                SelectorEntry(
+                    encode = { s ->
+                        JsonObject(
+                            mapOf(
+                                "_type" to JsonPrimitive("Projects"),
+                                "ids" to JsonArray((s as Selector.Projects).ids.map { JsonPrimitive(it.value) }),
+                            ),
+                        )
+                    },
+                    decode = { obj ->
+                        Selector.Projects(
+                            ids = Json.decodeFromJsonElement(serializer(), obj.getValue("ids")),
+                        )
+                    },
+                ),
+            )
 
-        put(
-            "WorkflowState",
-            SelectorEntry(
-                encode = { s ->
-                    JsonObject(
-                        mapOf(
-                            "_type" to JsonPrimitive("WorkflowState"),
-                            "state" to JsonPrimitive((s as Selector.WorkflowState).state.name),
-                        ),
-                    )
-                },
-                decode = { obj ->
-                    Selector.WorkflowState(
-                        state = Json.decodeFromJsonElement(serializer(), obj.getValue("state")),
-                    )
-                },
-            ),
-        )
+            put(
+                "Pinned",
+                SelectorEntry(
+                    encode = { JsonObject(mapOf("_type" to JsonPrimitive("Pinned"))) },
+                    decode = { Selector.Pinned },
+                ),
+            )
 
-        put(
-            "FollowUp",
-            SelectorEntry(
-                encode = { JsonObject(mapOf("_type" to JsonPrimitive("FollowUp"))) },
-                decode = { Selector.FollowUp },
-            ),
-        )
+            put(
+                "Completed",
+                SelectorEntry(
+                    encode = { JsonObject(mapOf("_type" to JsonPrimitive("Completed"))) },
+                    decode = { Selector.Completed },
+                ),
+            )
 
-        put(
-            "Stagnant",
-            SelectorEntry(
-                encode = { s ->
-                    val stagnant = s as Selector.Stagnant
-                    JsonObject(
-                        mapOf(
-                            "_type" to JsonPrimitive("Stagnant"),
-                            "threshold" to JsonPrimitive(stagnant.threshold.toString()),
-                        ),
-                    )
-                },
-                decode = { obj ->
-                    Selector.Stagnant(
-                        threshold = kotlin.time.Duration.parse(obj.getValue("threshold").jsonPrimitive.content),
-                    )
-                },
-            ),
-        )
+            put(
+                "Overdue",
+                SelectorEntry(
+                    encode = { JsonObject(mapOf("_type" to JsonPrimitive("Overdue"))) },
+                    decode = { Selector.Overdue },
+                ),
+            )
 
-        put(
-            "Regexp",
-            SelectorEntry(
-                encode = { s ->
-                    JsonObject(
-                        mapOf(
-                            "_type" to JsonPrimitive("Regexp"),
-                            "query" to JsonPrimitive((s as Selector.Regexp).query),
-                        ),
-                    )
-                },
-                decode = { obj ->
-                    Selector.Regexp(
-                        query = obj.getValue("query").jsonPrimitive.content,
-                    )
-                },
-            ),
-        )
+            put(
+                "Blocked",
+                SelectorEntry(
+                    encode = { JsonObject(mapOf("_type" to JsonPrimitive("Blocked"))) },
+                    decode = { Selector.Blocked },
+                ),
+            )
 
-        put(
-            "Anything",
-            SelectorEntry(
-                encode = { JsonObject(mapOf("_type" to JsonPrimitive("Anything"))) },
-                decode = { Selector.Anything },
-            ),
-        )
-        // Added with the work-day preset. It was in the sealed hierarchy and in
-        // `typeTag`, but never in this registry — so `getValue("TimeOfDay")` threw
-        // "Key TimeOfDay is missing in the map" the moment anything tried to
-        // serialize a work-day section, and the failure was silent.
-        //
-        // See docs/decisions/2026-10-19-selector-registry-completeness-guard.md —
-        // and note that the check in `init` below could not have caught it, because
-        // it compares this registry against a list that had been left at the old count.
-        put(
-            "TimeOfDay",
-            SelectorEntry(
-                encode = { s ->
-                    val timeOfDay = s as Selector.TimeOfDay
-                    JsonObject(
-                        mapOf(
-                            "_type" to JsonPrimitive("TimeOfDay"),
-                            "minStartMinutes" to JsonPrimitive(timeOfDay.minStartMinutes),
-                            "maxEndMinutes" to JsonPrimitive(timeOfDay.maxEndMinutes),
-                        ),
-                    )
-                },
-                decode = { obj ->
-                    Selector.TimeOfDay(
-                        minStartMinutes = obj.getValue("minStartMinutes").jsonPrimitive.content.toInt(),
-                        maxEndMinutes = obj.getValue("maxEndMinutes").jsonPrimitive.content.toInt(),
-                    )
-                },
-            ),
-        )
-    }.also { require(it.size == 16) { "Expected 16 leaf entries, got ${it.size}" } }
+            put(
+                "WorkflowState",
+                SelectorEntry(
+                    encode = { s ->
+                        JsonObject(
+                            mapOf(
+                                "_type" to JsonPrimitive("WorkflowState"),
+                                "state" to JsonPrimitive((s as Selector.WorkflowState).state.name),
+                            ),
+                        )
+                    },
+                    decode = { obj ->
+                        Selector.WorkflowState(
+                            state = Json.decodeFromJsonElement(serializer(), obj.getValue("state")),
+                        )
+                    },
+                ),
+            )
+
+            put(
+                "FollowUp",
+                SelectorEntry(
+                    encode = { JsonObject(mapOf("_type" to JsonPrimitive("FollowUp"))) },
+                    decode = { Selector.FollowUp },
+                ),
+            )
+
+            put(
+                "Stagnant",
+                SelectorEntry(
+                    encode = { s ->
+                        val stagnant = s as Selector.Stagnant
+                        JsonObject(
+                            mapOf(
+                                "_type" to JsonPrimitive("Stagnant"),
+                                "threshold" to JsonPrimitive(stagnant.threshold.toString()),
+                            ),
+                        )
+                    },
+                    decode = { obj ->
+                        Selector.Stagnant(
+                            threshold = kotlin.time.Duration.parse(obj.getValue("threshold").jsonPrimitive.content),
+                        )
+                    },
+                ),
+            )
+
+            put(
+                "Regexp",
+                SelectorEntry(
+                    encode = { s ->
+                        JsonObject(
+                            mapOf(
+                                "_type" to JsonPrimitive("Regexp"),
+                                "query" to JsonPrimitive((s as Selector.Regexp).query),
+                            ),
+                        )
+                    },
+                    decode = { obj ->
+                        Selector.Regexp(
+                            query = obj.getValue("query").jsonPrimitive.content,
+                        )
+                    },
+                ),
+            )
+
+            put(
+                "Anything",
+                SelectorEntry(
+                    encode = { JsonObject(mapOf("_type" to JsonPrimitive("Anything"))) },
+                    decode = { Selector.Anything },
+                ),
+            )
+            // Added with the work-day preset. It was in the sealed hierarchy and in
+            // `typeTag`, but never in this registry — so `getValue("TimeOfDay")` threw
+            // "Key TimeOfDay is missing in the map" the moment anything tried to
+            // serialize a work-day section, and the failure was silent.
+            //
+            // See docs/decisions/2026-10-19-selector-registry-completeness-guard.md —
+            // and note that the check in `init` below could not have caught it, because
+            // it compares this registry against a list that had been left at the old count.
+            put(
+                "TimeOfDay",
+                SelectorEntry(
+                    encode = { s ->
+                        val timeOfDay = s as Selector.TimeOfDay
+                        JsonObject(
+                            mapOf(
+                                "_type" to JsonPrimitive("TimeOfDay"),
+                                "minStartMinutes" to JsonPrimitive(timeOfDay.minStartMinutes),
+                                "maxEndMinutes" to JsonPrimitive(timeOfDay.maxEndMinutes),
+                            ),
+                        )
+                    },
+                    decode = { obj ->
+                        Selector.TimeOfDay(
+                            minStartMinutes =
+                                obj
+                                    .getValue("minStartMinutes")
+                                    .jsonPrimitive.content
+                                    .toInt(),
+                            maxEndMinutes =
+                                obj
+                                    .getValue("maxEndMinutes")
+                                    .jsonPrimitive.content
+                                    .toInt(),
+                        )
+                    },
+                ),
+            )
+        }.also { require(it.size == 16) { "Expected 16 leaf entries, got ${it.size}" } }
 
     // compositeEntries encode lambdas capture `this` (the RegistryHolder instance) and look up
     // from `allEntries` at CALL time, not at capture/creation time. This avoids the
     // "forward reference" issue: at creation time, only `leafEntries` is initialized;
     // `allEntries` is computed lazily and available by the time any encode is called.
-    val compositeEntries: Map<String, SelectorEntry> = buildMap {
-        put(
-            "AllOf",
-            SelectorEntry(
-                encode = { s ->
-                    val allOf = s as Selector.AllOf
-                    JsonObject(
-                        mapOf(
-                            "_type" to JsonPrimitive("AllOf"),
-                            "children" to JsonArray(
-                                allOf.children.map { child ->
-                                    allEntries.getValue(child.typeTag).encode(child)
-                                },
+    val compositeEntries: Map<String, SelectorEntry> =
+        buildMap {
+            put(
+                "AllOf",
+                SelectorEntry(
+                    encode = { s ->
+                        val allOf = s as Selector.AllOf
+                        JsonObject(
+                            mapOf(
+                                "_type" to JsonPrimitive("AllOf"),
+                                "children" to
+                                    JsonArray(
+                                        allOf.children.map { child ->
+                                            allEntries.getValue(child.typeTag).encode(child)
+                                        },
+                                    ),
                             ),
-                        ),
-                    )
-                },
-                decode = { obj ->
-                    Selector.AllOf(
-                        children = Json.decodeFromJsonElement(serializer(), obj.getValue("children")),
-                    )
-                },
-            ),
-        )
+                        )
+                    },
+                    decode = { obj ->
+                        Selector.AllOf(
+                            children = Json.decodeFromJsonElement(serializer(), obj.getValue("children")),
+                        )
+                    },
+                ),
+            )
 
-        put(
-            "AnyOf",
-            SelectorEntry(
-                encode = { s ->
-                    val anyOf = s as Selector.AnyOf
-                    JsonObject(
-                        mapOf(
-                            "_type" to JsonPrimitive("AnyOf"),
-                            "children" to JsonArray(
-                                anyOf.children.map { child ->
-                                    allEntries.getValue(child.typeTag).encode(child)
-                                },
+            put(
+                "AnyOf",
+                SelectorEntry(
+                    encode = { s ->
+                        val anyOf = s as Selector.AnyOf
+                        JsonObject(
+                            mapOf(
+                                "_type" to JsonPrimitive("AnyOf"),
+                                "children" to
+                                    JsonArray(
+                                        anyOf.children.map { child ->
+                                            allEntries.getValue(child.typeTag).encode(child)
+                                        },
+                                    ),
                             ),
-                        ),
-                    )
-                },
-                decode = { obj ->
-                    Selector.AnyOf(
-                        children = Json.decodeFromJsonElement(serializer(), obj.getValue("children")),
-                    )
-                },
-            ),
-        )
+                        )
+                    },
+                    decode = { obj ->
+                        Selector.AnyOf(
+                            children = Json.decodeFromJsonElement(serializer(), obj.getValue("children")),
+                        )
+                    },
+                ),
+            )
 
-        put(
-            "Not",
-            SelectorEntry(
-                encode = { s ->
-                    val not = s as Selector.Not
-                    JsonObject(
-                        mapOf(
-                            "_type" to JsonPrimitive("Not"),
-                            "child" to allEntries.getValue(not.child.typeTag).encode(not.child),
-                        ),
-                    )
-                },
-                decode = { obj ->
-                    Selector.Not(
-                        child = Json.decodeFromJsonElement(serializer(), obj.getValue("child")),
-                    )
-                },
-            ),
-        )
-    }.also { require(it.size == 3) { "Expected 3 composite entries, got ${it.size}" } }
+            put(
+                "Not",
+                SelectorEntry(
+                    encode = { s ->
+                        val not = s as Selector.Not
+                        JsonObject(
+                            mapOf(
+                                "_type" to JsonPrimitive("Not"),
+                                "child" to allEntries.getValue(not.child.typeTag).encode(not.child),
+                            ),
+                        )
+                    },
+                    decode = { obj ->
+                        Selector.Not(
+                            child = Json.decodeFromJsonElement(serializer(), obj.getValue("child")),
+                        )
+                    },
+                ),
+            )
+        }.also { require(it.size == 3) { "Expected 3 composite entries, got ${it.size}" } }
 
     val allEntries: Map<String, SelectorEntry> = leafEntries + compositeEntries
 }
@@ -467,22 +482,28 @@ object SelectorSerializer : KSerializer<Selector> {
         }
     }
 
-    override fun serialize(encoder: kotlinx.serialization.encoding.Encoder, value: Selector) {
-        val jsonEncoder = encoder as? kotlinx.serialization.json.JsonEncoder
-            ?: throw SerializationException("Selector serialization requires a JSON encoder")
+    override fun serialize(
+        encoder: kotlinx.serialization.encoding.Encoder,
+        value: Selector,
+    ) {
+        val jsonEncoder =
+            encoder as? kotlinx.serialization.json.JsonEncoder
+                ?: throw SerializationException("Selector serialization requires a JSON encoder")
         jsonEncoder.encodeJsonElement(registry.allEntries.getValue(value.typeTag).encode(value))
     }
 
     override fun deserialize(decoder: kotlinx.serialization.encoding.Decoder): Selector {
         val element = (decoder as kotlinx.serialization.json.JsonDecoder).decodeJsonElement()
         val obj = element.jsonObject
-        val type = obj["_type"]?.jsonPrimitive?.content
-            ?: throw SerializationException("Missing '_type' discriminator")
+        val type =
+            obj["_type"]?.jsonPrimitive?.content
+                ?: throw SerializationException("Missing '_type' discriminator")
 
         // Legacy migration shim: MR1 "Tag" → MR2 "Tags"
         if (type == "Tag") {
-            val id = obj["id"]?.jsonPrimitive?.content
-                ?: throw SerializationException("Missing 'id' field for Selector.Tag legacy")
+            val id =
+                obj["id"]?.jsonPrimitive?.content
+                    ?: throw SerializationException("Missing 'id' field for Selector.Tag legacy")
             return Selector.Tags(setOf(TagId(id)))
         }
 

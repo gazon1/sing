@@ -122,7 +122,8 @@ class SettingsDataStoreMigration(
         if (SCHEMA_VERSION_KEY in state) return false
 
         val legacy = legacyDataStore.data.first()
-        if (legacy.asMap()
+        if (legacy
+                .asMap()
                 .isEmpty()
         ) {
             // Fresh install — nothing to migrate, just write schema version

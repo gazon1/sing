@@ -30,7 +30,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,39 +40,40 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.core.refresh.RefreshableContent
+import com.singularity.todo.core.search.SearchColumn
+import com.singularity.todo.core.search.TextMatchRange
+import com.singularity.todo.core.search.inColumn
+import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
-import com.singularity.todo.core.text.StaticText
-import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.text.highlightedText
-import com.singularity.todo.core.search.SearchColumn
-import com.singularity.todo.core.platform.systemToday
-import com.singularity.todo.feature.tasks.domain.logic.Blocking
-import kotlinx.collections.immutable.toImmutableSet
-import com.singularity.todo.core.search.TextMatchRange
-import com.singularity.todo.core.search.inColumn
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.presentation.RenameSearchDialog
 import com.singularity.todo.feature.search.presentation.SaveSearchDialog
-import com.singularity.todo.feature.search.presentation.SearchModeSwitch
 import com.singularity.todo.feature.search.presentation.SavedSearchesRow
+import com.singularity.todo.feature.search.presentation.SearchModeSwitch
 import com.singularity.todo.feature.search.presentation.SimpleFilterSheet
 import com.singularity.todo.feature.search.presentation.nav.LocalSearchNavigator
 import com.singularity.todo.feature.search.presentation.nav.SearchNavigator
 import com.singularity.todo.feature.search.query.SimpleFilter
+import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
-import kotlin.time.Clock
-import org.koin.compose.viewmodel.koinViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
+import org.koin.compose.viewmodel.koinViewModel
+import kotlin.time.Clock
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -163,16 +163,18 @@ private fun SearchInputBar(
     querySource: StaticText,
     onQueryChange: (String) -> Unit,
 ) {
-    val queryState = rememberBridgedTextFieldState(
-        source = querySource,
-        onTextChanged = onQueryChange,
-    )
+    val queryState =
+        rememberBridgedTextFieldState(
+            source = querySource,
+            onTextChanged = onQueryChange,
+        )
     OutlinedTextField(
         state = queryState,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .testTag(TestTags.SEARCH_INPUT),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .testTag(TestTags.SEARCH_INPUT),
         placeholder = { Text("Search tasks, notes, projects...") },
         leadingIcon = { Icon(Icons.Filled.Search, null) },
         lineLimits = TextFieldLineLimits.SingleLine,
@@ -234,21 +236,27 @@ private fun SearchOutcome(
     onPin: (com.singularity.todo.feature.tasks.domain.model.TaskId) -> Unit,
 ) {
     when (content) {
-        SearchContent.IdlePrompt -> EmptyState(
-            title = "Enter a search query",
-            testTag = TestTags.SEARCH_EMPTY_PLACEHOLDER,
-        )
+        SearchContent.IdlePrompt -> {
+            EmptyState(
+                title = "Enter a search query",
+                testTag = TestTags.SEARCH_EMPTY_PLACEHOLDER,
+            )
+        }
 
-        SearchContent.NoResults -> EmptyState(
-            title = "No results found",
-            testTag = TestTags.SEARCH_EMPTY_RESULTS,
-        )
+        SearchContent.NoResults -> {
+            EmptyState(
+                title = "No results found",
+                testTag = TestTags.SEARCH_EMPTY_RESULTS,
+            )
+        }
 
-        SearchContent.Results -> SearchResultsList(
-            results = results,
-            navigator = navigator,
-            onPin = onPin,
-        )
+        SearchContent.Results -> {
+            SearchResultsList(
+                results = results,
+                navigator = navigator,
+                onPin = onPin,
+            )
+        }
     }
 }
 
@@ -258,9 +266,10 @@ private fun SearchResultsList(
     navigator: SearchNavigator,
     onPin: (com.singularity.todo.feature.tasks.domain.model.TaskId) -> Unit,
 ) {
-    val blockedTaskIds = remember(results) {
-        Blocking.blockedTaskIds(results.tasks.map { it.record }).toImmutableSet()
-    }
+    val blockedTaskIds =
+        remember(results) {
+            Blocking.blockedTaskIds(results.tasks.map { it.record }).toImmutableSet()
+        }
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -274,10 +283,11 @@ private fun SearchResultsList(
                     today = systemToday(),
                     blockedTaskIds = blockedTaskIds,
                     matchRanges = hit.ranges,
-                    actions = TaskCardActions(
-                        onPin = { onPin(hit.record.id) },
-                        onAiClick = { navigator.openTask(hit.record.id) },
-                    ),
+                    actions =
+                        TaskCardActions(
+                            onPin = { onPin(hit.record.id) },
+                            onAiClick = { navigator.openTask(hit.record.id) },
+                        ),
                 )
             }
         }
@@ -336,15 +346,15 @@ private fun SimpleResultCard(
     val interactionSource = remember { MutableInteractionSource() }
     val focused by interactionSource.collectIsFocusedAsState()
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(
-                width = if (focused) 2.dp else 0.dp,
-                color = MaterialTheme.colorScheme.primary,
-                shape = MaterialTheme.shapes.medium,
-            )
-            .clickable(interactionSource = interactionSource, onClick = onClick)
-            .focusable(interactionSource = interactionSource),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .border(
+                    width = if (focused) 2.dp else 0.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = MaterialTheme.shapes.medium,
+                ).clickable(interactionSource = interactionSource, onClick = onClick)
+                .focusable(interactionSource = interactionSource),
     ) {
         SelectableText(
             text = highlightedText(title, matchRanges),
@@ -357,45 +367,50 @@ private fun SimpleResultCard(
 
 @Preview
 @Composable
-private fun SearchScreenEmptyPreview() = PreviewThemed(darkTheme = false) {
-    SearchScreen()
-}
+private fun SearchScreenEmptyPreview() =
+    PreviewThemed(darkTheme = false) {
+        SearchScreen()
+    }
 
 @Preview
 @Composable
-private fun SavedSearchesRowPreview() = PreviewThemed(darkTheme = false) {
-    SavedSearchesRow(
-        savedSearches = listOf(
-            SavedSearch(
-                id = SavedSearchId.generate(),
-                userId = UserId("u1"),
-                name = "High Priority",
-                queryString = "priority:high",
-                createdAt = Clock.System.now(),
-                updatedAt = Clock.System.now(),
-            ),
-            SavedSearch(
-                id = SavedSearchId.generate(),
-                userId = UserId("u1"),
-                name = "Work Tasks",
-                queryString = "tag:work",
-                createdAt = Clock.System.now(),
-                updatedAt = Clock.System.now(),
-            ),
-        ).toImmutableList(),
-        activeSavedSearchId = null,
-        onLoadSearch = {},
-        onSaveClick = {},
-        onRename = { _, _ -> },
-        onDelete = {},
-    )
-}
+private fun SavedSearchesRowPreview() =
+    PreviewThemed(darkTheme = false) {
+        SavedSearchesRow(
+            savedSearches =
+                listOf(
+                    SavedSearch(
+                        id = SavedSearchId.generate(),
+                        userId = UserId("u1"),
+                        name = "High Priority",
+                        queryString = "priority:high",
+                        createdAt = Clock.System.now(),
+                        updatedAt = Clock.System.now(),
+                    ),
+                    SavedSearch(
+                        id = SavedSearchId.generate(),
+                        userId = UserId("u1"),
+                        name = "Work Tasks",
+                        queryString = "tag:work",
+                        createdAt = Clock.System.now(),
+                        updatedAt = Clock.System.now(),
+                    ),
+                ).toImmutableList(),
+            activeSavedSearchId = null,
+            onLoadSearch = {},
+            onSaveClick = {},
+            onRename = { _, _ -> },
+            onDelete = {},
+        )
+    }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
 private sealed interface SearchDialog {
     data object Filter : SearchDialog
+
     data object Save : SearchDialog
+
     data class Rename(val pair: Pair<SavedSearchId, String>) : SearchDialog
 }
 
@@ -406,11 +421,12 @@ private fun SearchEventsHandler(
 ) {
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
-            val message = when (event) {
-                is SearchUiEvent.Error -> event.message
-                is SearchUiEvent.QueryParseError -> "Parse error: ${event.message}"
-                is SearchUiEvent.SavedSuccessfully -> "Search saved"
-            }
+            val message =
+                when (event) {
+                    is SearchUiEvent.Error -> event.message
+                    is SearchUiEvent.QueryParseError -> "Parse error: ${event.message}"
+                    is SearchUiEvent.SavedSuccessfully -> "Search saved"
+                }
             snackbarHostState.showSnackbar(message)
         }
     }

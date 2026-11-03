@@ -36,15 +36,15 @@ internal class DelayLoopGoogleSyncPeriodicTrigger(
     private val coordinatorProvider: () -> GoogleSyncCoordinator,
     scope: CoroutineScope,
 ) : GoogleSyncPeriodicTrigger {
-
-    private val loop = DelayLoopSyncPeriodicTrigger(
-        request = {
-            // The gate is the interface method, so the loop and any future caller ask the
-            // same question instead of the loop holding a private copy of the answer.
-            if (isConfigured()) coordinatorProvider().syncNow()
-        },
-        scope = scope,
-    )
+    private val loop =
+        DelayLoopSyncPeriodicTrigger(
+            request = {
+                // The gate is the interface method, so the loop and any future caller ask the
+                // same question instead of the loop holding a private copy of the answer.
+                if (isConfigured()) coordinatorProvider().syncNow()
+            },
+            scope = scope,
+        )
 
     override fun start(interval: Duration) = loop.start(interval)
 

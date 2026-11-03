@@ -19,7 +19,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,14 +29,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.mikepenz.markdown.m3.Markdown
 import com.singularity.todo.core.files.FileCategory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.MimeTypes
-import kotlinx.coroutines.CancellationException
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.mikepenz.markdown.m3.Markdown
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.CancellationException
 
 /**
  * The largest file the in-app text viewer will read: 4 MB.
@@ -85,27 +85,32 @@ sealed interface TextViewerState {
  * testing, and a pure suspend function is testable without a Compose runtime. Reversing
  * those two steps is the defect this file exists to prevent.
  */
-suspend fun loadTextForViewer(fileSystem: FileSystem, path: String): TextViewerState {
-    val stat = try {
-        fileSystem.stat(path)
-    } catch (e: CancellationException) {
-        throw e
-    } catch (_: Exception) {
-        null
-    }
+suspend fun loadTextForViewer(
+    fileSystem: FileSystem,
+    path: String,
+): TextViewerState {
+    val stat =
+        try {
+            fileSystem.stat(path)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
     // Two rejections share one return: a path that does not exist and a path that is a
     // directory are the same situation to a user — there is no file to read here.
     if (stat == null || stat.isDirectory) return TextViewerState.Unavailable
     if (stat.sizeBytes > MAX_IN_APP_TEXT_BYTES) {
         return TextViewerState.TooLarge(stat.sizeBytes)
     }
-    val text = try {
-        fileSystem.readBytes(path).decodeToString()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (_: Exception) {
-        return TextViewerState.Failed("Could not read the file")
-    }
+    val text =
+        try {
+            fileSystem.readBytes(path).decodeToString()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            return TextViewerState.Failed("Could not read the file")
+        }
     return TextViewerState.Loaded(text)
 }
 
@@ -130,10 +135,11 @@ fun TextViewerScreen(
     var state by remember(path) { mutableStateOf<TextViewerState>(TextViewerState.Loading) }
     // Derived from the file name, not the loaded state: it decides which renderer to
     // use the moment there is something to render.
-    val isMarkdown = remember(path) {
-        MimeTypes.classifyExtension(MimeTypes.extensionOf(path).orEmpty()) == FileCategory.Text &&
-            MimeTypes.extensionOf(path) in MARKDOWN_EXTENSIONS
-    }
+    val isMarkdown =
+        remember(path) {
+            MimeTypes.classifyExtension(MimeTypes.extensionOf(path).orEmpty()) == FileCategory.Text &&
+                MimeTypes.extensionOf(path) in MARKDOWN_EXTENSIONS
+        }
 
     LaunchedEffect(path) { state = loadTextForViewer(fileSystem, path) }
 
@@ -175,53 +181,67 @@ private fun BoxedMessage(
     onOpenExternally: (() -> Unit)?,
 ) {
     when (val s = state) {
-        TextViewerState.Loading -> Centered { CircularProgressIndicator() }
+        TextViewerState.Loading -> {
+            Centered { CircularProgressIndicator() }
+        }
 
-        is TextViewerState.Loaded -> SelectionContainer {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-            ) {
-                if (isMarkdown) {
-                    // `.md` is rendered, not shown as source. A markdown file opened
-                    // from a task attachment is a document the user intends to read.
-                    Markdown(s.text)
-                } else {
-                    Text(text = s.text, style = MaterialTheme.typography.bodyMedium)
+        is TextViewerState.Loaded -> {
+            SelectionContainer {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp),
+                ) {
+                    if (isMarkdown) {
+                        // `.md` is rendered, not shown as source. A markdown file opened
+                        // from a task attachment is a document the user intends to read.
+                        Markdown(s.text)
+                    } else {
+                        Text(text = s.text, style = MaterialTheme.typography.bodyMedium)
+                    }
                 }
             }
         }
 
-        TextViewerState.Unavailable -> Centered {
-            ViewerMessage(
-                title = "File unavailable",
-                body = "This attachment has no local copy. It may not have been " +
-                    "downloaded on this device.",
-                actions = persistentListOf(ViewerAction("Back", onBack)),
-            )
+        TextViewerState.Unavailable -> {
+            Centered {
+                ViewerMessage(
+                    title = "File unavailable",
+                    body =
+                        "This attachment has no local copy. It may not have been " +
+                            "downloaded on this device.",
+                    actions = persistentListOf(ViewerAction("Back", onBack)),
+                )
+            }
         }
 
-        is TextViewerState.TooLarge -> Centered {
-            ViewerMessage(
-                title = "Too large to show here",
-                body = "This file is ${formatBytes(s.sizeBytes)}. The in-app viewer reads " +
-                    "up to ${formatBytes(MAX_IN_APP_TEXT_BYTES)}, and nothing was read from it.",
-                actions = persistentListOf(
-                    ViewerAction("Open in another app", onOpenExternally),
-                    ViewerAction("Back", onBack),
-                ),
-            )
+        is TextViewerState.TooLarge -> {
+            Centered {
+                ViewerMessage(
+                    title = "Too large to show here",
+                    body =
+                        "This file is ${formatBytes(s.sizeBytes)}. The in-app viewer reads " +
+                            "up to ${formatBytes(MAX_IN_APP_TEXT_BYTES)}, and nothing was read from it.",
+                    actions =
+                        persistentListOf(
+                            ViewerAction("Open in another app", onOpenExternally),
+                            ViewerAction("Back", onBack),
+                        ),
+                )
+            }
         }
 
-        is TextViewerState.Failed -> Centered {
-            ViewerMessage(
-                title = "Could not open",
-                body = s.reason,
-                actions = persistentListOf(ViewerAction("Back", onBack)),
-            )
+        is TextViewerState.Failed -> {
+            Centered {
+                ViewerMessage(
+                    title = "Could not open",
+                    body = s.reason,
+                    actions = persistentListOf(ViewerAction("Back", onBack)),
+                )
+            }
         }
     }
 }
@@ -229,7 +249,11 @@ private fun BoxedMessage(
 private data class ViewerAction(val label: String, val onClick: (() -> Unit)?)
 
 @Composable
-private fun ViewerMessage(title: String, body: String, actions: ImmutableList<ViewerAction>) {
+private fun ViewerMessage(
+    title: String,
+    body: String,
+    actions: ImmutableList<ViewerAction>,
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -263,36 +287,41 @@ private fun Centered(content: @Composable () -> Unit) {
     ) { content() }
 }
 
-private fun formatBytes(bytes: Long): String = when {
-    bytes >= 1024 * 1024 -> "${bytes / (1024 * 1024)} MB"
-    bytes >= 1024 -> "${bytes / 1024} KB"
-    else -> "$bytes B"
-}
+private fun formatBytes(bytes: Long): String =
+    when {
+        bytes >= 1024 * 1024 -> "${bytes / (1024 * 1024)} MB"
+        bytes >= 1024 -> "${bytes / 1024} KB"
+        else -> "$bytes B"
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun TextViewerUnavailablePreview() = PreviewThemed {
-    Centered {
-        ViewerMessage(
-            title = "File unavailable",
-            body = "This attachment has no local copy.",
-            actions = persistentListOf(ViewerAction("Back", {})),
-        )
+private fun TextViewerUnavailablePreview() =
+    PreviewThemed {
+        Centered {
+            ViewerMessage(
+                title = "File unavailable",
+                body = "This attachment has no local copy.",
+                actions = persistentListOf(ViewerAction("Back", {})),
+            )
+        }
     }
-}
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun TextViewerTooLargePreview() = PreviewThemed(darkTheme = true) {
-    Centered {
-        ViewerMessage(
-            title = "Too large to show here",
-            body = "This file is 9 MB. The in-app viewer reads up to 4 MB, and nothing " +
-                "was read from it.",
-            actions = persistentListOf(
-                ViewerAction("Open in another app", {}),
-                ViewerAction("Back", {}),
-            ),
-        )
+private fun TextViewerTooLargePreview() =
+    PreviewThemed(darkTheme = true) {
+        Centered {
+            ViewerMessage(
+                title = "Too large to show here",
+                body =
+                    "This file is 9 MB. The in-app viewer reads up to 4 MB, and nothing " +
+                        "was read from it.",
+                actions =
+                    persistentListOf(
+                        ViewerAction("Open in another app", {}),
+                        ViewerAction("Back", {}),
+                    ),
+            )
+        }
     }
-}

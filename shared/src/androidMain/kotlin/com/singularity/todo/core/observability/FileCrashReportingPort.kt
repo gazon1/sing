@@ -37,8 +37,10 @@ import co.touchlab.kermit.Logger
  * logged, the same pattern `FileLogWriter` uses when the disk is full.
  */
 internal class FileCrashReportingPort(private val log: Logger) : CrashReportingPort {
-
-    override fun report(error: Throwable, issueKey: String) {
+    override fun report(
+        error: Throwable,
+        issueKey: String,
+    ) {
         runCatching {
             // The original throwable goes to the logger whole. Redaction is
             // RedactingLogWriter's job, and it is applied on the way out — this

@@ -18,7 +18,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class A2uiValidatorTest {
-
     private val validator = A2uiValidator(SingularityCatalog)
     private val surface = SurfaceId("s1")
 
@@ -48,16 +47,18 @@ class A2uiValidatorTest {
 
     @Test
     fun aModalInsideAListIsRejectedWithTheLegalParents() {
-        val result = validator.validate(
-            create(
-                column = emptyList(),
-                text = mapOf(
-                    "l1" to UiNode.ListView(listOf(NodeRef("m1"))),
-                    "m1" to UiNode.Modal(NodeRef("t1"), UiPath.parse("/open")),
-                    "t1" to UiNode.Text("inside"),
+        val result =
+            validator.validate(
+                create(
+                    column = emptyList(),
+                    text =
+                        mapOf(
+                            "l1" to UiNode.ListView(listOf(NodeRef("m1"))),
+                            "m1" to UiNode.Modal(NodeRef("t1"), UiPath.parse("/open")),
+                            "t1" to UiNode.Text("inside"),
+                        ),
                 ),
-            ),
-        )
+            )
         val error = result.errors.single { it.code == A2uiErrorCode.INVALID_CHILD }
         assertEquals(A2uiErrorCode.INVALID_CHILD, error.code)
         assertTrue("card" in error.allowed, "The model needs where a modal may go: ${error.allowed}")
@@ -67,30 +68,34 @@ class A2uiValidatorTest {
 
     @Test
     fun aModalDirectlyInAColumnIsFine() {
-        val result = validator.validate(
-            create(
-                column = listOf("m1"),
-                text = mapOf(
-                    "m1" to UiNode.Modal(NodeRef("t1"), UiPath.parse("/open")),
-                    "t1" to UiNode.Text("inside"),
+        val result =
+            validator.validate(
+                create(
+                    column = listOf("m1"),
+                    text =
+                        mapOf(
+                            "m1" to UiNode.Modal(NodeRef("t1"), UiPath.parse("/open")),
+                            "t1" to UiNode.Text("inside"),
+                        ),
                 ),
-            ),
-        )
+            )
         assertTrue(result.errors.isEmpty(), result.errors.toString())
     }
 
     @Test
     fun aCycleIsDetectedAndTheComponentClosingItIsDropped() {
-        val result = validator.validate(
-            create(
-                column = emptyList(),
-                text = mapOf(
-                    "a" to UiNode.Column(listOf(NodeRef("b"))),
-                    "b" to UiNode.Column(listOf(NodeRef("a"))),
-                    "t1" to UiNode.Text("fine"),
+        val result =
+            validator.validate(
+                create(
+                    column = emptyList(),
+                    text =
+                        mapOf(
+                            "a" to UiNode.Column(listOf(NodeRef("b"))),
+                            "b" to UiNode.Column(listOf(NodeRef("a"))),
+                            "t1" to UiNode.Text("fine"),
+                        ),
                 ),
-            ),
-        )
+            )
         assertTrue(result.errors.any { it.code == A2uiErrorCode.CYCLIC_REFERENCE }, result.errors.toString())
         val remaining = result.event.componentsOf()
         assertTrue("t1" in remaining, "An unrelated component is not collateral damage")
@@ -102,55 +107,62 @@ class A2uiValidatorTest {
 
     @Test
     fun aDeepChainIsNotMistakenForACycle() {
-        val nodes = (0 until 40).associate { index: Int ->
-            "c$index" to UiNode.Column(listOf(NodeRef("c${index + 1}")))
-        }
-        val result = validator.validate(
-            create(
-                column = emptyList(),
-                text = nodes + mapOf("c40" to UiNode.Text("leaf")),
-            ),
-        )
+        val nodes =
+            (0 until 40).associate { index: Int ->
+                "c$index" to UiNode.Column(listOf(NodeRef("c${index + 1}")))
+            }
+        val result =
+            validator.validate(
+                create(
+                    column = emptyList(),
+                    text = nodes + mapOf("c40" to UiNode.Text("leaf")),
+                ),
+            )
         assertTrue(result.errors.isEmpty(), "A long chain is not a cycle: ${result.errors.map { it.message }}")
     }
 
     @Test
     fun aSelfReferenceIsACycle() {
-        val result = validator.validate(
-            create(column = emptyList(), text = mapOf("a" to UiNode.Column(listOf(NodeRef("a"))))),
-        )
+        val result =
+            validator.validate(
+                create(column = emptyList(), text = mapOf("a" to UiNode.Column(listOf(NodeRef("a"))))),
+            )
         assertTrue(result.errors.any { it.code == A2uiErrorCode.CYCLIC_REFERENCE })
     }
 
     @Test
     fun aTabPanelReferenceIsCheckedToo() {
-        val result = validator.validate(
-            create(
-                column = listOf("tabs"),
-                text = mapOf(
-                    "tabs" to UiNode.Tabs(listOf(UiNode.Tab("One", NodeRef("ghost")))),
+        val result =
+            validator.validate(
+                create(
+                    column = listOf("tabs"),
+                    text =
+                        mapOf(
+                            "tabs" to UiNode.Tabs(listOf(UiNode.Tab("One", NodeRef("ghost")))),
+                        ),
                 ),
-            ),
-        )
+            )
         assertTrue(result.errors.any { it.code == A2uiErrorCode.UNKNOWN_NODE_REF }, result.errors.toString())
     }
 
     @Test
     fun aCardWrappingOneChildIsResolved() {
-        val result = validator.validate(
-            create(
-                column = listOf("card"),
-                text = mapOf("card" to UiNode.Card(NodeRef("t1")), "t1" to UiNode.Text("Hi")),
-            ),
-        )
+        val result =
+            validator.validate(
+                create(
+                    column = listOf("card"),
+                    text = mapOf("card" to UiNode.Card(NodeRef("t1")), "t1" to UiNode.Text("Hi")),
+                ),
+            )
         assertTrue(result.errors.isEmpty(), result.errors.toString())
     }
 
     @Test
     fun messagesThatCarryNoComponentsAreLeftAlone() {
-        val result = validator.validate(
-            UiEvent.UpdateData(surface, UiPath.parse("/name"), kotlinx.serialization.json.JsonPrimitive("x")),
-        )
+        val result =
+            validator.validate(
+                UiEvent.UpdateData(surface, UiPath.parse("/name"), kotlinx.serialization.json.JsonPrimitive("x")),
+            )
         assertTrue(result.errors.isEmpty())
     }
 
@@ -167,9 +179,10 @@ class A2uiValidatorTest {
         return UiEvent.CreateSurface(surface, NodeRef(rootId), components)
     }
 
-    private fun UiEvent.componentsOf(): Map<String, UiNode> = when (this) {
-        is UiEvent.CreateSurface -> components
-        is UiEvent.UpdateComponents -> components
-        else -> emptyMap()
-    }
+    private fun UiEvent.componentsOf(): Map<String, UiNode> =
+        when (this) {
+            is UiEvent.CreateSurface -> components
+            is UiEvent.UpdateComponents -> components
+            else -> emptyMap()
+        }
 }

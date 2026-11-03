@@ -11,7 +11,6 @@ import androidx.navigation3.runtime.deeplink.DeepLinkRequest
  * о конкретных фичах — он только перебирает список.
  */
 interface AppDeepLink {
-
     /** Стабильный идентификатор для логов и тестов (например, `task`). */
     val id: String
 

@@ -1,7 +1,7 @@
 package com.singularity.todo.arch
 
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -43,36 +43,39 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class PlaintextTokenIsolationTest {
-
     private fun productionSources(): List<File> {
-        val root = System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
-        return File(root).walkTopDown()
+        val root =
+            System.getProperty("commonMain.root")
+                ?: error(
+                    "commonMain.root system property is not set — " +
+                        "see the jvmTest task config in shared/build.gradle.kts",
+                )
+        return File(root)
+            .walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .toList()
     }
 
     /** `prefs[ACCESS_TOKEN] = …`, `prefs.remove(ACCESS_TOKEN)`, and the long forms. */
-    private val forbiddenWrite = Regex(
-        """\[\s*(?:\w+\.)?(ACCESS_TOKEN|REFRESH_TOKEN)\s*\]\s*=|""" +
-            """remove\(\s*(?:\w+\.)?(ACCESS_TOKEN|REFRESH_TOKEN)\s*\)""",
-    )
+    private val forbiddenWrite =
+        Regex(
+            """\[\s*(?:\w+\.)?(ACCESS_TOKEN|REFRESH_TOKEN)\s*\]\s*=|""" +
+                """remove\(\s*(?:\w+\.)?(ACCESS_TOKEN|REFRESH_TOKEN)\s*\)""",
+        )
 
     @Test
     fun `no production file writes a token to preferences outside the migration`() {
-        val offenders = productionSources()
-            .filterNot { it.path.endsWith(MIGRATION_OWNER) }
-            .flatMap { file ->
-                file.readText()
-                    .lineSequence()
-                    .withIndex()
-                    .filter { (_, line) -> forbiddenWrite.containsMatchIn(line) }
-                    .map { (i, line) -> "${file.name}:${i + 1} ${line.trim()}" }
-            }
-            .toList()
+        val offenders =
+            productionSources()
+                .filterNot { it.path.endsWith(MIGRATION_OWNER) }
+                .flatMap { file ->
+                    file
+                        .readText()
+                        .lineSequence()
+                        .withIndex()
+                        .filter { (_, line) -> forbiddenWrite.containsMatchIn(line) }
+                        .map { (i, line) -> "${file.name}:${i + 1} ${line.trim()}" }
+                }.toList()
 
         assertEquals(
             emptyList(),
@@ -103,14 +106,15 @@ class PlaintextTokenIsolationTest {
 
     @Test
     fun `the rule detects a plain-text token write`() {
-        val offender = """
+        val offender =
+            """
             override suspend fun save(session: Session.SignedIn) {
                 dataStore.edit { prefs ->
                     prefs[ACCESS_TOKEN] = session.accessToken
                     prefs[REFRESH_TOKEN] = session.refreshToken
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val found = forbiddenWrite.findAll(offender).map { it.groupValues[1] }.toList()
         assertEquals(listOf("ACCESS_TOKEN", "REFRESH_TOKEN"), found)

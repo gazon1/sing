@@ -28,14 +28,19 @@ import kotlinx.serialization.SerializationStrategy
  */
 class UserScopedDraftStore(private val currentUser: ProfileAwareCurrentUser, private val delegate: DraftStore) :
     DraftStore {
-
     private val userIdPrefix: String
         get() = "${currentUser.scopedUserId.value.value}:"
 
-    override suspend fun <T> load(key: String, deserializer: DeserializationStrategy<T>): T? =
-        delegate.load(userIdPrefix + key, deserializer)
+    override suspend fun <T> load(
+        key: String,
+        deserializer: DeserializationStrategy<T>,
+    ): T? = delegate.load(userIdPrefix + key, deserializer)
 
-    override suspend fun <T> save(key: String, value: T, serializer: SerializationStrategy<T>) {
+    override suspend fun <T> save(
+        key: String,
+        value: T,
+        serializer: SerializationStrategy<T>,
+    ) {
         delegate.save(userIdPrefix + key, value, serializer)
     }
 

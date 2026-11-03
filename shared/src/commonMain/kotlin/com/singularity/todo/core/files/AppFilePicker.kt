@@ -34,11 +34,12 @@ enum class FilePickPurpose {
 
 /** Dialog title shown for this purpose. */
 internal val FilePickPurpose.title: String
-    get() = when (this) {
-        FilePickPurpose.Backup -> "Select backup file"
-        FilePickPurpose.SettingsJson -> "Select settings file"
-        FilePickPurpose.Attachment -> "Select file"
-    }
+    get() =
+        when (this) {
+            FilePickPurpose.Backup -> "Select backup file"
+            FilePickPurpose.SettingsJson -> "Select settings file"
+            FilePickPurpose.Attachment -> "Select file"
+        }
 
 /**
  * File-type filter for this purpose.
@@ -49,11 +50,12 @@ internal val FilePickPurpose.title: String
  * FileKit filters by extension rather than MIME type, so all are expressed as extensions.
  */
 internal val FilePickPurpose.fileKitType: FileKitType
-    get() = when (this) {
-        FilePickPurpose.Backup -> FileKitType.File(extensions = setOf("zip"))
-        FilePickPurpose.SettingsJson -> FileKitType.File(extensions = setOf("json"))
-        FilePickPurpose.Attachment -> FileKitType.File(extensions = MimeTypes.supportedExtensions)
-    }
+    get() =
+        when (this) {
+            FilePickPurpose.Backup -> FileKitType.File(extensions = setOf("zip"))
+            FilePickPurpose.SettingsJson -> FileKitType.File(extensions = setOf("json"))
+            FilePickPurpose.Attachment -> FileKitType.File(extensions = MimeTypes.supportedExtensions)
+        }
 
 /**
  * Remembers a launcher for the platform's native file picker.
@@ -76,13 +78,17 @@ internal val FilePickPurpose.fileKitType: FileKitType
  * @return a lambda that opens the picker
  */
 @Composable
-fun rememberAppFilePicker(purpose: FilePickPurpose, onPicked: (FilePickerResult?) -> Unit): () -> Unit {
+fun rememberAppFilePicker(
+    purpose: FilePickPurpose,
+    onPicked: (FilePickerResult?) -> Unit,
+): () -> Unit {
     // Reading the callback through rememberUpdatedState keeps a stable lambda identity
     // across recompositions even when the caller's callback is a fresh allocation.
     val currentOnPicked = rememberUpdatedState(onPicked)
-    val launcher = rememberFilePickerLauncher(
-        type = purpose.fileKitType,
-        onResult = { file -> currentOnPicked.value(file?.toFilePickerResult()) },
-    )
+    val launcher =
+        rememberFilePickerLauncher(
+            type = purpose.fileKitType,
+            onResult = { file -> currentOnPicked.value(file?.toFilePickerResult()) },
+        )
     return remember(launcher) { { launcher.launch() } }
 }

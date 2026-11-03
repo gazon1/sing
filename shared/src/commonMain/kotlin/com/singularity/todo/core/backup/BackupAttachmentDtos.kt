@@ -4,10 +4,11 @@ import com.singularity.todo.core.attachments.AttachmentEntity
 import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationEntity
 import kotlinx.serialization.Serializable
 
+// ─── AttachmentDto ─────────────────────────────────────────────────────────────
+
 /**
  * The attachment rows of a payload: the attachments, and their annotations.
  */
-// ─── AttachmentDto ─────────────────────────────────────────────────────────────
 
 @Serializable
 data class AttachmentDto(

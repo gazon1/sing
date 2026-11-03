@@ -24,12 +24,10 @@ data class CalendarDateSelection(
     val dates: Set<LocalDate> = emptySet(),
 ) {
     /** Enters the mode with [date] already picked. */
-    fun enter(date: LocalDate): CalendarDateSelection =
-        copy(isActive = true, dates = setOf(date))
+    fun enter(date: LocalDate): CalendarDateSelection = copy(isActive = true, dates = setOf(date))
 
     /** Picks [date], or unpicks it when it is already picked. */
-    fun toggle(date: LocalDate): CalendarDateSelection =
-        copy(dates = if (date in dates) dates - date else dates + date)
+    fun toggle(date: LocalDate): CalendarDateSelection = copy(dates = if (date in dates) dates - date else dates + date)
 
     /** Leaves the mode and forgets the picked days. */
     fun exit(): CalendarDateSelection = CalendarDateSelection()

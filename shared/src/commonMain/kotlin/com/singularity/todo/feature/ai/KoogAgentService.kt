@@ -11,12 +11,13 @@ import com.singularity.todo.core.ai.RecordingTool
 import com.singularity.todo.core.ai.ToolCallLoop
 import com.singularity.todo.core.ai.filterTools
 import com.singularity.todo.core.ai.resolveModelWithFlags
-import com.singularity.todo.core.observability.ToolCallRecorder
-import com.singularity.todo.core.observability.ToolCallSource
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.di.PromptExecutorPort
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.llm.AgentEvent
 import com.singularity.todo.core.llm.OpenAiConfig
+import com.singularity.todo.core.observability.ToolCallRecorder
+import com.singularity.todo.core.observability.ToolCallSource
 import com.singularity.todo.core.security.ProfileAwareSecureStorage
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.ai.prompts.Prompts
@@ -35,7 +36,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Production [TextGenPort] backed by JetBrains Koog [AIAgent].
@@ -60,19 +60,20 @@ class KoogAgentService(
     private val remoteConfigPort: RemoteConfigPort,
     private val toolCallRecorder: ToolCallRecorder? = null,
 ) : TextGenPort {
-
     // Filter tools based on current RemoteConfig flags. Read at construction so this
     // is fixed for the lifetime of the service instance (flags refresh is infrequent).
-    private val tools: List<Tool<*, *>> = run {
-        val flags = remoteConfigPort.observe().value.mcpToolFlags
-        filterTools(allTools, flags).also { enabled ->
-            val disabled = allTools.map { it.descriptor.name } - enabled.map { it.descriptor.name }.toSet()
-            if (disabled.isNotEmpty()) {
-                co.touchlab.kermit.Logger.withTag("KoogAgentService")
-                    .i { "Kill switch: disabled tools: $disabled" }
+    private val tools: List<Tool<*, *>> =
+        run {
+            val flags = remoteConfigPort.observe().value.mcpToolFlags
+            filterTools(allTools, flags).also { enabled ->
+                val disabled = allTools.map { it.descriptor.name } - enabled.map { it.descriptor.name }.toSet()
+                if (disabled.isNotEmpty()) {
+                    co.touchlab.kermit.Logger
+                        .withTag("KoogAgentService")
+                        .i { "Kill switch: disabled tools: $disabled" }
+                }
             }
         }
-    }
 
     /**
      * The tools the agent may call, each wrapped so that its use is recorded.
@@ -83,9 +84,11 @@ class KoogAgentService(
      * at its own dispatch boundary instead; the two records share one event schema, so
      * the report reads both.
      */
-    private val agentTools: ToolRegistry = ToolRegistry.builder()
-        .tools(tools.map { tool -> tool.asRecorded() })
-        .build()
+    private val agentTools: ToolRegistry =
+        ToolRegistry
+            .builder()
+            .tools(tools.map { tool -> tool.asRecorded() })
+            .build()
 
     @Suppress("UNCHECKED_CAST")
     private fun Tool<*, *>.asRecorded(): Tool<*, *> {
@@ -108,9 +111,13 @@ class KoogAgentService(
     @Suppress("UNCHECKED_CAST")
     private val callableTools: List<Tool<*, *>> = agentTools.tools.map { it as Tool<*, *> }
 
-    private fun createAgent(systemPrompt: String, modelId: String): AIAgent<String, String> {
+    private fun createAgent(
+        systemPrompt: String,
+        modelId: String,
+    ): AIAgent<String, String> {
         val flags = remoteConfigPort.observe().value.modelFlags
-        return AIAgent.builder()
+        return AIAgent
+            .builder()
             .promptExecutor(promptExecutor)
             .systemPrompt(systemPrompt)
             .toolRegistry(agentTools)
@@ -125,22 +132,25 @@ class KoogAgentService(
         prompt: String,
         systemPrompt: String?,
         model: String?,
-    ): Result<String> = runCatchingCancellable {
-        requireApiKey()
-            ?: return@runCatchingCancellable "(AI unavailable: API key not configured.)"
+    ): Result<String> =
+        runCatchingCancellable {
+            requireApiKey()
+                ?: return@runCatchingCancellable "(AI unavailable: API key not configured.)"
 
-        val effectiveSystemPrompt = systemPrompt
-            ?: settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
-        val effectiveModel = model
-            ?: settings.aiModel.first().ifBlank { OpenAiConfig.DEFAULT_MODEL }
+            val effectiveSystemPrompt =
+                systemPrompt
+                    ?: settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
+            val effectiveModel =
+                model
+                    ?: settings.aiModel.first().ifBlank { OpenAiConfig.DEFAULT_MODEL }
 
-        val agent = createAgent(effectiveSystemPrompt, effectiveModel)
-        try {
-            agent.run(prompt)
-        } finally {
-            agent.close()
+            val agent = createAgent(effectiveSystemPrompt, effectiveModel)
+            try {
+                agent.run(prompt)
+            } finally {
+                agent.close()
+            }
         }
-    }
 
     /**
      * Streams a chat response as it happens, letting the model call tools along the way.
@@ -157,42 +167,54 @@ class KoogAgentService(
      * format, for a call that may draw a screen. It is added to the persona, not swapped for
      * it: the persona is who the assistant is, and the instructions are what it is doing now.
      */
-    override fun streamChat(message: String, instructions: String): Flow<AgentEvent> = flow {
-        val apiKey = requireApiKey()
-        if (apiKey == null) {
-            // No completion event: the turn did not finish, it never started. A turn that ends
-            // without one is a failed turn, and a failed turn says so — a completed turn whose
-            // text mentions a missing key is a turn that reports two different things.
-            emit(AgentEvent.TextDelta("(AI unavailable: API key not configured. Set it in Settings > AI Provider.)"))
-            return@flow
-        }
-
-        val flags = remoteConfigPort.observe().value.modelFlags
-        val configuredPrompt = settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
-        val systemPrompt = if (instructions.isBlank()) configuredPrompt else "$configuredPrompt\n\n$instructions"
-        val modelId = settings.aiModel.first().ifBlank { OpenAiConfig.DEFAULT_MODEL }
-        val model = resolveModelWithFlags(modelId, flags)
-
-        val p = prompt(Prompt.Empty, KoogClock.System) {
-            system(systemPrompt)
-            user(message)
-        }
-
-        ToolCallLoop(tools = callableTools)
-            .run(p) { conversation, descriptors ->
-                streamingExecutor.executeStreaming(conversation, model, descriptors)
+    override fun streamChat(
+        message: String,
+        instructions: String,
+    ): Flow<AgentEvent> =
+        flow {
+            val apiKey = requireApiKey()
+            if (apiKey == null) {
+                // No completion event: the turn did not finish, it never started. A turn that ends
+                // without one is a failed turn, and a failed turn says so — a completed turn whose
+                // text mentions a missing key is a turn that reports two different things.
+                emit(
+                    AgentEvent.TextDelta("(AI unavailable: API key not configured. Set it in Settings > AI Provider.)"),
+                )
+                return@flow
             }
-            .collect { event -> emit(event) }
-    }
 
-    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = runCatchingCancellable {
-        val response = httpClient.get("$baseUrl/models") {
-            header(HttpHeaders.Authorization, "Bearer $apiKey")
-            accept(ContentType.Application.Json)
-        }.bodyAsText()
-        val parsed = Json.parseToJsonElement(response)
-        parsed.jsonArray.mapNotNull { it.jsonObject["id"]?.jsonPrimitive?.content }
-    }
+            val flags = remoteConfigPort.observe().value.modelFlags
+            val configuredPrompt = settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
+            val systemPrompt = if (instructions.isBlank()) configuredPrompt else "$configuredPrompt\n\n$instructions"
+            val modelId = settings.aiModel.first().ifBlank { OpenAiConfig.DEFAULT_MODEL }
+            val model = resolveModelWithFlags(modelId, flags)
+
+            val p =
+                prompt(Prompt.Empty, KoogClock.System) {
+                    system(systemPrompt)
+                    user(message)
+                }
+
+            ToolCallLoop(tools = callableTools)
+                .run(p) { conversation, descriptors ->
+                    streamingExecutor.executeStreaming(conversation, model, descriptors)
+                }.collect { event -> emit(event) }
+        }
+
+    override suspend fun listModels(
+        baseUrl: String,
+        apiKey: String,
+    ): Result<List<String>> =
+        runCatchingCancellable {
+            val response =
+                httpClient
+                    .get("$baseUrl/models") {
+                        header(HttpHeaders.Authorization, "Bearer $apiKey")
+                        accept(ContentType.Application.Json)
+                    }.bodyAsText()
+            val parsed = Json.parseToJsonElement(response)
+            parsed.jsonArray.mapNotNull { it.jsonObject["id"]?.jsonPrimitive?.content }
+        }
 
     /**
      * Lazily built, and never closed.

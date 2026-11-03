@@ -81,10 +81,11 @@ fun rememberSpotlightTour(
             Triple(machine.index, machine.ready, steps.map { registry[it.anchor] })
         }.collect { (_, _, _) ->
             val index = machine.index
-            state = SpotlightTourState(
-                stepIndex = index,
-                bounds = index?.let { registry[steps[it].anchor] },
-            )
+            state =
+                SpotlightTourState(
+                    stepIndex = index,
+                    bounds = index?.let { registry[steps[it].anchor] },
+                )
         }
     }
 

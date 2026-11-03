@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.proposals
 
-import com.singularity.todo.feature.proposals.domain.model.ProposalStatusReducer
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalStatusReducer
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -14,7 +14,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class ProposalStatusReducerTest {
-
     @Test
     fun `an empty proposal is resolved`() {
         // Nothing outstanding for the card to prompt about, so "Resolved" is honest.
@@ -106,18 +105,18 @@ class ProposalStatusReducerTest {
     }
 
     private companion object {
-
         /**
          * Every status a change can be in apart from "waiting".
          *
          * The ones this build knows, and the one it does not: an unreadable status
          * is not a decision either.
          */
-        val decidedAndUnreadable: List<ProposalItemStatus> = listOf(
-            ProposalItemStatus.Confirmed,
-            ProposalItemStatus.Rejected,
-            ProposalItemStatus.Retracted,
-            ProposalItemStatus.Unknown("Applied"),
-        )
+        val decidedAndUnreadable: List<ProposalItemStatus> =
+            listOf(
+                ProposalItemStatus.Confirmed,
+                ProposalItemStatus.Rejected,
+                ProposalItemStatus.Retracted,
+                ProposalItemStatus.Unknown("Applied"),
+            )
     }
 }

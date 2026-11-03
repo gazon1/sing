@@ -17,28 +17,29 @@ import org.koin.dsl.module
  * creates a child scope whose bindings are invisible to sibling modules at parent level
  * (ADR `2026-09-27-di-module-aggregator-narrative`).
  */
-fun backgroundWorkModule(): Module = module {
-    single { SyncPushJob(get<SyncRepository>()) }
-    single { PruneLlmUsageJob(get()) }
-    single { BackupJob(get<BackupRepository>(), get()) }
-    single { ArchiveJob(get(), get(), get(), get()) }
+fun backgroundWorkModule(): Module =
+    module {
+        single { SyncPushJob(get<SyncRepository>()) }
+        single { PruneLlmUsageJob(get()) }
+        single { BackupJob(get<BackupRepository>(), get()) }
+        single { ArchiveJob(get(), get(), get(), get()) }
 
-    // `RoomUsageRecorder` rather than `LlmUsageDao`: the recorder owns the clock and the
-    // day arithmetic, and re-deriving the cutoff here would put a second copy of the
-    // retention rule in the file that decides when to run the job.
-    single<BackgroundJobCatalog> {
-        ListBackgroundJobCatalog {
-            listOf(
-                get<SyncPushJob>(),
-                get<PruneLlmUsageJob>(),
-                get<BackupJob>(),
-                get<ArchiveJob>(),
-            )
+        // `RoomUsageRecorder` rather than `LlmUsageDao`: the recorder owns the clock and the
+        // day arithmetic, and re-deriving the cutoff here would put a second copy of the
+        // retention rule in the file that decides when to run the job.
+        single<BackgroundJobCatalog> {
+            ListBackgroundJobCatalog {
+                listOf(
+                    get<SyncPushJob>(),
+                    get<PruneLlmUsageJob>(),
+                    get<BackupJob>(),
+                    get<ArchiveJob>(),
+                )
+            }
         }
-    }
 
-    single { BackgroundWorkBootstrapper(get<BackgroundWorkScheduler>()) }
-}
+        single { BackgroundWorkBootstrapper(get<BackgroundWorkScheduler>()) }
+    }
 
 /**
  * A catalogue backed by a list.
@@ -48,7 +49,6 @@ fun backgroundWorkModule(): Module = module {
  * dependencies to resolve at graph-build time rather than at first use.
  */
 class ListBackgroundJobCatalog(private val resolveJobs: () -> List<BackgroundJob>) : BackgroundJobCatalog {
-
     /**
      * A catalogue over an already-known list. Keeps the direct-construction call sites
      * — tests, and any caller that genuinely has its jobs — reading the way they did.

@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.format.formatPadded
 import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.core.schedule.displayName
 import com.singularity.todo.core.settings.SettingsIntent
@@ -31,8 +32,8 @@ import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
-import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
 import com.singularity.todo.feature.settings.SettingsUiState
 import kotlinx.datetime.DayOfWeek
 
@@ -43,9 +44,10 @@ fun WorkScheduleSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+        modifier =
+            modifier
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SettingsSection(title = "Work Day") {
@@ -121,7 +123,12 @@ fun WorkScheduleSettingsScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TimeSlider(label: String, value: Int, onValueChange: (Int) -> Unit, formatter: (Int) -> String) {
+private fun TimeSlider(
+    label: String,
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    formatter: (Int) -> String,
+) {
     var showDialog by remember { mutableStateOf(false) }
     val hour = value / 60
     val minute = value % 60
@@ -138,9 +145,10 @@ private fun TimeSlider(label: String, value: Int, onValueChange: (Int) -> Unit, 
         OutlinedTextField(
             state = timeState,
             readOnly = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { showDialog = true },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { showDialog = true },
             trailingIcon = {
                 Text(
                     text = formatter(value),
@@ -161,11 +169,12 @@ private fun TimeSlider(label: String, value: Int, onValueChange: (Int) -> Unit, 
     }
 
     if (showDialog) {
-        val timePickerState = rememberTimePickerState(
-            initialHour = hour,
-            initialMinute = minute,
-            is24Hour = true,
-        )
+        val timePickerState =
+            rememberTimePickerState(
+                initialHour = hour,
+                initialMinute = minute,
+                is24Hour = true,
+            )
         AlertDialog(
             onDismissRequest = { showDialog = false },
             confirmButton = {
@@ -193,69 +202,82 @@ private fun TimeSlider(label: String, value: Int, onValueChange: (Int) -> Unit, 
 private fun formatMinutes(minutes: Int): String {
     val h = minutes / 60
     val m = minutes % 60
-    return "%02d:%02d".format(h, m)
+    return "${formatPadded(h)}:${formatPadded(m)}"
 }
 
-private fun formatHour(hour: Int): String = "%d:00".format(hour)
+private fun formatHour(hour: Int): String = "$hour:00"
 
 // ===== Preview =====
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun WorkScheduleSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    WorkScheduleSettingsScreen(
-        state = SettingsUiState.Content(
-            workSchedule = SettingsSection.WorkSchedule(
-                dayStartMinutes = 540, // 09:00
-                dayEndMinutes = 1080, // 18:00
-                lunchStartMinutes = 720, // 12:00
-                lunchEndMinutes = 780, // 13:00
-                workingDays = WorkingDays.DEFAULT,
-            ),
-            greeting = SettingsSection.Greeting(
-                morningEndHour = 12,
-                afternoonEndHour = 18,
-            ),
-        ),
-        onIntent = {},
-    )
-}
-
-@androidx.compose.ui.tooling.preview.Preview
-@Composable
-private fun WorkScheduleSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    WorkScheduleSettingsScreen(
-        state = SettingsUiState.Content(
-            workSchedule = SettingsSection.WorkSchedule(
-                dayStartMinutes = 480, // 08:00
-                dayEndMinutes = 1200, // 20:00
-                workingDays = WorkingDays.DEFAULT + setOf(
-                    DayOfWeek.SATURDAY,
-                    DayOfWeek.SUNDAY,
+private fun WorkScheduleSettingsScreenLightPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        WorkScheduleSettingsScreen(
+            state =
+                SettingsUiState.Content(
+                    workSchedule =
+                        SettingsSection.WorkSchedule(
+                            dayStartMinutes = 540, // 09:00
+                            dayEndMinutes = 1080, // 18:00
+                            lunchStartMinutes = 720, // 12:00
+                            lunchEndMinutes = 780, // 13:00
+                            workingDays = WorkingDays.DEFAULT,
+                        ),
+                    greeting =
+                        SettingsSection.Greeting(
+                            morningEndHour = 12,
+                            afternoonEndHour = 18,
+                        ),
                 ),
-            ),
-        ),
-        onIntent = {},
-    )
-}
+            onIntent = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun WorkScheduleSettingsScreenShortDayPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    WorkScheduleSettingsScreen(
-        state = SettingsUiState.Content(
-            workSchedule = SettingsSection.WorkSchedule(
-                dayStartMinutes = 600, // 10:00
-                dayEndMinutes = 900, // 15:00
-                lunchStartMinutes = 750, // 12:30
-                lunchEndMinutes = 780, // 13:00
-                workingDays = WorkingDays.DEFAULT,
-            ),
-            greeting = SettingsSection.Greeting(
-                morningEndHour = 10,
-                afternoonEndHour = 16,
-            ),
-        ),
-        onIntent = {},
-    )
-}
+private fun WorkScheduleSettingsScreenDarkPreview() =
+    PreviewThemed(darkTheme = true, useSurface = false) {
+        WorkScheduleSettingsScreen(
+            state =
+                SettingsUiState.Content(
+                    workSchedule =
+                        SettingsSection.WorkSchedule(
+                            dayStartMinutes = 480, // 08:00
+                            dayEndMinutes = 1200, // 20:00
+                            workingDays =
+                                WorkingDays.DEFAULT +
+                                    setOf(
+                                        DayOfWeek.SATURDAY,
+                                        DayOfWeek.SUNDAY,
+                                    ),
+                        ),
+                ),
+            onIntent = {},
+        )
+    }
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun WorkScheduleSettingsScreenShortDayPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        WorkScheduleSettingsScreen(
+            state =
+                SettingsUiState.Content(
+                    workSchedule =
+                        SettingsSection.WorkSchedule(
+                            dayStartMinutes = 600, // 10:00
+                            dayEndMinutes = 900, // 15:00
+                            lunchStartMinutes = 750, // 12:30
+                            lunchEndMinutes = 780, // 13:00
+                            workingDays = WorkingDays.DEFAULT,
+                        ),
+                    greeting =
+                        SettingsSection.Greeting(
+                            morningEndHour = 10,
+                            afternoonEndHour = 16,
+                        ),
+                ),
+            onIntent = {},
+        )
+    }

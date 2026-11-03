@@ -1,10 +1,10 @@
 package com.singularity.todo.core.schedule
 
 import kotlinx.datetime.DayOfWeek
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Tag
 
 /**
  * Tests for [WorkingDays] — the set of days the user works on, how it is
@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Tag
  */
 @Tag("fast")
 class WorkingDaysTest {
-
     @Test
     fun `the default week is Monday to Friday`() {
         assertEquals(
@@ -35,11 +34,12 @@ class WorkingDaysTest {
 
     @Test
     fun `a set round-trips through storage`() {
-        val days = setOf(
-            DayOfWeek.MONDAY,
-            DayOfWeek.WEDNESDAY,
-            DayOfWeek.SUNDAY,
-        )
+        val days =
+            setOf(
+                DayOfWeek.MONDAY,
+                DayOfWeek.WEDNESDAY,
+                DayOfWeek.SUNDAY,
+            )
         assertEquals(days, WorkingDays.fromStorageString(WorkingDays.toStorageString(days)))
     }
 
@@ -96,9 +96,10 @@ class WorkingDaysTest {
 
     @Test
     fun `the legacy flags are a projection of the set`() {
-        val (saturday, sunday) = WorkingDays.toLegacyFlags(
-            WorkingDays.DEFAULT + DayOfWeek.SATURDAY,
-        )
+        val (saturday, sunday) =
+            WorkingDays.toLegacyFlags(
+                WorkingDays.DEFAULT + DayOfWeek.SATURDAY,
+            )
         assertTrue(saturday)
         assertEquals(false, sunday)
     }

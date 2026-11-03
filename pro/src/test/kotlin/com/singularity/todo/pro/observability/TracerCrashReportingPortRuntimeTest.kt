@@ -63,7 +63,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TracerCrashReportingPortRuntimeTest {
-
     private val log = Logger.withTag("TracerCrashReportingPortRuntimeTest")
 
     private fun port(): CrashReportingPort = TracerCrashReportingPort(log)
@@ -116,12 +115,13 @@ class TracerCrashReportingPortRuntimeTest {
         // information that distinguishes "the SDK is absent" from "the SDK is
         // present but something else went wrong", and a test that cannot tell
         // those apart passes for the wrong reason.
-        val loadFailure: Throwable? = try {
-            Class.forName("ru.ok.tracer.crash.report.TracerCrashReport")
-            null
-        } catch (t: Throwable) {
-            t
-        }
+        val loadFailure: Throwable? =
+            try {
+                Class.forName("ru.ok.tracer.crash.report.TracerCrashReport")
+                null
+            } catch (t: Throwable) {
+                t
+            }
 
         if (loadFailure == null) {
             // The SDK is present, so exercise the port for real.
@@ -133,12 +133,13 @@ class TracerCrashReportingPortRuntimeTest {
             )
             // If the SDK is gone, constructing the port must fail to *load* too —
             // and saying so beats reporting the classpath branch as covered.
-            val failure = try {
-                TracerCrashReportingPort(log)
-                null
-            } catch (t: Throwable) {
-                t
-            }
+            val failure =
+                try {
+                    TracerCrashReportingPort(log)
+                    null
+                } catch (t: Throwable) {
+                    t
+                }
             assertTrue(
                 failure is NoClassDefFoundError,
                 "expected NoClassDefFoundError when the vendor SDK is absent, got $failure",

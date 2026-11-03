@@ -46,18 +46,18 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class TaskDependencyVerbFilterTest {
-
     private val alice = UserId("alice")
 
     private val tempDirLazy = lazy { Files.createTempDirectory("singularity-dep-verb-").toFile() }
     private val tempDir: File by tempDirLazy
 
-    private val dbLazy = lazy {
-        AppDatabaseFactory.build(
-            driver = createSqlDriver(),
-            dbPath = File(tempDir, "tasks.db").absolutePath,
-        )
-    }
+    private val dbLazy =
+        lazy {
+            AppDatabaseFactory.build(
+                driver = createSqlDriver(),
+                dbPath = File(tempDir, "tasks.db").absolutePath,
+            )
+        }
     private val db: AppDatabase by dbLazy
 
     @AfterTest
@@ -66,7 +66,10 @@ class TaskDependencyVerbFilterTest {
         if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
     }
 
-    private fun task(id: String, title: String = "Task $id") = Task(
+    private fun task(
+        id: String,
+        title: String = "Task $id",
+    ) = Task(
         id = TaskId(id),
         title = title,
         createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
@@ -74,75 +77,80 @@ class TaskDependencyVerbFilterTest {
         userId = alice,
     )
 
-    private fun repository() = run {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val currentUser = FakeProfileAwareCurrentUser(auth)
-        TaskRepositoryImpl(
-            taskDao = db.taskDao(),
-            textIndex = db.textIndex(currentUser),
-            clock = kotlin.time.Clock.System,
-            currentUser = currentUser,
-            syncRepository = FakeSyncRepository(),
-            dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
-            unitOfWork = FakeUnitOfWork(),
-        )
-    }
+    private fun repository() =
+        run {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val currentUser = FakeProfileAwareCurrentUser(auth)
+            TaskRepositoryImpl(
+                taskDao = db.taskDao(),
+                textIndex = db.textIndex(currentUser),
+                clock = kotlin.time.Clock.System,
+                currentUser = currentUser,
+                syncRepository = FakeSyncRepository(),
+                dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
+                unitOfWork = FakeUnitOfWork(),
+            )
+        }
 
     @Test
-    fun `a blocking edge is in the task's dependency set`() = runTest {
-        val repo = repository()
-        repo.create(task("dep", "Dependency"))
-        repo.create(task("t1", "Blocked"))
-        repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+    fun `a blocking edge is in the task's dependency set`() =
+        runTest {
+            val repo = repository()
+            repo.create(task("dep", "Dependency"))
+            repo.create(task("t1", "Blocked"))
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
 
-        val loaded = repo.observe(TaskId("t1")).first()
+            val loaded = repo.observe(TaskId("t1")).first()
 
-        assertEquals(setOf(TaskId("dep")), loaded?.blockedBy)
-    }
-
-    @Test
-    fun `an edge of another kind is not in the task's dependency set`() = runTest {
-        val repo = repository()
-        repo.create(task("dep", "Dependency"))
-        repo.create(task("t1", "Follower"))
-        repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.FOLLOWS_UP, enabled = true)
-
-        val loaded = repo.observe(TaskId("t1")).first()
-
-        assertTrue(
-            loaded?.blockedBy.isNullOrEmpty(),
-            "a task that follows up on another is not waiting for it: ${loaded?.blockedBy}",
-        )
-    }
+            assertEquals(setOf(TaskId("dep")), loaded?.blockedBy)
+        }
 
     @Test
-    fun `the list read narrows the same way as the single-task read`() = runTest {
-        val repo = repository()
-        repo.create(task("dep", "Dependency"))
-        repo.create(task("t1", "Follower"))
-        repo.create(task("t2", "Blocked"))
-        repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.FOLLOWS_UP, enabled = true)
-        repo.setDependency(TaskId("t2"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+    fun `an edge of another kind is not in the task's dependency set`() =
+        runTest {
+            val repo = repository()
+            repo.create(task("dep", "Dependency"))
+            repo.create(task("t1", "Follower"))
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.FOLLOWS_UP, enabled = true)
 
-        val listed = repo.observeByFilter(TaskFilter.All).first().associateBy { it.id }
+            val loaded = repo.observe(TaskId("t1")).first()
 
-        assertTrue(listed[TaskId("t1")]?.blockedBy.isNullOrEmpty())
-        assertEquals(setOf(TaskId("dep")), listed[TaskId("t2")]?.blockedBy)
-    }
+            assertTrue(
+                loaded?.blockedBy.isNullOrEmpty(),
+                "a task that follows up on another is not waiting for it: ${loaded?.blockedBy}",
+            )
+        }
 
     @Test
-    fun `the typed read still sees every edge`() = runTest {
-        val repo = repository()
-        repo.create(task("dep", "Dependency"))
-        repo.create(task("t1", "Follower"))
-        repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.FOLLOWS_UP, enabled = true)
+    fun `the list read narrows the same way as the single-task read`() =
+        runTest {
+            val repo = repository()
+            repo.create(task("dep", "Dependency"))
+            repo.create(task("t1", "Follower"))
+            repo.create(task("t2", "Blocked"))
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.FOLLOWS_UP, enabled = true)
+            repo.setDependency(TaskId("t2"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
 
-        // The typed read is the graph's own read: the repository no longer offers
-        // a typed observer (nothing outside the graph needed one), so the test asks
-        // the table that holds the edges.
-        val typed = db.taskDao().observeTypedDependenciesForUser("t1", alice.value).first()
+            val listed = repo.observeByFilter(TaskFilter.All).first().associateBy { it.id }
 
-        assertEquals(1, typed.size, "the graph keeps every edge: ${typed.map { it.verb }}")
-        assertEquals(DependencyVerb.FOLLOWS_UP.name, typed.single().verb)
-    }
+            assertTrue(listed[TaskId("t1")]?.blockedBy.isNullOrEmpty())
+            assertEquals(setOf(TaskId("dep")), listed[TaskId("t2")]?.blockedBy)
+        }
+
+    @Test
+    fun `the typed read still sees every edge`() =
+        runTest {
+            val repo = repository()
+            repo.create(task("dep", "Dependency"))
+            repo.create(task("t1", "Follower"))
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.FOLLOWS_UP, enabled = true)
+
+            // The typed read is the graph's own read: the repository no longer offers
+            // a typed observer (nothing outside the graph needed one), so the test asks
+            // the table that holds the edges.
+            val typed = db.taskDao().observeTypedDependenciesForUser("t1", alice.value).first()
+
+            assertEquals(1, typed.size, "the graph keeps every edge: ${typed.map { it.verb }}")
+            assertEquals(DependencyVerb.FOLLOWS_UP.name, typed.single().verb)
+        }
 }

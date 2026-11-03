@@ -11,9 +11,9 @@ import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
 import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.ai.prompts.Prompts
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.coroutines.CancellationException
 
 @Serializable
 data class GenerateChecklistInput(val title: String, val description: String? = null)
@@ -23,14 +23,14 @@ data class GenerateChecklistOutput(val steps: List<String>)
 
 class GenerateChecklistTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
     SimpleTool<GenerateChecklistInput>(TypeToken.of(GenerateChecklistInput::class.java), NAME, DESCRIPTION) {
-
     private val logger = Logger.withTag("GenerateChecklist")
 
     override suspend fun execute(args: GenerateChecklistInput): String {
-        val p = prompt(Prompt.Empty, KoogClock.System) {
-            system(Prompts.generateChecklistSystem)
-            user(Prompts.generateChecklistUser(args.title, args.description))
-        }
+        val p =
+            prompt(Prompt.Empty, KoogClock.System) {
+                system(Prompts.generateChecklistSystem)
+                user(Prompts.generateChecklistUser(args.title, args.description))
+            }
         val response = promptExecutor.execute(p, model, emptyList())
         val text = extractText(response)
         return try {
@@ -40,9 +40,17 @@ class GenerateChecklistTool(private val promptExecutor: PromptExecutor, private 
             throw e
         } catch (e: Exception) {
             logger.w(e) { "failed" }
-            val lines = text.lines()
-                .filter { it.isNotBlank() && !it.startsWith("[") && !it.startsWith("]") }
-                .map { it.trim().removePrefix("- ").removePrefix("* ").removeSurrounding("\"") }
+            val lines =
+                text
+                    .lines()
+                    .filter { it.isNotBlank() && !it.startsWith("[") && !it.startsWith("]") }
+                    .map {
+                        it
+                            .trim()
+                            .removePrefix("- ")
+                            .removePrefix("* ")
+                            .removeSurrounding("\"")
+                    }
             Json.encodeToString(GenerateChecklistOutput.serializer(), GenerateChecklistOutput(lines))
         }
     }
@@ -52,6 +60,9 @@ class GenerateChecklistTool(private val promptExecutor: PromptExecutor, private 
         const val DESCRIPTION = "Generate a checklist of steps to complete a task."
 
         private fun extractText(response: Message.Assistant): String =
-            response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }.trim()
+            response.parts
+                .filterIsInstance<MessagePart.Text>()
+                .joinToString("") { it.text }
+                .trim()
     }
 }

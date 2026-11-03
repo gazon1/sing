@@ -11,7 +11,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface CalendarRoute : AppNavKey {
-
     /**
      * Month overview — the default start route.
      * [anchor] is the 1st day of the month to display (used to derive year/month).

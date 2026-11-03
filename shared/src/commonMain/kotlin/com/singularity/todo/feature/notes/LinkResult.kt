@@ -33,10 +33,11 @@ enum class LinkKind {
  *
  * @param id the identifier of the target.
  */
-fun LinkKind.urlFor(id: String): String = InternalLinks.urlFor(
-    when (this) {
-        LinkKind.Note -> InternalLinkSchemes.NOTE
-        LinkKind.Task -> InternalLinkSchemes.TASK
-    },
-    id,
-)
+fun LinkKind.urlFor(id: String): String =
+    InternalLinks.urlFor(
+        when (this) {
+            LinkKind.Note -> InternalLinkSchemes.NOTE
+            LinkKind.Task -> InternalLinkSchemes.TASK
+        },
+        id,
+    )

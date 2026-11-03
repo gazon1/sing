@@ -16,7 +16,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TextLinkDetectorTest {
-
     private fun webUrls(text: String): List<String> =
         TextLinkDetector.detect(text).mapNotNull { (it.link as? TextLink.Web)?.url }
 
@@ -31,81 +30,93 @@ class TextLinkDetectorTest {
 
     companion object {
         @JvmStatic
-        fun webCases(): List<Arguments> = listOf(
-            Arguments.of("https://example.com", listOf("https://example.com")),
-            Arguments.of("http://example.com", listOf("http://example.com")),
-            Arguments.of("www.example.com", listOf("https://www.example.com")),
-            // ── Not links ────────────────────────────────────────────────────
-            Arguments.of("3.14", emptyList<String>()),
-            Arguments.of("2.5.6", emptyList<String>()),
-            Arguments.of("file.txt", emptyList<String>()),
-            Arguments.of("just a sentence", emptyList<String>()),
-            Arguments.of("", emptyList<String>()),
-            // ── Inside a sentence ────────────────────────────────────────────
-            Arguments.of("see https://example.com for more", listOf("https://example.com")),
-            // ── Trailing punctuation ─────────────────────────────────────────
-            Arguments.of("https://example.com.", listOf("https://example.com")),
-            Arguments.of("https://example.com, then more", listOf("https://example.com")),
-            // A bracket the address itself opened stays.
-            Arguments.of(
-                "https://en.wikipedia.org/wiki/Foo_(bar)",
-                listOf("https://en.wikipedia.org/wiki/Foo_(bar)"),
-            ),
-            // A bracket the sentence opened, or one with no partner, is dropped.
-            Arguments.of("(https://example.com)", listOf("https://example.com")),
-            Arguments.of("https://example.com)", listOf("https://example.com")),
-            Arguments.of("https://example.com!", listOf("https://example.com")),
-            Arguments.of("https://example.com;", listOf("https://example.com")),
-            Arguments.of("https://example.com:", listOf("https://example.com")),
-            Arguments.of("https://example.com?", listOf("https://example.com")),
-        )
+        fun webCases(): List<Arguments> =
+            listOf(
+                Arguments.of("https://example.com", listOf("https://example.com")),
+                Arguments.of("http://example.com", listOf("http://example.com")),
+                Arguments.of("www.example.com", listOf("https://www.example.com")),
+                // ── Not links ────────────────────────────────────────────────────
+                Arguments.of("3.14", emptyList<String>()),
+                Arguments.of("2.5.6", emptyList<String>()),
+                Arguments.of("file.txt", emptyList<String>()),
+                Arguments.of("just a sentence", emptyList<String>()),
+                Arguments.of("", emptyList<String>()),
+                // ── Inside a sentence ────────────────────────────────────────────
+                Arguments.of("see https://example.com for more", listOf("https://example.com")),
+                // ── Trailing punctuation ─────────────────────────────────────────
+                Arguments.of("https://example.com.", listOf("https://example.com")),
+                Arguments.of("https://example.com, then more", listOf("https://example.com")),
+                // A bracket the address itself opened stays.
+                Arguments.of(
+                    "https://en.wikipedia.org/wiki/Foo_(bar)",
+                    listOf("https://en.wikipedia.org/wiki/Foo_(bar)"),
+                ),
+                // A bracket the sentence opened, or one with no partner, is dropped.
+                Arguments.of("(https://example.com)", listOf("https://example.com")),
+                Arguments.of("https://example.com)", listOf("https://example.com")),
+                Arguments.of("https://example.com!", listOf("https://example.com")),
+                Arguments.of("https://example.com;", listOf("https://example.com")),
+                Arguments.of("https://example.com:", listOf("https://example.com")),
+                Arguments.of("https://example.com?", listOf("https://example.com")),
+            )
 
         @JvmStatic
-        fun internalCases(): List<Arguments> = listOf(
-            Arguments.of("note://abc", listOf("note://abc")),
-            Arguments.of("task://xyz", listOf("task://xyz")),
-            // A foreign scheme is not one of ours.
-            Arguments.of("xnote://abc", emptyList<String>()),
-            Arguments.of("notask://abc", emptyList<String>()),
-            // The scheme is matched as the app writes it.
-            Arguments.of("NOTE://abc", emptyList<String>()),
-            Arguments.of("Note://abc", emptyList<String>()),
-        )
+        fun internalCases(): List<Arguments> =
+            listOf(
+                Arguments.of("note://abc", listOf("note://abc")),
+                Arguments.of("task://xyz", listOf("task://xyz")),
+                // A foreign scheme is not one of ours.
+                Arguments.of("xnote://abc", emptyList<String>()),
+                Arguments.of("notask://abc", emptyList<String>()),
+                // The scheme is matched as the app writes it.
+                Arguments.of("NOTE://abc", emptyList<String>()),
+                Arguments.of("Note://abc", emptyList<String>()),
+            )
 
         @JvmStatic
-        fun structureCases(): List<Arguments> = listOf(
-            Arguments.of(
-                "see https://example.com and note://abc and task://xyz",
-                listOf("https://example.com", "note://abc", "task://xyz"),
-            ),
-            Arguments.of(
-                "https://example.com/x note://abc",
-                listOf("https://example.com/x", "note://abc"),
-            ),
-            // A web address that contains something link-shaped stays one link.
-            Arguments.of(
-                "https://example.com/?ref=note://abc",
-                listOf("https://example.com/?ref=note://abc"),
-            ),
-            Arguments.of("go note://abc now", listOf("note://abc")),
-        )
+        fun structureCases(): List<Arguments> =
+            listOf(
+                Arguments.of(
+                    "see https://example.com and note://abc and task://xyz",
+                    listOf("https://example.com", "note://abc", "task://xyz"),
+                ),
+                Arguments.of(
+                    "https://example.com/x note://abc",
+                    listOf("https://example.com/x", "note://abc"),
+                ),
+                // A web address that contains something link-shaped stays one link.
+                Arguments.of(
+                    "https://example.com/?ref=note://abc",
+                    listOf("https://example.com/?ref=note://abc"),
+                ),
+                Arguments.of("go note://abc now", listOf("note://abc")),
+            )
     }
 
     @ParameterizedTest
     @MethodSource("webCases")
-    fun `web links are detected with the right bounds`(text: String, expected: List<String>) {
+    fun `web links are detected with the right bounds`(
+        text: String,
+        expected: List<String>,
+    ) {
         assertEquals(expected, webUrls(text))
     }
 
     @ParameterizedTest
     @MethodSource("internalCases")
-    fun `internal links are detected only for the app's own schemes`(text: String, expected: List<String>) {
+    fun `internal links are detected only for the app's own schemes`(
+        text: String,
+        expected: List<String>,
+    ) {
         assertEquals(expected, internalUrls(text))
     }
 
     @ParameterizedTest
     @MethodSource("structureCases")
-    fun `several links are ordered, disjoint and cover exactly their text`(text: String, expected: List<String>) {
+    fun `several links are ordered, disjoint and cover exactly their text`(
+        text: String,
+        expected: List<String>,
+    ) {
         val links = TextLinkDetector.detect(text)
         assertEquals(expected, allUrls(text))
         assertEquals(expected.size, links.size)

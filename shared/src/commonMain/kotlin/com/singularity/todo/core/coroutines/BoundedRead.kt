@@ -13,7 +13,6 @@ import kotlinx.coroutines.withTimeoutOrNull
  * without the read's own value being able to say it for it.
  */
 sealed interface BoundedReadResult<out T> {
-
     /**
      * The read answered before the deadline.
      *

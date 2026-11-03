@@ -24,7 +24,6 @@ import kotlin.test.fail
 @Tag("slow")
 @Tag("slow:konsist")
 class ArchitectureTest {
-
     companion object {
         private const val PKG = "com.singularity.todo"
 
@@ -68,7 +67,8 @@ class ArchitectureTest {
 
         /** Strips KDoc and line comments so prose about DAOs is not read as a call. */
         private fun KoFileDeclaration.codeOnly(): String =
-            text.replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
+            text
+                .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
                 .replace(Regex("""//[^\n]*"""), "")
 
         /**
@@ -82,22 +82,28 @@ class ArchitectureTest {
          */
         private fun queryFunctions(file: KoFileDeclaration): List<Triple<String, String, String>> {
             val source = file.codeOnly()
-            val interfaces = Regex("""interface\s+(\w*Dao)\b""").findAll(source)
-                .map { it.groupValues[1] to it.range.first }
-                .toList()
+            val interfaces =
+                Regex("""interface\s+(\w*Dao)\b""")
+                    .findAll(source)
+                    .map { it.groupValues[1] to it.range.first }
+                    .toList()
+
             fun ownerAt(offset: Int): String = interfaces.lastOrNull { it.second < offset }?.first ?: "?"
 
-            val pattern = Regex(
-                """@Query\(\s*((?:"(?:[^"\\]|\\.)*"\s*)+)\)\s*\n\s*(?:suspend\s+)?fun\s+(\w+)""",
-            )
-            val literal = Regex(""""((?:[^"\\]|\\.)*)"""")
-            return pattern.findAll(source).map { m ->
-                Triple(
-                    ownerAt(m.range.first),
-                    m.groupValues[2],
-                    literal.findAll(m.groupValues[1]).joinToString("") { it.groupValues[1] },
+            val pattern =
+                Regex(
+                    """@Query\(\s*((?:"(?:[^"\\]|\\.)*"\s*)+)\)\s*\n\s*(?:suspend\s+)?fun\s+(\w+)""",
                 )
-            }.toList()
+            val literal = Regex(""""((?:[^"\\]|\\.)*)"""")
+            return pattern
+                .findAll(source)
+                .map { m ->
+                    Triple(
+                        ownerAt(m.range.first),
+                        m.groupValues[2],
+                        literal.findAll(m.groupValues[1]).joinToString("") { it.groupValues[1] },
+                    )
+                }.toList()
         }
 
         /**
@@ -105,7 +111,10 @@ class ArchitectureTest {
          * Top-level feature packages without a layer segment are out of scope —
          * same semantics as the manual audit skill.
          */
-        private fun offendingFiles(layer: String, forbidden: (importFqn: String) -> Boolean): List<KoFileDeclaration> =
+        private fun offendingFiles(
+            layer: String,
+            forbidden: (importFqn: String) -> Boolean,
+        ): List<KoFileDeclaration> =
             scope.files
                 .filterNot { file -> LAYER_ALLOWLIST.any { file.path.endsWith(it) } }
                 .filter { file -> breaksTheLayerRule(file.packageName(), file.importFqns(), layer, forbidden) }
@@ -137,8 +146,10 @@ class ArchitectureTest {
          * does not claim to be one: the components that draw a task card live in
          * `feature.genui.render.app`.
          */
-        private fun isInLayer(packageName: String, layer: String): Boolean =
-            packageName.startsWith("$PKG.feature.") && packageName.contains(".$layer")
+        private fun isInLayer(
+            packageName: String,
+            layer: String,
+        ): Boolean = packageName.startsWith("$PKG.feature.") && packageName.contains(".$layer")
 
         /**
          * Whether the source builds the question the index is asked by hand.
@@ -150,13 +161,19 @@ class ArchitectureTest {
          * @param packageName the package the file is in.
          * @param source the file's code, without its comments.
          */
-        private fun buildsTheQuestionByHand(packageName: String, source: String): Boolean =
-            packageName != "$PKG.core.search" && INDEX_QUESTION.containsMatchIn(source)
+        private fun buildsTheQuestionByHand(
+            packageName: String,
+            source: String,
+        ): Boolean = packageName != "$PKG.core.search" && INDEX_QUESTION.containsMatchIn(source)
 
         /** The shape of a hand-built question: the type, and a call. */
         private val INDEX_QUESTION = Regex("TextMatchQuery\\s*\\(")
 
-        private fun <T> assertNoOffenders(offenders: List<T>, rule: String, describe: (T) -> String) {
+        private fun <T> assertNoOffenders(
+            offenders: List<T>,
+            rule: String,
+            describe: (T) -> String,
+        ) {
             if (offenders.isEmpty()) return
             val listed = offenders.joinToString("\n") { "  - ${describe(it)}" }
             fail("Architectural rule violated: $rule\n$listed")
@@ -205,9 +222,10 @@ class ArchitectureTest {
          * have passed the gate while going unnoticed. That is the failure mode
          * this rule exists to prevent, reproduced inside the rule itself.
          */
-        private val COLOUR_LITERAL_ALLOWLIST = setOf(
-            "com/singularity/todo/feature/notes/Ids.kt",
-        )
+        private val COLOUR_LITERAL_ALLOWLIST =
+            setOf(
+                "com/singularity/todo/feature/notes/Ids.kt",
+            )
 
         /**
          * The ceiling for `colour allowlist does not grow`.
@@ -264,43 +282,44 @@ class ArchitectureTest {
          * bookkeeping, internal machinery, app-wide config), or the table has no
          * ownership column to scope by.
          */
-        private val GLOBAL_DAO_MUTATION_ALLOWLIST = setOf(
-            // Retention sweeps over the whole table — device-local telemetry.
-            "LlmUsageDao.pruneOlderThan",
-            "TaskDao.pruneOlderThan",
-            // A profile *is* the scope, not something scoped by a user id.
-            "ProfileDao.deleteById",
-            // App-wide remote-config cache, not user data.
-            "RemoteConfigCacheDao.deleteDefault",
-            "RemoteConfigDao.deleteDefault",
-            // Sync outbox rows are internal machinery keyed by patchId/entityId.
-            "SyncOutboxDao.delete",
-            "SyncOutboxDao.markFailed",
-            "SyncOutboxDao.deleteByEntity",
-            "SyncOutboxDao.clearAll",
-            // The dead-letter shelf is the same transport queue by another name: a
-            // patch that exceeded its retry budget is moved there verbatim, and the
-            // rows carry a patch id rather than a user. Absent until now — the gate
-            // had never been run against the file.
-            "SyncDeadLetterDao.delete",
-            "SyncDeadLetterDao.clearAll",
-            // `sync_state` is scoped by `owner_id` (see SCOPING_COLUMNS) on every other
-            // write. This one is the deliberate exception: a sign-out drains every
-            // scope, because leaving the previous account's cursor behind would make
-            // the next sign-in resume inside its history.
-            "SyncStateDao.clearAll",
-            // A sign-out drops every scope's shadow at once, like the state table. A
-            // scoped drain would leave the next account diffing against a base that
-            // describes the previous one's uploads.
-            "SyncShadowDao.clearAll",
-            // calendar_sync_task_map has no user_id column: it is device-local
-            // bookkeeping mapping calendar events, not user-owned data. Making it
-            // per-profile would need a schema migration — ledger #17.
-            "CalendarSyncTaskMapDao.delete",
-            "CalendarSyncTaskMapDao.deleteByEventId",
-            "CalendarSyncTaskMapDao.deleteStale",
-            "CalendarSyncTaskMapDao.clearAll",
-        )
+        private val GLOBAL_DAO_MUTATION_ALLOWLIST =
+            setOf(
+                // Retention sweeps over the whole table — device-local telemetry.
+                "LlmUsageDao.pruneOlderThan",
+                "TaskDao.pruneOlderThan",
+                // A profile *is* the scope, not something scoped by a user id.
+                "ProfileDao.deleteById",
+                // App-wide remote-config cache, not user data.
+                "RemoteConfigCacheDao.deleteDefault",
+                "RemoteConfigDao.deleteDefault",
+                // Sync outbox rows are internal machinery keyed by patchId/entityId.
+                "SyncOutboxDao.delete",
+                "SyncOutboxDao.markFailed",
+                "SyncOutboxDao.deleteByEntity",
+                "SyncOutboxDao.clearAll",
+                // The dead-letter shelf is the same transport queue by another name: a
+                // patch that exceeded its retry budget is moved there verbatim, and the
+                // rows carry a patch id rather than a user. Absent until now — the gate
+                // had never been run against the file.
+                "SyncDeadLetterDao.delete",
+                "SyncDeadLetterDao.clearAll",
+                // `sync_state` is scoped by `owner_id` (see SCOPING_COLUMNS) on every other
+                // write. This one is the deliberate exception: a sign-out drains every
+                // scope, because leaving the previous account's cursor behind would make
+                // the next sign-in resume inside its history.
+                "SyncStateDao.clearAll",
+                // A sign-out drops every scope's shadow at once, like the state table. A
+                // scoped drain would leave the next account diffing against a base that
+                // describes the previous one's uploads.
+                "SyncShadowDao.clearAll",
+                // calendar_sync_task_map has no user_id column: it is device-local
+                // bookkeeping mapping calendar events, not user-owned data. Making it
+                // per-profile would need a schema migration — ledger #17.
+                "CalendarSyncTaskMapDao.delete",
+                "CalendarSyncTaskMapDao.deleteByEventId",
+                "CalendarSyncTaskMapDao.deleteStale",
+                "CalendarSyncTaskMapDao.clearAll",
+            )
 
         /**
          * Core-layer files permitted to call a DAO mutation directly.
@@ -310,17 +329,18 @@ class ArchitectureTest {
          * rejects a foreign one — so it cannot go through them. Documented at the
          * write loop in the file itself (ledger #2 in the write-layer ADR).
          */
-        private val CORE_DAO_WRITE_ALLOWLIST = setOf(
-            "core/backup/BackupImporter.kt",
-            // The profile reset is a cross-repository operation by definition: it
-            // empties the profile, including the tables whose repository has no
-            // bulk delete. Every one of those deletes is scoped to the profile's
-            // user id, so it cannot cross a profile — the property the rule
-            // protects is kept, and the ownership it asks for is meaningless for
-            // a reset that owns nothing. The tables it reaches and the ones it
-            // leaves are in `docs/architecture/wipe-inventory.md`.
-            "core/wipe/ProfileContentResetter.kt",
-        )
+        private val CORE_DAO_WRITE_ALLOWLIST =
+            setOf(
+                "core/backup/BackupImporter.kt",
+                // The profile reset is a cross-repository operation by definition: it
+                // empties the profile, including the tables whose repository has no
+                // bulk delete. Every one of those deletes is scoped to the profile's
+                // user id, so it cannot cross a profile — the property the rule
+                // protects is kept, and the ownership it asks for is meaningless for
+                // a reset that owns nothing. The tables it reaches and the ones it
+                // leaves are in `docs/architecture/wipe-inventory.md`.
+                "core/wipe/ProfileContentResetter.kt",
+            )
 
         /**
          * Non-`*DiModule.kt` packages allowed to bind a `*RepositoryImpl` directly.
@@ -346,9 +366,10 @@ class ArchitectureTest {
          * file. `db.taskDao().deleteForUser(...)` is the same row — the `()` is allowed
          * between the name and the dot.
          */
-        private val DAO_WRITE = Regex(
-            """\b\w*[Dd]ao(?:\(\))?\.\w*(?:upsert|insert|update|delete|softDelete|restore|clear)\w*\s*\(""",
-        )
+        private val DAO_WRITE =
+            Regex(
+                """\b\w*[Dd]ao(?:\(\))?\.\w*(?:upsert|insert|update|delete|softDelete|restore|clear)\w*\s*\(""",
+            )
 
         /**
          * A DAO the file holds, by the name it is held under.
@@ -366,29 +387,32 @@ class ArchitectureTest {
 
         /** Packages allowed to import Koog (AGENTS.md ban #7; genui sanctioned). */
 
-        private val KOOG_ALLOWED_PACKAGES = listOf(
-            "$PKG.feature.ai",
-            "$PKG.feature.genui",
-            "$PKG.core.di",
-            "$PKG.core.llm",
-            "$PKG.core.ai",
-        )
+        private val KOOG_ALLOWED_PACKAGES =
+            listOf(
+                "$PKG.feature.ai",
+                "$PKG.feature.genui",
+                "$PKG.core.di",
+                "$PKG.core.llm",
+                "$PKG.core.ai",
+            )
     }
 
     @Test
     fun `feature domain does not import presentation or data layers`() {
-        val offenders = offendingFiles("domain") { imp ->
-            imp.startsWith("$PKG.feature.") &&
-                (imp.contains(".presentation.") || imp.contains(".data."))
-        }
+        val offenders =
+            offendingFiles("domain") { imp ->
+                imp.startsWith("$PKG.feature.") &&
+                    (imp.contains(".presentation.") || imp.contains(".data."))
+            }
         assertNoOffenders(offenders, "domain layer must depend only on domain models, ports and core") { it.path }
     }
 
     @Test
     fun `feature presentation does not import data layer`() {
-        val offenders = offendingFiles("presentation") { imp ->
-            imp.startsWith("$PKG.feature.") && imp.contains(".data.")
-        }
+        val offenders =
+            offendingFiles("presentation") { imp ->
+                imp.startsWith("$PKG.feature.") && imp.contains(".data.")
+            }
         assertNoOffenders(offenders, "presentation must not reach into feature data packages") { it.path }
     }
 
@@ -402,8 +426,9 @@ class ArchitectureTest {
         //
         // The rule and the shape it produces live in `core/search`, next to the
         // plan and the port. Everything else asks the rule.
-        val offenders = scope.files
-            .filter { file -> buildsTheQuestionByHand(file.packageName(), file.codeOnly()) }
+        val offenders =
+            scope.files
+                .filter { file -> buildsTheQuestionByHand(file.packageName(), file.codeOnly()) }
         assertNoOffenders(
             offenders,
             "the index question is built by the rule, in core/search",
@@ -421,11 +446,12 @@ class ArchitectureTest {
      */
     @Test
     fun positiveControlDetectsAQuestionBuiltByHand() {
-        val synthetic = """
+        val synthetic =
+            """
             package com.singularity.todo.feature.tasks.data
 
             fun search(text: String): TextMatchQuery = TextMatchQuery(listOf(text))
-        """.trimIndent()
+            """.trimIndent()
 
         assertTrue(
             buildsTheQuestionByHand("com.singularity.todo.feature.tasks.data", synthetic),
@@ -493,19 +519,19 @@ class ArchitectureTest {
         //
         // Allowlist: AI use cases legitimately call Koog tool implementations, which
         // are not RepositoryImpl by name — they are checked by the koog-import rule.
-        val offenders = scope.files
-            .filter { file ->
-                val pkg = file.packageName()
-                // Files in feature/<x>/domain/ (UseCase classes land here by convention)
-                pkg.startsWith("$PKG.feature.") && !pkg.contains(".presentation.") && !pkg.contains(".data.")
-            }
-            .filter { file ->
-                file.importFqns().any { it.endsWith("RepositoryImpl") }
-            }
-            // *DiModule files are DI wiring classes; they import RepositoryImpl to bind
-            // implementations into the Koin graph and are exempt from this rule.
-            // Use relativePath (not fileName) to ensure the check works on all platforms.
-            .filter { file -> !relativePath(file).contains("DiModule") }
+        val offenders =
+            scope.files
+                .filter { file ->
+                    val pkg = file.packageName()
+                    // Files in feature/<x>/domain/ (UseCase classes land here by convention)
+                    pkg.startsWith("$PKG.feature.") && !pkg.contains(".presentation.") && !pkg.contains(".data.")
+                }.filter { file ->
+                    file.importFqns().any { it.endsWith("RepositoryImpl") }
+                }
+                // *DiModule files are DI wiring classes; they import RepositoryImpl to bind
+                // implementations into the Koin graph and are exempt from this rule.
+                // Use relativePath (not fileName) to ensure the check works on all platforms.
+                .filter { file -> !relativePath(file).contains("DiModule") }
         assertNoOffenders(
             offenders,
             "UseCase files must not import *RepositoryImpl — depend on the repository interface " +
@@ -515,9 +541,10 @@ class ArchitectureTest {
 
     @Test
     fun `feature data does not import presentation layer`() {
-        val offenders = offendingFiles("data") { imp ->
-            imp.startsWith("$PKG.feature.") && imp.contains(".presentation.")
-        }
+        val offenders =
+            offendingFiles("data") { imp ->
+                imp.startsWith("$PKG.feature.") && imp.contains(".presentation.")
+            }
         assertNoOffenders(offenders, "data layer must not reference presentation types") { it.path }
     }
 
@@ -534,11 +561,12 @@ class ArchitectureTest {
         // screens keep their composables directly under `feature/<x>/`, so a rule
         // scoped to a `presentation` segment would pass while 22 real literals sat
         // outside it — a green gate over an unchanged problem.
-        val offenders = scope.files
-            .filterNot { file -> relativePath(file) in COLOUR_LITERAL_ALLOWLIST }
-            .filter { it.packageName().startsWith("$PKG.feature") }
-            .filterNot { "/theme/" in it.path.replace('\\', '/') }
-            .filter { file -> "Color(0x" in file.codeOnly() }
+        val offenders =
+            scope.files
+                .filterNot { file -> relativePath(file) in COLOUR_LITERAL_ALLOWLIST }
+                .filter { it.packageName().startsWith("$PKG.feature") }
+                .filterNot { "/theme/" in it.path.replace('\\', '/') }
+                .filter { file -> "Color(0x" in file.codeOnly() }
         assertNoOffenders(
             offenders,
             "a feature composable must read the active theme; fixed colours belong in a theme file",
@@ -560,9 +588,10 @@ class ArchitectureTest {
         // scan: a file has to *say* `@Preview` to be a preview, but a comment
         // explaining this very rule quotes `MaterialTheme {` verbatim, and reading
         // that as an offender would make the fix unrepresentable in its own repo.
-        val offenders = scope.files
-            .filter { it.sourceText().contains("@Preview") }
-            .filter { "MaterialTheme {" in it.codeOnly() }
+        val offenders =
+            scope.files
+                .filter { it.sourceText().contains("@Preview") }
+                .filter { "MaterialTheme {" in it.codeOnly() }
         assertNoOffenders(
             offenders,
             "a @Preview must wrap in PreviewThemed, not a bare MaterialTheme — see PreviewSamples.kt",
@@ -602,12 +631,13 @@ class ArchitectureTest {
         // Theme-aware code reads LocalIsDarkTheme, provided by SingularityTheme from
         // the same value it used to build the color scheme. See ADR
         // 2026-10-05-materialkolor-seed-palette-and-resolved-dark-flag.
-        val offenders = scope.files
-            .filterNot { it.fileName() in DARK_THEME_READER_ALLOWLIST }
-            .filter { file ->
-                // codeOnly() so a KDoc mention of the name does not count as a call.
-                "isSystemInDarkTheme(" in file.codeOnly()
-            }
+        val offenders =
+            scope.files
+                .filterNot { it.fileName() in DARK_THEME_READER_ALLOWLIST }
+                .filter { file ->
+                    // codeOnly() so a KDoc mention of the name does not count as a call.
+                    "isSystemInDarkTheme(" in file.codeOnly()
+                }
         assertNoOffenders(
             offenders,
             "only SingularityTheme may resolve the system dark flag; consumers read LocalIsDarkTheme",
@@ -616,12 +646,13 @@ class ArchitectureTest {
 
     @Test
     fun `koog imports are confined to ai-related packages`() {
-        val offenders = scope.files
-            .filter { file -> file.importFqns().any { it.startsWith("ai.koog") } }
-            .filter { file ->
-                val pkg = file.packageName()
-                KOOG_ALLOWED_PACKAGES.none { allowed -> pkg == allowed || pkg.startsWith("$allowed.") }
-            }
+        val offenders =
+            scope.files
+                .filter { file -> file.importFqns().any { it.startsWith("ai.koog") } }
+                .filter { file ->
+                    val pkg = file.packageName()
+                    KOOG_ALLOWED_PACKAGES.none { allowed -> pkg == allowed || pkg.startsWith("$allowed.") }
+                }
         assertNoOffenders(offenders, "ai.koog imports are allowed only in $KOOG_ALLOWED_PACKAGES") { it.path }
     }
 
@@ -636,19 +667,21 @@ class ArchitectureTest {
         // not filesystem access, and four stores legitimately catch it around a
         // DataStore/prefs read.
         val bannedPrefixes = listOf("java.nio.file.", "kotlin.io.path.")
-        val bannedExact = listOf(
-            "java.io.File",
-            "java.io.FileInputStream",
-            "java.io.FileOutputStream",
-            "java.io.RandomAccessFile",
-        )
-        val offenders = scope.files
-            .filterNot { file -> FILE_API_ALLOWLIST.any { file.path.replace('\\', '/').endsWith(it) } }
-            .filter { file ->
-                file.importFqns().any { fqn ->
-                    fqn in bannedExact || bannedPrefixes.any { fqn.startsWith(it) }
+        val bannedExact =
+            listOf(
+                "java.io.File",
+                "java.io.FileInputStream",
+                "java.io.FileOutputStream",
+                "java.io.RandomAccessFile",
+            )
+        val offenders =
+            scope.files
+                .filterNot { file -> FILE_API_ALLOWLIST.any { file.path.replace('\\', '/').endsWith(it) } }
+                .filter { file ->
+                    file.importFqns().any { fqn ->
+                        fqn in bannedExact || bannedPrefixes.any { fqn.startsWith(it) }
+                    }
                 }
-            }
         assertNoOffenders(
             offenders,
             "commonMain must not touch the filesystem directly — use the FileSystem port " +
@@ -659,15 +692,16 @@ class ArchitectureTest {
 
     @Test
     fun `repository implementations are imported only from di modules`() {
-        val offenders = scope.files
-            .filter { file -> file.importFqns().any { it.endsWith("RepositoryImpl") } }
-            // Keyed on the *file*, not the package. The earlier version whitelisted whole
-            // feature packages (agenda/tasks/notes), which meant any screen, ViewModel or
-            // slot in those packages could import an implementation and the rule stayed
-            // green — it enforced "the feature knows the impl", not "only DI knows the impl",
-            // which is the boundary it exists to protect.
-            .filter { file -> file.packageName() !in DI_IMPL_ALLOWLIST }
-            .filter { file -> !file.fileName().endsWith("DiModule.kt") }
+        val offenders =
+            scope.files
+                .filter { file -> file.importFqns().any { it.endsWith("RepositoryImpl") } }
+                // Keyed on the *file*, not the package. The earlier version whitelisted whole
+                // feature packages (agenda/tasks/notes), which meant any screen, ViewModel or
+                // slot in those packages could import an implementation and the rule stayed
+                // green — it enforced "the feature knows the impl", not "only DI knows the impl",
+                // which is the boundary it exists to protect.
+                .filter { file -> file.packageName() !in DI_IMPL_ALLOWLIST }
+                .filter { file -> !file.fileName().endsWith("DiModule.kt") }
         assertNoOffenders(
             offenders,
             "*RepositoryImpl may only be referenced by *DiModule.kt (core or feature)",
@@ -676,9 +710,11 @@ class ArchitectureTest {
 
     @Test
     fun `repository interfaces declare no Blocking methods`() {
-        val offenders = scope.interfaces()
-            .filter { it.name.endsWith("Repository") }
-            .filter { iface -> iface.functions().any { fn -> fn.name.endsWith("Blocking") } }
+        val offenders =
+            scope
+                .interfaces()
+                .filter { it.name.endsWith("Repository") }
+                .filter { iface -> iface.functions().any { fn -> fn.name.endsWith("Blocking") } }
         assertNoOffenders(
             offenders,
             "repositories expose suspend + Flow APIs; *Blocking() methods are banned (AGENTS.md ban #2)",
@@ -688,13 +724,14 @@ class ArchitectureTest {
     @Test
     fun `DAO mutations are ownership-scoped`() {
         val mutating = Regex("""\b(UPDATE|DELETE\s+FROM)\b""", RegexOption.IGNORE_CASE)
-        val offenders = scope.files.flatMap { file ->
-            queryFunctions(file)
-                .filter { (_, _, sql) -> mutating.containsMatchIn(sql) }
-                .filter { (dao, method, _) -> "$dao.$method" !in GLOBAL_DAO_MUTATION_ALLOWLIST }
-                .filter { (_, _, sql) -> SCOPING_COLUMNS.none { it in sql } }
-                .map { (dao, method, _) -> "${file.path}: $dao.$method() has no ownership predicate" }
-        }
+        val offenders =
+            scope.files.flatMap { file ->
+                queryFunctions(file)
+                    .filter { (_, _, sql) -> mutating.containsMatchIn(sql) }
+                    .filter { (dao, method, _) -> "$dao.$method" !in GLOBAL_DAO_MUTATION_ALLOWLIST }
+                    .filter { (_, _, sql) -> SCOPING_COLUMNS.none { it in sql } }
+                    .map { (dao, method, _) -> "${file.path}: $dao.$method() has no ownership predicate" }
+            }
         assertNoOffenders(
             offenders,
             "every UPDATE/DELETE must filter on an ownership column so a write cannot " +
@@ -705,17 +742,20 @@ class ArchitectureTest {
 
     @Test
     fun `core layer reaches DAO mutations only through a repository`() {
-        val offenders = scope.files
-            .filterNot { file -> CORE_DAO_WRITE_ALLOWLIST.any { file.path.endsWith(it) } }
-            .map { it.packageName() to it }
-            .filter { (pkg, _) -> pkg.startsWith("$PKG.core.") }
-            .filter { (pkg, _) -> CORE_DAO_OWNER_PACKAGES.none { pkg == it || pkg.startsWith("$it.") } }
-            .filter { (_, file) -> writesADao(file.codeOnly()) }
-            .filterNot { (_, file) ->
-                Regex("""class\s+(\w+)""").find(file.codeOnly())?.groupValues?.get(1)
-                    ?.let { n -> REPOSITORY_IMPL_SUFFIXES.any { n.endsWith(it) } } == true
-            }
-            .map { (_, file) -> file.path }
+        val offenders =
+            scope.files
+                .filterNot { file -> CORE_DAO_WRITE_ALLOWLIST.any { file.path.endsWith(it) } }
+                .map { it.packageName() to it }
+                .filter { (pkg, _) -> pkg.startsWith("$PKG.core.") }
+                .filter { (pkg, _) -> CORE_DAO_OWNER_PACKAGES.none { pkg == it || pkg.startsWith("$it.") } }
+                .filter { (_, file) -> writesADao(file.codeOnly()) }
+                .filterNot { (_, file) ->
+                    Regex("""class\s+(\w+)""")
+                        .find(file.codeOnly())
+                        ?.groupValues
+                        ?.get(1)
+                        ?.let { n -> REPOSITORY_IMPL_SUFFIXES.any { n.endsWith(it) } } == true
+                }.map { (_, file) -> file.path }
         assertNoOffenders(
             offenders,
             "core/ must not write DAOs directly unless it *is* the repository for that DAO, " +
@@ -763,21 +803,24 @@ class ArchitectureTest {
      */
     @Test
     fun positiveControlDetectsADaoWriteAndLeavesTheFileSystemAlone() {
-        val daoWrite = """
+        val daoWrite =
+            """
             package com.singularity.todo.core.whatever
 
             fun purge(taskDao: TaskDao, id: String, userId: String) {
                 taskDao.deleteForUser(id, userId)
             }
-        """.trimIndent()
-        val fileSystemDelete = """
+            """.trimIndent()
+        val fileSystemDelete =
+            """
             package com.singularity.todo.core.whatever
 
             fun purge(fs: FileSystem, path: String) {
                 fs.delete(path)
             }
-        """.trimIndent()
-        val daoUnderAnotherName = """
+            """.trimIndent()
+        val daoUnderAnotherName =
+            """
             package com.singularity.todo.core.whatever
 
             class Purger(private val tasks: TaskDao) {
@@ -785,7 +828,7 @@ class ArchitectureTest {
                     tasks.deleteForUser("t-1", userId)
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
 
         assertTrue(
             writesADao(daoWrite),
@@ -816,20 +859,19 @@ class ArchitectureTest {
      */
     @Test
     fun `repository read methods are user-scoped`() {
-        val offenders = scope.files
-            .filter { file -> Regex("""class\s+\w+RepositoryImpl\b""").containsMatchIn(file.codeOnly()) }
-            .flatMap { file ->
-                val code = file.codeOnly()
-                queryFunctions(file)
-                    .filter { (_, _, sql) ->
-                        !Regex("""\b(UPDATE|DELETE|INSERT|REPLACE|UPSERT)\b""", RegexOption.IGNORE_CASE)
-                            .containsMatchIn(sql)
-                    }
-                    .filter { (dao, method, sql) ->
-                        "$dao.$method" !in UNSCOPED_READ_ALLOWLIST && "user_id" !in sql
-                    }
-                    .map { (dao, method, _) -> "${file.path}: $dao.$method() has no userId in SQL" }
-            }
+        val offenders =
+            scope.files
+                .filter { file -> Regex("""class\s+\w+RepositoryImpl\b""").containsMatchIn(file.codeOnly()) }
+                .flatMap { file ->
+                    val code = file.codeOnly()
+                    queryFunctions(file)
+                        .filter { (_, _, sql) ->
+                            !Regex("""\b(UPDATE|DELETE|INSERT|REPLACE|UPSERT)\b""", RegexOption.IGNORE_CASE)
+                                .containsMatchIn(sql)
+                        }.filter { (dao, method, sql) ->
+                            "$dao.$method" !in UNSCOPED_READ_ALLOWLIST && "user_id" !in sql
+                        }.map { (dao, method, _) -> "${file.path}: $dao.$method() has no userId in SQL" }
+                }
         assertNoOffenders(
             offenders,
             "repository read methods must scope by userId (SQL has user_id in WHERE, " +
@@ -845,12 +887,13 @@ class ArchitectureTest {
      *
      * Adding an entry requires an ADR documenting why the call site guarantees safety.
      */
-    private val UNSCOPED_READ_ALLOWLIST = setOf(
-        // task_dependencies cross-ref table has no user_id column; the task_id
-        // parameter comes from an already-scoped task list (the caller only works
-        // with tasks owned by the current profile).
-        "TaskDao.getOrderingEdgeIdsForUser",
-    )
+    private val UNSCOPED_READ_ALLOWLIST =
+        setOf(
+            // task_dependencies cross-ref table has no user_id column; the task_id
+            // parameter comes from an already-scoped task list (the caller only works
+            // with tasks owned by the current profile).
+            "TaskDao.getOrderingEdgeIdsForUser",
+        )
 
     /**
      * `SyncEngine` is a coordinator: it owns no business logic.
@@ -981,18 +1024,19 @@ class ArchitectureTest {
      */
     @Test
     fun `SyncEngine child phases must not create their own StateFlow`() {
-        val phaseFiles = scope.files.filter { file ->
-            val path = file.path.replace('\\', '/')
-            path.endsWith("core/sync/PushPhase.kt") || path.endsWith("core/sync/PullPhase.kt")
-        }
-
-        val offenders = phaseFiles
-            .filter { file ->
-                // MutableStateFlow(...) is the direct creation; StateFlow is the read-only
-                // interface and is fine to hold as a property. The ban is on creating one.
-                Regex("""MutableStateFlow\s*\(""").containsMatchIn(file.codeOnly())
+        val phaseFiles =
+            scope.files.filter { file ->
+                val path = file.path.replace('\\', '/')
+                path.endsWith("core/sync/PushPhase.kt") || path.endsWith("core/sync/PullPhase.kt")
             }
-            .map { it.path }
+
+        val offenders =
+            phaseFiles
+                .filter { file ->
+                    // MutableStateFlow(...) is the direct creation; StateFlow is the read-only
+                    // interface and is fine to hold as a property. The ban is on creating one.
+                    Regex("""MutableStateFlow\s*\(""").containsMatchIn(file.codeOnly())
+                }.map { it.path }
 
         assertNoOffenders(
             offenders,

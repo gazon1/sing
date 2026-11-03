@@ -27,17 +27,17 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class ProjectsMenuAllProjectsScenarioTest {
-
     @Test
     @DisplayName("MENU-06 the full project list stays reachable from the menu")
-    fun the_full_project_list_stays_reachable() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        seedProject(koin, "robot-root", "Product")
+    fun the_full_project_list_stays_reachable() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            seedProject(koin, "robot-root", "Product")
 
-        openDrawer()
-        clickTagScrolled("menu_all_projects")
+            openDrawer()
+            clickTagScrolled("menu_all_projects")
 
-        // The list is the screen that holds the projects — the tree is only a
-        // way into them.
-        awaitTag(TestTags.projectCard("Product"))
-    }
+            // The list is the screen that holds the projects — the tree is only a
+            // way into them.
+            awaitTag(TestTags.projectCard("Product"))
+        }
 }

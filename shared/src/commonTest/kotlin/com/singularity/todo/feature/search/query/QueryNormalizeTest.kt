@@ -13,7 +13,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class QueryNormalizeTest {
-
     private fun parse(input: String): Query = SingularityQueryParser(input).parse()
 
     @Test

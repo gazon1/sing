@@ -25,16 +25,19 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class DetachTaskFromSeriesUseCaseTest {
-
     private val alice = UserId("alice")
     private val seriesId = TaskSeriesId("series-1")
     private val fixedInstant = kotlin.time.Instant.fromEpochMilliseconds(1_700_000_000_000)
 
-    private fun repoFor(user: UserId) = FakeTaskRepository(
-        explicitCurrentUser = FakeProfileAwareCurrentUser(initialUserId = user),
-    )
+    private fun repoFor(user: UserId) =
+        FakeTaskRepository(
+            explicitCurrentUser = FakeProfileAwareCurrentUser(initialUserId = user),
+        )
 
-    private fun member(id: String, dueDate: LocalDate = LocalDate(2026, 10, 5)) = Task(
+    private fun member(
+        id: String,
+        dueDate: LocalDate = LocalDate(2026, 10, 5),
+    ) = Task(
         id = TaskId(id),
         title = "Pay the rent",
         dueDate = dueDate,
@@ -45,158 +48,171 @@ class DetachTaskFromSeriesUseCaseTest {
     )
 
     @Test
-    fun `the occurrence stands alone afterwards`() = runTest {
-        val repo = repoFor(alice)
-        repo.seed(
-            member("s1"),
-            member("s2", dueDate = LocalDate(2026, 10, 12)),
-            member("s3", dueDate = LocalDate(2026, 10, 19)),
-        )
+    fun `the occurrence stands alone afterwards`() =
+        runTest {
+            val repo = repoFor(alice)
+            repo.seed(
+                member("s1"),
+                member("s2", dueDate = LocalDate(2026, 10, 12)),
+                member("s3", dueDate = LocalDate(2026, 10, 19)),
+            )
 
-        val result = DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
-        advanceUntilIdle()
+            val result = DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
+            advanceUntilIdle()
 
-        assertTrue(result.isSuccess)
-        assertNull(
-            repo.tasks.value[TaskId("s2").value]?.seriesId,
-            "the occurrence that left must not claim to be part of a series",
-        )
-    }
-
-    @Test
-    fun `the occurrence keeps its own date`() = runTest {
-        val repo = repoFor(alice)
-        repo.seed(member("s1"), member("s2", dueDate = LocalDate(2026, 10, 12)))
-
-        DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
-        advanceUntilIdle()
-
-        assertEquals(
-            LocalDate(2026, 10, 12),
-            repo.tasks.value[TaskId("s2").value]?.dueDate,
-            "the date belongs to the occurrence and stays with it",
-        )
-    }
+            assertTrue(result.isSuccess)
+            assertNull(
+                repo.tasks.value[TaskId("s2").value]?.seriesId,
+                "the occurrence that left must not claim to be part of a series",
+            )
+        }
 
     @Test
-    fun `the rest of the series keeps its id`() = runTest {
-        val repo = repoFor(alice)
-        repo.seed(
-            member("s1"),
-            member("s2", dueDate = LocalDate(2026, 10, 12)),
-            member("s3", dueDate = LocalDate(2026, 10, 19)),
-        )
+    fun `the occurrence keeps its own date`() =
+        runTest {
+            val repo = repoFor(alice)
+            repo.seed(member("s1"), member("s2", dueDate = LocalDate(2026, 10, 12)))
 
-        DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
-        advanceUntilIdle()
+            DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
+            advanceUntilIdle()
 
-        assertEquals(
-            seriesId,
-            repo.tasks.value[TaskId("s1").value]?.seriesId,
-            "the series that still has members keeps its id",
-        )
-    }
+            assertEquals(
+                LocalDate(2026, 10, 12),
+                repo.tasks.value[TaskId("s2").value]?.dueDate,
+                "the date belongs to the occurrence and stays with it",
+            )
+        }
 
     @Test
-    fun `the last other member stands alone too`() = runTest {
-        val repo = repoFor(alice)
-        repo.seed(member("s1"), member("s2", dueDate = LocalDate(2026, 10, 12)))
+    fun `the rest of the series keeps its id`() =
+        runTest {
+            val repo = repoFor(alice)
+            repo.seed(
+                member("s1"),
+                member("s2", dueDate = LocalDate(2026, 10, 12)),
+                member("s3", dueDate = LocalDate(2026, 10, 19)),
+            )
 
-        DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
-        advanceUntilIdle()
+            DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
+            advanceUntilIdle()
 
-        assertNull(
-            repo.tasks.value[TaskId("s1").value]?.seriesId,
-            "a series of one member is not a series: the id would promise a group of one",
-        )
-    }
-
-    @Test
-    fun `a task that is not part of a series is left alone`() = runTest {
-        val repo = repoFor(alice)
-        repo.seed(
-            member("s1"),
-            Task(
-                id = TaskId("lonely"),
-                title = "Buy milk",
-                userId = alice,
-                createdAt = fixedInstant,
-                updatedAt = fixedInstant,
-            ),
-        )
-
-        val result = DetachTaskFromSeriesUseCase(repo)(TaskId("lonely"))
-        advanceUntilIdle()
-
-        assertTrue(result.isSuccess, "a task that already stands alone is not an error")
-        assertNull(repo.tasks.value[TaskId("lonely").value]?.seriesId)
-    }
+            assertEquals(
+                seriesId,
+                repo.tasks.value[TaskId("s1").value]?.seriesId,
+                "the series that still has members keeps its id",
+            )
+        }
 
     @Test
-    fun `a task that is not there is a failure`() = runTest {
-        val repo = repoFor(alice)
+    fun `the last other member stands alone too`() =
+        runTest {
+            val repo = repoFor(alice)
+            repo.seed(member("s1"), member("s2", dueDate = LocalDate(2026, 10, 12)))
 
-        val result = DetachTaskFromSeriesUseCase(repo)(TaskId("missing"))
+            DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
+            advanceUntilIdle()
 
-        assertTrue(result.isFailure, "there is nothing to detach")
-    }
+            assertNull(
+                repo.tasks.value[TaskId("s1").value]?.seriesId,
+                "a series of one member is not a series: the id would promise a group of one",
+            )
+        }
+
+    @Test
+    fun `a task that is not part of a series is left alone`() =
+        runTest {
+            val repo = repoFor(alice)
+            repo.seed(
+                member("s1"),
+                Task(
+                    id = TaskId("lonely"),
+                    title = "Buy milk",
+                    userId = alice,
+                    createdAt = fixedInstant,
+                    updatedAt = fixedInstant,
+                ),
+            )
+
+            val result = DetachTaskFromSeriesUseCase(repo)(TaskId("lonely"))
+            advanceUntilIdle()
+
+            assertTrue(result.isSuccess, "a task that already stands alone is not an error")
+            assertNull(repo.tasks.value[TaskId("lonely").value]?.seriesId)
+        }
+
+    @Test
+    fun `a task that is not there is a failure`() =
+        runTest {
+            val repo = repoFor(alice)
+
+            val result = DetachTaskFromSeriesUseCase(repo)(TaskId("missing"))
+
+            assertTrue(result.isFailure, "there is nothing to detach")
+        }
 
     // ─── A recurring series: the rule goes with the series id ─────────────────
 
-    private val weekly = com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval(
-        com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase.FROM_DUE,
-        1,
-        kotlinx.datetime.DateTimeUnit.WEEK,
-    )
-
-    private fun recurringMember(id: String, dueDate: LocalDate) = member(id, dueDate).copy(recurrence = weekly)
-
-    @Test
-    fun `an occurrence that leaves a recurring series loses the rule`() = runTest {
-        val repo = repoFor(alice)
-        repo.seed(
-            recurringMember("s1", LocalDate(2026, 10, 5)),
-            recurringMember("s2", LocalDate(2026, 10, 12)),
-            recurringMember("s3", LocalDate(2026, 10, 19)),
+    private val weekly =
+        com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval(
+            com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase.FROM_DUE,
+            1,
+            kotlinx.datetime.DateTimeUnit.WEEK,
         )
 
-        DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
-        advanceUntilIdle()
-
-        val detached = repo.tasks.value[TaskId("s2").value]
-        assertNull(detached?.seriesId, "the occurrence leaves the series")
-        assertNull(detached?.recurrence, "and it stops repeating — the rule leaves with the series id")
-    }
+    private fun recurringMember(
+        id: String,
+        dueDate: LocalDate,
+    ) = member(id, dueDate).copy(recurrence = weekly)
 
     @Test
-    fun `the remaining members keep the rule`() = runTest {
-        val repo = repoFor(alice)
-        repo.seed(
-            recurringMember("s1", LocalDate(2026, 10, 5)),
-            recurringMember("s2", LocalDate(2026, 10, 12)),
-            recurringMember("s3", LocalDate(2026, 10, 19)),
-        )
+    fun `an occurrence that leaves a recurring series loses the rule`() =
+        runTest {
+            val repo = repoFor(alice)
+            repo.seed(
+                recurringMember("s1", LocalDate(2026, 10, 5)),
+                recurringMember("s2", LocalDate(2026, 10, 12)),
+                recurringMember("s3", LocalDate(2026, 10, 19)),
+            )
 
-        DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
-        advanceUntilIdle()
+            DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
+            advanceUntilIdle()
 
-        assertEquals(weekly, repo.tasks.value[TaskId("s1").value]?.recurrence, "the series keeps repeating")
-        assertEquals(weekly, repo.tasks.value[TaskId("s3").value]?.recurrence)
-    }
+            val detached = repo.tasks.value[TaskId("s2").value]
+            assertNull(detached?.seriesId, "the occurrence leaves the series")
+            assertNull(detached?.recurrence, "and it stops repeating — the rule leaves with the series id")
+        }
 
     @Test
-    fun `the row that stays behind when a recurring series ends loses the rule too`() = runTest {
-        val repo = repoFor(alice)
-        repo.seed(
-            recurringMember("s1", LocalDate(2026, 10, 5)),
-            recurringMember("s2", LocalDate(2026, 10, 12)),
-        )
+    fun `the remaining members keep the rule`() =
+        runTest {
+            val repo = repoFor(alice)
+            repo.seed(
+                recurringMember("s1", LocalDate(2026, 10, 5)),
+                recurringMember("s2", LocalDate(2026, 10, 12)),
+                recurringMember("s3", LocalDate(2026, 10, 19)),
+            )
 
-        DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
-        advanceUntilIdle()
+            DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
+            advanceUntilIdle()
 
-        val stayed = repo.tasks.value[TaskId("s1").value]
-        assertNull(stayed?.seriesId, "the leftover stands alone")
-        assertNull(stayed?.recurrence, "and carries no rule — or the launch repair would adopt it back")
-    }
+            assertEquals(weekly, repo.tasks.value[TaskId("s1").value]?.recurrence, "the series keeps repeating")
+            assertEquals(weekly, repo.tasks.value[TaskId("s3").value]?.recurrence)
+        }
+
+    @Test
+    fun `the row that stays behind when a recurring series ends loses the rule too`() =
+        runTest {
+            val repo = repoFor(alice)
+            repo.seed(
+                recurringMember("s1", LocalDate(2026, 10, 5)),
+                recurringMember("s2", LocalDate(2026, 10, 12)),
+            )
+
+            DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
+            advanceUntilIdle()
+
+            val stayed = repo.tasks.value[TaskId("s1").value]
+            assertNull(stayed?.seriesId, "the leftover stands alone")
+            assertNull(stayed?.recurrence, "and carries no rule — or the launch repair would adopt it back")
+        }
 }

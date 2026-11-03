@@ -3,11 +3,11 @@ package com.singularity.todo.core.sync
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.TransportFacts
 import com.singularity.todo.core.error.TransportFailure
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Tag
 
 /**
  * What a failed call to a database function says.
@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Tag
  */
 @Tag("fast")
 class SyncRpcFailureTest {
-
     /** No project: the call is not attempted, and it says so. */
     @Test
     fun `an unconfigured project is named, not counted as a refusal`() {
@@ -41,16 +40,18 @@ class SyncRpcFailureTest {
     /** A refusal repeats the server's own facts, in the order that answers "what did it say?". */
     @Test
     fun `a refusal repeats the status, the server's code and its words`() {
-        val failure = SyncRpcFailure.refused(
-            failure = TransportFailure.REJECTED,
-            facts = TransportFacts(
-                statusCode = 403,
-                serverCode = "PGRST301",
-                detail = "new row violates row-level security policy",
-            ),
-            function = "push_changes",
-            cause = IllegalStateException("the vendor's exception"),
-        )
+        val failure =
+            SyncRpcFailure.refused(
+                failure = TransportFailure.REJECTED,
+                facts =
+                    TransportFacts(
+                        statusCode = 403,
+                        serverCode = "PGRST301",
+                        detail = "new row violates row-level security policy",
+                    ),
+                function = "push_changes",
+                cause = IllegalStateException("the vendor's exception"),
+            )
 
         assertEquals(TransportFailure.REJECTED, failure.failure)
         assertTrue(
@@ -66,12 +67,13 @@ class SyncRpcFailureTest {
     /** A failure with nothing to say still says what happened. */
     @Test
     fun `a refusal without facts still names the failure`() {
-        val failure = SyncRpcFailure.refused(
-            failure = TransportFailure.NETWORK,
-            facts = TransportFacts(statusCode = null, serverCode = null, detail = null),
-            function = "pull_changes",
-            cause = IllegalStateException("socket closed"),
-        )
+        val failure =
+            SyncRpcFailure.refused(
+                failure = TransportFailure.NETWORK,
+                facts = TransportFacts(statusCode = null, serverCode = null, detail = null),
+                function = "pull_changes",
+                cause = IllegalStateException("socket closed"),
+            )
 
         assertEquals(TransportFailure.NETWORK, failure.failure)
         assertTrue(

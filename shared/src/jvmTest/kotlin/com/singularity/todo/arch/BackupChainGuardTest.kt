@@ -1,7 +1,7 @@
 package com.singularity.todo.arch
 
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -40,7 +40,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class BackupChainGuardTest {
-
     @Test
     fun `the chain count is bounded before the password is proven`() {
         val sources = backupSources()
@@ -64,9 +63,11 @@ class BackupChainGuardTest {
         )
 
         val holder = holders.single()
-        val method = SourceScan.methods(holder.readText())
-            .firstOrNull { it.body.contains(GUARD) }
-            ?: error("The guard is in ${holder.path}, but not in a function this test can read.")
+        val method =
+            SourceScan
+                .methods(holder.readText())
+                .firstOrNull { it.body.contains(GUARD) }
+                ?: error("The guard is in ${holder.path}, but not in a function this test can read.")
 
         val reason = missingGuard(method.body)
         assertNull(
@@ -77,13 +78,14 @@ class BackupChainGuardTest {
 
     @Test
     fun `a body without the guard is reported`() {
-        val body = """
+        val body =
+            """
             fun openChain(source: ByteSource, sink: ByteSink, password: CharArray) {
                 requirePassword(password)
                 val container = archiveErrors { ArchiveContainerReader.read(source) }
                 val session = contentSession(container, password)
             }
-        """.trimIndent()
+            """.trimIndent()
 
         assertEquals(
             "the guard `requireChainFits(container.head.count, \"reads\")` is not there",
@@ -93,23 +95,30 @@ class BackupChainGuardTest {
     }
 
     /** The reason the body has no usable guard, or null when it has one. */
-    private fun missingGuard(body: String): String? = when {
-        !body.contains(GUARD) ->
-            "the guard `$GUARD` is not there"
+    private fun missingGuard(body: String): String? =
+        when {
+            !body.contains(GUARD) -> {
+                "the guard `$GUARD` is not there"
+            }
 
-        !body.contains(SESSION) ->
-            "the session call `$SESSION` is not there, so the order cannot be checked"
+            !body.contains(SESSION) -> {
+                "the session call `$SESSION` is not there, so the order cannot be checked"
+            }
 
-        body.indexOf(GUARD) > body.indexOf(SESSION) ->
-            "the guard runs after the session that needs the password, so the count is already " +
-                "a loop by the time it is refused"
+            body.indexOf(GUARD) > body.indexOf(SESSION) -> {
+                "the guard runs after the session that needs the password, so the count is already " +
+                    "a loop by the time it is refused"
+            }
 
-        else -> null
-    }
+            else -> {
+                null
+            }
+        }
 
     /** The production sources of the backup package. */
     private fun backupSources(): List<File> =
-        SourceScan.productionFiles()
+        SourceScan
+            .productionFiles()
             .filter { it.path.replace(File.separatorChar, '/').contains("/core/backup/") }
             .sortedBy { it.path }
 

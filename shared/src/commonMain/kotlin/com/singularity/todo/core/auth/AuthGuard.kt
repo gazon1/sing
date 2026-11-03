@@ -19,7 +19,10 @@ import com.singularity.todo.feature.auth.LoginScreen
  * navigate on success; no callbacks are needed here.
  */
 @Composable
-fun AuthGuard(authRepository: AuthRepository, content: @Composable () -> Unit) {
+fun AuthGuard(
+    authRepository: AuthRepository,
+    content: @Composable () -> Unit,
+) {
     val session by authRepository.currentSession.collectAsStateWithLifecycle()
     when (session) {
         Session.Loading -> LoadingIndicator()

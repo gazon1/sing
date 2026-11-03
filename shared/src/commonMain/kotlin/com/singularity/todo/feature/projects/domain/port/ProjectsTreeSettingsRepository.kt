@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.Flow
  * feature's preferences.
  */
 interface ProjectsTreeSettingsRepository {
-
     /** The projects whose children the current profile has folded away. */
     val collapsedProjectIds: Flow<Set<ProjectId>>
 

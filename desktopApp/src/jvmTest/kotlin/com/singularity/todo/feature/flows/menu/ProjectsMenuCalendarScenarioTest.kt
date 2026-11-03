@@ -24,12 +24,12 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class ProjectsMenuCalendarScenarioTest {
-
     @Test
     @DisplayName("MENU-04 the Calendar is an entry of the menu")
-    fun the_calendar_is_an_entry_of_the_menu() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
-        openDrawer()
+    fun the_calendar_is_an_entry_of_the_menu() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) {
+            openDrawer()
 
-        assertTextDisplayed("Calendar")
-    }
+            assertTextDisplayed("Calendar")
+        }
 }

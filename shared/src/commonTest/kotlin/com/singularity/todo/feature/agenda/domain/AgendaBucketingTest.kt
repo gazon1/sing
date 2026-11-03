@@ -24,7 +24,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class AgendaBucketingTest {
-
     // Wednesday 2026-09-16 — used so we can reason about week boundaries
     private val today = LocalDate(2026, Month.SEPTEMBER, 16)
 

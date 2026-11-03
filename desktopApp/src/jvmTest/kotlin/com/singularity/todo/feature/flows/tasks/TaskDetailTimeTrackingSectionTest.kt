@@ -3,9 +3,9 @@ package com.singularity.todo.feature.flows.tasks
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.platform.TimeZoneProvider
-import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -62,44 +62,44 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:compose")
 class TaskDetailTimeTrackingSectionTest {
-
     @Test
     @DisplayName("the desktop task detail offers a time-tracking control")
-    fun the_desktop_task_detail_offers_a_time_tracking_control() = runDesktopAppTest(
-        clock = TEST_CLOCK,
-        overrides = module { single<TimeZoneProvider> { TestTimeZone } },
-    ) { koin ->
-        // The task's due date and the agenda's "today" must come from the same
-        // pair. This used to be `todayInSystemZone()`, i.e. the host's real date,
-        // which made the flow pass on the day it was written and drift across a
-        // midnight boundary — the same defect `CalendarFlowTest` had, and the
-        // reason `todayAt` now demands a clock and a zone rather than defaulting
-        // to either.
-        tasks(koin).given(due = todayAt(TEST_CLOCK, TEST_ZONE), title = "Track me")
+    fun the_desktop_task_detail_offers_a_time_tracking_control() =
+        runDesktopAppTest(
+            clock = TEST_CLOCK,
+            overrides = module { single<TimeZoneProvider> { TestTimeZone } },
+        ) { koin ->
+            // The task's due date and the agenda's "today" must come from the same
+            // pair. This used to be `todayInSystemZone()`, i.e. the host's real date,
+            // which made the flow pass on the day it was written and drift across a
+            // midnight boundary — the same defect `CalendarFlowTest` had, and the
+            // reason `todayAt` now demands a clock and a zone rather than defaulting
+            // to either.
+            tasks(koin).given(due = todayAt(TEST_CLOCK, TEST_ZONE), title = "Track me")
 
-        tapTab("Today")
-        awaitTag(TestTags.taskItem("Track me")).performClick()
-        awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+            tapTab("Today")
+            awaitTag(TestTags.taskItem("Track me")).performClick()
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
 
-        assertTagDisplayed(TestTags.TimeTracking.START)
+            assertTagDisplayed(TestTags.TimeTracking.START)
 
-        // The click that used to live here has moved to `TaskTimeCarrierTest`, and
-        // its removal is the point.
-        //
-        // This test asserted "the click is dispatched without throwing, and the
-        // chip is still the one thing under the finger afterwards". That assertion
-        // passed only because the click did *nothing* — #212 was a type collision
-        // that dropped every timer intent into a silent `else { }`, so the chip
-        // could not change whatever happened. When the collision was fixed the
-        // timer started, the chip became Stop, and this test failed on correct
-        // behaviour.
-        //
-        // A guard that pins the defect in place is worse than no guard: it turns
-        // the fix into a regression. What this test is for is narrower and still
-        // worth having — the desktop task detail *renders* time tracking, which
-        // is the #187 regression. Whether the control then works is
-        // `TASK-TIME-01`'s question, and it now has a carrier to ask it.
-    }
+            // The click that used to live here has moved to `TaskTimeCarrierTest`, and
+            // its removal is the point.
+            //
+            // This test asserted "the click is dispatched without throwing, and the
+            // chip is still the one thing under the finger afterwards". That assertion
+            // passed only because the click did *nothing* — #212 was a type collision
+            // that dropped every timer intent into a silent `else { }`, so the chip
+            // could not change whatever happened. When the collision was fixed the
+            // timer started, the chip became Stop, and this test failed on correct
+            // behaviour.
+            //
+            // A guard that pins the defect in place is worse than no guard: it turns
+            // the fix into a regression. What this test is for is narrower and still
+            // worth having — the desktop task detail *renders* time tracking, which
+            // is the #187 regression. Whether the control then works is
+            // `TASK-TIME-01`'s question, and it now has a carrier to ask it.
+        }
 
     private object TestTimeZone : TimeZoneProvider {
         override fun current(): TimeZone = TEST_ZONE

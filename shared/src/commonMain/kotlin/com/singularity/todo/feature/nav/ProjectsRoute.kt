@@ -14,7 +14,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface ProjectsRoute : AppNavKey {
-
     @Serializable
     data object List : ProjectsRoute
 

@@ -45,7 +45,6 @@ data class EventShadowRef(
  * does not own. Collapsing them hides the only field that makes a patch safe.
  */
 sealed interface GooglePushAction {
-
     /** A task that has no Google event yet. */
     data class Insert(val taskId: TaskId, val event: GoogleEvent) : GooglePushAction
 
@@ -81,7 +80,6 @@ sealed interface GooglePushAction {
  * entries, and the cost of being wrong is not symmetric with the cost of being late.
  */
 object GooglePushPlanner {
-
     /**
      * The fields the app owns and therefore writes. Everything else in an event is Google's.
      *
@@ -102,9 +100,11 @@ object GooglePushPlanner {
         desired: List<GoogleEvent>,
         shadows: List<EventShadowRef>,
     ): List<GooglePushAction> {
-        val byTaskId = shadows.mapNotNull { shadow ->
-            shadow.taskId?.let { it to shadow }
-        }.toMap()
+        val byTaskId =
+            shadows
+                .mapNotNull { shadow ->
+                    shadow.taskId?.let { it to shadow }
+                }.toMap()
 
         return desired.mapNotNull { want ->
             // An event with no owner is a foreign event the user has not adopted, or a
@@ -117,17 +117,25 @@ object GooglePushPlanner {
                 // single most confusing thing this feature could do: they cancelled the
                 // event, and it came back. Deleting the shadow instead of tombstoning it
                 // made this case indistinguishable from a task that had never been synced.
-                shadow?.cancelledAt != null -> null
+                shadow?.cancelledAt != null -> {
+                    null
+                }
 
-                shadow == null -> GooglePushAction.Insert(TaskId(taskId), want)
+                shadow == null -> {
+                    GooglePushAction.Insert(TaskId(taskId), want)
+                }
 
-                differsFromBase(want, shadow) -> GooglePushAction.Patch(
-                    taskId = TaskId(taskId),
-                    event = desiredOverShadow(want, shadow),
-                    etag = shadow.etag,
-                )
+                differsFromBase(want, shadow) -> {
+                    GooglePushAction.Patch(
+                        taskId = TaskId(taskId),
+                        event = desiredOverShadow(want, shadow),
+                        etag = shadow.etag,
+                    )
+                }
 
-                else -> null // Already in agreement; the common case, and writing anyway
+                else -> {
+                    null
+                } // Already in agreement; the common case, and writing anyway
                 // would bump `updatedAt` on every pass and sync the bump straight back.
             }
         }
@@ -140,7 +148,10 @@ object GooglePushPlanner {
      * shadow *is* the agreed ancestor: a difference from it means the task moved since the
      * last time both sides agreed, which is the only thing a push is for.
      */
-    private fun differsFromBase(want: GoogleEvent, shadow: EventShadowRef): Boolean {
+    private fun differsFromBase(
+        want: GoogleEvent,
+        shadow: EventShadowRef,
+    ): Boolean {
         val base = shadow.base
         return want.title != base.title ||
             want.description != base.description ||
@@ -154,7 +165,10 @@ object GooglePushPlanner {
      *
      * @see GooglePushPlanner for why `location` and `recurrenceRule` come from the shadow.
      */
-    fun desiredOverShadow(want: GoogleEvent, shadow: EventShadowRef): GoogleEvent {
+    fun desiredOverShadow(
+        want: GoogleEvent,
+        shadow: EventShadowRef,
+    ): GoogleEvent {
         val base = shadow.base
         return want.copy(
             id = GoogleEventId(shadow.eventId),

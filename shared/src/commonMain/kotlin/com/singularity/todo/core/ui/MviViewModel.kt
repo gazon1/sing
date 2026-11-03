@@ -74,11 +74,11 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
     initialState: S,
     extraEventCapacity: Int = Channel.BUFFERED,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(
-        createBackgroundScope(crashReportingFailureHandler(crashReporter)).coroutineContext,
-    ),
+    scope: AutoCloseableCoroutineScope =
+        AutoCloseableCoroutineScope(
+            createBackgroundScope(crashReportingFailureHandler(crashReporter)).coroutineContext,
+        ),
 ) : ViewModel() {
-
     init {
         addCloseable(scope)
     }
@@ -208,8 +208,10 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
      * carries user content off-device. The label fallback is what keeps plain
      * `IllegalArgumentException`s and driver exceptions groupable at all.
      */
-    private fun issueKeyFor(error: Throwable, errorLabel: String): String =
-        (error as? AppError)?.code ?: errorLabel
+    private fun issueKeyFor(
+        error: Throwable,
+        errorLabel: String,
+    ): String = (error as? AppError)?.code ?: errorLabel
 
     /**
      * [catchTo] for the common case: a failure becomes a one-shot [E] built from the message.
@@ -218,8 +220,11 @@ abstract class MviViewModel<S, I : MviIntent, E : MviEvent>(
      * before it, and a positional third argument would land there. The one-line version of
      * this function was the only call site that noticed.
      */
-    protected fun emitError(errorLabel: String, errorEvent: (String) -> E, block: suspend () -> Result<*>): Job =
-        catchTo(errorLabel, onError = { msg -> emit(errorEvent(msg)) }, block = block)
+    protected fun emitError(
+        errorLabel: String,
+        errorEvent: (String) -> E,
+        block: suspend () -> Result<*>,
+    ): Job = catchTo(errorLabel, onError = { msg -> emit(errorEvent(msg)) }, block = block)
 
     /**
      * Called by the screen layer to dispatch an intent into the MVI loop.

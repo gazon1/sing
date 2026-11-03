@@ -11,7 +11,6 @@ import kotlin.test.assertNotEquals
 
 @Tag("fast")
 class PriorityColorTest {
-
     @Test
     fun `None priority has a defined tertiary color`() {
         // None maps to PriorityNone = TextTertiary = Color(0xFF5C6270), not Color.Unspecified

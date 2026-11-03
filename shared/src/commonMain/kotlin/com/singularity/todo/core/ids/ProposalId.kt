@@ -10,6 +10,7 @@ import kotlinx.serialization.Serializable
 value class ProposalId(val value: String) {
     companion object {
         fun generate() = ProposalId(nextId())
+
         fun fromString(value: String) = ProposalId(value)
     }
 }

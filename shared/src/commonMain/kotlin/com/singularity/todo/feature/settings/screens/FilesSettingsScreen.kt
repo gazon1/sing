@@ -43,9 +43,10 @@ fun FilesSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+        modifier =
+            modifier
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         StorageSection(attachmentsPath, onOpenAttachmentsFolder)
@@ -56,13 +57,17 @@ fun FilesSettingsScreen(
 }
 
 @Composable
-private fun StorageSection(attachmentsPath: String, onOpenAttachmentsFolder: () -> Unit) {
+private fun StorageSection(
+    attachmentsPath: String,
+    onOpenAttachmentsFolder: () -> Unit,
+) {
     SettingsSection(title = "Storage") {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onOpenAttachmentsFolder)
-                .padding(vertical = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenAttachmentsFolder)
+                    .padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -95,13 +100,17 @@ private fun StorageSection(attachmentsPath: String, onOpenAttachmentsFolder: () 
 }
 
 @Composable
-private fun LogsSection(logExportEphemeral: EphemeralState.LogExport, onExportLogs: () -> Unit) {
+private fun LogsSection(
+    logExportEphemeral: EphemeralState.LogExport,
+    onExportLogs: () -> Unit,
+) {
     SettingsSection(title = "Logs") {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(enabled = !logExportEphemeral.isExporting, onClick = onExportLogs)
-                .padding(vertical = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !logExportEphemeral.isExporting, onClick = onExportLogs)
+                    .padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -133,12 +142,13 @@ private fun LogsSection(logExportEphemeral: EphemeralState.LogExport, onExportLo
     }
 }
 
-private fun logExportSubtitle(state: EphemeralState.LogExport): String = when {
-    state.isExporting -> "Exporting…"
-    state.exportedPath != null -> "Done — tap to share again"
-    state.errorMessage != null -> "Error: ${state.errorMessage}"
-    else -> "Create a ZIP bundle of app logs"
-}
+private fun logExportSubtitle(state: EphemeralState.LogExport): String =
+    when {
+        state.isExporting -> "Exporting…"
+        state.exportedPath != null -> "Done — tap to share again"
+        state.errorMessage != null -> "Error: ${state.errorMessage}"
+        else -> "Create a ZIP bundle of app logs"
+    }
 
 @Composable
 private fun AttachmentLimitsSection() {
@@ -166,18 +176,20 @@ private fun SupportedFormatsSection() {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun FilesSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    FilesSettingsScreen(
-        attachmentsPath = "/data/user/0/com.singularity.todo/files/attachments",
-        onOpenAttachmentsFolder = {},
-    )
-}
+private fun FilesSettingsScreenLightPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        FilesSettingsScreen(
+            attachmentsPath = "/data/user/0/com.singularity.todo/files/attachments",
+            onOpenAttachmentsFolder = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun FilesSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    FilesSettingsScreen(
-        attachmentsPath = "/data/user/0/com.singularity.todo/files/attachments",
-        onOpenAttachmentsFolder = {},
-    )
-}
+private fun FilesSettingsScreenDarkPreview() =
+    PreviewThemed(darkTheme = true, useSurface = false) {
+        FilesSettingsScreen(
+            attachmentsPath = "/data/user/0/com.singularity.todo/files/attachments",
+            onOpenAttachmentsFolder = {},
+        )
+    }

@@ -10,10 +10,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Link
@@ -87,10 +87,11 @@ fun AttachmentsSheet(
         // screen — where the system navigation bar is.
         //
         // See docs/decisions/2026-10-22-a-sheet-opens-to-what-it-holds.md.
-        sheetState = rememberBottomSheetState(
-            initialValue = SheetValue.Hidden,
-            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-        ),
+        sheetState =
+            rememberBottomSheetState(
+                initialValue = SheetValue.Hidden,
+                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+            ),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Add URL
@@ -173,14 +174,16 @@ fun AttachmentsSheet(
                     items(attachments, key = { it.id.value }) { attachment ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            ),
+                            colors =
+                                CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                ),
                         ) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Icon(
@@ -229,48 +232,51 @@ fun AttachmentsSheet(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AttachmentsSheetEmptyPreview() = PreviewThemed(darkTheme = false) {
-    AttachmentsSheet(
-        taskId = TaskId("t1"),
-        attachments = persistentListOf(),
-        onAddUrl = { _, _ -> },
-        onAttachFile = noopClick,
-        onDelete = { },
-        onDismiss = noopClick,
-    )
-}
+private fun AttachmentsSheetEmptyPreview() =
+    PreviewThemed(darkTheme = false) {
+        AttachmentsSheet(
+            taskId = TaskId("t1"),
+            attachments = persistentListOf(),
+            onAddUrl = { _, _ -> },
+            onAttachFile = noopClick,
+            onDelete = { },
+            onDismiss = noopClick,
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AttachmentsSheetWithItemsPreview() = PreviewThemed(darkTheme = false) {
-    AttachmentsSheet(
-        taskId = TaskId("t1"),
-        attachments = persistentListOf(
-            Attachment(
-                id = AttachmentId.fromString("att_1"),
-                taskId = TaskId("t1"),
-                userId = UserId.anonymous,
-                type = AttachmentType.Url,
-                url = "https://example.com/spec",
-                title = "Project spec",
-                createdAt = PreviewSamples.now,
-                updatedAt = PreviewSamples.now,
-            ),
-            Attachment(
-                id = AttachmentId.fromString("att_2"),
-                taskId = TaskId("t1"),
-                userId = UserId.anonymous,
-                type = AttachmentType.File,
-                title = "report.pdf",
-                fileSizeBytes = 12_345L,
-                mimeType = "application/pdf",
-                createdAt = PreviewSamples.now,
-                updatedAt = PreviewSamples.now,
-            ),
-        ),
-        onAddUrl = { _, _ -> },
-        onAttachFile = noopClick,
-        onDelete = { },
-        onDismiss = noopClick,
-    )
-}
+private fun AttachmentsSheetWithItemsPreview() =
+    PreviewThemed(darkTheme = false) {
+        AttachmentsSheet(
+            taskId = TaskId("t1"),
+            attachments =
+                persistentListOf(
+                    Attachment(
+                        id = AttachmentId.fromString("att_1"),
+                        taskId = TaskId("t1"),
+                        userId = UserId.anonymous,
+                        type = AttachmentType.Url,
+                        url = "https://example.com/spec",
+                        title = "Project spec",
+                        createdAt = PreviewSamples.now,
+                        updatedAt = PreviewSamples.now,
+                    ),
+                    Attachment(
+                        id = AttachmentId.fromString("att_2"),
+                        taskId = TaskId("t1"),
+                        userId = UserId.anonymous,
+                        type = AttachmentType.File,
+                        title = "report.pdf",
+                        fileSizeBytes = 12_345L,
+                        mimeType = "application/pdf",
+                        createdAt = PreviewSamples.now,
+                        updatedAt = PreviewSamples.now,
+                    ),
+                ),
+            onAddUrl = { _, _ -> },
+            onAttachFile = noopClick,
+            onDelete = { },
+            onDismiss = noopClick,
+        )
+    }

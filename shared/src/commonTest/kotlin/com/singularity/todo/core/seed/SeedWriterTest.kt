@@ -34,7 +34,6 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class SeedWriterTest {
-
     private val currentUser = FakeProfileAwareCurrentUser()
     private val tasks: TaskRepository = FakeTaskRepository(explicitCurrentUser = currentUser)
     private val notes: NotesRepository = FakeNotesRepository(currentUser = currentUser)
@@ -44,191 +43,212 @@ class SeedWriterTest {
     private val stamp = Instant.fromEpochMilliseconds(1_767_225_600_000)
 
     @Test
-    fun `seeding the same title twice leaves exactly one task`() = runTest {
-        val first = writer.writeTask(TaskSeed(title = "PinnedTask2026", stamp = stamp))
-        val second = writer.writeTask(TaskSeed(title = "PinnedTask2026", stamp = stamp))
+    fun `seeding the same title twice leaves exactly one task`() =
+        runTest {
+            val first = writer.writeTask(TaskSeed(title = "PinnedTask2026", stamp = stamp))
+            val second = writer.writeTask(TaskSeed(title = "PinnedTask2026", stamp = stamp))
 
-        assertEquals(SeedOutcome.Created, first.outcome)
-        assertEquals(SeedOutcome.Updated, second.outcome)
-        assertEquals(1, liveTasks("PinnedTask2026").size)
-    }
-
-    @Test
-    fun `the second seed rewrites the row instead of adding one`() = runTest {
-        val first = writer.writeTask(
-            TaskSeed(
-                title = "PinnedTask2026",
-                dueDate = LocalDate(2026, 10, 21),
-                stamp = stamp,
-            ),
-        )
-        val second = writer.writeTask(
-            TaskSeed(
-                title = "PinnedTask2026",
-                dueDate = LocalDate(2026, 10, 22),
-                stamp = stamp,
-            ),
-        )
-
-        // Same row, rewritten: the id is the fixture's identity, and it survives
-        // the re-seed — that is what makes the name in a failure message enough.
-        assertEquals(first.id, second.id)
-        assertEquals(LocalDate(2026, 10, 22), liveTasks("PinnedTask2026").single().dueDate)
-    }
+            assertEquals(SeedOutcome.Created, first.outcome)
+            assertEquals(SeedOutcome.Updated, second.outcome)
+            assertEquals(1, liveTasks("PinnedTask2026").size)
+        }
 
     @Test
-    fun `a task an earlier run completed and trashed is seeded back into the live set`() = runTest {
-        val first = writer.writeTask(TaskSeed(title = "PinnedTask2026", stamp = stamp))
-        tasks.complete(first.id).getOrThrow()
-        tasks.softDelete(first.id).getOrThrow()
+    fun `the second seed rewrites the row instead of adding one`() =
+        runTest {
+            val first =
+                writer.writeTask(
+                    TaskSeed(
+                        title = "PinnedTask2026",
+                        dueDate = LocalDate(2026, 10, 21),
+                        stamp = stamp,
+                    ),
+                )
+            val second =
+                writer.writeTask(
+                    TaskSeed(
+                        title = "PinnedTask2026",
+                        dueDate = LocalDate(2026, 10, 22),
+                        stamp = stamp,
+                    ),
+                )
 
-        val second = writer.writeTask(TaskSeed(title = "PinnedTask2026", stamp = stamp))
-
-        assertEquals(first.id, second.id)
-        val live = liveTasks("PinnedTask2026")
-        assertEquals(1, live.size)
-        assertNull(live.single().completedAt)
-    }
-
-    @Test
-    fun `a seeded dependency is set on the task`() = runTest {
-        writer.writeTask(TaskSeed(title = "Blocker", stamp = stamp))
-        val blocked = writer.writeTask(
-            TaskSeed(
-                title = "Blocked Task",
-                stamp = stamp,
-                dependsOnTitle = "Blocker",
-            ),
-        )
-
-        assertNull(blocked.missingDependency)
-        val blocker = liveTasks("Blocker").single()
-        assertEquals(setOf(blocker.id), tasks.observe(blocked.id).first()?.blockedBy)
-    }
+            // Same row, rewritten: the id is the fixture's identity, and it survives
+            // the re-seed — that is what makes the name in a failure message enough.
+            assertEquals(first.id, second.id)
+            assertEquals(LocalDate(2026, 10, 22), liveTasks("PinnedTask2026").single().dueDate)
+        }
 
     @Test
-    fun `a dependency that does not exist is reported rather than silently dropped`() = runTest {
-        val blocked = writer.writeTask(
-            TaskSeed(
-                title = "Blocked Task",
-                stamp = stamp,
-                dependsOnTitle = "Blocker",
-            ),
-        )
+    fun `a task an earlier run completed and trashed is seeded back into the live set`() =
+        runTest {
+            val first = writer.writeTask(TaskSeed(title = "PinnedTask2026", stamp = stamp))
+            tasks.complete(first.id).getOrThrow()
+            tasks.softDelete(first.id).getOrThrow()
 
-        assertEquals("Blocker", blocked.missingDependency)
-        assertEquals(emptySet(), tasks.observe(blocked.id).first()?.blockedBy)
-    }
+            val second = writer.writeTask(TaskSeed(title = "PinnedTask2026", stamp = stamp))
 
-    @Test
-    fun `seeding the same note title twice leaves exactly one note`() = runTest {
-        val first = writer.writeNote(NoteSeed(title = "Meeting notes"))
-        val second = writer.writeNote(NoteSeed(title = "Meeting notes"))
-
-        assertEquals(SeedOutcome.Created, first.outcome)
-        assertEquals(SeedOutcome.Updated, second.outcome)
-        assertEquals(1, notes.observeAll().first().count { it.title == "Meeting notes" })
-    }
+            assertEquals(first.id, second.id)
+            val live = liveTasks("PinnedTask2026")
+            assertEquals(1, live.size)
+            assertNull(live.single().completedAt)
+        }
 
     @Test
-    fun `seeding the same project name twice leaves exactly one project`() = runTest {
-        val first = writer.writeProject(ProjectSeed(name = "Work", color = 0xFF2196F3.toInt(), stamp = stamp))
-        val second = writer.writeProject(ProjectSeed(name = "Work", color = 0xFF2196F3.toInt(), stamp = stamp))
+    fun `a seeded dependency is set on the task`() =
+        runTest {
+            writer.writeTask(TaskSeed(title = "Blocker", stamp = stamp))
+            val blocked =
+                writer.writeTask(
+                    TaskSeed(
+                        title = "Blocked Task",
+                        stamp = stamp,
+                        dependsOnTitle = "Blocker",
+                    ),
+                )
 
-        assertEquals(SeedOutcome.Created, first.outcome)
-        assertEquals(SeedOutcome.Updated, second.outcome)
-        assertEquals(1, projects.observeAll().first().count { it.name == "Work" })
-    }
-
-    @Test
-    fun `a project seed that names an id owns it`() = runTest {
-        val result = writer.writeProject(
-            ProjectSeed(
-                name = "Work",
-                color = 0xFF2196F3.toInt(),
-                stamp = stamp,
-                id = ProjectId.fromString("fixed01"),
-            ),
-        )
-
-        assertEquals(ProjectId.fromString("fixed01"), result.id)
-        assertEquals(ProjectId.fromString("fixed01"), liveProjects("Work").single().id)
-    }
+            assertNull(blocked.missingDependency)
+            val blocker = liveTasks("Blocker").single()
+            assertEquals(setOf(blocker.id), tasks.observe(blocked.id).first()?.blockedBy)
+        }
 
     @Test
-    fun `a project seed that names the id of a project renames it`() = runTest {
-        writer.writeProject(
-            ProjectSeed(
-                name = "Work",
-                color = 0xFF2196F3.toInt(),
-                stamp = stamp,
-                id = ProjectId.fromString("fixed01"),
-            ),
-        )
+    fun `a dependency that does not exist is reported rather than silently dropped`() =
+        runTest {
+            val blocked =
+                writer.writeTask(
+                    TaskSeed(
+                        title = "Blocked Task",
+                        stamp = stamp,
+                        dependsOnTitle = "Blocker",
+                    ),
+                )
 
-        val renamed = writer.writeProject(
-            ProjectSeed(
-                name = "Play",
-                color = 0xFF2196F3.toInt(),
-                stamp = stamp,
-                id = ProjectId.fromString("fixed01"),
-            ),
-        )
-
-        assertEquals(SeedOutcome.Updated, renamed.outcome)
-        assertEquals(ProjectId.fromString("fixed01"), renamed.id)
-        // The row is the same row: a rename changes the copy, not the row.
-        assertEquals(listOf(ProjectId.fromString("fixed01")), liveProjects("Play").map { it.id })
-        assertEquals(emptyList(), liveProjects("Work"))
-    }
+            assertEquals("Blocker", blocked.missingDependency)
+            assertEquals(emptySet(), tasks.observe(blocked.id).first()?.blockedBy)
+        }
 
     @Test
-    fun `a task seed that names an id owns it`() = runTest {
-        val result = writer.writeTask(
-            TaskSeed(title = "Link target", stamp = stamp, id = TaskId.fromString("fixed01")),
-        )
+    fun `seeding the same note title twice leaves exactly one note`() =
+        runTest {
+            val first = writer.writeNote(NoteSeed(title = "Meeting notes"))
+            val second = writer.writeNote(NoteSeed(title = "Meeting notes"))
 
-        assertEquals(TaskId.fromString("fixed01"), result.id)
-        assertEquals(TaskId.fromString("fixed01"), liveTasks("Link target").single().id)
-    }
-
-    @Test
-    fun `a task seed that names an id replaces the row of the same title under another id`() = runTest {
-        val first = writer.writeTask(TaskSeed(title = "Link target", stamp = stamp))
-        val second = writer.writeTask(
-            TaskSeed(title = "Link target", stamp = stamp, id = TaskId.fromString("fixed01")),
-        )
-
-        assertEquals(TaskId.fromString("fixed01"), second.id)
-        // The row the seed replaced leaves the live set: two live rows with one name
-        // is a state no flow can assert on.
-        assertEquals(listOf(TaskId.fromString("fixed01")), liveTasks("Link target").map { it.id })
-    }
+            assertEquals(SeedOutcome.Created, first.outcome)
+            assertEquals(SeedOutcome.Updated, second.outcome)
+            assertEquals(1, notes.observeAll().first().count { it.title == "Meeting notes" })
+        }
 
     @Test
-    fun `a note seed that links to a task writes the link the grammar defines`() = runTest {
-        val task = writer.writeTask(TaskSeed(title = "Link target", stamp = stamp))
+    fun `seeding the same project name twice leaves exactly one project`() =
+        runTest {
+            val first = writer.writeProject(ProjectSeed(name = "Work", color = 0xFF2196F3.toInt(), stamp = stamp))
+            val second = writer.writeProject(ProjectSeed(name = "Work", color = 0xFF2196F3.toInt(), stamp = stamp))
 
-        val result = writer.writeNoteLinkingToTask(NoteSeed(title = "Link source"), "Link target")
-
-        assertNull(result.missingLinkTarget)
-        val note = notes.observeAll().first().single { it.id == result.id }
-        val url = InternalLinks.urlFor(InternalLinkSchemes.TASK, task.id.value)
-        assertEquals(listOf(url), note.outgoingLinks)
-        assertTrue(
-            note.bodyHtml.orEmpty().contains("href=\"$url\""),
-            "the body must carry the link the grammar defines; it carried ${note.bodyHtml}",
-        )
-    }
+            assertEquals(SeedOutcome.Created, first.outcome)
+            assertEquals(SeedOutcome.Updated, second.outcome)
+            assertEquals(1, projects.observeAll().first().count { it.name == "Work" })
+        }
 
     @Test
-    fun `a note seed whose link target does not exist says so`() = runTest {
-        val result = writer.writeNoteLinkingToTask(NoteSeed(title = "Link source"), "Nowhere")
+    fun `a project seed that names an id owns it`() =
+        runTest {
+            val result =
+                writer.writeProject(
+                    ProjectSeed(
+                        name = "Work",
+                        color = 0xFF2196F3.toInt(),
+                        stamp = stamp,
+                        id = ProjectId.fromString("fixed01"),
+                    ),
+                )
 
-        assertEquals("Nowhere", result.missingLinkTarget)
-        val note = notes.observeAll().first().single { it.id == result.id }
-        assertEquals(emptyList(), note.outgoingLinks)
-    }
+            assertEquals(ProjectId.fromString("fixed01"), result.id)
+            assertEquals(ProjectId.fromString("fixed01"), liveProjects("Work").single().id)
+        }
+
+    @Test
+    fun `a project seed that names the id of a project renames it`() =
+        runTest {
+            writer.writeProject(
+                ProjectSeed(
+                    name = "Work",
+                    color = 0xFF2196F3.toInt(),
+                    stamp = stamp,
+                    id = ProjectId.fromString("fixed01"),
+                ),
+            )
+
+            val renamed =
+                writer.writeProject(
+                    ProjectSeed(
+                        name = "Play",
+                        color = 0xFF2196F3.toInt(),
+                        stamp = stamp,
+                        id = ProjectId.fromString("fixed01"),
+                    ),
+                )
+
+            assertEquals(SeedOutcome.Updated, renamed.outcome)
+            assertEquals(ProjectId.fromString("fixed01"), renamed.id)
+            // The row is the same row: a rename changes the copy, not the row.
+            assertEquals(listOf(ProjectId.fromString("fixed01")), liveProjects("Play").map { it.id })
+            assertEquals(emptyList(), liveProjects("Work"))
+        }
+
+    @Test
+    fun `a task seed that names an id owns it`() =
+        runTest {
+            val result =
+                writer.writeTask(
+                    TaskSeed(title = "Link target", stamp = stamp, id = TaskId.fromString("fixed01")),
+                )
+
+            assertEquals(TaskId.fromString("fixed01"), result.id)
+            assertEquals(TaskId.fromString("fixed01"), liveTasks("Link target").single().id)
+        }
+
+    @Test
+    fun `a task seed that names an id replaces the row of the same title under another id`() =
+        runTest {
+            val first = writer.writeTask(TaskSeed(title = "Link target", stamp = stamp))
+            val second =
+                writer.writeTask(
+                    TaskSeed(title = "Link target", stamp = stamp, id = TaskId.fromString("fixed01")),
+                )
+
+            assertEquals(TaskId.fromString("fixed01"), second.id)
+            // The row the seed replaced leaves the live set: two live rows with one name
+            // is a state no flow can assert on.
+            assertEquals(listOf(TaskId.fromString("fixed01")), liveTasks("Link target").map { it.id })
+        }
+
+    @Test
+    fun `a note seed that links to a task writes the link the grammar defines`() =
+        runTest {
+            val task = writer.writeTask(TaskSeed(title = "Link target", stamp = stamp))
+
+            val result = writer.writeNoteLinkingToTask(NoteSeed(title = "Link source"), "Link target")
+
+            assertNull(result.missingLinkTarget)
+            val note = notes.observeAll().first().single { it.id == result.id }
+            val url = InternalLinks.urlFor(InternalLinkSchemes.TASK, task.id.value)
+            assertEquals(listOf(url), note.outgoingLinks)
+            assertTrue(
+                note.bodyHtml.orEmpty().contains("href=\"$url\""),
+                "the body must carry the link the grammar defines; it carried ${note.bodyHtml}",
+            )
+        }
+
+    @Test
+    fun `a note seed whose link target does not exist says so`() =
+        runTest {
+            val result = writer.writeNoteLinkingToTask(NoteSeed(title = "Link source"), "Nowhere")
+
+            assertEquals("Nowhere", result.missingLinkTarget)
+            val note = notes.observeAll().first().single { it.id == result.id }
+            assertEquals(emptyList(), note.outgoingLinks)
+        }
 
     /** The rows the task list shows: the ones that are neither trashed nor completed. */
     private suspend fun liveTasks(title: String) =

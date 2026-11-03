@@ -17,8 +17,8 @@ import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.openAllProjects
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.typeIntoTag
-import kotlin.test.Test
 import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Desktop mirror of `Maestro/flows/projects/01-open-detail.yaml`.
@@ -35,52 +35,54 @@ import org.junit.jupiter.api.Tag
 @Tag("slow")
 @Tag("slow:compose")
 class ProjectsFlowTest {
+    @Test
+    fun the_project_list_starts_empty() =
+        runDesktopAppTest(checkA11y = true) {
+            openAllProjects()
+
+            // The project list is not a tab any more — it is a screen the menu
+            // opens — so there is no tab to be "current"; the screen's own empty
+            // state is the assertion.
+            assertTextDisplayed("No projects yet")
+            assertContentDescriptionDisplayed(DesktopShell.FAB_ADD_PROJECT)
+        }
 
     @Test
-    fun the_project_list_starts_empty() = runDesktopAppTest(checkA11y = true) {
-        openAllProjects()
+    fun creating_a_project_puts_a_card_in_the_list() =
+        runDesktopAppTest {
+            openAllProjects()
+            clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
 
-        // The project list is not a tab any more — it is a screen the menu
-        // opens — so there is no tab to be "current"; the screen's own empty
-        // state is the assertion.
-        assertTextDisplayed("No projects yet")
-        assertContentDescriptionDisplayed(DesktopShell.FAB_ADD_PROJECT)
-    }
+            typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
+            clickTag(TestTags.PROJECT_EDITOR_SAVE)
 
-    @Test
-    fun creating_a_project_puts_a_card_in_the_list() = runDesktopAppTest {
-        openAllProjects()
-        clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
-
-        typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
-        clickTag(TestTags.PROJECT_EDITOR_SAVE)
-
-        // The card is tagged by slug, so this also proves the name round-tripped
-        // through save and into the list.
-        assertTagDisplayed(TestTags.projectCard("Project Alpha"))
-    }
+            // The card is tagged by slug, so this also proves the name round-tripped
+            // through save and into the list.
+            assertTagDisplayed(TestTags.projectCard("Project Alpha"))
+        }
 
     @Test
-    fun opening_a_project_reaches_its_detail_screen() = runDesktopAppTest(checkA11y = true) {
-        openAllProjects()
-        clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
-        typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
-        clickTag(TestTags.PROJECT_EDITOR_SAVE)
+    fun opening_a_project_reaches_its_detail_screen() =
+        runDesktopAppTest(checkA11y = true) {
+            openAllProjects()
+            clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
+            typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
+            clickTag(TestTags.PROJECT_EDITOR_SAVE)
 
-        awaitTag(TestTags.projectCard("Project Alpha")).performClick()
+            awaitTag(TestTags.projectCard("Project Alpha")).performClick()
 
-        // The quick-add field only exists in the detail screen's Content state:
-        // while the detail VM is Loading, the screen renders a LoadingIndicator
-        // instead. Waiting for the tag is therefore waiting for the data, which
-        // is what this assertion is actually about.
-        assertTagDisplayed(TestTags.PROJECT_DETAIL_QUICK_ADD)
+            // The quick-add field only exists in the detail screen's Content state:
+            // while the detail VM is Loading, the screen renders a LoadingIndicator
+            // instead. Waiting for the tag is therefore waiting for the data, which
+            // is what this assertion is actually about.
+            assertTagDisplayed(TestTags.PROJECT_DETAIL_QUICK_ADD)
 
-        // The project *name* is deliberately not asserted: it matches both the
-        // detail screen's top-bar title and the still-populated name field.
-        // The card must be gone, but the outgoing screen stays composed until the
-        // incoming one resolves, so this waits instead of checking once.
-        awaitTagGone(TestTags.projectCard("Project Alpha"))
-    }
+            // The project *name* is deliberately not asserted: it matches both the
+            // detail screen's top-bar title and the still-populated name field.
+            // The card must be gone, but the outgoing screen stays composed until the
+            // incoming one resolves, so this waits instead of checking once.
+            awaitTagGone(TestTags.projectCard("Project Alpha"))
+        }
 
     /**
      * The project's overflow menu offers closing it, and the confirmation says what
@@ -91,25 +93,26 @@ class ProjectsFlowTest {
      * what the user sees rather than by a tag.
      */
     @Test
-    fun closing_a_project_asks_what_the_cascade_will_close() = runDesktopAppTest(checkA11y = true) {
-        openAllProjects()
-        clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
-        typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
-        clickTag(TestTags.PROJECT_EDITOR_SAVE)
+    fun closing_a_project_asks_what_the_cascade_will_close() =
+        runDesktopAppTest(checkA11y = true) {
+            openAllProjects()
+            clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
+            typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
+            clickTag(TestTags.PROJECT_EDITOR_SAVE)
 
-        awaitTag(TestTags.projectCard("Project Alpha")).performClick()
-        assertTagDisplayed(TestTags.PROJECT_DETAIL_QUICK_ADD)
+            awaitTag(TestTags.projectCard("Project Alpha")).performClick()
+            assertTagDisplayed(TestTags.PROJECT_DETAIL_QUICK_ADD)
 
-        clickTag(TestTags.PROJECT_DETAIL_OVERFLOW)
-        assertTextDisplayed("Close project")
+            clickTag(TestTags.PROJECT_DETAIL_OVERFLOW)
+            assertTextDisplayed("Close project")
 
-        clickText("Close project")
-        assertTextDisplayed("Close project?")
-        // The body is one multi-line Text node, so the wording is matched as a
-        // substring of it rather than as an exact node text.
-        assertNodeDisplayed(
-            matcher = hasText("This project has no open tasks", substring = true),
-            description = "the close confirmation body",
-        )
-    }
+            clickText("Close project")
+            assertTextDisplayed("Close project?")
+            // The body is one multi-line Text node, so the wording is matched as a
+            // substring of it rather than as an exact node text.
+            assertNodeDisplayed(
+                matcher = hasText("This project has no open tasks", substring = true),
+                description = "the close confirmation body",
+            )
+        }
 }

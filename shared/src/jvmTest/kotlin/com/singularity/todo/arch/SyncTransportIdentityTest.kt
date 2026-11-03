@@ -1,7 +1,7 @@
 package com.singularity.todo.arch
 
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -36,23 +36,24 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SyncTransportIdentityTest {
-
     private fun transportFile(): File {
-        val root = System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
+        val root =
+            System.getProperty("commonMain.root")
+                ?: error(
+                    "commonMain.root system property is not set — " +
+                        "see the jvmTest task config in shared/build.gradle.kts",
+                )
         val file = File(File(root, "com/singularity/todo/core/sync"), "SyncApi.kt")
         assertTrue(file.exists(), "sync transport interface not found at $file")
         return file
     }
 
     /** `fun name(a: T, b: U)` parameter names, in order. */
-    private val functionSignature = Regex(
-        """fun\s+(\w+)\s*\(([^)]*)\)\s*[:{]""",
-        RegexOption.DOT_MATCHES_ALL,
-    )
+    private val functionSignature =
+        Regex(
+            """fun\s+(\w+)\s*\(([^)]*)\)\s*[:{]""",
+            RegexOption.DOT_MATCHES_ALL,
+        )
 
     @Test
     fun `no sync transport method takes a caller-supplied owner identity`() {
@@ -64,7 +65,12 @@ class SyncTransportIdentityTest {
             val params = match.groupValues[2]
             if (params.isBlank()) continue
             for (raw in params.split(',')) {
-                val param = raw.substringBefore(':').trim().substringBefore('=').trim()
+                val param =
+                    raw
+                        .substringBefore(':')
+                        .trim()
+                        .substringBefore('=')
+                        .trim()
                 if (param in OWNER_PARAM_NAMES) {
                     offenders += "$name(… $param …)"
                 }
@@ -86,20 +92,29 @@ class SyncTransportIdentityTest {
         // Positive control. A gate like this one is a regex; if the regex silently
         // stops matching, the test goes green having checked nothing, which is the
         // failure mode this project has already paid for twice.
-        val sample = """
+        val sample =
+            """
             interface Sample {
                 suspend fun getEventsSince(userId: String, sinceLsn: Long): List<String>
                 suspend fun getConfig(name: String): String?
             }
-        """.trimIndent()
+            """.trimIndent()
 
-        val found = functionSignature.findAll(sample)
-            .flatMap { match ->
-                match.groupValues[2].split(',')
-                    .map { it.substringBefore(':').trim().substringBefore('=').trim() }
-            }
-            .filter { it in OWNER_PARAM_NAMES }
-            .toList()
+        val found =
+            functionSignature
+                .findAll(sample)
+                .flatMap { match ->
+                    match.groupValues[2]
+                        .split(',')
+                        .map {
+                            it
+                                .substringBefore(':')
+                                .trim()
+                                .substringBefore('=')
+                                .trim()
+                        }
+                }.filter { it in OWNER_PARAM_NAMES }
+                .toList()
 
         assertEquals(listOf("userId"), found)
     }

@@ -40,7 +40,6 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class ProposalValueFieldNamesTest {
-
     @Test
     fun `every field a task value names, the task reader reads`() {
         assertEveryNameIsRead(
@@ -90,13 +89,18 @@ class ProposalValueFieldNamesTest {
             val name = value.fieldName
             val result = read(name, value.text)
 
-            val readValue = when (result) {
-                is ReadResult.Ok -> result.value
+            val readValue =
+                when (result) {
+                    is ReadResult.Ok -> {
+                        result.value
+                    }
 
-                is ReadResult.Rejected -> fail(
-                    "the $dictionary reader knows the name «$name»: ${result.reason}",
-                )
-            }
+                    is ReadResult.Rejected -> {
+                        fail(
+                            "the $dictionary reader knows the name «$name»: ${result.reason}",
+                        )
+                    }
+                }
             assertEquals(
                 name,
                 readValue.fieldName,
@@ -120,40 +124,43 @@ class ProposalValueFieldNamesTest {
     }
 
     private companion object {
-
         /** The task's readable fields — the "Unreadable" one is left out on purpose. */
-        val taskValues: List<TaskValue> = listOf(
-            TaskValue.Title("Buy milk"),
-            TaskValue.Description("From the shop"),
-            TaskValue.Priority(TaskPriority.High),
-            TaskValue.DueDate(LocalDate(2026, 1, 2)),
-            TaskValue.DueTime(LocalTime(9, 30)),
-            TaskValue.Status(TaskStatus.Active),
-            TaskValue.EstimateMinutes(30),
-            TaskValue.Kind(TaskKind.Task),
-            TaskValue.Project("project-1"),
-            TaskValue.Someday(true),
-        )
+        val taskValues: List<TaskValue> =
+            listOf(
+                TaskValue.Title("Buy milk"),
+                TaskValue.Description("From the shop"),
+                TaskValue.Priority(TaskPriority.High),
+                TaskValue.DueDate(LocalDate(2026, 1, 2)),
+                TaskValue.DueTime(LocalTime(9, 30)),
+                TaskValue.Status(TaskStatus.Active),
+                TaskValue.EstimateMinutes(30),
+                TaskValue.Kind(TaskKind.Task),
+                TaskValue.Project("project-1"),
+                TaskValue.Someday(true),
+            )
 
         /** The note's readable fields. */
-        val noteValues: List<NoteValue> = listOf(
-            NoteValue.Title("Shopping"),
-            NoteValue.Body("<p>Milk</p>"),
-            NoteValue.Summary("A short list"),
-        )
+        val noteValues: List<NoteValue> =
+            listOf(
+                NoteValue.Title("Shopping"),
+                NoteValue.Body("<p>Milk</p>"),
+                NoteValue.Summary("A short list"),
+            )
 
         /** The project's readable fields. */
-        val projectValues: List<ProjectValue> = listOf(
-            ProjectValue.Name("Home"),
-            ProjectValue.Description("Everything at home"),
-            ProjectValue.Color(0xFF00FF00.toInt()),
-            ProjectValue.Icon("house"),
-        )
+        val projectValues: List<ProjectValue> =
+            listOf(
+                ProjectValue.Name("Home"),
+                ProjectValue.Description("Everything at home"),
+                ProjectValue.Color(0xFF00FF00.toInt()),
+                ProjectValue.Icon("house"),
+            )
 
         /** The tag's readable fields. */
-        val tagValues: List<TagValue> = listOf(
-            TagValue.Name("chore"),
-            TagValue.Color(0xFF112233.toInt()),
-        )
+        val tagValues: List<TagValue> =
+            listOf(
+                TagValue.Name("chore"),
+                TagValue.Color(0xFF112233.toInt()),
+            )
     }
 }

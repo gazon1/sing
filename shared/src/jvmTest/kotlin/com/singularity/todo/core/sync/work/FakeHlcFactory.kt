@@ -18,9 +18,10 @@ import kotlin.time.Clock
  */
 class FakeHlcFactory :
     HlcFactory(
-        deviceIdProvider = object : DeviceIdProvider {
-            override suspend fun getOrInitDeviceId(): String = "test-node"
-        },
+        deviceIdProvider =
+            object : DeviceIdProvider {
+                override suspend fun getOrInitDeviceId(): String = "test-node"
+            },
         clock = Clock.System, // actual singleton — safe to share in tests
         scope = AutoCloseableCoroutineScope(CoroutineScope(Dispatchers.Unconfined).coroutineContext),
     )

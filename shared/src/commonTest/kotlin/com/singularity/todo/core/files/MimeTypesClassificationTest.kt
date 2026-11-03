@@ -15,7 +15,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class MimeTypesClassificationTest {
-
     // ── classify by file name ───────────────────────────────────────────────────
 
     @Test

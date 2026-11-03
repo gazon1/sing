@@ -13,7 +13,11 @@ import okio.Path
  * process without notice. There is no graceful shutdown on Android; logs are flushed
  * by the OS when the process is terminated.
  */
-actual fun initLogging(isDebug: Boolean, version: String, logDirectory: Path) {
+actual fun initLogging(
+    isDebug: Boolean,
+    version: String,
+    logDirectory: Path,
+) {
     applyGlobalSeverity(isDebug)
     val fileWriter = FileLogWriter(logDirectory)
     // Fan out to both Logcat and the file, with redaction on both sinks.

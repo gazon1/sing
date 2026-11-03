@@ -24,7 +24,11 @@ import com.singularity.todo.core.ui.preview.noopClick
  * @param onSave Called with the trimmed name when the user confirms.
  */
 @Composable
-fun SaveSearchDialog(initialName: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+fun SaveSearchDialog(
+    initialName: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
     val nameState = rememberTextFieldState(initialName)
 
     AlertDialog(
@@ -47,10 +51,15 @@ fun SaveSearchDialog(initialName: String, onDismiss: () -> Unit, onSave: (String
         confirmButton = {
             TextButton(
                 onClick = { onSave(nameState.text.toString().trim()) },
-                enabled = nameState.text.toString().trim().isNotBlank(),
-                modifier = Modifier
-                    .testTag(TestTags.SavedSearches.SAVE_DIALOG_CONFIRM)
-                    .mapTestTagsAsResourceIds(),
+                enabled =
+                    nameState.text
+                        .toString()
+                        .trim()
+                        .isNotBlank(),
+                modifier =
+                    Modifier
+                        .testTag(TestTags.SavedSearches.SAVE_DIALOG_CONFIRM)
+                        .mapTestTagsAsResourceIds(),
             ) {
                 Text("Save")
             }
@@ -67,7 +76,11 @@ fun SaveSearchDialog(initialName: String, onDismiss: () -> Unit, onSave: (String
  * Dialog for renaming an existing saved search.
  */
 @Composable
-fun RenameSearchDialog(currentName: String, onDismiss: () -> Unit, onRename: (String) -> Unit) {
+fun RenameSearchDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onRename: (String) -> Unit,
+) {
     val nameState = rememberTextFieldState(currentName)
 
     AlertDialog(
@@ -84,7 +97,11 @@ fun RenameSearchDialog(currentName: String, onDismiss: () -> Unit, onRename: (St
         confirmButton = {
             TextButton(
                 onClick = { onRename(nameState.text.toString().trim()) },
-                enabled = nameState.text.toString().trim().isNotBlank(),
+                enabled =
+                    nameState.text
+                        .toString()
+                        .trim()
+                        .isNotBlank(),
             ) {
                 Text("Rename")
             }
@@ -101,20 +118,22 @@ fun RenameSearchDialog(currentName: String, onDismiss: () -> Unit, onRename: (St
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SaveSearchDialogPreview() = PreviewThemed(darkTheme = false) {
-    SaveSearchDialog(
-        initialName = "overdue tasks",
-        onDismiss = noopClick,
-        onSave = { },
-    )
-}
+private fun SaveSearchDialogPreview() =
+    PreviewThemed(darkTheme = false) {
+        SaveSearchDialog(
+            initialName = "overdue tasks",
+            onDismiss = noopClick,
+            onSave = { },
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun RenameSearchDialogPreview() = PreviewThemed(darkTheme = true) {
-    RenameSearchDialog(
-        currentName = "overdue tasks",
-        onDismiss = noopClick,
-        onRename = { },
-    )
-}
+private fun RenameSearchDialogPreview() =
+    PreviewThemed(darkTheme = true) {
+        RenameSearchDialog(
+            currentName = "overdue tasks",
+            onDismiss = noopClick,
+            onRename = { },
+        )
+    }

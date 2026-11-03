@@ -10,9 +10,9 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.search.SearchMode
+import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.core.ui.DraftMviViewModel
 import com.singularity.todo.core.ui.DraftUiState
-import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.feature.notes.EditorState.Editing
 import com.singularity.todo.feature.notes.ExtractActionsResult
 import com.singularity.todo.feature.notes.LinkKind
@@ -21,7 +21,6 @@ import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteAiAction
 import com.singularity.todo.feature.notes.NoteAiResult
 import com.singularity.todo.feature.notes.NoteAiResult.Improved
-import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.SuggestTagsResult
@@ -33,6 +32,7 @@ import com.singularity.todo.feature.notes.formatExtractActionsResult
 import com.singularity.todo.feature.notes.formatNoteAiResult
 import com.singularity.todo.feature.notes.formatSuggestTagsResult
 import com.singularity.todo.feature.notes.formatSummarizeResult
+import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
@@ -89,13 +89,14 @@ internal class NoteEditor(
     autosaveCtx: AutosaveContext = AutosaveContext(repo, currentUser, log),
 ) : DraftMviViewModel<Editing, NotesEditorIntent, NotesUiEvent>(
         crashReporter = crashReporter,
-        initialDraft = Editing(
-            id = "",
-            title = Revisioned.initial(""),
-            html = Revisioned.initial(""),
-            isDirty = false,
-            isNew = true,
-        ),
+        initialDraft =
+            Editing(
+                id = "",
+                title = Revisioned.initial(""),
+                html = Revisioned.initial(""),
+                isDirty = false,
+                isNew = true,
+            ),
         // The lambda body is stored (not executed) during default parameter evaluation.
         // It captures autosaveCtx from the constructor parameter scope — no 'this' access.
         autosave = { draft ->
@@ -119,7 +120,6 @@ internal class NoteEditor(
         autosaveDebounceMs = 500L,
         scope = scope,
     ) {
-
     // Capture the parameter as a property for use by createNoteForTask.
     private val autosaveCtx: AutosaveContext = autosaveCtx
 
@@ -155,21 +155,23 @@ internal class NoteEditor(
                 emit(NotesUiEvent.Error("Note not found"))
                 return@launch
             }
-            val html = note.bodyHtml
-                ?: note.bodyMarkdown?.let { NoteContentMapper.toHtml(it) }
-                ?: ""
+            val html =
+                note.bodyHtml
+                    ?: note.bodyMarkdown?.let { NoteContentMapper.toHtml(it) }
+                    ?: ""
             // Named `opened`, not `draft`: a local named `draft` would shadow the
             // ViewModel's live draft inside the watcher's lambdas, and the
             // watcher must see the *live* draft — otherwise it compares the note
             // against the snapshot it was opened with and reports rewrites for
             // content the user has since changed.
-            val opened = Editing(
-                id = note.id.value,
-                title = Revisioned.initial(note.title),
-                html = Revisioned.initial(html),
-                isDirty = false,
-                isNew = false,
-            )
+            val opened =
+                Editing(
+                    id = note.id.value,
+                    title = Revisioned.initial(note.title),
+                    html = Revisioned.initial(html),
+                    isDirty = false,
+                    isNew = false,
+                )
             // open() FIRST: it advances baseline to the opened note. Calling
             // updateDraft first would make open() a no-op (sameEntity early-return),
             // leaving baseline at the empty initial draft — closeEditor (discard)
@@ -177,16 +179,17 @@ internal class NoteEditor(
             open(opened)
             updateDraft { opened }
             rewriteWatcher.start(NoteId.fromString(noteId), { draft }) { note, html ->
-                val reseeded = draft.copy(
-                    // Each field's count moves for its own field. A rewrite that changed
-                    // only the body must not announce itself through the title's count:
-                    // the title was not replaced, and the editor's title field must not
-                    // be told that it was.
-                    title = draft.title.replacedIfChangedBy(note.title),
-                    html = draft.html.replacedIfChangedBy(html),
-                    isDirty = false,
-                    isNew = false,
-                )
+                val reseeded =
+                    draft.copy(
+                        // Each field's count moves for its own field. A rewrite that changed
+                        // only the body must not announce itself through the title's count:
+                        // the title was not replaced, and the editor's title field must not
+                        // be told that it was.
+                        title = draft.title.replacedIfChangedBy(note.title),
+                        html = draft.html.replacedIfChangedBy(html),
+                        isDirty = false,
+                        isNew = false,
+                    )
                 open(reseeded)
                 updateDraft { reseeded }
             }
@@ -203,13 +206,14 @@ internal class NoteEditor(
     fun createNote(): String {
         _noteNotFound = false
         val id = NoteId.fromString(idGen.next())
-        val draft = Editing(
-            id = id.value,
-            title = Revisioned.initial(""),
-            html = Revisioned.initial(""),
-            isDirty = false,
-            isNew = true,
-        )
+        val draft =
+            Editing(
+                id = id.value,
+                title = Revisioned.initial(""),
+                html = Revisioned.initial(""),
+                isDirty = false,
+                isNew = true,
+            )
         open(draft)
         updateDraft { draft }
         return id.value
@@ -303,75 +307,86 @@ internal class NoteEditor(
      * AI actions that produce a note-field change or extract tasks: creates a proposal
      * instead of writing directly.
      */
-    private fun runAiThroughProposal(action: NoteAiAction) = vmScope.launch {
-        val current = _state.value.draft
-        if (current.isNew) return@launch
+    private fun runAiThroughProposal(action: NoteAiAction) =
+        vmScope.launch {
+            val current = _state.value.draft
+            if (current.isNew) return@launch
 
-        val noteId = current.id
-        val userId = currentUser.scopedUserId.value
-        val now = clock.now()
+            val noteId = current.id
+            val userId = currentUser.scopedUserId.value
+            val now = clock.now()
 
-        val result = ai.run(action, current.title.value, current.html.value).getOrNull()
-        val (kind, summary) = when (action) {
-            NoteAiAction.Summarize -> {
-                val summary = (result as? SummarizeResult.Ok)?.summary ?: return@launch
-                val kind = ProposalItemKind.SetNoteField(NoteValue.Summary(summary))
-                kind to "Summarize: $summary"
-            }
+            val result = ai.run(action, current.title.value, current.html.value).getOrNull()
+            val (kind, summary) =
+                when (action) {
+                    NoteAiAction.Summarize -> {
+                        val summary = (result as? SummarizeResult.Ok)?.summary ?: return@launch
+                        val kind = ProposalItemKind.SetNoteField(NoteValue.Summary(summary))
+                        kind to "Summarize: $summary"
+                    }
 
-            NoteAiAction.ExtractActions -> {
-                val actions = (result as? ExtractActionsResult.Ok)?.actions ?: return@launch
-                if (actions.isEmpty()) return@launch
-                val kind = ProposalItemKind.ExtractActions(actions)
-                kind to "Extract ${actions.size} action(s)"
-            }
+                    NoteAiAction.ExtractActions -> {
+                        val actions = (result as? ExtractActionsResult.Ok)?.actions ?: return@launch
+                        if (actions.isEmpty()) return@launch
+                        val kind = ProposalItemKind.ExtractActions(actions)
+                        kind to "Extract ${actions.size} action(s)"
+                    }
 
-            NoteAiAction.Improve -> {
-                val improved = result as? Improved ?: return@launch
-                val kind = ProposalItemKind.SetNoteField(NoteValue.Body(improved.body))
-                kind to formatNoteAiResult(improved)
-            }
+                    NoteAiAction.Improve -> {
+                        val improved = result as? Improved ?: return@launch
+                        val kind = ProposalItemKind.SetNoteField(NoteValue.Body(improved.body))
+                        kind to formatNoteAiResult(improved)
+                    }
 
-            NoteAiAction.RewriteOneLiner,
-            NoteAiAction.RewriteTldr,
-            NoteAiAction.RewriteStructured,
-            -> {
-                val improved = result as? Improved ?: return@launch
-                val tone = when (action) {
-                    NoteAiAction.RewriteOneLiner -> "OneLiner"
-                    NoteAiAction.RewriteTldr -> "Tldr"
-                    NoteAiAction.RewriteStructured -> "Structured"
+                    NoteAiAction.RewriteOneLiner,
+                    NoteAiAction.RewriteTldr,
+                    NoteAiAction.RewriteStructured,
+                    -> {
+                        val improved = result as? Improved ?: return@launch
+                        val tone =
+                            when (action) {
+                                NoteAiAction.RewriteOneLiner -> "OneLiner"
+                                NoteAiAction.RewriteTldr -> "Tldr"
+                                NoteAiAction.RewriteStructured -> "Structured"
+                            }
+                        val kind = ProposalItemKind.SetNoteField(NoteValue.Body(improved.body))
+                        kind to "Rewrite as $tone: ${improved.title}"
+                    }
+
+                    else -> {
+                        return@launch
+                    }
                 }
-                val kind = ProposalItemKind.SetNoteField(NoteValue.Body(improved.body))
-                kind to "Rewrite as $tone: ${improved.title}"
+
+            val item =
+                ProposalItem.pending(
+                    id =
+                        com.singularity.todo.core.ids.ProposalItemId
+                            .generate(),
+                    proposalId =
+                        com.singularity.todo.core.ids.ProposalId
+                            .generate(),
+                    kind = kind,
+                    targetId = noteId,
+                    humanSummary = summary,
+                    fingerprint = ProposalFingerprint.of(kind, noteId),
+                )
+            val proposal =
+                AiProposal(
+                    id = item.proposalId,
+                    targetKind = kind.target.targetKind,
+                    targetId = noteId,
+                    userId = userId,
+                    source = ProposalSource.Detail,
+                    createdAt = now,
+                    updatedAt = now,
+                    items = listOf(item),
+                )
+            proposals.save(proposal).onFailure {
+                emit(NotesUiEvent.AiResult("AI error: ${it.message}"))
             }
-
-            else -> return@launch
+            // On success, the UI watches proposals and shows the proposal card to the user
         }
-
-        val item = ProposalItem.pending(
-            id = com.singularity.todo.core.ids.ProposalItemId.generate(),
-            proposalId = com.singularity.todo.core.ids.ProposalId.generate(),
-            kind = kind,
-            targetId = noteId,
-            humanSummary = summary,
-            fingerprint = ProposalFingerprint.of(kind, noteId),
-        )
-        val proposal = AiProposal(
-            id = item.proposalId,
-            targetKind = kind.target.targetKind,
-            targetId = noteId,
-            userId = userId,
-            source = ProposalSource.Detail,
-            createdAt = now,
-            updatedAt = now,
-            items = listOf(item),
-        )
-        proposals.save(proposal).onFailure {
-            emit(NotesUiEvent.AiResult("AI error: ${it.message}"))
-        }
-        // On success, the UI watches proposals and shows the proposal card to the user
-    }
 
     /**
      * AI actions that don't mutate the note directly (read-only): emit through events.
@@ -380,7 +395,8 @@ internal class NoteEditor(
         launchDraftEffect(
             key = "ai-$action",
             operation = { current: Editing ->
-                ai.run(action, current.title.value, current.html.value)
+                ai
+                    .run(action, current.title.value, current.html.value)
                     .getOrThrow()
             },
             onResult = { _, _ -> null },
@@ -407,12 +423,14 @@ internal class NoteEditor(
      * answers the beginning of a word (F6).
      */
     suspend fun searchNotesForLink(query: String): List<LinkResult> =
-        linkRepo.searchNotes(query, LINK_SEARCH_MODE)
+        linkRepo
+            .searchNotes(query, LINK_SEARCH_MODE)
             .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
 
     /** The tasks offered for a link. See [searchNotesForLink]. */
     suspend fun searchTasksForLink(query: String): List<LinkResult> =
-        linkRepo.searchTasks(query, LINK_SEARCH_MODE)
+        linkRepo
+            .searchTasks(query, LINK_SEARCH_MODE)
             .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
 
     // ─── Cleanup ─────────────────────────────────────────────────────────
@@ -455,32 +473,33 @@ internal suspend fun NoteEditor.AutosaveContext.writeNote(draft: Editing): Eithe
     // The one writer. A new note is *created* — already attached to its task, if it
     // came from a logbook — and every later save is a targeted UPDATE that touches
     // the content columns only, so it cannot detach the note again.
-    val written = if (draft.isNew) {
-        val taskId = draft.taskId
-        if (taskId != null) {
-            repo.createForTask(
-                id = noteId,
-                taskId = taskId,
-                title = draft.title.value,
-                bodyMarkdown = "",
-                bodyHtml = draft.html.value,
-            )
+    val written =
+        if (draft.isNew) {
+            val taskId = draft.taskId
+            if (taskId != null) {
+                repo.createForTask(
+                    id = noteId,
+                    taskId = taskId,
+                    title = draft.title.value,
+                    bodyMarkdown = "",
+                    bodyHtml = draft.html.value,
+                )
+            } else {
+                repo.createWithContent(
+                    id = noteId,
+                    title = draft.title.value,
+                    bodyMarkdown = "",
+                    bodyHtml = draft.html.value,
+                )
+            }
         } else {
-            repo.createWithContent(
+            repo.updateContent(
                 id = noteId,
                 title = draft.title.value,
                 bodyMarkdown = "",
                 bodyHtml = draft.html.value,
             )
         }
-    } else {
-        repo.updateContent(
-            id = noteId,
-            title = draft.title.value,
-            bodyMarkdown = "",
-            bodyHtml = draft.html.value,
-        )
-    }
     // The repository reports a failure as a failed Result — it does not throw — so
     // the failure becomes a Left here instead of an exception that would be lost.
     val writeFailure = written.exceptionOrNull()

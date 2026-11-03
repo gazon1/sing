@@ -15,7 +15,6 @@ import com.singularity.todo.feature.genui.surface.SurfaceId
  * in the layer by a wide margin.
  */
 internal class A2uiComponentErrors(private val catalog: A2uiCatalog) {
-
     /**
      * A kind this client does not draw.
      *
@@ -33,15 +32,16 @@ internal class A2uiComponentErrors(private val catalog: A2uiCatalog) {
         pointer: String,
         surfaceId: SurfaceId,
         because: String,
-    ): A2uiError = A2uiError(
-        code = A2uiErrorCode.UNKNOWN_COMPONENT,
-        message = "'$kind' $because.",
-        pointer = "$pointer/kind",
-        surfaceId = surfaceId,
-        severity = A2uiSeverity.COMPONENT,
-        componentId = id,
-        allowed = catalog.components.keys.sorted(),
-    )
+    ): A2uiError =
+        A2uiError(
+            code = A2uiErrorCode.UNKNOWN_COMPONENT,
+            message = "'$kind' $because.",
+            pointer = "$pointer/kind",
+            surfaceId = surfaceId,
+            severity = A2uiSeverity.COMPONENT,
+            componentId = id,
+            allowed = catalog.components.keys.sorted(),
+        )
 
     fun missingProperty(
         id: String,
@@ -49,14 +49,15 @@ internal class A2uiComponentErrors(private val catalog: A2uiCatalog) {
         property: String,
         pointer: String,
         surfaceId: SurfaceId,
-    ): A2uiError = A2uiError(
-        code = A2uiErrorCode.MISSING_PROPERTY,
-        message = "'$component' requires '$property'.",
-        pointer = "$pointer/$property",
-        surfaceId = surfaceId,
-        severity = A2uiSeverity.COMPONENT,
-        componentId = id,
-    )
+    ): A2uiError =
+        A2uiError(
+            code = A2uiErrorCode.MISSING_PROPERTY,
+            message = "'$component' requires '$property'.",
+            pointer = "$pointer/$property",
+            surfaceId = surfaceId,
+            severity = A2uiSeverity.COMPONENT,
+            componentId = id,
+        )
 
     /**
      * "Needs one of these two."
@@ -72,14 +73,15 @@ internal class A2uiComponentErrors(private val catalog: A2uiCatalog) {
         second: String,
         pointer: String,
         surfaceId: SurfaceId,
-    ): A2uiError = A2uiError(
-        code = A2uiErrorCode.MISSING_PROPERTY,
-        message = "'$component' needs either '$first' or '$second'.",
-        pointer = "$pointer/$first",
-        surfaceId = surfaceId,
-        severity = A2uiSeverity.COMPONENT,
-        componentId = id,
-    )
+    ): A2uiError =
+        A2uiError(
+            code = A2uiErrorCode.MISSING_PROPERTY,
+            message = "'$component' needs either '$first' or '$second'.",
+            pointer = "$pointer/$first",
+            surfaceId = surfaceId,
+            severity = A2uiSeverity.COMPONENT,
+            componentId = id,
+        )
 
     fun mismatch(
         id: String,
@@ -89,27 +91,29 @@ internal class A2uiComponentErrors(private val catalog: A2uiCatalog) {
         pointer: String,
         surfaceId: SurfaceId,
         allowed: List<String> = emptyList(),
-    ): A2uiError = A2uiError(
-        code = A2uiErrorCode.PROPERTY_TYPE_MISMATCH,
-        message = "'$component.$property' must be $expected.",
-        pointer = "$pointer/$property",
-        surfaceId = surfaceId,
-        severity = A2uiSeverity.COMPONENT,
-        componentId = id,
-        allowed = allowed,
-    )
+    ): A2uiError =
+        A2uiError(
+            code = A2uiErrorCode.PROPERTY_TYPE_MISMATCH,
+            message = "'$component.$property' must be $expected.",
+            pointer = "$pointer/$property",
+            surfaceId = surfaceId,
+            severity = A2uiSeverity.COMPONENT,
+            componentId = id,
+            allowed = allowed,
+        )
 
     fun malformed(
         detail: String,
         pointer: String? = null,
         surfaceId: SurfaceId? = null,
         componentId: String? = null,
-    ): A2uiError = A2uiError(
-        code = A2uiErrorCode.MALFORMED_LINE,
-        message = detail,
-        pointer = pointer,
-        surfaceId = surfaceId,
-        severity = A2uiSeverity.COMPONENT,
-        componentId = componentId,
-    )
+    ): A2uiError =
+        A2uiError(
+            code = A2uiErrorCode.MALFORMED_LINE,
+            message = detail,
+            pointer = pointer,
+            surfaceId = surfaceId,
+            severity = A2uiSeverity.COMPONENT,
+            componentId = componentId,
+        )
 }

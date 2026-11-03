@@ -30,7 +30,6 @@ package com.singularity.todo.core.security
  * nothing can test. The two lambdas carry the platform; the decision does not.
  */
 internal object SecureStoreRecovery {
-
     /**
      * Runs [open], and if it fails, runs [erase] and tries once more.
      *

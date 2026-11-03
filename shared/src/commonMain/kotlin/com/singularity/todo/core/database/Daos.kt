@@ -20,7 +20,10 @@ interface TaskDao {
      * counterparts every repository read path should use.
      */
     @Query("SELECT * FROM tasks WHERE id = :id AND user_id = :userId")
-    fun watchByIdForUser(id: String, userId: String): Flow<TaskEntity?>
+    fun watchByIdForUser(
+        id: String,
+        userId: String,
+    ): Flow<TaskEntity?>
 
     @Query("SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NOT NULL ORDER BY archived_at DESC")
     fun watchTrash(userId: String): Flow<List<TaskEntity>>
@@ -40,22 +43,36 @@ interface TaskDao {
     @Query(
         "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND due_date = :date ORDER BY is_pinned DESC, due_time ASC",
     )
-    fun watchByDate(userId: String, date: String): Flow<List<TaskEntity>>
+    fun watchByDate(
+        userId: String,
+        date: String,
+    ): Flow<List<TaskEntity>>
 
     @Query(
         "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND due_date > :today AND due_date <= :endDate ORDER BY due_date ASC, is_pinned DESC",
     )
-    fun watchUpcoming(userId: String, today: String, endDate: String): Flow<List<TaskEntity>>
+    fun watchUpcoming(
+        userId: String,
+        today: String,
+        endDate: String,
+    ): Flow<List<TaskEntity>>
 
     @Query(
         "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND project_id = :projectId ORDER BY is_pinned DESC, due_date ASC",
     )
-    fun watchByProject(userId: String, projectId: String): Flow<List<TaskEntity>>
+    fun watchByProject(
+        userId: String,
+        projectId: String,
+    ): Flow<List<TaskEntity>>
 
     @Query(
         "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND due_date >= :from AND due_date <= :to ORDER BY due_date ASC, is_pinned DESC",
     )
-    fun watchByDateRange(userId: String, from: String, to: String): Flow<List<TaskEntity>>
+    fun watchByDateRange(
+        userId: String,
+        from: String,
+        to: String,
+    ): Flow<List<TaskEntity>>
 
     /**
      * The rows of one series, in date order.
@@ -64,7 +81,10 @@ interface TaskDao {
      * a row that arrived from another profile has to stay invisible here.
      */
     @Query("SELECT * FROM tasks WHERE series_id = :seriesId AND user_id = :userId ORDER BY due_date ASC")
-    fun observeSeriesForUser(seriesId: String, userId: String): Flow<List<TaskEntity>>
+    fun observeSeriesForUser(
+        seriesId: String,
+        userId: String,
+    ): Flow<List<TaskEntity>>
 
     /**
      * The rows of one series, in date order — read once, not watched.
@@ -73,7 +93,10 @@ interface TaskDao {
      * the work is, and the other rows of the series are realigned to it.
      */
     @Query("SELECT * FROM tasks WHERE series_id = :seriesId AND user_id = :userId ORDER BY due_date ASC")
-    suspend fun getSeriesForUser(seriesId: String, userId: String): List<TaskEntity>
+    suspend fun getSeriesForUser(
+        seriesId: String,
+        userId: String,
+    ): List<TaskEntity>
 
     /**
      * The active profile's legacy repeating rows: a rule but no series.
@@ -124,7 +147,10 @@ interface TaskDao {
         ORDER BY t.due_date ASC, t.is_pinned DESC
         """,
     )
-    fun watchByTag(userId: String, tagId: String): Flow<List<TaskEntity>>
+    fun watchByTag(
+        userId: String,
+        tagId: String,
+    ): Flow<List<TaskEntity>>
 
     /**
      * Returns tasks tagged with **any** of the given [tagIds], where "tagged"
@@ -151,7 +177,10 @@ interface TaskDao {
         ORDER BY t.due_date ASC, t.is_pinned DESC
         """,
     )
-    fun watchByAnyTag(userId: String, tagIds: List<String>): Flow<List<TaskEntity>>
+    fun watchByAnyTag(
+        userId: String,
+        tagIds: List<String>,
+    ): Flow<List<TaskEntity>>
 
     /**
      * Returns tasks that carry **all** of the given [tagIds], where "carries"
@@ -181,7 +210,11 @@ interface TaskDao {
         ORDER BY t.due_date ASC, t.is_pinned DESC
         """,
     )
-    fun watchByAllTags(userId: String, tagIds: List<String>, size: Int): Flow<List<TaskEntity>>
+    fun watchByAllTags(
+        userId: String,
+        tagIds: List<String>,
+        size: Int,
+    ): Flow<List<TaskEntity>>
 
     /**
      * Returns tasks whose priority is in the given [priorities] set.
@@ -190,7 +223,10 @@ interface TaskDao {
     @Query(
         "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND priority IN (:priorities) ORDER BY due_date ASC, is_pinned DESC",
     )
-    fun watchByPriorities(userId: String, priorities: List<String>): Flow<List<TaskEntity>>
+    fun watchByPriorities(
+        userId: String,
+        priorities: List<String>,
+    ): Flow<List<TaskEntity>>
 
     /**
      * Returns tasks whose title contains [pattern] (case-insensitive substring match).
@@ -200,7 +236,10 @@ interface TaskDao {
     @Query(
         "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND lower(title) LIKE lower('%' || :pattern || '%') ORDER BY due_date ASC, is_pinned DESC",
     )
-    fun watchByRegexp(userId: String, pattern: String): Flow<List<TaskEntity>>
+    fun watchByRegexp(
+        userId: String,
+        pattern: String,
+    ): Flow<List<TaskEntity>>
 
     @Query(
         "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND is_pinned = 1 ORDER BY is_pinned DESC, due_date ASC",
@@ -208,14 +247,22 @@ interface TaskDao {
     fun watchPinned(userId: String): Flow<List<TaskEntity>>
 
     @Query("UPDATE tasks SET is_pinned = :pinned, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun setPinnedForUser(id: String, pinned: Boolean, ts: Long, userId: String): Int
+    suspend fun setPinnedForUser(
+        id: String,
+        pinned: Boolean,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("SELECT * FROM tasks WHERE id = :id")
     suspend fun getById(id: String): TaskEntity?
 
     /** Scoped counterpart of [getById] — see [watchByIdForUser]. */
     @Query("SELECT * FROM tasks WHERE id = :id AND user_id = :userId")
-    suspend fun getByIdForUser(id: String, userId: String): TaskEntity?
+    suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): TaskEntity?
 
     @Upsert
     suspend fun upsert(task: TaskEntity)
@@ -231,16 +278,42 @@ interface TaskDao {
     // See docs/decisions/2026-09-27-write-layer-soundness.md.
 
     @Query("UPDATE tasks SET archived_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
+    suspend fun softDeleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
-    @Query("UPDATE tasks SET archived_at = NULL, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun restoreForUser(id: String, ts: Long, userId: String): Int
+    /**
+     * Restores a soft-deleted task by clearing archivedAt. Returns row count.
+     *
+     * The task has to be archived to be restored: a task that is not in the trash
+     * is not something a restore puts back, and a write that claimed to restore it
+     * would say the trash was emptied when it was not.
+     */
+    @Query(
+        "UPDATE tasks SET archived_at = NULL, updated_at = :ts " +
+            "WHERE id = :id AND user_id = :userId AND archived_at IS NOT NULL",
+    )
+    suspend fun restoreForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("UPDATE tasks SET completed_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun markCompleteForUser(id: String, ts: Long, userId: String): Int
+    suspend fun markCompleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("UPDATE tasks SET completed_at = NULL, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun markIncompleteForUser(id: String, ts: Long, userId: String): Int
+    suspend fun markIncompleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     /**
      * Completes the task **unless** one of its prerequisites is still open.
@@ -271,7 +344,12 @@ interface TaskDao {
           )
         """,
     )
-    suspend fun markCompleteIfNotBlockedForUser(id: String, ts: Long, userId: String, verb: String): Int
+    suspend fun markCompleteIfNotBlockedForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+        verb: String,
+    ): Int
 
     /**
      * Moves a task to its next due date, leaving every other field alone.
@@ -288,7 +366,12 @@ interface TaskDao {
         "UPDATE tasks SET due_date = :dueDate, updated_at = :updatedAt " +
             "WHERE id = :id AND user_id = :userId",
     )
-    suspend fun setDueDateForUser(id: String, dueDate: String?, updatedAt: Long, userId: String): Int
+    suspend fun setDueDateForUser(
+        id: String,
+        dueDate: String?,
+        updatedAt: Long,
+        userId: String,
+    ): Int
 
     /**
      * The ids among [taskIds] that have an open blocking prerequisite.
@@ -309,7 +392,11 @@ interface TaskDao {
           AND b.completed_at IS NULL AND b.archived_at IS NULL
         """,
     )
-    suspend fun blockedTaskIdsForUser(taskIds: List<String>, userId: String, verb: String): List<String>
+    suspend fun blockedTaskIdsForUser(
+        taskIds: List<String>,
+        userId: String,
+        verb: String,
+    ): List<String>
 
     /**
      * Inserts a tag cross-ref only when the owning task belongs to [userId].
@@ -330,7 +417,11 @@ interface TaskDao {
         WHERE EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
         """,
     )
-    suspend fun upsertTagCrossRefForUser(taskId: String, tagId: String, userId: String)
+    suspend fun upsertTagCrossRefForUser(
+        taskId: String,
+        tagId: String,
+        userId: String,
+    )
 
     /** Unscoped variant — backup-restore path only. See [upsertTagCrossRefForUser]. */
     @Upsert
@@ -343,7 +434,11 @@ interface TaskDao {
         AND EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
         """,
     )
-    suspend fun removeTagRefForUser(taskId: String, tagId: String, userId: String): Int
+    suspend fun removeTagRefForUser(
+        taskId: String,
+        tagId: String,
+        userId: String,
+    ): Int
 
     @Query("SELECT tag_id FROM task_tags WHERE task_id = :taskId")
     fun getTagIdsForTask(taskId: String): Flow<List<String>>
@@ -356,7 +451,10 @@ interface TaskDao {
         AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
         """,
     )
-    fun getTagIdsForUser(taskId: String, userId: String): Flow<List<String>>
+    fun getTagIdsForUser(
+        taskId: String,
+        userId: String,
+    ): Flow<List<String>>
 
     // ── Task dependencies ─────────────────────────────────────────────────────
     //
@@ -386,7 +484,10 @@ interface TaskDao {
         AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
         """,
     )
-    fun getOrderingEdgeIdsForUser(taskId: String, userId: String): Flow<List<String>>
+    fun getOrderingEdgeIdsForUser(
+        taskId: String,
+        userId: String,
+    ): Flow<List<String>>
 
     /**
      * The ids of the edges of [taskId] that make it wait — the **blocking
@@ -403,7 +504,11 @@ interface TaskDao {
         AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
         """,
     )
-    fun getBlockingEdgeIdsForUser(taskId: String, userId: String, verb: String): Flow<List<String>>
+    fun getBlockingEdgeIdsForUser(
+        taskId: String,
+        userId: String,
+        verb: String,
+    ): Flow<List<String>>
 
     /**
      * Inserts a dependency cross-ref only when the owning task belongs to [userId].
@@ -420,7 +525,12 @@ interface TaskDao {
         WHERE EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
         """,
     )
-    suspend fun upsertDependencyForUser(taskId: String, depId: String, verb: String, userId: String)
+    suspend fun upsertDependencyForUser(
+        taskId: String,
+        depId: String,
+        verb: String,
+        userId: String,
+    )
 
     /** Unscoped variant — backup-restore path only. See [upsertDependencyForUser]. */
     @Upsert
@@ -433,7 +543,11 @@ interface TaskDao {
         AND EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
         """,
     )
-    suspend fun removeDependencyForUser(taskId: String, depId: String, userId: String): Int
+    suspend fun removeDependencyForUser(
+        taskId: String,
+        depId: String,
+        userId: String,
+    ): Int
 
     /**
      * Removes a specific verb edge between [taskId] and [depId].
@@ -445,7 +559,12 @@ interface TaskDao {
         AND EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
         """,
     )
-    suspend fun removeDependencyForVerb(taskId: String, depId: String, verb: String, userId: String): Int
+    suspend fun removeDependencyForVerb(
+        taskId: String,
+        depId: String,
+        verb: String,
+        userId: String,
+    ): Int
 
     /**
      * Returns all dependency edges for [taskId] including their verb, scoped to [userId].
@@ -457,7 +576,10 @@ interface TaskDao {
         AND td.task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
         """,
     )
-    fun observeTypedDependenciesForUser(taskId: String, userId: String): Flow<List<TaskDependencyCrossRef>>
+    fun observeTypedDependenciesForUser(
+        taskId: String,
+        userId: String,
+    ): Flow<List<TaskDependencyCrossRef>>
 
     @Query(
         """
@@ -466,12 +588,20 @@ interface TaskDao {
         AND EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
         """,
     )
-    suspend fun clearDependenciesForUser(taskId: String, userId: String): Int
+    suspend fun clearDependenciesForUser(
+        taskId: String,
+        userId: String,
+    ): Int
 
     // ── Outgoing links ─────────────────────────────────────────────────────────
 
     @Query("UPDATE tasks SET outgoing_links = :linksJson, updated_at = :updatedAt WHERE id = :id AND user_id = :userId")
-    suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int
+    suspend fun setOutgoingLinksForUser(
+        id: String,
+        linksJson: String,
+        updatedAt: Long,
+        userId: String,
+    ): Int
 
     /**
      * Returns tasks whose `outgoing_links` hold [url] — the whole link — for the current user.
@@ -507,7 +637,10 @@ interface TaskDao {
         LIMIT 20
         """,
     )
-    suspend fun getBacklinkTasks(url: String, userId: String): List<TaskEntity>
+    suspend fun getBacklinkTasks(
+        url: String,
+        userId: String,
+    ): List<TaskEntity>
 
     @Query("SELECT * FROM tasks WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TaskEntity>
@@ -543,7 +676,10 @@ interface TaskDao {
      * @return the number of rows removed.
      */
     @Query("DELETE FROM tasks WHERE id = :id AND user_id = :userId")
-    suspend fun deleteForUser(id: String, userId: String): Int
+    suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int
 
     /**
      * Removes the tag cross-references of every task owned by [userId].
@@ -610,7 +746,10 @@ interface TaskDao {
         WHERE user_id = :userId AND completed_at IS NOT NULL AND archived_at IS NULL
         """,
     )
-    suspend fun archiveCompletedForUser(ts: Long, userId: String): Int
+    suspend fun archiveCompletedForUser(
+        ts: Long,
+        userId: String,
+    ): Int
 
     /**
      * Non-suspend Flow of all tag cross-references for the given [userId].
@@ -658,13 +797,22 @@ interface NoteDao {
     @Query(
         "SELECT * FROM notes WHERE parent_note_id = :parentId AND user_id = :userId AND archived_at IS NULL AND deleted_at IS NULL ORDER BY sort_order ASC, title ASC",
     )
-    fun watchChildrenForUser(parentId: String, userId: String): Flow<List<NoteEntity>>
+    fun watchChildrenForUser(
+        parentId: String,
+        userId: String,
+    ): Flow<List<NoteEntity>>
 
     @Query("SELECT * FROM notes WHERE id = :id AND user_id = :userId")
-    fun watchByIdForUser(id: String, userId: String): Flow<NoteEntity?>
+    fun watchByIdForUser(
+        id: String,
+        userId: String,
+    ): Flow<NoteEntity?>
 
     @Query("SELECT * FROM notes WHERE id = :id AND user_id = :userId")
-    suspend fun getByIdForUser(id: String, userId: String): NoteEntity?
+    suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): NoteEntity?
 
     @Upsert
     suspend fun upsert(note: NoteEntity)
@@ -693,25 +841,57 @@ interface NoteDao {
     @Query(
         "UPDATE notes SET is_pinned = :pinned, pinned_at = :pinnedAt, updated_at = :ts WHERE id = :id AND user_id = :userId",
     )
-    suspend fun setPinnedForUser(id: String, pinned: Boolean, pinnedAt: Long?, ts: Long, userId: String): Int
+    suspend fun setPinnedForUser(
+        id: String,
+        pinned: Boolean,
+        pinnedAt: Long?,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("UPDATE notes SET archived_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun archiveForUser(id: String, ts: Long, userId: String): Int
+    suspend fun archiveForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("UPDATE notes SET archived_at = NULL, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun unarchiveForUser(id: String, ts: Long, userId: String): Int
+    suspend fun unarchiveForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("UPDATE notes SET color = :color, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun setColorForUser(id: String, color: Int?, ts: Long, userId: String): Int
+    suspend fun setColorForUser(
+        id: String,
+        color: Int?,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("UPDATE notes SET sort_order = :sortOrder, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun setSortOrderForUser(id: String, sortOrder: Int, ts: Long, userId: String): Int
+    suspend fun setSortOrderForUser(
+        id: String,
+        sortOrder: Int,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("UPDATE notes SET deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
+    suspend fun softDeleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("UPDATE notes SET deleted_at = NULL, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun restoreForUser(id: String, ts: Long, userId: String): Int
+    suspend fun restoreForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("SELECT * FROM notes WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<NoteEntity>
@@ -739,10 +919,18 @@ interface NoteDao {
      * @return the number of rows removed.
      */
     @Query("DELETE FROM notes WHERE id = :id AND user_id = :userId")
-    suspend fun deleteForUser(id: String, userId: String): Int
+    suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int
 
     @Query("UPDATE notes SET outgoing_links = :linksJson, updated_at = :updatedAt WHERE id = :id AND user_id = :userId")
-    suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int
+    suspend fun setOutgoingLinksForUser(
+        id: String,
+        linksJson: String,
+        updatedAt: Long,
+        userId: String,
+    ): Int
 
     /**
      * Returns notes whose `outgoing_links` hold [url] — the whole link — for the current user.
@@ -770,7 +958,10 @@ interface NoteDao {
         LIMIT 20
         """,
     )
-    suspend fun getBacklinkNotes(url: String, userId: String): List<NoteEntity>
+    suspend fun getBacklinkNotes(
+        url: String,
+        userId: String,
+    ): List<NoteEntity>
 
     /**
      * Returns notes attached to the given taskId (notes.task_id = :taskId), for the current user.
@@ -786,7 +977,10 @@ interface NoteDao {
         LIMIT 50
         """,
     )
-    fun watchByTaskForUser(taskId: String, userId: String): Flow<List<NoteEntity>>
+    fun watchByTaskForUser(
+        taskId: String,
+        userId: String,
+    ): Flow<List<NoteEntity>>
 
     /**
      * Returns notes whose `outgoing_links` hold [url] — the whole link — for the current user.
@@ -818,7 +1012,10 @@ interface NoteDao {
         LIMIT 20
         """,
     )
-    suspend fun getNotesLinkingToTask(url: String, userId: String): List<NoteEntity>
+    suspend fun getNotesLinkingToTask(
+        url: String,
+        userId: String,
+    ): List<NoteEntity>
 
     // ── Templates and daily notes ───────────────────────────────────────────────
 
@@ -850,7 +1047,10 @@ interface NoteDao {
         LIMIT 1
         """,
     )
-    suspend fun getDailyNote(userId: String, dateKey: String): NoteEntity?
+    suspend fun getDailyNote(
+        userId: String,
+        dateKey: String,
+    ): NoteEntity?
 
     @Query(
         """
@@ -863,7 +1063,11 @@ interface NoteDao {
         LIMIT 1
         """,
     )
-    suspend fun getDailyNoteForProject(userId: String, dateKey: String, projectId: String?): NoteEntity?
+    suspend fun getDailyNoteForProject(
+        userId: String,
+        dateKey: String,
+        projectId: String?,
+    ): NoteEntity?
 
     /**
      * Daily notes for a month (for calendar navigation).
@@ -880,13 +1084,22 @@ interface NoteDao {
         ORDER BY title ASC
         """,
     )
-    fun watchDailyNotesInRange(userId: String, from: String, to: String): Flow<List<NoteEntity>>
+    fun watchDailyNotesInRange(
+        userId: String,
+        from: String,
+        to: String,
+    ): Flow<List<NoteEntity>>
 
     /**
      * Update the kind of a note.
      */
     @Query("UPDATE notes SET kind = :kind, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun setKindForUser(id: String, kind: String, ts: Long, userId: String): Int
+    suspend fun setKindForUser(
+        id: String,
+        kind: String,
+        ts: Long,
+        userId: String,
+    ): Int
 }
 
 @Dao
@@ -935,16 +1148,25 @@ interface ProjectDao {
 
     // ─── UserId-scoped reads (Phase 2.8 fix) ──────────────────────────────────
     @Query("SELECT * FROM projects WHERE id = :id AND user_id = :userId")
-    fun watchByIdForUser(id: String, userId: String): Flow<ProjectEntity?>
+    fun watchByIdForUser(
+        id: String,
+        userId: String,
+    ): Flow<ProjectEntity?>
 
     @Query("SELECT * FROM projects WHERE id = :id AND user_id = :userId")
-    suspend fun getByIdForUser(id: String, userId: String): ProjectEntity?
+    suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): ProjectEntity?
 
     @Query(
         "SELECT * FROM projects WHERE parent_id = :parentId AND user_id = :userId AND is_deleted = 0 " +
             "AND closed_at IS NULL ORDER BY sort_order ASC, name ASC",
     )
-    fun watchByParentForUser(parentId: String, userId: String): Flow<List<ProjectEntity>>
+    fun watchByParentForUser(
+        parentId: String,
+        userId: String,
+    ): Flow<List<ProjectEntity>>
 
     @Query(
         """
@@ -968,7 +1190,11 @@ interface ProjectDao {
      * old name back.
      */
     @Query("UPDATE projects SET closed_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun closeForUser(id: String, ts: Long, userId: String): Int
+    suspend fun closeForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     /**
      * Opens a closed project again.
@@ -984,21 +1210,42 @@ interface ProjectDao {
         "UPDATE projects SET closed_at = NULL, updated_at = :ts " +
             "WHERE id = :id AND user_id = :userId AND closed_at IS NOT NULL",
     )
-    suspend fun reopenForUser(id: String, ts: Long, userId: String): Int
+    suspend fun reopenForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("UPDATE projects SET parent_id = :parentId, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun setParentForUser(id: String, parentId: String?, ts: Long, userId: String): Int
+    suspend fun setParentForUser(
+        id: String,
+        parentId: String?,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("UPDATE projects SET sort_order = :sortOrder, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun setSortOrderForUser(id: String, sortOrder: Int, ts: Long, userId: String): Int
+    suspend fun setSortOrderForUser(
+        id: String,
+        sortOrder: Int,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query(
         "UPDATE projects SET is_deleted = 0, deleted_at = NULL, updated_at = :ts WHERE id = :id AND user_id = :userId",
     )
-    suspend fun restoreForUser(id: String, ts: Long, userId: String): Int
+    suspend fun restoreForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("SELECT * FROM projects WHERE idempotency_key = :key AND user_id = :userId LIMIT 1")
-    suspend fun findByIdempotencyKeyForUser(key: String, userId: String): ProjectEntity?
+    suspend fun findByIdempotencyKeyForUser(
+        key: String,
+        userId: String,
+    ): ProjectEntity?
 
     /**
      * Bumps `updated_at` without touching any column of the caller's choosing.
@@ -1012,14 +1259,21 @@ interface ProjectDao {
      * server's last-write-wins on that field cannot order them.
      */
     @Query("UPDATE projects SET updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun touchUpdatedAtForUser(id: String, ts: Long, userId: String): Int
+    suspend fun touchUpdatedAtForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     /** Case-insensitive lookup by name, used to resolve project names in query conditions. */
     @Query(
         "SELECT * FROM projects WHERE user_id = :userId AND is_deleted = 0 AND closed_at IS NULL " +
             "AND lower(name) = lower(:name) LIMIT 1",
     )
-    suspend fun findByNameForUser(userId: String, name: String): ProjectEntity?
+    suspend fun findByNameForUser(
+        userId: String,
+        name: String,
+    ): ProjectEntity?
 
     @Upsert
     suspend fun upsert(project: ProjectEntity)
@@ -1027,7 +1281,11 @@ interface ProjectDao {
     @Query(
         "UPDATE projects SET is_deleted = 1, deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId",
     )
-    suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
+    suspend fun softDeleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("SELECT * FROM projects WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<ProjectEntity>
@@ -1054,7 +1312,10 @@ interface ProjectDao {
      * @return the number of rows removed.
      */
     @Query("DELETE FROM projects WHERE id = :id AND user_id = :userId")
-    suspend fun deleteForUser(id: String, userId: String): Int
+    suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int
 }
 
 // The profile reset needs a bulk delete from this DAO, and the DAO was already at
@@ -1070,30 +1331,47 @@ interface TagDao {
     fun watchById(id: String): Flow<TagEntity?>
 
     @Query("SELECT * FROM tags WHERE id = :id AND user_id = :userId AND deleted_at IS NULL")
-    fun watchByIdForUser(id: String, userId: String): Flow<TagEntity?>
+    fun watchByIdForUser(
+        id: String,
+        userId: String,
+    ): Flow<TagEntity?>
 
     @Query("SELECT * FROM tags WHERE id = :id AND user_id = :userId AND deleted_at IS NULL")
-    suspend fun getByIdForUser(id: String, userId: String): TagEntity?
+    suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): TagEntity?
 
     /** Case-insensitive lookup by name, used to resolve tag names in query conditions. */
     @Query(
         "SELECT * FROM tags WHERE user_id = :userId AND deleted_at IS NULL " +
             "AND name_normalized = lower(trim(:name)) LIMIT 1",
     )
-    suspend fun findByNameForUser(userId: String, name: String): TagEntity?
+    suspend fun findByNameForUser(
+        userId: String,
+        name: String,
+    ): TagEntity?
 
     @Upsert
     suspend fun upsert(tag: TagEntity)
 
     @Query("UPDATE tags SET deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
+    suspend fun softDeleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     /** Restores a soft-deleted tag by clearing deletedAt. Returns row count. */
     @Query(
         "UPDATE tags SET deleted_at = NULL, updated_at = :ts " +
             "WHERE id = :id AND user_id = :userId AND deleted_at IS NOT NULL",
     )
-    suspend fun restoreForUser(id: String, ts: Long, userId: String): Int
+    suspend fun restoreForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("SELECT * FROM tags WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TagEntity>
@@ -1117,7 +1395,10 @@ interface TagDao {
      * @return the number of rows removed.
      */
     @Query("DELETE FROM tags WHERE id = :id AND user_id = :userId")
-    suspend fun deleteForUser(id: String, userId: String): Int
+    suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int
 
     /**
      * Detaches every live tag from a group being soft-deleted.
@@ -1132,14 +1413,21 @@ interface TagDao {
         WHERE group_id = :groupId AND user_id = :userId AND deleted_at IS NULL
         """,
     )
-    suspend fun clearGroupForUser(groupId: String, ts: Long, userId: String): Int
+    suspend fun clearGroupForUser(
+        groupId: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     /**
      * Live members of [groupId] for [userId], read before [clearGroupForUser] so the
      * release can be pushed to sync — the tag rows changed, so the server must see it.
      */
     @Query("SELECT * FROM tags WHERE group_id = :groupId AND user_id = :userId AND deleted_at IS NULL")
-    suspend fun listByGroupForUser(groupId: String, userId: String): List<TagEntity>
+    suspend fun listByGroupForUser(
+        groupId: String,
+        userId: String,
+    ): List<TagEntity>
 }
 
 @Dao
@@ -1166,30 +1454,52 @@ interface ReminderDao {
     fun watchAllProfiles(): Flow<List<TaskReminderEntity>>
 
     @Query("SELECT * FROM task_reminders WHERE task_id = :taskId AND user_id = :userId ORDER BY fire_at ASC")
-    fun watchByTask(taskId: String, userId: String): Flow<List<TaskReminderEntity>>
+    fun watchByTask(
+        taskId: String,
+        userId: String,
+    ): Flow<List<TaskReminderEntity>>
 
     @Query("SELECT * FROM task_reminders WHERE fire_at <= :now AND user_id = :userId ORDER BY fire_at ASC")
-    fun getDueBefore(now: Long, userId: String): Flow<List<TaskReminderEntity>>
+    fun getDueBefore(
+        now: Long,
+        userId: String,
+    ): Flow<List<TaskReminderEntity>>
 
     @Query(
         "SELECT * FROM task_reminders WHERE fire_at <= :now AND user_id = :userId ORDER BY fire_at DESC LIMIT :limit",
     )
-    fun getRecentDueBefore(now: Long, userId: String, limit: Int): Flow<List<TaskReminderEntity>>
+    fun getRecentDueBefore(
+        now: Long,
+        userId: String,
+        limit: Int,
+    ): Flow<List<TaskReminderEntity>>
 
     @Upsert
     suspend fun upsert(reminder: TaskReminderEntity)
 
     @Query("DELETE FROM task_reminders WHERE id = :id AND user_id = :userId")
-    suspend fun delete(id: String, userId: String)
+    suspend fun delete(
+        id: String,
+        userId: String,
+    )
 
     @Query("DELETE FROM task_reminders WHERE task_id = :taskId AND user_id = :userId")
-    suspend fun deleteByTask(taskId: String, userId: String)
+    suspend fun deleteByTask(
+        taskId: String,
+        userId: String,
+    )
 
     @Query("SELECT * FROM task_reminders WHERE id = :id AND user_id = :userId")
-    suspend fun getById(id: String, userId: String): TaskReminderEntity?
+    suspend fun getById(
+        id: String,
+        userId: String,
+    ): TaskReminderEntity?
 
     @Query("SELECT * FROM task_reminders WHERE id = :id AND user_id = :userId")
-    fun watchByIdForUser(id: String, userId: String): Flow<TaskReminderEntity?>
+    fun watchByIdForUser(
+        id: String,
+        userId: String,
+    ): Flow<TaskReminderEntity?>
 
     @Query("SELECT DISTINCT task_id FROM task_reminders WHERE recurring_pattern IS NOT NULL AND user_id = :userId")
     fun watchRecurringTaskIds(userId: String): Flow<List<String>>
@@ -1197,7 +1507,12 @@ interface ReminderDao {
     @Query(
         "UPDATE task_reminders SET last_fired_at = :lastFiredAt, updated_at = :updatedAt WHERE id = :id AND user_id = :userId",
     )
-    suspend fun setLastFiredAt(id: String, userId: String, lastFiredAt: Long, updatedAt: Long)
+    suspend fun setLastFiredAt(
+        id: String,
+        userId: String,
+        lastFiredAt: Long,
+        updatedAt: Long,
+    )
 
     /** Full-table export — all reminders for a user, including expired ones. */
     @Query("SELECT * FROM task_reminders WHERE user_id = :userId")
@@ -1223,35 +1538,62 @@ interface ProjectReminderDao {
     fun watchAll(userId: String): Flow<List<ProjectReminderEntity>>
 
     @Query("SELECT * FROM project_reminders WHERE project_id = :projectId AND user_id = :userId ORDER BY fire_at ASC")
-    fun watchByProject(projectId: String, userId: String): Flow<List<ProjectReminderEntity>>
+    fun watchByProject(
+        projectId: String,
+        userId: String,
+    ): Flow<List<ProjectReminderEntity>>
 
     @Query("SELECT * FROM project_reminders WHERE fire_at <= :now AND user_id = :userId ORDER BY fire_at ASC")
-    fun getDueBefore(now: Long, userId: String): Flow<List<ProjectReminderEntity>>
+    fun getDueBefore(
+        now: Long,
+        userId: String,
+    ): Flow<List<ProjectReminderEntity>>
 
     @Query(
         "SELECT * FROM project_reminders WHERE fire_at <= :now AND user_id = :userId ORDER BY fire_at DESC LIMIT :limit",
     )
-    fun getRecentDueBefore(now: Long, userId: String, limit: Int): Flow<List<ProjectReminderEntity>>
+    fun getRecentDueBefore(
+        now: Long,
+        userId: String,
+        limit: Int,
+    ): Flow<List<ProjectReminderEntity>>
 
     @Upsert
     suspend fun upsert(reminder: ProjectReminderEntity)
 
     @Query("DELETE FROM project_reminders WHERE id = :id AND user_id = :userId")
-    suspend fun delete(id: String, userId: String)
+    suspend fun delete(
+        id: String,
+        userId: String,
+    )
 
     @Query("DELETE FROM project_reminders WHERE project_id = :projectId AND user_id = :userId")
-    suspend fun deleteByProject(projectId: String, userId: String)
+    suspend fun deleteByProject(
+        projectId: String,
+        userId: String,
+    )
 
     @Query("SELECT * FROM project_reminders WHERE id = :id AND user_id = :userId")
-    suspend fun getById(id: String, userId: String): ProjectReminderEntity?
+    suspend fun getById(
+        id: String,
+        userId: String,
+    ): ProjectReminderEntity?
 
     @Query("SELECT * FROM project_reminders WHERE id = :id AND user_id = :userId")
-    fun watchByIdForUser(id: String, userId: String): Flow<ProjectReminderEntity?>
+    fun watchByIdForUser(
+        id: String,
+        userId: String,
+    ): Flow<ProjectReminderEntity?>
 
     @Query(
         "UPDATE project_reminders SET last_fired_at = :lastFiredAt, updated_at = :updatedAt WHERE id = :id AND user_id = :userId",
     )
-    suspend fun setLastFiredAt(id: String, userId: String, lastFiredAt: Long, updatedAt: Long)
+    suspend fun setLastFiredAt(
+        id: String,
+        userId: String,
+        lastFiredAt: Long,
+        updatedAt: Long,
+    )
 
     /** Full-table export — all project reminders for a user. */
     @Query("SELECT * FROM project_reminders WHERE user_id = :userId")
@@ -1286,7 +1628,10 @@ interface ChecklistDao {
         ORDER BY sort_order ASC
         """,
     )
-    fun watchByTaskForUser(taskId: String, userId: String): Flow<List<ChecklistItemEntity>>
+    fun watchByTaskForUser(
+        taskId: String,
+        userId: String,
+    ): Flow<List<ChecklistItemEntity>>
 
     @Upsert
     suspend fun upsert(item: ChecklistItemEntity)
@@ -1330,7 +1675,12 @@ interface ChecklistDao {
           AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
         """,
     )
-    suspend fun updateCompletionStatus(itemId: String, isCompleted: Boolean, updatedAt: Long, userId: String): Int
+    suspend fun updateCompletionStatus(
+        itemId: String,
+        isCompleted: Boolean,
+        updatedAt: Long,
+        userId: String,
+    ): Int
 
     @Query(
         """
@@ -1339,7 +1689,10 @@ interface ChecklistDao {
         AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
         """,
     )
-    suspend fun deleteForUser(id: String, userId: String): Int
+    suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int
 
     @Query(
         """
@@ -1348,7 +1701,10 @@ interface ChecklistDao {
         AND EXISTS (SELECT 1 FROM tasks WHERE id = :taskId AND user_id = :userId)
         """,
     )
-    suspend fun deleteByTaskForUser(taskId: String, userId: String): Int
+    suspend fun deleteByTaskForUser(
+        taskId: String,
+        userId: String,
+    ): Int
 
     /** Full-table export — all checklist items for all tasks owned by a user. */
     @Query("SELECT * FROM checklist_items WHERE task_id IN (SELECT id FROM tasks WHERE user_id = :userId)")
@@ -1361,7 +1717,10 @@ interface LlmUsageDao {
     suspend fun upsert(entity: LlmUsageEntity)
 
     @Query("SELECT * FROM llm_usage WHERE profile_id = :profileId ORDER BY created_at DESC LIMIT :limit")
-    fun observeRecent(profileId: String, limit: Int): Flow<List<LlmUsageEntity>>
+    fun observeRecent(
+        profileId: String,
+        limit: Int,
+    ): Flow<List<LlmUsageEntity>>
 
     @Query(
         """
@@ -1376,7 +1735,10 @@ interface LlmUsageDao {
         ORDER BY date DESC
     """,
     )
-    fun observeByDay(profileId: String, sinceEpochMs: Long): Flow<List<DailyUsageRow>>
+    fun observeByDay(
+        profileId: String,
+        sinceEpochMs: Long,
+    ): Flow<List<DailyUsageRow>>
 
     @Query(
         """
@@ -1423,7 +1785,6 @@ data class ModelUsageRow(val modelId: String, val totalTokens: Long, val totalCo
 
 @Dao
 interface ProfileDao {
-
     @Query("SELECT * FROM profiles ORDER BY created_at ASC")
     fun all(): Flow<List<ProfileEntity>>
 
@@ -1462,7 +1823,10 @@ interface ProfileDao {
      * @return the number of rows removed.
      */
     @Query("DELETE FROM profiles WHERE id = :id AND (user_id = :userId OR user_id IS NULL)")
-    suspend fun deleteForUser(id: String, userId: String): Int
+    suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int
 
     @Query("SELECT COUNT(*) FROM profiles")
     suspend fun count(): Int
@@ -1508,16 +1872,26 @@ interface TagGroupDao {
     fun watchById(id: String): Flow<TagGroupEntity?>
 
     @Query("SELECT * FROM tag_groups WHERE id = :id AND user_id = :userId")
-    fun watchByIdForUser(id: String, userId: String): Flow<TagGroupEntity?>
+    fun watchByIdForUser(
+        id: String,
+        userId: String,
+    ): Flow<TagGroupEntity?>
 
     @Query("SELECT * FROM tag_groups WHERE id = :id AND user_id = :userId")
-    suspend fun getByIdForUser(id: String, userId: String): TagGroupEntity?
+    suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): TagGroupEntity?
 
     @Upsert
     suspend fun upsert(entity: TagGroupEntity)
 
     @Query("UPDATE tag_groups SET deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
+    suspend fun softDeleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     /** Full-table export — all tag groups for a user, including soft-deleted ones. */
     @Query("SELECT * FROM tag_groups WHERE user_id = :userId")
@@ -1542,7 +1916,10 @@ interface TagGroupDao {
      * @return the number of rows removed.
      */
     @Query("DELETE FROM tag_groups WHERE id = :id AND user_id = :userId")
-    suspend fun deleteForUser(id: String, userId: String): Int
+    suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int
 }
 
 // ─── Project ↔ Tag Group Join DAO ─────────────────────────────────────────────
@@ -1563,7 +1940,10 @@ interface ProjectInheritedTagGroupDao {
         AND project_id IN (SELECT id FROM projects WHERE user_id = :userId)
         """,
     )
-    fun watchByProject(projectId: String, userId: String): Flow<List<String>>
+    fun watchByProject(
+        projectId: String,
+        userId: String,
+    ): Flow<List<String>>
 
     /**
      * The one-shot counterpart of [watchByProject], for callers that need the set
@@ -1582,7 +1962,10 @@ interface ProjectInheritedTagGroupDao {
         AND project_id IN (SELECT id FROM projects WHERE user_id = :userId)
         """,
     )
-    suspend fun getByProject(projectId: String, userId: String): List<String>
+    suspend fun getByProject(
+        projectId: String,
+        userId: String,
+    ): List<String>
 
     /**
      * Replaces the entire set of inherited tag groups for a project.
@@ -1595,7 +1978,10 @@ interface ProjectInheritedTagGroupDao {
         AND project_id IN (SELECT id FROM projects WHERE user_id = :userId)
         """,
     )
-    suspend fun deleteAllForUser(projectId: String, userId: String): Int
+    suspend fun deleteAllForUser(
+        projectId: String,
+        userId: String,
+    ): Int
 
     /**
      * Removes the inherited tag groups of *every* project owned by [userId].
@@ -1630,7 +2016,11 @@ interface ProjectInheritedTagGroupDao {
         AND project_id IN (SELECT id FROM projects WHERE user_id = :userId)
         """,
     )
-    suspend fun delete(projectId: String, tagGroupId: String, userId: String): Int
+    suspend fun delete(
+        projectId: String,
+        tagGroupId: String,
+        userId: String,
+    ): Int
 
     /**
      * Inserts one inheritance row, scoped to the owning project.
@@ -1647,7 +2037,11 @@ interface ProjectInheritedTagGroupDao {
         WHERE EXISTS (SELECT 1 FROM projects WHERE id = :projectId AND user_id = :userId)
         """,
     )
-    suspend fun insertForUser(projectId: String, tagGroupId: String, userId: String)
+    suspend fun insertForUser(
+        projectId: String,
+        tagGroupId: String,
+        userId: String,
+    )
 
     /**
      * Whether [projectId] exists and belongs to [userId].
@@ -1658,7 +2052,10 @@ interface ProjectInheritedTagGroupDao {
      * only touching through this join table.
      */
     @Query("SELECT EXISTS(SELECT 1 FROM projects WHERE id = :projectId AND user_id = :userId)")
-    suspend fun isProjectOwnedBy(projectId: String, userId: String): Boolean
+    suspend fun isProjectOwnedBy(
+        projectId: String,
+        userId: String,
+    ): Boolean
 
     /**
      * Drops every inheritance row for a tag group being deleted, across all of
@@ -1676,7 +2073,10 @@ interface ProjectInheritedTagGroupDao {
         AND project_id IN (SELECT id FROM projects WHERE user_id = :userId)
         """,
     )
-    suspend fun deleteByGroupForUser(tagGroupId: String, userId: String): Int
+    suspend fun deleteByGroupForUser(
+        tagGroupId: String,
+        userId: String,
+    ): Int
 
     /** Full-table export — all project↔tag-group associations for a user's projects. */
     @Query(

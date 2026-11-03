@@ -2,6 +2,7 @@ package com.singularity.todo.feature.timetracking.data
 
 import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.UnitOfWork
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -15,7 +16,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
-import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Room-backed implementation of [TimeTrackingRepository].
@@ -30,55 +30,61 @@ class TimeTrackingRepositoryImpl(
     private val currentUser: ProfileAwareCurrentUser,
     private val unitOfWork: UnitOfWork,
 ) : TimeTrackingRepository {
-
     override fun watchEntries(taskId: TaskId): Flow<List<TimeEntry>> =
         dao.watchForTask(taskId.value).map { list -> list.map { it.toDomain() } }
 
     override suspend fun getOpenEntry(userId: UserId): TimeEntry? = dao.getOpenEntry(userId.value)?.toDomain()
 
-    override suspend fun get(entryId: TimeEntryId, userId: UserId): TimeEntry? =
-        dao.getByIdForUser(entryId.value, userId.value)?.toDomain()
+    override suspend fun get(
+        entryId: TimeEntryId,
+        userId: UserId,
+    ): TimeEntry? = dao.getByIdForUser(entryId.value, userId.value)?.toDomain()
 
     override suspend fun startEntry(
         taskId: TaskId,
         userId: UserId,
         kind: TimeEntryKind,
         source: TimeEntrySource,
-    ): Result<TimeEntryId> = runCatchingCancellable {
-        // Reject if user already has an open entry
-        val existing = dao.getOpenEntry(userId.value)
-        require(existing == null) { "User ${userId.value} already has an open time entry" }
+    ): Result<TimeEntryId> =
+        runCatchingCancellable {
+            // Reject if user already has an open entry
+            val existing = dao.getOpenEntry(userId.value)
+            require(existing == null) { "User ${userId.value} already has an open time entry" }
 
-        val now = clock.now()
-        val id = TimeEntryId.generate()
-        val entity = TimeEntryEntity(
-            id = id.value,
-            taskId = taskId.value,
-            userId = userId.value,
-            startedAt = now.toEpochMilliseconds(),
-            endedAt = null,
-            kind = kind.name,
-            source = source.name,
-            note = null,
-            createdAt = now.toEpochMilliseconds(),
-            updatedAt = now.toEpochMilliseconds(),
-            deletedAt = null,
-            sync = SyncColumns(),
-        )
-        dao.upsert(entity)
-        id
-    }
+            val now = clock.now()
+            val id = TimeEntryId.generate()
+            val entity =
+                TimeEntryEntity(
+                    id = id.value,
+                    taskId = taskId.value,
+                    userId = userId.value,
+                    startedAt = now.toEpochMilliseconds(),
+                    endedAt = null,
+                    kind = kind.name,
+                    source = source.name,
+                    note = null,
+                    createdAt = now.toEpochMilliseconds(),
+                    updatedAt = now.toEpochMilliseconds(),
+                    deletedAt = null,
+                    sync = SyncColumns(),
+                )
+            dao.upsert(entity)
+            id
+        }
 
-    override suspend fun stopEntry(userId: UserId): Result<TimeEntry?> = runCatchingCancellable {
-        val now = clock.now()
-        val open = dao.getOpenEntry(userId.value)
-            ?: return@runCatchingCancellable null
-        val rows = dao.stopEntry(open.id, now.toEpochMilliseconds(), now.toEpochMilliseconds(), userId.value)
-        require(rows > 0) { "Failed to stop entry ${open.id}" }
-        dao.getOpenEntry(userId.value) // re-fetch with endedAt set
-            ?.copy(endedAt = now.toEpochMilliseconds())
-            ?.toDomain()
-    }
+    override suspend fun stopEntry(userId: UserId): Result<TimeEntry?> =
+        runCatchingCancellable {
+            val now = clock.now()
+            val open =
+                dao.getOpenEntry(userId.value)
+                    ?: return@runCatchingCancellable null
+            val rows = dao.stopEntry(open.id, now.toEpochMilliseconds(), now.toEpochMilliseconds(), userId.value)
+            require(rows > 0) { "Failed to stop entry ${open.id}" }
+            dao
+                .getOpenEntry(userId.value) // re-fetch with endedAt set
+                ?.copy(endedAt = now.toEpochMilliseconds())
+                ?.toDomain()
+        }
 
     override suspend fun createManualEntry(
         taskId: TaskId,
@@ -89,44 +95,48 @@ class TimeTrackingRepositoryImpl(
         note: String?,
         source: TimeEntrySource,
         id: TimeEntryId,
-    ): Result<TimeEntryId> = runCatchingCancellable {
-        require(endedAt > startedAt) { "endedAt ($endedAt) must be after startedAt ($startedAt)" }
+    ): Result<TimeEntryId> =
+        runCatchingCancellable {
+            require(endedAt > startedAt) { "endedAt ($endedAt) must be after startedAt ($startedAt)" }
 
-        val now = clock.now().toEpochMilliseconds()
-        val entity = TimeEntryEntity(
-            id = id.value,
-            taskId = taskId.value,
-            userId = userId.value,
-            startedAt = startedAt,
-            endedAt = endedAt,
-            kind = kind.name,
-            source = source.name,
-            note = note,
-            createdAt = now,
-            updatedAt = now,
-            deletedAt = null,
-            sync = SyncColumns(),
-        )
-        dao.upsert(entity)
-        id
-    }
+            val now = clock.now().toEpochMilliseconds()
+            val entity =
+                TimeEntryEntity(
+                    id = id.value,
+                    taskId = taskId.value,
+                    userId = userId.value,
+                    startedAt = startedAt,
+                    endedAt = endedAt,
+                    kind = kind.name,
+                    source = source.name,
+                    note = note,
+                    createdAt = now,
+                    updatedAt = now,
+                    deletedAt = null,
+                    sync = SyncColumns(),
+                )
+            dao.upsert(entity)
+            id
+        }
 
     override suspend fun updateNote(
         entryId: TimeEntryId,
         userId: UserId,
         note: String?,
-    ): Result<Unit> = runCatchingCancellable {
-        val now = clock.now().toEpochMilliseconds()
-        val rows = dao.updateNote(entryId.value, note, now, userId.value)
-        require(rows > 0) { "Entry $entryId not found or not owned by $userId" }
-    }
+    ): Result<Unit> =
+        runCatchingCancellable {
+            val now = clock.now().toEpochMilliseconds()
+            val rows = dao.updateNote(entryId.value, note, now, userId.value)
+            require(rows > 0) { "Entry $entryId not found or not owned by $userId" }
+        }
 
-    override suspend fun delete(entryId: TimeEntryId): Result<Unit> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value
-        val now = clock.now().toEpochMilliseconds()
-        val rows = dao.softDelete(entryId.value, now, uid.value)
-        require(rows > 0) { "Entry $entryId not found or not owned" }
-    }
+    override suspend fun delete(entryId: TimeEntryId): Result<Unit> =
+        runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value
+            val now = clock.now().toEpochMilliseconds()
+            val rows = dao.softDelete(entryId.value, now, uid.value)
+            require(rows > 0) { "Entry $entryId not found or not owned" }
+        }
 
     /**
      * The sync apply path's write. See the port for why it is not a command.
@@ -135,11 +145,15 @@ class TimeTrackingRepositoryImpl(
      * and a local read here would either reject a legitimate cross-device state or
      * rewrite the owner to whoever happens to be signed in.
      */
-    override suspend fun upsert(entry: TimeEntry): Result<Unit> = runCatchingCancellable {
-        unitOfWork.write { dao.upsert(entry.toEntity()) }
-    }
+    override suspend fun upsert(entry: TimeEntry): Result<Unit> =
+        runCatchingCancellable {
+            unitOfWork.write { dao.upsert(entry.toEntity()) }
+        }
 
-    override fun watchEntriesInRange(startMs: Long, endMs: Long): Flow<List<TimeEntry>> =
+    override fun watchEntriesInRange(
+        startMs: Long,
+        endMs: Long,
+    ): Flow<List<TimeEntry>> =
         currentUser.scopedUserId.flatMapLatest { userId ->
             dao.watchForUserInRange(userId.value, startMs, endMs).map { list -> list.map { it.toDomain() } }
         }

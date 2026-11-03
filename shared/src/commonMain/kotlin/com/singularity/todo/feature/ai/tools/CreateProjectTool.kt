@@ -4,18 +4,22 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposedProject
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
-import com.singularity.todo.feature.projects.domain.model.ProjectId
 import kotlinx.serialization.Serializable
 import kotlin.time.Clock
 
 @Serializable
 data class CreateProjectInput(
     val name: String,
-    /** ARGB integer color. Prefer [colorHex] for cross-client MCP callers. */
-    val color: Int = 0xFF2196F3.toInt(), // ARGB blue default
+    /**
+     * ARGB integer color. Prefer [colorHex] for cross-client MCP callers.
+     *
+     * Default: 0xFF2196F3 (ARGB blue).
+     */
+    val color: Int = 0xFF2196F3.toInt(),
     /** Material icon key (e.g. "Work") or a single emoji; null = default folder. */
     val icon: String? = null,
     val description: String? = null,
@@ -55,7 +59,6 @@ class CreateProjectTool(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : SimpleTool<CreateProjectInput>(TypeToken.of(CreateProjectInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: CreateProjectInput): String {
         val name = args.name.trim()
         if (name.isEmpty()) {
@@ -64,38 +67,49 @@ class CreateProjectTool(
 
         // The id the project will have if the user says yes.
         val projectId = ProjectId.generate()
-        val kind = ProposalItemKind.CreateProject(
-            ProposedProject(
-                name = name,
-                description = args.description,
-                color = parseColor(args.colorHex, defaultColor = args.color),
-                icon = args.icon,
-            ),
-        )
+        val kind =
+            ProposalItemKind.CreateProject(
+                ProposedProject(
+                    name = name,
+                    description = args.description,
+                    color = parseColor(args.colorHex, defaultColor = args.color),
+                    icon = args.icon,
+                ),
+            )
 
-        val result = proposeChange(
-            proposals = proposals,
-            userId = currentUser.scopedUserId.value,
-            clock = clock,
-            items = proposalItems(listOf(kind), projectId.value),
-            targetId = projectId.value,
-        )
+        val result =
+            proposeChange(
+                proposals = proposals,
+                userId = currentUser.scopedUserId.value,
+                clock = clock,
+                items = proposalItems(listOf(kind), projectId.value),
+                targetId = projectId.value,
+            )
 
         return ToolOutputJson.encodeToString(
             CreateProjectOutput.serializer(),
             CreateProjectOutput(
                 proposalCreated = result.isSuccess,
-                proposalId = result.getOrNull()?.id?.value.orEmpty(),
+                proposalId =
+                    result
+                        .getOrNull()
+                        ?.id
+                        ?.value
+                        .orEmpty(),
                 name = name,
                 error = result.exceptionOrNull()?.message,
             ),
         )
     }
 
-    private fun failure(name: String, message: String): String = ToolOutputJson.encodeToString(
-        CreateProjectOutput.serializer(),
-        CreateProjectOutput(proposalCreated = false, proposalId = "", name = name, error = message),
-    )
+    private fun failure(
+        name: String,
+        message: String,
+    ): String =
+        ToolOutputJson.encodeToString(
+            CreateProjectOutput.serializer(),
+            CreateProjectOutput(proposalCreated = false, proposalId = "", name = name, error = message),
+        )
 
     companion object {
         const val NAME = "create_project"

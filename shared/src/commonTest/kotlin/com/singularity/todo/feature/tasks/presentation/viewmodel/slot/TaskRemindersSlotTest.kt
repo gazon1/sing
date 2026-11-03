@@ -26,7 +26,6 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class TaskRemindersSlotTest {
-
     private fun slot(
         fakes: SlotFakes,
         source: TaskSource,
@@ -59,29 +58,36 @@ class TaskRemindersSlotTest {
     )
 
     @Test
-    fun `no reminders before anything is scheduled`() = runTest {
-        val fakes = SlotFakes()
-        val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
-        runCurrent()
+    fun `no reminders before anything is scheduled`() =
+        runTest {
+            val fakes = SlotFakes()
+            val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
+            runCurrent()
 
-        assertEquals(emptyList(), slot.state.value.reminders)
-    }
+            assertEquals(emptyList(), slot.state.value.reminders)
+        }
 
     @Test
-    fun `setting a reminder writes the row and schedules the alarm`() = runTest {
-        val fakes = SlotFakes()
-        val source = TaskSource(
-            task("t1").copy(dueDate = DUE, dueTime = AT_NINE),
-        )
-        val slot = slot(fakes, source, backgroundScope)
-        runCurrent()
+    fun `setting a reminder writes the row and schedules the alarm`() =
+        runTest {
+            val fakes = SlotFakes()
+            val source =
+                TaskSource(
+                    task("t1").copy(dueDate = DUE, dueTime = AT_NINE),
+                )
+            val slot = slot(fakes, source, backgroundScope)
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
+            runCurrent()
 
-        assertEquals(1, fakes.scheduler.scheduled.size, "the platform alarm must be scheduled")
-        assertTrue(fakes.scheduler.scheduled.first().fireAt > 0)
-    }
+            assertEquals(1, fakes.scheduler.scheduled.size, "the platform alarm must be scheduled")
+            assertTrue(
+                fakes.scheduler.scheduled
+                    .first()
+                    .fireAt > 0,
+            )
+        }
 
     /**
      * A reminder set on a task the person opened from a saved agenda view points back
@@ -93,59 +99,67 @@ class TaskRemindersSlotTest {
      * happened to be.
      */
     @Test
-    fun `a reminder records the saved view the task was opened from`() = runTest {
-        val fakes = SlotFakes()
-        val source = TaskSource(task("t1").copy(dueDate = DUE))
-        val slot = slot(fakes, source, backgroundScope, SavedAgendaViewId.fromString("v1"))
-        runCurrent()
+    fun `a reminder records the saved view the task was opened from`() =
+        runTest {
+            val fakes = SlotFakes()
+            val source = TaskSource(task("t1").copy(dueDate = DUE))
+            val slot = slot(fakes, source, backgroundScope, SavedAgendaViewId.fromString("v1"))
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
+            runCurrent()
 
-        val stored = fakes.reminderRepo.reminders.value.values.single()
-        assertEquals(SavedAgendaViewId.fromString("v1"), stored.viewId)
-    }
-
-    @Test
-    fun `a reminder set on a task with no saved view behind it carries no view`() = runTest {
-        val fakes = SlotFakes()
-        val source = TaskSource(task("t1").copy(dueDate = DUE))
-        val slot = slot(fakes, source, backgroundScope)
-        runCurrent()
-
-        slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
-        runCurrent()
-
-        val stored = fakes.reminderRepo.reminders.value.values.single()
-        assertNull(stored.viewId, "a task opened from a tab has no view to point back at")
-    }
+            val stored =
+                fakes.reminderRepo.reminders.value.values
+                    .single()
+            assertEquals(SavedAgendaViewId.fromString("v1"), stored.viewId)
+        }
 
     @Test
-    fun `AT_DUE clears the reminder rather than scheduling one`() = runTest {
-        val fakes = SlotFakes()
-        val source = TaskSource(task("t1").copy(dueDate = DUE))
-        val slot = slot(fakes, source, backgroundScope)
-        runCurrent()
+    fun `a reminder set on a task with no saved view behind it carries no view`() =
+        runTest {
+            val fakes = SlotFakes()
+            val source = TaskSource(task("t1").copy(dueDate = DUE))
+            val slot = slot(fakes, source, backgroundScope)
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.AT_DUE))
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
+            runCurrent()
 
-        assertEquals(listOf(TaskId("t1")), fakes.scheduler.cancelledTasks)
-        assertTrue(fakes.scheduler.scheduled.isEmpty(), "AT_DUE must not schedule a new alarm")
-    }
+            val stored =
+                fakes.reminderRepo.reminders.value.values
+                    .single()
+            assertNull(stored.viewId, "a task opened from a tab has no view to point back at")
+        }
 
     @Test
-    fun `deleting a reminder cancels the alarm and the row`() = runTest {
-        val fakes = SlotFakes()
-        val source = TaskSource(task("t1").copy(dueDate = DUE))
-        val slot = slot(fakes, source, backgroundScope)
-        runCurrent()
+    fun `AT_DUE clears the reminder rather than scheduling one`() =
+        runTest {
+            val fakes = SlotFakes()
+            val source = TaskSource(task("t1").copy(dueDate = DUE))
+            val slot = slot(fakes, source, backgroundScope)
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.DeleteReminder)
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.AT_DUE))
+            runCurrent()
 
-        assertEquals(listOf(TaskId("t1")), fakes.scheduler.cancelledTasks)
-    }
+            assertEquals(listOf(TaskId("t1")), fakes.scheduler.cancelledTasks)
+            assertTrue(fakes.scheduler.scheduled.isEmpty(), "AT_DUE must not schedule a new alarm")
+        }
+
+    @Test
+    fun `deleting a reminder cancels the alarm and the row`() =
+        runTest {
+            val fakes = SlotFakes()
+            val source = TaskSource(task("t1").copy(dueDate = DUE))
+            val slot = slot(fakes, source, backgroundScope)
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.DeleteReminder)
+            runCurrent()
+
+            assertEquals(listOf(TaskId("t1")), fakes.scheduler.cancelledTasks)
+        }
 
     // ─── Capability gate ───────────────────────────────────────────────────────
 
@@ -156,26 +170,28 @@ class TaskRemindersSlotTest {
      * live reminder forever — so refusing has to happen *before* the write.
      */
     @Test
-    fun `an unsupported platform stores no row and no alarm`() = runTest {
-        val fakes = SlotFakes(remindersSupported = false)
-        val source = TaskSource(task("t1").copy(dueDate = DUE))
-        val errors = mutableListOf<String>()
-        val slot = slotCapturingErrors(fakes, source, backgroundScope) { errors += it }
-        runCurrent()
+    fun `an unsupported platform stores no row and no alarm`() =
+        runTest {
+            val fakes = SlotFakes(remindersSupported = false)
+            val source = TaskSource(task("t1").copy(dueDate = DUE))
+            val errors = mutableListOf<String>()
+            val slot = slotCapturingErrors(fakes, source, backgroundScope) { errors += it }
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
+            runCurrent()
 
-        assertTrue(
-            fakes.reminderRepo.reminders.value.isEmpty(),
-            "an unsupported platform must not persist a reminder that cannot fire",
-        )
-        assertTrue(
-            fakes.scheduler.scheduled.isEmpty(),
-            "nothing may be handed to a scheduler that cannot arm anything",
-        )
-        assertEquals(1, errors.size, "the user must be told, not left with silent success")
-    }
+            assertTrue(
+                fakes.reminderRepo.reminders.value
+                    .isEmpty(),
+                "an unsupported platform must not persist a reminder that cannot fire",
+            )
+            assertTrue(
+                fakes.scheduler.scheduled.isEmpty(),
+                "nothing may be handed to a scheduler that cannot arm anything",
+            )
+            assertEquals(1, errors.size, "the user must be told, not left with silent success")
+        }
 
     /**
      * The row is the part that lies. If the gate were implemented as "write the row,
@@ -183,17 +199,18 @@ class TaskRemindersSlotTest {
      * which is why the assertion above is on the repository, not on the callback.
      */
     @Test
-    fun `the gate leaves the reminder list empty on an unsupported platform`() = runTest {
-        val fakes = SlotFakes(remindersSupported = false)
-        val source = TaskSource(task("t1").copy(dueDate = DUE))
-        val slot = slot(fakes, source, backgroundScope)
-        runCurrent()
+    fun `the gate leaves the reminder list empty on an unsupported platform`() =
+        runTest {
+            val fakes = SlotFakes(remindersSupported = false)
+            val source = TaskSource(task("t1").copy(dueDate = DUE))
+            val slot = slot(fakes, source, backgroundScope)
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
+            runCurrent()
 
-        assertEquals(emptyList(), slot.state.value.reminders, "no row may surface to the UI")
-    }
+            assertEquals(emptyList(), slot.state.value.reminders, "no row may surface to the UI")
+        }
 
     /**
      * Clearing is not gated. On an unsupported platform nothing was ever armed, so a
@@ -201,19 +218,20 @@ class TaskRemindersSlotTest {
      * user cannot tidy up reminders seeded by a sync or an older build.
      */
     @Test
-    fun `clearing still works on an unsupported platform`() = runTest {
-        val fakes = SlotFakes(remindersSupported = false)
-        val source = TaskSource(task("t1").copy(dueDate = DUE))
-        val errors = mutableListOf<String>()
-        val slot = slotCapturingErrors(fakes, source, backgroundScope) { errors += it }
-        runCurrent()
+    fun `clearing still works on an unsupported platform`() =
+        runTest {
+            val fakes = SlotFakes(remindersSupported = false)
+            val source = TaskSource(task("t1").copy(dueDate = DUE))
+            val errors = mutableListOf<String>()
+            val slot = slotCapturingErrors(fakes, source, backgroundScope) { errors += it }
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.DeleteReminder)
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.DeleteReminder)
+            runCurrent()
 
-        assertEquals(listOf(TaskId("t1")), fakes.scheduler.cancelledTasks)
-        assertTrue(errors.isEmpty(), "clearing must not surface an error")
-    }
+            assertEquals(listOf(TaskId("t1")), fakes.scheduler.cancelledTasks)
+            assertTrue(errors.isEmpty(), "clearing must not surface an error")
+        }
 }
 
 private val DUE = kotlinx.datetime.LocalDate(2026, 10, 1)

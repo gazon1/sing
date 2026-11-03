@@ -33,11 +33,11 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SyncCoordinatorCoalescingTest {
-
-    private val success = SyncOutcome.Completed(
-        push = Result.success(PushSummary(1, 1, 0)),
-        pull = Result.success(PullSummary(1, 1, 0)),
-    )
+    private val success =
+        SyncOutcome.Completed(
+            push = Result.success(PushSummary(1, 1, 0)),
+            pull = Result.success(PullSummary(1, 1, 0)),
+        )
 
     /** Records how many cycles ran and how many overlapped. */
     private class CycleRecorder {
@@ -66,116 +66,124 @@ class SyncCoordinatorCoalescingTest {
         AutoCloseableCoroutineScope(StandardTestDispatcher(testScheduler))
 
     @Test
-    fun `a single request runs exactly one cycle`() = runTest {
-        val recorder = CycleRecorder()
-        val coordinator = SyncCoordinator(runCycle = { recorder.run() }, scope = scope())
+    fun `a single request runs exactly one cycle`() =
+        runTest {
+            val recorder = CycleRecorder()
+            val coordinator = SyncCoordinator(runCycle = { recorder.run() }, scope = scope())
 
-        coordinator.request()
+            coordinator.request()
 
-        advanceUntilIdle()
-        assertEquals(1, recorder.started)
-    }
-
-    @Test
-    fun `cycles never overlap`() = runTest {
-        val recorder = CycleRecorder()
-        val coordinator = SyncCoordinator(runCycle = { recorder.run() }, scope = scope())
-
-        val requests = (1..10).map { launch { coordinator.request() } }
-        advanceUntilIdle()
-        requests.forEach { it.join() }
-
-        assertEquals(1, recorder.maxConcurrent, "two cycles ran at the same time")
-    }
+            advanceUntilIdle()
+            assertEquals(1, recorder.started)
+        }
 
     @Test
-    fun `ten concurrent requests produce at most one cycle plus one follow-up`() = runTest {
-        val recorder = CycleRecorder()
-        val coordinator = SyncCoordinator(runCycle = { recorder.run() }, scope = scope())
+    fun `cycles never overlap`() =
+        runTest {
+            val recorder = CycleRecorder()
+            val coordinator = SyncCoordinator(runCycle = { recorder.run() }, scope = scope())
 
-        // All ten land before the consumer gets to run: one cycle, then the single
-        // conflated follow-up.
-        val requests = (1..10).map { launch { coordinator.request() } }
-        advanceUntilIdle()
-        requests.forEach { it.join() }
+            val requests = (1..10).map { launch { coordinator.request() } }
+            advanceUntilIdle()
+            requests.forEach { it.join() }
 
-        assertTrue(
-            recorder.started <= 2,
-            "expected at most 2 cycles for 10 requests, got ${recorder.started}",
-        )
-        assertTrue(recorder.started >= 1, "no cycle ran at all")
-    }
+            assertEquals(1, recorder.maxConcurrent, "two cycles ran at the same time")
+        }
 
     @Test
-    fun `every requester is answered with an outcome, not a skip`() = runTest {
-        val recorder = CycleRecorder()
-        val coordinator = SyncCoordinator(runCycle = { recorder.run() }, scope = scope())
+    fun `ten concurrent requests produce at most one cycle plus one follow-up`() =
+        runTest {
+            val recorder = CycleRecorder()
+            val coordinator = SyncCoordinator(runCycle = { recorder.run() }, scope = scope())
 
-        val outcomes = (1..5).map { async { coordinator.request() } }
-        advanceUntilIdle()
-        val results = outcomes.map { it.await() }
+            // All ten land before the consumer gets to run: one cycle, then the single
+            // conflated follow-up.
+            val requests = (1..10).map { launch { coordinator.request() } }
+            advanceUntilIdle()
+            requests.forEach { it.join() }
 
-        // The point of the redesign: a request absorbed into a running cycle is
-        // answered with that cycle's result, not with "someone else is running".
-        results.forEach { assertIs<SyncOutcome.Completed>(it) }
-    }
-
-    @Test
-    fun `a request arriving during a cycle is served by the follow-up, not dropped`() = runTest {
-        val gate = CompletableDeferred<Unit>()
-        var started = 0
-        val coordinator = SyncCoordinator(
-            runCycle = {
-                started++
-                if (started == 1) gate.await()
-                success
-            },
-            scope = scope(),
-        )
-
-        val first = async { coordinator.request() }
-        runCurrent()
-        assertEquals(1, started, "first cycle should be in flight")
-
-        // A request lands mid-cycle. It must not be answered by the cycle that is
-        // already running — it needs a cycle of its own, and the conflated channel
-        // guarantees exactly one.
-        val second = async { coordinator.request() }
-        runCurrent()
-        assertTrue(!second.isCompleted, "the mid-cycle request was answered by the running cycle")
-
-        gate.complete(Unit)
-        advanceUntilIdle()
-
-        assertEquals(2, started)
-        assertIs<SyncOutcome.Completed>(first.await())
-        assertIs<SyncOutcome.Completed>(second.await())
-    }
+            assertTrue(
+                recorder.started <= 2,
+                "expected at most 2 cycles for 10 requests, got ${recorder.started}",
+            )
+            assertTrue(recorder.started >= 1, "no cycle ran at all")
+        }
 
     @Test
-    fun `a throwing cycle does not stop the coordinator`() = runTest {
-        var started = 0
-        val coordinator = SyncCoordinator(
-            runCycle = {
-                started++
-                if (started == 1) error("boom") else success
-            },
-            scope = scope(),
-        )
+    fun `every requester is answered with an outcome, not a skip`() =
+        runTest {
+            val recorder = CycleRecorder()
+            val coordinator = SyncCoordinator(runCycle = { recorder.run() }, scope = scope())
 
-        val first = coordinator.request()
-        // `Failed`, not `Success` with a failed push. A throw from inside the cycle does
-        // not say which phase reached it, so the old shape claimed a push *and* a pull
-        // failed — asserting work that may never have started. This test used to pin
-        // that claim; what it is actually about is that the coordinator survives.
-        val failed = assertIs<SyncOutcome.CouldNotStart>(first)
-        assertEquals("boom", failed.error.message)
+            val outcomes = (1..5).map { async { coordinator.request() } }
+            advanceUntilIdle()
+            val results = outcomes.map { it.await() }
 
-        advanceUntilIdle()
-        val second = coordinator.request()
-        assertIs<SyncOutcome.Completed>(second)
-        assertEquals(2, started, "the second request never ran a cycle")
-    }
+            // The point of the redesign: a request absorbed into a running cycle is
+            // answered with that cycle's result, not with "someone else is running".
+            results.forEach { assertIs<SyncOutcome.Completed>(it) }
+        }
+
+    @Test
+    fun `a request arriving during a cycle is served by the follow-up, not dropped`() =
+        runTest {
+            val gate = CompletableDeferred<Unit>()
+            var started = 0
+            val coordinator =
+                SyncCoordinator(
+                    runCycle = {
+                        started++
+                        if (started == 1) gate.await()
+                        success
+                    },
+                    scope = scope(),
+                )
+
+            val first = async { coordinator.request() }
+            runCurrent()
+            assertEquals(1, started, "first cycle should be in flight")
+
+            // A request lands mid-cycle. It must not be answered by the cycle that is
+            // already running — it needs a cycle of its own, and the conflated channel
+            // guarantees exactly one.
+            val second = async { coordinator.request() }
+            runCurrent()
+            assertTrue(!second.isCompleted, "the mid-cycle request was answered by the running cycle")
+
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(2, started)
+            assertIs<SyncOutcome.Completed>(first.await())
+            assertIs<SyncOutcome.Completed>(second.await())
+        }
+
+    @Test
+    fun `a throwing cycle does not stop the coordinator`() =
+        runTest {
+            var started = 0
+            val coordinator =
+                SyncCoordinator(
+                    runCycle = {
+                        started++
+                        if (started == 1) error("boom") else success
+                    },
+                    scope = scope(),
+                )
+
+            val first = coordinator.request()
+            // `Failed`, not `Success` with a failed push. A throw from inside the cycle does
+            // not say which phase reached it, so the old shape claimed a push *and* a pull
+            // failed — asserting work that may never have started. This test used to pin
+            // that claim; what it is actually about is that the coordinator survives.
+            val failed = assertIs<SyncOutcome.CouldNotStart>(first)
+            assertEquals("boom", failed.error.message)
+
+            advanceUntilIdle()
+            val second = coordinator.request()
+            assertIs<SyncOutcome.Completed>(second)
+            assertEquals(2, started, "the second request never ran a cycle")
+        }
 
     /**
      * The failure the cycle threw keeps its stack trace.
@@ -186,39 +194,43 @@ class SyncCoordinatorCoalescingTest {
      * arrived with the frames that would have said where it came from missing.
      */
     @Test
-    fun `a failure from the cycle keeps the throwable that caused it`() = runTest {
-        val thrown = IllegalStateException("database is closed")
-        val coordinator = SyncCoordinator(
-            runCycle = { throw thrown },
-            scope = scope(),
-        )
+    fun `a failure from the cycle keeps the throwable that caused it`() =
+        runTest {
+            val thrown = IllegalStateException("database is closed")
+            val coordinator =
+                SyncCoordinator(
+                    runCycle = { throw thrown },
+                    scope = scope(),
+                )
 
-        val outcome = coordinator.request()
+            val outcome = coordinator.request()
 
-        val failed = assertIs<SyncOutcome.CouldNotStart>(outcome)
-        assertIs<IllegalStateException>(failed.error.cause)
-        assertEquals("database is closed", failed.error.original().message)
-    }
+            val failed = assertIs<SyncOutcome.CouldNotStart>(outcome)
+            assertIs<IllegalStateException>(failed.error.cause)
+            assertEquals("database is closed", failed.error.original().message)
+        }
 
     @Test
-    fun `a waiter is released when the coordinator closes`() = runTest {
-        val gate = CompletableDeferred<Unit>()
-        val coordinator = SyncCoordinator(
-            runCycle = {
-                gate.await()
-                success
-            },
-            scope = scope(),
-        )
+    fun `a waiter is released when the coordinator closes`() =
+        runTest {
+            val gate = CompletableDeferred<Unit>()
+            val coordinator =
+                SyncCoordinator(
+                    runCycle = {
+                        gate.await()
+                        success
+                    },
+                    scope = scope(),
+                )
 
-        val waiter = async { coordinator.request() }
-        runCurrent()
-        assertTrue(!waiter.isCompleted)
+            val waiter = async { coordinator.request() }
+            runCurrent()
+            assertTrue(!waiter.isCompleted)
 
-        coordinator.close()
-        advanceUntilIdle()
+            coordinator.close()
+            advanceUntilIdle()
 
-        // Without the release, this suspends forever.
-        assertIs<SyncOutcome.NothingToDo>(waiter.await())
-    }
+            // Without the release, this suspends forever.
+            assertIs<SyncOutcome.NothingToDo>(waiter.await())
+        }
 }

@@ -58,7 +58,6 @@ class AppVersionGateViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     init {
         check()
     }

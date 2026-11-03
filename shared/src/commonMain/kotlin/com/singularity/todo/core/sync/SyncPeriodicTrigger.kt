@@ -30,5 +30,6 @@ import kotlin.time.Duration
  */
 interface SyncPeriodicTrigger {
     fun start(interval: Duration)
+
     fun stop()
 }

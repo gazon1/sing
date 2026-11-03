@@ -2,6 +2,7 @@ package com.singularity.todo.feature.reminders.data
 
 import com.singularity.todo.core.database.ProjectReminderDao
 import com.singularity.todo.core.database.toEpochMillis
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
@@ -15,7 +16,6 @@ import com.singularity.todo.feature.reminders.toProjectReminder
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
-import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Room-backed [ProjectRemindersRepository]. Maps entities to domain; owns no queries
@@ -26,51 +26,62 @@ class ProjectRemindersRepositoryImpl(
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
 ) : ProjectRemindersRepository {
-
-    override fun observeAll(): Flow<List<ProjectReminder>> = currentUser.observeForCurrentUser { uid ->
-        dao.watchAll(uid.value).map { list -> list.map { it.toProjectReminder() } }
-    }
+    override fun observeAll(): Flow<List<ProjectReminder>> =
+        currentUser.observeForCurrentUser { uid ->
+            dao.watchAll(uid.value).map { list -> list.map { it.toProjectReminder() } }
+        }
 
     override fun watchByProject(projectId: ProjectId): Flow<List<ProjectReminder>> =
         currentUser.observeForCurrentUser { uid ->
             dao.watchByProject(projectId.value, uid.value).map { list -> list.map { it.toProjectReminder() } }
         }
 
-    override fun observe(id: ProjectReminderId): Flow<ProjectReminder?> = currentUser.observeForCurrentUser { uid ->
-        dao.watchByIdForUser(id.value, uid.value).map { it?.toProjectReminder() }
-    }
+    override fun observe(id: ProjectReminderId): Flow<ProjectReminder?> =
+        currentUser.observeForCurrentUser { uid ->
+            dao.watchByIdForUser(id.value, uid.value).map { it?.toProjectReminder() }
+        }
 
     override suspend fun get(id: ProjectReminderId): ProjectReminder? {
         val uid = currentUser.scopedUserId.value
         return dao.getById(id.value, uid.value)?.toProjectReminder()
     }
 
-    override suspend fun upsert(reminder: ProjectReminder): Result<Unit> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value
-        currentUser.assertCanWrite(entityId = reminder.id.value, entityUserId = reminder.userId)
-        dao.upsert(reminder.copy(userId = uid).toEntity(clock.now().toEpochMillis()))
-    }
+    override suspend fun upsert(reminder: ProjectReminder): Result<Unit> =
+        runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value
+            currentUser.assertCanWrite(entityId = reminder.id.value, entityUserId = reminder.userId)
+            dao.upsert(reminder.copy(userId = uid).toEntity(clock.now().toEpochMillis()))
+        }
 
-    override suspend fun delete(id: ProjectReminderId): Result<Unit> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value
-        dao.delete(id.value, uid.value)
-    }
+    override suspend fun delete(id: ProjectReminderId): Result<Unit> =
+        runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value
+            dao.delete(id.value, uid.value)
+        }
 
-    override suspend fun delete(id: ProjectReminderId, userId: UserId): Result<Unit> = runCatchingCancellable {
-        dao.delete(id.value, userId.value)
-    }
+    override suspend fun delete(
+        id: ProjectReminderId,
+        userId: UserId,
+    ): Result<Unit> =
+        runCatchingCancellable {
+            dao.delete(id.value, userId.value)
+        }
 
-    override suspend fun deleteByProject(projectId: ProjectId): Result<Unit> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value
-        dao.deleteByProject(projectId.value, uid.value)
-    }
+    override suspend fun deleteByProject(projectId: ProjectId): Result<Unit> =
+        runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value
+            dao.deleteByProject(projectId.value, uid.value)
+        }
 
     override fun watchDueBefore(nowEpochMs: Long): Flow<List<ProjectReminder>> =
         currentUser.observeForCurrentUser { uid ->
             dao.getDueBefore(nowEpochMs, uid.value).map { list -> list.map { it.toProjectReminder() } }
         }
 
-    override fun watchRecentDueBefore(nowEpochMs: Long, limit: Int): Flow<List<ProjectReminder>> =
+    override fun watchRecentDueBefore(
+        nowEpochMs: Long,
+        limit: Int,
+    ): Flow<List<ProjectReminder>> =
         currentUser.observeForCurrentUser { uid ->
             dao.getRecentDueBefore(nowEpochMs, uid.value, limit).map { list -> list.map { it.toProjectReminder() } }
         }
@@ -78,8 +89,9 @@ class ProjectRemindersRepositoryImpl(
     override suspend fun markFired(
         reminderId: ProjectReminderId,
         lastFiredAt: Long,
-    ): Result<Unit> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value
-        dao.setLastFiredAt(reminderId.value, uid.value, lastFiredAt, clock.now().toEpochMillis())
-    }
+    ): Result<Unit> =
+        runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value
+            dao.setLastFiredAt(reminderId.value, uid.value, lastFiredAt, clock.now().toEpochMillis())
+        }
 }

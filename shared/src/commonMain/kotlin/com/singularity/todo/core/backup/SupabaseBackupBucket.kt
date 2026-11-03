@@ -48,7 +48,6 @@ import kotlinx.serialization.json.jsonPrimitive
  * still in sight.
  */
 class SupabaseBackupBucket(private val clientProvider: SupabaseClientProvider) : BackupBucket {
-
     /**
      * The upload, in pieces.
      *
@@ -59,7 +58,11 @@ class SupabaseBackupBucket(private val clientProvider: SupabaseClientProvider) :
      * The producer and the request run together — the request reads the channel
      * while the producer fills it, and both end when the archive is over.
      */
-    override suspend fun upload(path: String, source: ByteSource, sizeBytes: Long) {
+    override suspend fun upload(
+        path: String,
+        source: ByteSource,
+        sizeBytes: Long,
+    ) {
         translating("the archive could not be uploaded") {
             val client = requireClient()
             val channel = ByteChannel(autoFlush = true)
@@ -80,7 +83,8 @@ class SupabaseBackupBucket(private val clientProvider: SupabaseClientProvider) :
                     // is reading the length it was promised, and the promise ends here.
                     channel.close()
                 }
-                client.storage.from(BUCKET_ID)
+                client.storage
+                    .from(BUCKET_ID)
                     .upload(path, UploadData(channel, sizeBytes)) { upsert = true }
             }
         }
@@ -93,7 +97,10 @@ class SupabaseBackupBucket(private val clientProvider: SupabaseClientProvider) :
      * so the archive travels from the bucket to the file without ever being whole
      * in memory.
      */
-    override suspend fun download(path: String, sink: ByteSink) {
+    override suspend fun download(
+        path: String,
+        sink: ByteSink,
+    ) {
         translating("the archive could not be downloaded") {
             val client = requireClient()
             val channel = ByteChannel(autoFlush = true)
@@ -117,20 +124,26 @@ class SupabaseBackupBucket(private val clientProvider: SupabaseClientProvider) :
         }
     }
 
-    override suspend fun list(prefix: String): List<BucketObject> = translating("the archives could not be listed") {
-        val client = requireClient()
-        client.storage.from(BUCKET_ID).list(prefix).map { file ->
-            BucketObject(
-                path = file.name,
-                updatedAtEpochMillis = file.updatedAt?.toEpochMilliseconds(),
-                // The size lives in the object's metadata rather than in a field of its
-                // own, and the vendor hands the metadata over as raw JSON — so the read
-                // of it is this file's business, and a bucket that does not report a
-                // size reports none rather than a wrong one.
-                sizeBytes = file.metadata?.get(SIZE_KEY)?.jsonPrimitive?.content?.toLongOrNull(),
-            )
+    override suspend fun list(prefix: String): List<BucketObject> =
+        translating("the archives could not be listed") {
+            val client = requireClient()
+            client.storage.from(BUCKET_ID).list(prefix).map { file ->
+                BucketObject(
+                    path = file.name,
+                    updatedAtEpochMillis = file.updatedAt?.toEpochMilliseconds(),
+                    // The size lives in the object's metadata rather than in a field of its
+                    // own, and the vendor hands the metadata over as raw JSON — so the read
+                    // of it is this file's business, and a bucket that does not report a
+                    // size reports none rather than a wrong one.
+                    sizeBytes =
+                        file.metadata
+                            ?.get(SIZE_KEY)
+                            ?.jsonPrimitive
+                            ?.content
+                            ?.toLongOrNull(),
+                )
+            }
         }
-    }
 
     /**
      * The vendor's failure, in the project's words.
@@ -139,24 +152,29 @@ class SupabaseBackupBucket(private val clientProvider: SupabaseClientProvider) :
      * exceptions are what carry the status code the classification needs.
      */
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun <T> translating(what: String, block: suspend () -> T): T = try {
-        block()
-    } catch (error: CancellationException) {
-        // The push was cancelled — by the person, or by the screen that went away.
-        // That is not a failure of the bucket, and it must not be reported as one:
-        // "the archive could not be uploaded" is a sentence about the archive.
-        throw error
-    } catch (error: TransportException) {
-        throw error
-    } catch (error: RemoteBackupException) {
-        throw error
-    } catch (error: Throwable) {
-        throw SupabaseTransportFailure.toTransportException(error, what)
-    }
+    private suspend fun <T> translating(
+        what: String,
+        block: suspend () -> T,
+    ): T =
+        try {
+            block()
+        } catch (error: CancellationException) {
+            // The push was cancelled — by the person, or by the screen that went away.
+            // That is not a failure of the bucket, and it must not be reported as one:
+            // "the archive could not be uploaded" is a sentence about the archive.
+            throw error
+        } catch (error: TransportException) {
+            throw error
+        } catch (error: RemoteBackupException) {
+            throw error
+        } catch (error: Throwable) {
+            throw SupabaseTransportFailure.toTransportException(error, what)
+        }
 
-    private suspend fun requireClient() = clientProvider.client() ?: throw RemoteBackupException(
-        "No cloud storage is configured. Add a Supabase project in the Account settings first.",
-    )
+    private suspend fun requireClient() =
+        clientProvider.client() ?: throw RemoteBackupException(
+            "No cloud storage is configured. Add a Supabase project in the Account settings first.",
+        )
 
     companion object {
         /** The bucket the archives go into. It has to exist in the project. */
