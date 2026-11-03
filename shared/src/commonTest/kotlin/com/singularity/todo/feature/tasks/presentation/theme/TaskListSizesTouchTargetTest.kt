@@ -16,7 +16,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TaskListSizesTouchTargetTest {
-
     @Test
     fun `minimum touch target of the task list is not below the Material minimum`() {
         assertTrue(
