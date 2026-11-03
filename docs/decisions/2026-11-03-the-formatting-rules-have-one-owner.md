@@ -23,8 +23,9 @@ describing one defect.
 Probing the pinned ktlint 1.8.0 showed that one of the three twins is not on by default:
 `standard:no-unused-imports` is an **experimental** ktlint rule. It does not run unless it is
 enabled by name (`ktlint_standard_no-unused-imports = enabled`), and `ktlint_experimental = enabled`
-does not turn it on either. Detekt's `UnusedImport` was therefore, in practice, the only thing
-catching an unused import in this repository.
+does not turn it on either. Detekt's `UnusedImport` was therefore the only rule *configured* to
+catch an unused import in this repository — and, as the next section shows, it caught none of
+them.
 
 Enabling it surfaced 18 unused imports that detekt never reported. The tree was clean under
 detekt's `UnusedImport` and no baseline carries an entry for the rule, so it had nothing to say
@@ -58,8 +59,8 @@ in seconds, and it is the tool whose verdict the Kotlin community argues about �
 weaker copy of the same rule inside detekt adds a verdict and no safety.
 
 The unused-import rule is the one that needed work before detekt could let go of it: without
-`ktlint_standard_no-unused-imports = enabled`, switching detekt's rule off would have removed the
-only guard against an unused import. The 18 imports it found are genuinely unused — in
+`ktlint_standard_no-unused-imports = enabled`, switching detekt's rule off would have left an
+unused import caught by nothing at all. The 18 imports it found are genuinely unused — in
 seventeen cases nothing in the file refers to the name — and detekt's rule had not reported any
 of them, so enabling the rule was a gain in coverage, not a loss of it.
 
