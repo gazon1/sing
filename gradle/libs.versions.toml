@@ -148,7 +148,7 @@ detekt = "2.0.0-alpha.6"
 kover = "0.9.11"
 
 # MCP server
-kotlinSdk = "0.15.0"
+kotlinSdk = "0.16.0"
 kotlinxIo = "0.9.1"
 
 [libraries]
