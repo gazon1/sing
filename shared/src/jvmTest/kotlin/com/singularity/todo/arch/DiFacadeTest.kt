@@ -356,6 +356,38 @@ class DiFacadeTest {
         )
     }
 
+    /**
+     * Positive control: a binding declared with an explicit type argument.
+     *
+     * `single<Repo> { RepoImpl(get()) }` is how most of the bindings in this
+     * repository are written — 87 declarations across 19 files. A scan that reads
+     * the call name as "everything before the first space" sees `single<Repo>`,
+     * which is not a binding call, and reports nothing at all. The guard then
+     * passes on the very files it was written for.
+     */
+    @Test
+    fun aGenericBindingLooseInTheFileBodyIsReported() {
+        val synthetic =
+            """
+            package com.example
+
+            single<Repo> { RepoImpl(get()) }
+            """.trimIndent()
+
+        val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = emptySet())
+
+        kotlin.test.assertEquals(
+            1,
+            strayDeclarations.size,
+            "a binding declared with an explicit type argument is a binding, and it is " +
+                "loose in the file body",
+        )
+        kotlin.test.assertTrue(
+            strayDeclarations.single().endsWith("<file body>"),
+            "a binding loose in the file body is owned by the file body",
+        )
+    }
+
     @Test
     fun `Modules kt declares no binding outside a facade function`() {
         val stray = bindingDeclarationsIn(modulesFile.codeOnly(), FACADE_FUNCTIONS)
@@ -484,12 +516,13 @@ class DiFacadeTest {
                 }
             }
 
-            val firstToken =
-                line
-                    .substringBefore(" ")
-                    .substringBefore("(")
-                    .substringBefore("{")
-                    .trim()
+            // The binding call may carry an explicit type argument: `single<Repo> { }`.
+            // The call name ends where the type argument starts, so the name is the
+            // leading identifier of the line. Reading it as "everything before the
+            // first space" produced `single<Repo>`, which is in no list of binding
+            // calls — and 87 of the declarations in this repository are written that
+            // way, so the scan saw almost nothing.
+            val firstToken = bindingCallName(line)
             if (firstToken in BINDING_CALLS && enclosingFns.none { it in facadeNames }) {
                 val owner = enclosingFns.lastOrNull() ?: "<file body>"
                 offenders += "line ${index + 1} in $owner"
@@ -513,6 +546,17 @@ class DiFacadeTest {
         }
         return offenders
     }
+
+    /**
+     * The binding call name at the start of [line].
+     *
+     * The call may carry an explicit type argument: `single<Repo> { }`. The call name
+     * ends where the type argument starts, so the name is the leading identifier of
+     * the line. Reading it as "everything before the first space" produced
+     * `single<Repo>`, which is in no list of binding calls — and 87 of the declarations
+     * in this repository are written that way, so the scan saw almost nothing.
+     */
+    private fun bindingCallName(line: String): String = line.takeWhile { it.isLetterOrDigit() || it == '_' }
 
     /**
      * Whether the expression on [line] carries on to the next line.
