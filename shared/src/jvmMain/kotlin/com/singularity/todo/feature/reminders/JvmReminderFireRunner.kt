@@ -33,7 +33,6 @@ import org.koin.core.Koin
  * filesystem — which is what makes them untestable in the first place.
  */
 object JvmReminderFireRunner {
-
     private val logger = Logger.withTag("fire-reminder")
 
     /**
@@ -49,12 +48,13 @@ object JvmReminderFireRunner {
     ): ReminderDelivery.Outcome {
         val delivery = koin.get<ReminderDelivery>()
 
-        val outcome = fireAfterProfileResolution(
-            resolveProfile = { ProfileBootstrapper(koin.get()).run() },
-            // `ReminderDelivery` is the same object Android fires through, so the text,
-            // the tag and the one-shot retirement cannot differ between the platforms.
-            fire = { delivery.fire(reminderId = request.reminderId, userId = request.userId) },
-        )
+        val outcome =
+            fireAfterProfileResolution(
+                resolveProfile = { ProfileBootstrapper(koin.get()).run() },
+                // `ReminderDelivery` is the same object Android fires through, so the text,
+                // the tag and the one-shot retirement cannot differ between the platforms.
+                fire = { delivery.fire(reminderId = request.reminderId, userId = request.userId) },
+            )
 
         logger.i { "Reminder ${request.reminderId.value}: $outcome" }
         return outcome

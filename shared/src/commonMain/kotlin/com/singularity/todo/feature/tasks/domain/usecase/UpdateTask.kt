@@ -27,9 +27,13 @@ class UpdateTaskUseCase(private val repo: TaskRepository, private val clock: Clo
      * Read-modify-write update for atomic partial updates.
      * Re-reads current state before applying [transform] — safe against concurrent modifications.
      */
-    suspend operator fun invoke(id: TaskId, transform: (Task) -> Task): Result<Task> {
-        val current = repo.get(id)
-            ?: return Result.failure(AppError.NotFound("Task $id not found", code = "task.not_found"))
+    suspend operator fun invoke(
+        id: TaskId,
+        transform: (Task) -> Task,
+    ): Result<Task> {
+        val current =
+            repo.get(id)
+                ?: return Result.failure(AppError.NotFound("Task $id not found", code = "task.not_found"))
         val updated = transform(current).copy(updatedAt = clock.now())
         return repo.update(updated)
     }

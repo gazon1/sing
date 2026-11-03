@@ -9,9 +9,9 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.calendar.presentation.screen.CalendarScreen
 import com.singularity.todo.feature.nav.AppDestination
-import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.CalendarRoute
 import com.singularity.todo.feature.nav.SystemBackHandler
+import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.rememberAppNavBackStack
 import com.singularity.todo.feature.nav.stableContentKey
 
@@ -37,9 +37,10 @@ fun CalendarNavGraph(
     backStack: NavBackStack<CalendarRoute>? = null,
 ) {
     val stack: NavBackStack<CalendarRoute> = backStack ?: rememberAppNavBackStack(start)
-    val navigator = remember(stack, onExitGraph) {
-        CalendarNavigator(stack, onExitGraph)
-    }
+    val navigator =
+        remember(stack, onExitGraph) {
+            CalendarNavigator(stack, onExitGraph)
+        }
     CompositionLocalProvider(
         LocalCalendarNavigator provides navigator,
     ) {
@@ -61,7 +62,8 @@ fun CalendarNavGraph(
  * nested graph — the map from each [CalendarRoute] variant to the screen that renders it.
  */
 @Composable
-internal fun calendarScreenEntryProvider() = entryProvider {
-    entry<CalendarRoute.Month>(clazzContentKey = { it.stableContentKey() }) { route -> CalendarScreen(route.date) }
-    entry<CalendarRoute.Day>(clazzContentKey = { it.stableContentKey() }) { route -> CalendarScreen(route.date) }
-}
+internal fun calendarScreenEntryProvider() =
+    entryProvider {
+        entry<CalendarRoute.Month>(clazzContentKey = { it.stableContentKey() }) { route -> CalendarScreen(route.date) }
+        entry<CalendarRoute.Day>(clazzContentKey = { it.stableContentKey() }) { route -> CalendarScreen(route.date) }
+    }

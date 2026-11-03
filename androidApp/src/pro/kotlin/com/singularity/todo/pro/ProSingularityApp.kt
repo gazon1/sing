@@ -45,7 +45,6 @@ import ru.ok.tracer.crash.report.CrashReportConfiguration
 class ProSingularityApp :
     SingularityApp(),
     HasTracerConfiguration {
-
     /**
      * AppTracer plugin configuration.
      *
@@ -57,13 +56,14 @@ class ProSingularityApp :
      * none — it would read as a healthy number.
      */
     override val tracerConfiguration: List<TracerConfiguration>
-        get() = listOf(
-            CrashReportConfiguration.build {
-                setSendAnr(true)
-                setExperimentalNonFatalRateLimitEnabled(true)
-            },
-            CrashFreeConfiguration.build { /* defaults: enabled */ },
-        )
+        get() =
+            listOf(
+                CrashReportConfiguration.build {
+                    setSendAnr(true)
+                    setExperimentalNonFatalRateLimitEnabled(true)
+                },
+                CrashFreeConfiguration.build { /* defaults: enabled */ },
+            )
 
     /**
      * Replaces the free core's `CrashReportingPort` with the vendor-backed one.

@@ -41,7 +41,6 @@ class ProjectEditorViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     init {
         if (projectId != null) {
             catchTo(
@@ -55,8 +54,10 @@ class ProjectEditorViewModel(
 
     private suspend fun loadProject(id: ProjectId) {
         updateState { it.copy(loading = true) }
-        val project = projectsRepo.observe(id)
-            .firstOrNull()
+        val project =
+            projectsRepo
+                .observe(id)
+                .firstOrNull()
         if (project != null) {
             updateState {
                 it.copy(
@@ -83,21 +84,33 @@ class ProjectEditorViewModel(
     override fun onIntent(intent: ProjectEditorIntent) {
         when (intent) {
             // Echoes: the field's own text, which the field already shows.
-            is ProjectEditorIntent.NameChanged ->
+            is ProjectEditorIntent.NameChanged -> {
                 updateState { it.copy(name = it.name.echoed(intent.name), errorMessage = null) }
+            }
 
-            is ProjectEditorIntent.ColorChanged -> updateState { it.copy(color = intent.color) }
+            is ProjectEditorIntent.ColorChanged -> {
+                updateState { it.copy(color = intent.color) }
+            }
 
-            is ProjectEditorIntent.IconChanged -> updateState { it.copy(icon = intent.icon) }
+            is ProjectEditorIntent.IconChanged -> {
+                updateState { it.copy(icon = intent.icon) }
+            }
 
-            is ProjectEditorIntent.DescriptionChanged ->
+            is ProjectEditorIntent.DescriptionChanged -> {
                 updateState { it.copy(description = it.description.echoed(intent.description)) }
+            }
 
-            is ProjectEditorIntent.ParentChanged -> updateState { it.copy(parentId = intent.parentId) }
+            is ProjectEditorIntent.ParentChanged -> {
+                updateState { it.copy(parentId = intent.parentId) }
+            }
 
-            ProjectEditorIntent.ErrorShown -> updateState { it.copy(errorMessage = null) }
+            ProjectEditorIntent.ErrorShown -> {
+                updateState { it.copy(errorMessage = null) }
+            }
 
-            ProjectEditorIntent.Save -> save()
+            ProjectEditorIntent.Save -> {
+                save()
+            }
         }
     }
 
@@ -114,13 +127,14 @@ class ProjectEditorViewModel(
         updateState { it.copy(saving = true, errorMessage = null) }
         if (current.projectId == null) {
             // Create mode
-            val input = CreateProjectInput(
-                name = name.trim(),
-                color = current.color,
-                description = description.ifBlank { null },
-                icon = current.icon,
-                parentId = current.parentId,
-            )
+            val input =
+                CreateProjectInput(
+                    name = name.trim(),
+                    color = current.color,
+                    description = description.ifBlank { null },
+                    icon = current.icon,
+                    parentId = current.parentId,
+                )
             // These two arms used to fold by hand and write errorMessage directly, so a failed
             // save was visible to the user but reported nowhere.
             catchTo(

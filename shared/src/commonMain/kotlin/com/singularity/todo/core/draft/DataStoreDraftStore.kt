@@ -22,15 +22,18 @@ class DataStoreDraftStore(
     private val dataStore: DataStore<Preferences>,
     private val logger: Logger = Logger.withTag("DataStoreDraftStore"),
 ) : DraftStore {
-
-    override suspend fun <T> load(key: String, deserializer: DeserializationStrategy<T>): T? {
-        val data = dataStore.data
-            .catchDataStoreIoError { e ->
-                logger.w(tag = "DraftStore") { "DataStore read failed for key=$key, treating as empty: $e" }
-            }
-            .first()
-        val json = data[stringPreferencesKey(key)]
-            ?: return null
+    override suspend fun <T> load(
+        key: String,
+        deserializer: DeserializationStrategy<T>,
+    ): T? {
+        val data =
+            dataStore.data
+                .catchDataStoreIoError { e ->
+                    logger.w(tag = "DraftStore") { "DataStore read failed for key=$key, treating as empty: $e" }
+                }.first()
+        val json =
+            data[stringPreferencesKey(key)]
+                ?: return null
         return runCatchingCancellable {
             StableJson.decodeFromString(deserializer, json)
         }.getOrNull()
@@ -41,7 +44,11 @@ class DataStoreDraftStore(
             }
     }
 
-    override suspend fun <T> save(key: String, value: T, serializer: SerializationStrategy<T>) {
+    override suspend fun <T> save(
+        key: String,
+        value: T,
+        serializer: SerializationStrategy<T>,
+    ) {
         val json = StableJson.encodeToString(serializer, value)
         dataStore.edit { prefs ->
             prefs[stringPreferencesKey(key)] = json
@@ -60,7 +67,9 @@ class DataStoreDraftStore(
             // in this pass cannot be seen twice — and a key added by another
             // writer between the read and the edit is not touched, which is
             // the right answer for a store whose writes are per-user.
-            prefs.asMap().keys
+            prefs
+                .asMap()
+                .keys
                 .map { it.name }
                 .filter { it.startsWith(prefix) }
                 .forEach { prefs.remove(stringPreferencesKey(it)) }

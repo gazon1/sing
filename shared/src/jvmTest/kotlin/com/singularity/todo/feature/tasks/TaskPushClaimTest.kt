@@ -19,10 +19,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
-import java.io.File
-import java.nio.file.Files
-import kotlin.time.Clock
-import kotlin.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -30,9 +26,13 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import java.io.File
+import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * What the write path pushes is what the database holds.
@@ -77,17 +77,17 @@ import kotlin.test.assertTrue
 @Tag("slow:data")
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaskPushClaimTest {
-
     private val alice = UserId("alice")
 
     private val tempDirLazy = lazy { Files.createTempDirectory("push-claim").toFile() }
     private val tempDir: File by tempDirLazy
-    private val dbLazy = lazy {
-        AppDatabaseFactory.build(
-            driver = createSqlDriver(),
-            dbPath = File(tempDir, "tasks.db").absolutePath,
-        )
-    }
+    private val dbLazy =
+        lazy {
+            AppDatabaseFactory.build(
+                driver = createSqlDriver(),
+                dbPath = File(tempDir, "tasks.db").absolutePath,
+            )
+        }
     private val db: AppDatabase by dbLazy
 
     @AfterTest
@@ -143,160 +143,167 @@ class TaskPushClaimTest {
     private fun pushedTasks(): List<Task> = sync.enqueuedEntities.filterIsInstance<Task>()
 
     @Test
-    fun `an edit does not tell the server that the work has no tags`() = runTest {
-        val repo = repo()
-        repo.create(task("t1", tags = listOf(TagId("tag-1")))).getOrThrow()
-        repo.create(task("t2")).getOrThrow()
-        advanceUntilIdle()
-        sync.enqueuedEntities.clear()
+    fun `an edit does not tell the server that the work has no tags`() =
+        runTest {
+            val repo = repo()
+            repo.create(task("t1", tags = listOf(TagId("tag-1")))).getOrThrow()
+            repo.create(task("t2")).getOrThrow()
+            advanceUntilIdle()
+            sync.enqueuedEntities.clear()
 
-        // The edit reads the task the way the editor reads it: through `get()`,
-        // which does not load the tags.
-        val read = repo.get(TaskId("t1"))!!
-        repo.update(read.copy(title = "Pay the rent in full")).getOrThrow()
-        advanceUntilIdle()
+            // The edit reads the task the way the editor reads it: through `get()`,
+            // which does not load the tags.
+            val read = repo.get(TaskId("t1"))!!
+            repo.update(read.copy(title = "Pay the rent in full")).getOrThrow()
+            advanceUntilIdle()
 
-        assertEquals(
-            listOf(TagId("tag-1")),
-            pushedTask().tags,
-            "the pushed task carries the tags the database holds",
-        )
-    }
-
-    @Test
-    fun `a batch write does not tell the server that the work waits for nothing`() = runTest {
-        val repo = repo()
-        repo.create(task("t1")).getOrThrow()
-        repo.create(task("t2")).getOrThrow()
-        repo.setDependencies(TaskId("t1"), setOf(TaskId("t2"))).getOrThrow()
-        advanceUntilIdle()
-        sync.enqueuedEntities.clear()
-
-        // A batch built from a task read through `get()` — the shape a caller
-        // has when it edits one row of a series. The batch writes the tags and
-        // not the edges, so the task in hand carries no edges at all.
-        val read = repo.get(TaskId("t1"))!!
-        repo.updateAll(listOf(read.copy(title = "Pay the rent in full"))).getOrThrow()
-        advanceUntilIdle()
-
-        assertEquals(
-            setOf(TaskId("t2")),
-            pushedTask().blockedBy,
-            "the pushed task carries the dependencies the database holds",
-        )
-    }
+            assertEquals(
+                listOf(TagId("tag-1")),
+                pushedTask().tags,
+                "the pushed task carries the tags the database holds",
+            )
+        }
 
     @Test
-    fun `an edit does not tell the server that the work waits for nothing`() = runTest {
-        val repo = repo()
-        repo.create(task("t1")).getOrThrow()
-        repo.create(task("t2")).getOrThrow()
-        repo.setDependencies(TaskId("t1"), setOf(TaskId("t2"))).getOrThrow()
-        advanceUntilIdle()
-        sync.enqueuedEntities.clear()
+    fun `a batch write does not tell the server that the work waits for nothing`() =
+        runTest {
+            val repo = repo()
+            repo.create(task("t1")).getOrThrow()
+            repo.create(task("t2")).getOrThrow()
+            repo.setDependencies(TaskId("t1"), setOf(TaskId("t2"))).getOrThrow()
+            advanceUntilIdle()
+            sync.enqueuedEntities.clear()
 
-        val read = repo.get(TaskId("t1"))!!
-        repo.update(read.copy(title = "Pay the rent in full")).getOrThrow()
-        advanceUntilIdle()
+            // A batch built from a task read through `get()` — the shape a caller
+            // has when it edits one row of a series. The batch writes the tags and
+            // not the edges, so the task in hand carries no edges at all.
+            val read = repo.get(TaskId("t1"))!!
+            repo.updateAll(listOf(read.copy(title = "Pay the rent in full"))).getOrThrow()
+            advanceUntilIdle()
 
-        assertEquals(
-            setOf(TaskId("t2")),
-            pushedTask().blockedBy,
-            "the pushed task carries the dependencies the database holds",
-        )
-    }
-
-    @Test
-    fun `the claim is the task the write left`() = runTest {
-        val repo = repo()
-        repo.create(task("t1")).getOrThrow()
-        advanceUntilIdle()
-        sync.enqueuedEntities.clear()
-
-        // The claim is what the write left behind. The tag is written and the
-        // claim is read back in the same transaction, so the claim carries the
-        // tag the write has just left. A read taken *before* the write would
-        // carry the tags the row had before, which here is none — and the test
-        // would fail. (A read taken after the commit would see the tag too,
-        // which is why the test is named after the claim and not after the
-        // place the read happens.)
-        repo.setTags(TaskId("t1"), listOf(TagId("tag-1"))).getOrThrow()
-        advanceUntilIdle()
-
-        assertEquals(
-            listOf(TagId("tag-1")),
-            pushedTask().tags,
-            "the task read inside the transaction carries the tags the write left",
-        )
-    }
+            assertEquals(
+                setOf(TaskId("t2")),
+                pushedTask().blockedBy,
+                "the pushed task carries the dependencies the database holds",
+            )
+        }
 
     @Test
-    fun `a tag edit carries the new tag, not the one the row had before`() = runTest {
-        val repo = repo()
-        repo.create(task("t1", tags = listOf(TagId("tag-1")))).getOrThrow()
-        advanceUntilIdle()
-        sync.enqueuedEntities.clear()
+    fun `an edit does not tell the server that the work waits for nothing`() =
+        runTest {
+            val repo = repo()
+            repo.create(task("t1")).getOrThrow()
+            repo.create(task("t2")).getOrThrow()
+            repo.setDependencies(TaskId("t1"), setOf(TaskId("t2"))).getOrThrow()
+            advanceUntilIdle()
+            sync.enqueuedEntities.clear()
 
-        // The claim has to say what the work is *now*. A push that carried the
-        // previous tag set would leave the server with a tag the user removed.
-        repo.setTags(TaskId("t1"), listOf(TagId("tag-2"))).getOrThrow()
-        advanceUntilIdle()
+            val read = repo.get(TaskId("t1"))!!
+            repo.update(read.copy(title = "Pay the rent in full")).getOrThrow()
+            advanceUntilIdle()
 
-        assertEquals(
-            listOf(TagId("tag-2")),
-            pushedTask().tags,
-            "the pushed task carries the tags the write left",
-        )
-    }
-
-    @Test
-    fun `removing a tag the task does not carry changes nothing and claims nothing`() = runTest {
-        val repo = repo()
-        repo.create(task("t1", tags = listOf(TagId("tag-1")))).getOrThrow()
-        advanceUntilIdle()
-        sync.enqueuedEntities.clear()
-
-        // A write that changes nothing is not a claim. Removing a tag the task
-        // does not carry leaves the tags the same, so there is nothing to say
-        // and nothing to push — the screen may ask, but the wire is not told.
-        repo.setTags(TaskId("t1"), listOf(TagId("tag-1"))).getOrThrow()
-        advanceUntilIdle()
-
-        assertTrue(
-            sync.enqueuedEntities.isEmpty(),
-            "a write that changed nothing pushed nothing",
-        )
-        assertEquals(
-            listOf(TagId("tag-1")),
-            repo.getTagIds(TaskId("t1")).first(),
-            "the tags the row carries are the tags it had",
-        )
-    }
+            assertEquals(
+                setOf(TaskId("t2")),
+                pushedTask().blockedBy,
+                "the pushed task carries the dependencies the database holds",
+            )
+        }
 
     @Test
-    fun `a tag edit of one member reaches the whole series`() = runTest {
-        val repo = repo()
-        val series = TaskSeriesId("series-1")
-        repo.create(task("s1", seriesId = series)).getOrThrow()
-        repo.create(task("s2", seriesId = series)).getOrThrow()
-        advanceUntilIdle()
-        sync.enqueuedEntities.clear()
+    fun `the claim is the task the write left`() =
+        runTest {
+            val repo = repo()
+            repo.create(task("t1")).getOrThrow()
+            advanceUntilIdle()
+            sync.enqueuedEntities.clear()
 
-        // The tags are a shared field of a series: the other members follow the
-        // one whose tags were changed, and every one of them says the same
-        // thing about the work on the wire.
-        repo.setTags(TaskId("s1"), listOf(TagId("tag-1"))).getOrThrow()
-        advanceUntilIdle()
+            // The claim is what the write left behind. The tag is written and the
+            // claim is read back in the same transaction, so the claim carries the
+            // tag the write has just left. A read taken *before* the write would
+            // carry the tags the row had before, which here is none — and the test
+            // would fail. (A read taken after the commit would see the tag too,
+            // which is why the test is named after the claim and not after the
+            // place the read happens.)
+            repo.setTags(TaskId("t1"), listOf(TagId("tag-1"))).getOrThrow()
+            advanceUntilIdle()
 
-        val pushed = pushedTasks()
-        assertEquals(
-            setOf("s1", "s2"),
-            pushed.map { it.id.value }.toSet(),
-            "every member of the series is pushed with the tags it now carries",
-        )
-        assertTrue(
-            pushed.all { it.tags == listOf(TagId("tag-1")) },
-            "no member of the series says the work has no tags",
-        )
-    }
+            assertEquals(
+                listOf(TagId("tag-1")),
+                pushedTask().tags,
+                "the task read inside the transaction carries the tags the write left",
+            )
+        }
+
+    @Test
+    fun `a tag edit carries the new tag, not the one the row had before`() =
+        runTest {
+            val repo = repo()
+            repo.create(task("t1", tags = listOf(TagId("tag-1")))).getOrThrow()
+            advanceUntilIdle()
+            sync.enqueuedEntities.clear()
+
+            // The claim has to say what the work is *now*. A push that carried the
+            // previous tag set would leave the server with a tag the user removed.
+            repo.setTags(TaskId("t1"), listOf(TagId("tag-2"))).getOrThrow()
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(TagId("tag-2")),
+                pushedTask().tags,
+                "the pushed task carries the tags the write left",
+            )
+        }
+
+    @Test
+    fun `removing a tag the task does not carry changes nothing and claims nothing`() =
+        runTest {
+            val repo = repo()
+            repo.create(task("t1", tags = listOf(TagId("tag-1")))).getOrThrow()
+            advanceUntilIdle()
+            sync.enqueuedEntities.clear()
+
+            // A write that changes nothing is not a claim. Removing a tag the task
+            // does not carry leaves the tags the same, so there is nothing to say
+            // and nothing to push — the screen may ask, but the wire is not told.
+            repo.setTags(TaskId("t1"), listOf(TagId("tag-1"))).getOrThrow()
+            advanceUntilIdle()
+
+            assertTrue(
+                sync.enqueuedEntities.isEmpty(),
+                "a write that changed nothing pushed nothing",
+            )
+            assertEquals(
+                listOf(TagId("tag-1")),
+                repo.getTagIds(TaskId("t1")).first(),
+                "the tags the row carries are the tags it had",
+            )
+        }
+
+    @Test
+    fun `a tag edit of one member reaches the whole series`() =
+        runTest {
+            val repo = repo()
+            val series = TaskSeriesId("series-1")
+            repo.create(task("s1", seriesId = series)).getOrThrow()
+            repo.create(task("s2", seriesId = series)).getOrThrow()
+            advanceUntilIdle()
+            sync.enqueuedEntities.clear()
+
+            // The tags are a shared field of a series: the other members follow the
+            // one whose tags were changed, and every one of them says the same
+            // thing about the work on the wire.
+            repo.setTags(TaskId("s1"), listOf(TagId("tag-1"))).getOrThrow()
+            advanceUntilIdle()
+
+            val pushed = pushedTasks()
+            assertEquals(
+                setOf("s1", "s2"),
+                pushed.map { it.id.value }.toSet(),
+                "every member of the series is pushed with the tags it now carries",
+            )
+            assertTrue(
+                pushed.all { it.tags == listOf(TagId("tag-1")) },
+                "no member of the series says the work has no tags",
+            )
+        }
 }

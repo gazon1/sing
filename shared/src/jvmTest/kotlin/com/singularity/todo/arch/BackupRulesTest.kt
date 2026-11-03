@@ -1,9 +1,9 @@
 package com.singularity.todo.arch
 
-import java.io.File
-import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.jupiter.api.Tag
 import org.w3c.dom.Element
+import java.io.File
+import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -34,7 +34,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class BackupRulesTest {
-
     @Test
     fun `the secure store is excluded from cloud backup`() {
         val rules = File(androidRes(), "backup_rules.xml")
@@ -69,16 +68,22 @@ class BackupRulesTest {
      * the wrong domain excludes nothing, and it looks exactly like the right one in
      * the file.
      */
-    private fun excludes(rules: File, section: String? = null): Set<Pair<String, String>> {
-        val document = DocumentBuilderFactory.newInstance()
-            .newDocumentBuilder()
-            .parse(rules)
-        val scope = if (section == null) {
-            document.documentElement
-        } else {
-            document.getElementsByTagName(section).item(0) as? Element
-                ?: error("the rule file has no $section section")
-        }
+    private fun excludes(
+        rules: File,
+        section: String? = null,
+    ): Set<Pair<String, String>> {
+        val document =
+            DocumentBuilderFactory
+                .newInstance()
+                .newDocumentBuilder()
+                .parse(rules)
+        val scope =
+            if (section == null) {
+                document.documentElement
+            } else {
+                document.getElementsByTagName(section).item(0) as? Element
+                    ?: error("the rule file has no $section section")
+            }
         val nodes = scope.getElementsByTagName("exclude")
         return (0 until nodes.length).mapTo(mutableSetOf()) { index ->
             val element = nodes.item(index) as Element
@@ -88,10 +93,11 @@ class BackupRulesTest {
 
     /** The androidApp's resource directory, found from the tree the build points at. */
     private fun androidRes(): String {
-        val commonMain = File(
-            System.getProperty("commonMain.root")
-                ?: error("commonMain.root system property is not set"),
-        )
+        val commonMain =
+            File(
+                System.getProperty("commonMain.root")
+                    ?: error("commonMain.root system property is not set"),
+            )
         // <repo>/shared/src/commonMain/kotlin -> <repo>/androidApp/src/main/res/xml
         return commonMain.parentFile.parentFile.parentFile.parentFile
             .resolve("androidApp/src/main/res/xml")

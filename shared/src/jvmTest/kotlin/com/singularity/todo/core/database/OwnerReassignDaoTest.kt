@@ -32,7 +32,6 @@ import kotlin.test.assertEquals
 @Tag("slow")
 @Tag("slow:data")
 class OwnerReassignDaoTest {
-
     private lateinit var tempDir: File
     private lateinit var db: AppDatabase
     private val dao: OwnerReassignDao get() = db.ownerReassignDao()
@@ -50,83 +49,93 @@ class OwnerReassignDaoTest {
     }
 
     @Test
-    fun `a task moves to exactly the scope it was paired with`() = runTest {
-        seedTasks(listOf(task("t1", owner = "local:abc")))
-        dao.reassignProfiles("local:abc", "acct-1")
-        dao.reassignTasks("local:abc", "acct-1")
+    fun `a task moves to exactly the scope it was paired with`() =
+        runTest {
+            seedTasks(listOf(task("t1", owner = "local:abc")))
+            dao.reassignProfiles("local:abc", "acct-1")
+            dao.reassignTasks("local:abc", "acct-1")
 
-        assertEquals("acct-1", db.taskDao().getById("t1")?.userId)
-    }
-
-    @Test
-    fun `a profile-scoped task keeps its profile and changes only its owner`() = runTest {
-        seedTasks(listOf(task("t1", owner = "prof-b/local:abc")))
-        dao.reassignProfiles("local:abc", "acct-1")
-        dao.reassignTasks("prof-b/local:abc", "prof-b/acct-1")
-
-        val moved = db.taskDao().getById("t1")
-        assertEquals("prof-b/acct-1", moved?.userId)
-        assertEquals(
-            "prof-b",
-            moved?.userId?.substringBefore("/"),
-            "the profile half of the scope is not part of what changes hands",
-        )
-    }
+            assertEquals("acct-1", db.taskDao().getById("t1")?.userId)
+        }
 
     @Test
-    fun `an unrelated owner whose id appears inside a profile scope is untouched`() = runTest {
-        // `eu1` is an owner of its own; `prof-eu1` is a *profile* of somebody else. A
-        // substring or suffix match conflates them, and the loser is a user who did
-        // nothing and loses their tasks anyway. See ADR 2026-10-06.
-        seedTasks(
-            listOf(
-                task("victim", owner = "prof-eu1"),
-                task("owner", owner = "eu1"),
-            ),
-        )
-        dao.reassignTasks("eu1", "acct-1")
+    fun `a profile-scoped task keeps its profile and changes only its owner`() =
+        runTest {
+            seedTasks(listOf(task("t1", owner = "prof-b/local:abc")))
+            dao.reassignProfiles("local:abc", "acct-1")
+            dao.reassignTasks("prof-b/local:abc", "prof-b/acct-1")
 
-        assertEquals("prof-eu1", db.taskDao().getById("victim")?.userId, "a profile scope that merely contains the id")
-        assertEquals("acct-1", db.taskDao().getById("owner")?.userId)
-    }
-
-    @Test
-    fun `queued patches move with the rows they describe`() = runTest {
-        db.syncOutboxDao().insert(patch("p1", "local:abc"))
-        db.syncOutboxDao().insert(patch("p2", "somebody-else"))
-
-        val moved = dao.reassignOutbox("local:abc", "acct-1")
-
-        assertEquals(1, moved)
-        assertEquals("acct-1", ownerOf("p1", under = "acct-1"), "the claimed patch belongs to the account")
-        assertEquals(
-            "somebody-else",
-            ownerOf("p2", under = "somebody-else"),
-            "another account's queued work is not this operation's to move",
-        )
-    }
+            val moved = db.taskDao().getById("t1")
+            assertEquals("prof-b/acct-1", moved?.userId)
+            assertEquals(
+                "prof-b",
+                moved?.userId?.substringBefore("/"),
+                "the profile half of the scope is not part of what changes hands",
+            )
+        }
 
     @Test
-    fun `a second pass over the same owner moves nothing`() = runTest {
-        db.syncOutboxDao().insert(patch("p1", "local:abc"))
-        dao.reassignOutbox("local:abc", "acct-1")
+    fun `an unrelated owner whose id appears inside a profile scope is untouched`() =
+        runTest {
+            // `eu1` is an owner of its own; `prof-eu1` is a *profile* of somebody else. A
+            // substring or suffix match conflates them, and the loser is a user who did
+            // nothing and loses their tasks anyway. See ADR 2026-10-06.
+            seedTasks(
+                listOf(
+                    task("victim", owner = "prof-eu1"),
+                    task("owner", owner = "eu1"),
+                ),
+            )
+            dao.reassignTasks("eu1", "acct-1")
 
-        assertEquals(0, dao.reassignOutbox("local:abc", "acct-1"), "the row is no longer under the old owner")
-    }
+            assertEquals(
+                "prof-eu1",
+                db.taskDao().getById("victim")?.userId,
+                "a profile scope that merely contains the id",
+            )
+            assertEquals("acct-1", db.taskDao().getById("owner")?.userId)
+        }
 
     @Test
-    fun `counts report only the scopes asked about`() = runTest {
-        seedTasks(
-            listOf(
-                task("t1", owner = "local:abc"),
-                task("t2", owner = "prof-b/local:abc"),
-                task("t3", owner = "acct-9"),
-            ),
-        )
+    fun `queued patches move with the rows they describe`() =
+        runTest {
+            db.syncOutboxDao().insert(patch("p1", "local:abc"))
+            db.syncOutboxDao().insert(patch("p2", "somebody-else"))
 
-        assertEquals(2, db.ownerScopeDao().countTasks(listOf("local:abc", "prof-b/local:abc")))
-        assertEquals(0, db.ownerScopeDao().countTasks(listOf("prof-b/acct-1")))
-    }
+            val moved = dao.reassignOutbox("local:abc", "acct-1")
+
+            assertEquals(1, moved)
+            assertEquals("acct-1", ownerOf("p1", under = "acct-1"), "the claimed patch belongs to the account")
+            assertEquals(
+                "somebody-else",
+                ownerOf("p2", under = "somebody-else"),
+                "another account's queued work is not this operation's to move",
+            )
+        }
+
+    @Test
+    fun `a second pass over the same owner moves nothing`() =
+        runTest {
+            db.syncOutboxDao().insert(patch("p1", "local:abc"))
+            dao.reassignOutbox("local:abc", "acct-1")
+
+            assertEquals(0, dao.reassignOutbox("local:abc", "acct-1"), "the row is no longer under the old owner")
+        }
+
+    @Test
+    fun `counts report only the scopes asked about`() =
+        runTest {
+            seedTasks(
+                listOf(
+                    task("t1", owner = "local:abc"),
+                    task("t2", owner = "prof-b/local:abc"),
+                    task("t3", owner = "acct-9"),
+                ),
+            )
+
+            assertEquals(2, db.ownerScopeDao().countTasks(listOf("local:abc", "prof-b/local:abc")))
+            assertEquals(0, db.ownerScopeDao().countTasks(listOf("prof-b/acct-1")))
+        }
 
     /**
      * The owner [patchId] is filed under, read through the queue's own scoped query.
@@ -136,15 +145,24 @@ class OwnerReassignDaoTest {
      * nothing at all — the row has to be read *as* the owner it is supposed to belong to
      * for "it moved" and "it did not move" to be distinguishable at all.
      */
-    private suspend fun ownerOf(patchId: String, under: String): String =
-        db.syncOutboxDao().getPending(now = Long.MAX_VALUE, ownerId = under, profileId = "")
-            .single { it.patchId == patchId }.ownerId
+    private suspend fun ownerOf(
+        patchId: String,
+        under: String,
+    ): String =
+        db
+            .syncOutboxDao()
+            .getPending(now = Long.MAX_VALUE, ownerId = under, profileId = "")
+            .single { it.patchId == patchId }
+            .ownerId
 
     private suspend fun seedTasks(tasks: List<TaskEntity>) {
         tasks.forEach { db.taskDao().upsert(it) }
     }
 
-    private fun patch(patchId: String, owner: String) = SyncOutboxEntity(
+    private fun patch(
+        patchId: String,
+        owner: String,
+    ) = SyncOutboxEntity(
         patchId = patchId,
         ownerId = owner,
         entityId = "e-$patchId",
@@ -153,7 +171,10 @@ class OwnerReassignDaoTest {
         createdAt = 0L,
     )
 
-    private fun task(id: String, owner: String) = TaskEntity(
+    private fun task(
+        id: String,
+        owner: String,
+    ) = TaskEntity(
         id = id,
         title = "task $id",
         description = null,

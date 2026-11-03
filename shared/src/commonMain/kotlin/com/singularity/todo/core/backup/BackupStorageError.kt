@@ -14,7 +14,6 @@ package com.singularity.todo.core.backup
  * fix by looking at their own device rather than at their password.
  */
 sealed class BackupStorageError(message: String, cause: Throwable? = null) : BackupError(message, cause) {
-
     /** The file is not on the device. */
     class FileNotFound(val path: String) : BackupStorageError("file not found: $path")
 

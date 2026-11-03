@@ -5,8 +5,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.Test
 import kotlin.test.assertContains
 
 /**
@@ -19,41 +19,45 @@ import kotlin.test.assertContains
  */
 @Tag("fast")
 class CoroutineDiagnosticsTest {
-
     @Test
-    fun `dump sees a suspended coroutine`() = runTest {
-        val job = CoroutineScope(coroutineContext).launch {
-            delay(Long.MAX_VALUE)
-        }
-        try {
-            val dump = CoroutineDiagnostics.dump("CoroutineDiagnosticsTest")
-            assertContains(dump, "SUSPENDED")
-            assertContains(dump, "CoroutineDiagnosticsTest")
-        } finally {
-            job.cancel()
-        }
-    }
-
-    @Test
-    fun `dump captures infinite flow coroutine`() = runTest {
-        val infiniteFlow = flow {
-            while (true) {
-                emit(42)
-                // Virtual time: this runs under runTest's TestCoroutineScheduler, so the
-                // delay parks the coroutine without costing a real second. The point of
-                // the test is to have a SUSPENDED coroutine visible in the dump.
-                @Suppress("NoRealDelayInTest")
-                delay(1000L)
+    fun `dump sees a suspended coroutine`() =
+        runTest {
+            val job =
+                CoroutineScope(coroutineContext).launch {
+                    delay(Long.MAX_VALUE)
+                }
+            try {
+                val dump = CoroutineDiagnostics.dump("CoroutineDiagnosticsTest")
+                assertContains(dump, "SUSPENDED")
+                assertContains(dump, "CoroutineDiagnosticsTest")
+            } finally {
+                job.cancel()
             }
         }
-        val job = CoroutineScope(coroutineContext).launch {
-            infiniteFlow.collect { }
+
+    @Test
+    fun `dump captures infinite flow coroutine`() =
+        runTest {
+            val infiniteFlow =
+                flow {
+                    while (true) {
+                        emit(42)
+                        // Virtual time: this runs under runTest's TestCoroutineScheduler, so the
+                        // delay parks the coroutine without costing a real second. The point of
+                        // the test is to have a SUSPENDED coroutine visible in the dump.
+                        @Suppress("NoRealDelayInTest")
+                        delay(1000L)
+                    }
+                }
+            val job =
+                CoroutineScope(coroutineContext).launch {
+                    infiniteFlow.collect { }
+                }
+            try {
+                val dump = CoroutineDiagnostics.dump("CoroutineDiagnosticsTest")
+                assertContains(dump, "SUSPENDED")
+            } finally {
+                job.cancel()
+            }
         }
-        try {
-            val dump = CoroutineDiagnostics.dump("CoroutineDiagnosticsTest")
-            assertContains(dump, "SUSPENDED")
-        } finally {
-            job.cancel()
-        }
-    }
 }

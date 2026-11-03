@@ -8,12 +8,12 @@ import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
-import kotlin.time.Clock
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 
 data class ProfileSwitcherUiState(
     val profiles: ImmutableList<Profile> = persistentListOf(),
@@ -76,7 +76,11 @@ class ProfileSwitcherViewModel(
         }
     }
 
-    private fun create(name: String, emoji: String, colorIdx: Int) {
+    private fun create(
+        name: String,
+        emoji: String,
+        colorIdx: Int,
+    ) {
         catchTo("Failed to create profile", { msg -> _errorMessage.value = msg }) {
             val now = clock.now()
             profileRepository.create(
@@ -93,12 +97,16 @@ class ProfileSwitcherViewModel(
         }
     }
 
-    private fun rename(id: ProfileId, name: String) {
+    private fun rename(
+        id: ProfileId,
+        name: String,
+    ) {
         catchTo("Failed to rename profile", { msg -> _errorMessage.value = msg }) {
-            val profile = profileRepository.get(id)
-                ?: return@catchTo Result.failure<Unit>(
-                    IllegalArgumentException("Profile not found"),
-                )
+            val profile =
+                profileRepository.get(id)
+                    ?: return@catchTo Result.failure<Unit>(
+                        IllegalArgumentException("Profile not found"),
+                    )
             profileRepository.update(profile.copy(name = name))
         }
     }
@@ -111,7 +119,8 @@ class ProfileSwitcherViewModel(
 
     private fun switchTo(id: ProfileId) {
         catchTo("Failed to switch profile", { msg -> _errorMessage.value = msg }) {
-            profileRepository.switchTo(id)
+            profileRepository
+                .switchTo(id)
                 .onFailure { log.w { "Failed to switch to profile ${id.value}" } }
         }
     }
@@ -120,8 +129,12 @@ class ProfileSwitcherViewModel(
 /** Intent sealed interface for ProfileSwitcherViewModel. */
 sealed interface ProfileSwitcherIntent : MviIntent {
     data class Create(val name: String, val emoji: String, val colorIdx: Int) : ProfileSwitcherIntent
+
     data class Rename(val id: ProfileId, val name: String) : ProfileSwitcherIntent
+
     data class Delete(val id: ProfileId) : ProfileSwitcherIntent
+
     data class SwitchTo(val id: ProfileId) : ProfileSwitcherIntent
+
     data object DismissError : ProfileSwitcherIntent
 }

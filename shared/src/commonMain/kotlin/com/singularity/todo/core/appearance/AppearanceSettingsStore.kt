@@ -14,17 +14,18 @@ class AppearanceSettingsStore(private val appearance: AppearanceSettingsReposito
     /**
      * Appearance settings section — all 3 fields from [AppearanceSettingsRepository].
      */
-    fun observe(): Flow<SettingsSection.Appearance> = combine(
-        appearance.themeMode,
-        appearance.accentColor,
-        appearance.fontSizeScale,
-    ) { themeMode, accentColor, fontSizeScale ->
-        SettingsSection.Appearance(
-            themeMode = themeMode,
-            accentColor = accentColor,
-            fontSizeScale = fontSizeScale,
-        )
-    }
+    fun observe(): Flow<SettingsSection.Appearance> =
+        combine(
+            appearance.themeMode,
+            appearance.accentColor,
+            appearance.fontSizeScale,
+        ) { themeMode, accentColor, fontSizeScale ->
+            SettingsSection.Appearance(
+                themeMode = themeMode,
+                accentColor = accentColor,
+                fontSizeScale = fontSizeScale,
+            )
+        }
 
     suspend fun process(intent: SettingsIntent.Appearance) {
         when (intent) {

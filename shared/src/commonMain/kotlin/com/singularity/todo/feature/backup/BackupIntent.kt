@@ -12,7 +12,6 @@ import com.singularity.todo.core.ui.MviIntent
  * single description of what the user can do.
  */
 sealed interface BackupIntent : MviIntent {
-
     /** Export to a timestamped default path derived from the clock. */
     data object CreateBackup : BackupIntent
 

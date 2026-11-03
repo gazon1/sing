@@ -43,15 +43,16 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
  *
  * @see TaskSharedField
  */
-internal fun sharedFieldOf(intent: TaskDetailIntent.Domain): TaskSharedField? = when (intent) {
-    is TaskDetailIntent.Domain.TitleChanged -> TaskSharedField.Title
-    is TaskDetailIntent.Domain.DescriptionChanged -> TaskSharedField.Description
-    is TaskDetailIntent.Domain.SetPriority -> TaskSharedField.Priority
-    is TaskDetailIntent.Domain.SetProject -> TaskSharedField.Project
-    is TaskDetailIntent.Domain.SetTags -> TaskSharedField.Tags
-    is TaskDetailIntent.Domain.RemoveTag -> TaskSharedField.Tags
-    is TaskDetailIntent.Domain.SetRecurrence -> TaskSharedField.Recurrence
-    is TaskDetailIntent.Domain.SetEstimate -> TaskSharedField.Estimate
-    is TaskDetailIntent.Domain.SetWorkflowState -> TaskSharedField.WorkflowState
-    else -> null
-}
+internal fun sharedFieldOf(intent: TaskDetailIntent.Domain): TaskSharedField? =
+    when (intent) {
+        is TaskDetailIntent.Domain.TitleChanged -> TaskSharedField.Title
+        is TaskDetailIntent.Domain.DescriptionChanged -> TaskSharedField.Description
+        is TaskDetailIntent.Domain.SetPriority -> TaskSharedField.Priority
+        is TaskDetailIntent.Domain.SetProject -> TaskSharedField.Project
+        is TaskDetailIntent.Domain.SetTags -> TaskSharedField.Tags
+        is TaskDetailIntent.Domain.RemoveTag -> TaskSharedField.Tags
+        is TaskDetailIntent.Domain.SetRecurrence -> TaskSharedField.Recurrence
+        is TaskDetailIntent.Domain.SetEstimate -> TaskSharedField.Estimate
+        is TaskDetailIntent.Domain.SetWorkflowState -> TaskSharedField.WorkflowState
+        else -> null
+    }

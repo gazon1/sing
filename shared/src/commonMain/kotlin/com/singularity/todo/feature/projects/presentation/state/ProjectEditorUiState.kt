@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.projects.presentation.state
 
-import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.text.StaticText
+import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 
 /**
@@ -33,11 +33,13 @@ data class ProjectEditorUiState(
     val baselineParentId: ProjectId? = null,
 ) {
     val isDirty: Boolean
-        get() = name.text != baselineName ||
-            description.text != baselineDescription ||
-            color != baselineColor ||
-            icon != baselineIcon ||
-            parentId != baselineParentId
+        get() =
+            name.text != baselineName ||
+                description.text != baselineDescription ||
+                color != baselineColor ||
+                icon != baselineIcon ||
+                parentId != baselineParentId
+
     companion object {
         const val DEFAULT_COLOR = 0xFF1976D2.toInt() // blue
     }
@@ -64,10 +66,16 @@ data class ProjectEditorUiState(
 
 sealed interface ProjectEditorIntent : MviIntent {
     data class NameChanged(val name: String) : ProjectEditorIntent
+
     data class ColorChanged(val color: Int) : ProjectEditorIntent
+
     data class IconChanged(val icon: String?) : ProjectEditorIntent
+
     data class DescriptionChanged(val description: String) : ProjectEditorIntent
+
     data class ParentChanged(val parentId: ProjectId?) : ProjectEditorIntent
+
     data object Save : ProjectEditorIntent
+
     data object ErrorShown : ProjectEditorIntent
 }

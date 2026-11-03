@@ -69,9 +69,10 @@ class SyncEngineLostRaceTest {
         shadow: FakeSyncShadowDao = FakeSyncShadowDao(),
     ): SyncEngine {
         val engineScope = testScope(scope.backgroundScope)
-        val auth = FakeSyncAuthRepository(
-            Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
-        )
+        val auth =
+            FakeSyncAuthRepository(
+                Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
+            )
         val state = SyncEngineState(log, NoOpCrashReportingPort())
         val outboxService =
             OutboxService(

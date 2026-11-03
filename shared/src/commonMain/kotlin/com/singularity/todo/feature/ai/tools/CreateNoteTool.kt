@@ -50,34 +50,40 @@ class CreateNoteTool(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : SimpleTool<CreateNoteInput>(TypeToken.of(CreateNoteInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: CreateNoteInput): String {
         val title = args.title.trim()
 
         // The id the note will have if the user says yes.
         val noteId = NoteId.generate()
-        val kind = ProposalItemKind.CreateNote(
-            ProposedNote(
-                title = title,
-                bodyHtml = args.bodyMarkdown?.let { NoteContentMapper.toHtml(it) },
-                isFolder = args.isFolder,
-                parentNoteId = args.parentNoteId,
-            ),
-        )
+        val kind =
+            ProposalItemKind.CreateNote(
+                ProposedNote(
+                    title = title,
+                    bodyHtml = args.bodyMarkdown?.let { NoteContentMapper.toHtml(it) },
+                    isFolder = args.isFolder,
+                    parentNoteId = args.parentNoteId,
+                ),
+            )
 
-        val result = proposeChange(
-            proposals = proposals,
-            userId = currentUser.scopedUserId.value,
-            clock = clock,
-            items = proposalItems(listOf(kind), noteId.value),
-            targetId = noteId.value,
-        )
+        val result =
+            proposeChange(
+                proposals = proposals,
+                userId = currentUser.scopedUserId.value,
+                clock = clock,
+                items = proposalItems(listOf(kind), noteId.value),
+                targetId = noteId.value,
+            )
 
         return ToolOutputJson.encodeToString(
             CreateNoteOutput.serializer(),
             CreateNoteOutput(
                 proposalCreated = result.isSuccess,
-                proposalId = result.getOrNull()?.id?.value.orEmpty(),
+                proposalId =
+                    result
+                        .getOrNull()
+                        ?.id
+                        ?.value
+                        .orEmpty(),
                 title = title,
                 error = result.exceptionOrNull()?.message,
             ),

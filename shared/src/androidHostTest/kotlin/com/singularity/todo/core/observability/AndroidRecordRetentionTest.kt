@@ -21,14 +21,14 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AndroidRecordRetentionTest {
-
     @Test
     fun `the retention is the retention the policy declares`() {
         val file = File(repoRoot(), "config/docs/tool-call-records.json")
         assertTrue(file.isFile, "no record policy at $file")
         val policy = Json.parseToJsonElement(file.readText()).jsonObject
-        val declared = policy["retentionDays"]?.jsonPrimitive?.content?.toInt()
-            ?: error("the policy declares no retention")
+        val declared =
+            policy["retentionDays"]?.jsonPrimitive?.content?.toInt()
+                ?: error("the policy declares no retention")
 
         assertEquals(
             declared,
@@ -39,9 +39,9 @@ class AndroidRecordRetentionTest {
         )
     }
 
-    private fun repoRoot(): File = generateSequence(File(System.getProperty("user.dir")).absoluteFile) {
-        it.parentFile
-    }
-        .firstOrNull { File(it, "config/docs/tool-call-records.json").isFile }
-        ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
+    private fun repoRoot(): File =
+        generateSequence(File(System.getProperty("user.dir")).absoluteFile) {
+            it.parentFile
+        }.firstOrNull { File(it, "config/docs/tool-call-records.json").isFile }
+            ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
 }

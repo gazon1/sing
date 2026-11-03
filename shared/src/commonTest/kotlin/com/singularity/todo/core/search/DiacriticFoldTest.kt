@@ -14,7 +14,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class DiacriticFoldTest {
-
     @Test
     fun `a letter with a diacritic folds to its base letter`() {
         assertEquals('e', DiacriticFold.fold('é'))

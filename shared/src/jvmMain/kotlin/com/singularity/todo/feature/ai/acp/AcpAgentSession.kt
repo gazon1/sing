@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.Flow
  * above it is written in the application's vocabulary.
  */
 interface AcpAgentSession {
-
     /** What the agent says about itself, once the conversation is open. */
     suspend fun connect(): AcpAgentInfo
 

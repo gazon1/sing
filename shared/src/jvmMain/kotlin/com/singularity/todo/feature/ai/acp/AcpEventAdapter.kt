@@ -43,36 +43,45 @@ import com.singularity.todo.core.llm.ToolCallStatus
  * library cannot change what a reader sees, because it cannot reach this file.
  */
 object AcpEventAdapter {
-
     /**
      * The activity an update describes, or null when the update says nothing the reader
      * needs to see.
      */
-    fun adapt(update: AcpSessionUpdate): AgentEvent? = when (update) {
-        is AcpSessionUpdate.TextDelta -> AgentEvent.TextDelta(update.text)
+    fun adapt(update: AcpSessionUpdate): AgentEvent? =
+        when (update) {
+            is AcpSessionUpdate.TextDelta -> {
+                AgentEvent.TextDelta(update.text)
+            }
 
-        is AcpSessionUpdate.ToolCall -> AgentEvent.ToolCallUpdated(
-            id = update.id,
-            name = update.name,
-            status = update.status.toStatus(),
-            summary = update.summary,
-        )
+            is AcpSessionUpdate.ToolCall -> {
+                AgentEvent.ToolCallUpdated(
+                    id = update.id,
+                    name = update.name,
+                    status = update.status.toStatus(),
+                    summary = update.summary,
+                )
+            }
 
-        is AcpSessionUpdate.Plan -> AgentEvent.PlanUpdated(
-            steps = update.steps.map { step ->
-                AgentPlanStep(title = step.title, status = step.status.toStepStatus())
-            },
-        )
+            is AcpSessionUpdate.Plan -> {
+                AgentEvent.PlanUpdated(
+                    steps =
+                        update.steps.map { step ->
+                            AgentPlanStep(title = step.title, status = step.status.toStepStatus())
+                        },
+                )
+            }
 
-        // Everything else is either the user's own message, the agent's private
-        // reasoning, a session setting, or an update this application does not know.
-        // None of them is activity, and an unrecognised update must not invent one.
-        AcpSessionUpdate.UserMessage,
-        AcpSessionUpdate.AgentThought,
-        AcpSessionUpdate.SessionSetting,
-        AcpSessionUpdate.Unrecognised,
-        -> null
-    }
+            // Everything else is either the user's own message, the agent's private
+            // reasoning, a session setting, or an update this application does not know.
+            // None of them is activity, and an unrecognised update must not invent one.
+            AcpSessionUpdate.UserMessage,
+            AcpSessionUpdate.AgentThought,
+            AcpSessionUpdate.SessionSetting,
+            AcpSessionUpdate.Unrecognised,
+            -> {
+                null
+            }
+        }
 
     /**
      * How a turn that ended for [reason] ended.
@@ -83,34 +92,47 @@ object AcpEventAdapter {
      *
      * A refusal is a failure: the agent declined to answer, and there is no answer.
      */
-    fun outcomeFor(reason: AcpStopReason): AgentTurnOutcome = when (reason) {
-        AcpStopReason.END_TURN -> AgentTurnOutcome.Completed()
+    fun outcomeFor(reason: AcpStopReason): AgentTurnOutcome =
+        when (reason) {
+            AcpStopReason.END_TURN -> {
+                AgentTurnOutcome.Completed()
+            }
 
-        AcpStopReason.MAX_TOKENS -> AgentTurnOutcome.Completed(
-            note = "The agent stopped because it reached its token limit.",
-        )
+            AcpStopReason.MAX_TOKENS -> {
+                AgentTurnOutcome.Completed(
+                    note = "The agent stopped because it reached its token limit.",
+                )
+            }
 
-        AcpStopReason.MAX_TURN_REQUESTS -> AgentTurnOutcome.Completed(
-            note = "The agent stopped because it reached its limit on turn requests.",
-        )
+            AcpStopReason.MAX_TURN_REQUESTS -> {
+                AgentTurnOutcome.Completed(
+                    note = "The agent stopped because it reached its limit on turn requests.",
+                )
+            }
 
-        AcpStopReason.REFUSAL -> AgentTurnOutcome.Failed("The agent refused to answer.")
+            AcpStopReason.REFUSAL -> {
+                AgentTurnOutcome.Failed("The agent refused to answer.")
+            }
 
-        AcpStopReason.CANCELLED -> AgentTurnOutcome.Cancelled
-    }
+            AcpStopReason.CANCELLED -> {
+                AgentTurnOutcome.Cancelled
+            }
+        }
 
     /**
      * The agent's four states, collapsed into the application's three.
      */
-    private fun AcpToolCallState.toStatus(): ToolCallStatus = when (this) {
-        AcpToolCallState.PENDING, AcpToolCallState.IN_PROGRESS -> ToolCallStatus.RUNNING
-        AcpToolCallState.COMPLETED -> ToolCallStatus.COMPLETED
-        AcpToolCallState.FAILED -> ToolCallStatus.FAILED
-    }
+    private fun AcpToolCallState.toStatus(): ToolCallStatus =
+        when (this) {
+            AcpToolCallState.PENDING, AcpToolCallState.IN_PROGRESS -> ToolCallStatus.RUNNING
+            AcpToolCallState.COMPLETED -> ToolCallStatus.COMPLETED
+            AcpToolCallState.FAILED -> ToolCallStatus.FAILED
+        }
 
-    private fun AcpPlanStepState.toStepStatus(): PlanStepStatus = when (this) {
-        AcpPlanStepState.PENDING -> PlanStepStatus.PENDING
-        AcpPlanStepState.IN_PROGRESS -> PlanStepStatus.IN_PROGRESS
-        AcpPlanStepState.COMPLETED -> PlanStepStatus.COMPLETED
-    }
+    private fun AcpPlanStepState.toStepStatus(): PlanStepStatus =
+        when (this) {
+            AcpPlanStepState.PENDING -> PlanStepStatus.PENDING
+            AcpPlanStepState.IN_PROGRESS -> PlanStepStatus.IN_PROGRESS
+            AcpPlanStepState.COMPLETED -> PlanStepStatus.COMPLETED
+        }
 }

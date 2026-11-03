@@ -21,9 +21,9 @@ import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
-import org.junit.jupiter.api.Tag as JunitTag
 import kotlin.test.Test
 import kotlin.time.Instant
+import org.junit.jupiter.api.Tag as JunitTag
 
 private typealias DomainTag = com.singularity.todo.feature.tags.Tag
 
@@ -47,11 +47,14 @@ private typealias DomainTag = com.singularity.todo.feature.tags.Tag
  */
 @JunitTag("slow")
 class TagsRenameUiTest {
-
     private val testUserId = UserId("test-user")
     private val epoch = Instant.fromEpochMilliseconds(0)
 
-    private fun makeTag(id: String, name: String, color: Int = 0xFFE91E63.toInt()): DomainTag =
+    private fun makeTag(
+        id: String,
+        name: String,
+        color: Int = 0xFFE91E63.toInt(),
+    ): DomainTag =
         DomainTag(
             id = TagId(id),
             name = name,
@@ -90,52 +93,55 @@ class TagsRenameUiTest {
         }
 
     @Test
-    fun `saving a new name reports the rename and closes the dialog`() = runIsolatedComposeTest {
-        val vm = makeViewModel(makeTag("tg1", "work"))
-        setContent {
-            TagsScreen(viewModel = vm)
+    fun `saving a new name reports the rename and closes the dialog`() =
+        runIsolatedComposeTest {
+            val vm = makeViewModel(makeTag("tg1", "work"))
+            setContent {
+                TagsScreen(viewModel = vm)
+            }
+
+            clickTag(TestTags.tagRename("work"))
+            assertTextDisplayed("Rename Tag")
+            onNode(hasSetTextAction()).performTextClearance()
+            onNode(hasSetTextAction()).performTextInput("office")
+            clickText("Save")
+
+            // Verify rename was applied: dialog is gone and the new name is on the card.
+            onAllNodesWithText("Rename Tag").assertCountEquals(0)
+            assertTagDisplayed(TestTags.tagRename("office"))
         }
-
-        clickTag(TestTags.tagRename("work"))
-        assertTextDisplayed("Rename Tag")
-        onNode(hasSetTextAction()).performTextClearance()
-        onNode(hasSetTextAction()).performTextInput("office")
-        clickText("Save")
-
-        // Verify rename was applied: dialog is gone and the new name is on the card.
-        onAllNodesWithText("Rename Tag").assertCountEquals(0)
-        assertTagDisplayed(TestTags.tagRename("office"))
-    }
 
     @Test
-    fun `a rename whose name is blank cannot be saved`() = runIsolatedComposeTest {
-        val vm = makeViewModel(makeTag("tg1", "work"))
-        setContent {
-            TagsScreen(viewModel = vm)
+    fun `a rename whose name is blank cannot be saved`() =
+        runIsolatedComposeTest {
+            val vm = makeViewModel(makeTag("tg1", "work"))
+            setContent {
+                TagsScreen(viewModel = vm)
+            }
+
+            clickTag(TestTags.tagRename("work"))
+            assertTextDisplayed("Rename Tag")
+            onNode(hasSetTextAction()).performTextClearance()
+            // "Save" is disabled while the field is empty, so the click is a no-op.
+            clickText("Save")
+
+            // The dialog should still be open because save was disabled.
+            assertTextDisplayed("Rename Tag")
+            // The original tag card is still shown with the old name.
+            assertTagDisplayed(TestTags.tagRename("work"))
         }
-
-        clickTag(TestTags.tagRename("work"))
-        assertTextDisplayed("Rename Tag")
-        onNode(hasSetTextAction()).performTextClearance()
-        // "Save" is disabled while the field is empty, so the click is a no-op.
-        clickText("Save")
-
-        // The dialog should still be open because save was disabled.
-        assertTextDisplayed("Rename Tag")
-        // The original tag card is still shown with the old name.
-        assertTagDisplayed(TestTags.tagRename("work"))
-    }
 
     @Test
-    fun `the create dialog still says Create and starts empty`() = runIsolatedComposeTest {
-        val vm = makeViewModel(makeTag("tg1", "work"))
-        setContent {
-            TagsScreen(viewModel = vm)
+    fun `the create dialog still says Create and starts empty`() =
+        runIsolatedComposeTest {
+            val vm = makeViewModel(makeTag("tg1", "work"))
+            setContent {
+                TagsScreen(viewModel = vm)
+            }
+
+            clickTag(TestTags.TAGS_FAB)
+
+            assertTextDisplayed("New Tag")
+            assertTextDisplayed("Create")
         }
-
-        clickTag(TestTags.TAGS_FAB)
-
-        assertTextDisplayed("New Tag")
-        assertTextDisplayed("Create")
-    }
 }

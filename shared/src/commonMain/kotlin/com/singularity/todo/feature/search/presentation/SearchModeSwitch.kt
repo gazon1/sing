@@ -13,9 +13,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.text.SelectableText
-import com.singularity.todo.core.search.SearchMode
 
 /**
  * The switch that states which question the search is asking.
@@ -45,9 +45,10 @@ fun SearchModeSwitch(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         SingleChoiceSegmentedButtonRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
         ) {
             SegmentedButton(
                 selected = mode == SearchMode.Word,
@@ -74,9 +75,10 @@ fun SearchModeSwitch(
             SelectableText(
                 text = "Contains mode reads every record — slower than the word search.",
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .testTag(TestTags.SEARCH_MODE_CONTAINS_NOTE),
+                modifier =
+                    Modifier
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .testTag(TestTags.SEARCH_MODE_CONTAINS_NOTE),
             )
         }
     }

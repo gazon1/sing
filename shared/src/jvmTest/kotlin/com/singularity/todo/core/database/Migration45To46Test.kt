@@ -33,7 +33,6 @@ import kotlin.test.assertTrue
  */
 @Tag("slow")
 class Migration45To46Test {
-
     private lateinit var tempDir: File
     private lateinit var dbPath: String
 
@@ -48,8 +47,7 @@ class Migration45To46Test {
         tempDir.deleteRecursively()
     }
 
-    private fun sharedDir(): File =
-        File(System.getProperty("commonMain.root")!!).parentFile.parentFile.parentFile
+    private fun sharedDir(): File = File(System.getProperty("commonMain.root")!!).parentFile.parentFile.parentFile
 
     private fun openMigrated(): AppDatabase {
         createSqlDriver().open(dbPath).use { connection ->
@@ -89,86 +87,94 @@ class Migration45To46Test {
     }
 
     @Test
-    fun `the column exists after the upgrade`() = runTest {
-        val db = openMigrated()
-        try {
-            val columns = db.useConnection(isReadOnly = true) { transactor ->
-                transactor.usePrepared("PRAGMA table_info(tasks)") { statement ->
-                    buildList {
-                        while (statement.step()) {
-                            add(statement.getText(1))
+    fun `the column exists after the upgrade`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val columns =
+                    db.useConnection(isReadOnly = true) { transactor ->
+                        transactor.usePrepared("PRAGMA table_info(tasks)") { statement ->
+                            buildList {
+                                while (statement.step()) {
+                                    add(statement.getText(1))
+                                }
+                            }
                         }
                     }
-                }
-            }
 
-            assertTrue(
-                "series_id" in columns,
-                "the upgrade must add the column the task model reads: $columns",
-            )
-        } finally {
-            db.close()
+                assertTrue(
+                    "series_id" in columns,
+                    "the upgrade must add the column the task model reads: $columns",
+                )
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `a task that predates the upgrade reads back as standing alone`() = runTest {
-        val db = openMigrated()
-        try {
-            val row = db.useConnection(isReadOnly = true) { transactor ->
-                transactor.usePrepared("SELECT series_id FROM tasks WHERE id = 't-old'") { statement ->
-                    assertTrue(statement.step(), "the task must survive the upgrade")
-                    if (statement.isNull(0)) null else statement.getText(0)
-                }
-            }
+    fun `a task that predates the upgrade reads back as standing alone`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val row =
+                    db.useConnection(isReadOnly = true) { transactor ->
+                        transactor.usePrepared("SELECT series_id FROM tasks WHERE id = 't-old'") { statement ->
+                            assertTrue(statement.step(), "the task must survive the upgrade")
+                            if (statement.isNull(0)) null else statement.getText(0)
+                        }
+                    }
 
-            assertNull(row, "a task that existed before the upgrade belongs to no series")
-        } finally {
-            db.close()
+                assertNull(row, "a task that existed before the upgrade belongs to no series")
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `a task can be put into a series after the upgrade`() = runTest {
-        val db = openMigrated()
-        try {
-            db.useConnection(isReadOnly = false) { transactor ->
-                transactor.usePrepared("UPDATE tasks SET series_id = 'series-1' WHERE id = 't-old'") {
-                    it.step()
+    fun `a task can be put into a series after the upgrade`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                db.useConnection(isReadOnly = false) { transactor ->
+                    transactor.usePrepared("UPDATE tasks SET series_id = 'series-1' WHERE id = 't-old'") {
+                        it.step()
+                    }
                 }
-            }
 
-            val row = db.useConnection(isReadOnly = true) { transactor ->
-                transactor.usePrepared("SELECT series_id FROM tasks WHERE id = 't-old'") { statement ->
-                    assertTrue(statement.step())
-                    statement.getText(0)
-                }
-            }
+                val row =
+                    db.useConnection(isReadOnly = true) { transactor ->
+                        transactor.usePrepared("SELECT series_id FROM tasks WHERE id = 't-old'") { statement ->
+                            assertTrue(statement.step())
+                            statement.getText(0)
+                        }
+                    }
 
-            assertEquals("series-1", row, "the column must be writable after the upgrade")
-        } finally {
-            db.close()
+                assertEquals("series-1", row, "the column must be writable after the upgrade")
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `a note that points at a task keeps that task after the upgrade`() = runTest {
-        val db = openMigrated()
-        try {
-            val row = db.useConnection(isReadOnly = true) { transactor ->
-                transactor.usePrepared("SELECT task_id FROM notes WHERE id = 'n-old'") { statement ->
-                    assertTrue(statement.step(), "the note must survive the upgrade")
-                    if (statement.isNull(0)) null else statement.getText(0)
-                }
-            }
+    fun `a note that points at a task keeps that task after the upgrade`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val row =
+                    db.useConnection(isReadOnly = true) { transactor ->
+                        transactor.usePrepared("SELECT task_id FROM notes WHERE id = 'n-old'") { statement ->
+                            assertTrue(statement.step(), "the note must survive the upgrade")
+                            if (statement.isNull(0)) null else statement.getText(0)
+                        }
+                    }
 
-            assertEquals(
-                "t-old",
-                row,
-                "adding a column must not cost the note the task it points at",
-            )
-        } finally {
-            db.close()
+                assertEquals(
+                    "t-old",
+                    row,
+                    "adding a column must not cost the note the task it points at",
+                )
+            } finally {
+                db.close()
+            }
         }
-    }
 }

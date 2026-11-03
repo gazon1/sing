@@ -11,7 +11,6 @@ import android.content.SharedPreferences
  * - Already available as a transitive dependency of the Play Core library
  */
 class AppUpdatePrefs private constructor(private val prefs: SharedPreferences) {
-
     /** Returns the epoch millis of the last update offer, or 0 if never. */
     fun lastOfferedAt(): Long = prefs.getLong(KEY_LAST_OFFERED_AT, 0L)
 
@@ -20,7 +19,8 @@ class AppUpdatePrefs private constructor(private val prefs: SharedPreferences) {
         val last = lastOfferedAt()
         if (last == 0L) return Long.MAX_VALUE
         val now = System.currentTimeMillis()
-        return java.util.concurrent.TimeUnit.MILLISECONDS.toDays(now - last)
+        return java.util.concurrent.TimeUnit.MILLISECONDS
+            .toDays(now - last)
     }
 
     /** Records that an update offer was made. */
@@ -37,8 +37,9 @@ class AppUpdatePrefs private constructor(private val prefs: SharedPreferences) {
         private const val KEY_LAST_OFFERED_AT = "update_last_offered_at"
         private const val PREFS_FILE = "app_update_prefs"
 
-        fun create(context: Context): AppUpdatePrefs = AppUpdatePrefs(
-            context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE),
-        )
+        fun create(context: Context): AppUpdatePrefs =
+            AppUpdatePrefs(
+                context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE),
+            )
     }
 }

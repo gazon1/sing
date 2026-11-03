@@ -37,7 +37,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AcpEventAdapterTest {
-
     // ── Text ───────────────────────────────────────────────────────────────────
 
     @Test
@@ -51,14 +50,15 @@ class AcpEventAdapterTest {
 
     @Test
     fun `a new tool call becomes a running tool call`() {
-        val event = AcpEventAdapter.adapt(
-            AcpSessionUpdate.ToolCall(
-                id = "call-1",
-                name = "Read file",
-                status = AcpToolCallState.PENDING,
-                summary = "Read file",
-            ),
-        )
+        val event =
+            AcpEventAdapter.adapt(
+                AcpSessionUpdate.ToolCall(
+                    id = "call-1",
+                    name = "Read file",
+                    status = AcpToolCallState.PENDING,
+                    summary = "Read file",
+                ),
+            )
 
         assertEquals(
             AgentEvent.ToolCallUpdated(
@@ -73,12 +73,14 @@ class AcpEventAdapterTest {
 
     @Test
     fun `a pending call and an in-progress call both read as running`() {
-        val pending = AcpEventAdapter.adapt(
-            AcpSessionUpdate.ToolCall("call-1", "Read file", AcpToolCallState.PENDING, null),
-        )
-        val inProgress = AcpEventAdapter.adapt(
-            AcpSessionUpdate.ToolCall("call-1", "Read file", AcpToolCallState.IN_PROGRESS, null),
-        )
+        val pending =
+            AcpEventAdapter.adapt(
+                AcpSessionUpdate.ToolCall("call-1", "Read file", AcpToolCallState.PENDING, null),
+            )
+        val inProgress =
+            AcpEventAdapter.adapt(
+                AcpSessionUpdate.ToolCall("call-1", "Read file", AcpToolCallState.IN_PROGRESS, null),
+            )
 
         assertEquals(ToolCallStatus.RUNNING, (pending as AgentEvent.ToolCallUpdated).status)
         assertEquals(ToolCallStatus.RUNNING, (inProgress as AgentEvent.ToolCallUpdated).status)
@@ -86,12 +88,14 @@ class AcpEventAdapterTest {
 
     @Test
     fun `a completed call reads as completed and a failed one as failed`() {
-        val completed = AcpEventAdapter.adapt(
-            AcpSessionUpdate.ToolCall("call-1", "Read file", AcpToolCallState.COMPLETED, null),
-        )
-        val failed = AcpEventAdapter.adapt(
-            AcpSessionUpdate.ToolCall("call-1", "Read file", AcpToolCallState.FAILED, null),
-        )
+        val completed =
+            AcpEventAdapter.adapt(
+                AcpSessionUpdate.ToolCall("call-1", "Read file", AcpToolCallState.COMPLETED, null),
+            )
+        val failed =
+            AcpEventAdapter.adapt(
+                AcpSessionUpdate.ToolCall("call-1", "Read file", AcpToolCallState.FAILED, null),
+            )
 
         assertEquals(ToolCallStatus.COMPLETED, (completed as AgentEvent.ToolCallUpdated).status)
         assertEquals(ToolCallStatus.FAILED, (failed as AgentEvent.ToolCallUpdated).status)
@@ -99,9 +103,10 @@ class AcpEventAdapterTest {
 
     @Test
     fun `a call without a status reads as running`() {
-        val event = AcpEventAdapter.adapt(
-            AcpSessionUpdate.ToolCall("call-1", "Read file", AcpToolCallState.PENDING, null),
-        )
+        val event =
+            AcpEventAdapter.adapt(
+                AcpSessionUpdate.ToolCall("call-1", "Read file", AcpToolCallState.PENDING, null),
+            )
 
         assertEquals(
             ToolCallStatus.RUNNING,
@@ -114,23 +119,26 @@ class AcpEventAdapterTest {
 
     @Test
     fun `a plan update becomes a plan snapshot`() {
-        val event = AcpEventAdapter.adapt(
-            AcpSessionUpdate.Plan(
-                steps = listOf(
-                    AcpPlanStep("Read the inbox", AcpPlanStepState.IN_PROGRESS),
-                    AcpPlanStep("Summarise", AcpPlanStepState.PENDING),
-                    AcpPlanStep("Done", AcpPlanStepState.COMPLETED),
+        val event =
+            AcpEventAdapter.adapt(
+                AcpSessionUpdate.Plan(
+                    steps =
+                        listOf(
+                            AcpPlanStep("Read the inbox", AcpPlanStepState.IN_PROGRESS),
+                            AcpPlanStep("Summarise", AcpPlanStepState.PENDING),
+                            AcpPlanStep("Done", AcpPlanStepState.COMPLETED),
+                        ),
                 ),
-            ),
-        )
+            )
 
         assertEquals(
             AgentEvent.PlanUpdated(
-                steps = listOf(
-                    AgentPlanStep("Read the inbox", PlanStepStatus.IN_PROGRESS),
-                    AgentPlanStep("Summarise", PlanStepStatus.PENDING),
-                    AgentPlanStep("Done", PlanStepStatus.COMPLETED),
-                ),
+                steps =
+                    listOf(
+                        AgentPlanStep("Read the inbox", PlanStepStatus.IN_PROGRESS),
+                        AgentPlanStep("Summarise", PlanStepStatus.PENDING),
+                        AgentPlanStep("Done", PlanStepStatus.COMPLETED),
+                    ),
             ),
             event,
         )
@@ -140,12 +148,13 @@ class AcpEventAdapterTest {
 
     @Test
     fun `every ignored session update produces no event`() {
-        val ignored = listOf(
-            "the user's own message" to AcpSessionUpdate.UserMessage,
-            "the agent's thoughts" to AcpSessionUpdate.AgentThought,
-            "a session setting" to AcpSessionUpdate.SessionSetting,
-            "an unknown update" to AcpSessionUpdate.Unrecognised,
-        )
+        val ignored =
+            listOf(
+                "the user's own message" to AcpSessionUpdate.UserMessage,
+                "the agent's thoughts" to AcpSessionUpdate.AgentThought,
+                "a session setting" to AcpSessionUpdate.SessionSetting,
+                "an unknown update" to AcpSessionUpdate.Unrecognised,
+            )
 
         ignored.forEach { (what, update) ->
             assertNull(

@@ -46,9 +46,11 @@ data class Section(
      * For sections loaded from legacy saved agendas (where `id == null`), derives a
      * stable id from the section name so the `+` button prefill key is deterministic.
      */
-    val effectiveId: String get() = id ?: name.lowercase()
-        .replace(" ", "_")
-        .replace(Regex("[^a-z0-9_]"), "")
+    val effectiveId: String get() =
+        id ?: name
+            .lowercase()
+            .replace(" ", "_")
+            .replace(Regex("[^a-z0-9_]"), "")
 }
 
 /**

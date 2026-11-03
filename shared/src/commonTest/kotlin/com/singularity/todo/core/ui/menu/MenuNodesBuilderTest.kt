@@ -1,21 +1,21 @@
 package com.singularity.todo.core.ui.menu
 
+import com.singularity.todo.core.ui.preview.noopClick
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
-import com.singularity.todo.core.ui.preview.noopClick
 
 @Tag("fast")
 class MenuNodesBuilderTest {
-
     @Test
     fun `item adds Action node`() {
-        val list = buildMenuNodes {
-            item(id = "a", label = "Alpha", onClick = {})
-        }
+        val list =
+            buildMenuNodes {
+                item(id = "a", label = "Alpha", onClick = {})
+            }
         assertEquals(1, list.size)
         val node = list[0] as MenuNode.Action
         assertEquals("a", node.id)
@@ -27,17 +27,18 @@ class MenuNodesBuilderTest {
 
     @Test
     fun `item with all parameters`() {
-        val list = buildMenuNodes {
-            item(
-                id = "b",
-                label = "Bravo",
-                shortcut = "Ctrl+B",
-                danger = true,
-                checked = true,
-                enabled = false,
-                onClick = noopClick,
-            )
-        }
+        val list =
+            buildMenuNodes {
+                item(
+                    id = "b",
+                    label = "Bravo",
+                    shortcut = "Ctrl+B",
+                    danger = true,
+                    checked = true,
+                    enabled = false,
+                    onClick = noopClick,
+                )
+            }
         val node = list[0] as MenuNode.Action
         assertEquals("b", node.id)
         assertEquals("Ctrl+B", node.shortcut)
@@ -56,9 +57,10 @@ class MenuNodesBuilderTest {
     @Test
     fun `subMenu adds SubMenu node with children`() {
         val child = buildMenuNodes { item("c1", "Child") {} }
-        val list = buildMenuNodes {
-            subMenu(id = "s", label = "Sub", children = child)
-        }
+        val list =
+            buildMenuNodes {
+                subMenu(id = "s", label = "Sub", children = child)
+            }
         assertEquals(1, list.size)
         val sub = list[0] as MenuNode.SubMenu
         assertEquals("s", sub.id)
@@ -68,28 +70,31 @@ class MenuNodesBuilderTest {
 
     @Test
     fun `subMenu can nest buildMenuNodes as children`() {
-        val list = buildMenuNodes {
-            subMenu(
-                "s",
-                "Sub",
-                children = buildMenuNodes {
-                    item("nested", "Nested") {}
-                },
-            )
-        }
+        val list =
+            buildMenuNodes {
+                subMenu(
+                    "s",
+                    "Sub",
+                    children =
+                        buildMenuNodes {
+                            item("nested", "Nested") {}
+                        },
+                )
+            }
         val sub = list[0] as MenuNode.SubMenu
         assertEquals(1, sub.children.size)
     }
 
     @Test
     fun `subMenu trailing lambda overload`() {
-        val list = buildMenuNodes {
-            subMenu("s", "Sub") {
-                item("child", "Child") {}
-                divider()
-                item("another", "Another") {}
+        val list =
+            buildMenuNodes {
+                subMenu("s", "Sub") {
+                    item("child", "Child") {}
+                    divider()
+                    item("another", "Another") {}
+                }
             }
-        }
         assertEquals(1, list.size)
         val sub = list[0] as MenuNode.SubMenu
         assertEquals(3, sub.children.size) // item + divider + item
@@ -97,13 +102,14 @@ class MenuNodesBuilderTest {
 
     @Test
     fun `mixed items and dividers`() {
-        val list = buildMenuNodes {
-            item("a", "A") {}
-            divider()
-            item("b", "B") {}
-            divider()
-            item("c", "C") {}
-        }
+        val list =
+            buildMenuNodes {
+                item("a", "A") {}
+                divider()
+                item("b", "B") {}
+                divider()
+                item("c", "C") {}
+            }
         assertEquals(5, list.size)
         assertEquals("a", (list[0] as MenuNode.Action).id)
         assertSame(MenuNode.Divider, list[1])

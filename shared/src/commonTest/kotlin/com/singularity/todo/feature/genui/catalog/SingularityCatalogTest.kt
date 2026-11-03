@@ -26,7 +26,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SingularityCatalogTest {
-
     private val catalog: A2uiCatalog = SingularityCatalog
 
     private val registry: ComponentRegistry = ComponentRegistry().also { Material3Catalog.installAll(it) }
@@ -40,7 +39,10 @@ class SingularityCatalogTest {
 
     @Test
     fun everyCatalogComponentHasARenderer() {
-        val unrenderable: Set<String> = catalog.components.keys.filterNot { kind: String -> registry.has(kind) }.toSet()
+        val unrenderable: Set<String> =
+            catalog.components.keys
+                .filterNot { kind: String -> registry.has(kind) }
+                .toSet()
         assertTrue(unrenderable.isEmpty(), "Catalog components with no renderer: $unrenderable")
     }
 
@@ -63,10 +65,11 @@ class SingularityCatalogTest {
     fun aDueDateWithNeitherPathNorValueIsRejected() {
         // The one rule of this component that is not expressible as a required property: either
         // source is acceptable, and a component with neither has nothing to draw.
-        val outcome = A2uiParser(catalog).parseLine(
-            """{"createSurface":{"surfaceId":"s","rootId":"d","components":[
+        val outcome =
+            A2uiParser(catalog).parseLine(
+                """{"createSurface":{"surfaceId":"s","rootId":"d","components":[
                 {"id":"d","kind":"due_date"}]}}""",
-        )
+            )
         val parsed = outcome as A2uiParseOutcome.Parsed
         assertEquals(0, (parsed.event as UiEvent.CreateSurface).components.size, "There is nothing to draw")
         assertEquals(1, parsed.errors.size)
@@ -105,34 +108,52 @@ class SingularityCatalogTest {
 
     @Test
     fun requiredPropertiesAreDeclaredForEveryComponentWithThem() {
-        val inconsistent: List<String> = catalog.components.keys.sorted().filter { name: String ->
-            val schema: A2uiComponentSchema = catalog.component(name) ?: return@filter false
-            schema.properties.any { it.required && it.default != null }
-        }
+        val inconsistent: List<String> =
+            catalog.components.keys.sorted().filter { name: String ->
+                val schema: A2uiComponentSchema = catalog.component(name) ?: return@filter false
+                schema.properties.any { it.required && it.default != null }
+            }
         assertTrue(inconsistent.isEmpty(), "Required properties that also carry a default: $inconsistent")
     }
 
-    private fun serializableNodeNames(): Set<String> = UiNode::class.sealedSubclasses
-        .mapNotNull { subclass ->
-            subclass.annotations.filterIsInstance<SerialName>().firstOrNull()?.value
-        }
-        .toSet()
+    private fun serializableNodeNames(): Set<String> =
+        UiNode::class
+            .sealedSubclasses
+            .mapNotNull { subclass ->
+                subclass.annotations
+                    .filterIsInstance<SerialName>()
+                    .firstOrNull()
+                    ?.value
+            }.toSet()
 }
 
 /** Every kind the renderer registry can draw, kept explicit so the check is not self-fulfilling. */
 private object NodeKinds {
-    val ALL: List<String> = listOf(
-        "text", "heading", "badge", "icon", "divider",
-        "button", "text_field", "checkbox",
-        "column", "row", "list", "card", "tabs", "modal",
-        "task_card", "due_date", "project_chip",
-    )
+    val ALL: List<String> =
+        listOf(
+            "text",
+            "heading",
+            "badge",
+            "icon",
+            "divider",
+            "button",
+            "text_field",
+            "checkbox",
+            "column",
+            "row",
+            "list",
+            "card",
+            "tabs",
+            "modal",
+            "task_card",
+            "due_date",
+            "project_chip",
+        )
 }
 
 /** Generation of the instructions the model reads. */
 @Tag("fast")
 class CatalogPromptTest {
-
     private val catalog: A2uiCatalog = SingularityCatalog
 
     @Test
@@ -174,7 +195,6 @@ class CatalogPromptTest {
 /** The exported schema an agent can validate its own output against. */
 @Tag("fast")
 class CatalogJsonTest {
-
     private val catalog: A2uiCatalog = SingularityCatalog
 
     @Test
@@ -193,9 +213,11 @@ class CatalogJsonTest {
     fun exportMarksRequiredProperties() {
         val definitions = catalog.jsonSchema().jsonObject["\$defs"]?.jsonObject
         val button = assertNotNull(definitions?.get("button")?.jsonObject)
-        val required: List<String> = button["required"].toString()
-            .split("\"")
-            .filter { it == "label" || it == "kind" || it == "id" }
+        val required: List<String> =
+            button["required"]
+                .toString()
+                .split("\"")
+                .filter { it == "label" || it == "kind" || it == "id" }
         assertTrue("label" in required, "Required property missing from the export: $required")
     }
 

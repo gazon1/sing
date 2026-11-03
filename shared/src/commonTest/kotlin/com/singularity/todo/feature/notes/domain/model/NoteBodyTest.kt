@@ -10,7 +10,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class NoteBodyTest {
-
     // ─── isEmpty ────────────────────────────────────────────────────────────────
 
     @Test
@@ -85,10 +84,11 @@ class NoteBodyTest {
 
     @Test
     fun `outgoingLinks extracts note and task links`() {
-        val body = NoteBody(
-            "<p>See <a href=\"${InternalLinkSchemes.NOTE_PREFIX}n1\">note 1</a> and " +
-                "<a href=\"${InternalLinkSchemes.TASK_PREFIX}t1\">task 1</a></p>",
-        )
+        val body =
+            NoteBody(
+                "<p>See <a href=\"${InternalLinkSchemes.NOTE_PREFIX}n1\">note 1</a> and " +
+                    "<a href=\"${InternalLinkSchemes.TASK_PREFIX}t1\">task 1</a></p>",
+            )
         assertEquals(2, body.outgoingLinks.size)
         assertTrue(body.outgoingLinks.any { it.contains("note://n1") })
         assertTrue(body.outgoingLinks.any { it.contains("task://t1") })
@@ -96,10 +96,11 @@ class NoteBodyTest {
 
     @Test
     fun `outgoingLinks deduplicates`() {
-        val body = NoteBody(
-            "<a href=\"${InternalLinkSchemes.NOTE_PREFIX}n1\">link1</a>" +
-                "<a href=\"${InternalLinkSchemes.NOTE_PREFIX}n1\">link1 again</a>",
-        )
+        val body =
+            NoteBody(
+                "<a href=\"${InternalLinkSchemes.NOTE_PREFIX}n1\">link1</a>" +
+                    "<a href=\"${InternalLinkSchemes.NOTE_PREFIX}n1\">link1 again</a>",
+            )
         assertEquals(1, body.outgoingLinks.size)
     }
 

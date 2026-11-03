@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.first
  * @param syncRepo Source of sync settings (enabled, calendarId, appPackage).
  */
 class DirtyHashProvider(private val taskRepo: TaskRepository, private val syncRepo: CalendarSyncRepository) {
-
     /**
      * Returns a stable integer hash for the current sync-relevant state.
      * Returns `0L` if sync is disabled (nothing to sync).
@@ -37,9 +36,11 @@ class DirtyHashProvider(private val taskRepo: TaskRepository, private val syncRe
         val calendarId = syncRepo.observeTargetCalendarId().first() ?: return 0L
         val appPackage = syncRepo.observeTargetAppPackage().first()
 
-        val tasks = taskRepo.observeAll()
-            .first()
-            .filter { it.belongsOnACalendar }
+        val tasks =
+            taskRepo
+                .observeAll()
+                .first()
+                .filter { it.belongsOnACalendar }
 
         var h = 17L
         h = h * 31L + calendarId.hashCode()

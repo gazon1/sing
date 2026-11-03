@@ -58,10 +58,17 @@ sealed interface TraversalDirective {
  *
  * @throws IllegalStateException if a cycle is detected (a node appears as its own ancestor).
  */
-fun <T> traverseDepthFirst(roots: List<T>, childrenOf: (T) -> List<T>, visit: (T, depth: Int) -> TraversalDirective) {
+fun <T> traverseDepthFirst(
+    roots: List<T>,
+    childrenOf: (T) -> List<T>,
+    visit: (T, depth: Int) -> TraversalDirective,
+) {
     val visited = LinkedHashSet<Int>()
 
-    fun walk(node: T, depth: Int) {
+    fun walk(
+        node: T,
+        depth: Int,
+    ) {
         if (!visited.add(node.hashCode())) {
             throw IllegalStateException(
                 "Cycle detected during depth-first traversal. " +
@@ -69,7 +76,9 @@ fun <T> traverseDepthFirst(roots: List<T>, childrenOf: (T) -> List<T>, visit: (T
             )
         }
         when (visit(node, depth)) {
-            TraversalDirective.Stop -> return
+            TraversalDirective.Stop -> {
+                return
+            }
 
             TraversalDirective.SkipSubtree -> { /* don't descend */ }
 
@@ -91,7 +100,10 @@ fun <T> traverseDepthFirst(roots: List<T>, childrenOf: (T) -> List<T>, visit: (T
  *
  * @see traverseDepthFirst
  */
-fun <T> T.traverseDepthFirst(childrenOf: (T) -> List<T>, visit: (T, depth: Int) -> TraversalDirective) {
+fun <T> T.traverseDepthFirst(
+    childrenOf: (T) -> List<T>,
+    visit: (T, depth: Int) -> TraversalDirective,
+) {
     traverseDepthFirst(roots = listOf(this), childrenOf = childrenOf, visit = visit)
 }
 
@@ -102,7 +114,10 @@ fun <T> T.traverseDepthFirst(childrenOf: (T) -> List<T>, visit: (T, depth: Int) 
  *
  * Use when you need the full list (e.g. for caching or bulk processing).
  */
-fun <T> preOrderList(root: T, childrenOf: (T) -> List<T>): List<T> {
+fun <T> preOrderList(
+    root: T,
+    childrenOf: (T) -> List<T>,
+): List<T> {
     val result = mutableListOf<T>()
     root.traverseDepthFirst(
         childrenOf = childrenOf,
@@ -121,7 +136,11 @@ fun <T> preOrderList(root: T, childrenOf: (T) -> List<T>): List<T> {
  *
  * @param maxDepth If non-null, stop counting beyond this depth.
  */
-fun <T> countNodes(root: T, childrenOf: (T) -> List<T>, maxDepth: Int? = null): Int {
+fun <T> countNodes(
+    root: T,
+    childrenOf: (T) -> List<T>,
+    maxDepth: Int? = null,
+): Int {
     var count = 0
     root.traverseDepthFirst(
         childrenOf = childrenOf,

@@ -28,7 +28,6 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 @LargeTest
 class CreateTaskFlowTest : InstrumentedTestBase() {
-
     @Before
     fun setup() {
         device.executeShellCommand("input keyevent KEYCODE_WAKEUP")
@@ -139,11 +138,12 @@ class CreateTaskFlowTest : InstrumentedTestBase() {
         // FAB opens the editor.
         device.tapTag("tasks_fab")
 
-        val titleInput = device.awaitTag(
-            "task_editor_title_input",
-            "the task editor's title input",
-            TAB_TIMEOUT_MS,
-        )
+        val titleInput =
+            device.awaitTag(
+                "task_editor_title_input",
+                "the task editor's title input",
+                TAB_TIMEOUT_MS,
+            )
 
         // Input should be empty initially.
         val initialText = titleInput.text

@@ -1,12 +1,12 @@
 package com.singularity.todo.arch
 
 import com.singularity.todo.feature.agenda.data.CrossUserWriteRegistry
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
-import org.junit.jupiter.api.Tag
 
 /**
  * Pins the sanctioned cross-user write list.
@@ -26,14 +26,14 @@ import org.junit.jupiter.api.Tag
  */
 @Tag("fast")
 class CrossUserWriteRegistryTest {
-
     @Test
     fun `every sanctioned cross-user write names a method that still exists`() {
-        val missing = CrossUserWriteRegistry.sanctioned.filterNot { entry ->
-            val (file, method) = entry.split('.', limit = 2).let { it[0] to it[1] }
-            val source = File(commonMainRoot).walkTopDown().firstOrNull { it.name == "$file.kt" }
-            source != null && Regex("""fun\s+$method\s*\(""").containsMatchIn(source.readText())
-        }
+        val missing =
+            CrossUserWriteRegistry.sanctioned.filterNot { entry ->
+                val (file, method) = entry.split('.', limit = 2).let { it[0] to it[1] }
+                val source = File(commonMainRoot).walkTopDown().firstOrNull { it.name == "$file.kt" }
+                source != null && Regex("""fun\s+$method\s*\(""").containsMatchIn(source.readText())
+            }
         assertTrue(
             missing.isEmpty(),
             "CrossUserWriteRegistry lists methods that no longer exist: ${missing.joinToString()}. " +
@@ -54,16 +54,17 @@ class CrossUserWriteRegistryTest {
 
     @Test
     fun `every sanctioned write documents the bypass where it happens`() {
-        val undocumented = CrossUserWriteRegistry.sanctioned.filterNot { entry ->
-            val (file, method) = entry.split('.', limit = 2).let { it[0] to it[1] }
-            val source = File(commonMainRoot).walkTopDown().firstOrNull { it.name == "$file.kt" }
-            val text = source?.readText() ?: return@filterNot false
-            val start = text.indexOf("fun $method(")
-            if (start < 0) return@filterNot false
-            // The KDoc immediately above the declaration has to mention the guard.
-            val before = text.substring((start - 700).coerceAtLeast(0), start)
-            before.contains("assertCanWrite")
-        }
+        val undocumented =
+            CrossUserWriteRegistry.sanctioned.filterNot { entry ->
+                val (file, method) = entry.split('.', limit = 2).let { it[0] to it[1] }
+                val source = File(commonMainRoot).walkTopDown().firstOrNull { it.name == "$file.kt" }
+                val text = source?.readText() ?: return@filterNot false
+                val start = text.indexOf("fun $method(")
+                if (start < 0) return@filterNot false
+                // The KDoc immediately above the declaration has to mention the guard.
+                val before = text.substring((start - 700).coerceAtLeast(0), start)
+                before.contains("assertCanWrite")
+            }
         if (undocumented.isNotEmpty()) {
             fail(
                 "Sanctioned cross-user writes whose KDoc does not mention assertCanWrite: " +
@@ -75,7 +76,8 @@ class CrossUserWriteRegistryTest {
     }
 
     private companion object {
-        val commonMainRoot: String = System.getProperty("commonMain.root")
-            ?: error("commonMain.root is not set — see the jvmTest config in shared/build.gradle.kts")
+        val commonMainRoot: String =
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root is not set — see the jvmTest config in shared/build.gradle.kts")
     }
 }

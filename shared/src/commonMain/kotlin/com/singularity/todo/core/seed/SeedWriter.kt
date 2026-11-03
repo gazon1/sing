@@ -69,7 +69,6 @@ class SeedWriter(
     private val projects: ProjectsRepository,
     private val currentUser: ProfileAwareCurrentUser,
 ) {
-
     /**
      * Makes the profile hold exactly one live task named [TaskSeed.title].
      *
@@ -102,41 +101,45 @@ class SeedWriter(
         // named id would be looking at the wrong one.
         val keeperUsable = keeper != null && (spec.id == null || keeper.id == spec.id)
 
-        val saved = if (keeper == null || !keeperUsable) {
-            val created = tasks.create(
-                TaskDomain.buildTask(
-                    input = input,
-                    id = spec.id ?: TaskId.generate(),
-                    createdAt = spec.stamp,
-                    updatedAt = spec.stamp,
-                    userId = currentUser.current,
-                ),
-            ).getOrThrow()
-            // The row the seed replaces leaves the live set: two live rows with one
-            // name is a state no flow can assert on. A trashed row is already out
-            // of it and is left alone.
-            keeper?.takeIf { !it.isTrashed }?.let { tasks.softDelete(it.id).getOrThrow() }
-            created
-        } else {
-            // A row that a previous run trashed is the row the seed is about: it is
-            // brought back rather than duplicated, so the fixture keeps one identity.
-            if (keeper.isTrashed) {
-                tasks.restore(keeper.id).getOrThrow()
+        val saved =
+            if (keeper == null || !keeperUsable) {
+                val created =
+                    tasks
+                        .create(
+                            TaskDomain.buildTask(
+                                input = input,
+                                id = spec.id ?: TaskId.generate(),
+                                createdAt = spec.stamp,
+                                updatedAt = spec.stamp,
+                                userId = currentUser.current,
+                            ),
+                        ).getOrThrow()
+                // The row the seed replaces leaves the live set: two live rows with one
+                // name is a state no flow can assert on. A trashed row is already out
+                // of it and is left alone.
+                keeper?.takeIf { !it.isTrashed }?.let { tasks.softDelete(it.id).getOrThrow() }
+                created
+            } else {
+                // A row that a previous run trashed is the row the seed is about: it is
+                // brought back rather than duplicated, so the fixture keeps one identity.
+                if (keeper.isTrashed) {
+                    tasks.restore(keeper.id).getOrThrow()
+                }
+                tasks
+                    .update(
+                        keeper.copy(
+                            title = input.title,
+                            description = input.description,
+                            priority = input.priority,
+                            dueDate = input.dueDate,
+                            completedAt = null,
+                            archivedAt = null,
+                            isPinned = false,
+                            createdAt = spec.stamp,
+                            updatedAt = spec.stamp,
+                        ),
+                    ).getOrThrow()
             }
-            tasks.update(
-                keeper.copy(
-                    title = input.title,
-                    description = input.description,
-                    priority = input.priority,
-                    dueDate = input.dueDate,
-                    completedAt = null,
-                    archivedAt = null,
-                    isPinned = false,
-                    createdAt = spec.stamp,
-                    updatedAt = spec.stamp,
-                ),
-            ).getOrThrow()
-        }
 
         // The other rows with this name leave the live set: two live rows with one
         // name is a state no flow can assert on.
@@ -157,8 +160,11 @@ class SeedWriter(
      * again.
      */
     suspend fun writeNote(spec: NoteSeed): SeedResult<NoteId> {
-        val existing = notes.observeAll().first()
-            .firstOrNull { it.title == spec.title && !it.isDeleted && !it.isArchived }
+        val existing =
+            notes
+                .observeAll()
+                .first()
+                .firstOrNull { it.title == spec.title && !it.isDeleted && !it.isArchived }
         if (existing != null) {
             return SeedResult(id = existing.id, outcome = SeedOutcome.Updated)
         }
@@ -185,11 +191,20 @@ class SeedWriter(
      * @return the id of the note, whether it was created or replaced, and the title of
      *   the link target when there was no such task.
      */
-    suspend fun writeNoteLinkingToTask(spec: NoteSeed, taskTitle: String): NoteSeedResult {
-        val target = tasks.observeAll().first()
-            .firstOrNull { it.title == taskTitle && !it.isTrashed }
-        val existing = notes.observeAll().first()
-            .firstOrNull { it.title == spec.title && !it.isDeleted && !it.isArchived }
+    suspend fun writeNoteLinkingToTask(
+        spec: NoteSeed,
+        taskTitle: String,
+    ): NoteSeedResult {
+        val target =
+            tasks
+                .observeAll()
+                .first()
+                .firstOrNull { it.title == taskTitle && !it.isTrashed }
+        val existing =
+            notes
+                .observeAll()
+                .first()
+                .firstOrNull { it.title == spec.title && !it.isDeleted && !it.isArchived }
         val noteId = existing?.id ?: notes.createNoteWithTitle(spec.title).getOrThrow()
         val outcome = if (existing == null) SeedOutcome.Created else SeedOutcome.Updated
 
@@ -221,30 +236,34 @@ class SeedWriter(
         val byName = live.filter { it.name == spec.name }
         val keeper = byId ?: byName.firstOrNull()
         if (keeper == null) {
-            val created = projects.create(
-                Project(
-                    id = spec.id ?: ProjectId.generate(),
-                    name = spec.name,
-                    color = spec.color,
-                    description = spec.description,
-                    createdAt = spec.stamp,
-                    updatedAt = spec.stamp,
-                    userId = currentUser.current,
-                ),
-            ).getOrThrow()
+            val created =
+                projects
+                    .create(
+                        Project(
+                            id = spec.id ?: ProjectId.generate(),
+                            name = spec.name,
+                            color = spec.color,
+                            description = spec.description,
+                            createdAt = spec.stamp,
+                            updatedAt = spec.stamp,
+                            userId = currentUser.current,
+                        ),
+                    ).getOrThrow()
             return SeedResult(id = created.id, outcome = SeedOutcome.Created)
         }
 
-        val updated = projects.update(
-            keeper.copy(
-                id = spec.id ?: keeper.id,
-                name = spec.name,
-                color = spec.color,
-                description = spec.description,
-                createdAt = spec.stamp,
-                updatedAt = spec.stamp,
-            ),
-        ).getOrThrow()
+        val updated =
+            projects
+                .update(
+                    keeper.copy(
+                        id = spec.id ?: keeper.id,
+                        name = spec.name,
+                        color = spec.color,
+                        description = spec.description,
+                        createdAt = spec.stamp,
+                        updatedAt = spec.stamp,
+                    ),
+                ).getOrThrow()
         // A seed that named only a name owns the *name*: the other rows carrying
         // it leave the live set. A seed that named an id owns the *row*, and the
         // rows that happen to share its new name are none of its business.
@@ -263,10 +282,16 @@ class SeedWriter(
      * @return the title of the dependency that was not found, or null when the
      *   dependency was set.
      */
-    private suspend fun applyDependency(spec: TaskSeed, taskId: TaskId): String? {
+    private suspend fun applyDependency(
+        spec: TaskSeed,
+        taskId: TaskId,
+    ): String? {
         val dependencyTitle = spec.dependsOnTitle ?: return null
-        val dependency = tasks.observeAll().first()
-            .firstOrNull { it.title == dependencyTitle && !it.isTrashed && it.id != taskId }
+        val dependency =
+            tasks
+                .observeAll()
+                .first()
+                .firstOrNull { it.title == dependencyTitle && !it.isTrashed && it.id != taskId }
         if (dependency == null) return dependencyTitle
         tasks.setDependencies(taskId, setOf(dependency.id)).getOrThrow()
         return null
@@ -274,16 +299,17 @@ class SeedWriter(
 
     /** Validates the seed through the domain, so a seed cannot write an invalid title. */
     private fun validatedInput(spec: TaskSeed): CreateTaskInput =
-        TaskDomain.createInput(
-            title = spec.title,
-            description = spec.description,
-            priority = spec.priority,
-            kind = TaskKind.Task,
-            dueDate = spec.dueDate,
-        ).fold(
-            left = { error -> throw IllegalArgumentException("Invalid input: $error") },
-            right = { it },
-        )
+        TaskDomain
+            .createInput(
+                title = spec.title,
+                description = spec.description,
+                priority = spec.priority,
+                kind = TaskKind.Task,
+                dueDate = spec.dueDate,
+            ).fold(
+                left = { error -> throw IllegalArgumentException("Invalid input: $error") },
+                right = { it },
+            )
 
     /**
      * Escapes the characters that would end an HTML attribute or an element.
@@ -293,11 +319,12 @@ class SeedWriter(
      * there — otherwise a title holding `"` closes the attribute and the note's
      * body is no longer the body the seed meant to write.
      */
-    private fun escapeHtml(value: String): String = value
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace("\"", "&quot;")
+    private fun escapeHtml(value: String): String =
+        value
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
 }
 
 /**

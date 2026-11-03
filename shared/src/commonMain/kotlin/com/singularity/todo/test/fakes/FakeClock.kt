@@ -21,7 +21,6 @@ import kotlin.time.Instant
  * ```
  */
 class FakeClock(private var currentInstant: Instant = Instant.fromEpochMilliseconds(0)) : Clock {
-
     override fun now(): Instant = currentInstant
 
     /** Advances time by the given [duration]. */

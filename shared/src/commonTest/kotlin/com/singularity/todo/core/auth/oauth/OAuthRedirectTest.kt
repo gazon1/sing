@@ -18,7 +18,6 @@ import kotlin.test.assertNull
  */
 @Tag("fast")
 class OAuthRedirectTest {
-
     /** The ordinary success: a code and the state that asked for it. */
     @Test
     fun `a code and a state are read`() {

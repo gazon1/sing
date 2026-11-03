@@ -8,9 +8,9 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
-import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.SystemBackHandler
 import com.singularity.todo.feature.nav.TasksRoute
+import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.rememberAppNavBackStack
 import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen
@@ -57,9 +57,10 @@ fun TasksNavGraph(
     backStack: NavBackStack<TasksRoute>? = null,
 ) {
     val stack: NavBackStack<TasksRoute> = backStack ?: rememberAppNavBackStack(start)
-    val navigator = remember(stack, onExitGraph) {
-        TasksNavigator(stack, onExitGraph)
-    }
+    val navigator =
+        remember(stack, onExitGraph) {
+            TasksNavigator(stack, onExitGraph)
+        }
     CompositionLocalProvider(
         LocalTasksNavigator provides navigator,
     ) {
@@ -81,9 +82,10 @@ fun TasksNavGraph(
  * nested graph — the map from each [TasksRoute] variant to the screen that renders it.
  */
 @Composable
-internal fun tasksScreenEntryProvider() = entryProvider {
-    entry<TasksRoute.Detail>(clazzContentKey = { it.stableContentKey() }) { route -> TaskDetailScreen(route) }
-    entry<TasksRoute.Create>(clazzContentKey = { it.stableContentKey() }) { route ->
-        TaskCreateScreen(route.initialDueDate, route.draftKey)
+internal fun tasksScreenEntryProvider() =
+    entryProvider {
+        entry<TasksRoute.Detail>(clazzContentKey = { it.stableContentKey() }) { route -> TaskDetailScreen(route) }
+        entry<TasksRoute.Create>(clazzContentKey = { it.stableContentKey() }) { route ->
+            TaskCreateScreen(route.initialDueDate, route.draftKey)
+        }
     }
-}

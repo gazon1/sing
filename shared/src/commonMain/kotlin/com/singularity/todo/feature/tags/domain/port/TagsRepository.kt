@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.Flow
 interface TagsRepository :
     GenericUserScopedRepository<Tag, TagId>,
     SoftDeletable<Tag, TagId> {
-
     /**
      * Upserts a tag from a remote sync event.
      * Does NOT emit repository-level change events — caller handles observability.

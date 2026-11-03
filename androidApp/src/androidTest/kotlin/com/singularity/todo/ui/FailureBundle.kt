@@ -58,8 +58,7 @@ internal class FailureBundle(val testClassSimpleName: String, val attempt: Int, 
      * The external directory itself is group-readable by `ext_data_rw`, and the
      * shell is in that group, so a file directly in it can be read.
      */
-    private fun artifact(name: String): File =
-        outputDir.resolve("$testClassSimpleName-attempt-$attempt-$name")
+    private fun artifact(name: String): File = outputDir.resolve("$testClassSimpleName-attempt-$attempt-$name")
 
     /** Screen capture at the moment of failure. */
     val screenshotFile: File get() = artifact("screenshot.png")
@@ -84,16 +83,17 @@ internal class FailureBundle(val testClassSimpleName: String, val attempt: Int, 
      * the bundle is, and what the test had done. The screenshot and the tree
      * are named, not inlined — they are files, and their path is the pointer.
      */
-    fun describe(): String = buildString {
-        appendLine("diagnostics: $devicePath")
-        appendLine("  screenshot: ${if (screenshotFile.exists()) "captured" else "not captured"}")
-        appendLine("  screen: ${if (treeFile.exists()) "captured" else "not captured"}")
-        val steps = stepsFile.takeIf { it.exists() }?.readText().orEmpty()
-        if (steps.isNotBlank()) {
-            appendLine("  steps:")
-            append(steps)
+    fun describe(): String =
+        buildString {
+            appendLine("diagnostics: $devicePath")
+            appendLine("  screenshot: ${if (screenshotFile.exists()) "captured" else "not captured"}")
+            appendLine("  screen: ${if (treeFile.exists()) "captured" else "not captured"}")
+            val steps = stepsFile.takeIf { it.exists() }?.readText().orEmpty()
+            if (steps.isNotBlank()) {
+                appendLine("  steps:")
+                append(steps)
+            }
         }
-    }
 
     /**
      * Adds the bundle to [throwable] as suppressed exceptions.
@@ -111,7 +111,6 @@ internal class FailureBundle(val testClassSimpleName: String, val attempt: Int, 
     }
 
     companion object {
-
         /**
          * Where the bundle is left on the device.
          *
@@ -181,12 +180,13 @@ internal class FailureBundle(val testClassSimpleName: String, val attempt: Int, 
          * APK, which session the app was in, what the device was, and what was
          * built.
          */
-        private fun environment(): String = buildString {
-            appendLine("auth bypass (BuildConfig.TEST_AUTH_BYPASS): ${BuildConfig.TEST_AUTH_BYPASS}")
-            appendLine("session: ${sessionDescription()}")
-            appendLine("device: ${Build.MANUFACTURER} ${Build.MODEL} (API ${Build.VERSION.SDK_INT})")
-            appendLine("build: ${BuildConfig.VERSION_NAME} (${BuildConfig.BUILD_TYPE})")
-        }
+        private fun environment(): String =
+            buildString {
+                appendLine("auth bypass (BuildConfig.TEST_AUTH_BYPASS): ${BuildConfig.TEST_AUTH_BYPASS}")
+                appendLine("session: ${sessionDescription()}")
+                appendLine("device: ${Build.MANUFACTURER} ${Build.MODEL} (API ${Build.VERSION.SDK_INT})")
+                appendLine("build: ${BuildConfig.VERSION_NAME} (${BuildConfig.BUILD_TYPE})")
+            }
 
         /**
          * Copies the captured artifacts to the shell's directory on the device.
@@ -208,7 +208,11 @@ internal class FailureBundle(val testClassSimpleName: String, val attempt: Int, 
          * is not optional — without it `cat/source` is the name of a program
          * that does not exist, and the redirection still creates an empty file.
          */
-        private fun publish(bundle: FailureBundle, testClassSimpleName: String, attempt: Int) {
+        private fun publish(
+            bundle: FailureBundle,
+            testClassSimpleName: String,
+            attempt: Int,
+        ) {
             val destination = "$DEVICE_ROOT/$testClassSimpleName/attempt-$attempt"
             shell("mkdir -p $destination")
             for (file in listOf(bundle.screenshotFile, bundle.treeFile, bundle.stepsFile, bundle.environmentFile)) {
@@ -252,8 +256,10 @@ class FailureBundleRule(
     private val device: () -> UiDevice?,
     private val steps: () -> StepRecorder? = { stepRecorder() },
 ) : TestWatcher() {
-
-    override fun failed(e: Throwable, description: Description) {
+    override fun failed(
+        e: Throwable,
+        description: Description,
+    ) {
         val testClass = description.className.substringAfterLast('.').ifEmpty { "UnknownTest" }
         val bundle =
             runCatching {

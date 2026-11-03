@@ -11,11 +11,11 @@ import kotlinx.coroutines.flow.Flow
  * Contract for greeting hour settings.
  */
 interface GreetingSettingsRepository {
-
     val morningEndHour: Flow<Int>
     val afternoonEndHour: Flow<Int>
 
     suspend fun setMorningEndHour(hour: Int)
+
     suspend fun setAfternoonEndHour(hour: Int)
 }
 
@@ -26,21 +26,23 @@ interface GreetingSettingsRepository {
 class DataStoreGreetingSettingsRepository(dataStore: DataStore<Preferences>) :
     BaseSettingsRepository(dataStore),
     GreetingSettingsRepository {
-
-    private val morningEndPref = intPref(
-        nsKey(SettingsNamespace.GREETING, "morning_end_hour"),
-        SettingsDefaults.Greeting.MORNING_END_HOUR,
-        range = 0..23,
-    )
-    private val afternoonEndPref = intPref(
-        nsKey(SettingsNamespace.GREETING, "afternoon_end_hour"),
-        SettingsDefaults.Greeting.AFTERNOON_END_HOUR,
-        range = 0..23,
-    )
+    private val morningEndPref =
+        intPref(
+            nsKey(SettingsNamespace.GREETING, "morning_end_hour"),
+            SettingsDefaults.Greeting.MORNING_END_HOUR,
+            range = 0..23,
+        )
+    private val afternoonEndPref =
+        intPref(
+            nsKey(SettingsNamespace.GREETING, "afternoon_end_hour"),
+            SettingsDefaults.Greeting.AFTERNOON_END_HOUR,
+            range = 0..23,
+        )
 
     override val morningEndHour: Flow<Int> get() = morningEndPref.flow
     override val afternoonEndHour: Flow<Int> get() = afternoonEndPref.flow
 
     override suspend fun setMorningEndHour(hour: Int) = morningEndPref.set(hour)
+
     override suspend fun setAfternoonEndHour(hour: Int) = afternoonEndPref.set(hour)
 }

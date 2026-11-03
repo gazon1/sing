@@ -38,7 +38,6 @@ import com.singularity.todo.core.log.Redaction
  * @param log records what was removed, by count, with the owner redacted.
  */
 class OwnerScopedEraser(private val database: AppDatabase, private val log: (String) -> Unit = {}) {
-
     /**
      * Deletes every row that [resolved] says belongs to [OwnerRowIds.ownerId].
      *
@@ -71,11 +70,12 @@ class OwnerScopedEraser(private val database: AppDatabase, private val log: (Str
         val tagRefs = if (taskIds.isEmpty()) 0 else erase.deleteTagRefs(taskIds, scopes)
         val dependencies = if (taskIds.isEmpty()) 0 else erase.deleteDependencies(taskIds, scopes)
         val checklists = if (taskIds.isEmpty()) 0 else erase.deleteChecklistItems(taskIds, scopes)
-        val inherited = if (projectIds.isEmpty()) {
-            0
-        } else {
-            erase.deleteInheritedTagGroups(projectIds, scopes)
-        }
+        val inherited =
+            if (projectIds.isEmpty()) {
+                0
+            } else {
+                erase.deleteInheritedTagGroups(projectIds, scopes)
+            }
 
         // ── Parents ─────────────────────────────────────────────────────────────
         // These carry their own `user_id`, so the scope list alone selects them; the
@@ -102,24 +102,25 @@ class OwnerScopedEraser(private val database: AppDatabase, private val log: (Str
         val deadLetter = database.syncDeadLetterDao().deleteForOwner(resolved.ownerId)
         val shadow = database.syncShadowDao().deleteForOwner(resolved.ownerId)
 
-        val counts = EraseCounts(
-            tasks = tasks,
-            notes = notes,
-            projects = projects,
-            tags = tags,
-            tagRefs = tagRefs,
-            dependencies = dependencies,
-            checklists = checklists,
-            inheritedTagGroups = inherited,
-            taskReminders = taskReminders,
-            projectReminders = projectReminders,
-            tagGroups = tagGroups,
-            timeEntries = timeEntries,
-            agendaViews = agendaViews,
-            outbox = outbox,
-            deadLetter = deadLetter,
-            shadows = shadow,
-        )
+        val counts =
+            EraseCounts(
+                tasks = tasks,
+                notes = notes,
+                projects = projects,
+                tags = tags,
+                tagRefs = tagRefs,
+                dependencies = dependencies,
+                checklists = checklists,
+                inheritedTagGroups = inherited,
+                taskReminders = taskReminders,
+                projectReminders = projectReminders,
+                tagGroups = tagGroups,
+                timeEntries = timeEntries,
+                agendaViews = agendaViews,
+                outbox = outbox,
+                deadLetter = deadLetter,
+                shadows = shadow,
+            )
         log(
             "Erased local data for owner=${Redaction.redactEmail(resolved.ownerId)}: " +
                 "tasks=${counts.tasks} notes=${counts.notes} projects=${counts.projects} " +
@@ -150,11 +151,12 @@ class OwnerScopedEraser(private val database: AppDatabase, private val log: (Str
         val tagRefs = if (taskIds.isEmpty()) 0 else preview.countTagRefs(taskIds, scopes)
         val dependencies = if (taskIds.isEmpty()) 0 else preview.countDependencies(taskIds, scopes)
         val checklists = if (taskIds.isEmpty()) 0 else preview.countChecklistItems(taskIds, scopes)
-        val inherited = if (projectIds.isEmpty()) {
-            0
-        } else {
-            preview.countInheritedTagGroups(projectIds, scopes)
-        }
+        val inherited =
+            if (projectIds.isEmpty()) {
+                0
+            } else {
+                preview.countInheritedTagGroups(projectIds, scopes)
+            }
 
         val notes = preview.countNotes(scopes)
         val projects = preview.countProjects(scopes)
@@ -226,18 +228,20 @@ data class EraseCounts(
 
     /** Whether anything at all was removed. */
     override val isEmpty: Boolean
-        get() = tasks + notes + projects + tags + childRows +
-            taskReminders + projectReminders + tagGroups + timeEntries + agendaViews +
-            outbox + deadLetter + shadows == 0
+        get() =
+            tasks + notes + projects + tags + childRows +
+                taskReminders + projectReminders + tagGroups + timeEntries + agendaViews +
+                outbox + deadLetter + shadows == 0
 
-    override fun toString(): String = buildString {
-        append("{")
-        append("tasks=").append(tasks)
-        append(", notes=").append(notes)
-        append(", projects=").append(projects)
-        append(", tags=").append(tags)
-        append(", childRows=").append(childRows)
-        append(", sync=").append(syncTotal)
-        append("}")
-    }
+    override fun toString(): String =
+        buildString {
+            append("{")
+            append("tasks=").append(tasks)
+            append(", notes=").append(notes)
+            append(", projects=").append(projects)
+            append(", tags=").append(tags)
+            append(", childRows=").append(childRows)
+            append(", sync=").append(syncTotal)
+            append("}")
+        }
 }

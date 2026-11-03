@@ -24,7 +24,6 @@ import kotlin.test.assertTrue
  */
 @Tag("slow")
 class DocumentCorpusReadersAgreeTest {
-
     @Test
     fun `the app reads the documents the gates read`() {
         val root = repoRoot()
@@ -54,13 +53,17 @@ class DocumentCorpusReadersAgreeTest {
     }
 
     /** The search engine, built the way the storage builds it. */
-    private fun search(root: File, config: DocumentCorpusConfig): CorpusSearch = CorpusSearch(
-        projectRoot = root.path,
-        decisionsDir = File(root, "docs/decisions").path,
-        corpus = AdrCorpusConfig.loadOrDefault(root.path),
-        readAdr = { null },
-        documents = config,
-    )
+    private fun search(
+        root: File,
+        config: DocumentCorpusConfig,
+    ): CorpusSearch =
+        CorpusSearch(
+            projectRoot = root.path,
+            decisionsDir = File(root, "docs/decisions").path,
+            corpus = AdrCorpusConfig.loadOrDefault(root.path),
+            readAdr = { null },
+            documents = config,
+        )
 
     /**
      * The document paths the Python reader finds.
@@ -69,33 +72,41 @@ class DocumentCorpusReadersAgreeTest {
      * dataclass through `importlib`, and under Python 3.14 that path has to register the
      * module before executing it.
      */
-    private fun pythonDocuments(root: File, scope: String): Set<String> {
+    private fun pythonDocuments(
+        root: File,
+        scope: String,
+    ): Set<String> {
         val script = File(root, "scripts/document_corpus.py")
         assertTrue(script.isFile, "no document corpus reader at $script")
 
-        val process = ProcessBuilder(
-            "python3",
-            script.absolutePath,
-            "--documents",
-            scope,
-        )
-            .directory(root)
-            .redirectErrorStream(false)
-            .start()
+        val process =
+            ProcessBuilder(
+                "python3",
+                script.absolutePath,
+                "--documents",
+                scope,
+            ).directory(root)
+                .redirectErrorStream(false)
+                .start()
 
         val output = process.inputStream.bufferedReader().readText()
         val finished = process.waitFor()
         assertEquals(0, finished, "the Python document corpus reader failed:\n$output")
 
-        val paths = output.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toSortedSet()
+        val paths =
+            output
+                .lineSequence()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .toSortedSet()
         assertTrue(paths.isNotEmpty(), "the Python reader found no documents in $scope at all")
         return paths
     }
 
     /** The repository root, found by walking up from the working directory. */
-    private fun repoRoot(): File = generateSequence(File(System.getProperty("user.dir")).absoluteFile) {
-        it.parentFile
-    }
-        .firstOrNull { File(it, "scripts/document_corpus.py").isFile }
-        ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
+    private fun repoRoot(): File =
+        generateSequence(File(System.getProperty("user.dir")).absoluteFile) {
+            it.parentFile
+        }.firstOrNull { File(it, "scripts/document_corpus.py").isFile }
+            ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
 }

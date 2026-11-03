@@ -11,40 +11,66 @@ interface AttachmentDao {
     @Query(
         "SELECT * FROM attachments WHERE task_id = :taskId AND user_id = :userId AND deleted_at IS NULL ORDER BY created_at DESC",
     )
-    fun watchByTaskForUser(taskId: String, userId: String): Flow<List<AttachmentEntity>>
+    fun watchByTaskForUser(
+        taskId: String,
+        userId: String,
+    ): Flow<List<AttachmentEntity>>
 
     @Query("SELECT * FROM attachments WHERE id = :id AND user_id = :userId")
-    fun watchByIdForUser(id: String, userId: String): Flow<AttachmentEntity?>
+    fun watchByIdForUser(
+        id: String,
+        userId: String,
+    ): Flow<AttachmentEntity?>
 
     @Query("SELECT * FROM attachments WHERE user_id = :userId AND deleted_at IS NULL ORDER BY created_at DESC")
     fun watchAll(userId: String): Flow<List<AttachmentEntity>>
 
     @Query("SELECT * FROM attachments WHERE id = :id AND user_id = :userId AND deleted_at IS NULL")
-    suspend fun getById(id: String, userId: String): AttachmentEntity?
+    suspend fun getById(
+        id: String,
+        userId: String,
+    ): AttachmentEntity?
 
     @Query("SELECT * FROM attachments WHERE sync_status = :status AND user_id = :userId AND deleted_at IS NULL")
-    fun watchBySyncStatusForUser(status: String, userId: String): Flow<List<AttachmentEntity>>
+    fun watchBySyncStatusForUser(
+        status: String,
+        userId: String,
+    ): Flow<List<AttachmentEntity>>
 
     @Upsert
     suspend fun upsert(entity: AttachmentEntity)
 
     @Query("UPDATE attachments SET deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
-    suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
+    suspend fun softDeleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query(
         "UPDATE attachments SET deleted_at = NULL, updated_at = :ts " +
             "WHERE id = :id AND user_id = :userId AND deleted_at IS NOT NULL",
     )
-    suspend fun restoreForUser(id: String, ts: Long, userId: String): Int
+    suspend fun restoreForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     @Query("DELETE FROM attachments WHERE id = :id AND user_id = :userId")
-    suspend fun deleteForUser(id: String, userId: String): Int
+    suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int
 
     @Query("SELECT * FROM attachments WHERE user_id = :userId AND deleted_at IS NOT NULL")
     suspend fun listDeletedForUser(userId: String): List<AttachmentEntity>
 
     @Query("DELETE FROM attachments WHERE user_id = :userId AND deleted_at IS NOT NULL AND deleted_at < :before")
-    suspend fun deleteDeletedBefore(userId: String, before: Long): Int
+    suspend fun deleteDeletedBefore(
+        userId: String,
+        before: Long,
+    ): Int
 
     @Query("SELECT * FROM attachments WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<AttachmentEntity>

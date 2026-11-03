@@ -49,7 +49,6 @@ class SurfaceTurn(
     private val catalog: A2uiCatalog = SingularityCatalog,
     private val rejectionCounter: GenuiRejectionCounter = GenuiRejectionCounter(),
 ) {
-
     /**
      * What the model is told it may draw.
      *
@@ -110,15 +109,16 @@ class SurfaceTurn(
      * the screen in the abstract, and the rejections are named one by one, because a correction
      * that says "something was wrong" is a correction the model cannot act on.
      */
-    fun correctionRequest(): String = buildString {
-        append("\n\nThat surface was rejected. Send the corrected surface only, and fix these:")
-        rejections
-            .distinctBy { it.code to it.componentId }
-            .forEach { error: A2uiError ->
-                append("\n- ")
-                append(error.asFeedback())
-            }
-    }
+    fun correctionRequest(): String =
+        buildString {
+            append("\n\nThat surface was rejected. Send the corrected surface only, and fix these:")
+            rejections
+                .distinctBy { it.code to it.componentId }
+                .forEach { error: A2uiError ->
+                    append("\n- ")
+                    append(error.asFeedback())
+                }
+        }
 
     /**
      * What the reader is told about a screen that could not be completed.
@@ -126,9 +126,10 @@ class SurfaceTurn(
      * The same reasons, in the same words, without the instruction to the model: the reader is
      * not being asked to fix anything.
      */
-    fun readerFeedback(): String = collected
-        .distinctBy { it.code to it.componentId }
-        .joinToString("\n") { error: A2uiError -> error.asFeedback() }
+    fun readerFeedback(): String =
+        collected
+            .distinctBy { it.code to it.componentId }
+            .joinToString("\n") { error: A2uiError -> error.asFeedback() }
 
     /**
      * Reports what this answer drew, and what was rejected.
@@ -156,33 +157,42 @@ class SurfaceTurn(
      */
     private fun absorb(line: FramedLine) {
         when (line) {
-            is FramedLine.Prose -> Unit
+            is FramedLine.Prose -> {
+                Unit
+            }
 
             is FramedLine.Dropped -> {
                 // A line the transport could not deliver is not a contract violation, and repeating
                 // the same request with the same token limit truncates it the same way. It only counts
                 // as a rejection when nothing arrived at all — otherwise the answer would be reported
                 // as a success with an empty screen behind it.
-                errors += A2uiError(
-                    code = A2uiErrorCode.MALFORMED_LINE,
-                    message = line.reason,
-                    surfaceId = id,
-                    severity = if (applied) A2uiSeverity.ADVISORY else A2uiSeverity.MESSAGE,
-                )
+                errors +=
+                    A2uiError(
+                        code = A2uiErrorCode.MALFORMED_LINE,
+                        message = line.reason,
+                        surfaceId = id,
+                        severity = if (applied) A2uiSeverity.ADVISORY else A2uiSeverity.MESSAGE,
+                    )
             }
 
-            is FramedLine.Message -> when (val outcome: A2uiParseOutcome = parser.parseLine(line.text)) {
-                is A2uiParseOutcome.Parsed -> {
-                    // The identifier in the message groups the lines of one answer; the caller's
-                    // identifier says which answer this is. See UiEvent.retargeted.
-                    val result = processor.apply(outcome.event.retargeted(id), outcome.errors)
-                    errors += result.errors
-                    if (result.applied) applied = true
+            is FramedLine.Message -> {
+                when (val outcome: A2uiParseOutcome = parser.parseLine(line.text)) {
+                    is A2uiParseOutcome.Parsed -> {
+                        // The identifier in the message groups the lines of one answer; the caller's
+                        // identifier says which answer this is. See UiEvent.retargeted.
+                        val result = processor.apply(outcome.event.retargeted(id), outcome.errors)
+                        errors += result.errors
+                        if (result.applied) applied = true
+                    }
+
+                    is A2uiParseOutcome.Failed -> {
+                        errors += outcome.error
+                    }
+
+                    is A2uiParseOutcome.Skipped -> {
+                        Unit
+                    }
                 }
-
-                is A2uiParseOutcome.Failed -> errors += outcome.error
-
-                is A2uiParseOutcome.Skipped -> Unit
             }
         }
     }

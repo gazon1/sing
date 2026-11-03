@@ -67,7 +67,6 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class SyncedWriteEnqueuesTest {
-
     @Test
     fun `every write to a synced table enqueues a patch`() {
         val applyHandlers = applyHandlerNames()
@@ -78,16 +77,18 @@ class SyncedWriteEnqueuesTest {
                 "missing patch. The path or the pattern has moved.",
         )
 
-        val offenders = repoImplFiles().flatMap { file ->
-            val source = file.readText()
-            if (!hasSyncDependency(source)) return@flatMap emptyList()
-            SourceScan.methods(source)
-                .filter { WRITES_ROW_IN_BODY.containsMatchIn(it.body) }
-                .filter { it.name !in applyHandlers }
-                .filter { method -> NOT_SYNCED_WRITES.none { it.first == method.name } }
-                .filter { !ENQUEUES_IN_BODY.containsMatchIn(it.body) }
-                .map { "${file.name}:${it.line} ${it.name} writes a synced row with no enqueue" }
-        }
+        val offenders =
+            repoImplFiles().flatMap { file ->
+                val source = file.readText()
+                if (!hasSyncDependency(source)) return@flatMap emptyList()
+                SourceScan
+                    .methods(source)
+                    .filter { WRITES_ROW_IN_BODY.containsMatchIn(it.body) }
+                    .filter { it.name !in applyHandlers }
+                    .filter { method -> NOT_SYNCED_WRITES.none { it.first == method.name } }
+                    .filter { !ENQUEUES_IN_BODY.containsMatchIn(it.body) }
+                    .map { "${file.name}:${it.line} ${it.name} writes a synced row with no enqueue" }
+            }
 
         if (offenders.isNotEmpty()) {
             fail(
@@ -122,16 +123,18 @@ class SyncedWriteEnqueuesTest {
         // as a sequence, because a guard *after* the write is a cross-user write that has
         // already happened, and a presence check cannot tell the two apart.
         val applyHandlers = applyHandlerNames()
-        val offenders = repoImplFiles().flatMap { file ->
-            val source = file.readText()
-            if (!hasSyncDependency(source)) return@flatMap emptyList()
-            SourceScan.methods(source)
-                .filterNot { it.name in applyHandlers }
-                .filter { method -> UNSCOPED_WRITE.containsMatchIn(method.body) }
-                .filterNot { method -> GUARD_BEFORE_WRITE.containsMatchIn(method.body) }
-                .filterNot { method -> AMBIENT_IDENTITY.containsMatchIn(method.body) }
-                .map { "${file.name}:${it.line} ${it.name} writes unscoped with no guard" }
-        }
+        val offenders =
+            repoImplFiles().flatMap { file ->
+                val source = file.readText()
+                if (!hasSyncDependency(source)) return@flatMap emptyList()
+                SourceScan
+                    .methods(source)
+                    .filterNot { it.name in applyHandlers }
+                    .filter { method -> UNSCOPED_WRITE.containsMatchIn(method.body) }
+                    .filterNot { method -> GUARD_BEFORE_WRITE.containsMatchIn(method.body) }
+                    .filterNot { method -> AMBIENT_IDENTITY.containsMatchIn(method.body) }
+                    .map { "${file.name}:${it.line} ${it.name} writes unscoped with no guard" }
+            }
 
         if (offenders.isNotEmpty()) {
             fail(
@@ -158,19 +161,21 @@ class SyncedWriteEnqueuesTest {
         // enqueues the group and its released members.
         val applyHandlers = applyHandlerNames()
         val notSynced = NOT_SYNCED_WRITES.map { it.first }.toSet()
-        val offenders = repoImplFiles().flatMap { file ->
-            val source = file.readText()
-            if (!hasSyncDependency(source)) return@flatMap emptyList()
-            SourceScan.methods(source)
-                .filterNot { it.name in applyHandlers || it.name in notSynced }
-                .map { it to WRITES_ROW_IN_BODY.findAll(it.body).count() }
-                .filter { (_, writes) -> writes > 1 }
-                .filter { (method, writes) -> ENQUEUES_IN_BODY.findAll(method.body).count() < writes }
-                .map {
-                    "${file.name}:${it.first.line} ${it.first.name} writes ${it.second} rows " +
-                        "and enqueues fewer"
-                }
-        }
+        val offenders =
+            repoImplFiles().flatMap { file ->
+                val source = file.readText()
+                if (!hasSyncDependency(source)) return@flatMap emptyList()
+                SourceScan
+                    .methods(source)
+                    .filterNot { it.name in applyHandlers || it.name in notSynced }
+                    .map { it to WRITES_ROW_IN_BODY.findAll(it.body).count() }
+                    .filter { (_, writes) -> writes > 1 }
+                    .filter { (method, writes) -> ENQUEUES_IN_BODY.findAll(method.body).count() < writes }
+                    .map {
+                        "${file.name}:${it.first.line} ${it.first.name} writes ${it.second} rows " +
+                            "and enqueues fewer"
+                    }
+            }
 
         if (offenders.isNotEmpty()) {
             fail(
@@ -189,25 +194,25 @@ class SyncedWriteEnqueuesTest {
         // make them exempt. A rule whose exemption set is empty passes this test and then
         // fails every real apply handler, which is a loud failure; a rule whose exemption
         // set is too wide passes silently, which is not.
-        val derived = applyHandlerNamesIn(
-            """
-            class SyncDocumentWriter(private val taskRepo: TaskRepository) {
-                suspend fun upsert(type: DocType, document: JsonObject) {
-                    when (type) {
-                        DocType.Task -> taskRepo.upsert(decode(document))
-                        DocType.Note -> noteRepo.restore(decode(document))
+        val derived =
+            applyHandlerNamesIn(
+                """
+                class SyncDocumentWriter(private val taskRepo: TaskRepository) {
+                    suspend fun upsert(type: DocType, document: JsonObject) {
+                        when (type) {
+                            DocType.Task -> taskRepo.upsert(decode(document))
+                            DocType.Note -> noteRepo.restore(decode(document))
+                        }
                     }
                 }
-            }
-            """.trimIndent(),
-        )
+                """.trimIndent(),
+            )
         assertEquals2(setOf("upsert"), derived, "only repo.upsert( is a remote apply")
     }
 
     // ── source helpers (SourceScan.eliminated to eliminate) ──────────────────────
 
-    private fun repoImplFiles() =
-        SourceScan.productionFiles().filter { it.name.endsWith("RepositoryImpl.kt") }
+    private fun repoImplFiles() = SourceScan.productionFiles().filter { it.name.endsWith("RepositoryImpl.kt") }
 
     private fun applyHandlerNames(): Set<String> {
         val root = SourceScan.commonMainRoot()
@@ -223,7 +228,11 @@ class SyncedWriteEnqueuesTest {
     private fun hasSyncDependency(source: String): Boolean =
         Regex("""private val \w+\s*:\s*SyncRepository""").containsMatchIn(source)
 
-    private fun assertEquals2(expected: Set<String>, actual: Set<String>, message: String) {
+    private fun assertEquals2(
+        expected: Set<String>,
+        actual: Set<String>,
+        message: String,
+    ) {
         if (expected != actual) {
             fail("$message: expected <$expected> but was <$actual>")
         }
@@ -234,23 +243,26 @@ class SyncedWriteEnqueuesTest {
 
         val ENQUEUES_IN_BODY = Regex("""\.enqueue\(|enqueueFresh\(|enqueuePatch\(""")
 
-        val WRITES_ROW_IN_BODY = Regex(
-            """Dao\.(upsert|insert|update\w*|softDelete\w*|set\w*|patch\w*|delete\w*)\(""",
-        )
+        val WRITES_ROW_IN_BODY =
+            Regex(
+                """Dao\.(upsert|insert|update\w*|softDelete\w*|set\w*|patch\w*|delete\w*)\(""",
+            )
 
         /** A write that carries no owner: the row's identity comes from the entity. */
-        val UNSCOPED_WRITE = Regex(
-            """Dao\.(upsert|insert|patch)\(""",
-        )
+        val UNSCOPED_WRITE =
+            Regex(
+                """Dao\.(upsert|insert|patch)\(""",
+            )
 
         /**
          * The guard, *before* the write. Matched as a sequence rather than as a presence
          * check, because a guard after the write is the failure this exists to catch and
          * "contains assertCanWrite" cannot tell the two apart.
          */
-        val GUARD_BEFORE_WRITE = Regex(
-            """assertCanWrite\([\s\S]*?Dao\.(upsert|insert|patch)\(""",
-        )
+        val GUARD_BEFORE_WRITE =
+            Regex(
+                """assertCanWrite\([\s\S]*?Dao\.(upsert|insert|patch)\(""",
+            )
 
         /** Taking the owner from the ambient current user, which is a create by construction. */
         val AMBIENT_IDENTITY = Regex("""scopedUserId|currentUser""")
@@ -273,9 +285,10 @@ class SyncedWriteEnqueuesTest {
          * reason separated from its entry is a reason nobody reads when the entry is
          * questioned.
          */
-        val NOT_SYNCED_WRITES = setOf(
-            "saveOutgoingLinks" to
-                "tasks.outgoing_links is not in the allowlist; the note column is, and that one enqueues",
-        )
+        val NOT_SYNCED_WRITES =
+            setOf(
+                "saveOutgoingLinks" to
+                    "tasks.outgoing_links is not in the allowlist; the note column is, and that one enqueues",
+            )
     }
 }

@@ -59,7 +59,6 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * @see NoDirectDispatchersRuleProvider for registration.
  */
 class NoDirectDispatchersRule(config: Config) : Rule(config, "", null) {
-
     override fun visitDotQualifiedExpression(expression: KtDotQualifiedExpression) {
         super.visitDotQualifiedExpression(expression)
         checkExpression(expression)
@@ -68,12 +67,13 @@ class NoDirectDispatchersRule(config: Config) : Rule(config, "", null) {
     private fun checkExpression(expr: KtDotQualifiedExpression) {
         val receiver = expr.receiverExpression as? KtNameReferenceExpression
         val selector = expr.selectorExpression as? KtNameReferenceExpression
-        val message = NoDirectDispatchersPolicy.violation(
-            filePath = expr.containingKtFile.virtualFilePath,
-            receiver = receiver?.text,
-            selector = selector?.text,
-            limitedWrapper = isLimitedParallelismWrapper(expr),
-        ) ?: return
+        val message =
+            NoDirectDispatchersPolicy.violation(
+                filePath = expr.containingKtFile.virtualFilePath,
+                receiver = receiver?.text,
+                selector = selector?.text,
+                limitedWrapper = isLimitedParallelismWrapper(expr),
+            ) ?: return
         report(
             Finding(
                 entity = Entity.from(expr),
@@ -109,7 +109,6 @@ class NoDirectDispatchersRule(config: Config) : Rule(config, "", null) {
  * reason. Testing the policy directly is the only way to cover those branches.
  */
 internal object NoDirectDispatchersPolicy {
-
     private val BANNED_DISPATCHERS = setOf("IO", "Default", "Main")
 
     /**
@@ -129,10 +128,11 @@ internal object NoDirectDispatchersPolicy {
      * code match the documentation; the broad way — allowing `Dispatchers.Default` anywhere in
      * `core/coroutines` — would re-open the ban for every future file in that package.
      */
-    val ALLOWED_FILES = setOf(
-        "core/log/FileLogWriter.kt",
-        "core/coroutines/BackgroundScope.kt",
-    )
+    val ALLOWED_FILES =
+        setOf(
+            "core/log/FileLogWriter.kt",
+            "core/coroutines/BackgroundScope.kt",
+        )
 
     /** Kept as a named constant for the single-file case in existing callers and messages. */
     const val ALLOWED_FILE = "core/log/FileLogWriter.kt"
@@ -175,12 +175,14 @@ internal object NoDirectDispatchersPolicy {
  */
 class NoDirectDispatchersRuleProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-direct-dispatchers")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoDirectDispatchers") to { cfg: Config ->
-                NoDirectDispatchersRule(cfg)
-            },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoDirectDispatchers") to { cfg: Config ->
+                    NoDirectDispatchersRule(cfg)
+                },
+            ),
+        )
 }

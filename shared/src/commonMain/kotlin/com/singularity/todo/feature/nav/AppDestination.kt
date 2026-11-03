@@ -2,6 +2,7 @@ package com.singularity.todo.feature.nav
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BarChart
@@ -9,7 +10,6 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Event
-import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoveToInbox
 import androidx.compose.material.icons.filled.Person
@@ -18,8 +18,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.core.attachments.AttachmentId
+import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -340,9 +340,10 @@ sealed interface AppDestination : AppNavKey {
      */
     @Serializable
     data class CalendarGraph(
-        val start: CalendarStartRoute = CalendarStartRoute.Month(
-            systemToday().toString(),
-        ),
+        val start: CalendarStartRoute =
+            CalendarStartRoute.Month(
+                systemToday().toString(),
+            ),
     ) : RecordDestination {
         override val title = "Calendar"
     }
@@ -355,69 +356,75 @@ sealed interface AppDestination : AppNavKey {
     data class AgendaGraph(val start: AgendaStartRoute = AgendaStartRoute.Inbox) : RecordDestination {
         // Three of these are bottom-bar tabs and the shell renders `title`
         // directly as the tab label, so it has to vary by start route.
-        override val title: String = when (start) {
-            AgendaStartRoute.Inbox -> "Inbox"
-            AgendaStartRoute.Today -> "Today"
-            AgendaStartRoute.Upcoming -> "Upcoming"
-            is AgendaStartRoute.Project -> "Project"
-            is AgendaStartRoute.Tag -> "Tag"
-            is AgendaStartRoute.Tags -> "Tags"
-            AgendaStartRoute.SavedAgendaList -> "Saved views"
-            is AgendaStartRoute.SavedAgendaResults -> "Saved view"
-            is AgendaStartRoute.SavedAgendaEdit -> "Edit view"
-            AgendaStartRoute.SavedAgendaCreate -> "New view"
-            AgendaStartRoute.Blocked -> "Blocked"
-            AgendaStartRoute.Stagnant -> "Stagnant"
-            AgendaStartRoute.Overdue -> "Overdue"
-        }
+        override val title: String =
+            when (start) {
+                AgendaStartRoute.Inbox -> "Inbox"
+                AgendaStartRoute.Today -> "Today"
+                AgendaStartRoute.Upcoming -> "Upcoming"
+                is AgendaStartRoute.Project -> "Project"
+                is AgendaStartRoute.Tag -> "Tag"
+                is AgendaStartRoute.Tags -> "Tags"
+                AgendaStartRoute.SavedAgendaList -> "Saved views"
+                is AgendaStartRoute.SavedAgendaResults -> "Saved view"
+                is AgendaStartRoute.SavedAgendaEdit -> "Edit view"
+                AgendaStartRoute.SavedAgendaCreate -> "New view"
+                AgendaStartRoute.Blocked -> "Blocked"
+                AgendaStartRoute.Stagnant -> "Stagnant"
+                AgendaStartRoute.Overdue -> "Overdue"
+            }
     }
 }
 
 /** UI metadata for [AppDestination]. Kept separate so the route stays pure-data. */
 val AppDestination.icon: ImageVector
-    get() = when {
-        this is AppDestination.AgendaGraph -> when (this.start) {
-            AgendaStartRoute.Inbox -> Icons.Filled.MoveToInbox
-            AgendaStartRoute.Today -> Icons.Filled.Today
-            AgendaStartRoute.Upcoming -> Icons.Filled.Event
-            else -> Icons.Filled.Check
-        }
+    get() =
+        when {
+            this is AppDestination.AgendaGraph -> {
+                when (this.start) {
+                    AgendaStartRoute.Inbox -> Icons.Filled.MoveToInbox
+                    AgendaStartRoute.Today -> Icons.Filled.Today
+                    AgendaStartRoute.Upcoming -> Icons.Filled.Event
+                    else -> Icons.Filled.Check
+                }
+            }
 
-        else -> when (this) {
-            AppDestination.Plans -> Icons.AutoMirrored.Filled.Assignment
-            AppDestination.Pomodoro -> Icons.Filled.Repeat
-            AppDestination.Statistics -> Icons.Filled.BarChart
-            AppDestination.Calendar -> Icons.Filled.CalendarMonth
-            AppDestination.Notes -> Icons.Filled.Create
-            AppDestination.AiChat -> Icons.Filled.AutoAwesome
-            is AppDestination.AttachmentViewer -> Icons.Filled.AttachFile
-            AppDestination.Search -> Icons.Filled.Search
-            AppDestination.ExternalAgent -> Icons.Filled.AutoAwesome
-            AppDestination.Proposals -> Icons.AutoMirrored.Filled.FactCheck
-            AppDestination.Archive -> Icons.Filled.Check
-            AppDestination.Settings -> Icons.Filled.Settings
-            AppDestination.AiUsage -> Icons.Filled.BarChart
-            AppDestination.ProfileSwitcher -> Icons.Filled.Person
-            AppDestination.AttachAccount -> Icons.Filled.Person
-            AppDestination.ChangePassword -> Icons.Filled.Person
-            is AppDestination.MagicLinkConfirm -> Icons.Filled.Person
-            is AppDestination.TasksGraph -> Icons.Filled.Check
-            is AppDestination.TasksByProject -> Icons.Filled.Folder
-            is AppDestination.ProjectEditor -> Icons.Filled.Check
-            is AppDestination.ProjectDetail -> Icons.Filled.Check
-            is AppDestination.ProjectsGraph -> Icons.Filled.Check
-            is AppDestination.ProjectsStartRoute -> Icons.Filled.Check
-            is AppDestination.NotesGraph -> Icons.Filled.Create
-            is AppDestination.NotesStartRoute -> Icons.Filled.Create
-            is AppDestination.CalendarGraph -> Icons.Filled.CalendarMonth
-            is AppDestination.CalendarStartRoute -> Icons.Filled.CalendarMonth
-            is AgendaStartRoute -> Icons.Filled.Check
-            is AppDestination.TasksStartRoute -> Icons.Filled.Check
+            else -> {
+                when (this) {
+                    AppDestination.Plans -> Icons.AutoMirrored.Filled.Assignment
+                    AppDestination.Pomodoro -> Icons.Filled.Repeat
+                    AppDestination.Statistics -> Icons.Filled.BarChart
+                    AppDestination.Calendar -> Icons.Filled.CalendarMonth
+                    AppDestination.Notes -> Icons.Filled.Create
+                    AppDestination.AiChat -> Icons.Filled.AutoAwesome
+                    is AppDestination.AttachmentViewer -> Icons.Filled.AttachFile
+                    AppDestination.Search -> Icons.Filled.Search
+                    AppDestination.ExternalAgent -> Icons.Filled.AutoAwesome
+                    AppDestination.Proposals -> Icons.AutoMirrored.Filled.FactCheck
+                    AppDestination.Archive -> Icons.Filled.Check
+                    AppDestination.Settings -> Icons.Filled.Settings
+                    AppDestination.AiUsage -> Icons.Filled.BarChart
+                    AppDestination.ProfileSwitcher -> Icons.Filled.Person
+                    AppDestination.AttachAccount -> Icons.Filled.Person
+                    AppDestination.ChangePassword -> Icons.Filled.Person
+                    is AppDestination.MagicLinkConfirm -> Icons.Filled.Person
+                    is AppDestination.TasksGraph -> Icons.Filled.Check
+                    is AppDestination.TasksByProject -> Icons.Filled.Folder
+                    is AppDestination.ProjectEditor -> Icons.Filled.Check
+                    is AppDestination.ProjectDetail -> Icons.Filled.Check
+                    is AppDestination.ProjectsGraph -> Icons.Filled.Check
+                    is AppDestination.ProjectsStartRoute -> Icons.Filled.Check
+                    is AppDestination.NotesGraph -> Icons.Filled.Create
+                    is AppDestination.NotesStartRoute -> Icons.Filled.Create
+                    is AppDestination.CalendarGraph -> Icons.Filled.CalendarMonth
+                    is AppDestination.CalendarStartRoute -> Icons.Filled.CalendarMonth
+                    is AgendaStartRoute -> Icons.Filled.Check
+                    is AppDestination.TasksStartRoute -> Icons.Filled.Check
+                }
+            }
         }
-    }
 
 /** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */
-const val MenuButtonTitle = "Menu"
+const val MENU_BUTTON_TITLE = "Menu"
 
 /**
  * Pure helpers — no Compose runtime, no Android, no JVM.
@@ -434,27 +441,29 @@ object DestinationKind {
     fun isSubRoute(destination: AppDestination): Boolean = destination !in tabSet && destination !in menuSet
 
     /** Five bottom-bar tab destinations in display order. */
-    val tabs: List<AppDestination> = listOf(
-        AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
-        AppDestination.AgendaGraph(AgendaStartRoute.Today),
-        AppDestination.AgendaGraph(AgendaStartRoute.Upcoming),
-        AppDestination.Calendar,
-    )
+    val tabs: List<AppDestination> =
+        listOf(
+            AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
+            AppDestination.AgendaGraph(AgendaStartRoute.Today),
+            AppDestination.AgendaGraph(AgendaStartRoute.Upcoming),
+            AppDestination.Calendar,
+        )
 
     /** Menu destinations in display order. */
-    val menuEntries: List<AppDestination> = listOf(
-        AppDestination.Statistics,
-        AppDestination.Notes,
-        AppDestination.AiChat,
-        AppDestination.Proposals,
-        AppDestination.Search,
-        AppDestination.Archive,
-        AppDestination.Plans,
-        AppDestination.Pomodoro,
-        AppDestination.ProfileSwitcher,
-        AppDestination.Settings,
-        AppDestination.AiUsage,
-    )
+    val menuEntries: List<AppDestination> =
+        listOf(
+            AppDestination.Statistics,
+            AppDestination.Notes,
+            AppDestination.AiChat,
+            AppDestination.Proposals,
+            AppDestination.Search,
+            AppDestination.Archive,
+            AppDestination.Plans,
+            AppDestination.Pomodoro,
+            AppDestination.ProfileSwitcher,
+            AppDestination.Settings,
+            AppDestination.AiUsage,
+        )
 
     private val tabSet: Set<AppDestination> = tabs.toSet()
 

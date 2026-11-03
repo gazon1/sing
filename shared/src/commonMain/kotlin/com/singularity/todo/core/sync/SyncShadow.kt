@@ -73,12 +73,16 @@ data class SyncShadowEntity(
  */
 @Dao
 interface SyncShadowDao {
-
     @Query(
         "SELECT * FROM sync_shadow WHERE owner_id = :ownerId AND profile_id = :profileId " +
             "AND entity_type = :entityType AND entity_id = :entityId",
     )
-    suspend fun get(ownerId: String, profileId: String, entityType: String, entityId: String): SyncShadowEntity?
+    suspend fun get(
+        ownerId: String,
+        profileId: String,
+        entityType: String,
+        entityId: String,
+    ): SyncShadowEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: SyncShadowEntity)
@@ -159,7 +163,10 @@ interface SyncShadowDao {
     ): Int
 
     @Query("DELETE FROM sync_shadow WHERE owner_id = :ownerId AND profile_id = :profileId")
-    suspend fun clearScope(ownerId: String, profileId: String)
+    suspend fun clearScope(
+        ownerId: String,
+        profileId: String,
+    )
 
     /**
      * Drops an account's shadow rows across **every** profile it owns.

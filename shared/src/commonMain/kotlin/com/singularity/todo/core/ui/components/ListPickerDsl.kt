@@ -34,7 +34,6 @@ annotation class ListPickerDsl
  */
 @ListPickerDsl
 class ListPickerScope<T> internal constructor() {
-
     internal var items: ImmutableList<ListPickerItem<T>> = persistentListOf()
 
     internal var headerSlot: (@Composable ColumnScope.() -> Unit)? = null
@@ -75,22 +74,26 @@ class ListPickerScope<T> internal constructor() {
         enabled: Boolean = true,
         testTag: String? = null,
     ) {
-        val item = ListPickerItem(
-            key = key,
-            label = label,
-            subtitle = subtitle,
-            selected = selected,
-            enabled = enabled,
-            leading = leading,
-            testTag = testTag,
-        )
+        val item =
+            ListPickerItem(
+                key = key,
+                label = label,
+                subtitle = subtitle,
+                selected = selected,
+                enabled = enabled,
+                leading = leading,
+                testTag = testTag,
+            )
         items = (items + item).toImmutableList()
     }
 
     /**
      * Convenience overload with no subtitle or leading slot.
      */
-    fun item(label: String, key: T) {
+    fun item(
+        label: String,
+        key: T,
+    ) {
         item(label = label, key = key, subtitle = null, leading = {})
     }
 }

@@ -48,27 +48,27 @@ import org.junit.jupiter.api.Test
 @Tag("slow")
 @Tag("slow:compose")
 class AuthFirstRunScenarioTest {
-
     @Test
     @DisplayName("AUTH-FIRSTRUN-01 a task can be created with no account configured")
-    fun a_task_can_be_created_without_an_account() = runDesktopAppTest(checkA11y = true) {
-        val title = "No account needed"
+    fun a_task_can_be_created_without_an_account() =
+        runDesktopAppTest(checkA11y = true) {
+            val title = "No account needed"
 
-        clickContentDescription(DesktopShell.FAB_ADD_TASK)
-        typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, title)
-        clickTag(TestTags.TASK_EDITOR_SAVE)
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
+            typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, title)
+            clickTag(TestTags.TASK_EDITOR_SAVE)
 
-        // The row surviving a navigation away and back is the storage half of
-        // the claim: the scenario says the data is kept locally, and a task that
-        // only ever existed in the editor would satisfy nothing.
-        //
-        // **Inbox, not Today** — worth stating because it cost an iteration. A
-        // task saved from the composer has `dueDate = null`, and Today lists only
-        // what is due today; undated work lives in Inbox. The row is written
-        // either way — the failure bundle's DB snapshot showed it, with
-        // `userId=test-user` — so asserting on Today would test the agenda's
-        // filtering rule rather than this scenario.
-        tapTab("Inbox")
-        assertTagDisplayed(TestTags.taskItem(title))
-    }
+            // The row surviving a navigation away and back is the storage half of
+            // the claim: the scenario says the data is kept locally, and a task that
+            // only ever existed in the editor would satisfy nothing.
+            //
+            // **Inbox, not Today** — worth stating because it cost an iteration. A
+            // task saved from the composer has `dueDate = null`, and Today lists only
+            // what is due today; undated work lives in Inbox. The row is written
+            // either way — the failure bundle's DB snapshot showed it, with
+            // `userId=test-user` — so asserting on Today would test the agenda's
+            // filtering rule rather than this scenario.
+            tapTab("Inbox")
+            assertTagDisplayed(TestTags.taskItem(title))
+        }
 }

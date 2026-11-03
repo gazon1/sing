@@ -53,23 +53,26 @@ fun ChatInputBar(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         OutlinedTextField(
             state = state,
-            modifier = Modifier
-                .weight(1f)
-                .testTag(TestTags.CHAT_INPUT),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .testTag(TestTags.CHAT_INPUT),
             placeholder = { Text(placeholder) },
-            lineLimits = if (maxLines == 1) {
-                TextFieldLineLimits.SingleLine
-            } else {
-                TextFieldLineLimits.MultiLine(minHeightInLines = 1, maxHeightInLines = maxLines)
-            },
+            lineLimits =
+                if (maxLines == 1) {
+                    TextFieldLineLimits.SingleLine
+                } else {
+                    TextFieldLineLimits.MultiLine(minHeightInLines = 1, maxHeightInLines = maxLines)
+                },
             enabled = enabled,
         )
         if (onStop != null) {
@@ -88,28 +91,31 @@ fun ChatInputBar(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ChatInputBarLightPreview() = PreviewThemed(darkTheme = false) {
-    ChatInputBar(
-        state = rememberTextFieldState(),
-        onSend = {},
-    )
-}
+private fun ChatInputBarLightPreview() =
+    PreviewThemed(darkTheme = false) {
+        ChatInputBar(
+            state = rememberTextFieldState(),
+            onSend = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ChatInputBarWithTextDarkPreview() = PreviewThemed(darkTheme = true) {
-    ChatInputBar(
-        state = rememberTextFieldState("What should I work on today?"),
-        onSend = {},
-    )
-}
+private fun ChatInputBarWithTextDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        ChatInputBar(
+            state = rememberTextFieldState("What should I work on today?"),
+            onSend = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ChatInputBarDisabledPreview() = PreviewThemed(darkTheme = false) {
-    ChatInputBar(
-        state = rememberTextFieldState("Thinking..."),
-        onSend = {},
-        enabled = false,
-    )
-}
+private fun ChatInputBarDisabledPreview() =
+    PreviewThemed(darkTheme = false) {
+        ChatInputBar(
+            state = rememberTextFieldState("Thinking..."),
+            onSend = {},
+            enabled = false,
+        )
+    }

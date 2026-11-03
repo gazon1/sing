@@ -45,7 +45,6 @@ import kotlinx.coroutines.flow.Flow
  * can forget to ask for.
  */
 interface SearchTextIndex {
-
     /** The tasks whose title or description carry the word, and where they carry it. */
     fun observeTasks(query: TextMatchQuery): Flow<List<IndexedRecord<Task>>>
 
@@ -65,8 +64,14 @@ interface SearchTextIndex {
      * results, and a suggestion that is not the most recent is not a
      * suggestion.
      */
-    suspend fun recentTaskTitles(query: TextMatchQuery, limit: Int): List<Task>
+    suspend fun recentTaskTitles(
+        query: TextMatchQuery,
+        limit: Int,
+    ): List<Task>
 
     /** The notes whose title carries the word, most recently updated first. See [recentTaskTitles]. */
-    suspend fun recentNoteTitles(query: TextMatchQuery, limit: Int): List<Note>
+    suspend fun recentNoteTitles(
+        query: TextMatchQuery,
+        limit: Int,
+    ): List<Note>
 }

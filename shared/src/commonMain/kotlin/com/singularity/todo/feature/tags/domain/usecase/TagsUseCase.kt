@@ -10,21 +10,23 @@ import kotlin.time.Clock
 
 // Keep: has validation (require without throw) + clock + TagId generation
 class CreateTagUseCase(private val repo: TagsRepository, private val clock: Clock) {
-    suspend operator fun invoke(input: CreateTagInput): Result<TagId> = runCatchingResult {
-        TagDomain.validate(input.name, input.color)?.let { throw it }
-        val now = clock.now()
-        val tag = Tag(
-            id = TagId.generate(),
-            name = input.name.trim(),
-            color = input.color,
-            createdAt = now,
-            updatedAt = now,
-            userId = input.userId,
-            groupId = input.groupId,
-        )
-        repo.create(tag).getOrThrow()
-        tag.id
-    }
+    suspend operator fun invoke(input: CreateTagInput): Result<TagId> =
+        runCatchingResult {
+            TagDomain.validate(input.name, input.color)?.let { throw it }
+            val now = clock.now()
+            val tag =
+                Tag(
+                    id = TagId.generate(),
+                    name = input.name.trim(),
+                    color = input.color,
+                    createdAt = now,
+                    updatedAt = now,
+                    userId = input.userId,
+                    groupId = input.groupId,
+                )
+            repo.create(tag).getOrThrow()
+            tag.id
+        }
 }
 
 /**
@@ -36,8 +38,9 @@ class CreateTagUseCase(private val repo: TagsRepository, private val clock: Cloc
  * clock rather than accepted from the caller.
  */
 class UpdateTagUseCase(private val repo: TagsRepository, private val clock: Clock) {
-    suspend operator fun invoke(tag: Tag): Result<Unit> = runCatchingResult {
-        TagDomain.validate(tag.name, tag.color)?.let { throw it }
-        repo.update(tag.copy(name = tag.name.trim(), updatedAt = clock.now())).getOrThrow()
-    }
+    suspend operator fun invoke(tag: Tag): Result<Unit> =
+        runCatchingResult {
+            TagDomain.validate(tag.name, tag.color)?.let { throw it }
+            repo.update(tag.copy(name = tag.name.trim(), updatedAt = clock.now())).getOrThrow()
+        }
 }

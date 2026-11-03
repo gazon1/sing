@@ -25,19 +25,14 @@ import androidx.room3.Entity
 data class AgendaViewEntity(
     @ColumnInfo(name = "id")
     val id: String,
-
     @ColumnInfo(name = "user_id", index = true)
     val userId: String,
-
     @ColumnInfo(name = "name")
     val name: String,
-
     @ColumnInfo(name = "sections_json")
     val sectionsJson: String,
-
     @ColumnInfo(name = "created_at")
     val createdAt: Long,
-
     @ColumnInfo(name = "updated_at")
     val updatedAt: Long,
 )

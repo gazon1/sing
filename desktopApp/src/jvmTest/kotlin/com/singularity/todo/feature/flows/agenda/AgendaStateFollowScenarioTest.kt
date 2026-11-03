@@ -31,7 +31,6 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class AgendaStateFollowScenarioTest {
-
     @Test
     @DisplayName("AGENDA-STATE-02 a saved view follows a task after its state changes")
     fun a_saved_view_follows_a_task_after_its_state_changes() =

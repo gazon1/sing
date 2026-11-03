@@ -1,11 +1,11 @@
 package com.singularity.todo.mcp
 
-import java.io.ByteArrayOutputStream
-import java.io.PrintStream
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
 import org.junit.jupiter.api.parallel.Isolated
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
@@ -42,7 +42,6 @@ import kotlin.test.assertTrue
 @Isolated
 @Execution(ExecutionMode.SAME_THREAD)
 class ProtocolStdoutTest {
-
     @Test
     fun `the reserved stream is the one standard output was before the reservation`() {
         val realOut = System.out

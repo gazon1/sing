@@ -12,15 +12,17 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class AutoDiaryConcurrencyTest {
-
     @Test
-    fun `concurrent creates return the same note id`() = runTest {
-        val repo = FakeNotesRepository(clock = FakeClock())
-        val pid = ProjectId("p1")
-        val results = (1..10).map {
-            async { repo.getOrCreateDailyNote("2026-09-27", pid) }
-        }.awaitAll()
-        val ids = results.map { it.getOrThrow() }.toSet()
-        assertEquals(1, ids.size, "all concurrent creates must collapse to one note")
-    }
+    fun `concurrent creates return the same note id`() =
+        runTest {
+            val repo = FakeNotesRepository(clock = FakeClock())
+            val pid = ProjectId("p1")
+            val results =
+                (1..10)
+                    .map {
+                        async { repo.getOrCreateDailyNote("2026-09-27", pid) }
+                    }.awaitAll()
+            val ids = results.map { it.getOrThrow() }.toSet()
+            assertEquals(1, ids.size, "all concurrent creates must collapse to one note")
+        }
 }

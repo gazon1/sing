@@ -38,7 +38,6 @@ class AlarmManagerReminderScheduler(
     private val clock: Clock,
     private val reminderRepo: ReminderRepository,
 ) : ReminderScheduler {
-
     private val alarmManager: AlarmManager =
         context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
@@ -53,12 +52,20 @@ class AlarmManagerReminderScheduler(
         )
     }
 
-    override suspend fun cancel(id: ReminderId, userId: com.singularity.todo.core.ids.UserId) {
+    override suspend fun cancel(
+        id: ReminderId,
+        userId: com.singularity.todo.core.ids.UserId,
+    ) {
         alarmManager.cancel(buildPending(id, userId, includeExtras = false))
     }
 
-    override suspend fun cancelByTask(taskId: TaskId, userId: com.singularity.todo.core.ids.UserId) {
-        reminderRepo.watchByTask(taskId).first()
+    override suspend fun cancelByTask(
+        taskId: TaskId,
+        userId: com.singularity.todo.core.ids.UserId,
+    ) {
+        reminderRepo
+            .watchByTask(taskId)
+            .first()
             .filter { it.userId == userId }
             .forEach { cancel(it.id, it.userId) }
     }
@@ -73,17 +80,18 @@ class AlarmManagerReminderScheduler(
         userId: com.singularity.todo.core.ids.UserId,
         includeExtras: Boolean,
     ): PendingIntent {
-        val intent = Intent(context, AlarmReceiver::class.java).apply {
-            action = AlarmReceiver.ACTION_REMINDER_FIRE
-            // Data URI makes each reminder's PendingIntent unique even when the
-            // 32-bit request code (hashCode) collides, so a collision can no
-            // longer overwrite another reminder's alarm.
-            data = android.net.Uri.parse("reminder:${userId.value}:${id.value}")
-            if (includeExtras) {
-                putExtra(AlarmContract.EXTRA_REMINDER_ID, id.value)
-                putExtra(AlarmContract.EXTRA_USER_ID, userId.value)
+        val intent =
+            Intent(context, AlarmReceiver::class.java).apply {
+                action = AlarmReceiver.ACTION_REMINDER_FIRE
+                // Data URI makes each reminder's PendingIntent unique even when the
+                // 32-bit request code (hashCode) collides, so a collision can no
+                // longer overwrite another reminder's alarm.
+                data = android.net.Uri.parse("reminder:${userId.value}:${id.value}")
+                if (includeExtras) {
+                    putExtra(AlarmContract.EXTRA_REMINDER_ID, id.value)
+                    putExtra(AlarmContract.EXTRA_USER_ID, userId.value)
+                }
             }
-        }
         return PendingIntent.getBroadcast(
             context,
             AlarmContract.tagFor(userId, id).hashCode(),

@@ -285,11 +285,21 @@ class PrePushDeclarationTest(unittest.TestCase):
         CI runs them either way. A rule that cannot run must not become a
         reason a push cannot happen — so the rule is skipped, and the hook
         says that it was skipped.
+
+        The rules are the ones the declaration names as tree rules, not every
+        step that happens to run a script out of the tree: a step that runs
+        without the gate CLI — the formatting check, which needs no click —
+        is not a rule the missing CLI can stop, and asking it to carry the
+        guard would make a machine without click skip a check that would have
+        run.
         """
         declaration = self._declaration()
+        tree_rule_scripts = {
+            f'scripts/{rule}.py' for rule in declaration.PRE_PUSH_TREE_RULES
+        }
         tree_rules = [
             step for step in declaration.PRE_PUSH_STEPS
-            if step.label.endswith('gate') and step.when.startswith('if-script')
+            if step.script in tree_rule_scripts and 'if-script' in step.when
         ]
         self.assertTrue(tree_rules, 'the declaration has no tree rules')
         for step in tree_rules:

@@ -125,7 +125,10 @@ class DevAuthRepository private constructor(initialSession: Session) : AuthRepos
         return Result.success(Unit)
     }
 
-    override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> {
+    override suspend fun verifyMagicLink(
+        email: String,
+        token: String,
+    ): Result<Unit> {
         // DevAuthRepository: no network, always succeeds.
         return Result.success(Unit)
     }

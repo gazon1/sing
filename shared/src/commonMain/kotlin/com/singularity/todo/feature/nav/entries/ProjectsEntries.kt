@@ -19,7 +19,10 @@ import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavGraph
  * @param nav the outer navigation callbacks.
  * @param stacks the stacks the platform hoists.
  */
-fun EntryProviderScope<AppDestination>.projectsEntries(nav: NavCallbacks, stacks: AppNavStacks) {
+fun EntryProviderScope<AppDestination>.projectsEntries(
+    nav: NavCallbacks,
+    stacks: AppNavStacks,
+) {
     entry<AppDestination.ProjectEditor>(clazzContentKey = { it.stableContentKey() }) { route ->
         ProjectsNavGraph(
             start = ProjectsRoute.Editor(route.projectId),

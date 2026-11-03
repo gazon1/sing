@@ -62,166 +62,183 @@ import kotlin.time.Clock
  */
 @Tag("fast")
 class WriteToolsReportTheWriteTheyDidNotPerformTest {
-
     private val clock: Clock = Clock.System
     private val userId = UserId("test-user")
     private val boom = IllegalStateException("the write did not happen")
-    private val profileAwareUser = FakeProfileAwareCurrentUser(
-        authRepository = FakeAuthRepository(initialSession = Session.Anonymous(userId)),
-    )
+    private val profileAwareUser =
+        FakeProfileAwareCurrentUser(
+            authRepository = FakeAuthRepository(initialSession = Session.Anonymous(userId)),
+        )
 
     // ─── Create ────────────────────────────────────────────────────────────────
 
     @Test
-    fun `CreateNoteTool does not report a proposal it failed to store`() = runTest {
-        val repo = FakeProposalRepository(clock)
-        repo.saveOverride = Result.failure(boom)
-        val notes = FakeNotesRepository(currentUser = profileAwareUser)
+    fun `CreateNoteTool does not report a proposal it failed to store`() =
+        runTest {
+            val repo = FakeProposalRepository(clock)
+            repo.saveOverride = Result.failure(boom)
+            val notes = FakeNotesRepository(currentUser = profileAwareUser)
 
-        val output = ToolOutputJson.decodeFromString(
-            CreateNoteOutput.serializer(),
-            CreateNoteTool(repo, profileAwareUser, clock).execute(CreateNoteInput(title = "Ghost")),
-        )
+            val output =
+                ToolOutputJson.decodeFromString(
+                    CreateNoteOutput.serializer(),
+                    CreateNoteTool(repo, profileAwareUser, clock).execute(CreateNoteInput(title = "Ghost")),
+                )
 
-        assertFalse(output.proposalCreated, "the tool says it did not propose")
-        assertNotNull(output.error, "the tool says why")
-        assertTrue(notes.notes.isEmpty(), "nothing was created")
-    }
-
-    @Test
-    fun `CreateProjectTool does not report a proposal it failed to store`() = runTest {
-        val repo = FakeProposalRepository(clock)
-        repo.saveOverride = Result.failure(boom)
-        val projects = FakeProjectsRepository(currentUser = profileAwareUser)
-
-        val output = ToolOutputJson.decodeFromString(
-            CreateProjectOutput.serializer(),
-            CreateProjectTool(repo, profileAwareUser, clock).execute(CreateProjectInput(name = "Ghost")),
-        )
-
-        assertFalse(output.proposalCreated, "the tool says it did not propose")
-        assertNotNull(output.error, "the tool says why")
-        assertTrue(projects.observeAll().first().isEmpty(), "nothing was created")
-    }
+            assertFalse(output.proposalCreated, "the tool says it did not propose")
+            assertNotNull(output.error, "the tool says why")
+            assertTrue(notes.notes.isEmpty(), "nothing was created")
+        }
 
     @Test
-    fun `CreateTagTool does not report a proposal it failed to store`() = runTest {
-        val repo = FakeProposalRepository(clock)
-        repo.saveOverride = Result.failure(boom)
-        val tags = FakeTagsRepository(currentUser = profileAwareUser)
+    fun `CreateProjectTool does not report a proposal it failed to store`() =
+        runTest {
+            val repo = FakeProposalRepository(clock)
+            repo.saveOverride = Result.failure(boom)
+            val projects = FakeProjectsRepository(currentUser = profileAwareUser)
 
-        val output = ToolOutputJson.decodeFromString(
-            CreateTagOutput.serializer(),
-            CreateTagTool(repo, profileAwareUser, clock).execute(CreateTagInput(name = "Ghost")),
-        )
+            val output =
+                ToolOutputJson.decodeFromString(
+                    CreateProjectOutput.serializer(),
+                    CreateProjectTool(repo, profileAwareUser, clock).execute(CreateProjectInput(name = "Ghost")),
+                )
 
-        assertFalse(output.proposalCreated, "the tool says it did not propose")
-        assertNotNull(output.error, "the tool says why")
-        assertTrue(tags.observeAll().first().isEmpty(), "nothing was created")
-    }
+            assertFalse(output.proposalCreated, "the tool says it did not propose")
+            assertNotNull(output.error, "the tool says why")
+            assertTrue(projects.observeAll().first().isEmpty(), "nothing was created")
+        }
 
     @Test
-    fun `CreateTaskTool does not report a proposal it failed to store`() = runTest {
-        val repo = FakeProposalRepository(clock)
-        repo.saveOverride = Result.failure(boom)
-        val tasks = FakeTaskRepository(explicitCurrentUser = profileAwareUser)
+    fun `CreateTagTool does not report a proposal it failed to store`() =
+        runTest {
+            val repo = FakeProposalRepository(clock)
+            repo.saveOverride = Result.failure(boom)
+            val tags = FakeTagsRepository(currentUser = profileAwareUser)
 
-        val output = ToolOutputJson.decodeFromString(
-            CreateTaskOutput.serializer(),
-            CreateTaskTool(repo, profileAwareUser, clock).execute(CreateTaskInput(title = "Ghost")),
-        )
+            val output =
+                ToolOutputJson.decodeFromString(
+                    CreateTagOutput.serializer(),
+                    CreateTagTool(repo, profileAwareUser, clock).execute(CreateTagInput(name = "Ghost")),
+                )
 
-        assertFalse(output.proposalCreated, "the tool says it did not propose")
-        assertNotNull(output.error, "the tool says why")
-        assertTrue(tasks.tasks.value.isEmpty(), "nothing was created")
-    }
+            assertFalse(output.proposalCreated, "the tool says it did not propose")
+            assertNotNull(output.error, "the tool says why")
+            assertTrue(tags.observeAll().first().isEmpty(), "nothing was created")
+        }
+
+    @Test
+    fun `CreateTaskTool does not report a proposal it failed to store`() =
+        runTest {
+            val repo = FakeProposalRepository(clock)
+            repo.saveOverride = Result.failure(boom)
+            val tasks = FakeTaskRepository(explicitCurrentUser = profileAwareUser)
+
+            val output =
+                ToolOutputJson.decodeFromString(
+                    CreateTaskOutput.serializer(),
+                    CreateTaskTool(repo, profileAwareUser, clock).execute(CreateTaskInput(title = "Ghost")),
+                )
+
+            assertFalse(output.proposalCreated, "the tool says it did not propose")
+            assertNotNull(output.error, "the tool says why")
+            assertTrue(tasks.tasks.value.isEmpty(), "nothing was created")
+        }
 
     // ─── Update ────────────────────────────────────────────────────────────────
 
     @Test
-    fun `UpdateNoteTool does not report a proposal it failed to store`() = runTest {
-        val repo = FakeNotesRepository(currentUser = profileAwareUser)
-        val existing = note()
-        repo.seed(existing)
-        val proposals = FakeProposalRepository(clock)
-        proposals.saveOverride = Result.failure(boom)
+    fun `UpdateNoteTool does not report a proposal it failed to store`() =
+        runTest {
+            val repo = FakeNotesRepository(currentUser = profileAwareUser)
+            val existing = note()
+            repo.seed(existing)
+            val proposals = FakeProposalRepository(clock)
+            proposals.saveOverride = Result.failure(boom)
 
-        val output = ToolOutputJson.decodeFromString(
-            UpdateNoteOutput.serializer(),
-            UpdateNoteTool(proposals, repo, profileAwareUser, clock)
-                .execute(UpdateNoteInput(noteId = existing.id.value, title = "Renamed")),
-        )
+            val output =
+                ToolOutputJson.decodeFromString(
+                    UpdateNoteOutput.serializer(),
+                    UpdateNoteTool(proposals, repo, profileAwareUser, clock)
+                        .execute(UpdateNoteInput(noteId = existing.id.value, title = "Renamed")),
+                )
 
-        assertFalse(output.proposalCreated, "the tool says it did not propose")
-        assertNotNull(output.error, "the tool says why")
-        assertEquals("Existing", repo.notes[existing.id.value]?.title)
-    }
-
-    @Test
-    fun `UpdateProjectTool does not report a proposal it failed to store`() = runTest {
-        val repo = FakeProjectsRepository(currentUser = profileAwareUser)
-        val existing = project()
-        repo.seed(existing)
-        val proposals = FakeProposalRepository(clock)
-        proposals.saveOverride = Result.failure(boom)
-
-        val output = ToolOutputJson.decodeFromString(
-            UpdateProjectOutput.serializer(),
-            UpdateProjectTool(proposals, repo, profileAwareUser, clock)
-                .execute(UpdateProjectInput(projectId = existing.id.value, name = "Renamed")),
-        )
-
-        assertFalse(output.proposalCreated, "the tool says it did not propose")
-        assertNotNull(output.error, "the tool says why")
-        assertEquals("Existing", repo.get(existing.id)?.name)
-    }
+            assertFalse(output.proposalCreated, "the tool says it did not propose")
+            assertNotNull(output.error, "the tool says why")
+            assertEquals("Existing", repo.notes[existing.id.value]?.title)
+        }
 
     @Test
-    fun `UpdateTaskTool does not report a proposal it failed to store`() = runTest {
-        val repo = FakeTaskRepository(explicitCurrentUser = profileAwareUser)
-        val existing = task()
-        repo.seed(existing)
-        val proposals = FakeProposalRepository(clock)
-        proposals.saveOverride = Result.failure(boom)
+    fun `UpdateProjectTool does not report a proposal it failed to store`() =
+        runTest {
+            val repo = FakeProjectsRepository(currentUser = profileAwareUser)
+            val existing = project()
+            repo.seed(existing)
+            val proposals = FakeProposalRepository(clock)
+            proposals.saveOverride = Result.failure(boom)
 
-        val output = ToolOutputJson.decodeFromString(
-            UpdateTaskOutput.serializer(),
-            UpdateTaskTool(proposals, repo, profileAwareUser, clock)
-                .execute(UpdateTaskInput(taskId = existing.id.value, title = "Renamed")),
-        )
+            val output =
+                ToolOutputJson.decodeFromString(
+                    UpdateProjectOutput.serializer(),
+                    UpdateProjectTool(proposals, repo, profileAwareUser, clock)
+                        .execute(UpdateProjectInput(projectId = existing.id.value, name = "Renamed")),
+                )
 
-        assertFalse(output.proposalCreated, "the tool says it did not propose")
-        assertNotNull(output.error, "the tool says why")
-        assertEquals("Existing", repo.tasks.value[existing.id.value]?.title)
-    }
+            assertFalse(output.proposalCreated, "the tool says it did not propose")
+            assertNotNull(output.error, "the tool says why")
+            assertEquals("Existing", repo.get(existing.id)?.name)
+        }
+
+    @Test
+    fun `UpdateTaskTool does not report a proposal it failed to store`() =
+        runTest {
+            val repo = FakeTaskRepository(explicitCurrentUser = profileAwareUser)
+            val existing = task()
+            repo.seed(existing)
+            val proposals = FakeProposalRepository(clock)
+            proposals.saveOverride = Result.failure(boom)
+
+            val output =
+                ToolOutputJson.decodeFromString(
+                    UpdateTaskOutput.serializer(),
+                    UpdateTaskTool(proposals, repo, profileAwareUser, clock)
+                        .execute(UpdateTaskInput(taskId = existing.id.value, title = "Renamed")),
+                )
+
+            assertFalse(output.proposalCreated, "the tool says it did not propose")
+            assertNotNull(output.error, "the tool says why")
+            assertEquals("Existing", repo.tasks.value[existing.id.value]?.title)
+        }
 
     // ── Fixtures ──────────────────────────────────────────────────────────────
 
-    private fun note() = Note(
-        id = NoteId.generate(),
-        userId = userId,
-        title = "Existing",
-        createdAt = clock.now(),
-        updatedAt = clock.now(),
-    )
+    private fun note() =
+        Note(
+            id = NoteId.generate(),
+            userId = userId,
+            title = "Existing",
+            createdAt = clock.now(),
+            updatedAt = clock.now(),
+        )
 
-    private fun project() = Project(
-        id = ProjectId.generate(),
-        name = "Existing",
-        color = 0,
-        createdAt = clock.now(),
-        updatedAt = clock.now(),
-        userId = userId,
-    )
+    private fun project() =
+        Project(
+            id = ProjectId.generate(),
+            name = "Existing",
+            color = 0,
+            createdAt = clock.now(),
+            updatedAt = clock.now(),
+            userId = userId,
+        )
 
-    private fun task() = Task(
-        id = TaskId.generate(),
-        title = "Existing",
-        priority = TaskPriority.Medium,
-        kind = TaskKind.Task,
-        tags = emptyList(),
-        createdAt = clock.now(),
-        updatedAt = clock.now(),
-        userId = userId,
-    )
+    private fun task() =
+        Task(
+            id = TaskId.generate(),
+            title = "Existing",
+            priority = TaskPriority.Medium,
+            kind = TaskKind.Task,
+            tags = emptyList(),
+            createdAt = clock.now(),
+            updatedAt = clock.now(),
+            userId = userId,
+        )
 }

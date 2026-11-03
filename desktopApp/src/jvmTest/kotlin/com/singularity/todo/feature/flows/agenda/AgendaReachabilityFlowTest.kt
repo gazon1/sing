@@ -4,8 +4,8 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
-import kotlin.test.Test
 import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Verifies all desktop shell tabs are reachable and switch correctly.
@@ -21,58 +21,64 @@ import org.junit.jupiter.api.Tag
 @Tag("slow:compose")
 @OptIn(ExperimentalTestApi::class)
 class AgendaReachabilityFlowTest {
+    @Test
+    fun inbox_tab_is_reachable() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Inbox")
+            assertCurrentTab("Inbox")
+        }
 
     @Test
-    fun inbox_tab_is_reachable() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Inbox")
-        assertCurrentTab("Inbox")
-    }
+    fun today_tab_is_reachable() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Today")
+            assertCurrentTab("Today")
+        }
 
     @Test
-    fun today_tab_is_reachable() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Today")
-        assertCurrentTab("Today")
-    }
+    fun upcoming_tab_is_reachable() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Upcoming")
+            assertCurrentTab("Upcoming")
+        }
 
     @Test
-    fun upcoming_tab_is_reachable() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Upcoming")
-        assertCurrentTab("Upcoming")
-    }
+    fun plans_tab_is_reachable() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Plans")
+            assertCurrentTab("Plans")
+        }
 
     @Test
-    fun plans_tab_is_reachable() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Plans")
-        assertCurrentTab("Plans")
-    }
+    fun pomodoro_tab_is_reachable() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Pomodoro")
+            assertCurrentTab("Pomodoro")
+        }
 
     @Test
-    fun pomodoro_tab_is_reachable() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Pomodoro")
-        assertCurrentTab("Pomodoro")
-    }
+    fun calendar_tab_is_reachable() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Calendar")
+            assertCurrentTab("Calendar")
+        }
 
     @Test
-    fun calendar_tab_is_reachable() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Calendar")
-        assertCurrentTab("Calendar")
-    }
+    fun switching_tabs_transitions_cleanly() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Inbox")
+            assertCurrentTab("Inbox")
 
-    @Test
-    fun switching_tabs_transitions_cleanly() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Inbox")
-        assertCurrentTab("Inbox")
+            tapTab("Today")
+            assertCurrentTab("Today")
 
-        tapTab("Today")
-        assertCurrentTab("Today")
+            tapTab("Upcoming")
+            assertCurrentTab("Upcoming")
 
-        tapTab("Upcoming")
-        assertCurrentTab("Upcoming")
+            tapTab("Calendar")
+            assertCurrentTab("Calendar")
 
-        tapTab("Calendar")
-        assertCurrentTab("Calendar")
-
-        tapTab("Inbox")
-        assertCurrentTab("Inbox")
-    }
+            tapTab("Inbox")
+            assertCurrentTab("Inbox")
+        }
 }

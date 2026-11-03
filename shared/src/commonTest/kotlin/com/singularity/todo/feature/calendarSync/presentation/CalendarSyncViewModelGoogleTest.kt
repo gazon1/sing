@@ -18,7 +18,6 @@ import com.singularity.todo.feature.calendarSync.domain.model.GoogleCalendarSumm
 import com.singularity.todo.feature.calendarSync.domain.model.GoogleEvent
 import com.singularity.todo.feature.calendarSync.domain.model.GoogleEventId
 import com.singularity.todo.feature.calendarSync.domain.model.ImportWindow
-import kotlin.time.Duration.Companion.days
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarAppQueries
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarEventSource
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPort
@@ -30,8 +29,8 @@ import com.singularity.todo.feature.calendarSync.sync.GoogleSyncCoordinator
 import com.singularity.todo.feature.calendarSync.sync.GoogleSyncEngine
 import com.singularity.todo.feature.calendarSync.sync.GoogleSyncPass
 import com.singularity.todo.feature.calendarSync.work.CalendarSyncWorkScheduler
-import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeGoogleAuthorizer
+import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.helpers.awaitState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -44,10 +43,11 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
 
 /**
  * The Google half of the calendar-sync screen, and the three answers a pass can give.
@@ -69,13 +69,13 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class CalendarSyncViewModelGoogleTest {
-
     private object FakeAppQueries : CalendarAppQueries {
         override suspend fun listInstalled(): List<CalendarAppInfo> = emptyList()
     }
 
     private object FakeScheduler : CalendarSyncWorkScheduler {
         override fun enqueueSync() = Unit
+
         override fun cancelSync() = Unit
     }
 
@@ -87,8 +87,10 @@ class CalendarSyncViewModelGoogleTest {
         override suspend fun insertEvent(event: CalendarSyncEvent): Result<Long> =
             Result.failure(UnsupportedOperationException("not used by this test"))
 
-        override suspend fun updateEvent(eventId: Long, event: CalendarSyncEvent): Result<Long> =
-            Result.failure(UnsupportedOperationException("not used by this test"))
+        override suspend fun updateEvent(
+            eventId: Long,
+            event: CalendarSyncEvent,
+        ): Result<Long> = Result.failure(UnsupportedOperationException("not used by this test"))
 
         override suspend fun deleteEvent(eventId: Long): Result<Unit> =
             Result.failure(UnsupportedOperationException("not used by this test"))
@@ -97,29 +99,41 @@ class CalendarSyncViewModelGoogleTest {
             calendarId: String?,
             fromMs: Long,
             toMs: Long,
-        ): Result<Map<String, Long>> =
-            Result.failure(UnsupportedOperationException("not used by this test"))
+        ): Result<Map<String, Long>> = Result.failure(UnsupportedOperationException("not used by this test"))
     }
 
     private class FakeSyncRepo : CalendarSyncRepository {
         override fun observeEnabled(): Flow<Boolean> = flowOf(false)
+
         override suspend fun setEnabled(enabled: Boolean) = Unit
+
         override fun observeTargetCalendarId(): Flow<String?> = flowOf(null)
+
         override suspend fun setTargetCalendarId(calendarId: String) = Unit
+
         override fun observeLastSyncedAt(): Flow<Long?> = flowOf(null)
+
         override suspend fun setLastSyncedAt(ts: Long) = Unit
+
         override fun observeStatus(): Flow<CalendarSyncStatus> = flowOf(CalendarSyncStatus.Disabled)
+
         override suspend fun setStatus(status: CalendarSyncStatus) = Unit
+
         override fun observeTargetAppPackage(): Flow<String?> = flowOf(null)
+
         override suspend fun setTargetAppPackage(packageName: String?) = Unit
     }
 
-    private fun settings(calendarId: String?) = object : GoogleCalendarSettingsRepository {
-        override fun observeSelectedCalendarId(): Flow<String?> = flowOf(calendarId)
-        override suspend fun setSelectedCalendarId(calendarId: String?) = Unit
-        override fun observeImportForeignEvents(): Flow<Boolean> = flowOf(false)
-        override suspend fun setImportForeignEvents(enabled: Boolean) = Unit
-    }
+    private fun settings(calendarId: String?) =
+        object : GoogleCalendarSettingsRepository {
+            override fun observeSelectedCalendarId(): Flow<String?> = flowOf(calendarId)
+
+            override suspend fun setSelectedCalendarId(calendarId: String?) = Unit
+
+            override fun observeImportForeignEvents(): Flow<Boolean> = flowOf(false)
+
+            override suspend fun setImportForeignEvents(enabled: Boolean) = Unit
+        }
 
 /**
      * A credential store that can lose its grant.
@@ -135,7 +149,10 @@ class CalendarSyncViewModelGoogleTest {
         override suspend fun load(userId: String): GoogleCredentials? =
             if (present) GoogleCredentials("access", "refresh", Long.MAX_VALUE) else null
 
-        override suspend fun save(userId: String, credentials: GoogleCredentials) {
+        override suspend fun save(
+            userId: String,
+            credentials: GoogleCredentials,
+        ) {
             present = true
         }
 
@@ -149,21 +166,38 @@ class CalendarSyncViewModelGoogleTest {
         }
     }
 
-    private val anonymousAuth = object : AuthRepository {
-        override val currentSession: StateFlow<Session> =
-            MutableStateFlow(Session.Anonymous(UserId("user-1")))
-        override val isLoading: StateFlow<Boolean> = MutableStateFlow(false)
-        override suspend fun signUp(email: String, password: String): Result<Unit> = unsupported()
-        override suspend fun signIn(email: String, password: String): Result<Unit> = unsupported()
-        override suspend fun startLocalSession(): Result<Unit> = unsupported()
-        override suspend fun signOut(): Result<Unit> = unsupported()
-        override suspend fun updatePassword(newPassword: String): Result<Unit> = unsupported()
-        override suspend fun sendMagicLink(email: String): Result<Unit> = unsupported()
-        override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> = unsupported()
+    private val anonymousAuth =
+        object : AuthRepository {
+            override val currentSession: StateFlow<Session> =
+                MutableStateFlow(Session.Anonymous(UserId("user-1")))
+            override val isLoading: StateFlow<Boolean> = MutableStateFlow(false)
 
-        private fun unsupported(): Result<Unit> =
-            Result.failure(UnsupportedOperationException("no auth flow is exercised by this test"))
-    }
+            override suspend fun signUp(
+                email: String,
+                password: String,
+            ): Result<Unit> = unsupported()
+
+            override suspend fun signIn(
+                email: String,
+                password: String,
+            ): Result<Unit> = unsupported()
+
+            override suspend fun startLocalSession(): Result<Unit> = unsupported()
+
+            override suspend fun signOut(): Result<Unit> = unsupported()
+
+            override suspend fun updatePassword(newPassword: String): Result<Unit> = unsupported()
+
+            override suspend fun sendMagicLink(email: String): Result<Unit> = unsupported()
+
+            override suspend fun verifyMagicLink(
+                email: String,
+                token: String,
+            ): Result<Unit> = unsupported()
+
+            private fun unsupported(): Result<Unit> =
+                Result.failure(UnsupportedOperationException("no auth flow is exercised by this test"))
+        }
 
     /**
      * A calendar list that succeeds with nothing in it.
@@ -173,26 +207,38 @@ class CalendarSyncViewModelGoogleTest {
      * under test, and the failure then reads as "the Google sync tests are broken" instead of
      * "the test double was wrong".
      */
-    private fun emptyEventSource() = object : CalendarEventSource {
-        override suspend fun listCalendars(): List<GoogleCalendarSummary> = emptyList()
+    private fun emptyEventSource() =
+        object : CalendarEventSource {
+            override suspend fun listCalendars(): List<GoogleCalendarSummary> = emptyList()
 
-        override suspend fun fetchChanges(calendarId: String, syncToken: String?) =
-            ChangePage(events = emptyList(), nextSyncToken = null)
+            override suspend fun fetchChanges(
+                calendarId: String,
+                syncToken: String?,
+            ) = ChangePage(events = emptyList(), nextSyncToken = null)
 
-        override suspend fun insert(calendarId: String, event: GoogleEvent) = event
+            override suspend fun insert(
+                calendarId: String,
+                event: GoogleEvent,
+            ) = event
 
-        override suspend fun patch(
-            calendarId: String,
-            eventId: GoogleEventId,
-            etag: String?,
-            event: GoogleEvent,
-        ) = event
+            override suspend fun patch(
+                calendarId: String,
+                eventId: GoogleEventId,
+                etag: String?,
+                event: GoogleEvent,
+            ) = event
 
-        override suspend fun get(calendarId: String, eventId: GoogleEventId) =
-            error("no test reads a single Google event")
+            override suspend fun get(
+                calendarId: String,
+                eventId: GoogleEventId,
+            ) = error("no test reads a single Google event")
 
-        override suspend fun cancel(calendarId: String, eventId: GoogleEventId, etag: String?) = Unit
-    }
+            override suspend fun cancel(
+                calendarId: String,
+                eventId: GoogleEventId,
+                etag: String?,
+            ) = Unit
+        }
 
     /**
      * Builds a VM whose Google half is fully connected, so the only thing under test is what
@@ -213,36 +259,39 @@ class CalendarSyncViewModelGoogleTest {
         val vmScope = testScope(scope)
         // One store, shared: the ViewModel and the coordinator must see the same grant, or
         // the test is asserting two fakes rather than one scenario.
-        val coordinator = GoogleSyncCoordinator(
-            engineProvider = { pass },
-            googleSettings = settings(selectedCalendarId),
-            credentialStore = store,
-            currentUser = UserId("user-1"),
-            clock = kotlin.time.Clock.System,
-        )
-        val vm = CalendarSyncViewModel(
-            syncRepo = FakeSyncRepo(),
-            calendarProvider = UnsupportedProvider,
-            scheduler = FakeScheduler,
-            appQueries = FakeAppQueries,
-            orchestrator = CalendarSyncOrchestrator(
+        val coordinator =
+            GoogleSyncCoordinator(
+                engineProvider = { pass },
+                googleSettings = settings(selectedCalendarId),
+                credentialStore = store,
+                currentUser = UserId("user-1"),
+                clock = kotlin.time.Clock.System,
+            )
+        val vm =
+            CalendarSyncViewModel(
+                syncRepo = FakeSyncRepo(),
+                calendarProvider = UnsupportedProvider,
                 scheduler = FakeScheduler,
-                scope = scope,
-                dirtyHashProvider = DirtyHashProvider(FakeTaskRepository(), FakeSyncRepo()),
+                appQueries = FakeAppQueries,
+                orchestrator =
+                    CalendarSyncOrchestrator(
+                        scheduler = FakeScheduler,
+                        scope = scope,
+                        dirtyHashProvider = DirtyHashProvider(FakeTaskRepository(), FakeSyncRepo()),
+                        crashReporter = NoOpCrashReportingPort(),
+                    ),
+                googleSettings = settings(selectedCalendarId),
+                credentialStore = store,
+                // vmScope, not `scope`: CurrentUser collects its session flow forever in init, so
+                // a scope the test does not close leaves a child job and runTest times out.
+                currentUser = CurrentUser(anonymousAuth, vmScope),
+                eventSource = { emptyEventSource() },
+                googleSync = coordinator,
+                importWindow = importWindow,
+                googleAuthorization = googleAuthorization,
                 crashReporter = NoOpCrashReportingPort(),
-            ),
-            googleSettings = settings(selectedCalendarId),
-            credentialStore = store,
-            // vmScope, not `scope`: CurrentUser collects its session flow forever in init, so
-            // a scope the test does not close leaves a child job and runTest times out.
-            currentUser = CurrentUser(anonymousAuth, vmScope),
-            eventSource = { emptyEventSource() },
-            googleSync = coordinator,
-            importWindow = importWindow,
-            googleAuthorization = googleAuthorization,
-            crashReporter = NoOpCrashReportingPort(),
-            scope = vmScope,
-        )
+                scope = vmScope,
+            )
         return Triple(vm, vmScope, store)
     }
 
@@ -259,69 +308,74 @@ class CalendarSyncViewModelGoogleTest {
 
     /** The routing defect: the Google intent must reach the *Google* pass. */
     @Test
-    fun `the Google Sync Now button runs a Google pass`() = runTest {
-        var runs = 0
-        val (vm, vmScope, _) = viewModel(
-            GoogleSyncPass {
-                runs++
-                GoogleSyncEngine.PassResult(seen = 2)
-            },
-            this,
-        )
-        try {
-            ready(vm)
+    fun `the Google Sync Now button runs a Google pass`() =
+        runTest {
+            var runs = 0
+            val (vm, vmScope, _) =
+                viewModel(
+                    GoogleSyncPass {
+                        runs++
+                        GoogleSyncEngine.PassResult(seen = 2)
+                    },
+                    this,
+                )
+            try {
+                ready(vm)
 
-            vm.onIntent(CalendarSyncIntent.SyncGoogleNow)
-            awaitState { vm.stateFlow.value.googleLastSyncedAt != null }
+                vm.onIntent(CalendarSyncIntent.SyncGoogleNow)
+                awaitState { vm.stateFlow.value.googleLastSyncedAt != null }
 
-            assertEquals(1, runs, "the Google intent must reach the Google engine")
-        } finally {
-            vmScope.close()
+                assertEquals(1, runs, "the Google intent must reach the Google engine")
+            } finally {
+                vmScope.close()
+            }
         }
-    }
 
     /** A completed pass reports when it ran — a clock that only advances on success. */
     @Test
-    fun `a completed pass records when it ran`() = runTest {
-        val (vm, vmScope, _) = viewModel(GoogleSyncPass { GoogleSyncEngine.PassResult() }, this)
-        try {
-            ready(vm)
+    fun `a completed pass records when it ran`() =
+        runTest {
+            val (vm, vmScope, _) = viewModel(GoogleSyncPass { GoogleSyncEngine.PassResult() }, this)
+            try {
+                ready(vm)
 
-            vm.onIntent(CalendarSyncIntent.SyncGoogleNow)
-            awaitState { vm.stateFlow.value.googleLastSyncedAt != null }
+                vm.onIntent(CalendarSyncIntent.SyncGoogleNow)
+                awaitState { vm.stateFlow.value.googleLastSyncedAt != null }
 
-            assertNotNull(vm.stateFlow.value.googleLastSyncedAt)
-            assertNull(vm.stateFlow.value.googleSyncError, "a pass that worked has nothing to report")
-        } finally {
-            vmScope.close()
+                assertNotNull(vm.stateFlow.value.googleLastSyncedAt)
+                assertNull(vm.stateFlow.value.googleSyncError, "a pass that worked has nothing to report")
+            } finally {
+                vmScope.close()
+            }
         }
-    }
 
     /**
      * The defect that mattered. A failure has to reach the screen: before this, the pass ran,
      * failed, and left the UI byte-identical to its pre-press state.
      */
     @Test
-    fun `a failed pass is reported to the user`() = runTest {
-        val (vm, vmScope, _) = viewModel(
-            GoogleSyncPass { throw IllegalStateException("Google returned 503") },
-            this,
-        )
-        try {
-            ready(vm)
+    fun `a failed pass is reported to the user`() =
+        runTest {
+            val (vm, vmScope, _) =
+                viewModel(
+                    GoogleSyncPass { throw IllegalStateException("Google returned 503") },
+                    this,
+                )
+            try {
+                ready(vm)
 
-            vm.onIntent(CalendarSyncIntent.SyncGoogleNow)
-            awaitState { vm.stateFlow.value.googleSyncError != null }
+                vm.onIntent(CalendarSyncIntent.SyncGoogleNow)
+                awaitState { vm.stateFlow.value.googleSyncError != null }
 
-            assertEquals("Google returned 503", vm.stateFlow.value.googleSyncError)
-            assertNull(
-                vm.stateFlow.value.googleLastSyncedAt,
-                "a failed pass must not move the success clock",
-            )
-        } finally {
-            vmScope.close()
+                assertEquals("Google returned 503", vm.stateFlow.value.googleSyncError)
+                assertNull(
+                    vm.stateFlow.value.googleLastSyncedAt,
+                    "a failed pass must not move the success clock",
+                )
+            } finally {
+                vmScope.close()
+            }
         }
-    }
 
     /**
      * Declining is not failing, and the two must render differently.
@@ -339,27 +393,29 @@ class CalendarSyncViewModelGoogleTest {
      * reason, and neither moves the success clock. Collapsing them was defect 1.
      */
     @Test
-    fun `a revoked grant declines with its reason and no success timestamp`() = runTest {
-        val (vm, vmScope, store) = viewModel(
-            pass = GoogleSyncPass { error("a declined profile must never reach an engine") },
-            scope = this,
-        )
-        try {
-            ready(vm)
+    fun `a revoked grant declines with its reason and no success timestamp`() =
+        runTest {
+            val (vm, vmScope, store) =
+                viewModel(
+                    pass = GoogleSyncPass { error("a declined profile must never reach an engine") },
+                    scope = this,
+                )
+            try {
+                ready(vm)
 
-            // The grant goes away outside the app. No intent models this, so the store is
-            // asked directly rather than the test pretending the screen can cause it.
-            store.revoke()
+                // The grant goes away outside the app. No intent models this, so the store is
+                // asked directly rather than the test pretending the screen can cause it.
+                store.revoke()
 
-            vm.onIntent(CalendarSyncIntent.SyncGoogleNow)
-            awaitState { vm.stateFlow.value.googleSyncError != null }
+                vm.onIntent(CalendarSyncIntent.SyncGoogleNow)
+                awaitState { vm.stateFlow.value.googleSyncError != null }
 
-            assertEquals("no Google account connected", vm.stateFlow.value.googleSyncError)
-            assertNull(vm.stateFlow.value.googleLastSyncedAt)
-        } finally {
-            vmScope.close()
+                assertEquals("no Google account connected", vm.stateFlow.value.googleSyncError)
+                assertNull(vm.stateFlow.value.googleLastSyncedAt)
+            } finally {
+                vmScope.close()
+            }
         }
-    }
 
     /**
      * The screen must describe the pass that will run, not a second copy of its default.
@@ -373,28 +429,30 @@ class CalendarSyncViewModelGoogleTest {
      * given to the ViewModel has to come back out on the state the screen renders.
      */
     @Test
-    fun `the screen's window is the configured one, not the constant`() = runTest {
-        val configured = ImportWindow(past = 7.days, future = 14.days)
-        val (vm, vmScope, _) = viewModel(
-            pass = GoogleSyncPass { GoogleSyncEngine.PassResult() },
-            scope = this,
-            importWindow = configured,
-        )
-        try {
-            assertEquals(
-                configured,
-                vm.stateFlow.value.importWindow,
-                "the screen must render the window the pass is configured with",
-            )
-            assertNotEquals(
-                ImportWindow.DEFAULT,
-                vm.stateFlow.value.importWindow,
-                "this test is only meaningful while the two differ",
-            )
-        } finally {
-            vmScope.close()
+    fun `the screen's window is the configured one, not the constant`() =
+        runTest {
+            val configured = ImportWindow(past = 7.days, future = 14.days)
+            val (vm, vmScope, _) =
+                viewModel(
+                    pass = GoogleSyncPass { GoogleSyncEngine.PassResult() },
+                    scope = this,
+                    importWindow = configured,
+                )
+            try {
+                assertEquals(
+                    configured,
+                    vm.stateFlow.value.importWindow,
+                    "the screen must render the window the pass is configured with",
+                )
+                assertNotEquals(
+                    ImportWindow.DEFAULT,
+                    vm.stateFlow.value.importWindow,
+                    "this test is only meaningful while the two differ",
+                )
+            } finally {
+                vmScope.close()
+            }
         }
-    }
 
     /**
      * An authorizer that records the order of a disconnect.
@@ -407,7 +465,6 @@ class CalendarSyncViewModelGoogleTest {
         private val store: GoogleCredentialStore,
         private val delegate: GoogleAuthorizer = FakeGoogleAuthorizer(),
     ) : GoogleAuthorizer by delegate {
-
         /** The user id the revoke was asked for, or null when it never ran. */
         var revokedFor: String? = null
             private set
@@ -432,53 +489,57 @@ class CalendarSyncViewModelGoogleTest {
      * live grant they could neither see nor cancel.
      */
     @Test
-    fun `the disconnect revokes the grant`() = runTest {
-        val authorizer = RecordingAuthorizer(FakeCredentialStore(true))
-        val (vm, vmScope, _) = viewModel(
-            pass = GoogleSyncPass { GoogleSyncEngine.PassResult() },
-            scope = this,
-            googleAuthorization = authorizer,
-        )
-        try {
-            ready(vm)
-            vm.onIntent(CalendarSyncIntent.SetGoogleConnected(false))
-            awaitState { authorizer.revokedFor != null }
+    fun `the disconnect revokes the grant`() =
+        runTest {
+            val authorizer = RecordingAuthorizer(FakeCredentialStore(true))
+            val (vm, vmScope, _) =
+                viewModel(
+                    pass = GoogleSyncPass { GoogleSyncEngine.PassResult() },
+                    scope = this,
+                    googleAuthorization = authorizer,
+                )
+            try {
+                ready(vm)
+                vm.onIntent(CalendarSyncIntent.SetGoogleConnected(false))
+                awaitState { authorizer.revokedFor != null }
 
-            assertEquals("user-1", authorizer.revokedFor, "the revoke must name the profile it cancels")
-            assertFalse(
-                vm.stateFlow.value.googleConnected,
-                "the account is disconnected on the device whatever the server said",
-            )
-        } finally {
-            vmScope.close()
+                assertEquals("user-1", authorizer.revokedFor, "the revoke must name the profile it cancels")
+                assertFalse(
+                    vm.stateFlow.value.googleConnected,
+                    "the account is disconnected on the device whatever the server said",
+                )
+            } finally {
+                vmScope.close()
+            }
         }
-    }
 
     /** The revoke runs first: afterwards there is nothing left to cancel. */
     @Test
-    fun `the grant is revoked before the device forgets it`() = runTest {
-        val store = FakeCredentialStore(true)
-        val authorizer = RecordingAuthorizer(store)
-        val (vm, vmScope, _) = viewModel(
-            pass = GoogleSyncPass { GoogleSyncEngine.PassResult() },
-            scope = this,
-            store = store,
-            googleAuthorization = authorizer,
-        )
-        try {
-            ready(vm)
-            vm.onIntent(CalendarSyncIntent.SetGoogleConnected(false))
-            awaitState { authorizer.revokedFor != null }
+    fun `the grant is revoked before the device forgets it`() =
+        runTest {
+            val store = FakeCredentialStore(true)
+            val authorizer = RecordingAuthorizer(store)
+            val (vm, vmScope, _) =
+                viewModel(
+                    pass = GoogleSyncPass { GoogleSyncEngine.PassResult() },
+                    scope = this,
+                    store = store,
+                    googleAuthorization = authorizer,
+                )
+            try {
+                ready(vm)
+                vm.onIntent(CalendarSyncIntent.SetGoogleConnected(false))
+                awaitState { authorizer.revokedFor != null }
 
-            assertEquals(
-                true,
-                authorizer.credentialWasPresentAtRevoke,
-                "the device must still hold the credential while it asks for the revoke",
-            )
-        } finally {
-            vmScope.close()
+                assertEquals(
+                    true,
+                    authorizer.credentialWasPresentAtRevoke,
+                    "the device must still hold the credential while it asks for the revoke",
+                )
+            } finally {
+                vmScope.close()
+            }
         }
-    }
 
     /**
      * A revoke that fails is said out loud.
@@ -489,28 +550,31 @@ class CalendarSyncViewModelGoogleTest {
      * about.
      */
     @Test
-    fun `a revoke that fails is reported and the device is still disconnected`() = runTest {
-        val authorizer = FakeGoogleAuthorizer().apply {
-            revokeFailure = IllegalStateException("the server said no")
-        }
-        val (vm, vmScope, _) = viewModel(
-            pass = GoogleSyncPass { GoogleSyncEngine.PassResult() },
-            scope = this,
-            googleAuthorization = authorizer,
-        )
-        try {
-            ready(vm)
-            vm.onIntent(CalendarSyncIntent.SetGoogleConnected(false))
-            awaitState { vm.stateFlow.value.googleDisconnectError != null }
+    fun `a revoke that fails is reported and the device is still disconnected`() =
+        runTest {
+            val authorizer =
+                FakeGoogleAuthorizer().apply {
+                    revokeFailure = IllegalStateException("the server said no")
+                }
+            val (vm, vmScope, _) =
+                viewModel(
+                    pass = GoogleSyncPass { GoogleSyncEngine.PassResult() },
+                    scope = this,
+                    googleAuthorization = authorizer,
+                )
+            try {
+                ready(vm)
+                vm.onIntent(CalendarSyncIntent.SetGoogleConnected(false))
+                awaitState { vm.stateFlow.value.googleDisconnectError != null }
 
-            assertFalse(vm.stateFlow.value.googleConnected)
-            val error = vm.stateFlow.value.googleDisconnectError
-            assertTrue(
-                error != null && error.contains("the server said no"),
-                "the screen must say why the grant was not revoked: $error",
-            )
-        } finally {
-            vmScope.close()
+                assertFalse(vm.stateFlow.value.googleConnected)
+                val error = vm.stateFlow.value.googleDisconnectError
+                assertTrue(
+                    error != null && error.contains("the server said no"),
+                    "the screen must say why the grant was not revoked: $error",
+                )
+            } finally {
+                vmScope.close()
+            }
         }
-    }
 }

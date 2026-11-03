@@ -22,7 +22,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TaskSeriesInvariantsTest {
-
     private val alice = UserId("alice")
     private val seriesId = TaskSeriesId("series-1")
     private val fixedInstant = kotlin.time.Instant.fromEpochMilliseconds(1_700_000_000_000)
@@ -122,11 +121,12 @@ class TaskSeriesInvariantsTest {
     @Test
     fun `only the members that differ are realigned`() {
         val source = member("s1", title = "Changed")
-        val members = listOf(
-            source,
-            member("s2", title = "Changed"),
-            member("s3", title = "Something else"),
-        )
+        val members =
+            listOf(
+                source,
+                member("s2", title = "Changed"),
+                member("s3", title = "Something else"),
+            )
 
         val toRealign = TaskSeriesInvariants.membersToRealign(members, source)
 
@@ -202,10 +202,11 @@ class TaskSeriesInvariantsTest {
 
     @Test
     fun `a batch that stands alone keeps the title of each row`() {
-        val members = listOf(
-            member("s1", title = "Pay the rent", series = null),
-            member("s2", title = "Call the plumber", series = null),
-        )
+        val members =
+            listOf(
+                member("s1", title = "Pay the rent", series = null),
+                member("s2", title = "Call the plumber", series = null),
+            )
 
         val aligned = TaskSeriesShape.alignedIfOneSeries(members)
 
@@ -218,10 +219,11 @@ class TaskSeriesInvariantsTest {
 
     @Test
     fun `a batch that is one series is aligned to its first member`() {
-        val members = listOf(
-            member("s1", title = "Pay the rent"),
-            member("s2", title = "Pay the rent (old)"),
-        )
+        val members =
+            listOf(
+                member("s1", title = "Pay the rent"),
+                member("s2", title = "Pay the rent (old)"),
+            )
 
         val aligned = TaskSeriesShape.alignedIfOneSeries(members)
 

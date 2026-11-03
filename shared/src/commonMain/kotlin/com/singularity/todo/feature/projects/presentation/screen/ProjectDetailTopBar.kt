@@ -11,7 +11,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
@@ -45,12 +45,13 @@ fun ProjectDetailTopBar(
 ) {
     var overflowMenuOpen by remember { mutableStateOf(false) }
     val isArchived = (state as? ProjectDetailUiState.Content)?.ui?.project?.isDeleted == true
-    val title = when (state) {
-        ProjectDetailUiState.Loading -> "Project"
-        ProjectDetailUiState.NotFound -> "Not found"
-        is ProjectDetailUiState.Error -> "Project"
-        is ProjectDetailUiState.Content -> state.ui.project.name
-    }
+    val title =
+        when (state) {
+            ProjectDetailUiState.Loading -> "Project"
+            ProjectDetailUiState.NotFound -> "Not found"
+            is ProjectDetailUiState.Error -> "Project"
+            is ProjectDetailUiState.Content -> state.ui.project.name
+        }
 
     TopAppBar(
         title = { Text(title) },

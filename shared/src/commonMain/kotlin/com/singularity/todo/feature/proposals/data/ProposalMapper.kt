@@ -19,16 +19,17 @@ import kotlin.time.Instant
  * changes say it is (see [AiProposal.status]), and a summary row written before
  * the decisions does not get to say otherwise.
  */
-internal fun AiProposalEntity.toDomain(items: List<ProposalItem> = emptyList()): AiProposal = AiProposal(
-    id = ProposalId(id),
-    targetKind = ProposalTargetKind.read(targetKind),
-    targetId = targetId,
-    userId = UserId(userId),
-    source = enumOrDefault(source, ProposalSource.Detail),
-    createdAt = Instant.fromEpochMilliseconds(createdAt),
-    updatedAt = Instant.fromEpochMilliseconds(updatedAt),
-    items = items,
-)
+internal fun AiProposalEntity.toDomain(items: List<ProposalItem> = emptyList()): AiProposal =
+    AiProposal(
+        id = ProposalId(id),
+        targetKind = ProposalTargetKind.read(targetKind),
+        targetId = targetId,
+        userId = UserId(userId),
+        source = enumOrDefault(source, ProposalSource.Detail),
+        createdAt = Instant.fromEpochMilliseconds(createdAt),
+        updatedAt = Instant.fromEpochMilliseconds(updatedAt),
+        items = items,
+    )
 
 /**
  * Converts a persisted item row to the domain model.
@@ -43,19 +44,20 @@ internal fun AiProposalEntity.toDomain(items: List<ProposalItem> = emptyList()):
  * [ProposalItemStatus.Unknown], not "waiting" — a change that has already been
  * applied must not look like one that is still waiting to be applied.
  */
-internal fun ProposalItemEntity.toDomain(): ProposalItem = ProposalItem(
-    id = ProposalItemId(id),
-    proposalId = ProposalId(proposalId),
-    kind = decodeKind(kindJson),
-    targetId = targetId,
-    humanSummary = humanSummary,
-    status = ProposalItemStatus.read(status),
-    fingerprint = fingerprint,
-    sortOrder = sortOrder,
-    decidedAt = decidedAt?.let(Instant::fromEpochMilliseconds),
-    decidedActor = decidedActor?.let { runCatching { DecidedActor.valueOf(it) }.getOrNull() },
-    rejectionReason = rejectionReason,
-)
+internal fun ProposalItemEntity.toDomain(): ProposalItem =
+    ProposalItem(
+        id = ProposalItemId(id),
+        proposalId = ProposalId(proposalId),
+        kind = decodeKind(kindJson),
+        targetId = targetId,
+        humanSummary = humanSummary,
+        status = ProposalItemStatus.read(status),
+        fingerprint = fingerprint,
+        sortOrder = sortOrder,
+        decidedAt = decidedAt?.let(Instant::fromEpochMilliseconds),
+        decidedActor = decidedActor?.let { runCatching { DecidedActor.valueOf(it) }.getOrNull() },
+        rejectionReason = rejectionReason,
+    )
 
 /**
  * Parses an enum name from the database, falling back to [fallback].
@@ -66,5 +68,7 @@ internal fun ProposalItemEntity.toDomain(): ProposalItem = ProposalItem(
  * it in the feedback loop without changing what happens to it. The statuses are
  * read strictly instead — a status decides whether a change may be applied.
  */
-private inline fun <reified E : Enum<E>> enumOrDefault(raw: String, fallback: E): E =
-    runCatching { enumValueOf<E>(raw) }.getOrDefault(fallback)
+private inline fun <reified E : Enum<E>> enumOrDefault(
+    raw: String,
+    fallback: E,
+): E = runCatching { enumValueOf<E>(raw) }.getOrDefault(fallback)

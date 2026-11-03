@@ -21,12 +21,12 @@ data class GenerateDescriptionOutput(val description: String)
 
 class GenerateDescriptionTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
     SimpleTool<GenerateDescriptionInput>(TypeToken.of(GenerateDescriptionInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: GenerateDescriptionInput): String {
-        val p = prompt(Prompt.Empty, KoogClock.System) {
-            system(Prompts.generateDescriptionSystem)
-            user(Prompts.generateDescriptionUser(args.title))
-        }
+        val p =
+            prompt(Prompt.Empty, KoogClock.System) {
+                system(Prompts.generateDescriptionSystem)
+                user(Prompts.generateDescriptionUser(args.title))
+            }
         val response = promptExecutor.execute(p, model, emptyList())
         val text = extractText(response)
         return Json.encodeToString(GenerateDescriptionOutput.serializer(), GenerateDescriptionOutput(text.trim()))
@@ -37,6 +37,9 @@ class GenerateDescriptionTool(private val promptExecutor: PromptExecutor, privat
         const val DESCRIPTION = "Generate a brief description for a task title."
 
         private fun extractText(response: Message.Assistant): String =
-            response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }.trim()
+            response.parts
+                .filterIsInstance<MessagePart.Text>()
+                .joinToString("") { it.text }
+                .trim()
     }
 }

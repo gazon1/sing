@@ -16,6 +16,7 @@ private data class SlotState(val count: Int = 0, val label: String = "")
 
 private sealed interface SlotIntent : MviIntent {
     data class Increment(val by: Int) : SlotIntent
+
     data class Rename(val label: String) : SlotIntent
 }
 
@@ -36,7 +37,6 @@ private class CounterSlot : FeatureSlot<SlotState, SlotIntent> {
 
 @Tag("fast")
 class FeatureSlotTest {
-
     @Test
     fun `state has a value before any intent`() {
         val slot = CounterSlot()

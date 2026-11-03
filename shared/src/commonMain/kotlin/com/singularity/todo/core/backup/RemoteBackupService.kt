@@ -43,7 +43,11 @@ interface RemoteBackupService {
      *   does not sit in memory longer than the upload needs it.
      * @return a reference to the uploaded object, which [download] can use.
      */
-    suspend fun upload(archive: RemoteArchive, userId: UserId, sealer: ArchiveSealer): Result<String>
+    suspend fun upload(
+        archive: RemoteArchive,
+        userId: UserId,
+        sealer: ArchiveSealer,
+    ): Result<String>
 
     /**
      * Downloads [remoteRef] to [destPath] and opens it under [password].
@@ -83,8 +87,7 @@ interface RemoteBackupService {
         const val ENCRYPTED_SUFFIX = ".enc"
 
         /** The name the archive has on the device, from the reference it has in the bucket. */
-        fun localFileName(remoteRef: String): String =
-            remoteRef.substringAfterLast('/').removeSuffix(ENCRYPTED_SUFFIX)
+        fun localFileName(remoteRef: String): String = remoteRef.substringAfterLast('/').removeSuffix(ENCRYPTED_SUFFIX)
     }
 }
 
@@ -182,7 +185,6 @@ class RemoteBackupServiceImpl(
     private val archive: EncryptedArchive,
     private val ioDispatcher: CoroutineDispatcher,
 ) : RemoteBackupService {
-
     override suspend fun upload(
         archive: RemoteArchive,
         userId: UserId,
@@ -232,50 +234,51 @@ class RemoteBackupServiceImpl(
         destPath: String,
         userId: UserId,
         password: CharArray,
-    ): Result<DownloadedArchive> = try {
-        withContext(ioDispatcher) {
-            runCatchingCancellable {
-                // Three files, not one: what came down, what came out of it, and
-                // the archive itself. The middle one exists because the cipher
-                // cannot tell a wrong password from a right one until it has
-                // read everything — so the plaintext is written to a temporary
-                // file and only copied over the destination once the tag has
-                // matched. A wrong password must not replace a good archive
-                // with rubbish.
-                val sealed = workingPath(destPath, SEALED_SUFFIX)
-                val plain = workingPath(destPath, PLAIN_SUFFIX)
-                try {
-                    val sink = fs.openWrite(sealed)
+    ): Result<DownloadedArchive> =
+        try {
+            withContext(ioDispatcher) {
+                runCatchingCancellable {
+                    // Three files, not one: what came down, what came out of it, and
+                    // the archive itself. The middle one exists because the cipher
+                    // cannot tell a wrong password from a right one until it has
+                    // read everything — so the plaintext is written to a temporary
+                    // file and only copied over the destination once the tag has
+                    // matched. A wrong password must not replace a good archive
+                    // with rubbish.
+                    val sealed = workingPath(destPath, SEALED_SUFFIX)
+                    val plain = workingPath(destPath, PLAIN_SUFFIX)
                     try {
-                        bucket.download(remoteRef, sink)
+                        val sink = fs.openWrite(sealed)
+                        try {
+                            bucket.download(remoteRef, sink)
+                        } finally {
+                            sink.close()
+                        }
+                        // The changes come back first and the base last: the base is
+                        // the part that is streamed, and the changes are small enough
+                        // to be handed over whole.
+                        val changes = mutableListOf<ByteArray>()
+                        val source = fs.openRead(sealed)
+                        val target = openTarget(source, plain)
+                        try {
+                            archive.openChain(source, target, password) { _, change -> changes += change }
+                        } finally {
+                            target.close()
+                            source.close()
+                        }
+                        copy(plain, destPath)
+                        DownloadedArchive(basePath = destPath, entries = changes)
                     } finally {
-                        sink.close()
+                        fs.delete(sealed)
+                        fs.delete(plain)
                     }
-                    // The changes come back first and the base last: the base is
-                    // the part that is streamed, and the changes are small enough
-                    // to be handed over whole.
-                    val changes = mutableListOf<ByteArray>()
-                    val source = fs.openRead(sealed)
-                    val target = openTarget(source, plain)
-                    try {
-                        archive.openChain(source, target, password) { _, change -> changes += change }
-                    } finally {
-                        target.close()
-                        source.close()
-                    }
-                    copy(plain, destPath)
-                    DownloadedArchive(basePath = destPath, entries = changes)
-                } finally {
-                    fs.delete(sealed)
-                    fs.delete(plain)
+                }.recoverCatching { error ->
+                    throw classified(error, "the archive could not be downloaded")
                 }
-            }.recoverCatching { error ->
-                throw classified(error, "the archive could not be downloaded")
             }
+        } finally {
+            password.fill('\u0000')
         }
-    } finally {
-        password.fill('\u0000')
-    }
 
     /**
      * The chain, sealed, written to [sealedPath].
@@ -293,7 +296,11 @@ class RemoteBackupServiceImpl(
      * a whole backup that reaches the bucket is better than an error that does
      * not.
      */
-    private suspend fun sealInto(archive: RemoteArchive, sealedPath: String, sealer: ArchiveSealer) {
+    private suspend fun sealInto(
+        archive: RemoteArchive,
+        sealedPath: String,
+        sealer: ArchiveSealer,
+    ) {
         val changes = archive.entries.map { path -> openArchive(path) }
         try {
             val sealed = runCatchingCancellable { sealChain(archive.basePath, changes, sealedPath, sealer) }
@@ -322,11 +329,13 @@ class RemoteBackupServiceImpl(
         val sink = openTarget(base, sealedPath)
         try {
             when (sealer) {
-                is ArchiveSealer.UnderPassword ->
+                is ArchiveSealer.UnderPassword -> {
                     archive.sealChain(base, changes, sink, sealer.password)
+                }
 
-                is ArchiveSealer.UnderDeviceKey ->
+                is ArchiveSealer.UnderDeviceKey -> {
                     archive.sealChain(base, changes, sink, sealer.deviceKey, sealer.keyBlock)
+                }
             }
         } finally {
             sink.close()
@@ -341,7 +350,10 @@ class RemoteBackupServiceImpl(
      * was opened and never closed is a file nobody can delete. So the sink opens
      * with the source in hand, and the source is closed if it does not.
      */
-    private suspend fun openTarget(source: ByteSource, path: String): ByteSink {
+    private suspend fun openTarget(
+        source: ByteSource,
+        path: String,
+    ): ByteSink {
         var opened = false
         try {
             return fs.openWrite(path).also { opened = true }
@@ -388,7 +400,10 @@ class RemoteBackupServiceImpl(
         }
 
     /** One file copied over another, in pieces. */
-    private suspend fun copy(fromPath: String, toPath: String) {
+    private suspend fun copy(
+        fromPath: String,
+        toPath: String,
+    ) {
         val source = fs.openRead(fromPath)
         val sink = openTarget(source, toPath)
         try {
@@ -411,13 +426,17 @@ class RemoteBackupServiceImpl(
      * on the same volume and are removed with it — and they are named apart
      * from the archives, so a leftover is never mistaken for one.
      */
-    private fun workingPath(path: String, suffix: String): String = "$path$suffix"
+    private fun workingPath(
+        path: String,
+        suffix: String,
+    ): String = "$path$suffix"
 
-    override suspend fun list(userId: UserId): Result<List<BucketObject>> = runCatchingCancellable {
-        bucket.list("${userId.value}/")
-    }.recoverCatching { error ->
-        throw classified(error, "the archives could not be listed")
-    }
+    override suspend fun list(userId: UserId): Result<List<BucketObject>> =
+        runCatchingCancellable {
+            bucket.list("${userId.value}/")
+        }.recoverCatching { error ->
+            throw classified(error, "the archives could not be listed")
+        }
 
     /**
      * The failure as the project reports it.
@@ -425,38 +444,54 @@ class RemoteBackupServiceImpl(
      * The vendor's failure is classified at the seam, so the code the crash
      * reporter groups by says which of the four happened.
      */
-    private fun classified(error: Throwable, what: String): Throwable = when (error) {
-        is TransportException -> transportError(
-            area = "backup",
-            failure = error.failure,
-            message = error.message ?: what,
-            cause = error,
-            rejectedCode = REJECTED_CODE,
-        )
+    private fun classified(
+        error: Throwable,
+        what: String,
+    ): Throwable =
+        when (error) {
+            is TransportException -> {
+                transportError(
+                    area = "backup",
+                    failure = error.failure,
+                    message = error.message ?: what,
+                    cause = error,
+                    rejectedCode = REJECTED_CODE,
+                )
+            }
 
-        // The project already said what is wrong: no cloud storage is configured.
-        // Classifying it as a network failure would be a worse message than the
-        // one it has.
-        is RemoteBackupException -> error
+            // The project already said what is wrong: no cloud storage is configured.
+            // Classifying it as a network failure would be a worse message than the
+            // one it has.
+            is RemoteBackupException -> {
+                error
+            }
 
-        // The archive's own failures say what a person can do: the password does not
-        // open it, the bytes are not an encrypted archive. Flattening them into
-        // "the upload failed" would throw that away.
-        is BackupError -> error
+            // The archive's own failures say what a person can do: the password does not
+            // open it, the bytes are not an encrypted archive. Flattening them into
+            // "the upload failed" would throw that away.
+            is BackupError -> {
+                error
+            }
 
-        is AppError -> error
+            is AppError -> {
+                error
+            }
 
-        else -> transportError(
-            area = "backup",
-            failure = TransportFailure.REJECTED,
-            message = what,
-            cause = error,
-            rejectedCode = REJECTED_CODE,
-        )
-    }
+            else -> {
+                transportError(
+                    area = "backup",
+                    failure = TransportFailure.REJECTED,
+                    message = what,
+                    cause = error,
+                    rejectedCode = REJECTED_CODE,
+                )
+            }
+        }
 
-    private fun remotePath(userId: UserId, name: String): String =
-        "${userId.value}/$name${RemoteBackupService.ENCRYPTED_SUFFIX}"
+    private fun remotePath(
+        userId: UserId,
+        name: String,
+    ): String = "${userId.value}/$name${RemoteBackupService.ENCRYPTED_SUFFIX}"
 
     companion object {
         /** The suffix of the working file that holds the sealed archive. */

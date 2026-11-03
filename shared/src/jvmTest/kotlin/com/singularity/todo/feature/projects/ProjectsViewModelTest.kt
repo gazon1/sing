@@ -46,12 +46,13 @@ class ProjectsViewModelTest {
     private val fakeProjectRepo = FakeProjectsRepository()
     private val fakeTaskRepo = FakeTaskRepository()
 
-    private fun TestScope.createVm(): ProjectsViewModel = ProjectsViewModel(
-        projectRepo = fakeProjectRepo,
-        taskRepository = fakeTaskRepo,
-        deleteProject = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo),
-        scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
-    )
+    private fun TestScope.createVm(): ProjectsViewModel =
+        ProjectsViewModel(
+            projectRepo = fakeProjectRepo,
+            taskRepository = fakeTaskRepo,
+            deleteProject = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo),
+            scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
+        )
 
     private fun TestScope.seedProject(
         id: String,
@@ -78,154 +79,162 @@ class ProjectsViewModelTest {
     // ─── initial state ─────────────────────────────────────────────────────
 
     @Test
-    fun `initial state is Loading`() = runTest {
-        val vm = createVm()
-        assertIs<ProjectsUiState.Loading>(vm.stateFlow.value)
-    }
+    fun `initial state is Loading`() =
+        runTest {
+            val vm = createVm()
+            assertIs<ProjectsUiState.Loading>(vm.stateFlow.value)
+        }
 
     // ─── search ────────────────────────────────────────────────────────────
 
     @Test
-    fun `searchQuery state updates immediately`() = runTest {
-        // seed a project matching the query below: with an empty/filtered-out repo
-        // the VM emits Empty, which carries no searchQuery field
-        seedProject("p1", "Work Project")
-        val vm = createVm()
-        advanceTimeBy(1_000)
-        runCurrent()
-        assertEquals("", (vm.stateFlow.value as? ProjectsUiState.Content)?.searchQuery?.text)
+    fun `searchQuery state updates immediately`() =
+        runTest {
+            // seed a project matching the query below: with an empty/filtered-out repo
+            // the VM emits Empty, which carries no searchQuery field
+            seedProject("p1", "Work Project")
+            val vm = createVm()
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals("", (vm.stateFlow.value as? ProjectsUiState.Content)?.searchQuery?.text)
 
-        vm.onIntent(ProjectsIntent.SetSearchQuery("Work"))
-        advanceTimeBy(1_000)
-        runCurrent()
-        assertEquals("Work", (vm.stateFlow.value as? ProjectsUiState.Content)?.searchQuery?.text)
+            vm.onIntent(ProjectsIntent.SetSearchQuery("Work"))
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals("Work", (vm.stateFlow.value as? ProjectsUiState.Content)?.searchQuery?.text)
 
-        vm.onIntent(ProjectsIntent.SetSearchQuery(""))
-        advanceTimeBy(1_000)
-        runCurrent()
-        assertEquals("", (vm.stateFlow.value as? ProjectsUiState.Content)?.searchQuery?.text)
-    }
-
-    @Test
-    fun `sortOrder state updates immediately`() = runTest {
-        val vm = createVm()
-        seedProject("p1", "Project")
-        advanceTimeBy(1_000)
-        runCurrent()
-        assertEquals(ProjectSortOrder.Name, (vm.stateFlow.value as? ProjectsUiState.Content)?.sortOrder)
-
-        vm.onIntent(ProjectsIntent.SetSortOrder(ProjectSortOrder.Color))
-        advanceTimeBy(1_000)
-        runCurrent()
-        assertEquals(ProjectSortOrder.Color, (vm.stateFlow.value as? ProjectsUiState.Content)?.sortOrder)
-
-        vm.onIntent(ProjectsIntent.SetSortOrder(ProjectSortOrder.Name))
-        advanceTimeBy(1_000)
-        runCurrent()
-        assertEquals(ProjectSortOrder.Name, (vm.stateFlow.value as? ProjectsUiState.Content)?.sortOrder)
-    }
+            vm.onIntent(ProjectsIntent.SetSearchQuery(""))
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals("", (vm.stateFlow.value as? ProjectsUiState.Content)?.searchQuery?.text)
+        }
 
     @Test
-    fun `an error keeps the query and the sort order`() = runTest {
-        // The screen binds the search field and the sort control to the state, so a
-        // failure that reset them would clear what the user had typed: the field is
-        // bound to the query, so the reset would reach the ViewModel as if the user
-        // had cleared it, and the list could never come back.
-        //
-        // The repository fails on the *second* subscription, not the first: the list
-        // has to load first, or there is nothing for the user to have chosen and the
-        // error would arrive before the query is ever set.
-        val vm = ProjectsViewModel(
-            projectRepo = FailingProjectsRepository(fakeProjectRepo),
-            taskRepository = fakeTaskRepo,
-            deleteProject = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo),
-            scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
-        )
-        advanceTimeBy(1_000)
-        runCurrent()
+    fun `sortOrder state updates immediately`() =
+        runTest {
+            val vm = createVm()
+            seedProject("p1", "Project")
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals(ProjectSortOrder.Name, (vm.stateFlow.value as? ProjectsUiState.Content)?.sortOrder)
 
-        vm.onIntent(ProjectsIntent.SetSearchQuery("Work"))
-        vm.onIntent(ProjectsIntent.SetSortOrder(ProjectSortOrder.Color))
-        advanceTimeBy(1_000)
-        runCurrent()
+            vm.onIntent(ProjectsIntent.SetSortOrder(ProjectSortOrder.Color))
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals(ProjectSortOrder.Color, (vm.stateFlow.value as? ProjectsUiState.Content)?.sortOrder)
 
-        val error = assertIs<ProjectsUiState.Error>(vm.stateFlow.value)
-        assertEquals("Work", error.searchQuery.text)
-        assertEquals(ProjectSortOrder.Color, error.sortOrder)
-    }
+            vm.onIntent(ProjectsIntent.SetSortOrder(ProjectSortOrder.Name))
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals(ProjectSortOrder.Name, (vm.stateFlow.value as? ProjectsUiState.Content)?.sortOrder)
+        }
+
+    @Test
+    fun `an error keeps the query and the sort order`() =
+        runTest {
+            // The screen binds the search field and the sort control to the state, so a
+            // failure that reset them would clear what the user had typed: the field is
+            // bound to the query, so the reset would reach the ViewModel as if the user
+            // had cleared it, and the list could never come back.
+            //
+            // The repository fails on the *second* subscription, not the first: the list
+            // has to load first, or there is nothing for the user to have chosen and the
+            // error would arrive before the query is ever set.
+            val vm =
+                ProjectsViewModel(
+                    projectRepo = FailingProjectsRepository(fakeProjectRepo),
+                    taskRepository = fakeTaskRepo,
+                    deleteProject = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo),
+                    scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
+                )
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            vm.onIntent(ProjectsIntent.SetSearchQuery("Work"))
+            vm.onIntent(ProjectsIntent.SetSortOrder(ProjectSortOrder.Color))
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            val error = assertIs<ProjectsUiState.Error>(vm.stateFlow.value)
+            assertEquals("Work", error.searchQuery.text)
+            assertEquals(ProjectSortOrder.Color, error.sortOrder)
+        }
 
     // ─── the closed projects ──────────────────────────────────────────────
 
     @Test
-    fun `a closed project leaves the list and comes back on its own list`() = runTest {
-        seedProject("p1", "Open project")
-        seedProject("p2", "Closed project")
-        val vm = createVm()
-        advanceTimeBy(1_000)
-        runCurrent()
+    fun `a closed project leaves the list and comes back on its own list`() =
+        runTest {
+            seedProject("p1", "Open project")
+            seedProject("p2", "Closed project")
+            val vm = createVm()
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        fakeProjectRepo.close(ProjectId.fromString("p2"), 1_000L).getOrThrow()
-        advanceTimeBy(1_000)
-        runCurrent()
+            fakeProjectRepo.close(ProjectId.fromString("p2"), 1_000L).getOrThrow()
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        val state = assertIs<ProjectsUiState.Content>(vm.stateFlow.value)
-        assertEquals(
-            listOf("Open project"),
-            state.projects.map { it.project.name },
-            "a closed project leaves the project list",
-        )
-        assertEquals(
-            listOf("Closed project"),
-            state.closedProjects.map { it.name },
-            "and it is still reachable, with the way back",
-        )
-    }
+            val state = assertIs<ProjectsUiState.Content>(vm.stateFlow.value)
+            assertEquals(
+                listOf("Open project"),
+                state.projects.map { it.project.name },
+                "a closed project leaves the project list",
+            )
+            assertEquals(
+                listOf("Closed project"),
+                state.closedProjects.map { it.name },
+                "and it is still reachable, with the way back",
+            )
+        }
 
     @Test
-    fun `opening a closed project puts it back in the list`() = runTest {
-        seedProject("p2", "Closed project")
-        val vm = createVm()
-        advanceTimeBy(1_000)
-        runCurrent()
+    fun `opening a closed project puts it back in the list`() =
+        runTest {
+            seedProject("p2", "Closed project")
+            val vm = createVm()
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        fakeProjectRepo.close(ProjectId.fromString("p2"), 1_000L).getOrThrow()
-        advanceTimeBy(1_000)
-        runCurrent()
+            fakeProjectRepo.close(ProjectId.fromString("p2"), 1_000L).getOrThrow()
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        vm.onIntent(ProjectsIntent.Reopen(ProjectId.fromString("p2")))
-        advanceTimeBy(1_000)
-        runCurrent()
+            vm.onIntent(ProjectsIntent.Reopen(ProjectId.fromString("p2")))
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        val state = assertIs<ProjectsUiState.Content>(vm.stateFlow.value)
-        assertEquals(
-            listOf("Closed project"),
-            state.projects.map { it.project.name },
-            "the project is back in the list",
-        )
-        assertTrue(state.closedProjects.isEmpty(), "and it is no longer a closed one")
-    }
+            val state = assertIs<ProjectsUiState.Content>(vm.stateFlow.value)
+            assertEquals(
+                listOf("Closed project"),
+                state.projects.map { it.project.name },
+                "the project is back in the list",
+            )
+            assertTrue(state.closedProjects.isEmpty(), "and it is no longer a closed one")
+        }
 
     // ─── delete (via use-case, not state) ──────────────────────────────────
 
     @Test
-    fun `delete soft-deletes project via use-case`() = runTest {
-        seedProject("p1", "To Delete")
-        val vm = createVm()
-        advanceTimeBy(1_000)
-        runCurrent()
+    fun `delete soft-deletes project via use-case`() =
+        runTest {
+            seedProject("p1", "To Delete")
+            val vm = createVm()
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        // Verify store has the project
-        val before = fakeProjectRepo.store.values().filter { !it.isDeleted }
-        assertEquals(1, before.size, "Store should have the seeded project")
+            // Verify store has the project
+            val before = fakeProjectRepo.store.values().filter { !it.isDeleted }
+            assertEquals(1, before.size, "Store should have the seeded project")
 
-        vm.onIntent(ProjectsIntent.Delete(ProjectId.fromString("p1")))
-        advanceTimeBy(1_000)
-        runCurrent()
+            vm.onIntent(ProjectsIntent.Delete(ProjectId.fromString("p1")))
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        // Verify store reflects soft-delete
-        val after = fakeProjectRepo.store.values().filter { !it.isDeleted }
-        assertEquals(0, after.size, "After soft-delete, no non-deleted projects should remain in store")
-    }
+            // Verify store reflects soft-delete
+            val after = fakeProjectRepo.store.values().filter { !it.isDeleted }
+            assertEquals(0, after.size, "After soft-delete, no non-deleted projects should remain in store")
+        }
 }
 
 /**
@@ -242,12 +251,13 @@ class ProjectsViewModelTest {
 private class FailingProjectsRepository(private val delegate: ProjectsRepository) : ProjectsRepository by delegate {
     private var subscriptions = 0
 
-    override fun observeProjectsWithCounts(): Flow<List<ProjectWithCountRow>> = flow {
-        subscriptions++
-        if (subscriptions == 1) {
-            emitAll(delegate.observeProjectsWithCounts())
-        } else {
-            throw IllegalStateException("the project repository is down")
+    override fun observeProjectsWithCounts(): Flow<List<ProjectWithCountRow>> =
+        flow {
+            subscriptions++
+            if (subscriptions == 1) {
+                emitAll(delegate.observeProjectsWithCounts())
+            } else {
+                throw IllegalStateException("the project repository is down")
+            }
         }
-    }
 }

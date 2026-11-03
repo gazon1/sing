@@ -32,7 +32,6 @@ package com.singularity.todo.feature.calendarSync.sync
  * implementation to keep in step.
  */
 fun interface GoogleSyncPass {
-
     /**
      * Runs one pass against [calendarId], or throws.
      *

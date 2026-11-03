@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.screen
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -31,16 +32,15 @@ import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
-import kotlinx.datetime.LocalDate
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlin.time.Clock
-import kotlin.time.Instant
+import kotlinx.datetime.LocalDate
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
-import androidx.compose.runtime.getValue
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Task create screen for the tasks nested navigation graph.
@@ -52,7 +52,10 @@ import androidx.compose.runtime.getValue
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun TaskCreateScreen(initialDueDate: LocalDate?, draftKey: String? = null) {
+fun TaskCreateScreen(
+    initialDueDate: LocalDate?,
+    draftKey: String? = null,
+) {
     val vm: TaskCreateViewModel = koinViewModel { parametersOf(initialDueDate, draftKey) }
     // The injected clock, not the system one. This screen hands `now` down to the
     // editor and stamps draft attachments with it, so a test that pins a clock in
@@ -112,104 +115,121 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, draftKey: String? = null) {
     // The *whole* set of dates, primary date first. The row has to be able to say
     // "12 окт, 17 окт, 3 ноя" — a list without its primary date would name two
     // of the three.
-    val dueDates = remember(state.draft.dueDate, state.draft.extraDueDates) {
-        val primary = listOfNotNull((state.draft.dueDate as? DueDateOption.Custom)?.date)
-        (primary + state.draft.extraDueDates).toImmutableList()
-    }
+    val dueDates =
+        remember(state.draft.dueDate, state.draft.extraDueDates) {
+            val primary = listOfNotNull((state.draft.dueDate as? DueDateOption.Custom)?.date)
+            (primary + state.draft.extraDueDates).toImmutableList()
+        }
 
     TaskCreateEditorContent(
-        model = TaskEditorModel(
-            taskId = null,
-            priority = state.draft.priority,
-            dueDate = (state.draft.dueDate as? DueDateOption.Custom)?.date,
-            dueDates = dueDates,
-            // The create editor is where several dates make sense: the work does
-            // not exist yet, so there is nothing to split. Everywhere else a task
-            // has one date.
-            multiDateEnabled = true,
-            dueTime = state.draft.dueTime,
-            startDate = (state.draft.startDate as? DueDateOption.Custom)?.date,
-            startTime = state.draft.startTime,
-            project = state.draft.projectId?.let { ProjectId.fromString(it) },
-            tags = remember(state.draft.tagIds) { state.draft.tagIds.map { TagId.fromString(it) }.toImmutableList() },
-            checklist = remember(checklistItems) { checklistItems.toImmutableList() },
-            attachments = remember(attachmentItems) { attachmentItems.toImmutableList() },
-            recurrence = state.draft.recurrence,
-            isPinned = state.draft.isPinned,
-            estimateMinutes = null,
-            blockedBy = persistentSetOf(),
-            availableTasks = persistentListOf(),
-        ),
+        model =
+            TaskEditorModel(
+                taskId = null,
+                priority = state.draft.priority,
+                dueDate = (state.draft.dueDate as? DueDateOption.Custom)?.date,
+                dueDates = dueDates,
+                // The create editor is where several dates make sense: the work does
+                // not exist yet, so there is nothing to split. Everywhere else a task
+                // has one date.
+                multiDateEnabled = true,
+                dueTime = state.draft.dueTime,
+                startDate = (state.draft.startDate as? DueDateOption.Custom)?.date,
+                startTime = state.draft.startTime,
+                project = state.draft.projectId?.let { ProjectId.fromString(it) },
+                tags =
+                    remember(state.draft.tagIds) {
+                        state.draft.tagIds
+                            .map { TagId.fromString(it) }
+                            .toImmutableList()
+                    },
+                checklist = remember(checklistItems) { checklistItems.toImmutableList() },
+                attachments = remember(attachmentItems) { attachmentItems.toImmutableList() },
+                recurrence = state.draft.recurrence,
+                isPinned = state.draft.isPinned,
+                estimateMinutes = null,
+                blockedBy = persistentSetOf(),
+                availableTasks = persistentListOf(),
+            ),
         onTitleChange = { vm.onIntent(TaskCreateIntent.TitleChanged(it)) },
         onDescriptionChange = { vm.onIntent(TaskCreateIntent.DescriptionChanged(it)) },
-        callbacks = TaskEditorCallbacks(
-            onBack = guardedBack,
-            // Create mode: no task exists yet, so there is nothing to complete.
-            onCheckToggle = null,
-            priority = RowCallbacks(
-                onChange = { vm.onIntent(TaskCreateIntent.SetPriority(it)) },
-                onClick = { sheets.show(TaskEditorSheet.Priority) },
-                onClear = { vm.onIntent(TaskCreateIntent.SetPriority(TaskPriority.None)) },
+        callbacks =
+            TaskEditorCallbacks(
+                onBack = guardedBack,
+                // Create mode: no task exists yet, so there is nothing to complete.
+                onCheckToggle = null,
+                priority =
+                    RowCallbacks(
+                        onChange = { vm.onIntent(TaskCreateIntent.SetPriority(it)) },
+                        onClick = { sheets.show(TaskEditorSheet.Priority) },
+                        onClear = { vm.onIntent(TaskCreateIntent.SetPriority(TaskPriority.None)) },
+                    ),
+                dueDate =
+                    DateRowCallbacks(
+                        onChangeDate = { vm.onIntent(TaskCreateIntent.SetDueDate(it)) },
+                        onChangeTime = { vm.onIntent(TaskCreateIntent.SetDueTime(it)) },
+                        onClick = { sheets.show(TaskEditorSheet.Date) },
+                        onClear = { vm.onIntent(TaskCreateIntent.DueDateCleared) },
+                        onChangeDates = { dates -> vm.onIntent(TaskCreateIntent.SetDueDates(dates)) },
+                    ),
+                startDate =
+                    DateRowCallbacks(
+                        onChangeDate = { vm.onIntent(TaskCreateIntent.SetStartDate(it)) },
+                        onChangeTime = { vm.onIntent(TaskCreateIntent.SetStartTime(it)) },
+                        onClick = { sheets.show(TaskEditorSheet.StartDate) },
+                        onClear = { vm.onIntent(TaskCreateIntent.SetStartDate(null)) },
+                    ),
+                project =
+                    RowCallbacks(
+                        onChange = { vm.onIntent(TaskCreateIntent.SetProject(it)) },
+                        onClick = { sheets.show(TaskEditorSheet.Project) },
+                        onClear = { vm.onIntent(TaskCreateIntent.SetProject(null)) },
+                    ),
+                tags =
+                    RowCallbacks(
+                        onChange = { ids -> vm.onIntent(TaskCreateIntent.SetTags(ids)) },
+                        onClick = { sheets.show(TaskEditorSheet.Tags) },
+                        onClear = { vm.onIntent(TaskCreateIntent.SetTags(emptyList())) },
+                    ),
+                recurrence =
+                    RowCallbacks(
+                        onChange = { vm.onIntent(TaskCreateIntent.SetRecurrence(it)) },
+                        onClick = { sheets.show(TaskEditorSheet.Recurrence) },
+                        onClear = { vm.onIntent(TaskCreateIntent.SetRecurrence(null)) },
+                    ),
+                pin =
+                    ToggleCallbacks(
+                        onToggle = { vm.onIntent(TaskCreateIntent.PinToggled) },
+                    ),
+                estimate = null,
+                onTimeEntryAdd = null,
+                onTimeEntrySave = null,
+                checklist =
+                    ChecklistCallbacks(
+                        onOpen = { sheets.show(TaskEditorSheet.Checklist) },
+                        onAdd = { text -> vm.onIntent(TaskCreateIntent.AddChecklistItem(text)) },
+                        onToggle = { id -> vm.onIntent(TaskCreateIntent.ToggleChecklistItem(id.value)) },
+                        onDelete = { id -> vm.onIntent(TaskCreateIntent.RemoveChecklistItem(id.value)) },
+                    ),
+                attachments =
+                    AttachmentsCallbacks(
+                        onOpen = { sheets.show(TaskEditorSheet.Attachments) },
+                        onAddUrl = { url, title -> vm.onIntent(TaskCreateIntent.AddAttachmentUrl(url, title)) },
+                        // null, not an empty lambda: the task has no id until it is saved, so
+                        // there is nothing to attach the file to. The sheet hides its
+                        // "Add file" button rather than offering one that cannot work.
+                        onAttachFile = null,
+                        onDelete = { id -> vm.onIntent(TaskCreateIntent.RemoveAttachmentUrl(id.value)) },
+                    ),
+                dependencies = null,
+                bottomBar = {
+                    TaskSaveBar(
+                        isEnabled = state.isSaveEnabled,
+                        isLoading = state.isSaving,
+                        onSaveClick = { vm.onIntent(TaskCreateIntent.SaveClicked) },
+                    )
+                },
+                menuItems = persistentListOf(),
             ),
-            dueDate = DateRowCallbacks(
-                onChangeDate = { vm.onIntent(TaskCreateIntent.SetDueDate(it)) },
-                onChangeTime = { vm.onIntent(TaskCreateIntent.SetDueTime(it)) },
-                onClick = { sheets.show(TaskEditorSheet.Date) },
-                onClear = { vm.onIntent(TaskCreateIntent.DueDateCleared) },
-                onChangeDates = { dates -> vm.onIntent(TaskCreateIntent.SetDueDates(dates)) },
-            ),
-            startDate = DateRowCallbacks(
-                onChangeDate = { vm.onIntent(TaskCreateIntent.SetStartDate(it)) },
-                onChangeTime = { vm.onIntent(TaskCreateIntent.SetStartTime(it)) },
-                onClick = { sheets.show(TaskEditorSheet.StartDate) },
-                onClear = { vm.onIntent(TaskCreateIntent.SetStartDate(null)) },
-            ),
-            project = RowCallbacks(
-                onChange = { vm.onIntent(TaskCreateIntent.SetProject(it)) },
-                onClick = { sheets.show(TaskEditorSheet.Project) },
-                onClear = { vm.onIntent(TaskCreateIntent.SetProject(null)) },
-            ),
-            tags = RowCallbacks(
-                onChange = { ids -> vm.onIntent(TaskCreateIntent.SetTags(ids)) },
-                onClick = { sheets.show(TaskEditorSheet.Tags) },
-                onClear = { vm.onIntent(TaskCreateIntent.SetTags(emptyList())) },
-            ),
-            recurrence = RowCallbacks(
-                onChange = { vm.onIntent(TaskCreateIntent.SetRecurrence(it)) },
-                onClick = { sheets.show(TaskEditorSheet.Recurrence) },
-                onClear = { vm.onIntent(TaskCreateIntent.SetRecurrence(null)) },
-            ),
-            pin = ToggleCallbacks(
-                onToggle = { vm.onIntent(TaskCreateIntent.PinToggled) },
-            ),
-            estimate = null,
-            onTimeEntryAdd = null,
-            onTimeEntrySave = null,
-            checklist = ChecklistCallbacks(
-                onOpen = { sheets.show(TaskEditorSheet.Checklist) },
-                onAdd = { text -> vm.onIntent(TaskCreateIntent.AddChecklistItem(text)) },
-                onToggle = { id -> vm.onIntent(TaskCreateIntent.ToggleChecklistItem(id.value)) },
-                onDelete = { id -> vm.onIntent(TaskCreateIntent.RemoveChecklistItem(id.value)) },
-            ),
-            attachments = AttachmentsCallbacks(
-                onOpen = { sheets.show(TaskEditorSheet.Attachments) },
-                onAddUrl = { url, title -> vm.onIntent(TaskCreateIntent.AddAttachmentUrl(url, title)) },
-                // null, not an empty lambda: the task has no id until it is saved, so
-                // there is nothing to attach the file to. The sheet hides its
-                // "Add file" button rather than offering one that cannot work.
-                onAttachFile = null,
-                onDelete = { id -> vm.onIntent(TaskCreateIntent.RemoveAttachmentUrl(id.value)) },
-            ),
-            dependencies = null,
-            bottomBar = {
-                TaskSaveBar(
-                    isEnabled = state.isSaveEnabled,
-                    isLoading = state.isSaving,
-                    onSaveClick = { vm.onIntent(TaskCreateIntent.SaveClicked) },
-                )
-            },
-            menuItems = persistentListOf(),
-        ),
         titleSource = state.draft.titleSource,
         descriptionSource = state.draft.descriptionSource,
         now = now,
@@ -249,8 +269,12 @@ private fun List<DraftChecklistItem>.toChecklistItems(): List<com.singularity.to
 private fun List<DraftAttachment>.toAttachments(now: Instant): List<com.singularity.todo.core.attachments.Attachment> =
     map { draft ->
         com.singularity.todo.core.attachments.Attachment(
-            id = com.singularity.todo.core.attachments.AttachmentId(draft.url),
-            taskId = com.singularity.todo.feature.tasks.domain.model.TaskId(""),
+            id =
+                com.singularity.todo.core.attachments
+                    .AttachmentId(draft.url),
+            taskId =
+                com.singularity.todo.feature.tasks.domain.model
+                    .TaskId(""),
             userId = com.singularity.todo.core.ids.UserId.anonymous,
             type = com.singularity.todo.core.attachments.AttachmentType.Url,
             url = draft.url,

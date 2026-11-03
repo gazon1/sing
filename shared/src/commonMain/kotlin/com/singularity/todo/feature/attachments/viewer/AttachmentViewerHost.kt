@@ -14,7 +14,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,6 +31,7 @@ import com.singularity.todo.core.files.FileOpener
 import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.OpenOutcome
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.attachments.annotation.AttachmentAnnotationPanel
 import kotlinx.coroutines.launch
@@ -59,10 +59,11 @@ fun AttachmentViewerHost(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val route = AttachmentViewerRoute.routeFor(
-        fileName = attachment.displayTitle,
-        mimeType = attachment.mimeType,
-    )
+    val route =
+        AttachmentViewerRoute.routeFor(
+            fileName = attachment.displayTitle,
+            mimeType = attachment.mimeType,
+        )
     val scope = rememberCoroutineScope()
     val localPath = attachment.localPath
     var noHandler by remember { mutableStateOf(false) }
@@ -80,47 +81,55 @@ fun AttachmentViewerHost(
     }
 
     when {
-        noHandler -> NoHandlerScreen(
-            title = attachment.displayTitle,
-            mimeType = route.mimeType,
-            onBack = onBack,
-            modifier = modifier,
-            onShare = {
-                localPath?.let { fileSharePort.shareFile(it, route.mimeType) }
-            },
-        )
+        noHandler -> {
+            NoHandlerScreen(
+                title = attachment.displayTitle,
+                mimeType = route.mimeType,
+                onBack = onBack,
+                modifier = modifier,
+                onShare = {
+                    localPath?.let { fileSharePort.shareFile(it, route.mimeType) }
+                },
+            )
+        }
 
-        route.target == ViewerTarget.InAppImage -> ImageViewerScreen(
-            title = attachment.displayTitle,
-            imageModel = localPath ?: attachment.remoteUrl,
-            onBack = onBack,
-            modifier = modifier,
-        )
+        route.target == ViewerTarget.InAppImage -> {
+            ImageViewerScreen(
+                title = attachment.displayTitle,
+                imageModel = localPath ?: attachment.remoteUrl,
+                onBack = onBack,
+                modifier = modifier,
+            )
+        }
 
-        route.target == ViewerTarget.InAppText -> TextViewerScreen(
-            title = attachment.displayTitle,
-            path = localPath.orEmpty(),
-            fileSystem = fileSystem,
-            onBack = onBack,
-            modifier = modifier,
-            onOpenExternally = if (localPath != null) ::requestExternalOpen else null,
-            // Annotations are reachable from the text viewer and nowhere else: they are a
-            // span of this file's content, and the content only exists here.
-            overlay = { documentText ->
-                AttachmentAnnotationPanel(attachment.id, documentText)
-            },
-        )
+        route.target == ViewerTarget.InAppText -> {
+            TextViewerScreen(
+                title = attachment.displayTitle,
+                path = localPath.orEmpty(),
+                fileSystem = fileSystem,
+                onBack = onBack,
+                modifier = modifier,
+                onOpenExternally = if (localPath != null) ::requestExternalOpen else null,
+                // Annotations are reachable from the text viewer and nowhere else: they are a
+                // span of this file's content, and the content only exists here.
+                overlay = { documentText ->
+                    AttachmentAnnotationPanel(attachment.id, documentText)
+                },
+            )
+        }
 
-        route.target == ViewerTarget.External -> ExternalOpenScreen(
-            title = attachment.displayTitle,
-            mimeType = route.mimeType,
-            onBack = onBack,
-            modifier = modifier,
-            onOpenExternally = if (localPath != null) ::requestExternalOpen else null,
-            onShare = {
-                localPath?.let { fileSharePort.shareFile(it, route.mimeType) }
-            },
-        )
+        route.target == ViewerTarget.External -> {
+            ExternalOpenScreen(
+                title = attachment.displayTitle,
+                mimeType = route.mimeType,
+                onBack = onBack,
+                modifier = modifier,
+                onOpenExternally = if (localPath != null) ::requestExternalOpen else null,
+                onShare = {
+                    localPath?.let { fileSharePort.shareFile(it, route.mimeType) }
+                },
+            )
+        }
     }
 }
 

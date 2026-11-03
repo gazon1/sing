@@ -2,9 +2,9 @@ package com.singularity.todo.feature.flows.tasks.timetracking
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performClick
+import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.fakes.FakeClock
-import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -74,35 +74,35 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:compose")
 class TaskTime01ScenarioTest {
-
     @Test
     @DisplayName("TASK-TIME-01 probe: the surface is reachable")
-    fun probe_the_surface_is_reachable() = runDesktopAppTest(
-        clock = TEST_CLOCK,
-        checkA11y = true,
-    ) { koin ->
-        // Create a task and navigate to its detail via the Today tab.
-        tasks(koin).given(
-            due = todayAt(TEST_CLOCK, TEST_ZONE),
-            title = TASK_TITLE,
-        )
+    fun probe_the_surface_is_reachable() =
+        runDesktopAppTest(
+            clock = TEST_CLOCK,
+            checkA11y = true,
+        ) { koin ->
+            // Create a task and navigate to its detail via the Today tab.
+            tasks(koin).given(
+                due = todayAt(TEST_CLOCK, TEST_ZONE),
+                title = TASK_TITLE,
+            )
 
-        tapTab("Today")
-        assertTagDisplayed(TestTags.taskItem(TASK_TITLE))
-        awaitTag(TestTags.taskItem(TASK_TITLE)).performClick()
+            tapTab("Today")
+            assertTagDisplayed(TestTags.taskItem(TASK_TITLE))
+            awaitTag(TestTags.taskItem(TASK_TITLE)).performClick()
 
-        // The time-tracking section renders in Idle (no entries yet) and shows
-        // a Start chip. Click it — the write succeeds under the harness session,
-        // and the slot swaps the chip to Stop.
-        assertTagDisplayed(TestTags.TimeTracking.START)
-        awaitTag(TestTags.TimeTracking.START).performClick()
+            // The time-tracking section renders in Idle (no entries yet) and shows
+            // a Start chip. Click it — the write succeeds under the harness session,
+            // and the slot swaps the chip to Stop.
+            assertTagDisplayed(TestTags.TimeTracking.START)
+            awaitTag(TestTags.TimeTracking.START).performClick()
 
-        // The click must reach the repository, not vanish: a swallowed write
-        // leaves the chip on Start forever (#196's original finding, which the
-        // Error state exists to prevent — here the write succeeds, so the
-        // evidence is the swap).
-        assertTagDisplayed(TestTags.TimeTracking.STOP)
-    }
+            // The click must reach the repository, not vanish: a swallowed write
+            // leaves the chip on Start forever (#196's original finding, which the
+            // Error state exists to prevent — here the write succeeds, so the
+            // evidence is the swap).
+            assertTagDisplayed(TestTags.TimeTracking.STOP)
+        }
 
     private companion object {
         const val TASK_TITLE = "Track me for carrier"

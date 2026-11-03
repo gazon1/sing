@@ -20,7 +20,6 @@ import kotlin.test.assertIs
  */
 @Tag("fast")
 class Nav3SavedStateTest {
-
     /** Creates a NavBackStack typed at the sealed interface level so any TasksRoute subtype can be added. */
     private fun makeStack(start: TasksRoute): NavBackStack<TasksRoute> = NavBackStack(start)
 

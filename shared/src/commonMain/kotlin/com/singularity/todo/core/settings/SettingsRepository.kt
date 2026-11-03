@@ -41,7 +41,10 @@ object SettingsNamespace {
     const val PLANS = "plans"
     const val PROJECTS = "projects"
 
-    fun key(ns: String, name: String): String = "$ns.$name"
+    fun key(
+        ns: String,
+        name: String,
+    ): String = "$ns.$name"
 }
 
 // ─── SettingsRepository ───────────────────────────────────────────────────────
@@ -58,7 +61,6 @@ object SettingsNamespace {
 interface SettingsRepository :
     SettingsReader,
     TasksSettingsRepository {
-
     companion object {
         const val DEFAULT_SYSTEM_PROMPT = SettingsDefaults.Ai.SYSTEM_PROMPT
         const val DEFAULT_AI_MODEL = SettingsDefaults.Ai.MODEL
@@ -86,8 +88,11 @@ interface SettingsRepository :
 
     // AI setters — required by AiSettingsStore.process()
     suspend fun setAiProvider(value: String)
+
     suspend fun setAiModel(value: String)
+
     suspend fun setAiBaseUrl(value: String)
+
     suspend fun setAiSystemPrompt(value: String)
 
     // Account setter
@@ -117,14 +122,14 @@ class DataStoreSettingsRepository(
      */
     private val scopedUserId: Flow<com.singularity.todo.core.ids.UserId>,
 ) : SettingsRepository {
-
     companion object {
         // ── Appearance ────────────────────────────────────────────────────────────
         val DARK_THEME = booleanPreferencesKey(SettingsNamespace.key(SettingsNamespace.APPEARANCE, "dark_theme"))
         val ACCENT_COLOR = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.APPEARANCE, "accent_color"))
-        val FONT_SIZE_SCALE = floatPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.APPEARANCE, "font_size_scale"),
-        )
+        val FONT_SIZE_SCALE =
+            floatPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.APPEARANCE, "font_size_scale"),
+            )
 
         // ── AI ─────────────────────────────────────────────────────────────────────
         val AI_PROVIDER = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.AI, "provider"))
@@ -133,65 +138,80 @@ class DataStoreSettingsRepository(
         val AI_SYSTEM_PROMPT = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.AI, "system_prompt"))
 
         // ── Notifications ─────────────────────────────────────────────────────────
-        val NOTIFICATIONS_ENABLED = booleanPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "enabled"),
-        )
+        val NOTIFICATIONS_ENABLED =
+            booleanPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "enabled"),
+            )
         val NOTIFICATION_SOUND = booleanPreferencesKey(SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "sound"))
-        val NOTIFICATION_VIBRATION = booleanPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "vibration"),
-        )
-        val REMINDER_DEFAULT = stringPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "reminder_default"),
-        )
+        val NOTIFICATION_VIBRATION =
+            booleanPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "vibration"),
+            )
+        val REMINDER_DEFAULT =
+            stringPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.NOTIFICATIONS, "reminder_default"),
+            )
 
         // ── Work Schedule ────────────────────────────────────────────────────────
-        val WORK_DAY_START_MINUTES = intPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_day_start_minutes"),
-        )
-        val WORK_DAY_END_MINUTES = intPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_day_end_minutes"),
-        )
-        val WORK_LUNCH_START_MINUTES = intPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_lunch_start_minutes"),
-        )
-        val WORK_LUNCH_END_MINUTES = intPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_lunch_end_minutes"),
-        )
-        val WORK_WEEKEND_SAT = booleanPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "weekend_sat"),
-        )
-        val WORK_WEEKEND_SUN = booleanPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "weekend_sun"),
-        )
+        val WORK_DAY_START_MINUTES =
+            intPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_day_start_minutes"),
+            )
+        val WORK_DAY_END_MINUTES =
+            intPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_day_end_minutes"),
+            )
+        val WORK_LUNCH_START_MINUTES =
+            intPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_lunch_start_minutes"),
+            )
+        val WORK_LUNCH_END_MINUTES =
+            intPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "work_lunch_end_minutes"),
+            )
+        val WORK_WEEKEND_SAT =
+            booleanPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "weekend_sat"),
+            )
+        val WORK_WEEKEND_SUN =
+            booleanPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.WORK_SCHEDULE, "weekend_sun"),
+            )
 
         // ── Greeting ─────────────────────────────────────────────────────────────
-        val GREETING_MORNING_END = intPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.GREETING, "morning_end_hour"),
-        )
-        val GREETING_AFTERNOON_END = intPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.GREETING, "afternoon_end_hour"),
-        )
+        val GREETING_MORNING_END =
+            intPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.GREETING, "morning_end_hour"),
+            )
+        val GREETING_AFTERNOON_END =
+            intPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.GREETING, "afternoon_end_hour"),
+            )
 
         // ── Account ─────────────────────────────────────────────────────────────
         val USER_ID = stringPreferencesKey(SettingsNamespace.key(SettingsNamespace.ACCOUNT, "user_id"))
 
         // ── Agenda ────────────────────────────────────────────────────────────────
-        val DEFAULT_SAVED_AGENDA_VIEW_ID = stringPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.AGENDA, "default_view_id"),
-        )
+        val DEFAULT_SAVED_AGENDA_VIEW_ID =
+            stringPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.AGENDA, "default_view_id"),
+            )
 
         // ── Backup ────────────────────────────────────────────────────────────────
-        val AUTO_BACKUP_ENABLED = booleanPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.BACKUP, "auto_backup_enabled"),
-        )
+        val AUTO_BACKUP_ENABLED =
+            booleanPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.BACKUP, "auto_backup_enabled"),
+            )
 
         // ── Tasks ────────────────────────────────────────────────────────────────
-        val AUTO_ARCHIVE_RETENTION_DAYS = intPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.TASKS, "auto_archive_retention_days"),
-        )
-        val STALENESS_THRESHOLD_DAYS = intPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.TASKS, "staleness_threshold_days"),
-        )
+        val AUTO_ARCHIVE_RETENTION_DAYS =
+            intPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.TASKS, "auto_archive_retention_days"),
+            )
+        val STALENESS_THRESHOLD_DAYS =
+            intPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.TASKS, "staleness_threshold_days"),
+            )
 
         /**
          * The key of a profile's recurring-series repair marker.
@@ -200,9 +220,10 @@ class DataStoreSettingsRepository(
          * profile is repaired on its own first launch, and one profile's marker
          * must not stand for another's.
          */
-        fun recurringSeriesRepairVersionKey(profileScope: String) = intPreferencesKey(
-            SettingsNamespace.key(SettingsNamespace.TASKS, "recurring_series_repair_version.$profileScope"),
-        )
+        fun recurringSeriesRepairVersionKey(profileScope: String) =
+            intPreferencesKey(
+                SettingsNamespace.key(SettingsNamespace.TASKS, "recurring_series_repair_version.$profileScope"),
+            )
     }
 
     // ── Per-section repositories ───────────────────────────────────────────
@@ -216,9 +237,11 @@ class DataStoreSettingsRepository(
     override val defaultAgendaView: DefaultAgendaViewSettingsRepository =
         DataStoreDefaultAgendaViewSettingsRepository(dataStore)
     override val plans: PlansSettingsRepository =
-        com.singularity.todo.feature.plans.data.DataStorePlansSettingsRepository(dataStore, scopedUserId)
+        com.singularity.todo.feature.plans.data
+            .DataStorePlansSettingsRepository(dataStore, scopedUserId)
     override val onboarding: com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository =
-        com.singularity.todo.core.ui.onboarding.DataStoreOnboardingSettingsRepository(dataStore)
+        com.singularity.todo.core.ui.onboarding
+            .DataStoreOnboardingSettingsRepository(dataStore)
 
     // ── AI (flat — AiSettingsStore reads via SettingsReader) ───────────────
 
@@ -248,12 +271,15 @@ class DataStoreSettingsRepository(
     override suspend fun setAiProvider(value: String) {
         dataStore.edit { it[AI_PROVIDER] = value }
     }
+
     override suspend fun setAiModel(value: String) {
         dataStore.edit { it[AI_MODEL] = value }
     }
+
     override suspend fun setAiBaseUrl(value: String) {
         dataStore.edit { it[AI_BASE_URL] = value }
     }
+
     override suspend fun setAiSystemPrompt(value: String) {
         dataStore.edit { it[AI_SYSTEM_PROMPT] = value }
     }
@@ -269,7 +295,10 @@ class DataStoreSettingsRepository(
     override fun recurringSeriesRepairVersion(profileScope: String): Flow<Int> =
         dataStore.data.map { it[recurringSeriesRepairVersionKey(profileScope)] ?: 0 }
 
-    override suspend fun setRecurringSeriesRepairVersion(profileScope: String, version: Int) {
+    override suspend fun setRecurringSeriesRepairVersion(
+        profileScope: String,
+        version: Int,
+    ) {
         dataStore.edit { it[recurringSeriesRepairVersionKey(profileScope)] = version }
     }
 }

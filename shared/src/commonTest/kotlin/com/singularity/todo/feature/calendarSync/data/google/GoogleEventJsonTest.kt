@@ -26,24 +26,24 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class GoogleEventJsonTest {
-
     private fun parse(json: String): JsonObject = Json.parseToJsonElement(json).jsonObject
 
     private fun event(json: String) = parse(json).toGoogleEventOrNull()
 
     @Test
     fun `a timed event is read`() {
-        val parsed = event(
-            """
-            {
-              "id": "evt_1", "status": "confirmed", "etag": "\"abc\"",
-              "summary": "Standup", "description": "daily", "location": "Room 2",
-              "start": {"dateTime": "2026-10-05T09:00:00Z"},
-              "end":   {"dateTime": "2026-10-05T09:15:00Z"},
-              "updated": "2026-10-05T08:00:00Z"
-            }
-            """.trimIndent(),
-        )
+        val parsed =
+            event(
+                """
+                {
+                  "id": "evt_1", "status": "confirmed", "etag": "\"abc\"",
+                  "summary": "Standup", "description": "daily", "location": "Room 2",
+                  "start": {"dateTime": "2026-10-05T09:00:00Z"},
+                  "end":   {"dateTime": "2026-10-05T09:15:00Z"},
+                  "updated": "2026-10-05T08:00:00Z"
+                }
+                """.trimIndent(),
+            )
 
         assertNotNull(parsed)
         assertEquals(GoogleEventId("evt_1"), parsed.id)
@@ -63,15 +63,16 @@ class GoogleEventJsonTest {
      */
     @Test
     fun `an all-day event is read from its date, not its dateTime`() {
-        val parsed = event(
-            """
-            {
-              "id": "evt_2", "status": "confirmed", "summary": "Dentist",
-              "start": {"date": "2026-10-06"},
-              "end":   {"date": "2026-10-07"}
-            }
-            """.trimIndent(),
-        )
+        val parsed =
+            event(
+                """
+                {
+                  "id": "evt_2", "status": "confirmed", "summary": "Dentist",
+                  "start": {"date": "2026-10-06"},
+                  "end":   {"date": "2026-10-07"}
+                }
+                """.trimIndent(),
+            )
 
         assertNotNull(parsed)
         assertEquals(true, parsed.allDay)
@@ -116,11 +117,12 @@ class GoogleEventJsonTest {
 
     @Test
     fun `the task id is read from the private extended property`() {
-        val parsed = event(
-            """
-            {"id": "evt_6", "extendedProperties": {"private": {"$TASK_ID_PROPERTY": "task-1"}}}
-            """.trimIndent(),
-        )
+        val parsed =
+            event(
+                """
+                {"id": "evt_6", "extendedProperties": {"private": {"$TASK_ID_PROPERTY": "task-1"}}}
+                """.trimIndent(),
+            )
         assertEquals("task-1", parsed?.taskId)
     }
 
@@ -152,9 +154,10 @@ class GoogleEventJsonTest {
     @Test
     fun `exception dates in the array do not break the rule read`() {
         val rule = "FREQ=WEEKLY;BYDAY=MO"
-        val parsed = event(
-            """{"id": "e2", "recurrence": ["RRULE:$rule", "EXDATE;TZID=UTC:20261012T000000Z"]}""",
-        )
+        val parsed =
+            event(
+                """{"id": "e2", "recurrence": ["RRULE:$rule", "EXDATE;TZID=UTC:20261012T000000Z"]}""",
+            )
         assertEquals(rule, parsed?.recurrenceRule)
     }
 
@@ -165,8 +168,7 @@ class GoogleEventJsonTest {
 
     // ─── Request building ───────────────────────────────────────────────
 
-    private fun requestBody(event: GoogleEvent): JsonObject =
-        Json.parseToJsonElement(event.toRequestJson()).jsonObject
+    private fun requestBody(event: GoogleEvent): JsonObject = Json.parseToJsonElement(event.toRequestJson()).jsonObject
 
     private fun baseEvent(
         title: String? = "Standup",
@@ -194,7 +196,14 @@ class GoogleEventJsonTest {
 
         assertEquals("Standup", body["summary"]?.jsonPrimitive?.content)
         assertEquals("daily", body["description"]?.jsonPrimitive?.content)
-        assertEquals("2026-10-05T09:00:00Z", body["start"]?.jsonObject?.get("dateTime")?.jsonPrimitive?.content)
+        assertEquals(
+            "2026-10-05T09:00:00Z",
+            body["start"]
+                ?.jsonObject
+                ?.get("dateTime")
+                ?.jsonPrimitive
+                ?.content,
+        )
     }
 
     /**
@@ -230,9 +239,10 @@ class GoogleEventJsonTest {
     fun `a repeat rule is written back unchanged`() {
         val rule = "FREQ=MONTHLY;BYDAY=1FR;UNTIL=20270101T000000Z"
         val body = requestBody(baseEvent(recurrenceRule = rule))
-        val lines = (body["recurrence"] as? kotlinx.serialization.json.JsonArray)
-            ?.map { it.jsonPrimitive.content }
-            .orEmpty()
+        val lines =
+            (body["recurrence"] as? kotlinx.serialization.json.JsonArray)
+                ?.map { it.jsonPrimitive.content }
+                .orEmpty()
         assertEquals(listOf("RRULE:$rule"), lines, "Google expects a prefixed list, not an object")
     }
 
@@ -245,14 +255,15 @@ class GoogleEventJsonTest {
      */
     @Test
     fun `an event survives a read-write-read cycle`() {
-        val original = parse(
-            """
-            {"id": "evt_9", "status": "confirmed", "summary": "Standup",
-             "description": "daily",
-             "start": {"dateTime": "2026-10-05T09:00:00Z"},
-             "end":   {"dateTime": "2026-10-05T09:15:00Z"}}
-            """.trimIndent(),
-        ).toGoogleEventOrNull()
+        val original =
+            parse(
+                """
+                {"id": "evt_9", "status": "confirmed", "summary": "Standup",
+                 "description": "daily",
+                 "start": {"dateTime": "2026-10-05T09:00:00Z"},
+                 "end":   {"dateTime": "2026-10-05T09:15:00Z"}}
+                """.trimIndent(),
+            ).toGoogleEventOrNull()
 
         assertNotNull(original)
 
@@ -260,13 +271,14 @@ class GoogleEventJsonTest {
         // request body carries no `id` — that is a create, not a response — so the identity
         // Google assigns is added to the body before reading it back.
         val body = requestBody(original)
-        val stored = parse(
-            buildJsonObject {
-                put("id", JsonPrimitive("evt_9"))
-                put("status", JsonPrimitive("confirmed"))
-                body.forEach { (key, value) -> put(key, value) }
-            }.toString(),
-        ).toGoogleEventOrNull()
+        val stored =
+            parse(
+                buildJsonObject {
+                    put("id", JsonPrimitive("evt_9"))
+                    put("status", JsonPrimitive("confirmed"))
+                    body.forEach { (key, value) -> put(key, value) }
+                }.toString(),
+            ).toGoogleEventOrNull()
 
         assertNotNull(stored)
         assertEquals(original.title, stored.title)
@@ -284,9 +296,10 @@ class GoogleEventJsonTest {
 
     @Test
     fun `an unknown field from a newer Google does not break the read`() {
-        val parsed = event(
-            """{"id": "evt_10", "summary": "Fine", "somethingGoogleAddedLater": {"a": 1}}""",
-        )
+        val parsed =
+            event(
+                """{"id": "evt_10", "summary": "Fine", "somethingGoogleAddedLater": {"a": 1}}""",
+            )
         assertEquals("Fine", parsed?.title)
     }
 }

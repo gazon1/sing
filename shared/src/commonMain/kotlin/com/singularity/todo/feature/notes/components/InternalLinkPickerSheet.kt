@@ -10,9 +10,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material.icons.filled.Search
@@ -39,12 +39,12 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.feature.nav.Search
-import com.singularity.todo.feature.notes.LinkKind
-import com.singularity.todo.feature.notes.LinkResult
 import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
+import com.singularity.todo.feature.nav.Search
+import com.singularity.todo.feature.notes.LinkKind
+import com.singularity.todo.feature.notes.LinkResult
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
@@ -107,18 +107,20 @@ fun InternalLinkPickerSheet(
                 lineLimits = TextFieldLineLimits.SingleLine,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 onKeyboardAction = { focusManager.clearFocus() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
             )
 
             Spacer(Modifier.height(8.dp))
 
             // Results
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(320.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(320.dp),
             ) {
                 var isLoading by remember { mutableStateOf(false) }
                 var shownResults by remember { mutableStateOf<List<LinkResult>>(emptyList()) }
@@ -149,9 +151,10 @@ fun InternalLinkPickerSheet(
                             "Type to search notes and tasks",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .padding(16.dp),
+                            modifier =
+                                Modifier
+                                    .align(Alignment.Center)
+                                    .padding(16.dp),
                         )
                     }
 
@@ -160,9 +163,10 @@ fun InternalLinkPickerSheet(
                             "No results found",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .padding(16.dp),
+                            modifier =
+                                Modifier
+                                    .align(Alignment.Center)
+                                    .padding(16.dp),
                         )
                     }
 
@@ -183,11 +187,15 @@ fun InternalLinkPickerSheet(
 }
 
 @Composable
-private fun LinkResultItem(result: LinkResult, onClick: () -> Unit) {
-    val icon = when (result.kind) {
-        LinkKind.Note -> Icons.AutoMirrored.Filled.Note
-        LinkKind.Task -> Icons.Default.Task
-    }
+private fun LinkResultItem(
+    result: LinkResult,
+    onClick: () -> Unit,
+) {
+    val icon =
+        when (result.kind) {
+            LinkKind.Note -> Icons.AutoMirrored.Filled.Note
+            LinkKind.Task -> Icons.Default.Task
+        }
     androidx.compose.material3.ListItem(
         headlineContent = {
             Text(
@@ -198,10 +206,11 @@ private fun LinkResultItem(result: LinkResult, onClick: () -> Unit) {
         },
         supportingContent = {
             Text(
-                text = when (result.kind) {
-                    LinkKind.Note -> "Note"
-                    LinkKind.Task -> "Task"
-                },
+                text =
+                    when (result.kind) {
+                        LinkKind.Note -> "Note"
+                        LinkKind.Task -> "Task"
+                    },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -214,10 +223,11 @@ private fun LinkResultItem(result: LinkResult, onClick: () -> Unit) {
                 tint = MaterialTheme.colorScheme.primary,
             )
         },
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 4.dp),
     )
 }
 
@@ -227,14 +237,16 @@ private fun LinkResultItem(result: LinkResult, onClick: () -> Unit) {
 // "type to search" state — the results list only appears after the debounce.
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun InternalLinkPickerSheetPreview() = PreviewThemed(darkTheme = false) {
-    val results = listOf(
-        LinkResult("n1", "Ideas", LinkKind.Note),
-        LinkResult("t1", "Buy groceries", LinkKind.Task),
-    )
-    InternalLinkPickerSheet(
-        onSearch = { results },
-        onSelected = { },
-        onDismiss = noopClick,
-    )
-}
+private fun InternalLinkPickerSheetPreview() =
+    PreviewThemed(darkTheme = false) {
+        val results =
+            listOf(
+                LinkResult("n1", "Ideas", LinkKind.Note),
+                LinkResult("t1", "Buy groceries", LinkKind.Task),
+            )
+        InternalLinkPickerSheet(
+            onSearch = { results },
+            onSelected = { },
+            onDismiss = noopClick,
+        )
+    }

@@ -10,7 +10,9 @@ import com.singularity.todo.core.ids.nextId
 value class ProfileId(val value: String) {
     companion object {
         fun generate() = ProfileId(nextId())
+
         fun fromString(value: String) = ProfileId(value)
+
         val default = ProfileId("default")
     }
 }

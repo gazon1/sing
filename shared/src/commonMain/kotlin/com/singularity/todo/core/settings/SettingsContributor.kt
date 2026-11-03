@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.Flow
  */
 interface SettingsContributor<S : SettingsSection, I : SettingsIntent> {
     val section: S
+
     fun observe(): Flow<S>
+
     suspend fun process(intent: I)
 }

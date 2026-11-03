@@ -17,11 +17,12 @@ actual suspend fun createKoogPromptExecutor(
     secureStorage: SecureStoragePort,
     settings: SettingsRepository,
 ): PromptExecutorPort {
-    val reader = object : SettingsReader {
-        override val aiProvider = settings.aiProvider
-        override val aiBaseUrl = settings.aiBaseUrl
-        override val aiModel = settings.aiModel
-    }
+    val reader =
+        object : SettingsReader {
+            override val aiProvider = settings.aiProvider
+            override val aiBaseUrl = settings.aiBaseUrl
+            override val aiModel = settings.aiModel
+        }
     val cfg = OpenAiConfig.resolve(secureStorage, reader)
     val executor = buildExecutor(cfg)
     return KoogPromptExecutorPort(executor)
@@ -32,13 +33,19 @@ actual suspend fun createKoogPromptExecutor(
  * OpenAI-compatible endpoint. The JVM-side HTTP backend uses OkHttp via
  * the official Koog adapter.
  */
-internal fun buildExecutor(cfg: OpenAiConfig) = ai.koog.prompt.executor.llms.MultiLLMPromptExecutor(
-    mapOf(
-        ai.koog.prompt.llm.OpenAILLMProvider to ai.koog.prompt.executor.clients.openai.OpenAILLMClient(
-            apiKey = cfg.apiKey.value,
-            settings = ai.koog.prompt.executor.clients.openai.OpenAIClientSettings(baseUrl = cfg.baseUrl),
-            httpClientFactory = ai.koog.http.client.okhttp.OkHttpKoogHttpClient.Factory(),
-            clock = ai.koog.utils.time.KoogClock.System,
+internal fun buildExecutor(cfg: OpenAiConfig) =
+    ai.koog.prompt.executor.llms.MultiLLMPromptExecutor(
+        mapOf(
+            ai.koog.prompt.llm.OpenAILLMProvider to
+                ai.koog.prompt.executor.clients.openai.OpenAILLMClient(
+                    apiKey = cfg.apiKey.value,
+                    settings =
+                        ai.koog.prompt.executor.clients.openai
+                            .OpenAIClientSettings(baseUrl = cfg.baseUrl),
+                    httpClientFactory =
+                        ai.koog.http.client.okhttp.OkHttpKoogHttpClient
+                            .Factory(),
+                    clock = ai.koog.utils.time.KoogClock.System,
+                ),
         ),
-    ),
-)
+    )

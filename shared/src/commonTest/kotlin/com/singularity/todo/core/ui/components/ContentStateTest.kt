@@ -12,7 +12,6 @@ import kotlin.test.assertIs
  */
 @Tag("fast")
 class ContentStateTest {
-
     @Test
     fun loadingIsASingletonContentState() {
         val a = ContentState.Loading

@@ -24,7 +24,6 @@ import kotlinx.coroutines.flow.asStateFlow
  * was possible only because a flow the port did not own was reachable from the outside.
  */
 class NoopSubscriptionProvider : SubscriptionProvider {
-
     /**
      * One flow per scope, created on first ask.
      *
@@ -35,11 +34,12 @@ class NoopSubscriptionProvider : SubscriptionProvider {
      */
     private val scopes = mutableMapOf<SyncScope, StateFlow<Entitlement>>()
 
-    override fun entitlement(scope: SyncScope): StateFlow<Entitlement> = synchronized(scopes) {
-        scopes.getOrPut(scope) {
-            MutableStateFlow<Entitlement>(Entitlement.Unknown(scope)).asStateFlow()
+    override fun entitlement(scope: SyncScope): StateFlow<Entitlement> =
+        synchronized(scopes) {
+            scopes.getOrPut(scope) {
+                MutableStateFlow<Entitlement>(Entitlement.Unknown(scope)).asStateFlow()
+            }
         }
-    }
 
     /**
      * Succeeds, and establishes nothing.
@@ -48,8 +48,7 @@ class NoopSubscriptionProvider : SubscriptionProvider {
      * answer. Returning `Unknown` rather than a signed-out `PurchaseState` is what stops an
      * unconfigured build from presenting itself as one where the user has been denied.
      */
-    override suspend fun refresh(scope: SyncScope): Result<Entitlement> =
-        Result.success(Entitlement.Unknown(scope))
+    override suspend fun refresh(scope: SyncScope): Result<Entitlement> = Result.success(Entitlement.Unknown(scope))
 
     override suspend fun getFormattedPrice(sku: String): String? = null
 }

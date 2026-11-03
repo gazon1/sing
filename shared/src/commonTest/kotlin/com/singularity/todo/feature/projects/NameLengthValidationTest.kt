@@ -21,7 +21,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class NameLengthValidationTest {
-
     /** U+1F389 — four UTF-16 units, one visible character. */
     private val partyEmoji = "🎉"
 

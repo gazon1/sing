@@ -10,6 +10,9 @@ import androidx.compose.runtime.Composable
  * @param onBack called when the system back gesture fires while [enabled].
  */
 @Composable
-actual fun SystemBackHandler(enabled: Boolean, onBack: () -> Unit) {
+actual fun SystemBackHandler(
+    enabled: Boolean,
+    onBack: () -> Unit,
+) {
     BackHandler(enabled = enabled, onBack = onBack)
 }

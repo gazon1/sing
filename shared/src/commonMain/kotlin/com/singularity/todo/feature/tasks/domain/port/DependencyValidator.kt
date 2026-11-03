@@ -12,7 +12,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  * @see 2026-09-23-task-dependencies-completion
  */
 interface DependencyValidator {
-
     /**
      * Asserts that adding [newDeps] to [taskId] does not create a cycle.
      *
@@ -21,7 +20,10 @@ interface DependencyValidator {
      *
      * @return [kotlin.Result] with [Unit] on success, or [IllegalArgumentException] on self-loop.
      */
-    suspend fun assertNoCycles(taskId: TaskId, newDeps: Set<TaskId>): Result<Unit>
+    suspend fun assertNoCycles(
+        taskId: TaskId,
+        newDeps: Set<TaskId>,
+    ): Result<Unit>
 
     /**
      * One traversal that returns both whether a cycle exists and the blocking edges.

@@ -1,7 +1,7 @@
 package com.singularity.todo.flows
 
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.Test
 import java.io.File
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -27,7 +27,6 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class HarnessConventionTest {
-
     private val testSources: List<File> by lazy {
         File("src/jvmTest/kotlin/com/singularity/todo")
             .walkTopDown()
@@ -45,10 +44,11 @@ class HarnessConventionTest {
 
     @Test
     fun `every flow test enables the a11y check`() {
-        val without = flowTests
-            .filter { !it.readText().contains("checkA11y = true") }
-            .map { it.name }
-            .filterNot { it in EXEMPT_A11Y }
+        val without =
+            flowTests
+                .filter { !it.readText().contains("checkA11y = true") }
+                .map { it.name }
+                .filterNot { it in EXEMPT_A11Y }
         if (without.isEmpty()) return
         fail(
             "Flow test(s) that do not pass checkA11y = true to runDesktopAppTest:\n" +
@@ -61,24 +61,31 @@ class HarnessConventionTest {
 
     @Test
     fun `raw selectors are only in test helpers or explicitly exempted`() {
-        val violations = testSources
-            .mapNotNull { file ->
-                // Import lines are not call sites; neither are comment and KDoc
-                // lines, which quote the selector names when documenting the
-                // rule. This mirrors the filter the display-assert scan below
-                // applies, so a KDoc mention of `onNodeWithText(...)` is not
-                // mistaken for a call.
-                val body = file.readLines().filterNot { line ->
-                    val t = line.trimStart()
-                    t.startsWith("import ") || t.startsWith("//") ||
-                        t.startsWith("*") || t.startsWith("/*")
-                }.joinToString("\n")
-                val calls = RAW_SELECTOR_PATTERN.findAll(body).toList()
-                if (calls.isEmpty()) null
-                else if (file.name !in EXEMPT_RAW_TAGS) {
-                    "${file.name}: ${calls.size} raw call(s)"
-                } else null
-            }
+        val violations =
+            testSources
+                .mapNotNull { file ->
+                    // Import lines are not call sites; neither are comment and KDoc
+                    // lines, which quote the selector names when documenting the
+                    // rule. This mirrors the filter the display-assert scan below
+                    // applies, so a KDoc mention of `onNodeWithText(...)` is not
+                    // mistaken for a call.
+                    val body =
+                        file
+                            .readLines()
+                            .filterNot { line ->
+                                val t = line.trimStart()
+                                t.startsWith("import ") || t.startsWith("//") ||
+                                    t.startsWith("*") || t.startsWith("/*")
+                            }.joinToString("\n")
+                    val calls = RAW_SELECTOR_PATTERN.findAll(body).toList()
+                    if (calls.isEmpty()) {
+                        null
+                    } else if (file.name !in EXEMPT_RAW_TAGS) {
+                        "${file.name}: ${calls.size} raw call(s)"
+                    } else {
+                        null
+                    }
+                }
 
         if (violations.isEmpty()) return
         fail(
@@ -90,16 +97,20 @@ class HarnessConventionTest {
 
     @Test
     fun `raw root lookups are only in test helpers`() {
-        val violations = testSources
-            .mapNotNull { file ->
-                val body = file.readLines().filterNot { line ->
-                    val t = line.trimStart()
-                    t.startsWith("import ") || t.startsWith("//") ||
-                        t.startsWith("*") || t.startsWith("/*")
-                }.joinToString("\n")
-                val calls = RAW_ROOT_PATTERN.findAll(body).toList()
-                if (calls.isEmpty()) null else "${file.name}: ${calls.size} raw onRoot call(s)"
-            }
+        val violations =
+            testSources
+                .mapNotNull { file ->
+                    val body =
+                        file
+                            .readLines()
+                            .filterNot { line ->
+                                val t = line.trimStart()
+                                t.startsWith("import ") || t.startsWith("//") ||
+                                    t.startsWith("*") || t.startsWith("/*")
+                            }.joinToString("\n")
+                    val calls = RAW_ROOT_PATTERN.findAll(body).toList()
+                    if (calls.isEmpty()) null else "${file.name}: ${calls.size} raw onRoot call(s)"
+                }
 
         if (violations.isEmpty()) return
         fail(
@@ -114,18 +125,22 @@ class HarnessConventionTest {
 
     @Test
     fun `exempted files actually contain raw selectors`() {
-        val stale = EXEMPT_RAW_TAGS.filter { (fileName, _) ->
-            val file = testSources.find { it.name == fileName }
-            if (file == null) return@filter false
-            // Same filter as the violation scan, so the two agree on what counts
-            // as a raw call: imports and comment/KDoc quotes are not call sites.
-            val body = file.readLines().filterNot { line ->
-                val t = line.trimStart()
-                t.startsWith("import ") || t.startsWith("//") ||
-                    t.startsWith("*") || t.startsWith("/*")
-            }.joinToString("\n")
-            RAW_SELECTOR_PATTERN.findAll(body).none()
-        }
+        val stale =
+            EXEMPT_RAW_TAGS.filter { (fileName, _) ->
+                val file = testSources.find { it.name == fileName }
+                if (file == null) return@filter false
+                // Same filter as the violation scan, so the two agree on what counts
+                // as a raw call: imports and comment/KDoc quotes are not call sites.
+                val body =
+                    file
+                        .readLines()
+                        .filterNot { line ->
+                            val t = line.trimStart()
+                            t.startsWith("import ") || t.startsWith("//") ||
+                                t.startsWith("*") || t.startsWith("/*")
+                        }.joinToString("\n")
+                RAW_SELECTOR_PATTERN.findAll(body).none()
+            }
         if (stale.isEmpty()) return
         fail(
             "EXEMPT_RAW_TAGS entries with no raw selector calls (stale exemptions):\n" +
@@ -141,21 +156,28 @@ class HarnessConventionTest {
         // for. The helpers (assertTagDisplayed / assertTextDisplayed /
         // assertContentDescriptionDisplayed / assertNodeDisplayed) own the
         // display wait; nothing outside test/helpers may hand-roll it.
-        val violations = testSources
-            .mapNotNull { file ->
-                val body = file.readLines().filterNot { line ->
-                    val t = line.trimStart()
-                    // Import lines are not call sites; comment and KDoc lines
-                    // quote the pattern when documenting the rule.
-                    t.startsWith("import ") || t.startsWith("//") ||
-                        t.startsWith("*") || t.startsWith("/*")
-                }.joinToString("\n")
-                val calls = DISPLAY_ASSERT_PATTERN.findAll(body).toList()
-                if (calls.isEmpty()) null
-                else if (file.name !in EXEMPT_DISPLAY_ASSERTS) {
-                    "${file.name}: ${calls.size} raw call(s)"
-                } else null
-            }
+        val violations =
+            testSources
+                .mapNotNull { file ->
+                    val body =
+                        file
+                            .readLines()
+                            .filterNot { line ->
+                                val t = line.trimStart()
+                                // Import lines are not call sites; comment and KDoc lines
+                                // quote the pattern when documenting the rule.
+                                t.startsWith("import ") || t.startsWith("//") ||
+                                    t.startsWith("*") || t.startsWith("/*")
+                            }.joinToString("\n")
+                    val calls = DISPLAY_ASSERT_PATTERN.findAll(body).toList()
+                    if (calls.isEmpty()) {
+                        null
+                    } else if (file.name !in EXEMPT_DISPLAY_ASSERTS) {
+                        "${file.name}: ${calls.size} raw call(s)"
+                    } else {
+                        null
+                    }
+                }
 
         if (violations.isEmpty()) return
         fail(
@@ -170,16 +192,20 @@ class HarnessConventionTest {
 
     @Test
     fun `exempted files actually contain raw display asserts`() {
-        val stale = EXEMPT_DISPLAY_ASSERTS.filter { (fileName, _) ->
-            val file = testSources.find { it.name == fileName }
-            if (file == null) return@filter false
-            val body = file.readLines().filterNot { line ->
-                val t = line.trimStart()
-                t.startsWith("import ") || t.startsWith("//") ||
-                    t.startsWith("*") || t.startsWith("/*")
-            }.joinToString("\n")
-            DISPLAY_ASSERT_PATTERN.findAll(body).none()
-        }
+        val stale =
+            EXEMPT_DISPLAY_ASSERTS.filter { (fileName, _) ->
+                val file = testSources.find { it.name == fileName }
+                if (file == null) return@filter false
+                val body =
+                    file
+                        .readLines()
+                        .filterNot { line ->
+                            val t = line.trimStart()
+                            t.startsWith("import ") || t.startsWith("//") ||
+                                t.startsWith("*") || t.startsWith("/*")
+                        }.joinToString("\n")
+                DISPLAY_ASSERT_PATTERN.findAll(body).none()
+            }
         if (stale.isEmpty()) return
         fail(
             "EXEMPT_DISPLAY_ASSERTS entries with no raw display asserts " +
@@ -195,26 +221,32 @@ class HarnessConventionTest {
         // fold of the 1024x768 test window. A composed-but-off-screen entry can be clicked
         // without error — the click lands on a coordinate outside the window and nothing
         // happens. Use tapTab (which calls performScrollTo) or clickContentDescriptionScrolled.
-        val violations = testSources
-            .mapNotNull { file ->
-                val body = file.readLines().filterNot { line ->
-                    val t = line.trimStart()
-                    t.startsWith("import ") || t.startsWith("//") ||
-                        t.startsWith("*") || t.startsWith("/*")
-                }.joinToString("\n")
+        val violations =
+            testSources
+                .mapNotNull { file ->
+                    val body =
+                        file
+                            .readLines()
+                            .filterNot { line ->
+                                val t = line.trimStart()
+                                t.startsWith("import ") || t.startsWith("//") ||
+                                    t.startsWith("*") || t.startsWith("/*")
+                            }.joinToString("\n")
 
-                val nonScrollCalls = NON_SCROLL_CD_PATTERN.findAll(body).toList()
-                if (nonScrollCalls.isEmpty()) return@mapNotNull null
-                if (file.name in EXEMPT_SCROLL) return@mapNotNull null
+                    val nonScrollCalls = NON_SCROLL_CD_PATTERN.findAll(body).toList()
+                    if (nonScrollCalls.isEmpty()) return@mapNotNull null
+                    if (file.name in EXEMPT_SCROLL) return@mapNotNull null
 
-                val scrollCalls = SCROLL_CD_PATTERN.findAll(body).toList()
-                val hasScrollAware = scrollCalls.isNotEmpty()
+                    val scrollCalls = SCROLL_CD_PATTERN.findAll(body).toList()
+                    val hasScrollAware = scrollCalls.isNotEmpty()
 
-                // Only flag if there are non-scroll calls but no scroll-aware calls.
-                if (nonScrollCalls.isNotEmpty() && !hasScrollAware) {
-                    "${file.name}: ${nonScrollCalls.size} non-scroll CD call(s)"
-                } else null
-            }
+                    // Only flag if there are non-scroll calls but no scroll-aware calls.
+                    if (nonScrollCalls.isNotEmpty() && !hasScrollAware) {
+                        "${file.name}: ${nonScrollCalls.size} non-scroll CD call(s)"
+                    } else {
+                        null
+                    }
+                }
 
         if (violations.isEmpty()) return
         fail(
@@ -234,19 +266,26 @@ class HarnessConventionTest {
         // not its label. The text-level assertion fails on a correctly disabled button
         // and would pass on a button that was never disabled. assertButtonNotEnabled
         // uses hasClickAction() to select the control node, where Disabled is set.
-        val violations = testSources
-            .mapNotNull { file ->
-                val body = file.readLines().filterNot { line ->
-                    val t = line.trimStart()
-                    t.startsWith("import ") || t.startsWith("//") ||
-                        t.startsWith("*") || t.startsWith("/*")
-                }.joinToString("\n")
-                val calls = BUTTON_TEXT_ASSERT_PATTERN.findAll(body).toList()
-                if (calls.isEmpty()) null
-                else if (file.name !in EXEMPT_BUTTON_ASSERT) {
-                    "${file.name}: ${calls.size} button-text assert(s)"
-                } else null
-            }
+        val violations =
+            testSources
+                .mapNotNull { file ->
+                    val body =
+                        file
+                            .readLines()
+                            .filterNot { line ->
+                                val t = line.trimStart()
+                                t.startsWith("import ") || t.startsWith("//") ||
+                                    t.startsWith("*") || t.startsWith("/*")
+                            }.joinToString("\n")
+                    val calls = BUTTON_TEXT_ASSERT_PATTERN.findAll(body).toList()
+                    if (calls.isEmpty()) {
+                        null
+                    } else if (file.name !in EXEMPT_BUTTON_ASSERT) {
+                        "${file.name}: ${calls.size} button-text assert(s)"
+                    } else {
+                        null
+                    }
+                }
 
         if (violations.isEmpty()) return
         fail(
@@ -260,16 +299,20 @@ class HarnessConventionTest {
 
     @Test
     fun `exempted files for scroll-reachability actually contain violations`() {
-        val stale = EXEMPT_SCROLL.filter { (fileName, _) ->
-            val file = testSources.find { it.name == fileName }
-            if (file == null) return@filter false
-            val body = file.readLines().filterNot { line ->
-                val t = line.trimStart()
-                t.startsWith("import ") || t.startsWith("//") ||
-                    t.startsWith("*") || t.startsWith("/*")
-            }.joinToString("\n")
-            NON_SCROLL_CD_PATTERN.findAll(body).none()
-        }
+        val stale =
+            EXEMPT_SCROLL.filter { (fileName, _) ->
+                val file = testSources.find { it.name == fileName }
+                if (file == null) return@filter false
+                val body =
+                    file
+                        .readLines()
+                        .filterNot { line ->
+                            val t = line.trimStart()
+                            t.startsWith("import ") || t.startsWith("//") ||
+                                t.startsWith("*") || t.startsWith("/*")
+                        }.joinToString("\n")
+                NON_SCROLL_CD_PATTERN.findAll(body).none()
+            }
         if (stale.isEmpty()) return
         fail(
             "EXEMPT_SCROLL entries with no non-scroll CD calls (stale exemptions):\n" +
@@ -280,16 +323,20 @@ class HarnessConventionTest {
 
     @Test
     fun `exempted files for button asserts actually contain violations`() {
-        val stale = EXEMPT_BUTTON_ASSERT.filter { (fileName, _) ->
-            val file = testSources.find { it.name == fileName }
-            if (file == null) return@filter false
-            val body = file.readLines().filterNot { line ->
-                val t = line.trimStart()
-                t.startsWith("import ") || t.startsWith("//") ||
-                    t.startsWith("*") || t.startsWith("/*")
-            }.joinToString("\n")
-            BUTTON_TEXT_ASSERT_PATTERN.findAll(body).none()
-        }
+        val stale =
+            EXEMPT_BUTTON_ASSERT.filter { (fileName, _) ->
+                val file = testSources.find { it.name == fileName }
+                if (file == null) return@filter false
+                val body =
+                    file
+                        .readLines()
+                        .filterNot { line ->
+                            val t = line.trimStart()
+                            t.startsWith("import ") || t.startsWith("//") ||
+                                t.startsWith("*") || t.startsWith("/*")
+                        }.joinToString("\n")
+                BUTTON_TEXT_ASSERT_PATTERN.findAll(body).none()
+            }
         if (stale.isEmpty()) return
         fail(
             "EXEMPT_BUTTON_ASSERT entries with no button-text asserts (stale exemptions):\n" +
@@ -335,20 +382,22 @@ class HarnessConventionTest {
          * wait-then-assert pattern; a hand-rolled one-shot reintroduces the
          * #569 race. Same two-way check as [EXEMPT_RAW_TAGS].
          */
-        val EXEMPT_DISPLAY_ASSERTS: Map<String, String> = mapOf(
-            "CreateTaskFlowTest.kt" to
-                "Negative control: awaits a nonexistent tag and expects the one-shot " +
-                "display assert to fail — the assertion IS the test",
-        )
+        val EXEMPT_DISPLAY_ASSERTS: Map<String, String> =
+            mapOf(
+                "CreateTaskFlowTest.kt" to
+                    "Negative control: awaits a nonexistent tag and expects the one-shot " +
+                    "display assert to fail — the assertion IS the test",
+            )
 
         /**
          * Matches raw selector calls: onNodeWithTag(, onNodeWithText(,
          * onNodeWithContentDescription(, onAllNodesWithTag(.
          * Used with findAll on source to locate violations.
          */
-        val RAW_SELECTOR_PATTERN = Regex(
-            """onNodeWith(Tag|Text|ContentDescription)\(|onAllNodesWithTag\(""",
-        )
+        val RAW_SELECTOR_PATTERN =
+            Regex(
+                """onNodeWith(Tag|Text|ContentDescription)\(|onAllNodesWithTag\(""",
+            )
 
         /**
          * Matches a raw root lookup: `onRoot(`.
@@ -381,28 +430,29 @@ class HarnessConventionTest {
          * Two-way check: validated against actual source in the
          * `exempted files for scroll-reachability actually contain violations` test.
          */
-        val EXEMPT_SCROLL: Map<String, String> = mapOf(
-            // assertContentDescriptionDisplayed on DesktopShell.HAMBURGER and DesktopShell.FAB_ADD_TASK
-            // — these are shell chrome, not drawer items. The hamburger is always in the top-left
-            // corner; the FAB is always bottom-right. Neither scrolls or goes off-screen.
-            "DesktopAppBootTest.kt" to "HAMBURGER and FAB_ADD_TASK are shell chrome, not drawer items",
-            // FAB is the floating action button, always visible bottom-right — never off-screen.
-            "SheetReachabilityTest.kt" to "FAB_ADD_TASK is not a drawer item; always visible",
-            // Same: FAB is always visible, not subject to scroll-off-screen in the drawer.
-            "TaskRecurrenceScenarioTest.kt" to "FAB_ADD_TASK is not a drawer item; always visible",
-            // The Send button belongs to the chat input bar, which is pinned to the bottom of
-            // the screen. It is not a drawer item, and it has no scrollable parent at all —
-            // the scroll-aware helper would fail on it.
-            "ChatInputFieldTest.kt" to "the chat Send button is not a drawer item and has no scrollable parent",
-            // Same: HAMBURGER and FAB_ADD_TASK are shell chrome, not drawer items.
-            "ShellTestTagReachabilityTest.kt" to "HAMBURGER and FAB_ADD_TASK are shell chrome, not drawer items",
-            // The FAB on the project list is the shell's own floating action
-            // button — pinned bottom-right, visible whatever the list shows.
-            // The scroll-aware helper would fail on it: it has no scrollable parent.
-            "ProjectsFlowTest.kt" to "FAB_ADD_PROJECT is shell chrome, not a drawer item; always visible",
-            // The same FAB, reached from the same list — only the flow differs.
-            "TextFieldBridgeFlowTest.kt" to "FAB_ADD_PROJECT is shell chrome, not a drawer item; always visible",
-        )
+        val EXEMPT_SCROLL: Map<String, String> =
+            mapOf(
+                // assertContentDescriptionDisplayed on DesktopShell.HAMBURGER and DesktopShell.FAB_ADD_TASK
+                // — these are shell chrome, not drawer items. The hamburger is always in the top-left
+                // corner; the FAB is always bottom-right. Neither scrolls or goes off-screen.
+                "DesktopAppBootTest.kt" to "HAMBURGER and FAB_ADD_TASK are shell chrome, not drawer items",
+                // FAB is the floating action button, always visible bottom-right — never off-screen.
+                "SheetReachabilityTest.kt" to "FAB_ADD_TASK is not a drawer item; always visible",
+                // Same: FAB is always visible, not subject to scroll-off-screen in the drawer.
+                "TaskRecurrenceScenarioTest.kt" to "FAB_ADD_TASK is not a drawer item; always visible",
+                // The Send button belongs to the chat input bar, which is pinned to the bottom of
+                // the screen. It is not a drawer item, and it has no scrollable parent at all —
+                // the scroll-aware helper would fail on it.
+                "ChatInputFieldTest.kt" to "the chat Send button is not a drawer item and has no scrollable parent",
+                // Same: HAMBURGER and FAB_ADD_TASK are shell chrome, not drawer items.
+                "ShellTestTagReachabilityTest.kt" to "HAMBURGER and FAB_ADD_TASK are shell chrome, not drawer items",
+                // The FAB on the project list is the shell's own floating action
+                // button — pinned bottom-right, visible whatever the list shows.
+                // The scroll-aware helper would fail on it: it has no scrollable parent.
+                "ProjectsFlowTest.kt" to "FAB_ADD_PROJECT is shell chrome, not a drawer item; always visible",
+                // The same FAB, reached from the same list — only the flow differs.
+                "TextFieldBridgeFlowTest.kt" to "FAB_ADD_PROJECT is shell chrome, not a drawer item; always visible",
+            )
 
         /**
          * Files that use assertTextEnabled / assertTextNotEnabled on button labels,
@@ -416,38 +466,42 @@ class HarnessConventionTest {
          * Two-way check: validated against actual source in the
          * `exempted files for button asserts actually contain violations` test.
          */
-        val EXEMPT_BUTTON_ASSERT: Map<String, String> = mapOf(
-            // assertTextEnabled on text labels inside search dialog saved-query rows.
-            // These are Text nodes inside list-item rows (not Material3 TextButtons), so
-            // hasClickAction() does not apply and assertButtonEnabled would fail to find them.
-            // The assertions are correct for what they test; the rule targets button labels.
-            "SearchPresentationUiTest.kt" to
-                "assertTextEnabled on list-item text labels, not Material3 button labels",
-        )
+        val EXEMPT_BUTTON_ASSERT: Map<String, String> =
+            mapOf(
+                // assertTextEnabled on text labels inside search dialog saved-query rows.
+                // These are Text nodes inside list-item rows (not Material3 TextButtons), so
+                // hasClickAction() does not apply and assertButtonEnabled would fail to find them.
+                // The assertions are correct for what they test; the rule targets button labels.
+                "SearchPresentationUiTest.kt" to
+                    "assertTextEnabled on list-item text labels, not Material3 button labels",
+            )
 
         /**
          * Matches non-scroll content-description helpers.
          * These should NOT be used for DesktopShell.TABS or DesktopShell.MENU_ENTRIES entries.
          */
-        val NON_SCROLL_CD_PATTERN = Regex(
-            """(clickContentDescription|assertContentDescriptionDisplayed|awaitContentDescription)\(""",
-        )
+        val NON_SCROLL_CD_PATTERN =
+            Regex(
+                """(clickContentDescription|assertContentDescriptionDisplayed|awaitContentDescription)\(""",
+            )
 
         /**
          * Matches scroll-aware content-description helpers.
          * These ARE correct for drawer labels.
          */
-        val SCROLL_CD_PATTERN = Regex(
-            """(tapTab|clickContentDescriptionScrolled|assertContentDescriptionReachable)\(""",
-        )
+        val SCROLL_CD_PATTERN =
+            Regex(
+                """(tapTab|clickContentDescriptionScrolled|assertContentDescriptionReachable)\(""",
+            )
 
         /**
          * Matches assertTextEnabled / assertTextNotEnabled — the wrong helpers for button labels.
          * Correct helpers: assertButtonEnabled / assertButtonNotEnabled.
          */
-        val BUTTON_TEXT_ASSERT_PATTERN = Regex(
-            """assertText(Not)?Enabled\(""",
-        )
+        val BUTTON_TEXT_ASSERT_PATTERN =
+            Regex(
+                """assertText(Not)?Enabled\(""",
+            )
     }
 
     @Test

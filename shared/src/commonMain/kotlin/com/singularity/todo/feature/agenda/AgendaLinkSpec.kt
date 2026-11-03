@@ -9,7 +9,6 @@ package com.singularity.todo.feature.agenda
  * редактор представления.
  */
 object AgendaLinkSpec {
-
     /** Схема всех ссылок приложения. */
     const val SCHEME = "singularity"
 
@@ -38,8 +37,10 @@ object AgendaLinkSpec {
     fun viewIdFromUri(text: String): SavedAgendaViewId? {
         val start = text.indexOf(MARKER)
         if (start < 0) return null
-        val id = text.substring(start + MARKER.length)
-            .takeWhile { it.isLetterOrDigit() || it == '-' }
+        val id =
+            text
+                .substring(start + MARKER.length)
+                .takeWhile { it.isLetterOrDigit() || it == '-' }
         return id.takeIf { it.isNotBlank() }?.let { SavedAgendaViewId.fromString(it) }
     }
 }

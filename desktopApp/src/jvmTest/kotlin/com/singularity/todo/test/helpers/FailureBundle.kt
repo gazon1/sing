@@ -4,12 +4,12 @@ import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.database.AppDatabase
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import org.koin.core.Koin
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
-import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Dumps the current unmerged semantics tree, or a note if unavailable.
@@ -48,11 +48,7 @@ internal fun DesktopComposeUiTest.dumpSemantics(): String =
  *     …
  * ```
  */
-data class FailureBundle(
-    val testClassSimpleName: String,
-    val attempt: Int,
-    val outputDir: File,
-) {
+data class FailureBundle(val testClassSimpleName: String, val attempt: Int, val outputDir: File) {
     /** Path printed in the suppressed exception message so it appears in CI logs. */
     val path: String = outputDir.absolutePath
 
@@ -85,16 +81,17 @@ data class FailureBundle(
      * CI test report displays the paths alongside the failure reason.
      */
     fun addSuppressedTo(throwable: Throwable) {
-        val artifacts = listOf(
-            screenshotFile,
-            dbStateFile,
-            kermitLogFile,
-            coroutinesFile,
-            stepsFile,
-            treeFile,
-            nodesFile,
-            screenshotAnnotatedFile,
-        )
+        val artifacts =
+            listOf(
+                screenshotFile,
+                dbStateFile,
+                kermitLogFile,
+                coroutinesFile,
+                stepsFile,
+                treeFile,
+                nodesFile,
+                screenshotAnnotatedFile,
+            )
         artifacts.forEach { file ->
             if (file.exists()) {
                 throwable.addSuppressed(Exception("<available: ${file.name}>"))
@@ -106,7 +103,6 @@ data class FailureBundle(
     }
 
     companion object {
-
         /**
          * How long the semantics dump may take before it is abandoned.
          *
@@ -129,10 +125,14 @@ data class FailureBundle(
          * Creates the directory if it does not exist. Any prior content is deleted
          * when [capture] starts, so every attempt begins with a clean directory.
          */
-        fun prepareOutputDir(testClassSimpleName: String, attempt: Int): File {
-            val dir = diagnosticsRoot
-                .resolve(testClassSimpleName)
-                .resolve("attempt-$attempt")
+        fun prepareOutputDir(
+            testClassSimpleName: String,
+            attempt: Int,
+        ): File {
+            val dir =
+                diagnosticsRoot
+                    .resolve(testClassSimpleName)
+                    .resolve("attempt-$attempt")
             dir.mkdirs()
             return dir
         }
@@ -168,11 +168,12 @@ data class FailureBundle(
             steps: StepRecorder? = null,
             highlightTag: String? = null,
         ): FailureBundle {
-            val bundle = FailureBundle(
-                testClassSimpleName = testClassSimpleName,
-                attempt = attempt,
-                outputDir = prepareOutputDir(testClassSimpleName, attempt),
-            )
+            val bundle =
+                FailureBundle(
+                    testClassSimpleName = testClassSimpleName,
+                    attempt = attempt,
+                    outputDir = prepareOutputDir(testClassSimpleName, attempt),
+                )
 
             // Delete prior content so this attempt starts clean — stale files from a
             // previous attempt that crashed before writing some artifacts must not mislead
@@ -250,9 +251,10 @@ data class FailureBundle(
             // the timeout below is the backstop for the one it does not.
             if (System.getProperty("singularity.test.screenshot") != "false") {
                 runCatchingCancellable {
-                    val bitmap = withFailurePathTimeout(SCREENSHOT_TIMEOUT_MS, null) {
-                        testInstance.captureToImage()
-                    } ?: return@runCatchingCancellable
+                    val bitmap =
+                        withFailurePathTimeout(SCREENSHOT_TIMEOUT_MS, null) {
+                            testInstance.captureToImage()
+                        } ?: return@runCatchingCancellable
                     val bufferedImage: BufferedImage = bitmap.toAwtImage()
                     ImageIO.write(bufferedImage, "png", bundle.screenshotFile)
                 }
@@ -296,7 +298,10 @@ data class FailureBundle(
             return bundle
         }
 
-        private fun writeFile(file: File, content: () -> String) {
+        private fun writeFile(
+            file: File,
+            content: () -> String,
+        ) {
             runCatching {
                 file.writeText(content())
             }

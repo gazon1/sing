@@ -11,7 +11,6 @@ import com.singularity.todo.core.links.InternalLinks
  * apart here means the caller never has to look at a scheme to decide what to do.
  */
 sealed interface TextLink {
-
     /**
      * A link to the web.
      *
@@ -62,7 +61,6 @@ data class TextLinkSpan(val range: IntRange, val link: TextLink)
  * sentence.
  */
 object TextLinkDetector {
-
     private val WEB_REGEX = Regex("""(?i)\b(?:https?://|www\.)\S+""")
 
     /** Punctuation that is never part of an address. */
@@ -95,12 +93,14 @@ object TextLinkDetector {
     }
 
     private fun webSpans(text: String): List<TextLinkSpan> =
-        WEB_REGEX.findAll(text).mapNotNull { match ->
-            val address = trimTrailing(match.value)
-            if (address.isEmpty()) return@mapNotNull null
-            val url = if (address.startsWith(WWW, ignoreCase = true)) HTTPS + address else address
-            TextLinkSpan(match.range.first..(match.range.first + address.length - 1), TextLink.Web(url))
-        }.toList()
+        WEB_REGEX
+            .findAll(text)
+            .mapNotNull { match ->
+                val address = trimTrailing(match.value)
+                if (address.isEmpty()) return@mapNotNull null
+                val url = if (address.startsWith(WWW, ignoreCase = true)) HTTPS + address else address
+                TextLinkSpan(match.range.first..(match.range.first + address.length - 1), TextLink.Web(url))
+            }.toList()
 
     private fun internalSpans(text: String): List<TextLinkSpan> =
         InternalLinks.findIn(text).map { TextLinkSpan(it.range, TextLink.Internal(it.target)) }
@@ -117,7 +117,9 @@ object TextLinkDetector {
         while (end > 0) {
             val last = address[end - 1]
             when {
-                ALWAYS_TRAILING.contains(last) -> end--
+                ALWAYS_TRAILING.contains(last) -> {
+                    end--
+                }
 
                 CLOSING_BRACKETS.contains(last) -> {
                     val opening = OPENING_BRACKETS[CLOSING_BRACKETS.indexOf(last)]
@@ -129,7 +131,9 @@ object TextLinkDetector {
                     }
                 }
 
-                else -> return address.substring(0, end)
+                else -> {
+                    return address.substring(0, end)
+                }
             }
         }
         return address.substring(0, end)

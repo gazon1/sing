@@ -13,7 +13,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -29,6 +28,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.preview.PreviewThemed
 
 /**
@@ -40,7 +40,6 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
  * way back; a double-tap that does not reset leaves it zoomed into one pixel.
  */
 data class ZoomTransform(val scale: Float = 1f, val offset: Offset = Offset.Zero) {
-
     /**
      * Apply a pinch: [centroid] is the gesture's focal point, [zoom] the scale change.
      *
@@ -48,7 +47,10 @@ data class ZoomTransform(val scale: Float = 1f, val offset: Offset = Offset.Zero
      * the point under the fingers stays under the fingers. Doing only the first half —
      * the usual mistake — makes the image slide out from under the pinch.
      */
-    fun zoomBy(zoom: Float, centroid: Offset): ZoomTransform {
+    fun zoomBy(
+        zoom: Float,
+        centroid: Offset,
+    ): ZoomTransform {
         val nextScale = clampScale(scale * zoom)
         // Solving `p * scale + offset == centroid` for the offset that keeps the same
         // image point `p` under the centroid after the scale change:
@@ -65,14 +67,16 @@ data class ZoomTransform(val scale: Float = 1f, val offset: Offset = Offset.Zero
     }
 
     /** Apply a pan in pixels. */
-    fun panBy(dx: Float, dy: Float): ZoomTransform = copy(offset = offset + Offset(dx, dy))
+    fun panBy(
+        dx: Float,
+        dy: Float,
+    ): ZoomTransform = copy(offset = offset + Offset(dx, dy))
 
     /** Return to the identity transform — used by the reset affordance and double-tap. */
     fun reset(): ZoomTransform = ZoomTransform()
 
     /** At or below 1× the offset is meaningless, so it is dropped. */
-    fun normalized(): ZoomTransform =
-        if (scale <= MIN_SCALE) ZoomTransform(1f, Offset.Zero) else this
+    fun normalized(): ZoomTransform = if (scale <= MIN_SCALE) ZoomTransform(1f, Offset.Zero) else this
 
     companion object {
         const val MIN_SCALE: Float = 1f
@@ -104,9 +108,10 @@ fun ImageViewerScreen(
     // about it is wrong; a silent black screen reads as "the app is broken".
     var decodeFailed by rememberSaveable(imageModel) { mutableStateOf(false) }
 
-    val transform = remember(scale, offsetX, offsetY) {
-        ZoomTransform(scale, Offset(offsetX, offsetY))
-    }
+    val transform =
+        remember(scale, offsetX, offsetY) {
+            ZoomTransform(scale, Offset(offsetX, offsetY))
+        }
 
     Scaffold(
         topBar = {
@@ -122,10 +127,11 @@ fun ImageViewerScreen(
         modifier = modifier,
     ) { innerPadding ->
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(Color.Black),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .background(Color.Black),
             contentAlignment = Alignment.Center,
         ) {
             if (imageModel == null) {
@@ -137,30 +143,32 @@ fun ImageViewerScreen(
                     model = imageModel,
                     contentDescription = title,
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(imageModel) {
-                            // Named parameters, not positional destructuring. The lambda
-                            // is `(centroid, pan, zoom, rotation)`; a positional
-                            // `{ _, pan, zoom, centroid -> }` compiles into silently
-                            // swapped values the moment the signature is misread, and the
-                            // symptom is a viewer that zooms when you drag.
-                            detectTransformGestures { centroid, pan, zoom, _ ->
-                                val next = transform.normalized()
-                                    .zoomBy(zoom, centroid)
-                                    .panBy(pan.x, pan.y)
-                                    .normalized()
-                                scale = next.scale
-                                offsetX = next.offset.x
-                                offsetY = next.offset.y
-                            }
-                        }
-                        .graphicsLayer {
-                            scaleX = transform.scale
-                            scaleY = transform.scale
-                            translationX = transform.offset.x
-                            translationY = transform.offset.y
-                        },
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .pointerInput(imageModel) {
+                                // Named parameters, not positional destructuring. The lambda
+                                // is `(centroid, pan, zoom, rotation)`; a positional
+                                // `{ _, pan, zoom, centroid -> }` compiles into silently
+                                // swapped values the moment the signature is misread, and the
+                                // symptom is a viewer that zooms when you drag.
+                                detectTransformGestures { centroid, pan, zoom, _ ->
+                                    val next =
+                                        transform
+                                            .normalized()
+                                            .zoomBy(zoom, centroid)
+                                            .panBy(pan.x, pan.y)
+                                            .normalized()
+                                    scale = next.scale
+                                    offsetX = next.offset.x
+                                    offsetY = next.offset.y
+                                }
+                            }.graphicsLayer {
+                                scaleX = transform.scale
+                                scaleY = transform.scale
+                                translationX = transform.offset.x
+                                translationY = transform.offset.y
+                            },
                     onState = { state ->
                         if (state is coil3.compose.AsyncImagePainter.State.Error) {
                             decodeFailed = true
@@ -184,8 +192,9 @@ private fun ViewerNotice(message: String) {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ImageViewerMissingPreview() = PreviewThemed(darkTheme = true) {
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-        ViewerNotice("No local copy")
+private fun ImageViewerMissingPreview() =
+    PreviewThemed(darkTheme = true) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+            ViewerNotice("No local copy")
+        }
     }
-}

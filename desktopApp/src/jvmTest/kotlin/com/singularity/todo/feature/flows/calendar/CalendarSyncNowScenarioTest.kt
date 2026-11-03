@@ -3,16 +3,16 @@ package com.singularity.todo.feature.flows.calendar
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.fakes.TestUsers
-import com.singularity.todo.test.helpers.connectedCredential
-import com.singularity.todo.test.helpers.googleCalendarModule
 import com.singularity.todo.test.helpers.FakeCalendarEventSource
-import com.singularity.todo.test.helpers.FakeGoogleSettings
 import com.singularity.todo.test.helpers.FakeGoogleCredentialStore
+import com.singularity.todo.test.helpers.FakeGoogleSettings
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.clickTagScrolled
+import com.singularity.todo.test.helpers.connectedCredential
+import com.singularity.todo.test.helpers.googleCalendarModule
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
@@ -50,24 +50,25 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class CalendarSyncNowScenarioTest {
-
     @Test
     @DisplayName("CAL-SYNC-SYNCNOW-01 a failed pass says so instead of leaving the panel unchanged")
     fun a_failed_pass_is_reported() =
         runDesktopAppTest(
-            overrides = googleCalendarModule(
-                credentials = FakeGoogleCredentialStore(
-                    initial = mapOf(TestUsers.DEFAULT.value to connectedCredential()),
+            overrides =
+                googleCalendarModule(
+                    credentials =
+                        FakeGoogleCredentialStore(
+                            initial = mapOf(TestUsers.DEFAULT.value to connectedCredential()),
+                        ),
+                    settings = FakeGoogleSettings(calId = "primary-cal"),
+                    eventSource = FakeCalendarEventSource(),
+                    // The pass throws. The coordinator turns that into Outcome.Failed,
+                    // which is a different answer from declining — and the reason this
+                    // carrier exists: before the three-way Outcome, a failure was
+                    // reported through `skipped`, the worker read it as "did not run",
+                    // and returned success. The user saw nothing at all.
+                    passFailure = "Google Calendar is unreachable (test)",
                 ),
-                settings = FakeGoogleSettings(calId = "primary-cal"),
-                eventSource = FakeCalendarEventSource(),
-                // The pass throws. The coordinator turns that into Outcome.Failed,
-                // which is a different answer from declining — and the reason this
-                // carrier exists: before the three-way Outcome, a failure was
-                // reported through `skipped`, the worker read it as "did not run",
-                // and returned success. The user saw nothing at all.
-                passFailure = "Google Calendar is unreachable (test)",
-            ),
         ) {
             openDrawer()
             clickContentDescriptionScrolled("Settings")

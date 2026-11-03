@@ -45,35 +45,36 @@ import kotlin.test.Test
 class CalendarSyncProviderScenarioTest {
     @Test
     @DisplayName("CAL-SYNC-PROVIDER-01 switching provider swaps the panel without leaking the other's state")
-    fun switching_provider_swaps_the_panel() = runDesktopAppTest {
-        openDrawer()
-        clickContentDescriptionScrolled("Settings")
-        clickTag(TestTags.settingsTab("Calendar"))
+    fun switching_provider_swaps_the_panel() =
+        runDesktopAppTest {
+            openDrawer()
+            clickContentDescriptionScrolled("Settings")
+            clickTag(TestTags.settingsTab("Calendar"))
 
-        // The system half is what the screen opens on, and on desktop that is the
-        // branch that must *say* it cannot work rather than render controls over
-        // repositories nobody asked.
-        assertTagDisplayed(TestTags.CalendarSync.SYSTEM_UNAVAILABLE)
+            // The system half is what the screen opens on, and on desktop that is the
+            // branch that must *say* it cannot work rather than render controls over
+            // repositories nobody asked.
+            assertTagDisplayed(TestTags.CalendarSync.SYSTEM_UNAVAILABLE)
 
-        // Both segments are offered before either is chosen. This is the part that
-        // regressed once: the gates used to sit above the selector, so a desktop
-        // user was shown a permission prompt for a feature that cannot work here
-        // and never saw the one that can.
-        val google = TestTags.CalendarSync.providerSegment("Google Calendar")
-        val system = TestTags.CalendarSync.providerSegment("System calendar")
-        assertTagExists(google)
-        assertTagExists(system)
+            // Both segments are offered before either is chosen. This is the part that
+            // regressed once: the gates used to sit above the selector, so a desktop
+            // user was shown a permission prompt for a feature that cannot work here
+            // and never saw the one that can.
+            val google = TestTags.CalendarSync.providerSegment("Google Calendar")
+            val system = TestTags.CalendarSync.providerSegment("System calendar")
+            assertTagExists(google)
+            assertTagExists(system)
 
-        clickTag(google)
-        // The Google half is up, and the system half's gate is gone with it.
-        assertTagExists(TestTags.CalendarSync.GOOGLE_CONNECT_BUTTON)
-        assertTagNotExists(TestTags.CalendarSync.SYSTEM_UNAVAILABLE)
+            clickTag(google)
+            // The Google half is up, and the system half's gate is gone with it.
+            assertTagExists(TestTags.CalendarSync.GOOGLE_CONNECT_BUTTON)
+            assertTagNotExists(TestTags.CalendarSync.SYSTEM_UNAVAILABLE)
 
-        clickTag(system)
-        // Switching back restores the system branch rather than leaving the Google
-        // rows behind: the two lists come from different sources, and showing one
-        // provider's rows under the other's heading is the defect the reset prevents.
-        assertTagDisplayed(TestTags.CalendarSync.SYSTEM_UNAVAILABLE)
-        assertTagNotExists(TestTags.CalendarSync.GOOGLE_CONNECT_BUTTON)
-    }
+            clickTag(system)
+            // Switching back restores the system branch rather than leaving the Google
+            // rows behind: the two lists come from different sources, and showing one
+            // provider's rows under the other's heading is the defect the reset prevents.
+            assertTagDisplayed(TestTags.CalendarSync.SYSTEM_UNAVAILABLE)
+            assertTagNotExists(TestTags.CalendarSync.GOOGLE_CONNECT_BUTTON)
+        }
 }

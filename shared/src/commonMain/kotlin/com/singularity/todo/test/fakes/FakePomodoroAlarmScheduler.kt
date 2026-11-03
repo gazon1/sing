@@ -20,7 +20,6 @@ import com.singularity.todo.feature.pomodoro.PomodoroScheduler
  * ```
  */
 class FakePomodoroScheduler : PomodoroScheduler {
-
     private var _scheduledFireAt: Long? = null
     private var _scheduledTaskId: String? = null
     private var _scheduledPhase: PomodoroPhase? = null
@@ -38,7 +37,11 @@ class FakePomodoroScheduler : PomodoroScheduler {
     /** True if cancelPhaseEndAlarm was called since the last reset. */
     val wasCanceled: Boolean get() = _canceled
 
-    override fun schedulePhaseEnd(fireAtEpochMs: Long, taskId: String?, phase: PomodoroPhase) {
+    override fun schedulePhaseEnd(
+        fireAtEpochMs: Long,
+        taskId: String?,
+        phase: PomodoroPhase,
+    ) {
         _scheduledFireAt = fireAtEpochMs
         _scheduledTaskId = taskId
         _scheduledPhase = phase

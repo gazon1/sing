@@ -1,10 +1,10 @@
 package com.singularity.todo.core.links
 
-import com.singularity.todo.feature.notes.domain.logic.extractOutgoingLinks as extractFromEditorHtml
-import com.singularity.todo.feature.tasks.data.extractOutgoingLinks as extractFromPlainText
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import com.singularity.todo.feature.notes.domain.logic.extractOutgoingLinks as extractFromEditorHtml
+import com.singularity.todo.feature.tasks.data.extractOutgoingLinks as extractFromPlainText
 
 /**
  * The two surfaces that read internal links must read them the same way.
@@ -22,7 +22,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class InternalLinksAgreementTest {
-
     private val sampleLinks = listOf("note://n1", "task://t1", "note://n_2-x")
 
     @Test

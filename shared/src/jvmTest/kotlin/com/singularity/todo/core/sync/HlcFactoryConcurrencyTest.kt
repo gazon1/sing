@@ -41,7 +41,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class HlcFactoryConcurrencyTest {
-
     private val threads = 8
     private val ticksPerThread = 250
 
@@ -92,12 +91,13 @@ class HlcFactoryConcurrencyTest {
     private fun tickConcurrently(factory: HlcFactory): List<Hlc> {
         val barrier = CyclicBarrier(threads)
         val produced = ConcurrentLinkedQueue<Hlc>()
-        val workers = (0 until threads).map {
-            Thread {
-                barrier.await()
-                repeat(ticksPerThread) { produced += factory.tick() }
-            }.apply { isDaemon = true }
-        }
+        val workers =
+            (0 until threads).map {
+                Thread {
+                    barrier.await()
+                    repeat(ticksPerThread) { produced += factory.tick() }
+                }.apply { isDaemon = true }
+            }
         workers.forEach { it.start() }
         workers.forEach { it.join(30_000) }
         return produced.toList()
@@ -144,14 +144,15 @@ class HlcFactoryConcurrencyTest {
             val produced = ConcurrentLinkedQueue<Hlc>()
             val remote = Hlc.zero("remote")
 
-            val workers = (0 until threads).map { index ->
-                Thread {
-                    barrier.await()
-                    repeat(ticksPerThread) { n ->
-                        produced += if ((index + n) % 2 == 0) factory.tick() else factory.tock(remote)
-                    }
-                }.apply { isDaemon = true }
-            }
+            val workers =
+                (0 until threads).map { index ->
+                    Thread {
+                        barrier.await()
+                        repeat(ticksPerThread) { n ->
+                            produced += if ((index + n) % 2 == 0) factory.tick() else factory.tock(remote)
+                        }
+                    }.apply { isDaemon = true }
+                }
             workers.forEach { it.start() }
             workers.forEach { it.join(30_000) }
 

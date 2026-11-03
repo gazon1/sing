@@ -1,8 +1,8 @@
 package com.singularity.todo.update
 
 import android.app.Activity
-import android.content.Context
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 
@@ -20,7 +20,6 @@ private const val TAG = "DirectUrlUpdateStore"
  * opens the store page unconditionally.
  */
 class DirectUrlUpdateStore(private val context: Context, private val storeUrl: String) : UpdateStorePort {
-
     /**
      * Always returns false — there is no programmatic way to check for updates
      * without an SDK. Use [offerUpdate] to open the store page instead.
@@ -31,16 +30,17 @@ class DirectUrlUpdateStore(private val context: Context, private val storeUrl: S
      * Opens [storeUrl] in a browser via [Intent.ACTION_VIEW].
      * The user can then manually trigger the update from the store page.
      */
-    override fun offerUpdate(activity: Activity): Boolean = try {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(storeUrl))
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
-        true
-    } catch (e: ActivityNotFoundException) {
-        // No browser on the device can handle ACTION_VIEW for this URL. Logging rather
-        // than returning a bare `false`, so a user reporting "the update button does
-        // nothing" is diagnosable from a bug report.
-        android.util.Log.w(TAG, "No activity can open $storeUrl", e)
-        false
-    }
+    override fun offerUpdate(activity: Activity): Boolean =
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(storeUrl))
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            true
+        } catch (e: ActivityNotFoundException) {
+            // No browser on the device can handle ACTION_VIEW for this URL. Logging rather
+            // than returning a bare `false`, so a user reporting "the update button does
+            // nothing" is diagnosable from a bug report.
+            android.util.Log.w(TAG, "No activity can open $storeUrl", e)
+            false
+        }
 }

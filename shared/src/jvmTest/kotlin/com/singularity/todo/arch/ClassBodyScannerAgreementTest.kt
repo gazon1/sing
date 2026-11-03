@@ -71,11 +71,11 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ClassBodyScannerAgreementTest {
-
-    private val repoRoot: File = File(
-        System.getProperty("commonMain.root")
-            ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
-    ).parentFile.parentFile.parentFile.parentFile
+    private val repoRoot: File =
+        File(
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
+        ).parentFile.parentFile.parentFile.parentFile
 
     /**
      * The trees whose classes this guard checks, each resolved the way its own
@@ -101,13 +101,14 @@ class ClassBodyScannerAgreementTest {
      * declared at `shared/build.gradle.kts`, and both foreign trees are declared
      * as `inputs.dir` on this task.
      */
-    private val testSourceDirs: List<File> = listOf(
-        File(repoRoot, "shared/src/commonTest"),
-        File(repoRoot, "shared/src/jvmTest"),
-        // Declared, not derived. See the KDoc above.
-        File(System.getProperty("desktopAppJvmTest.root") ?: "desktopApp/src/jvmTest/kotlin"),
-        File(repoRoot, "mcp-server/src/test"),
-    )
+    private val testSourceDirs: List<File> =
+        listOf(
+            File(repoRoot, "shared/src/commonTest"),
+            File(repoRoot, "shared/src/jvmTest"),
+            // Declared, not derived. See the KDoc above.
+            File(System.getProperty("desktopAppJvmTest.root") ?: "desktopApp/src/jvmTest/kotlin"),
+            File(repoRoot, "mcp-server/src/test"),
+        )
 
     @Test
     fun the_two_implementations_of_the_class_body_rule_agree() {
@@ -117,7 +118,8 @@ class ClassBodyScannerAgreementTest {
         testSourceDirs.forEach { dir ->
             assertTrue(dir.isDirectory, "missing test source dir: ${dir.path}")
             val root = dir
-            root.walkTopDown()
+            root
+                .walkTopDown()
                 .filter { it.isFile && it.name.endsWith("Test.kt") }
                 .forEach { file ->
                     val lines = file.readText().split("\n")
@@ -182,7 +184,10 @@ class ClassBodyScannerAgreementTest {
      * pins them in both languages, and this test checks them against every
      * real class in the tree.
      */
-    private fun stringAwareHasTestMember(codeLines: List<String>, classIndex: Int): Boolean {
+    private fun stringAwareHasTestMember(
+        codeLines: List<String>,
+        classIndex: Int,
+    ): Boolean {
         if (!codeLines[classIndex].contains('{')) return false
         val body = mutableListOf<String>()
         var depth = 0
@@ -197,7 +202,9 @@ class ClassBodyScannerAgreementTest {
                         opened = true
                     }
 
-                    '}' -> depth--
+                    '}' -> {
+                        depth--
+                    }
                 }
             }
             if (opened && depth == 0) break
@@ -231,7 +238,6 @@ class ClassBodyScannerAgreementTest {
      * can fail apart.
      */
     private class OracleLexer(private val text: String) {
-
         private enum class State { CODE, LINE_COMMENT, BLOCK_COMMENT, RAW_STRING, STRING, CHARACTER }
 
         private val out = StringBuilder(text.length)
@@ -250,35 +256,48 @@ class ClassBodyScannerAgreementTest {
             return out.toString()
         }
 
-        private fun step(state: State, index: Int): Pair<Int, State> = when (state) {
-            State.CODE -> codeStep(index)
-            State.LINE_COMMENT -> lineCommentStep(index)
-            State.BLOCK_COMMENT -> blockCommentStep(index)
-            State.RAW_STRING -> rawStringStep(index)
-            State.STRING -> stringStep(index)
-            State.CHARACTER -> characterStep(index)
-        }
-
-        private fun codeStep(index: Int): Pair<Int, State> = when {
-            text.startsWith("//", index) -> lineCommentStep(index)
-
-            text.startsWith("/*", index) -> {
-                blockDepth = 1
-                out.append("  ")
-                index + 2 to State.BLOCK_COMMENT
+        private fun step(
+            state: State,
+            index: Int,
+        ): Pair<Int, State> =
+            when (state) {
+                State.CODE -> codeStep(index)
+                State.LINE_COMMENT -> lineCommentStep(index)
+                State.BLOCK_COMMENT -> blockCommentStep(index)
+                State.RAW_STRING -> rawStringStep(index)
+                State.STRING -> stringStep(index)
+                State.CHARACTER -> characterStep(index)
             }
 
-            text.startsWith(TRIPLE, index) -> rawStringStep(index)
+        private fun codeStep(index: Int): Pair<Int, State> =
+            when {
+                text.startsWith("//", index) -> {
+                    lineCommentStep(index)
+                }
 
-            text[index] == QUOTE -> stringStep(index)
+                text.startsWith("/*", index) -> {
+                    blockDepth = 1
+                    out.append("  ")
+                    index + 2 to State.BLOCK_COMMENT
+                }
 
-            text[index] == SINGLE_QUOTE -> characterStep(index)
+                text.startsWith(TRIPLE, index) -> {
+                    rawStringStep(index)
+                }
 
-            else -> {
-                out.append(text[index])
-                index + 1 to State.CODE
+                text[index] == QUOTE -> {
+                    stringStep(index)
+                }
+
+                text[index] == SINGLE_QUOTE -> {
+                    characterStep(index)
+                }
+
+                else -> {
+                    out.append(text[index])
+                    index + 1 to State.CODE
+                }
             }
-        }
 
         private fun lineCommentStep(index: Int): Pair<Int, State> {
             val end = text.indexOf('\n', index).let { if (it < 0) text.length else it }
@@ -295,13 +314,14 @@ class ClassBodyScannerAgreementTest {
             } else if (closes) {
                 blockDepth--
             }
-            val blanked = if (step == 2) {
-                "  "
-            } else if (text[index] == '\n') {
-                "\n"
-            } else {
-                " "
-            }
+            val blanked =
+                if (step == 2) {
+                    "  "
+                } else if (text[index] == '\n') {
+                    "\n"
+                } else {
+                    " "
+                }
             out.append(blanked)
             val next = index + step
             return next to if (blockDepth == 0) State.CODE else State.BLOCK_COMMENT
@@ -370,15 +390,25 @@ class ClassBodyScannerAgreementTest {
             while (i < text.length) {
                 val c = text[i]
                 when {
-                    text.startsWith("//", i) -> i = lineCommentStep(i).first
+                    text.startsWith("//", i) -> {
+                        i = lineCommentStep(i).first
+                    }
 
-                    text.startsWith("/*", i) -> i = blockCommentEnd(i)
+                    text.startsWith("/*", i) -> {
+                        i = blockCommentEnd(i)
+                    }
 
-                    text.startsWith(TRIPLE, i) -> i = rawStringStep(i).first
+                    text.startsWith(TRIPLE, i) -> {
+                        i = rawStringStep(i).first
+                    }
 
-                    c == QUOTE -> i = stringStep(i).first
+                    c == QUOTE -> {
+                        i = stringStep(i).first
+                    }
 
-                    c == SINGLE_QUOTE -> i = characterStep(i).first
+                    c == SINGLE_QUOTE -> {
+                        i = characterStep(i).first
+                    }
 
                     c == '{' -> {
                         depth++
@@ -445,7 +475,10 @@ class ClassBodyScannerAgreementTest {
         }
 
         /** Replaces [from until to] with spaces, keeping the line structure. */
-        private fun blank(from: Int, to: Int) {
+        private fun blank(
+            from: Int,
+            to: Int,
+        ) {
             for (k in from until minOf(to, text.length)) {
                 out.append(if (text[k] == '\n') '\n' else ' ')
             }

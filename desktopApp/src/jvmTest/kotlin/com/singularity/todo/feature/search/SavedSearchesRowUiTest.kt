@@ -11,9 +11,9 @@ import com.singularity.todo.feature.search.presentation.SavedSearchesRow
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
-import org.junit.jupiter.api.Tag
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.time.Instant
 

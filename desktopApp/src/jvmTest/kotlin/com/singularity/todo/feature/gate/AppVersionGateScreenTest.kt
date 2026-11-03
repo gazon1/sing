@@ -36,7 +36,6 @@ import org.junit.jupiter.api.Test
  */
 @Tag("fast")
 class AppVersionGateScreenTest {
-
     @Test
     fun `openStoreOnDesktop absorbs HeadlessException thrown by DesktopgetDesktop in headless environments`() {
         // This test is meaningful ONLY in a headless environment — and the test

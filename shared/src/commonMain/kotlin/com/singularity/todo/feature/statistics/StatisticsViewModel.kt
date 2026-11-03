@@ -82,37 +82,36 @@ class StatisticsViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     init {
         addCloseable(scope)
 
         // ── Task statistics ────────────────────────────────────────────────
         scope.launch {
-            deps.taskRepository.observeByFilter(TaskFilter.All)
+            deps.taskRepository
+                .observeByFilter(TaskFilter.All)
                 .map { tasks ->
                     val nowMs = deps.clock.now().toEpochMilliseconds()
                     // The statistics measure works, and a series is one work
                     // scheduled on several dates: the copies count once. The
                     // grouping happens here, before the buckets are counted, so
                     // no bucket can see two copies of the same work.
-                    val rows = tasks.map { task ->
-                        StatisticsWorkRow(
-                            id = task.id.value,
-                            seriesId = task.seriesId?.value,
-                            completedAt = task.completedAt?.toEpochMilliseconds(),
-                            dueAt = task.dueDate?.let { it.toEpochDays() * TimeConstants.MILLIS_PER_DAY },
-                        )
-                    }
+                    val rows =
+                        tasks.map { task ->
+                            StatisticsWorkRow(
+                                id = task.id.value,
+                                seriesId = task.seriesId?.value,
+                                completedAt = task.completedAt?.toEpochMilliseconds(),
+                                dueAt = task.dueDate?.let { it.toEpochDays() * TimeConstants.MILLIS_PER_DAY },
+                            )
+                        }
                     val (completed, overdue) = groupIntoWorks(rows)
                     // Snapshot is always computed at 7-day range here; range is tracked
                     // in state and used by the insights side.
                     computeStatistics(completed, overdue, nowMs, 7)
-                }
-                .catch { error ->
+                }.catch { error ->
                     crashReporter.report(error, TASK_STATISTICS_FAILED)
                     emit(StatisticsSnapshot(persistentListOf(), 0, 0, 0.0, 0))
-                }
-                .collect { snapshot ->
+                }.collect { snapshot ->
                     updateState { it.copy(snapshot = snapshot, loading = false) }
                 }
         }
@@ -141,12 +140,13 @@ class StatisticsViewModel(
                 // Selector-based computation: null stagnationWindow means "use built-in default"
                 // (Selector.Stagnant uses 21.days by default). Passing a non-null Duration
                 // from the settings overrides that default.
-                val stagnationWindow = if (stalenessDays > 0) {
-                    (stalenessDays.toLong() * 86_400_000L).milliseconds
-                } else {
-                    // 0 means "use default" — pass null so Selector.Stagnant uses its own 21.days.
-                    null
-                }
+                val stagnationWindow =
+                    if (stalenessDays > 0) {
+                        (stalenessDays.toLong() * 86_400_000L).milliseconds
+                    } else {
+                        // 0 means "use default" — pass null so Selector.Stagnant uses its own 21.days.
+                        null
+                    }
                 summarizeTaskHealthFromSelectors(
                     allTasks = tasks,
                     today = today,
@@ -154,58 +154,56 @@ class StatisticsViewModel(
                     stagnationWindow = stagnationWindow,
                     lastActivityOf = lastTouched,
                 )
-            }
-                .catch { error ->
-                    crashReporter.report(error, TASK_HEALTH_FAILED)
-                    // Pure function — no exception expected, but report and fall back gracefully.
-                    emit(TaskHealthSummary(emptyMap(), 0, null, null))
-                }
-                .collect { summary -> updateState { it.copy(health = summary) } }
+            }.catch { error ->
+                crashReporter.report(error, TASK_HEALTH_FAILED)
+                // Pure function — no exception expected, but report and fall back gracefully.
+                emit(TaskHealthSummary(emptyMap(), 0, null, null))
+            }.collect { summary -> updateState { it.copy(health = summary) } }
         }
 
         // ── Time-tracking insights (recomputed when rangeDays changes) ────────
         scope.launch {
-            state.map { it.rangeDays }.flatMapLatest { days ->
-                val now = deps.clock.now()
-                val zone = TimeZone.currentSystemDefault()
-                val nowMs = now.toEpochMilliseconds()
-                val startMs = nowMs - (days * TimeConstants.MILLIS_PER_DAY)
-                val userId = deps.currentUser.current
+            state
+                .map { it.rangeDays }
+                .flatMapLatest { days ->
+                    val now = deps.clock.now()
+                    val zone = TimeZone.currentSystemDefault()
+                    val nowMs = now.toEpochMilliseconds()
+                    val startMs = nowMs - (days * TimeConstants.MILLIS_PER_DAY)
+                    val userId = deps.currentUser.current
 
-                combine(
-                    deps.timeTrackingRepo.watchEntriesInRange(startMs, nowMs),
-                    deps.taskRepository.observeByFilter(TaskFilter.All),
-                    deps.projectsRepo.observeProjectsWithCounts(),
-                ) { entries, tasks, projects ->
-                    val taskProjectMap = tasks.associate { it.id.value to it.projectId?.value }
-                    val projectNameMap = projects.associate { row -> row.project.id to row.project.name }
+                    combine(
+                        deps.timeTrackingRepo.watchEntriesInRange(startMs, nowMs),
+                        deps.taskRepository.observeByFilter(TaskFilter.All),
+                        deps.projectsRepo.observeProjectsWithCounts(),
+                    ) { entries, tasks, projects ->
+                        val taskProjectMap = tasks.associate { it.id.value to it.projectId?.value }
+                        val projectNameMap = projects.associate { row -> row.project.id to row.project.name }
 
-                    val openEntry = deps.timeTrackingRepo.getOpenEntry(userId)
-                    val openInterval = openEntry?.let { OpenInterval(it.startedAt.toEpochMilliseconds()) }
-                    val merged = mergeIntervalsWithOpen(entries, openInterval, nowMs)
-                    val split = merged.flatMap { splitAtMidnight(it, zone) }
+                        val openEntry = deps.timeTrackingRepo.getOpenEntry(userId)
+                        val openInterval = openEntry?.let { OpenInterval(it.startedAt.toEpochMilliseconds()) }
+                        val merged = mergeIntervalsWithOpen(entries, openInterval, nowMs)
+                        val split = merged.flatMap { splitAtMidnight(it, zone) }
 
-                    val dayBuckets = bucketByDay(split, nowMs, days, zone)
-                    val projectBuckets = bucketByProject(entries, taskProjectMap)
-                        .map { (projectId, totalMs) ->
-                            val name = projectId?.let { projectNameMap[it] } ?: "No project"
-                            ProjectInsightsBucket(projectId, name, totalMs)
-                        }
-                        .sortedByDescending { it.totalMs }
+                        val dayBuckets = bucketByDay(split, nowMs, days, zone)
+                        val projectBuckets =
+                            bucketByProject(entries, taskProjectMap)
+                                .map { (projectId, totalMs) ->
+                                    val name = projectId?.let { projectNameMap[it] } ?: "No project"
+                                    ProjectInsightsBucket(projectId, name, totalMs)
+                                }.sortedByDescending { it.totalMs }
 
-                    StatisticsUiState.InsightsData(
-                        loading = false,
-                        dayBuckets = dayBuckets.toImmutableList(),
-                        projectBuckets = projectBuckets.toImmutableList(),
-                        totalMs = split.sumOf { it.durationMs },
-                    )
-                }
-            }
-                .catch { error ->
+                        StatisticsUiState.InsightsData(
+                            loading = false,
+                            dayBuckets = dayBuckets.toImmutableList(),
+                            projectBuckets = projectBuckets.toImmutableList(),
+                            totalMs = split.sumOf { it.durationMs },
+                        )
+                    }
+                }.catch { error ->
                     crashReporter.report(error, TIME_INSIGHTS_FAILED)
                     emit(StatisticsUiState.InsightsData())
-                }
-                .collect { insights ->
+                }.collect { insights ->
                     updateState { it.copy(insights = insights, loading = false) }
                 }
         }

@@ -25,7 +25,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class DependencyValidatorTest {
-
     private val userA = UserId("user-a")
     private val userB = UserId("user-b")
 
@@ -48,158 +47,183 @@ class DependencyValidatorTest {
         return dao
     }
 
-    private fun sut(dao: InMemoryTaskDao, currentUser: ProfileAwareCurrentUser = currentUser()) =
-        DependencyValidatorImpl(dao, currentUser)
+    private fun sut(
+        dao: InMemoryTaskDao,
+        currentUser: ProfileAwareCurrentUser = currentUser(),
+    ) = DependencyValidatorImpl(dao, currentUser)
 
     // ── assertNoCycles ──────────────────────────────────────────────────────────
 
     @Test
-    fun `assertNoCycles passes when task does not depend on itself`() = runTest {
-        val result = sut(InMemoryTaskDao()).assertNoCycles(TaskId("t1"), setOf(TaskId("t2")))
-        assertTrue(result.isSuccess)
-    }
+    fun `assertNoCycles passes when task does not depend on itself`() =
+        runTest {
+            val result = sut(InMemoryTaskDao()).assertNoCycles(TaskId("t1"), setOf(TaskId("t2")))
+            assertTrue(result.isSuccess)
+        }
 
     @Test
-    fun `assertNoCycles fails when task depends on itself`() = runTest {
-        val result = sut(InMemoryTaskDao()).assertNoCycles(TaskId("t1"), setOf(TaskId("t1")))
-        assertTrue(result.isFailure)
-        assertEquals(
-            "Task cannot depend on itself: t1",
-            result.exceptionOrNull()?.message,
-        )
-    }
+    fun `assertNoCycles fails when task depends on itself`() =
+        runTest {
+            val result = sut(InMemoryTaskDao()).assertNoCycles(TaskId("t1"), setOf(TaskId("t1")))
+            assertTrue(result.isFailure)
+            assertEquals(
+                "Task cannot depend on itself: t1",
+                result.exceptionOrNull()?.message,
+            )
+        }
 
     // ── analyzeDependencies — no cycle ────────────────────────────────────────
 
     @Test
-    fun `analyzeDependencies returns no cycle for isolated task`() = runTest {
-        val analysis = sut(InMemoryTaskDao()).analyzeDependencies(TaskId("t1"))
-        assertFalse(analysis.containsCycle)
-        assertTrue(analysis.cycleEdges.isEmpty())
-    }
+    fun `analyzeDependencies returns no cycle for isolated task`() =
+        runTest {
+            val analysis = sut(InMemoryTaskDao()).analyzeDependencies(TaskId("t1"))
+            assertFalse(analysis.containsCycle)
+            assertTrue(analysis.cycleEdges.isEmpty())
+        }
 
     @Test
-    fun `analyzeDependencies returns no cycle for acyclic chain`() = runTest {
-        val deps = dao(
-            Triple("t-a", "t-b", "BLOCKS"),
-            Triple("t-b", "t-c", "BLOCKS"),
-        )
-        val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
-        assertFalse(analysis.containsCycle)
-        assertTrue(analysis.cycleEdges.isEmpty())
-    }
+    fun `analyzeDependencies returns no cycle for acyclic chain`() =
+        runTest {
+            val deps =
+                dao(
+                    Triple("t-a", "t-b", "BLOCKS"),
+                    Triple("t-b", "t-c", "BLOCKS"),
+                )
+            val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
+            assertFalse(analysis.containsCycle)
+            assertTrue(analysis.cycleEdges.isEmpty())
+        }
 
     @Test
-    fun `analyzeDependencies handles diamond without cycle`() = runTest {
-        val deps = dao(
-            Triple("t-a", "t-b", "BLOCKS"),
-            Triple("t-a", "t-c", "BLOCKS"),
-            Triple("t-b", "t-d", "BLOCKS"),
-            Triple("t-c", "t-d", "BLOCKS"),
-        )
-        val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
-        assertFalse(analysis.containsCycle)
-    }
+    fun `analyzeDependencies handles diamond without cycle`() =
+        runTest {
+            val deps =
+                dao(
+                    Triple("t-a", "t-b", "BLOCKS"),
+                    Triple("t-a", "t-c", "BLOCKS"),
+                    Triple("t-b", "t-d", "BLOCKS"),
+                    Triple("t-c", "t-d", "BLOCKS"),
+                )
+            val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
+            assertFalse(analysis.containsCycle)
+        }
 
     // ── analyzeDependencies — cycle detection ──────────────────────────────────
 
     @Test
-    fun `analyzeDependencies detects self-loop`() = runTest {
-        val deps = dao(Triple("t-a", "t-a", "BLOCKS"))
-        val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
-        assertTrue(analysis.containsCycle)
-        assertTrue(analysis.cycleEdges.isNotEmpty())
-    }
-
-    @Test
-    fun `analyzeDependencies detects three-node cycle`() = runTest {
-        val deps = dao(
-            Triple("t-a", "t-b", "BLOCKS"),
-            Triple("t-b", "t-c", "BLOCKS"),
-            Triple("t-c", "t-a", "BLOCKS"),
-        )
-        val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
-        assertTrue(analysis.containsCycle)
-        assertTrue(analysis.cycleEdges.isNotEmpty())
-    }
-
-    @Test
-    fun `analyzeDependencies returns correct verb for blocking edge`() = runTest {
-        val deps = dao(
-            Triple("t-a", "t-b", "FOLLOWS_UP"),
-            Triple("t-b", "t-a", "BLOCKS"),
-        )
-        val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
-        assertTrue(analysis.containsCycle)
-        val bToA = analysis.cycleEdges.find {
-            it.ownerTaskId == TaskId("t-b") && it.dependencyTaskId == TaskId("t-a")
+    fun `analyzeDependencies detects self-loop`() =
+        runTest {
+            val deps = dao(Triple("t-a", "t-a", "BLOCKS"))
+            val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
+            assertTrue(analysis.containsCycle)
+            assertTrue(analysis.cycleEdges.isNotEmpty())
         }
-        assertTrue(bToA != null, "Expected t-b -> t-a edge in cycle blockers")
-        assertEquals(DependencyVerb.BLOCKS, bToA.verb)
-    }
+
+    @Test
+    fun `analyzeDependencies detects three-node cycle`() =
+        runTest {
+            val deps =
+                dao(
+                    Triple("t-a", "t-b", "BLOCKS"),
+                    Triple("t-b", "t-c", "BLOCKS"),
+                    Triple("t-c", "t-a", "BLOCKS"),
+                )
+            val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
+            assertTrue(analysis.containsCycle)
+            assertTrue(analysis.cycleEdges.isNotEmpty())
+        }
+
+    @Test
+    fun `analyzeDependencies returns correct verb for blocking edge`() =
+        runTest {
+            val deps =
+                dao(
+                    Triple("t-a", "t-b", "FOLLOWS_UP"),
+                    Triple("t-b", "t-a", "BLOCKS"),
+                )
+            val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
+            assertTrue(analysis.containsCycle)
+            val bToA =
+                analysis.cycleEdges.find {
+                    it.ownerTaskId == TaskId("t-b") && it.dependencyTaskId == TaskId("t-a")
+                }
+            assertTrue(bToA != null, "Expected t-b -> t-a edge in cycle blockers")
+            assertEquals(DependencyVerb.BLOCKS, bToA.verb)
+        }
 
     // ── User isolation ────────────────────────────────────────────────────────
 
     @Test
-    fun `analyzeDependencies is scoped to current user`() = runTest {
-        // user-b has a cycle: A->B->A; user-a has no cycle
-        val daoWithCycle = daoWithUserB(
-            Triple("t-a", "t-b", "BLOCKS"),
-            Triple("t-b", "t-a", "BLOCKS"),
-        )
+    fun `analyzeDependencies is scoped to current user`() =
+        runTest {
+            // user-b has a cycle: A->B->A; user-a has no cycle
+            val daoWithCycle =
+                daoWithUserB(
+                    Triple("t-a", "t-b", "BLOCKS"),
+                    Triple("t-b", "t-a", "BLOCKS"),
+                )
 
-        // User A — no cycle
-        val analysisA = sut(daoWithCycle, currentUser(userA)).analyzeDependencies(TaskId("t-a"))
-        assertFalse(analysisA.containsCycle)
+            // User A — no cycle
+            val analysisA = sut(daoWithCycle, currentUser(userA)).analyzeDependencies(TaskId("t-a"))
+            assertFalse(analysisA.containsCycle)
 
-        // User B — cycle exists
-        val analysisB = sut(daoWithCycle, currentUser(userB)).analyzeDependencies(TaskId("t-a"))
-        assertTrue(analysisB.containsCycle)
-    }
+            // User B — cycle exists
+            val analysisB = sut(daoWithCycle, currentUser(userB)).analyzeDependencies(TaskId("t-a"))
+            assertTrue(analysisB.containsCycle)
+        }
 
     // ── All five DependencyVerb values ────────────────────────────────────────
 
     @Test
-    fun `analyzeDependencies works with FOLLOWS_UP verb in cycle`() = runTest {
-        val deps = dao(
-            Triple("t-a", "t-b", "FOLLOWS_UP"),
-            Triple("t-b", "t-a", "FOLLOWS_UP"),
-        )
-        val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
-        assertTrue(analysis.containsCycle)
-        assertEquals(DependencyVerb.FOLLOWS_UP, analysis.cycleEdges.first().verb)
-    }
+    fun `analyzeDependencies works with FOLLOWS_UP verb in cycle`() =
+        runTest {
+            val deps =
+                dao(
+                    Triple("t-a", "t-b", "FOLLOWS_UP"),
+                    Triple("t-b", "t-a", "FOLLOWS_UP"),
+                )
+            val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
+            assertTrue(analysis.containsCycle)
+            assertEquals(DependencyVerb.FOLLOWS_UP, analysis.cycleEdges.first().verb)
+        }
 
     @Test
-    fun `analyzeDependencies works with DUPLICATES verb in cycle`() = runTest {
-        val deps = dao(
-            Triple("t-a", "t-b", "DUPLICATES"),
-            Triple("t-b", "t-a", "DUPLICATES"),
-        )
-        val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
-        assertTrue(analysis.containsCycle)
-        assertEquals(DependencyVerb.DUPLICATES, analysis.cycleEdges.first().verb)
-    }
+    fun `analyzeDependencies works with DUPLICATES verb in cycle`() =
+        runTest {
+            val deps =
+                dao(
+                    Triple("t-a", "t-b", "DUPLICATES"),
+                    Triple("t-b", "t-a", "DUPLICATES"),
+                )
+            val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
+            assertTrue(analysis.containsCycle)
+            assertEquals(DependencyVerb.DUPLICATES, analysis.cycleEdges.first().verb)
+        }
 
     @Test
-    fun `analyzeDependencies works with FIXES verb in cycle`() = runTest {
-        val deps = dao(
-            Triple("t-a", "t-b", "FIXES"),
-            Triple("t-b", "t-a", "FIXES"),
-        )
-        val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
-        assertTrue(analysis.containsCycle)
-        assertEquals(DependencyVerb.FIXES, analysis.cycleEdges.first().verb)
-    }
+    fun `analyzeDependencies works with FIXES verb in cycle`() =
+        runTest {
+            val deps =
+                dao(
+                    Triple("t-a", "t-b", "FIXES"),
+                    Triple("t-b", "t-a", "FIXES"),
+                )
+            val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
+            assertTrue(analysis.containsCycle)
+            assertEquals(DependencyVerb.FIXES, analysis.cycleEdges.first().verb)
+        }
 
     @Test
-    fun `analyzeDependencies works with SUPERSEDES verb in cycle`() = runTest {
-        val deps = dao(
-            Triple("t-a", "t-b", "SUPERSEDES"),
-            Triple("t-b", "t-a", "SUPERSEDES"),
-        )
-        val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
-        assertTrue(analysis.containsCycle)
-        assertEquals(DependencyVerb.SUPERSEDES, analysis.cycleEdges.first().verb)
-    }
+    fun `analyzeDependencies works with SUPERSEDES verb in cycle`() =
+        runTest {
+            val deps =
+                dao(
+                    Triple("t-a", "t-b", "SUPERSEDES"),
+                    Triple("t-b", "t-a", "SUPERSEDES"),
+                )
+            val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
+            assertTrue(analysis.containsCycle)
+            assertEquals(DependencyVerb.SUPERSEDES, analysis.cycleEdges.first().verb)
+        }
 }

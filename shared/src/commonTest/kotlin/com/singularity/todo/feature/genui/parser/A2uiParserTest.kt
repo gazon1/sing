@@ -24,7 +24,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class A2uiParserTest {
-
     private val parser = A2uiParser()
 
     // ─── Classification: nothing is silently absent ────────────────────────
@@ -78,11 +77,12 @@ class A2uiParserTest {
 
     @Test
     fun leadingNonBodyFieldDoesNotPreventParsing() {
-        val line = """
+        val line =
+            """
             {"version":"v0.9","createSurface":{"surfaceId":"s1","rootId":"t1","components":[
                 {"id":"t1","kind":"text","value":"Hello"}
             ]}}
-        """.trimIndent()
+            """.trimIndent()
         val outcome = parser.parseLine(line)
         val parsed = outcome as? A2uiParseOutcome.Parsed
         assertNotNull(parsed, "The operation is found by name, not by position: $outcome")
@@ -109,11 +109,12 @@ class A2uiParserTest {
 
     @Test
     fun parseLineParsesCreateSurface() {
-        val line = """
+        val line =
+            """
             {"createSurface":{"surfaceId":"s1","rootId":"r1","components":[
                 {"id":"r1","kind":"text","value":"Hello"}
             ]}}
-        """.trimIndent()
+            """.trimIndent()
         val create = parser.parseLine(line).requireCreate()
         assertEquals(SurfaceId("s1"), create.surfaceId)
         assertEquals(NodeRef("r1"), create.rootId)
@@ -123,13 +124,14 @@ class A2uiParserTest {
 
     @Test
     fun parseLineParsesCreateSurfaceWithMultipleComponents() {
-        val line = """
+        val line =
+            """
             {"createSurface":{"surfaceId":"s2","rootId":"c1","components":[
                 {"id":"c1","kind":"column","children":["t1","b1"]},
                 {"id":"t1","kind":"text","value":"Title"},
                 {"id":"b1","kind":"button","label":"OK","action":"submit"}
             ]}}
-        """.trimIndent()
+            """.trimIndent()
         val create = parser.parseLine(line).requireCreate()
         assertTrue(create.components["c1"] is UiNode.Column)
         assertTrue(create.components["t1"] is UiNode.Text)
@@ -138,11 +140,12 @@ class A2uiParserTest {
 
     @Test
     fun parseLineParsesUpdateComponents() {
-        val line = """
+        val line =
+            """
             {"updateComponents":{"surfaceId":"s1","components":[
                 {"id":"t2","kind":"text","value":"Updated"}
             ]}}
-        """.trimIndent()
+            """.trimIndent()
         val outcome = parser.parseLine(line)
         val update = outcome.eventOrNull as UiEvent.UpdateComponents
         assertEquals(SurfaceId("s1"), update.surfaceId)
@@ -300,36 +303,41 @@ class A2uiParserTest {
     // ─── Streaming ─────────────────────────────────────────────────────────
 
     @Test
-    fun fragmentsAreReassembledIntoOneMessage() = runTest {
-        val line = """{"createSurface":{"surfaceId":"s1","rootId":"t1","components":[""" +
-            """{"id":"t1","kind":"text","value":"Hi"}]}}"""
-        val fragments = (line + "\n").chunked(7)
-        val outcomes = parser.parseTokens(flowOf(*fragments.toTypedArray())).toList()
-        assertEquals(1, outcomes.size, "Seven fragments are one message, not seven")
-        assertNotNull(outcomes.single().eventOrNull)
-    }
+    fun fragmentsAreReassembledIntoOneMessage() =
+        runTest {
+            val line =
+                """{"createSurface":{"surfaceId":"s1","rootId":"t1","components":[""" +
+                    """{"id":"t1","kind":"text","value":"Hi"}]}}"""
+            val fragments = (line + "\n").chunked(7)
+            val outcomes = parser.parseTokens(flowOf(*fragments.toTypedArray())).toList()
+            assertEquals(1, outcomes.size, "Seven fragments are one message, not seven")
+            assertNotNull(outcomes.single().eventOrNull)
+        }
 
     @Test
-    fun proseAroundTheSurfaceIsSkippedRatherThanRejected() = runTest {
-        val response = """
-            Here are your tasks:
-            ```json
-            {"createSurface":{"surfaceId":"s1","rootId":"t1","components":[{"id":"t1","kind":"text","value":"Hi"}]}}
-            ```
-            Let me know if you want changes.
-        """.trimIndent()
-        val outcomes = parser.parseTokens(flowOf(response)).toList()
-        assertEquals(1, outcomes.count { it.eventOrNull != null }, "The surface survives its wrapper")
-        assertTrue(outcomes.all { it !is A2uiParseOutcome.Failed }, "Prose is not a contract violation")
-    }
+    fun proseAroundTheSurfaceIsSkippedRatherThanRejected() =
+        runTest {
+            val response =
+                """
+                Here are your tasks:
+                ```json
+                {"createSurface":{"surfaceId":"s1","rootId":"t1","components":[{"id":"t1","kind":"text","value":"Hi"}]}}
+                ```
+                Let me know if you want changes.
+                """.trimIndent()
+            val outcomes = parser.parseTokens(flowOf(response)).toList()
+            assertEquals(1, outcomes.count { it.eventOrNull != null }, "The surface survives its wrapper")
+            assertTrue(outcomes.all { it !is A2uiParseOutcome.Failed }, "Prose is not a contract violation")
+        }
 
     @Test
-    fun truncatedTrailingMessageIsReportedRatherThanParsed() = runTest {
-        val truncated = """{"createSurface":{"surfaceId":"s1","rootId":"t1","components":[{"id":"t1","""
-        val outcomes = parser.parseTokens(flowOf(truncated)).toList()
-        assertTrue(outcomes.all { it.eventOrNull == null })
-        assertTrue(outcomes.any { it is A2uiParseOutcome.Skipped }, "The cut-off is recorded")
-    }
+    fun truncatedTrailingMessageIsReportedRatherThanParsed() =
+        runTest {
+            val truncated = """{"createSurface":{"surfaceId":"s1","rootId":"t1","components":[{"id":"t1","""
+            val outcomes = parser.parseTokens(flowOf(truncated)).toList()
+            assertTrue(outcomes.all { it.eventOrNull == null })
+            assertTrue(outcomes.any { it is A2uiParseOutcome.Skipped }, "The cut-off is recorded")
+        }
 
     // ─── Helpers ───────────────────────────────────────────────────────────
 
@@ -340,9 +348,10 @@ class A2uiParserTest {
         return parsed.event as UiEvent.CreateSurface
     }
 
-    private fun UiEvent.componentsSize(): Int = when (this) {
-        is UiEvent.CreateSurface -> components.size
-        is UiEvent.UpdateComponents -> components.size
-        else -> 0
-    }
+    private fun UiEvent.componentsSize(): Int =
+        when (this) {
+            is UiEvent.CreateSurface -> components.size
+            is UiEvent.UpdateComponents -> components.size
+            else -> 0
+        }
 }

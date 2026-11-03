@@ -7,24 +7,35 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SavedSearchDao {
-
     @Query("SELECT * FROM saved_searches WHERE user_id = :userId ORDER BY name ASC")
     fun watchAll(userId: String): Flow<List<SavedSearchEntity>>
 
     @Query("SELECT * FROM saved_searches WHERE user_id = :userId AND id = :id")
-    fun watchById(userId: String, id: String): Flow<SavedSearchEntity?>
+    fun watchById(
+        userId: String,
+        id: String,
+    ): Flow<SavedSearchEntity?>
 
     @Query("SELECT * FROM saved_searches WHERE user_id = :userId AND id = :id")
-    suspend fun getById(userId: String, id: String): SavedSearchEntity?
+    suspend fun getById(
+        userId: String,
+        id: String,
+    ): SavedSearchEntity?
 
     @Query("SELECT * FROM saved_searches WHERE user_id = :userId AND lower(name) = lower(:name) LIMIT 1")
-    suspend fun findByName(userId: String, name: String): SavedSearchEntity?
+    suspend fun findByName(
+        userId: String,
+        name: String,
+    ): SavedSearchEntity?
 
     @Upsert(entity = SavedSearchEntity::class)
     suspend fun upsert(entity: SavedSearchEntity)
 
     @Query("DELETE FROM saved_searches WHERE user_id = :userId AND id = :id")
-    suspend fun delete(userId: String, id: String)
+    suspend fun delete(
+        userId: String,
+        id: String,
+    )
 
     /** Full-table export — all saved searches for a user. */
     @Query("SELECT * FROM saved_searches WHERE user_id = :userId")

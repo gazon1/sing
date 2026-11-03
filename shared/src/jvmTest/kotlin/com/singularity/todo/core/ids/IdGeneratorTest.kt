@@ -7,7 +7,6 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class IdGeneratorTest {
-
     @Test
     fun `UuidIdGenerator returns 36-character UUID string`() {
         val id = UuidIdGenerator.next()

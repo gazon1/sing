@@ -10,7 +10,7 @@ subdirectories (~39 flows total). Helpers live in `Maestro/helpers/`.
 
 Status (run 38223116125): classes A–D fixed (hardcoded swipe, missing nav menu
 openers, menu item scroll, animation timing). Class E diagnosed on `emulator-5554`
-— see "Seed fixtures, never type them" and `diagnosing-failures.md`.
+— see the runbook: [`runbook.md`](runbook.md).
 All 4 Class E flows pass.
 
 ## Prerequisites: emulator first
@@ -128,107 +128,10 @@ selector to fall back on.
 
 ## Seed fixtures, never type them
 
-**Seed through `helpers/seed.yaml`, which drives the `DebugSeedActivity` deep-link.
-Typing a fixture into the editor does not work in this app.**
-
-`TaskTitleRow` uses Compose's *controlled* field:
-
-```kotlin
-BasicTextField(value = title, onValueChange = { title = it; isDirty = true })
-```
-
-Neither Maestro `inputText` nor `adb shell input text` can fill it. Injected text
-lands in the wrapped `EditText`, then the next composition writes the still-empty
-`value` back over it. `onValueChange` never fires, `isDirty` stays false, and Save
-never enables — the flow hangs on a title that looks filled in but is not in state.
-
-The probe that settles it: type, reopen the editor, assert the text. Gone, so the
-value never reached state. An `ImeAction` patch was tried and reverted — it removed
-the action `inputText` depends on and broke entry outright.
-
-`helpers/seed.yaml` takes a URL-encoded `QUERY`:
-
-```yaml
-- runFlow:
-    file: ../../helpers/seed.yaml
-    env:
-      QUERY: "task=Buy%20milk&due=today"
-```
-
-| Query key | Creates |
-|---|---|
-| `task=<title>` | a task |
-| `task=<title>&due=…` | task due `today` / `tomorrow` / `-1d` / `2026-10-01` |
-| `task=<title>&id=<id>` | a task that carries the named id — a deep link names an id, and a flow cannot know the id the app generated |
-| `note=<title>` | a note |
-| `note=<title>&linkTo=<task title>` | a note whose body links to the task of that title — the link is written as an anchor with the grammar's URL (`task://<id>`), so the note is one the editor could have produced |
-| `project=<name>` | a project |
-| `profile=<name>` | a project profile and switches to it |
-
-**An undated fixture lands in Inbox's "No Date" bucket, not Today.** A flow that
-seeds `task=Buy milk` with no `due` and then looks on Today finds nothing — tap
-`nav_tab_inbox`.
-
-**`seed.yaml` has no tab round-trip, and does not need one.** An inbox→today
-round-trip was added here on 2026-10-12 because a deep-link seed appeared not to
-reach an already-composed agenda. Once the runner began sweeping each run's
-fixtures on success, that stopped reproducing: what looked like "the row never
-arrived" was the row arriving *below* rows earlier runs had left behind. So
-before blaming the agenda, check for leftovers — a stale fixture masquerades as a
-missing one.
-
-### `launch-clean` does not clear the database — on purpose
-
-`launchApp` with `clearState: false` resets AMS state only. Room persists across
-runs on the same emulator, so **fixtures accumulate**.
-
-Do not "fix" this with `clearState: true` or a blanket `pm clear`: both destroy
-the pre-authenticated session the emulator snapshot carries, so every flow would
-land on the auth screen. The accumulation is handled by the runner's selective
-success sweep instead (see below), which leaves session, profile and auth state
-alone and cannot touch another run's data.
-
-`pm clear` remains available as a manual escape hatch when you want a genuinely
-virgin device state — it costs you the authenticated session:
-
-```bash
-adb -s "$(ensure-emulator)" shell pm clear com.singularity.todo
-```
-
-Accumulation is harmless for a read-only fixture but corrupts a flow that *mutates*
-its fixture and then asserts the mutated-away state — the previous run's already-dated
-copy satisfies the selector. **Prefix the title with `${RUN_ID}`** and the runner
-sweeps it for you:
-
-```yaml
-- runFlow:
-    file: ../../helpers/seed.yaml
-    env:
-      QUERY: "task=${RUN_ID}%20My%20fixture"
-- scrollUntilVisible:
-    element:
-      id: "task_item_${RUN_ID}_my_fixture"     # slug of "<run id> My fixture"
-```
-
-`run-maestro` mints `RUN_ID` on **every attempt** and, after a
-successful flow, deep-links `todo-debug://seed?cleanup=<RUN_ID>` to delete every
-task, note and project whose title starts with that prefix. A retry after a lost
-device gets a *new* id, so it cannot collide with the attempt it replaces.
-
-**Prefix, not substring** — cleanup matches `startsWith`, so a leaked fixture
-names the run that made it and real data is never caught by it.
-
-`seed-task.yaml` deliberately keeps the **fixed** title "Buy milk": 17 flows
-address its row by the stable `task_item_buy_milk` id, so a per-run stamp would
-break every one of them. The runner sweeps it by its own literal prefix instead,
-so it cannot accumulate into an ambiguous `tapOn`.
-
-**Cleanup runs on success only** — a failed flow keeps its fixtures, because they
-are the evidence. Same reason failure screenshots exist.
-
-**A manual `maestro test <flow>` has no runner**: `RUN_ID` falls back to `manual`
-from `Maestro/config.yaml` and nothing is swept. Debug from a `pm clear` slate;
-set `MAESTRO_CLEANUP=0` to keep a run's fixtures for inspection.
+**Seed, never type.** The walkthrough — why typing a fixture into the editor does
+not work, the `seed.yaml` query keys, `${RUN_ID}` prefixing, the runner's cleanup
+sweep — is in the runbook:
+[Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them).
 
 ## Adaptive scrolling: `scrollUntilVisible` over hardcoded swipe
 
@@ -400,88 +303,28 @@ suite. See `singularity-todo-emulator-launch`.
 Start from `launch-clean`, then `seed.yaml` when the flow needs data. Make new
 flows self-seeding rather than inheriting state from an earlier flow. Note that
 `launch-clean` does not clear Room, so a fixture written by a previous run is
-still there — see "Seed fixtures, never type them".
+still there — see [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them).
 
-## App behaviour facts flows encode
+## The runbook
 
-These are behaviours a flow author would otherwise guess wrong; each was learned
-by a flow failing on it:
+The runbook sits beside this skill as [`runbook.md`](runbook.md): the seeding
+walkthrough, the app's behaviour facts, the probe recipe and the failure tables.
+Read it when a flow needs data or misbehaves:
 
-- **Long-press on an agenda row opens a context-menu bottom sheet**
-  (`task_context_menu_sheet`), with rows tagged `sheet_item_<label>`: Open,
-  Mark as completed/uncompleted, Pin/Unpin, Archive. Use
-  `longPressOn: id: task_item_<slug>` then `tapOn: id: sheet_item_Archive`.
-  Before the fix long-press fell through to the click handler and opened the
-  editor.
-- **The detail overflow menu is state-dependent.** An active task shows
-  Архивировать / Удалить; an archived (trashed) task shows Восстановить alone.
-  A flow that archives and then expects Удалить will not find it.
-- **Delete is immediate and reversible** — a "Task deleted" undo snackbar, no
-  confirmation dialog. The flow asserts the row is gone after `back`, and the
-  undo path is a separate concern.
-- **Archive -> restore round trip works**: archive via the context menu, open the
-  task from the Archive screen, overflow menu -> Восстановить, the screen pops
-  back and the task reappears in Inbox.
-- The task detail keeps the shell FAB visible; detect a push by the editor
-  appearing, not by the FAB disappearing.
-- **Notes: tapping a row opens the note's *preview*, not its editor.** The
-  editor is reached from the preview's Edit action (`note_action_edit`). The
-  one exception is the quick-add row: it creates the note and opens the
-  editor directly (`NavigateToEditor`), so a flow that types a title into the
-  quick-add lands in the editor, not in the preview. The editor autosaves —
-  saving does not pop it; `back` does.
+- [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them) —
+  why typing a fixture into the editor does not work, the `seed.yaml` query keys,
+  `${RUN_ID}` prefixing, the runner's cleanup sweep, and why `launch-clean` does
+  not clear the database.
+- [App behaviour facts flows encode](runbook.md#app-behaviour-facts-flows-encode) —
+  the behaviours a flow author would otherwise guess wrong.
+- [Recon before writing a flow — the probe trick](runbook.md#recon-before-writing-a-flow--the-probe-trick) —
+  the probe flow that dumps the view hierarchy of the screen you are about to drive.
+- [Diagnosing a Maestro flow failure](runbook.md#diagnosing-a-maestro-flow-failure) — the failure-class
+  table for the last CI run, the logcat/hierarchy triage steps, when a selector is
+  unreachable because the element is laid out off-screen, the retry policy, and the
+  CI-vs-local timeout multipliers.
 
-## When a flow fails
-
-Open [`diagnosing-failures.md`](diagnosing-failures.md) — the failure-class table
-for the last CI run, the logcat/hierarchy triage steps, when a selector is
-unreachable because the element is laid out off-screen, the retry policy, and the
-CI-vs-local timeout multipliers.
-
-## Recon before writing a flow — the probe trick
-
-**Probe the mechanism before changing product code.** A test failure names a
-symptom; a product change guessed from a symptom is as likely to break the real
-path as to fix it. A failing test is evidence about the test until a probe shows
-otherwise — the defect is in the product only when you have *seen* the
-user-visible behaviour, not inferred it from a step failing. This session wrote
-and reverted two speculative changes to `TaskCreateScreen` before a probe (type,
-reopen, assert the text) settled the actual mechanism.
-
-Do not write a flow against selectors you inferred from the source. Drive the
-screen first and read what is actually there. The cheapest way is a **probe
-flow**: navigate to the screen, then assert something that cannot exist. The
-assertion fails, and Maestro captures the view hierarchy at exactly that
-moment.
-
-```yaml
-appId: com.singularity.todo
-name: probe-thing
----
-- runFlow: ../../helpers/launch-clean.yaml
-- tapOn:
-    id: nav_tab_pomodoro
-- assertVisible:
-    id: zzz_nonexistent_probe      # fails on purpose, dumping the hierarchy
-```
-
-```bash
-maestro test Maestro/flows/<sub>/<probe-name>.yaml
-D=~/.maestro/tests/$(ls -1 ~/.maestro/tests | tail -1)          # names sort chronologically
-f=$(find "$D" -path "*hierarchy*" -name "*.json" | tail -1)
-grep -o '"resource-id" : "[^"]*"' "$f" | sort -u
-grep -o '"text" : "[^"]*"' "$f" | sort -u
-```
-
-This is how the selectors in this suite were chosen, and it is what caught the
-rows that turned out to be dead taps and the screens with no affordance. Guessed
-selectors produced three wrong flows in a row before the probe habit stuck; the
-flow *failing on a selector that should exist* is far more often "the APK
-predates the tag" or "this row does nothing" than a bug in the selector.
-
-Delete the probe once the real flow replaces it — probes are scaffolding, and a
-stale one left in the tree is noise.
-
+## Flow tags
 
 `smoke` = the fast must-pass subset. Domain tags (`tasks`, `notes`, `settings`,
 `archive`, `calendar_sync`, `sync`, `negative`, `lifecycle`, `smoke` — see
@@ -521,6 +364,6 @@ split for flows — the split is `smoke` vs domain.
    flow thinks it is. The header is where the answer belongs: the file
    outlives the pull request. "нет" is an honest and useful answer — "да"
    without a date is not. A flow tagged `smoke` has to have run on a device.
-10. On failure, open `diagnosing-failures.md`.
+10. On failure, open the runbook: [`runbook.md`](runbook.md).
 
 Fuller guidance, including the tag table: `Maestro/README.md`.

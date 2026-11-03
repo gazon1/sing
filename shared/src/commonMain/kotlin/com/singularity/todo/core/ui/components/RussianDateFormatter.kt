@@ -2,15 +2,19 @@ package com.singularity.todo.core.ui.components
 
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.Month
 
 /**
- * Formats a due date as a short Russian label: "Сб, 05 сент 2026".
- * Returns `null` when [date] is `null`.
+ * Formats a date as a short Russian label: "Сб, 05 сен 2026".
+ *
+ * Not nullable: a caller that has no date has no label to format, and a
+ * `String?` return here forced every caller to invent a fallback — two of them
+ * fell back to the raw ISO date, which is the very shape this label replaced.
+ * A caller whose date *is* optional asks [formatRussianDueDateOrNull].
  */
-internal fun formatRussianDueDate(date: LocalDate?): String? {
-    if (date == null) return null
-    return "${
+internal fun formatRussianDueDate(date: LocalDate): String =
+    "${
         shortWeekday(
             date.dayOfWeek,
         )
@@ -18,7 +22,25 @@ internal fun formatRussianDueDate(date: LocalDate?): String? {
         date.day.toString()
             .padStart(2, '0')
     } ${shortMonth(date.month)} ${date.year}"
-}
+
+/** [formatRussianDueDate] for a date that may be absent: `null` in, `null` out. */
+internal fun formatRussianDueDateOrNull(date: LocalDate?): String? = date?.let(::formatRussianDueDate)
+
+/**
+ * The date a task editor row shows: the same label the agenda list shows, with
+ * the time appended when there is one.
+ *
+ * The editor used to print the raw ISO date ("2026-10-30") while the list showed
+ * "Пт, 30 окт 2026" — one date, two shapes, on the same phone.
+ *
+ * The time is [LocalTime.toString], whole: "14:30" when there are no seconds,
+ * "14:30:05" when there are. Cutting the string at five characters used to
+ * drop the seconds of a time that carried them.
+ */
+internal fun formatRussianDueDateWithTime(
+    date: LocalDate,
+    time: LocalTime?,
+): String = formatRussianDueDate(date) + (time?.let { " $it" } ?: "")
 
 /**
  * Says a number of dates the way a person says it: "1 date", "2 dates".
@@ -28,30 +50,32 @@ internal fun formatDateCount(count: Int): String {
     return "$count $word"
 }
 
-private fun shortWeekday(d: DayOfWeek): String = when (d) {
-    DayOfWeek.MONDAY -> "Пн"
-    DayOfWeek.TUESDAY -> "Вт"
-    DayOfWeek.WEDNESDAY -> "Ср"
-    DayOfWeek.THURSDAY -> "Чт"
-    DayOfWeek.FRIDAY -> "Пт"
-    DayOfWeek.SATURDAY -> "Сб"
-    DayOfWeek.SUNDAY -> "Вс"
-}
+private fun shortWeekday(d: DayOfWeek): String =
+    when (d) {
+        DayOfWeek.MONDAY -> "Пн"
+        DayOfWeek.TUESDAY -> "Вт"
+        DayOfWeek.WEDNESDAY -> "Ср"
+        DayOfWeek.THURSDAY -> "Чт"
+        DayOfWeek.FRIDAY -> "Пт"
+        DayOfWeek.SATURDAY -> "Сб"
+        DayOfWeek.SUNDAY -> "Вс"
+    }
 
-private fun shortMonth(m: Month): String = when (m) {
-    Month.JANUARY -> "янв"
-    Month.FEBRUARY -> "фев"
-    Month.MARCH -> "мар"
-    Month.APRIL -> "апр"
-    Month.MAY -> "мая"
-    Month.JUNE -> "июн"
-    Month.JULY -> "июл"
-    Month.AUGUST -> "авг"
-    Month.SEPTEMBER -> "сен"
-    Month.OCTOBER -> "окт"
-    Month.NOVEMBER -> "ноя"
-    Month.DECEMBER -> "дек"
-}
+private fun shortMonth(m: Month): String =
+    when (m) {
+        Month.JANUARY -> "янв"
+        Month.FEBRUARY -> "фев"
+        Month.MARCH -> "мар"
+        Month.APRIL -> "апр"
+        Month.MAY -> "мая"
+        Month.JUNE -> "июн"
+        Month.JULY -> "июл"
+        Month.AUGUST -> "авг"
+        Month.SEPTEMBER -> "сен"
+        Month.OCTOBER -> "окт"
+        Month.NOVEMBER -> "ноя"
+        Month.DECEMBER -> "дек"
+    }
 
 /**
  * Formats a month title: "Октябрь 2026".
@@ -66,7 +90,7 @@ internal fun formatRussianMonthYear(date: LocalDate): String = "${longMonth(date
 internal val russianWeekdayHeaders: List<String> = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
 
 /**
- * Formats a date the way a list of dates reads well: "05 сент".
+ * Formats a date the way a list of dates reads well: "05 сен".
  *
  * Shorter than [formatRussianDueDate], which carries the weekday and the year —
  * right for one date on its own row, too long when several are on one row.
@@ -83,17 +107,18 @@ internal fun formatRussianShortDate(date: LocalDate): String =
 internal fun formatRussianDateList(dates: List<LocalDate>): String =
     dates.joinToString(", ") { formatRussianShortDate(it) }
 
-private fun longMonth(m: Month): String = when (m) {
-    Month.JANUARY -> "Январь"
-    Month.FEBRUARY -> "Февраль"
-    Month.MARCH -> "Март"
-    Month.APRIL -> "Апрель"
-    Month.MAY -> "Май"
-    Month.JUNE -> "Июнь"
-    Month.JULY -> "Июль"
-    Month.AUGUST -> "Август"
-    Month.SEPTEMBER -> "Сентябрь"
-    Month.OCTOBER -> "Октябрь"
-    Month.NOVEMBER -> "Ноябрь"
-    Month.DECEMBER -> "Декабрь"
-}
+private fun longMonth(m: Month): String =
+    when (m) {
+        Month.JANUARY -> "Январь"
+        Month.FEBRUARY -> "Февраль"
+        Month.MARCH -> "Март"
+        Month.APRIL -> "Апрель"
+        Month.MAY -> "Май"
+        Month.JUNE -> "Июнь"
+        Month.JULY -> "Июль"
+        Month.AUGUST -> "Август"
+        Month.SEPTEMBER -> "Сентябрь"
+        Month.OCTOBER -> "Октябрь"
+        Month.NOVEMBER -> "Ноябрь"
+        Month.DECEMBER -> "Декабрь"
+    }

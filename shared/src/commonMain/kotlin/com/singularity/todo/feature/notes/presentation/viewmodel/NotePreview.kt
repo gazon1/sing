@@ -12,11 +12,11 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Read-only ViewModel for the NotePreview (view) screen.
@@ -52,22 +52,24 @@ class NotePreview(
 
     private fun loadNote(noteId: String) {
         loadNoteJob?.cancel()
-        loadNoteJob = vmScope.launch {
-            val note = repo.get(NoteId.fromString(noteId))
-            if (note == null) {
-                updateState { NotePreviewState.NotFound }
-                return@launch
+        loadNoteJob =
+            vmScope.launch {
+                val note = repo.get(NoteId.fromString(noteId))
+                if (note == null) {
+                    updateState { NotePreviewState.NotFound }
+                    return@launch
+                }
+                val backlinks =
+                    try {
+                        linkRepo.getBacklinkNotes(noteId)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.w(e) { "Failed to load backlink notes" }
+                        emptyList()
+                    }
+                updateState { NotePreviewState.Loaded(note = note, backlinks = backlinks.toImmutableList()) }
             }
-            val backlinks = try {
-                linkRepo.getBacklinkNotes(noteId)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.w(e) { "Failed to load backlink notes" }
-                emptyList()
-            }
-            updateState { NotePreviewState.Loaded(note = note, backlinks = backlinks.toImmutableList()) }
-        }
     }
 
     private fun delete() {
@@ -80,7 +82,9 @@ class NotePreview(
 
 sealed interface NotePreviewState {
     data object Loading : NotePreviewState
+
     data object NotFound : NotePreviewState
+
     data class Loaded(val note: Note, val backlinks: ImmutableList<Note>) : NotePreviewState {
         val backlinkCount: Int get() = backlinks.size
     }
@@ -89,6 +93,8 @@ sealed interface NotePreviewState {
 /** One-shot intents for [NotePreview]. */
 sealed interface NotePreviewIntent : MviIntent {
     data class Load(val noteId: String) : NotePreviewIntent
+
     data object Refresh : NotePreviewIntent
+
     data object Delete : NotePreviewIntent
 }

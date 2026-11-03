@@ -44,35 +44,61 @@ import androidx.room3.Query
 @Dao
 @Suppress("TooManyFunctions")
 interface OwnerReassignDao {
-
     // ── Data rows: walked one scoped-id pair at a time ──────────────────────
 
     @Query("UPDATE tasks SET user_id = :to WHERE user_id = :from")
-    suspend fun reassignTasks(from: String, to: String): Int
+    suspend fun reassignTasks(
+        from: String,
+        to: String,
+    ): Int
 
     @Query("UPDATE notes SET user_id = :to WHERE user_id = :from")
-    suspend fun reassignNotes(from: String, to: String): Int
+    suspend fun reassignNotes(
+        from: String,
+        to: String,
+    ): Int
 
     @Query("UPDATE projects SET user_id = :to WHERE user_id = :from")
-    suspend fun reassignProjects(from: String, to: String): Int
+    suspend fun reassignProjects(
+        from: String,
+        to: String,
+    ): Int
 
     @Query("UPDATE tags SET user_id = :to WHERE user_id = :from")
-    suspend fun reassignTags(from: String, to: String): Int
+    suspend fun reassignTags(
+        from: String,
+        to: String,
+    ): Int
 
     @Query("UPDATE tag_groups SET user_id = :to WHERE user_id = :from")
-    suspend fun reassignTagGroups(from: String, to: String): Int
+    suspend fun reassignTagGroups(
+        from: String,
+        to: String,
+    ): Int
 
     @Query("UPDATE task_reminders SET user_id = :to WHERE user_id = :from")
-    suspend fun reassignTaskReminders(from: String, to: String): Int
+    suspend fun reassignTaskReminders(
+        from: String,
+        to: String,
+    ): Int
 
     @Query("UPDATE project_reminders SET user_id = :to WHERE user_id = :from")
-    suspend fun reassignProjectReminders(from: String, to: String): Int
+    suspend fun reassignProjectReminders(
+        from: String,
+        to: String,
+    ): Int
 
     @Query("UPDATE time_entries SET user_id = :to WHERE user_id = :from")
-    suspend fun reassignTimeEntries(from: String, to: String): Int
+    suspend fun reassignTimeEntries(
+        from: String,
+        to: String,
+    ): Int
 
     @Query("UPDATE agenda_views SET user_id = :to WHERE user_id = :from")
-    suspend fun reassignAgendaViews(from: String, to: String): Int
+    suspend fun reassignAgendaViews(
+        from: String,
+        to: String,
+    ): Int
 
     // ── Ownership itself: bare owner id, moved once ─────────────────────────
 
@@ -84,7 +110,10 @@ interface OwnerReassignDao {
      * rather than half-visible.
      */
     @Query("UPDATE profiles SET user_id = :toOwnerId WHERE user_id = :fromOwnerId")
-    suspend fun reassignProfiles(fromOwnerId: String, toOwnerId: String): Int
+    suspend fun reassignProfiles(
+        fromOwnerId: String,
+        toOwnerId: String,
+    ): Int
 
     /**
      * Moves queued patches onto the new owner. **Not for symmetry.**
@@ -96,7 +125,10 @@ interface OwnerReassignDao {
      * for this owner to send.
      */
     @Query("UPDATE sync_outbox SET owner_id = :toOwnerId WHERE owner_id = :fromOwnerId")
-    suspend fun reassignOutbox(fromOwnerId: String, toOwnerId: String): Int
+    suspend fun reassignOutbox(
+        fromOwnerId: String,
+        toOwnerId: String,
+    ): Int
 
     /**
      * Moves shelved patches too.
@@ -105,7 +137,10 @@ interface OwnerReassignDao {
      * owner is the one who would have to resolve it.
      */
     @Query("UPDATE sync_dead_letter SET owner_id = :toOwnerId WHERE owner_id = :fromOwnerId")
-    suspend fun reassignDeadLetter(fromOwnerId: String, toOwnerId: String): Int
+    suspend fun reassignDeadLetter(
+        fromOwnerId: String,
+        toOwnerId: String,
+    ): Int
 
     /**
      * Moves the shadow rows that say what the server has already confirmed.
@@ -114,7 +149,10 @@ interface OwnerReassignDao {
      * already confirmed documents it has never seen.
      */
     @Query("UPDATE sync_shadow SET owner_id = :toOwnerId WHERE owner_id = :fromOwnerId")
-    suspend fun reassignShadows(fromOwnerId: String, toOwnerId: String): Int
+    suspend fun reassignShadows(
+        fromOwnerId: String,
+        toOwnerId: String,
+    ): Int
 
     // ── Preview (count without reassign) ───────────────────────────────────────
 

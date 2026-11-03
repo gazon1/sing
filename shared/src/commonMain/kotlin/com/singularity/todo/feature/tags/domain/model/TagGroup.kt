@@ -16,7 +16,12 @@ import kotlin.time.Instant
 @JvmInline
 value class TagGroupId(val value: String) {
     companion object {
-        fun generate() = TagGroupId(com.singularity.todo.core.ids.nextId())
+        fun generate() =
+            TagGroupId(
+                com.singularity.todo.core.ids
+                    .nextId(),
+            )
+
         fun fromString(value: String) = TagGroupId(value)
     }
 }

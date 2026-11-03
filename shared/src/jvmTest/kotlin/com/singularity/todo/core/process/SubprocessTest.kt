@@ -31,7 +31,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SubprocessTest {
-
     @Test
     fun `a command that writes to stdout is not killed for it`() {
         // `echo` is the smallest command that writes and then exits cleanly. The broken
@@ -88,15 +87,16 @@ class SubprocessTest {
         // A joined command would let the second half of the hostile argument run.
         val marker = "/tmp/subprocess_argv_marker"
         val hostile = "; touch $marker"
-        val exit = Subprocess.runQuietly(
-            listOf(
-                "sh",
-                "-c",
-                "test \"\$1\" = safe && touch \"\$0\"",
-                "sh",
-                hostile,
-            ),
-        )
+        val exit =
+            Subprocess.runQuietly(
+                listOf(
+                    "sh",
+                    "-c",
+                    "test \"\$1\" = safe && touch \"\$0\"",
+                    "sh",
+                    hostile,
+                ),
+            )
 
         assertTrue(
             exit != 0 || !java.io.File(marker).exists(),
@@ -186,9 +186,10 @@ class SubprocessTest {
      */
     @Test
     fun `a chatty child does not deadlock the capture`() {
-        val output = Subprocess.runCapturing(
-            listOf("sh", "-c", "head -c 300000 /dev/zero | tr '\\0' 'x'"),
-        )
+        val output =
+            Subprocess.runCapturing(
+                listOf("sh", "-c", "head -c 300000 /dev/zero | tr '\\0' 'x'"),
+            )
 
         assertEquals(300_000, output?.length, "every byte must be drained, not just the first buffer")
     }

@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.components.list
 
-import kotlinx.collections.immutable.persistentSetOf
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,14 +17,15 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
+import kotlinx.collections.immutable.persistentSetOf
 
 /**
  * Общее "нутро" строки задачи: чекбокс + приоритет + заголовок + мета.
@@ -39,7 +39,11 @@ import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
  * мета-строку за пределы экрана или ломать высоту строки.
  */
 @Composable
-fun TaskRowContent(task: TaskUi, onToggleCompleted: () -> Unit, modifier: Modifier = Modifier) {
+fun TaskRowContent(
+    task: TaskUi,
+    onToggleCompleted: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Row(
         verticalAlignment = Alignment.Top,
         modifier = modifier.fillMaxWidth(),
@@ -82,8 +86,9 @@ fun TaskRowContent(task: TaskUi, onToggleCompleted: () -> Unit, modifier: Modifi
             // One fact, several sources: the meta row is drawn when there is something
             // to say. The repeat badge is a marking now, so `markings.isNotEmpty()`
             // covers it — a repeating task with nothing else still shows its meta row.
-            val hasMeta = task.dueLabel != null || task.project != null ||
-                task.markings.isNotEmpty() || task.seriesDates != null
+            val hasMeta =
+                task.dueLabel != null || task.project != null ||
+                    task.markings.isNotEmpty() || task.seriesDates != null
             if (hasMeta) {
                 Spacer(Modifier.height(TaskListSpacing.Xs))
                 TaskMetaRow(
@@ -104,35 +109,40 @@ private fun TaskRowContentPreview() {
     PreviewThemed(darkTheme = true, useSurface = true) {
         Column {
             TaskRowContent(
-                task = TaskUi(
-                    id = TaskId.fromString("1"),
-                    title = "Позвонить родителям в сб или вс",
-                    project = "Семья",
-                    dueLabel = "Сб, 05 сент 2026",
-                    markings = persistentSetOf(TaskMarking.Recurring),
-                    priority = TaskPriority.Medium,
-                ),
+                task =
+                    TaskUi(
+                        id = TaskId.fromString("1"),
+                        title = "Позвонить родителям в сб или вс",
+                        project = "Семья",
+                        dueLabel = "Сб, 05 сен 2026",
+                        markings = persistentSetOf(TaskMarking.Recurring),
+                        priority = TaskPriority.Medium,
+                    ),
                 onToggleCompleted = {},
             )
             TaskRowContent(
-                task = TaskUi(
-                    id = TaskId.fromString("2"),
-                    title = "Очень длинный заголовок задачи который занимает две строки и должен свернуться с эллипсисом",
-                    project = null,
-                    dueLabel = "Пн, 10 нояб 2025",
-                    isCompleted = true,
-                ),
+                task =
+                    TaskUi(
+                        id = TaskId.fromString("2"),
+                        title =
+                            "Очень длинный заголовок задачи который занимает две строки " +
+                                "и должен свернуться с эллипсисом",
+                        project = null,
+                        dueLabel = "Пн, 10 нояб 2025",
+                        isCompleted = true,
+                    ),
                 onToggleCompleted = {},
             )
             TaskRowContent(
-                task = TaskUi(
-                    id = TaskId.fromString("3"),
-                    title = "Просроченная задача с высоким приоритетом",
-                    project = "Финансы",
-                    dueLabel = "Вчера",
-                    priority = TaskPriority.High,
-                    markings = persistentSetOf(TaskMarking.Overdue),
-                ),
+                task =
+                    TaskUi(
+                        id = TaskId.fromString("3"),
+                        title = "Просроченная задача с высоким приоритетом",
+                        project = "Финансы",
+                        dueLabel = "Вчера",
+                        priority = TaskPriority.High,
+                        markings = persistentSetOf(TaskMarking.Overdue),
+                    ),
                 onToggleCompleted = {},
             )
         }

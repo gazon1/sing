@@ -52,7 +52,6 @@ import kotlinx.coroutines.flow.flowOf
  */
 @Dao
 interface FtsDao {
-
     /**
      * The tasks whose title or description match the index.
      */
@@ -66,7 +65,10 @@ interface FtsDao {
         ORDER BY t.due_date ASC, t.is_pinned DESC
         """,
     )
-    fun watchTasksByMatch(userId: String, match: String): Flow<List<TaskMatchRow>>
+    fun watchTasksByMatch(
+        userId: String,
+        match: String,
+    ): Flow<List<TaskMatchRow>>
 
     /**
      * The notes whose title match the index.
@@ -83,7 +85,11 @@ interface FtsDao {
         LIMIT :limit
         """,
     )
-    fun watchNotesByMatch(userId: String, match: String, limit: Int): Flow<List<NoteMatchRow>>
+    fun watchNotesByMatch(
+        userId: String,
+        match: String,
+        limit: Int,
+    ): Flow<List<NoteMatchRow>>
 
     /**
      * The projects whose name match the index.
@@ -98,7 +104,10 @@ interface FtsDao {
         ORDER BY p.sort_order ASC, p.name ASC
         """,
     )
-    fun watchProjectsByMatch(userId: String, match: String): Flow<List<ProjectMatchRow>>
+    fun watchProjectsByMatch(
+        userId: String,
+        match: String,
+    ): Flow<List<ProjectMatchRow>>
 
     /**
      * The tags whose name match the index.
@@ -113,7 +122,10 @@ interface FtsDao {
         ORDER BY t.sort_order ASC, t.name ASC
         """,
     )
-    fun watchTagsByMatch(userId: String, match: String): Flow<List<TagMatchRow>>
+    fun watchTagsByMatch(
+        userId: String,
+        match: String,
+    ): Flow<List<TagMatchRow>>
 
     /**
      * The tasks whose title matches the index — the first twenty, most recently
@@ -130,7 +142,11 @@ interface FtsDao {
         LIMIT :limit
         """,
     )
-    suspend fun searchTaskTitlesByMatch(userId: String, match: String, limit: Int): List<TaskMatchRow>
+    suspend fun searchTaskTitlesByMatch(
+        userId: String,
+        match: String,
+        limit: Int,
+    ): List<TaskMatchRow>
 
     /**
      * The notes whose title matches the index — the first twenty, most recently
@@ -148,7 +164,11 @@ interface FtsDao {
         LIMIT :limit
         """,
     )
-    suspend fun searchNoteTitlesByMatch(userId: String, match: String, limit: Int): List<NoteMatchRow>
+    suspend fun searchNoteTitlesByMatch(
+        userId: String,
+        match: String,
+        limit: Int,
+    ): List<NoteMatchRow>
 
     // ── The semantic surface ────────────────────────────────────────────────
     //
@@ -160,32 +180,48 @@ interface FtsDao {
     /**
      * The tasks whose title or description match [query].
      */
-    fun watchTasks(userId: String, query: TextMatchQuery): Flow<List<TaskMatchRow>> =
-        FtsMatchQuery.expression(query)
+    fun watchTasks(
+        userId: String,
+        query: TextMatchQuery,
+    ): Flow<List<TaskMatchRow>> =
+        FtsMatchQuery
+            .expression(query)
             ?.let { match -> watchTasksByMatch(userId, match) }
             ?: flowOf(emptyList())
 
     /**
      * The notes whose title match [query].
      */
-    fun watchNotes(userId: String, query: TextMatchQuery): Flow<List<NoteMatchRow>> =
-        FtsMatchQuery.expression(query)
+    fun watchNotes(
+        userId: String,
+        query: TextMatchQuery,
+    ): Flow<List<NoteMatchRow>> =
+        FtsMatchQuery
+            .expression(query)
             ?.let { match -> watchNotesByMatch(userId, match, SearchLimits.NOTES) }
             ?: flowOf(emptyList())
 
     /**
      * The projects whose name match [query].
      */
-    fun watchProjects(userId: String, query: TextMatchQuery): Flow<List<ProjectMatchRow>> =
-        FtsMatchQuery.expression(query)
+    fun watchProjects(
+        userId: String,
+        query: TextMatchQuery,
+    ): Flow<List<ProjectMatchRow>> =
+        FtsMatchQuery
+            .expression(query)
             ?.let { match -> watchProjectsByMatch(userId, match) }
             ?: flowOf(emptyList())
 
     /**
      * The tags whose name match [query].
      */
-    fun watchTags(userId: String, query: TextMatchQuery): Flow<List<TagMatchRow>> =
-        FtsMatchQuery.expression(query)
+    fun watchTags(
+        userId: String,
+        query: TextMatchQuery,
+    ): Flow<List<TagMatchRow>> =
+        FtsMatchQuery
+            .expression(query)
             ?.let { match -> watchTagsByMatch(userId, match) }
             ?: flowOf(emptyList())
 
@@ -193,8 +229,13 @@ interface FtsDao {
      * The tasks whose title matches [query] — the first [limit], most recently
      * updated first.
      */
-    suspend fun searchTaskTitles(userId: String, query: TextMatchQuery, limit: Int): List<TaskMatchRow> =
-        FtsMatchQuery.expression(query)
+    suspend fun searchTaskTitles(
+        userId: String,
+        query: TextMatchQuery,
+        limit: Int,
+    ): List<TaskMatchRow> =
+        FtsMatchQuery
+            .expression(query)
             ?.let { match -> searchTaskTitlesByMatch(userId, match, limit) }
             ?: emptyList()
 
@@ -202,8 +243,13 @@ interface FtsDao {
      * The notes whose title matches [query] — the first [limit], most recently
      * updated first.
      */
-    suspend fun searchNoteTitles(userId: String, query: TextMatchQuery, limit: Int): List<NoteMatchRow> =
-        FtsMatchQuery.expression(query)
+    suspend fun searchNoteTitles(
+        userId: String,
+        query: TextMatchQuery,
+        limit: Int,
+    ): List<NoteMatchRow> =
+        FtsMatchQuery
+            .expression(query)
             ?.let { match -> searchNoteTitlesByMatch(userId, match, limit) }
             ?: emptyList()
 }

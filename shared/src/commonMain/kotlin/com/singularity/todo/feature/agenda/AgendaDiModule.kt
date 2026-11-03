@@ -1,10 +1,10 @@
 package com.singularity.todo.feature.agenda
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
-import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.agenda.data.SavedAgendaViewsRepositoryImpl
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
@@ -21,8 +21,8 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.MergeTaskSeriesUseCase
-import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
@@ -42,71 +42,75 @@ import kotlin.time.Clock
  * val vm: AgendaViewModel = koinViewModel { parametersOf(AgendaPresets.Inbox) }
  * ```
  */
-fun agendaModule(): Module = module {
-    // ─── Repository ─────────────────────────────────────────────────────
+fun agendaModule(): Module =
+    module {
+        // ─── Repository ─────────────────────────────────────────────────────
 
-    single<SavedAgendaViewsRepository> { SavedAgendaViewsRepositoryImpl(get(), get(), get()) }
+        single<SavedAgendaViewsRepository> { SavedAgendaViewsRepositoryImpl(get(), get(), get()) }
 
-    // ─── Seed store for SavedAgenda Create ────────────────────────────────
+        // ─── Seed store for SavedAgenda Create ────────────────────────────────
 
-    singleOf(::SavedAgendaSeedStore)
+        singleOf(::SavedAgendaSeedStore)
 
-    // ─── AgendaViewModel (existing, definition is a runtime param) ───────
+        // ─── AgendaViewModel (existing, definition is a runtime param) ───────
 
-    viewModel { (definition: AgendaDefinition) ->
-        AgendaViewModel(
-            deps = AgendaDeps(
-                taskRepo = get<TaskRepository>(),
-                clock = get<Clock>(),
-                timeZone = get<TimeZoneProvider>(),
-                logger = Logger.withTag("Agenda"),
-                draftStore = get<DraftStore>(),
-                reminderScheduler = get<ReminderScheduler>(),
-                currentUser = get<ProfileAwareCurrentUser>(),
-                taskMutations = get<TaskMutationsUseCase>(),
-                completion = get<TaskReopenUseCase>(),
-                mergeSeries = get<MergeTaskSeriesUseCase>(),
-                workScheduleSettings = get<WorkScheduleSettingsRepository>(),
-                greetingSettings = get<GreetingSettingsRepository>(),
-                projectsRepository = get(),
-            ),
-            definition = definition,
-            crashReporter = get(),
-        )
+        viewModel { (definition: AgendaDefinition) ->
+            AgendaViewModel(
+                deps =
+                    AgendaDeps(
+                        taskRepo = get<TaskRepository>(),
+                        clock = get<Clock>(),
+                        timeZone = get<TimeZoneProvider>(),
+                        logger = Logger.withTag("Agenda"),
+                        draftStore = get<DraftStore>(),
+                        reminderScheduler = get<ReminderScheduler>(),
+                        currentUser = get<ProfileAwareCurrentUser>(),
+                        taskMutations = get<TaskMutationsUseCase>(),
+                        completion = get<TaskReopenUseCase>(),
+                        mergeSeries = get<MergeTaskSeriesUseCase>(),
+                        workScheduleSettings = get<WorkScheduleSettingsRepository>(),
+                        greetingSettings = get<GreetingSettingsRepository>(),
+                        projectsRepository = get(),
+                    ),
+                definition = definition,
+                crashReporter = get(),
+            )
+        }
+
+        // ─── SavedAgendaListViewModel (no runtime params) ────────────────────
+        // Note: viewModelOf does not work here — two-constructor testable-VM pattern
+        // creates constructor ambiguity. Use explicit viewModel {} block.
+        viewModel {
+            SavedAgendaListViewModel(
+                deps =
+                    SavedAgendaListDeps(
+                        repo = get(),
+                        profileRepo = get(),
+                        currentUser = get<ProfileAwareCurrentUser>(),
+                    ),
+                crashReporter = get(),
+            )
+        }
+
+        // ─── SavedAgendaViewModel (runtime param: SavedAgendaScreenMode) ───────
+
+        viewModel { (mode: SavedAgendaScreenMode) ->
+            SavedAgendaViewModel(
+                deps =
+                    SavedAgendaDeps(
+                        repo = get(),
+                        clock = get<Clock>(),
+                        log = Logger.withTag("SavedAgenda"),
+                    ),
+                mode = mode,
+                seedStore = get(),
+                crashReporter = get(),
+            )
+        }
+
+        // ─── Deep link ──────────────────────────────────────────────────────
+        // The saved-view link is owned by this feature: it declares the URI template
+        // and the mapping to the saved-view editor. The registry that collects the
+        // links lives in `feature/nav/deeplink`.
+        single { AgendaDeepLink() }
     }
-
-    // ─── SavedAgendaListViewModel (no runtime params) ────────────────────
-    // Note: viewModelOf does not work here — two-constructor testable-VM pattern
-    // creates constructor ambiguity. Use explicit viewModel {} block.
-    viewModel {
-        SavedAgendaListViewModel(
-            deps = SavedAgendaListDeps(
-                repo = get(),
-                profileRepo = get(),
-                currentUser = get<ProfileAwareCurrentUser>(),
-            ),
-            crashReporter = get(),
-        )
-    }
-
-    // ─── SavedAgendaViewModel (runtime param: SavedAgendaScreenMode) ───────
-
-    viewModel { (mode: SavedAgendaScreenMode) ->
-        SavedAgendaViewModel(
-            deps = SavedAgendaDeps(
-                repo = get(),
-                clock = get<Clock>(),
-                log = Logger.withTag("SavedAgenda"),
-            ),
-            mode = mode,
-            seedStore = get(),
-            crashReporter = get(),
-        )
-    }
-
-    // ─── Deep link ──────────────────────────────────────────────────────
-    // The saved-view link is owned by this feature: it declares the URI template
-    // and the mapping to the saved-view editor. The registry that collects the
-    // links lives in `feature/nav/deeplink`.
-    single { AgendaDeepLink() }
-}

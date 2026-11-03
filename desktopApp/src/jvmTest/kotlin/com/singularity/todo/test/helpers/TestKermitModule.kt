@@ -15,6 +15,7 @@ import org.koin.dsl.module
  * single test execution (including retries), and is reset via [RingBufferLogWriter.reset]
  * before each attempt.
  */
-fun testKermitModule(): Module = module {
-    single { RingBufferLogWriter(capacity = 2_000) }
-}
+fun testKermitModule(): Module =
+    module {
+        single { RingBufferLogWriter(capacity = 2_000) }
+    }

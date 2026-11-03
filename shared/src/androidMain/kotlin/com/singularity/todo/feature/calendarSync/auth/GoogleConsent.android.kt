@@ -62,64 +62,67 @@ actual fun rememberGoogleConsent(clientId: String?): GoogleConsent {
     var pending by remember { mutableStateOf<PendingAuthorization?>(null) }
 
     // The launcher that carries the consent sheet's answer back.
-    val launcher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartIntentSenderForResult(),
-    ) { result ->
-        val waiting = pending
-        val data = result.data
-        if (waiting == null) return@rememberLauncherForActivityResult
-        if (data == null) {
-            waiting.fail("The consent sheet came back without an answer")
-            return@rememberLauncherForActivityResult
+    val launcher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.StartIntentSenderForResult(),
+        ) { result ->
+            val waiting = pending
+            val data = result.data
+            if (waiting == null) return@rememberLauncherForActivityResult
+            if (data == null) {
+                waiting.fail("The consent sheet came back without an answer")
+                return@rememberLauncherForActivityResult
+            }
+            val authorizationResult =
+                Identity
+                    .getAuthorizationClient(context)
+                    .getAuthorizationResultFromIntent(data)
+            val code = authorizationResult.serverAuthCode
+            if (code.isNullOrBlank()) {
+                waiting.fail("Google did not return a code the server could redeem")
+            } else {
+                waiting.complete(code)
+            }
         }
-        val authorizationResult = Identity.getAuthorizationClient(context)
-            .getAuthorizationResultFromIntent(data)
-        val code = authorizationResult.serverAuthCode
-        if (code.isNullOrBlank()) {
-            waiting.fail("Google did not return a code the server could redeem")
-        } else {
-            waiting.complete(code)
-        }
-    }
 
     // KMPAuth's provider is process-wide and the first creation wins, so the client id
     // is fixed for the lifetime of the process. Creating it here — before the sign-in
     // state is composed, which reads it — is what the library requires.
-    val signIn: SignInState? = if (clientId != null) {
-        GoogleProviderRegistry.create(clientId)
-        rememberGoogleSignInState(
-            // Exactly KMPAuth's basic scope, and exactly that: the library asks for an
-            // access token — with a second consent screen of its own — whenever the
-            // scopes are anything other than the basic pair. The app asks for the
-            // calendar scope itself, once, through Google's authorization API.
-            scopes = listOf("email", "profile"),
-            requestAccessToken = false,
-            onResult = { result ->
-                val waiting = pending
-                result
-                    .onSuccess {
-                        if (waiting == null) return@onSuccess
-                        requestOfflineAuthorization(
-                            context = context,
-                            clientId = currentClientId,
-                            scopes = currentScopes,
-                            onResolution = { pendingIntent ->
-                                launcher.launch(
-                                    IntentSenderRequest.Builder(pendingIntent.intentSender).build(),
-                                )
-                            },
-                            onAlreadyAuthorized = { code -> waiting.complete(code) },
-                            onFailure = { reason -> waiting.fail(reason) },
-                        )
-                    }
-                    .onFailure { error ->
-                        waiting?.fail(error.message ?: "The Google sign-in did not finish")
-                    }
-            },
-        )
-    } else {
-        null
-    }
+    val signIn: SignInState? =
+        if (clientId != null) {
+            GoogleProviderRegistry.create(clientId)
+            rememberGoogleSignInState(
+                // Exactly KMPAuth's basic scope, and exactly that: the library asks for an
+                // access token — with a second consent screen of its own — whenever the
+                // scopes are anything other than the basic pair. The app asks for the
+                // calendar scope itself, once, through Google's authorization API.
+                scopes = listOf("email", "profile"),
+                requestAccessToken = false,
+                onResult = { result ->
+                    val waiting = pending
+                    result
+                        .onSuccess {
+                            if (waiting == null) return@onSuccess
+                            requestOfflineAuthorization(
+                                context = context,
+                                clientId = currentClientId,
+                                scopes = currentScopes,
+                                onResolution = { pendingIntent ->
+                                    launcher.launch(
+                                        IntentSenderRequest.Builder(pendingIntent.intentSender).build(),
+                                    )
+                                },
+                                onAlreadyAuthorized = { code -> waiting.complete(code) },
+                                onFailure = { reason -> waiting.fail(reason) },
+                            )
+                        }.onFailure { error ->
+                            waiting?.fail(error.message ?: "The Google sign-in did not finish")
+                        }
+                },
+            )
+        } else {
+            null
+        }
 
     return remember(clientId) {
         AndroidGoogleConsent(
@@ -165,7 +168,6 @@ private class AndroidGoogleConsent(
     private val isStale: () -> Boolean,
     private val startPending: () -> PendingAuthorization,
 ) : GoogleConsent {
-
     override val isSupported: Boolean get() = signIn != null
 
     override fun authorize(
@@ -255,11 +257,15 @@ private fun requestOfflineAuthorization(
         onFailure("No Google client id is configured, so there is nothing to authorize against")
         return
     }
-    val request = AuthorizationRequest.builder()
-        .setRequestedScopes(scopes.map(::Scope))
-        .requestOfflineAccess(id)
-        .build()
-    Identity.getAuthorizationClient(context).authorize(request)
+    val request =
+        AuthorizationRequest
+            .builder()
+            .setRequestedScopes(scopes.map(::Scope))
+            .requestOfflineAccess(id)
+            .build()
+    Identity
+        .getAuthorizationClient(context)
+        .authorize(request)
         .addOnSuccessListener { result ->
             if (result.hasResolution()) {
                 val pendingIntent = result.pendingIntent
@@ -276,8 +282,7 @@ private fun requestOfflineAuthorization(
                     onAlreadyAuthorized(code)
                 }
             }
-        }
-        .addOnFailureListener { error ->
+        }.addOnFailureListener { error ->
             onFailure(error.message ?: "Google refused the authorization request")
         }
 }

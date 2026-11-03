@@ -14,17 +14,22 @@ import com.singularity.todo.feature.genui.render.material3.RenderSingle
 private val MAX_LIST_HEIGHT = 400.dp
 private val ITEM_SPACING = 4.dp
 
-internal fun ComponentRegistry.registerList(): Unit = register("list") { node, ctx, modifier ->
-    val l = node as UiNode.ListView
-    when (l.direction) {
-        UiNode.Direction.Vertical -> LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(ITEM_SPACING),
-            modifier = modifier.genuiTag("list_v", "List").heightIn(max = MAX_LIST_HEIGHT),
-        ) { items(l.children, key = { it.id }) { ref -> RenderSingle(ref, ctx) } }
+internal fun ComponentRegistry.registerList(): Unit =
+    register("list") { node, ctx, modifier ->
+        val l = node as UiNode.ListView
+        when (l.direction) {
+            UiNode.Direction.Vertical -> {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(ITEM_SPACING),
+                    modifier = modifier.genuiTag("list_v", "List").heightIn(max = MAX_LIST_HEIGHT),
+                ) { items(l.children, key = { it.id }) { ref -> RenderSingle(ref, ctx) } }
+            }
 
-        UiNode.Direction.Horizontal -> LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(ITEM_SPACING),
-            modifier = modifier.genuiTag("list_h", "List"),
-        ) { items(l.children, key = { it.id }) { ref -> RenderSingle(ref, ctx) } }
+            UiNode.Direction.Horizontal -> {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(ITEM_SPACING),
+                    modifier = modifier.genuiTag("list_h", "List"),
+                ) { items(l.children, key = { it.id }) { ref -> RenderSingle(ref, ctx) } }
+            }
+        }
     }
-}

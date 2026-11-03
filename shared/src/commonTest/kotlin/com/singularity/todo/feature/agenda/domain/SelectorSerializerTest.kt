@@ -26,7 +26,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SelectorSerializerTest {
-
     // Json.decodeFromString is a member function — use as json.decodeFromString<T>(string)
     private val json get() = StableJson
 
@@ -70,27 +69,28 @@ class SelectorSerializerTest {
      */
     @Test
     fun `every variant round-trips through the serializer`() {
-        val variants = listOf(
-            Selector.DateBucket(RelativeBucket.Overdue),
-            Selector.DateRange(LocalDate(2025, 1, 1), LocalDate(2025, 1, 31)),
-            Selector.Tags(setOf(TagId("t1"))),
-            Selector.Statuses(setOf(TaskStatus.Active)),
-            Selector.Priorities(setOf(TaskPriority.High)),
-            Selector.Projects(setOf(ProjectId("p1"))),
-            Selector.Pinned,
-            Selector.Completed,
-            Selector.Overdue,
-            Selector.Blocked,
-            Selector.WorkflowState(TaskWorkflowState.NextUp),
-            Selector.FollowUp,
-            Selector.Stagnant(),
-            Selector.Regexp(".*"),
-            Selector.AllOf(listOf(Selector.Pinned, Selector.Not(Selector.Completed))),
-            Selector.AnyOf(listOf(Selector.Pinned, Selector.Overdue)),
-            Selector.Not(Selector.Completed),
-            Selector.Anything,
-            Selector.TimeOfDay(540, 719),
-        )
+        val variants =
+            listOf(
+                Selector.DateBucket(RelativeBucket.Overdue),
+                Selector.DateRange(LocalDate(2025, 1, 1), LocalDate(2025, 1, 31)),
+                Selector.Tags(setOf(TagId("t1"))),
+                Selector.Statuses(setOf(TaskStatus.Active)),
+                Selector.Priorities(setOf(TaskPriority.High)),
+                Selector.Projects(setOf(ProjectId("p1"))),
+                Selector.Pinned,
+                Selector.Completed,
+                Selector.Overdue,
+                Selector.Blocked,
+                Selector.WorkflowState(TaskWorkflowState.NextUp),
+                Selector.FollowUp,
+                Selector.Stagnant(),
+                Selector.Regexp(".*"),
+                Selector.AllOf(listOf(Selector.Pinned, Selector.Not(Selector.Completed))),
+                Selector.AnyOf(listOf(Selector.Pinned, Selector.Overdue)),
+                Selector.Not(Selector.Completed),
+                Selector.Anything,
+                Selector.TimeOfDay(540, 719),
+            )
 
         for (variant in variants) {
             val encoded = json.encodeToString(SelectorSerializer, variant)

@@ -43,7 +43,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:migration")
 class Migration36To37Test {
-
     private lateinit var tempDir: File
     private lateinit var dbPath: String
 
@@ -80,128 +79,133 @@ class Migration36To37Test {
     }
 
     @Test
-    fun `a row that predates the upgrade reads as version zero`() = runTest {
-        val db = openMigrated()
-        try {
-            val migrated = db.syncShadowDao().get("owner-1", "work", "task", "task-1")
+    fun `a row that predates the upgrade reads as version zero`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val migrated = db.syncShadowDao().get("owner-1", "work", "task", "task-1")
 
-            assertTrue(
-                migrated != null,
-                "the row must survive the upgrade — the migration adds a column, it does not rebuild the table",
-            )
-            assertEquals(
-                0L,
-                migrated!!.serverVersion,
-                "0 is the honest reading: the client parsed the server's version on every push and " +
-                    "then dropped it, so what it knows about a pre-upgrade row is nothing. Any other " +
-                    "default invents a fact, and a wrong base version is refused by the server, which " +
-                    "parks the change instead of applying it",
-            )
-        } finally {
-            db.close()
+                assertTrue(
+                    migrated != null,
+                    "the row must survive the upgrade — the migration adds a column, it does not rebuild the table",
+                )
+                assertEquals(
+                    0L,
+                    migrated!!.serverVersion,
+                    "0 is the honest reading: the client parsed the server's version on every push and " +
+                        "then dropped it, so what it knows about a pre-upgrade row is nothing. Any other " +
+                        "default invents a fact, and a wrong base version is refused by the server, which " +
+                        "parks the change instead of applying it",
+                )
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `the pre-existing row keeps its confirmed state`() = runTest {
-        val db = openMigrated()
-        try {
-            val migrated = db.syncShadowDao().get("owner-1", "work", "task", "task-1")!!
+    fun `the pre-existing row keeps its confirmed state`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val migrated = db.syncShadowDao().get("owner-1", "work", "task", "task-1")!!
 
-            assertEquals(
-                """{"title":"before"}""",
-                migrated.confirmedJson,
-                "the server's known state must survive the upgrade",
-            )
-            assertEquals(null, migrated.inFlightJson)
-            assertEquals(null, migrated.inFlightPatchId)
-        } finally {
-            db.close()
+                assertEquals(
+                    """{"title":"before"}""",
+                    migrated.confirmedJson,
+                    "the server's known state must survive the upgrade",
+                )
+                assertEquals(null, migrated.inFlightJson)
+                assertEquals(null, migrated.inFlightPatchId)
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `a row written after the upgrade defaults to zero`() = runTest {
-        val db = openMigrated()
-        try {
-            db.syncShadowDao().upsert(
-                SyncShadowEntity(
-                    ownerId = "owner-2",
-                    profileId = "home",
-                    entityType = "note",
-                    entityId = "note-1",
-                    confirmedJson = """{"title":"after"}""",
-                ),
-            )
+    fun `a row written after the upgrade defaults to zero`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                db.syncShadowDao().upsert(
+                    SyncShadowEntity(
+                        ownerId = "owner-2",
+                        profileId = "home",
+                        entityType = "note",
+                        entityId = "note-1",
+                        confirmedJson = """{"title":"after"}""",
+                    ),
+                )
 
-            val fresh = db.syncShadowDao().get("owner-2", "home", "note", "note-1")!!
+                val fresh = db.syncShadowDao().get("owner-2", "home", "note", "note-1")!!
 
-            assertEquals(0L, fresh.serverVersion, "the Kotlin default and the column default must agree")
-        } finally {
-            db.close()
+                assertEquals(0L, fresh.serverVersion, "the Kotlin default and the column default must agree")
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `confirming without a version leaves the stored one alone`() = runTest {
-        val db = openMigrated()
-        try {
-            db.syncShadowDao().upsert(
-                SyncShadowEntity(
+    fun `confirming without a version leaves the stored one alone`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                db.syncShadowDao().upsert(
+                    SyncShadowEntity(
+                        ownerId = "owner-3",
+                        profileId = "work",
+                        entityType = "task",
+                        entityId = "task-9",
+                        confirmedJson = """{"n":1}""",
+                    ),
+                )
+                db.syncShadowDao().upsert(
+                    SyncShadowEntity(
+                        ownerId = "owner-3",
+                        profileId = "work",
+                        entityType = "task",
+                        entityId = "task-9",
+                        confirmedJson = """{"n":1}""",
+                        inFlightJson = """{"n":2}""",
+                        inFlightPatchId = "patch-1",
+                        serverVersion = 41L,
+                    ),
+                )
+
+                val promoted =
+                    db.syncShadowDao().confirm(
+                        ownerId = "owner-3",
+                        profileId = "work",
+                        entityType = "task",
+                        entityId = "task-9",
+                        patchId = "patch-1",
+                        json = """{"n":2}""",
+                        serverVersion = 42L,
+                    )
+                assertEquals(1, promoted)
+
+                val withVersion = db.syncShadowDao().get("owner-3", "work", "task", "task-9")!!
+                assertEquals(42L, withVersion.serverVersion, "a response carrying a version must advance it")
+
+                // A later response that carries no version must not reset it: a default of 0
+                // here would put the next patch's base back to "the server has never seen this
+                // row", which is exactly the condition the server answers `not_found` for.
+                db.syncShadowDao().upsert(
+                    withVersion.copy(inFlightJson = """{"n":3}""", inFlightPatchId = "patch-2"),
+                )
+                db.syncShadowDao().confirm(
                     ownerId = "owner-3",
                     profileId = "work",
                     entityType = "task",
                     entityId = "task-9",
-                    confirmedJson = """{"n":1}""",
-                ),
-            )
-            db.syncShadowDao().upsert(
-                SyncShadowEntity(
-                    ownerId = "owner-3",
-                    profileId = "work",
-                    entityType = "task",
-                    entityId = "task-9",
-                    confirmedJson = """{"n":1}""",
-                    inFlightJson = """{"n":2}""",
-                    inFlightPatchId = "patch-1",
-                    serverVersion = 41L,
-                ),
-            )
+                    patchId = "patch-2",
+                    json = """{"n":3}""",
+                    serverVersion = null,
+                )
 
-            val promoted = db.syncShadowDao().confirm(
-                ownerId = "owner-3",
-                profileId = "work",
-                entityType = "task",
-                entityId = "task-9",
-                patchId = "patch-1",
-                json = """{"n":2}""",
-                serverVersion = 42L,
-            )
-            assertEquals(1, promoted)
-
-            val withVersion = db.syncShadowDao().get("owner-3", "work", "task", "task-9")!!
-            assertEquals(42L, withVersion.serverVersion, "a response carrying a version must advance it")
-
-            // A later response that carries no version must not reset it: a default of 0
-            // here would put the next patch's base back to "the server has never seen this
-            // row", which is exactly the condition the server answers `not_found` for.
-            db.syncShadowDao().upsert(
-                withVersion.copy(inFlightJson = """{"n":3}""", inFlightPatchId = "patch-2"),
-            )
-            db.syncShadowDao().confirm(
-                ownerId = "owner-3",
-                profileId = "work",
-                entityType = "task",
-                entityId = "task-9",
-                patchId = "patch-2",
-                json = """{"n":3}""",
-                serverVersion = null,
-            )
-
-            val preserved = db.syncShadowDao().get("owner-3", "work", "task", "task-9")!!
-            assertEquals(42L, preserved.serverVersion, "a response with no version must leave the stored one alone")
-        } finally {
-            db.close()
+                val preserved = db.syncShadowDao().get("owner-3", "work", "task", "task-9")!!
+                assertEquals(42L, preserved.serverVersion, "a response with no version must leave the stored one alone")
+            } finally {
+                db.close()
+            }
         }
-    }
 }

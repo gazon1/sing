@@ -46,8 +46,7 @@ data class ImportWindow(val past: Duration = 30.days, val future: Duration = 90.
     fun startInclusive(now: Instant): Instant = now - past
 
     /** The instant to send as `timeMax`, or null for an unbounded future. */
-    fun endExclusive(now: Instant): Instant? =
-        if (future == Duration.INFINITE) null else now + future
+    fun endExclusive(now: Instant): Instant? = if (future == Duration.INFINITE) null else now + future
 
     /**
      * Whether an event starting at [startsAt] belongs in the window.
@@ -56,7 +55,10 @@ data class ImportWindow(val past: Duration = 30.days, val future: Duration = 90.
      * than lingering as an import the user never asked for. Both ends are inclusive of the
      * instant, so an event exactly on the boundary is kept rather than flickering.
      */
-    fun contains(startsAt: Instant?, now: Instant): Boolean {
+    fun contains(
+        startsAt: Instant?,
+        now: Instant,
+    ): Boolean {
         if (startsAt == null) return false
         return startsAt >= startInclusive(now) &&
             (endExclusive(now)?.let { startsAt <= it } ?: true)

@@ -4,8 +4,8 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tags.TagsRepository
+import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.firstOrNull
@@ -57,7 +57,6 @@ internal class SeedPlanner(
     private val tagGroupRepo: TagGroupRepository,
     private val log: Logger = Logger.withTag("SeedPlanner"),
 ) {
-
     companion object {
         /**
          * The document types this planner can enqueue.
@@ -72,13 +71,14 @@ internal class SeedPlanner(
          * Adding a repository to the constructor means adding its type here, and the
          * test then fails until a pull handler is registered in the same change.
          */
-        val SEEDED_TYPES: Set<DocType> = setOf(
-            DocType.Task,
-            DocType.Note,
-            DocType.Project,
-            DocType.Tag,
-            DocType.TagGroup,
-        )
+        val SEEDED_TYPES: Set<DocType> =
+            setOf(
+                DocType.Task,
+                DocType.Note,
+                DocType.Project,
+                DocType.Tag,
+                DocType.TagGroup,
+            )
     }
 
     /**
@@ -87,35 +87,36 @@ internal class SeedPlanner(
      * Returns the number of entities enqueued; zero means the scope was already
      * seeded, which is the normal answer for every sign-in after the first.
      */
-    suspend fun plan(scope: SyncScope): Result<Int> = runCatchingResult {
-        if (stateRepository.isSeedCompleted(scope)) {
-            log.d { "Scope $scope has already been seeded" }
-            return@runCatchingResult 0
-        }
+    suspend fun plan(scope: SyncScope): Result<Int> =
+        runCatchingResult {
+            if (stateRepository.isSeedCompleted(scope)) {
+                log.d { "Scope $scope has already been seeded" }
+                return@runCatchingResult 0
+            }
 
-        val entities = collect()
-        var enqueued = 0
-        var failed = 0
-        entities.forEach { entity ->
-            enqueue(entity)
-                .onSuccess { enqueued++ }
-                .onFailure { e ->
-                    failed++
-                    log.e(e) { "Could not queue ${entity.docType.key}/${entity.syncId} for seeding" }
-                }
-        }
+            val entities = collect()
+            var enqueued = 0
+            var failed = 0
+            entities.forEach { entity ->
+                enqueue(entity)
+                    .onSuccess { enqueued++ }
+                    .onFailure { e ->
+                        failed++
+                        log.e(e) { "Could not queue ${entity.docType.key}/${entity.syncId} for seeding" }
+                    }
+            }
 
-        // The marker is written only when nothing was left behind. Marking a
-        // partial run complete is how a document is stranded: the flag says there
-        // is nothing to come back for, and the data is still only on the device.
-        // The cost of getting this wrong in the other direction is a re-scan of
-        // tables that are usually empty, plus enqueues that coalesce to the rows
-        // already queued — cheap, and the alternative is permanent loss.
-        val complete = failed == 0
-        stateRepository.setSeedCompleted(scope, complete)
-        log.i { "Seeded $enqueued of ${entities.size} documents for $scope (complete=$complete)" }
-        enqueued
-    }
+            // The marker is written only when nothing was left behind. Marking a
+            // partial run complete is how a document is stranded: the flag says there
+            // is nothing to come back for, and the data is still only on the device.
+            // The cost of getting this wrong in the other direction is a re-scan of
+            // tables that are usually empty, plus enqueues that coalesce to the rows
+            // already queued — cheap, and the alternative is permanent loss.
+            val complete = failed == 0
+            stateRepository.setSeedCompleted(scope, complete)
+            log.i { "Seeded $enqueued of ${entities.size} documents for $scope (complete=$complete)" }
+            enqueued
+        }
 
     /**
      * Every entity the device already holds.

@@ -149,18 +149,24 @@ data class CalendarImportEventEntity(
 /** Reads and writes [CalendarSyncStateEntity] for one (user, provider, calendar). */
 @Dao
 interface CalendarSyncStateDao {
-
     @Query(
         "SELECT * FROM calendar_sync_state " +
             "WHERE user_id = :userId AND provider = :provider AND calendar_id = :calendarId",
     )
-    suspend fun get(userId: String, provider: String, calendarId: String): CalendarSyncStateEntity?
+    suspend fun get(
+        userId: String,
+        provider: String,
+        calendarId: String,
+    ): CalendarSyncStateEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(state: CalendarSyncStateEntity)
 
     @Query("DELETE FROM calendar_sync_state WHERE user_id = :userId AND provider = :provider")
-    suspend fun deleteForProvider(userId: String, provider: String)
+    suspend fun deleteForProvider(
+        userId: String,
+        provider: String,
+    )
 
     /**
      * Drops the cursor for one calendar and keeps every other calendar's.
@@ -173,15 +179,21 @@ interface CalendarSyncStateDao {
         "UPDATE calendar_sync_state SET next_sync_token = NULL " +
             "WHERE user_id = :userId AND provider = :provider AND calendar_id = :calendarId",
     )
-    suspend fun invalidateToken(userId: String, provider: String, calendarId: String)
+    suspend fun invalidateToken(
+        userId: String,
+        provider: String,
+        calendarId: String,
+    )
 }
 
 /** Reads and writes [GoogleEventShadowEntity]. */
 @Dao
 interface GoogleEventShadowDao {
-
     @Query("SELECT * FROM google_event_shadow WHERE user_id = :userId AND event_id = :eventId")
-    suspend fun get(userId: String, eventId: String): GoogleEventShadowEntity?
+    suspend fun get(
+        userId: String,
+        eventId: String,
+    ): GoogleEventShadowEntity?
 
     @Query("SELECT * FROM google_event_shadow WHERE user_id = :userId")
     suspend fun getAll(userId: String): List<GoogleEventShadowEntity>
@@ -193,7 +205,10 @@ interface GoogleEventShadowDao {
     suspend fun upsert(shadow: GoogleEventShadowEntity)
 
     @Query("DELETE FROM google_event_shadow WHERE user_id = :userId AND event_id = :eventId")
-    suspend fun delete(userId: String, eventId: String)
+    suspend fun delete(
+        userId: String,
+        eventId: String,
+    )
 
     /**
      * Removes shadows for events that are no longer live.
@@ -205,7 +220,10 @@ interface GoogleEventShadowDao {
         "DELETE FROM google_event_shadow WHERE user_id = :userId " +
             "AND event_id NOT IN (:liveEventIds)",
     )
-    suspend fun deleteNotIn(userId: String, liveEventIds: List<String>)
+    suspend fun deleteNotIn(
+        userId: String,
+        liveEventIds: List<String>,
+    )
 
     @Query("DELETE FROM google_event_shadow WHERE user_id = :userId")
     suspend fun deleteAllForUser(userId: String)
@@ -214,7 +232,6 @@ interface GoogleEventShadowDao {
 /** Reads and writes [CalendarImportEventEntity]. */
 @Dao
 interface CalendarImportEventDao {
-
     @Query(
         "SELECT * FROM calendar_import_event WHERE user_id = :userId " +
             "AND task_id IS NULL ORDER BY starts_at",
@@ -225,19 +242,29 @@ interface CalendarImportEventDao {
     suspend fun getAll(userId: String): List<CalendarImportEventEntity>
 
     @Query("SELECT * FROM calendar_import_event WHERE user_id = :userId AND event_id = :eventId")
-    suspend fun get(userId: String, eventId: String): CalendarImportEventEntity?
+    suspend fun get(
+        userId: String,
+        eventId: String,
+    ): CalendarImportEventEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(event: CalendarImportEventEntity)
 
     @Query("DELETE FROM calendar_import_event WHERE user_id = :userId AND event_id = :eventId")
-    suspend fun delete(userId: String, eventId: String)
+    suspend fun delete(
+        userId: String,
+        eventId: String,
+    )
 
     @Query(
         "UPDATE calendar_import_event SET task_id = :taskId " +
             "WHERE user_id = :userId AND event_id = :eventId",
     )
-    suspend fun linkTask(userId: String, eventId: String, taskId: String)
+    suspend fun linkTask(
+        userId: String,
+        eventId: String,
+        taskId: String,
+    )
 
     /**
      * Drops events outside the import window.
@@ -249,7 +276,10 @@ interface CalendarImportEventDao {
     @Query(
         "DELETE FROM calendar_import_event WHERE user_id = :userId AND starts_at < :beforeMs",
     )
-    suspend fun deleteOlderThan(userId: String, beforeMs: Long)
+    suspend fun deleteOlderThan(
+        userId: String,
+        beforeMs: Long,
+    )
 
     @Query("DELETE FROM calendar_import_event WHERE user_id = :userId")
     suspend fun deleteAllForUser(userId: String)

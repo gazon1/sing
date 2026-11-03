@@ -9,7 +9,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class RunCatchingTest {
-
     @Test
     fun success_returns_result_with_value() {
         val result = runCatchingCancellable { 42 }
@@ -19,20 +18,22 @@ class RunCatchingTest {
 
     @Test
     fun illegal_state_exception_returns_failure() {
-        val result = runCatchingCancellable {
-            error("boom")
-        }
+        val result =
+            runCatchingCancellable {
+                error("boom")
+            }
         assertTrue(result.isFailure)
         assertIs<IllegalStateException>(result.exceptionOrNull())
     }
 
     @Test
     fun cancellation_exception_propagates_not_caught() {
-        val ex = assertFailsWith(CancellationException::class) {
-            runCatchingCancellable {
-                throw CancellationException("cancelled")
+        val ex =
+            assertFailsWith(CancellationException::class) {
+                runCatchingCancellable {
+                    throw CancellationException("cancelled")
+                }
             }
-        }
         assertTrue(ex.message == "cancelled")
     }
 

@@ -86,29 +86,31 @@ class OAuthConsentFlow(private val browser: OAuthBrowser, private val socket: OA
     override suspend fun authorize(
         buildUrl: (redirectUri: String) -> String,
         expectedState: String,
-    ): Result<OAuthAuthorizationCode> = runCatchingCancellable {
-        val port = socket.bind()
-        val redirectUri = OAuthLoopback.redirectUri(port)
-        val url = buildUrl(redirectUri)
-        if (!browser.open(url)) {
-            throw OAuthConsentException("No browser on this device could open the sign-in page")
+    ): Result<OAuthAuthorizationCode> =
+        runCatchingCancellable {
+            val port = socket.bind()
+            val redirectUri = OAuthLoopback.redirectUri(port)
+            val url = buildUrl(redirectUri)
+            if (!browser.open(url)) {
+                throw OAuthConsentException("No browser on this device could open the sign-in page")
+            }
+            val target = socket.acceptRequestTarget(OAuthLoopback.TIMEOUT_MS).getOrThrow()
+            // The browser is waiting for an answer either way: a page that says the
+            // sign-in is done, or one that says it failed. Silence leaves a tab that
+            // spins until the user gives up.
+            socket.respondDone()
+            val params = parseOAuthRedirect(target)
+            params.error?.let { error ->
+                throw OAuthConsentException(
+                    params.errorDescription?.takeIf { it.isNotBlank() }?.let { "$error: $it" } ?: error,
+                )
+            }
+            val code =
+                params.code?.takeIf { it.isNotBlank() }
+                    ?: throw OAuthConsentException("The sign-in came back without an authorization code")
+            if (params.state != expectedState) {
+                throw OAuthConsentException("The sign-in answer did not match the request that started it")
+            }
+            OAuthAuthorizationCode(code = code, state = expectedState, redirectUri = redirectUri)
         }
-        val target = socket.acceptRequestTarget(OAuthLoopback.TIMEOUT_MS).getOrThrow()
-        // The browser is waiting for an answer either way: a page that says the
-        // sign-in is done, or one that says it failed. Silence leaves a tab that
-        // spins until the user gives up.
-        socket.respondDone()
-        val params = parseOAuthRedirect(target)
-        params.error?.let { error ->
-            throw OAuthConsentException(
-                params.errorDescription?.takeIf { it.isNotBlank() }?.let { "$error: $it" } ?: error,
-            )
-        }
-        val code = params.code?.takeIf { it.isNotBlank() }
-            ?: throw OAuthConsentException("The sign-in came back without an authorization code")
-        if (params.state != expectedState) {
-            throw OAuthConsentException("The sign-in answer did not match the request that started it")
-        }
-        OAuthAuthorizationCode(code = code, state = expectedState, redirectUri = redirectUri)
-    }
 }

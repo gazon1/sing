@@ -20,7 +20,6 @@ interface DefaultAgendaViewContributor :
  */
 class DefaultAgendaViewSettingsContributor(private val store: DefaultAgendaViewSettingsStore) :
     DefaultAgendaViewContributor {
-
     override val section: SettingsSection.DefaultAgendaView = SettingsSection.DefaultAgendaView()
 
     override fun observe(): Flow<SettingsSection.DefaultAgendaView> = store.observe()

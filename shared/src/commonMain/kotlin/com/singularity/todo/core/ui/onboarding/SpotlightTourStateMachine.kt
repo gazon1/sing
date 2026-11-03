@@ -18,7 +18,6 @@ import androidx.compose.ui.geometry.Rect
  *   frame would aim the hole at a rectangle that does not exist yet.
  */
 class SpotlightTourStateMachine(private val steps: List<SpotlightStep>) {
-
     /** Index of the step being shown, or null when the tour is not running. */
     var index: Int? = null
         private set
@@ -35,7 +34,11 @@ class SpotlightTourStateMachine(private val steps: List<SpotlightStep>) {
      * of what the user has been shown, and re-showing them something they have seen
      * does not un-see it.
      */
-    fun startIfEligible(alreadySeen: Boolean, force: Boolean, anchors: Map<SpotlightAnchorId, Rect?>) {
+    fun startIfEligible(
+        alreadySeen: Boolean,
+        force: Boolean,
+        anchors: Map<SpotlightAnchorId, Rect?>,
+    ) {
         ready = true
         if (alreadySeen && !force) return
         index = nextPlayableFrom(0, anchors)
@@ -53,7 +56,10 @@ class SpotlightTourStateMachine(private val steps: List<SpotlightStep>) {
         ready = true
     }
 
-    private fun nextPlayableFrom(from: Int, anchors: Map<SpotlightAnchorId, Rect?>): Int? {
+    private fun nextPlayableFrom(
+        from: Int,
+        anchors: Map<SpotlightAnchorId, Rect?>,
+    ): Int? {
         for (i in from until steps.size) {
             if (anchors[steps[i].anchor] != null) return i
         }
@@ -62,7 +68,6 @@ class SpotlightTourStateMachine(private val steps: List<SpotlightStep>) {
 
     companion object {
         /** Convenience for the map the machine reads: present anchors only. */
-        fun anchorsOf(vararg pairs: Pair<SpotlightAnchorId, Rect?>): Map<SpotlightAnchorId, Rect?> =
-            pairs.toMap()
+        fun anchorsOf(vararg pairs: Pair<SpotlightAnchorId, Rect?>): Map<SpotlightAnchorId, Rect?> = pairs.toMap()
     }
 }

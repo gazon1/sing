@@ -18,7 +18,6 @@ import kotlin.time.Instant
  * Does NOT enforce single-open-entry invariant (kept simple for tests).
  */
 class FakeTimeTrackingRepository(private val clock: Clock) : TimeTrackingRepository {
-
     private val entries = MutableStateFlow<Map<String, TimeEntry>>(emptyMap())
 
     override fun watchEntries(taskId: TaskId): Flow<List<TimeEntry>> =
@@ -27,8 +26,10 @@ class FakeTimeTrackingRepository(private val clock: Clock) : TimeTrackingReposit
     override suspend fun getOpenEntry(userId: UserId): TimeEntry? =
         entries.value.values.find { it.userId == userId && it.endedAt == null && it.deletedAt == null }
 
-    override suspend fun get(entryId: TimeEntryId, userId: UserId): TimeEntry? =
-        entries.value[entryId.value]?.takeIf { it.userId == userId }
+    override suspend fun get(
+        entryId: TimeEntryId,
+        userId: UserId,
+    ): TimeEntry? = entries.value[entryId.value]?.takeIf { it.userId == userId }
 
     override suspend fun startEntry(
         taskId: TaskId,
@@ -38,21 +39,22 @@ class FakeTimeTrackingRepository(private val clock: Clock) : TimeTrackingReposit
     ): Result<TimeEntryId> {
         val id = TimeEntryId.generate()
         val now = clock.now()
-        val entry = TimeEntry(
-            id = id,
-            taskId = taskId,
-            userId = userId,
-            startedAt = now,
-            endedAt = null,
-            kind = kind,
-            source = source,
-            note = null,
-            createdAt = now,
-            updatedAt = now,
-            deletedAt = null,
-            serverVersion = 0L,
-            hlc = null,
-        )
+        val entry =
+            TimeEntry(
+                id = id,
+                taskId = taskId,
+                userId = userId,
+                startedAt = now,
+                endedAt = null,
+                kind = kind,
+                source = source,
+                note = null,
+                createdAt = now,
+                updatedAt = now,
+                deletedAt = null,
+                serverVersion = 0L,
+                hlc = null,
+            )
         entries.value = entries.value + (id.value to entry)
         return Result.success(id)
     }
@@ -76,28 +78,34 @@ class FakeTimeTrackingRepository(private val clock: Clock) : TimeTrackingReposit
         id: TimeEntryId,
     ): Result<TimeEntryId> {
         val now = clock.now()
-        val entry = TimeEntry(
-            id = id,
-            taskId = taskId,
-            userId = userId,
-            startedAt = Instant.fromEpochMilliseconds(startedAt),
-            endedAt = Instant.fromEpochMilliseconds(endedAt),
-            kind = kind,
-            source = source,
-            note = note,
-            createdAt = now,
-            updatedAt = now,
-            deletedAt = null,
-            serverVersion = 0L,
-            hlc = null,
-        )
+        val entry =
+            TimeEntry(
+                id = id,
+                taskId = taskId,
+                userId = userId,
+                startedAt = Instant.fromEpochMilliseconds(startedAt),
+                endedAt = Instant.fromEpochMilliseconds(endedAt),
+                kind = kind,
+                source = source,
+                note = note,
+                createdAt = now,
+                updatedAt = now,
+                deletedAt = null,
+                serverVersion = 0L,
+                hlc = null,
+            )
         entries.value = entries.value + (id.value to entry)
         return Result.success(id)
     }
 
-    override suspend fun updateNote(entryId: TimeEntryId, userId: UserId, note: String?): Result<Unit> {
-        val existing = entries.value[entryId.value]
-            ?: return Result.failure(IllegalStateException("Not found"))
+    override suspend fun updateNote(
+        entryId: TimeEntryId,
+        userId: UserId,
+        note: String?,
+    ): Result<Unit> {
+        val existing =
+            entries.value[entryId.value]
+                ?: return Result.failure(IllegalStateException("Not found"))
         if (existing.userId != userId) return Result.failure(IllegalStateException("Not owned"))
         val now = clock.now()
         entries.value = entries.value + (entryId.value to existing.copy(note = note, updatedAt = now))
@@ -124,13 +132,16 @@ class FakeTimeTrackingRepository(private val clock: Clock) : TimeTrackingReposit
      */
     suspend fun getById(id: TimeEntryId): TimeEntry? = entries.value[id.value]
 
-    override fun watchEntriesInRange(startMs: Long, endMs: Long): Flow<List<TimeEntry>> = entries.map { map ->
-        map.values
-            .filter {
-                it.startedAt.toEpochMilliseconds() >= startMs &&
-                    it.startedAt.toEpochMilliseconds() < endMs &&
-                    it.deletedAt == null
-            }
-            .sortedByDescending { it.startedAt }
-    }
+    override fun watchEntriesInRange(
+        startMs: Long,
+        endMs: Long,
+    ): Flow<List<TimeEntry>> =
+        entries.map { map ->
+            map.values
+                .filter {
+                    it.startedAt.toEpochMilliseconds() >= startMs &&
+                        it.startedAt.toEpochMilliseconds() < endMs &&
+                        it.deletedAt == null
+                }.sortedByDescending { it.startedAt }
+        }
 }

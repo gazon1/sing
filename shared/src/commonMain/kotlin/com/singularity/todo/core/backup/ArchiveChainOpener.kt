@@ -21,7 +21,6 @@ import com.singularity.todo.core.security.ArchiveCrypto
  * this part returned without throwing.
  */
 internal class ArchiveChainOpener(private val crypto: ArchiveCrypto) {
-
     /**
      * The archive inside what [source] yields: every entry in order to [onEntry],
      * then the base into [sink].
@@ -76,20 +75,27 @@ internal class ArchiveChainOpener(private val crypto: ArchiveCrypto) {
      * one is sealed under the device key, which the password unwraps out of the
      * key block the header carries.
      */
-    private fun contentSession(container: ArchiveContainer, password: CharArray): ArchiveCryptoSession =
+    private fun contentSession(
+        container: ArchiveContainer,
+        password: CharArray,
+    ): ArchiveCryptoSession =
         when (container.version) {
             ArchiveFormat.DEVICE_KEY_VERSION -> {
-                val block = container.keyBlock
-                    ?: throw ArchiveEnvelopeError.BrokenChain("it says it carries a key block, and it does not")
+                val block =
+                    container.keyBlock
+                        ?: throw ArchiveEnvelopeError.BrokenChain("it says it carries a key block, and it does not")
                 val wrapping = ArchiveCryptoSession.forPassword(crypto, password, block.salt)
-                val deviceKey = try {
-                    archiveErrors { wrapping.unwrapDeviceKey(block) }
-                } finally {
-                    wrapping.close()
-                }
+                val deviceKey =
+                    try {
+                        archiveErrors { wrapping.unwrapDeviceKey(block) }
+                    } finally {
+                        wrapping.close()
+                    }
                 ArchiveCryptoSession.forDeviceKey(crypto, deviceKey, container.salt)
             }
 
-            else -> ArchiveCryptoSession.forPassword(crypto, password, container.salt)
+            else -> {
+                ArchiveCryptoSession.forPassword(crypto, password, container.salt)
+            }
         }
 }

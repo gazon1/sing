@@ -57,6 +57,5 @@ interface UnitOfWork {
  * asserts that against a real database rather than trusting it.
  */
 class RoomUnitOfWork(private val database: AppDatabase) : UnitOfWork {
-    override suspend fun <R> write(block: suspend () -> R): R =
-        database.withWriteTransaction { block() }
+    override suspend fun <R> write(block: suspend () -> R): R = database.withWriteTransaction { block() }
 }

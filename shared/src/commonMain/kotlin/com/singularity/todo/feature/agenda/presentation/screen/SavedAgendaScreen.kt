@@ -279,7 +279,7 @@ private fun TemplateSheet(
     onDismiss: () -> Unit,
 ) {
     when (template) {
-        is SelectorTemplate.ByRegexp ->
+        is SelectorTemplate.ByRegexp -> {
             RegexpInputSheet(
                 initialPattern = template.pattern,
                 onConfirm = { pattern ->
@@ -287,8 +287,9 @@ private fun TemplateSheet(
                 },
                 onDismiss = onDismiss,
             )
+        }
 
-        is SelectorTemplate.ByDateRange ->
+        is SelectorTemplate.ByDateRange -> {
             DateRangePickerSheet(
                 initialFrom = template.from,
                 initialTo = template.to,
@@ -297,13 +298,14 @@ private fun TemplateSheet(
                 },
                 onDismiss = onDismiss,
             )
+        }
 
         // SelectorParameterSheet reads tag/project options from their
         // repositories via koinInject. The local MultiSelectTemplateSheet that
         // used to live here returned emptyList() for ByTags/ByProjects — the
         // second step rendered a sheet with no options and no way to choose
         // one, so every parameterized template except priority/status was dead.
-        else ->
+        else -> {
             SelectorParameterSheet(
                 template = template,
                 onConfirm = { chosen, available, matchAll ->
@@ -314,6 +316,7 @@ private fun TemplateSheet(
                 },
                 onDismiss = onDismiss,
             )
+        }
     }
 }
 
@@ -385,7 +388,7 @@ private fun DateRangePickerSheet(
     var stage by remember { mutableStateOf("from") }
 
     when (stage) {
-        "from" ->
+        "from" -> {
             DatePickerSheet(
                 initialDate = fromDate,
                 onDateSelected = { date ->
@@ -396,8 +399,9 @@ private fun DateRangePickerSheet(
                 },
                 onDismiss = onDismiss,
             )
+        }
 
-        "to" ->
+        "to" -> {
             DatePickerSheet(
                 initialDate = toDate,
                 onDateSelected = { date ->
@@ -408,6 +412,7 @@ private fun DateRangePickerSheet(
                 },
                 onDismiss = { stage = "from" },
             )
+        }
 
         "confirm" -> {
             val f = fromDate

@@ -41,10 +41,10 @@ import kotlin.test.assertNull
  */
 @Tag("fast")
 class DeepLinkRegistryTest {
-
-    private val registry = DeepLinkRegistry(
-        listOf(TaskDeepLink(), AgendaDeepLink(), AuthDeepLink()),
-    )
+    private val registry =
+        DeepLinkRegistry(
+            listOf(TaskDeepLink(), AgendaDeepLink(), AuthDeepLink()),
+        )
 
     private fun resolve(uri: String): DeepLinkTarget? = registry.resolve(DeepLinkRequest(uri))
 
@@ -57,9 +57,10 @@ class DeepLinkRegistryTest {
         assertEquals(
             DeepLinkTarget(
                 tab = today,
-                screen = AppDestination.TasksGraph(
-                    AppDestination.TasksStartRoute.Detail(TaskId("t1")),
-                ),
+                screen =
+                    AppDestination.TasksGraph(
+                        AppDestination.TasksStartRoute.Detail(TaskId("t1")),
+                    ),
             ),
             resolve("singularity://task/t1"),
         )
@@ -70,9 +71,10 @@ class DeepLinkRegistryTest {
         assertEquals(
             DeepLinkTarget(
                 tab = today,
-                screen = AppDestination.AgendaGraph(
-                    AgendaStartRoute.SavedAgendaResults(SavedAgendaViewId.fromString("v1")),
-                ),
+                screen =
+                    AppDestination.AgendaGraph(
+                        AgendaStartRoute.SavedAgendaResults(SavedAgendaViewId.fromString("v1")),
+                    ),
             ),
             resolve("singularity://view/v1"),
         )

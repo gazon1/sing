@@ -1,6 +1,5 @@
 package com.singularity.todo.core.sync
 
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
@@ -11,6 +10,7 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.work.FakeHlcFactory
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import com.singularity.todo.test.helpers.MutableClock
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -69,13 +69,14 @@ class SyncEngineIntegrationTest {
     ): Pair<SyncEngine, AutoCloseableCoroutineScope> {
         val engineScope = testScope(backgroundScope)
         val state = SyncEngineState(log, NoOpCrashReportingPort())
-        val outboxService = OutboxService(
-            outboxDao = outbox,
-            patchBuilder = fakeSyncPatchBuilder(shadow),
-            scopeProvider = scopeProvider,
-            engineState = state,
-            monoNow = { clock.now().toEpochMilliseconds() },
-        )
+        val outboxService =
+            OutboxService(
+                outboxDao = outbox,
+                patchBuilder = fakeSyncPatchBuilder(shadow),
+                scopeProvider = scopeProvider,
+                engineState = state,
+                monoNow = { clock.now().toEpochMilliseconds() },
+            )
         val engine =
             SyncEngine(
                 log = log,
@@ -96,32 +97,34 @@ class SyncEngineIntegrationTest {
                 crashReporter = NoOpCrashReportingPort(),
                 hlcFactory = FakeHlcFactory(),
                 state = state,
-                pushPhase = PushPhase(
-                    api = api,
-                    authRepository = auth,
-                    outboxDao = outbox,
-                    deadLetterDao = FakeSyncDeadLetterDao(),
-                    shadowDao = shadow,
-                    idGenerator = SequentialIdGenerator(),
-                    scopeProvider = scopeProvider,
-                    patchBuilder = fakeSyncPatchBuilder(shadow),
-                    monoNow = { clock.now().toEpochMilliseconds() },
-                    phases = state.phases,
-                    writerProvider = { fakeSyncDocumentWriter() },
-                    retryPolicy = PatchRetryPolicy(),
-                    scope = engineScope,
-                ),
-                pullPhase = PullPhase(
-                    api = api,
-                    authRepository = auth,
-                    stateRepository = stateRepo,
-                    clock = clock,
-                    scopeProvider = scopeProvider,
-                    phases = state.phases,
-                    getHandlers = { emptyMap() },
-                    scope = engineScope,
-                    hlcFactory = FakeHlcFactory(),
-                ),
+                pushPhase =
+                    PushPhase(
+                        api = api,
+                        authRepository = auth,
+                        outboxDao = outbox,
+                        deadLetterDao = FakeSyncDeadLetterDao(),
+                        shadowDao = shadow,
+                        idGenerator = SequentialIdGenerator(),
+                        scopeProvider = scopeProvider,
+                        patchBuilder = fakeSyncPatchBuilder(shadow),
+                        monoNow = { clock.now().toEpochMilliseconds() },
+                        phases = state.phases,
+                        writerProvider = { fakeSyncDocumentWriter() },
+                        retryPolicy = PatchRetryPolicy(),
+                        scope = engineScope,
+                    ),
+                pullPhase =
+                    PullPhase(
+                        api = api,
+                        authRepository = auth,
+                        stateRepository = stateRepo,
+                        clock = clock,
+                        scopeProvider = scopeProvider,
+                        phases = state.phases,
+                        getHandlers = { emptyMap() },
+                        scope = engineScope,
+                        hlcFactory = FakeHlcFactory(),
+                    ),
                 bootstrapper = null,
                 syncAuthBridge = fakeSyncAuthBridge(auth),
             )
@@ -147,8 +150,7 @@ class SyncEngineIntegrationTest {
                     override suspend fun getEventsSince(
                         sinceLsn: Long,
                         limit: Int,
-                    ): List<SyncEvent> =
-                        throw IllegalStateException("network failure during pull")
+                    ): List<SyncEvent> = throw IllegalStateException("network failure during pull")
                 }
             val stateRepo = FakeSyncStateRepository()
             val scope = SyncScope("owner-1", "profile-1")
@@ -186,8 +188,7 @@ class SyncEngineIntegrationTest {
                     override suspend fun getEventsSince(
                         sinceLsn: Long,
                         limit: Int,
-                    ): List<SyncEvent> =
-                        throw IllegalStateException("server error")
+                    ): List<SyncEvent> = throw IllegalStateException("server error")
                 }
             val stateRepo = FakeSyncStateRepository()
             val scope = SyncScope("owner-1", "profile-1")
@@ -232,11 +233,12 @@ class SyncEngineIntegrationTest {
             // Seed the scope as completed (simulating what SeedPlanner does).
             stateRepo.setSeedCompleted(scope, true)
 
-            val (e, engineScope) = engine(
-                api = api,
-                stateRepo = stateRepo,
-                scopeProvider = scopeProvider,
-            )
+            val (e, engineScope) =
+                engine(
+                    api = api,
+                    stateRepo = stateRepo,
+                    scopeProvider = scopeProvider,
+                )
 
             // A subsequent syncOnce should NOT return NothingToDo — seedCompleted only
             // prevents re-seeding, not a full sync cycle.
@@ -262,10 +264,11 @@ class SyncEngineIntegrationTest {
             val stateRepo = FakeSyncStateRepository()
             val scope = SyncScope("owner-1", "profile-1")
 
-            val (e, engineScope) = engine(
-                api = api,
-                stateRepo = stateRepo,
-            )
+            val (e, engineScope) =
+                engine(
+                    api = api,
+                    stateRepo = stateRepo,
+                )
 
             val outcome = e.syncOnce()
             advanceUntilIdle()
@@ -294,6 +297,7 @@ class SyncEngineIntegrationTest {
                     // After the first push (with the seeded patch), make pull return empty.
                     // After the second push, succeed.
                     var pushCount = 0
+
                     override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
                         pushCount++
                         return if (pushCount == 1) {
@@ -377,19 +381,21 @@ class SyncEngineIntegrationTest {
                         )
                     }
                 }
-            val auth = FakeSyncAuthRepository(
-                Session.SignedIn(UserId("owner-1"), "t@x.com", "access", "refresh"),
-            )
+            val auth =
+                FakeSyncAuthRepository(
+                    Session.SignedIn(UserId("owner-1"), "t@x.com", "access", "refresh"),
+                )
 
             // Inject a sign-out to happen during batchPush.
             api.signOutHelper = { auth.set(Session.SignedOut) }
 
-            val (e, engineScope) = engine(
-                api = api,
-                auth = auth,
-                outbox = outbox,
-                shadow = shadow,
-            )
+            val (e, engineScope) =
+                engine(
+                    api = api,
+                    auth = auth,
+                    outbox = outbox,
+                    shadow = shadow,
+                )
 
             val outcome = e.syncOnce()
             advanceUntilIdle()
@@ -419,10 +425,11 @@ class SyncEngineIntegrationTest {
             val scope = SyncScope("owner-1", "profile-1")
             val scopeProvider = FakeSyncScopeProvider(scope)
             val api = FakeSyncApiClient(pullEvents = emptyList())
-            val (e, engineScope) = engine(
-                api = api,
-                scopeProvider = scopeProvider,
-            )
+            val (e, engineScope) =
+                engine(
+                    api = api,
+                    scopeProvider = scopeProvider,
+                )
 
             // Start sync — scope is valid at this point.
             val outcome = e.syncOnce()
@@ -463,12 +470,13 @@ class SyncEngineIntegrationTest {
                         )
                     }
                 }
-            val (e, engineScope) = engine(
-                api = api,
-                scopeProvider = scopeProvider,
-                outbox = outbox,
-                shadow = shadow,
-            )
+            val (e, engineScope) =
+                engine(
+                    api = api,
+                    scopeProvider = scopeProvider,
+                    outbox = outbox,
+                    shadow = shadow,
+                )
 
             // Seed the outbox so push has something to push.
             outbox.insert(
@@ -477,14 +485,15 @@ class SyncEngineIntegrationTest {
                     ownerId = "owner-1",
                     entityId = "e1",
                     entityType = DocType.Task.key,
-                    payload = StableJson.encodeToString(
-                        DeltaPatch(
-                            patchId = "p1",
-                            entityId = "e1",
-                            entityType = DocType.Task,
-                            baseVersion = 0,
+                    payload =
+                        StableJson.encodeToString(
+                            DeltaPatch(
+                                patchId = "p1",
+                                entityId = "e1",
+                                entityType = DocType.Task,
+                                baseVersion = 0,
+                            ),
                         ),
-                    ),
                     createdAt = 1L,
                     attempts = 0,
                 ),
@@ -529,6 +538,7 @@ class SyncEngineIntegrationTest {
             val api =
                 object : FakeSyncApiClient() {
                     var pushCallCount = 0
+
                     override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
                         pushCallCount++
                         return BatchPushResponse(
@@ -573,6 +583,7 @@ class SyncEngineIntegrationTest {
             val api =
                 object : FakeSyncApiClient() {
                     var pushCallCount = 0
+
                     override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse {
                         pushCallCount++
                         return BatchPushResponse(

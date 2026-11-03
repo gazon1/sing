@@ -102,15 +102,17 @@ fun ProposalCard(
     val rejectionState = rememberTextFieldState()
     // The same, for the value the user is changing. The key is the item being edited,
     // so editing another item starts from that item's value rather than the last one.
-    val editState: TextFieldState = key(editingItemId) {
-        rememberTextFieldState(initialText = editingItemId?.let { id -> proposal.editableTextOf(id) }.orEmpty())
-    }
+    val editState: TextFieldState =
+        key(editingItemId) {
+            rememberTextFieldState(initialText = editingItemId?.let { id -> proposal.editableTextOf(id) }.orEmpty())
+        }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f),
-        ),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f),
+            ),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -179,7 +181,12 @@ fun ProposalCard(
  * person would type, and the item only knows which kind it is.
  */
 private fun AiProposal.editableTextOf(itemId: ProposalItemId): String =
-    items.firstOrNull { it.id == itemId }?.kind?.editableProposal()?.text.orEmpty()
+    items
+        .firstOrNull { it.id == itemId }
+        ?.kind
+        ?.editableProposal()
+        ?.text
+        .orEmpty()
 
 @Composable
 private fun ProposalItemRow(

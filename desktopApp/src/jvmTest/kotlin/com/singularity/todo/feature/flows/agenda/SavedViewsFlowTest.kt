@@ -52,8 +52,10 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:compose")
 class SavedViewsFlowTest {
-
-    private suspend fun createView(koin: org.koin.core.Koin, name: String) {
+    private suspend fun createView(
+        koin: org.koin.core.Koin,
+        name: String,
+    ) {
         val repo = koin.get<SavedAgendaViewsRepository>()
         val def = AgendaDefinition(name, AgendaPresets.Inbox.sections)
         repo.upsert(
@@ -61,7 +63,9 @@ class SavedViewsFlowTest {
                 userId = UserId.anonymous,
                 name = name,
                 sectionsJson = def.toSectionsJson(),
-                now = kotlin.time.Clock.System.now(),
+                now =
+                    kotlin.time.Clock.System
+                        .now(),
             ),
         )
     }
@@ -69,133 +73,141 @@ class SavedViewsFlowTest {
     // ─── Basic list ─────────────────────────────────────────────────────
 
     @Test
-    fun the_saved_views_list_opens_and_reports_its_empty_state() = runDesktopAppTest(checkA11y = true) {
-        clickTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
-        assertTextDisplayed("Saved Views")
-        assertTextDisplayed("No saved views yet")
-        assertTagDisplayed(TestTags.SAVED_AGENDA_CREATE_FAB)
-    }
+    fun the_saved_views_list_opens_and_reports_its_empty_state() =
+        runDesktopAppTest(checkA11y = true) {
+            clickTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
+            assertTextDisplayed("Saved Views")
+            assertTextDisplayed("No saved views yet")
+            assertTagDisplayed(TestTags.SAVED_AGENDA_CREATE_FAB)
+        }
 
     @Test
-    fun leaving_the_saved_views_list_returns_to_the_agenda() = runDesktopAppTest(checkA11y = true) {
-        clickTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
-        assertTextDisplayed("Saved Views")
-        awaitTag(TestTags.SAVED_AGENDA_LIST_BACK).performClick()
-        assertTagDisplayed(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
-    }
+    fun leaving_the_saved_views_list_returns_to_the_agenda() =
+        runDesktopAppTest(checkA11y = true) {
+            clickTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
+            assertTextDisplayed("Saved Views")
+            awaitTag(TestTags.SAVED_AGENDA_LIST_BACK).performClick()
+            assertTagDisplayed(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
+        }
 
     // ─── Composition ───────────────────────────────────────────────────
 
     @Test
-    fun multiple_views_are_all_visible() = runDesktopAppTest(checkA11y = true) { koin ->
-        createView(koin, "Alpha View")
-        createView(koin, "Beta View")
-        createView(koin, "Gamma View")
+    fun multiple_views_are_all_visible() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            createView(koin, "Alpha View")
+            createView(koin, "Beta View")
+            createView(koin, "Gamma View")
 
-        tapTab("Inbox")
-        awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        assertTagDisplayed(TestTags.savedAgendaCard("alpha_view"))
-        assertTagDisplayed(TestTags.savedAgendaCard("beta_view"))
-        assertTagDisplayed(TestTags.savedAgendaCard("gamma_view"))
-    }
+            tapTab("Inbox")
+            awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
+            assertTagDisplayed(TestTags.savedAgendaCard("alpha_view"))
+            assertTagDisplayed(TestTags.savedAgendaCard("beta_view"))
+            assertTagDisplayed(TestTags.savedAgendaCard("gamma_view"))
+        }
 
     // ─── Alphabetical sort ───────────────────────────────────────────
 
     @Test
-    fun views_are_sorted_alphabetically() = runDesktopAppTest(checkA11y = true) { koin ->
-        createView(koin, "Zebra")
-        createView(koin, "Alpha")
-        createView(koin, "Middle")
+    fun views_are_sorted_alphabetically() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            createView(koin, "Zebra")
+            createView(koin, "Alpha")
+            createView(koin, "Middle")
 
-        tapTab("Inbox")
-        awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        assertTagDisplayed(TestTags.savedAgendaCard("alpha"))
-        assertTagDisplayed(TestTags.savedAgendaCard("middle"))
-        assertTagDisplayed(TestTags.savedAgendaCard("zebra"))
-    }
+            tapTab("Inbox")
+            awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
+            assertTagDisplayed(TestTags.savedAgendaCard("alpha"))
+            assertTagDisplayed(TestTags.savedAgendaCard("middle"))
+            assertTagDisplayed(TestTags.savedAgendaCard("zebra"))
+        }
 
     // ─── Duplicate names ─────────────────────────────────────────────
 
     @Test
-    fun duplicate_view_names_are_allowed_and_both_persist() = runDesktopAppTest(checkA11y = true) { koin ->
-        createView(koin, "My View")
-        createView(koin, "My View")
+    fun duplicate_view_names_are_allowed_and_both_persist() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            createView(koin, "My View")
+            createView(koin, "My View")
 
-        tapTab("Inbox")
-        awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
+            tapTab("Inbox")
+            awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
 
-        // Both cards render with the same slug → same testTag; assert the count is 2
-        // (countNodes, because awaitTag requires exactly one match)
-        val cards = countNodes(TestTags.savedAgendaCard("my_view"))
-        assertTrue(cards == 2, "expected 2 cards named 'My View', found $cards")
+            // Both cards render with the same slug → same testTag; assert the count is 2
+            // (countNodes, because awaitTag requires exactly one match)
+            val cards = countNodes(TestTags.savedAgendaCard("my_view"))
+            assertTrue(cards == 2, "expected 2 cards named 'My View', found $cards")
 
-        // Both are in the repo
-        val repo = koin.get<SavedAgendaViewsRepository>()
-        val views = repo.observeAll().first()
-        val count = views.count { it.name == "My View" }
-        assertTrue(count == 2, "Two views named 'My View' must exist")
-    }
+            // Both are in the repo
+            val repo = koin.get<SavedAgendaViewsRepository>()
+            val views = repo.observeAll().first()
+            val count = views.count { it.name == "My View" }
+            assertTrue(count == 2, "Two views named 'My View' must exist")
+        }
 
     // ─── Card tap → Results → back ─────────────────────────────────
 
     @Test
-    fun card_tap_navigates_to_results_and_back_shows_list() = runDesktopAppTest(checkA11y = true) { koin ->
-        tasks(koin).givenUndated(title = "Navigation task")
-        createView(koin, "Navigation Test")
+    fun card_tap_navigates_to_results_and_back_shows_list() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            tasks(koin).givenUndated(title = "Navigation task")
+            createView(koin, "Navigation Test")
 
-        tapTab("Inbox")
-        awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        assertTagDisplayed(TestTags.savedAgendaCard("navigation_test"))
+            tapTab("Inbox")
+            awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
+            assertTagDisplayed(TestTags.savedAgendaCard("navigation_test"))
 
-        // Tap card → Results ("No Date" section holds the undated task)
-        awaitTag(TestTags.savedAgendaCard("navigation_test")).performClick()
-        assertTagDisplayed(TestTags.agendaSection("No Date"))
-        assertTagDisplayed(TestTags.taskItem("Navigation task"))
+            // Tap card → Results ("No Date" section holds the undated task)
+            awaitTag(TestTags.savedAgendaCard("navigation_test")).performClick()
+            assertTagDisplayed(TestTags.agendaSection("No Date"))
+            assertTagDisplayed(TestTags.taskItem("Navigation task"))
 
-        // Back → list with card
-        awaitTag(TestTags.TOP_BAR_BACK_BUTTON).performClick()
-        assertTagDisplayed(TestTags.savedAgendaCard("navigation_test"))
-    }
+            // Back → list with card
+            awaitTag(TestTags.TOP_BAR_BACK_BUTTON).performClick()
+            assertTagDisplayed(TestTags.savedAgendaCard("navigation_test"))
+        }
 
     // ─── Overflow menu ────────────────────────────────────────────────
 
     @Test
-    fun overflow_menu_shows_edit_and_delete() = runDesktopAppTest(checkA11y = true) { koin ->
-        tasks(koin).givenUndated(title = "Menu task")
-        createView(koin, "Menu View")
+    fun overflow_menu_shows_edit_and_delete() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            tasks(koin).givenUndated(title = "Menu task")
+            createView(koin, "Menu View")
 
-        tapTab("Inbox")
-        awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        assertTagDisplayed(TestTags.savedAgendaCard("menu_view"))
+            tapTab("Inbox")
+            awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
+            assertTagDisplayed(TestTags.savedAgendaCard("menu_view"))
 
-        // Open the card's overflow menu (⋮ is text-only — no tag, no contentDescription)
-        clickText("⋮")
+            // Open the card's overflow menu (⋮ is text-only — no tag, no contentDescription)
+            clickText("⋮")
 
-        // The desktop AWT menu bar also renders a plain "Edit" label (no click
-        // action), so menu items are matched by text AND click action.
-        assertNodeDisplayed(hasText("Edit") and hasClickAction(), "Edit action")
-        assertNodeDisplayed(hasText("Delete") and hasClickAction(), "Delete action")
-    }
+            // The desktop AWT menu bar also renders a plain "Edit" label (no click
+            // action), so menu items are matched by text AND click action.
+            assertNodeDisplayed(hasText("Edit") and hasClickAction(), "Edit action")
+            assertNodeDisplayed(hasText("Delete") and hasClickAction(), "Delete action")
+        }
 
     // ─── Delete ─────────────────────────────────────────────────────
 
     @Test
-    fun delete_removes_view_from_list() = runDesktopAppTest(checkA11y = true) { koin ->
-        tasks(koin).givenUndated(title = "Delete task")
-        createView(koin, "To Delete")
+    fun delete_removes_view_from_list() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            tasks(koin).givenUndated(title = "Delete task")
+            createView(koin, "To Delete")
 
-        tapTab("Inbox")
-        awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        assertTagDisplayed(TestTags.savedAgendaCard("to_delete"))
+            tapTab("Inbox")
+            awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
+            assertTagDisplayed(TestTags.savedAgendaCard("to_delete"))
 
-        // Open menu → Delete → confirm. Confirmation is required for hard-delete
-        // (SavedAgendaView has no soft-delete/restore), per delete-affordances spec.
-        clickText("⋮")
-        onAllNodes(hasText("Delete") and hasClickAction()).onFirst().performClick()
-        awaitTag(TestTags.Dialog.CONFIRM).performClick()
+            // Open menu → Delete → confirm. Confirmation is required for hard-delete
+            // (SavedAgendaView has no soft-delete/restore), per delete-affordances spec.
+            clickText("⋮")
+            onAllNodes(hasText("Delete") and hasClickAction()).onFirst().performClick()
+            awaitTag(TestTags.Dialog.CONFIRM).performClick()
 
-        // Card is gone from the list
-        awaitTagGone(TestTags.savedAgendaCard("to_delete"))
-        assertTextDisplayed("No saved views yet")
-    }
+            // Card is gone from the list
+            awaitTagGone(TestTags.savedAgendaCard("to_delete"))
+            assertTextDisplayed("No saved views yet")
+        }
 }

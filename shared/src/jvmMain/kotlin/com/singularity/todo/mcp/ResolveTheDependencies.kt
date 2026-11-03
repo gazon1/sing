@@ -14,15 +14,15 @@ package com.singularity.todo.mcp
  * one thing that is true: the server could not start.
  */
 internal object ResolveTheDependencies : ToolServerStartupStep {
-
     override val title: String = "resolve the dependencies"
 
     override suspend fun run(context: ToolServerStartupContext): ToolServerStartup.Refused? {
-        val dependencies = resolve() ?: return ToolServerStartup.Refused(
-            code = -32000,
-            message = "The server could not start: its dependencies are unavailable.",
-            exitCode = EXIT_STARTUP,
-        )
+        val dependencies =
+            resolve() ?: return ToolServerStartup.Refused(
+                code = -32000,
+                message = "The server could not start: its dependencies are unavailable.",
+                exitCode = EXIT_STARTUP,
+            )
         context.dependencies = dependencies
         return null
     }
@@ -31,10 +31,11 @@ internal object ResolveTheDependencies : ToolServerStartupStep {
     // built is a start-up failure, and the caller gets a JSON-RPC error and a non-zero exit
     // code, not a stack trace.
     @Suppress("TooGenericExceptionCaught") // start-up has to fail in one place, whatever the failure was
-    private fun resolve(): ServerDependencies? = try {
-        ServerDependencies.fromKoin()
-    } catch (e: Throwable) {
-        startupLog.e(e) { "The server's dependencies could not be resolved: ${e.message}" }
-        null
-    }
+    private fun resolve(): ServerDependencies? =
+        try {
+            ServerDependencies.fromKoin()
+        } catch (e: Throwable) {
+            startupLog.e(e) { "The server's dependencies could not be resolved: ${e.message}" }
+            null
+        }
 }

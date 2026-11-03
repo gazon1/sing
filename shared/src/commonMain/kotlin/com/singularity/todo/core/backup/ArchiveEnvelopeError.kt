@@ -17,7 +17,6 @@ package com.singularity.todo.core.backup
  * payload, and a payload failure is [BackupPayloadError].
  */
 sealed class ArchiveEnvelopeError(message: String, cause: Throwable? = null) : BackupError(message, cause) {
-
     /**
      * The bytes are not an encrypted archive.
      *

@@ -8,7 +8,6 @@ import com.singularity.todo.feature.calendarSync.error.FailureType
  * Exposed via [CalendarSyncRepository.observeStatus].
  */
 sealed interface CalendarSyncStatus {
-
     /** Sync is disabled — user has not granted permission or turned it off. */
     data object Disabled : CalendarSyncStatus
 

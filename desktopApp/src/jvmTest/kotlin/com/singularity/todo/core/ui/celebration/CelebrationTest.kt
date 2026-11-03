@@ -32,88 +32,95 @@ import kotlin.test.Test
  */
 @Tag("fast")
 class CelebrationTest {
-
     private class RecordingHaptic : Haptic {
         var callCount = 0
-        override suspend fun perform() { callCount++ }
+
+        override suspend fun perform() {
+            callCount++
+        }
     }
 
     // ── Content visibility ─────────────────────────────────────────────────────
 
     @Test
-    fun `content is always visible regardless of triggerKey`() = runIsolatedComposeTest {
-        setContent {
-            Celebration(triggerKey = "") {
-                Text("Hidden content")
+    fun `content is always visible regardless of triggerKey`() =
+        runIsolatedComposeTest {
+            setContent {
+                Celebration(triggerKey = "") {
+                    Text("Hidden content")
+                }
             }
+            assertTextDisplayed("Hidden content")
         }
-        assertTextDisplayed("Hidden content")
-    }
 
     @Test
-    fun `content is displayed when triggerKey is non-blank`() = runIsolatedComposeTest {
-        setContent {
-            Celebration(triggerKey = "task-1") {
-                Text("Complete me")
+    fun `content is displayed when triggerKey is non-blank`() =
+        runIsolatedComposeTest {
+            setContent {
+                Celebration(triggerKey = "task-1") {
+                    Text("Complete me")
+                }
             }
+            assertTextDisplayed("Complete me")
         }
-        assertTextDisplayed("Complete me")
-    }
 
     @Test
-    fun `blank triggerKey renders content without any effects`() = runIsolatedComposeTest {
-        setContent {
-            Celebration(triggerKey = "") {
-                Text("Just text")
+    fun `blank triggerKey renders content without any effects`() =
+        runIsolatedComposeTest {
+            setContent {
+                Celebration(triggerKey = "") {
+                    Text("Just text")
+                }
             }
+            assertTextDisplayed("Just text")
         }
-        assertTextDisplayed("Just text")
-    }
 
     // ── Haptic gating ────────────────────────────────────────────────────────
 
     @Test
-    fun `haptic is fired when hapticsEnabled is true and haptic is provided`() = runTest {
-        val haptic = RecordingHaptic()
-        runDesktopComposeUiTest {
-            setContent {
-                Celebration(
-                    triggerKey = "task-1",
-                    animationsEnabled = false,
-                    hapticsEnabled = true,
-                    haptic = haptic,
-                ) {
-                    Text("Do it")
+    fun `haptic is fired when hapticsEnabled is true and haptic is provided`() =
+        runTest {
+            val haptic = RecordingHaptic()
+            runDesktopComposeUiTest {
+                setContent {
+                    Celebration(
+                        triggerKey = "task-1",
+                        animationsEnabled = false,
+                        hapticsEnabled = true,
+                        haptic = haptic,
+                    ) {
+                        Text("Do it")
+                    }
                 }
             }
+            // After runDesktopComposeUiTest returns, advance test dispatcher so
+            // LaunchedEffect coroutines execute, then verify the side-effect.
+            advanceUntilIdle()
+            assert(haptic.callCount == 1) {
+                "Expected haptic.perform() to be called once, was called ${haptic.callCount} times"
+            }
         }
-        // After runDesktopComposeUiTest returns, advance test dispatcher so
-        // LaunchedEffect coroutines execute, then verify the side-effect.
-        advanceUntilIdle()
-        assert(haptic.callCount == 1) {
-            "Expected haptic.perform() to be called once, was called ${haptic.callCount} times"
-        }
-    }
 
     @Test
-    fun `haptic is NOT fired when hapticsEnabled is false`() = runTest {
-        val haptic = RecordingHaptic()
-        runDesktopComposeUiTest {
-            setContent {
-                Celebration(
-                    triggerKey = "task-1",
-                    hapticsEnabled = false,
-                    haptic = haptic,
-                ) {
-                    Text("Do it")
+    fun `haptic is NOT fired when hapticsEnabled is false`() =
+        runTest {
+            val haptic = RecordingHaptic()
+            runDesktopComposeUiTest {
+                setContent {
+                    Celebration(
+                        triggerKey = "task-1",
+                        hapticsEnabled = false,
+                        haptic = haptic,
+                    ) {
+                        Text("Do it")
+                    }
                 }
             }
+            advanceUntilIdle()
+            assert(haptic.callCount == 0) {
+                "Expected haptic.perform() NOT to be called when hapticsEnabled=false, was called ${haptic.callCount} times"
+            }
         }
-        advanceUntilIdle()
-        assert(haptic.callCount == 0) {
-            "Expected haptic.perform() NOT to be called when hapticsEnabled=false, was called ${haptic.callCount} times"
-        }
-    }
 
     @Test
     fun `the default capability is the no-op, so a celebration without a provider is safe`() =
@@ -135,53 +142,56 @@ class CelebrationTest {
         }
 
     @Test
-    fun `a capability provided by the composition is used when no explicit one is passed`() = runTest {
-        val haptic = RecordingHaptic()
-        runDesktopComposeUiTest {
-            setContent {
-                CompositionLocalProvider(LocalHaptic provides haptic) {
-                    Celebration(
-                        triggerKey = "task-1",
-                        animationsEnabled = false,
-                        hapticsEnabled = true,
-                    ) {
-                        Text("Do it")
+    fun `a capability provided by the composition is used when no explicit one is passed`() =
+        runTest {
+            val haptic = RecordingHaptic()
+            runDesktopComposeUiTest {
+                setContent {
+                    CompositionLocalProvider(LocalHaptic provides haptic) {
+                        Celebration(
+                            triggerKey = "task-1",
+                            animationsEnabled = false,
+                            hapticsEnabled = true,
+                        ) {
+                            Text("Do it")
+                        }
                     }
                 }
             }
+            advanceUntilIdle()
+            assert(haptic.callCount == 1) {
+                "Expected the composition-provided capability to be pulsed once, " +
+                    "was ${haptic.callCount}"
+            }
         }
-        advanceUntilIdle()
-        assert(haptic.callCount == 1) {
-            "Expected the composition-provided capability to be pulsed once, " +
-                "was ${haptic.callCount}"
-        }
-    }
 
     // ── Animation gating ──────────────────────────────────────────────────────
 
     @Test
-    fun `content is displayed when animationsEnabled is false`() = runIsolatedComposeTest {
-        setContent {
-            Celebration(
-                triggerKey = "task-1",
-                animationsEnabled = false,
-            ) {
-                Text("Check me")
+    fun `content is displayed when animationsEnabled is false`() =
+        runIsolatedComposeTest {
+            setContent {
+                Celebration(
+                    triggerKey = "task-1",
+                    animationsEnabled = false,
+                ) {
+                    Text("Check me")
+                }
             }
+            assertTextDisplayed("Check me")
         }
-        assertTextDisplayed("Check me")
-    }
 
     @Test
-    fun `content is displayed when animationsEnabled is true`() = runIsolatedComposeTest {
-        setContent {
-            Celebration(
-                triggerKey = "task-1",
-                animationsEnabled = true,
-            ) {
-                Text("Check me too")
+    fun `content is displayed when animationsEnabled is true`() =
+        runIsolatedComposeTest {
+            setContent {
+                Celebration(
+                    triggerKey = "task-1",
+                    animationsEnabled = true,
+                ) {
+                    Text("Check me too")
+                }
             }
+            assertTextDisplayed("Check me too")
         }
-        assertTextDisplayed("Check me too")
-    }
 }

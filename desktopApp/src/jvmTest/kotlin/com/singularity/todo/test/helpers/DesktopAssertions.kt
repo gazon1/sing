@@ -14,7 +14,6 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
-import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
@@ -25,6 +24,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.DpRect
 import kotlin.test.assertEquals
 
 /** Generous upper bound; real transitions settle in well under a second. */
@@ -89,48 +89,50 @@ private fun DesktopComposeUiTest.awaitDisplayed(
  * full semantics dump.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.awaitTag(tag: String): SemanticsNodeInteraction = step("awaitTag", tag) {
-    val allTags = mutableListOf<String>()
-    var pollCount = 0
-    val startTime = System.currentTimeMillis()
-    try {
-        waitUntil(
-            conditionDescription = "node with testTag '$tag' appears",
-            timeoutMillis = TIMEOUT_MS,
-        ) {
-            pollCount++
-            val found = onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
-            if (!found) {
-                // Collect all tags on every poll cycle so the list is fresh when
-                // the timeout fires.
-                //
-                // Every node that *has* a test tag, not a node whose tag is the
-                // literal "*": `onAllNodesWithTag` matches the tag value exactly, so
-                // "*" matched nothing and the explanation always listed zero tags —
-                // the one diagnostic that was supposed to name the nearest
-                // alternative named none.
-                allTags.clear()
-                onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.TestTag))
-                    .fetchSemanticsNodes()
-                    .forEach { node ->
-                        node.config.getOrNull(SemanticsProperties.TestTag)?.let { allTags.add(it) }
-                    }
+fun DesktopComposeUiTest.awaitTag(tag: String): SemanticsNodeInteraction =
+    step("awaitTag", tag) {
+        val allTags = mutableListOf<String>()
+        var pollCount = 0
+        val startTime = System.currentTimeMillis()
+        try {
+            waitUntil(
+                conditionDescription = "node with testTag '$tag' appears",
+                timeoutMillis = TIMEOUT_MS,
+            ) {
+                pollCount++
+                val found = onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+                if (!found) {
+                    // Collect all tags on every poll cycle so the list is fresh when
+                    // the timeout fires.
+                    //
+                    // Every node that *has* a test tag, not a node whose tag is the
+                    // literal "*": `onAllNodesWithTag` matches the tag value exactly, so
+                    // "*" matched nothing and the explanation always listed zero tags —
+                    // the one diagnostic that was supposed to name the nearest
+                    // alternative named none.
+                    allTags.clear()
+                    onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.TestTag))
+                        .fetchSemanticsNodes()
+                        .forEach { node ->
+                            node.config.getOrNull(SemanticsProperties.TestTag)?.let { allTags.add(it) }
+                        }
+                }
+                found
             }
-            found
+        } catch (e: Throwable) {
+            // Tag-explainer fires on timeout
+            val explanation = explainMissingTag(allTags.distinct().sorted(), tag)
+            val elapsed = System.currentTimeMillis() - startTime
+            val msg =
+                buildString {
+                    appendLine(explanation)
+                    appendLine("Poll count: $pollCount. Elapsed: ${elapsed}ms. Timeout: ${TIMEOUT_MS}ms.")
+                    if (e.message != null) appendLine("Last exception: ${e::class.simpleName}: ${e.message}")
+                }
+            throw AssertionError(msg).also { it.addSuppressed(e) }
         }
-    } catch (e: Throwable) {
-        // Tag-explainer fires on timeout
-        val explanation = explainMissingTag(allTags.distinct().sorted(), tag)
-        val elapsed = System.currentTimeMillis() - startTime
-        val msg = buildString {
-            appendLine(explanation)
-            appendLine("Poll count: $pollCount. Elapsed: ${elapsed}ms. Timeout: ${TIMEOUT_MS}ms.")
-            if (e.message != null) appendLine("Last exception: ${e::class.simpleName}: ${e.message}")
-        }
-        throw AssertionError(msg).also { it.addSuppressed(e) }
+        onNodeWithTag(tag)
     }
-    onNodeWithTag(tag)
-}
 
 /**
  * Waits until at least one node with [tag] is actually on screen, then returns.
@@ -148,12 +150,13 @@ fun DesktopComposeUiTest.awaitTag(tag: String): SemanticsNodeInteraction = step(
  * indexed pick.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.awaitAnyDisplayed(tag: String) = step("awaitAnyDisplayed", tag) {
-    awaitDisplayed(
-        matcher = hasTestTag(tag),
-        description = "some node with testTag '$tag' is on screen",
-    )
-}
+fun DesktopComposeUiTest.awaitAnyDisplayed(tag: String) =
+    step("awaitAnyDisplayed", tag) {
+        awaitDisplayed(
+            matcher = hasTestTag(tag),
+            description = "some node with testTag '$tag' is on screen",
+        )
+    }
 
 /**
  * Waits until a node matching [matcher] exists, then returns a handle to it.
@@ -170,21 +173,22 @@ fun DesktopComposeUiTest.awaitAnyDisplayed(tag: String) = step("awaitAnyDisplaye
 fun DesktopComposeUiTest.awaitTag(
     matcher: SemanticsMatcher,
     timeoutMs: Long = TIMEOUT_MS,
-): SemanticsNodeInteraction = step("awaitTag(matcher)", matcher.description) {
-    try {
-        waitUntil(
-            conditionDescription = "node matching '${matcher.description}' appears",
-            timeoutMillis = timeoutMs,
-        ) {
-            onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
+): SemanticsNodeInteraction =
+    step("awaitTag(matcher)", matcher.description) {
+        try {
+            waitUntil(
+                conditionDescription = "node matching '${matcher.description}' appears",
+                timeoutMillis = timeoutMs,
+            ) {
+                onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (e: Throwable) {
+            throw AssertionError(
+                "Node matching '${matcher.description}' not found or not unique after $timeoutMs ms",
+            ).also { it.addSuppressed(e) }
         }
-    } catch (e: Throwable) {
-        throw AssertionError(
-            "Node matching '${matcher.description}' not found or not unique after ${timeoutMs} ms",
-        ).also { it.addSuppressed(e) }
+        onNode(matcher)
     }
-    onNode(matcher)
-}
 
 /**
  * Waits until no node with [tag] exists, then returns — the counterpart to
@@ -201,14 +205,15 @@ fun DesktopComposeUiTest.awaitTag(
  * plain `assertDoesNotExist` and needs no waiting.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.awaitTagGone(tag: String) = step("awaitTagGone", tag) {
-    waitUntil(
-        conditionDescription = "no node with testTag '$tag' remains",
-        timeoutMillis = TIMEOUT_MS,
-    ) {
-        onAllNodesWithTag(tag).fetchSemanticsNodes().isEmpty()
+fun DesktopComposeUiTest.awaitTagGone(tag: String) =
+    step("awaitTagGone", tag) {
+        waitUntil(
+            conditionDescription = "no node with testTag '$tag' remains",
+            timeoutMillis = TIMEOUT_MS,
+        ) {
+            onAllNodesWithTag(tag).fetchSemanticsNodes().isEmpty()
+        }
     }
-}
 
 /**
  * Waits for a node with [text] to appear, then returns a handle to it.
@@ -216,15 +221,16 @@ fun DesktopComposeUiTest.awaitTagGone(tag: String) = step("awaitTagGone", tag) {
  * includes the given string.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.awaitText(text: String) = step("awaitText", text) {
-    waitUntil(
-        conditionDescription = "node with text '$text' appears",
-        timeoutMillis = TIMEOUT_MS,
-    ) {
-        onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
+fun DesktopComposeUiTest.awaitText(text: String) =
+    step("awaitText", text) {
+        waitUntil(
+            conditionDescription = "node with text '$text' appears",
+            timeoutMillis = TIMEOUT_MS,
+        ) {
+            onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty()
+        }
+        onNodeWithText(text, useUnmergedTree = true)
     }
-    onNodeWithText(text, useUnmergedTree = true)
-}
 
 /**
  * Asserts that a node with [text] is actually on screen.
@@ -247,23 +253,23 @@ fun DesktopComposeUiTest.assertTextDisplayed(text: String) {
  * Waits for a node with contentDescription [desc] to appear, then returns a handle.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.awaitContentDescription(desc: String) = step("awaitContentDescription", desc) {
-    waitUntil(
-        conditionDescription = "node with contentDescription '$desc' appears",
-        timeoutMillis = TIMEOUT_MS,
-    ) {
-        onAllNodes(hasContentDescription(desc)).fetchSemanticsNodes().isNotEmpty()
+fun DesktopComposeUiTest.awaitContentDescription(desc: String) =
+    step("awaitContentDescription", desc) {
+        waitUntil(
+            conditionDescription = "node with contentDescription '$desc' appears",
+            timeoutMillis = TIMEOUT_MS,
+        ) {
+            onAllNodes(hasContentDescription(desc)).fetchSemanticsNodes().isNotEmpty()
+        }
+        onNodeWithContentDescription(desc)
     }
-    onNodeWithContentDescription(desc)
-}
 
 /**
  * Returns the count of nodes with [tag] in the current semantics tree.
  * Does not wait — captures the count at call time.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.countNodes(tag: String): Int =
-    onAllNodesWithTag(tag).fetchSemanticsNodes().size
+fun DesktopComposeUiTest.countNodes(tag: String): Int = onAllNodesWithTag(tag).fetchSemanticsNodes().size
 
 /**
  * Whether the checkbox with [testTag] reports ToggleableState.On right now.
@@ -287,19 +293,20 @@ fun DesktopComposeUiTest.isCheckboxChecked(testTag: String): Boolean =
  * Use after clickCheckbox to assert the state change landed.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.awaitCheckboxChecked(testTag: String) = step("awaitCheckboxChecked", testTag) {
-    waitUntil(
-        conditionDescription = "checkbox '$testTag' is checked",
-        timeoutMillis = TIMEOUT_MS,
-    ) {
-        onAllNodesWithTag(testTag)
-            .fetchSemanticsNodes()
-            .any { node ->
-                val state = node.config.getOrNull(SemanticsProperties.ToggleableState)
-                state == androidx.compose.ui.state.ToggleableState.On
-            }
+fun DesktopComposeUiTest.awaitCheckboxChecked(testTag: String) =
+    step("awaitCheckboxChecked", testTag) {
+        waitUntil(
+            conditionDescription = "checkbox '$testTag' is checked",
+            timeoutMillis = TIMEOUT_MS,
+        ) {
+            onAllNodesWithTag(testTag)
+                .fetchSemanticsNodes()
+                .any { node ->
+                    val state = node.config.getOrNull(SemanticsProperties.ToggleableState)
+                    state == androidx.compose.ui.state.ToggleableState.On
+                }
+        }
     }
-}
 
 /**
  * Waits for a node with [tag] and asserts it is *displayed*, not merely composed.
@@ -313,24 +320,25 @@ fun DesktopComposeUiTest.awaitCheckboxChecked(testTag: String) = step("awaitChec
  * so a failure says which of the two never happened.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.assertTagDisplayed(tag: String) = step("assertTagDisplayed", tag) {
-    awaitTag(tag)
-    try {
-        awaitDisplayed(
-            matcher = hasTestTag(tag),
-            description = "node with testTag '$tag' is displayed",
-        )
-    } catch (e: Throwable) {
-        throw AssertionError(
-            "Node with testTag '$tag' is in the semantics tree but never became " +
-                "displayed within $TIMEOUT_MS ms — present is not shown. If it is " +
-                "below the fold, scrollToTag it first; if it is in a dialog or " +
-                "popup, the window did not lay out in time (check the semantics " +
-                "tree in the suppressed chain).",
-        ).also { it.addSuppressed(e) }
+fun DesktopComposeUiTest.assertTagDisplayed(tag: String) =
+    step("assertTagDisplayed", tag) {
+        awaitTag(tag)
+        try {
+            awaitDisplayed(
+                matcher = hasTestTag(tag),
+                description = "node with testTag '$tag' is displayed",
+            )
+        } catch (e: Throwable) {
+            throw AssertionError(
+                "Node with testTag '$tag' is in the semantics tree but never became " +
+                    "displayed within $TIMEOUT_MS ms — present is not shown. If it is " +
+                    "below the fold, scrollToTag it first; if it is in a dialog or " +
+                    "popup, the window did not lay out in time (check the semantics " +
+                    "tree in the suppressed chain).",
+            ).also { it.addSuppressed(e) }
+        }
+        onNodeWithTag(tag).assertIsDisplayed()
     }
-    onNodeWithTag(tag).assertIsDisplayed()
-}
 
 /**
  * One-shot assertion that no node with [tag] exists. Use for things that were
@@ -350,9 +358,10 @@ fun DesktopComposeUiTest.assertTagNotExists(tag: String) {
  * claim is about the click, the first about what the screen now shows.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.assertTagSelected(tag: String) = step("assertTagSelected", tag) {
-    awaitTag(tag).assertIsSelected()
-}
+fun DesktopComposeUiTest.assertTagSelected(tag: String) =
+    step("assertTagSelected", tag) {
+        awaitTag(tag).assertIsSelected()
+    }
 
 /**
  * The unclipped bounds of the node with [tag], in root coordinates.
@@ -366,8 +375,7 @@ fun DesktopComposeUiTest.assertTagSelected(tag: String) = step("assertTagSelecte
  * happens to fit on the screen.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.unclippedBoundsOfTag(tag: String): DpRect =
-    awaitTag(tag).getUnclippedBoundsInRoot()
+fun DesktopComposeUiTest.unclippedBoundsOfTag(tag: String): DpRect = awaitTag(tag).getUnclippedBoundsInRoot()
 
 /**
  * One-shot assertion that no node with [text] exists. Same rule as
@@ -419,7 +427,10 @@ fun DesktopComposeUiTest.assertContentDescriptionReachable(desc: String) {
  * failure messages.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.assertNodeDisplayed(matcher: SemanticsMatcher, description: String) {
+fun DesktopComposeUiTest.assertNodeDisplayed(
+    matcher: SemanticsMatcher,
+    description: String,
+) {
     awaitDisplayed(
         matcher = matcher,
         description = "node matching '$description' is displayed",
@@ -522,7 +533,10 @@ fun DesktopComposeUiTest.assertButtonEnabled(text: String) {
  * the only text there is: the assertion falls back to Compose's own.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.assertTagTextEquals(tag: String, expected: String) {
+fun DesktopComposeUiTest.assertTagTextEquals(
+    tag: String,
+    expected: String,
+) {
     val node = awaitTag(tag).fetchSemanticsNode()
     val editable = node.config.getOrNull(SemanticsProperties.EditableText)
     if (editable == null) {
@@ -553,7 +567,12 @@ fun DesktopComposeUiTest.textOfTag(testTag: String): String? =
     onAllNodesWithTag(testTag)
         .fetchSemanticsNodes()
         .firstOrNull()
-        ?.let { node -> node.config.getOrNull(SemanticsProperties.Text)?.firstOrNull()?.text }
+        ?.let { node ->
+            node.config
+                .getOrNull(SemanticsProperties.Text)
+                ?.firstOrNull()
+                ?.text
+        }
 
 /**
  * Waits until the node with [tag] holds exactly [expected], then returns.
@@ -568,7 +587,10 @@ fun DesktopComposeUiTest.textOfTag(testTag: String): String? =
  * @param expected the text the node must end up holding.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.awaitTagTextEquals(tag: String, expected: String) = step("awaitTagTextEquals", tag) {
+fun DesktopComposeUiTest.awaitTagTextEquals(
+    tag: String,
+    expected: String,
+) = step("awaitTagTextEquals", tag) {
     waitUntil(
         conditionDescription = "node with testTag '$tag' holds the text '$expected'",
         timeoutMillis = TIMEOUT_MS,
@@ -618,10 +640,14 @@ fun DesktopComposeUiTest.assertTagExistsOnUnmergedTree(tag: String) {
  * @param availableTags All `testTag` values present in the current semantics tree.
  * @param wantedTag     The tag the test was looking for.
  */
-fun explainMissingTag(availableTags: List<String>, wantedTag: String): String {
-    val nearby = availableTags
-        .filter { it.contains(wantedTag.take(4), ignoreCase = true) }
-        .take(3)
+fun explainMissingTag(
+    availableTags: List<String>,
+    wantedTag: String,
+): String {
+    val nearby =
+        availableTags
+            .filter { it.contains(wantedTag.take(4), ignoreCase = true) }
+            .take(3)
     return buildString {
         appendLine("Tag '$wantedTag' is not in the semantics tree.")
         if (nearby.isNotEmpty()) {
@@ -647,9 +673,10 @@ fun explainMissingTag(availableTags: List<String>, wantedTag: String): String {
  * otherwise re-derive the same `useUnmergedTree = true` choice.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.mainTreeSize(): Int = step("mainTreeSize") {
-    mainRootNodeCount()
-}
+fun DesktopComposeUiTest.mainTreeSize(): Int =
+    step("mainTreeSize") {
+        mainRootNodeCount()
+    }
 
 /**
  * How many nodes carry [tag] **across every semantics root**, not just the main
@@ -663,6 +690,7 @@ fun DesktopComposeUiTest.mainTreeSize(): Int = step("mainTreeSize") {
  * at a missing node.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.countNodesWithTagInAnyRoot(tag: String): Int = step("countInAnyRoot", tag) {
-    onAllNodesWithTag(tag).fetchSemanticsNodes(false).size
-}
+fun DesktopComposeUiTest.countNodesWithTagInAnyRoot(tag: String): Int =
+    step("countInAnyRoot", tag) {
+        onAllNodesWithTag(tag).fetchSemanticsNodes(false).size
+    }

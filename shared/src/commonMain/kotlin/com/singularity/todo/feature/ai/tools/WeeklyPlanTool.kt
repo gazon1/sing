@@ -10,15 +10,15 @@ import ai.koog.prompt.message.MessagePart
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.ai.prompts.Prompts
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelection
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.coroutines.CancellationException
 import kotlin.time.Clock
-import com.singularity.todo.core.error.runCatchingCancellable
 
 @Serializable
 data class WeeklyPlanInput(
@@ -38,19 +38,20 @@ class WeeklyPlanTool(
     private val clock: Clock,
     private val timeZoneProvider: TimeZoneProvider,
 ) : SimpleTool<WeeklyPlanInput>(TypeToken.of(WeeklyPlanInput::class.java), NAME, DESCRIPTION) {
-
     private val logger = Logger.withTag("WeeklyPlan")
 
     override suspend fun execute(args: WeeklyPlanInput): String {
-        val tasks = args.selection
-            ?.let { selection ->
-                TaskToolSupport.select(selection, taskRepository, clock, timeZoneProvider.current())
+        val tasks =
+            args.selection
+                ?.let { selection ->
+                    TaskToolSupport.select(selection, taskRepository, clock, timeZoneProvider.current())
+                }
+                ?: args.tasks
+        val p =
+            prompt(Prompt.Empty, KoogClock.System) {
+                system(Prompts.weeklyPlanSystem)
+                user(Prompts.weeklyPlanUser(tasks))
             }
-            ?: args.tasks
-        val p = prompt(Prompt.Empty, KoogClock.System) {
-            system(Prompts.weeklyPlanSystem)
-            user(Prompts.weeklyPlanUser(tasks))
-        }
         val response = promptExecutor.execute(p, model, emptyList())
         val text = extractText(response)
         return try {
@@ -70,6 +71,9 @@ class WeeklyPlanTool(
         const val DESCRIPTION = "Suggest 3-5 tasks to focus on this week."
 
         private fun extractText(response: Message.Assistant): String =
-            response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }.trim()
+            response.parts
+                .filterIsInstance<MessagePart.Text>()
+                .joinToString("") { it.text }
+                .trim()
     }
 }

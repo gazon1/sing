@@ -29,7 +29,6 @@ import kotlinx.coroutines.flow.Flow
  * [com.singularity.todo.core.detekt.ProhibitUserIdInObserve] (Konsist).
  */
 interface ProposalRepository {
-
     /**
      * Watch every proposal on [taskId], newest first, with their items resolved.
      * Scoped to the current user via [com.singularity.todo.feature.profile.ProfileAwareCurrentUser].
@@ -127,16 +126,25 @@ interface ProposalRepository {
      * Only an item this user's claim confirmed can be released, and only if nothing
      * else has decided it since.
      */
-    suspend fun release(id: ProposalItemId, userId: UserId): Result<Unit>
+    suspend fun release(
+        id: ProposalItemId,
+        userId: UserId,
+    ): Result<Unit>
 
     /**
      * Recompute the owning proposal's aggregate [ProposalStatus] from its items and
      * persist it. Called after every decision.
      */
-    suspend fun refreshStatus(proposalId: ProposalId, userId: UserId): Result<Unit>
+    suspend fun refreshStatus(
+        proposalId: ProposalId,
+        userId: UserId,
+    ): Result<Unit>
 
     /** Withdraw a proposal and every one of its undecided items. */
-    suspend fun retract(id: ProposalId, userId: UserId): Result<Unit>
+    suspend fun retract(
+        id: ProposalId,
+        userId: UserId,
+    ): Result<Unit>
 
     /**
      * Fingerprints the user has already rejected, newest first.
@@ -145,5 +153,8 @@ interface ProposalRepository {
      * The prompt-side "recently rejected" list is built from the same source, so the
      * hint the model sees and the rule it is held to cannot drift apart.
      */
-    suspend fun rejectedFingerprints(userId: UserId, limit: Int = 50): List<String>
+    suspend fun rejectedFingerprints(
+        userId: UserId,
+        limit: Int = 50,
+    ): List<String>
 }

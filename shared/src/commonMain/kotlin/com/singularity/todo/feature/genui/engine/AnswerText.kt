@@ -34,7 +34,6 @@ import com.singularity.todo.feature.genui.core.looksLikeFence
  * own rules; this filter only decides what the reader may watch arrive.
  */
 class AnswerText {
-
     /** What is known about the line being read. */
     private enum class Line {
         /** Nothing decisive yet: only whitespace so far. */
@@ -95,7 +94,10 @@ class AnswerText {
      * is shown, a message is swallowed, and a line that is not decided yet waits for the
      * first character that decides it.
      */
-    private fun take(character: Char, shown: StringBuilder) {
+    private fun take(
+        character: Char,
+        shown: StringBuilder,
+    ) {
         when (line) {
             Line.UNDECIDED -> decide(character, shown)
             Line.PROSE -> shown.append(character)
@@ -122,16 +124,20 @@ class AnswerText {
      * The whitespace before it is held rather than shown, because the decision is about the
      * line's first *character*, and a line that starts with spaces is still a message.
      */
-    private fun decide(character: Char, shown: StringBuilder) {
+    private fun decide(
+        character: Char,
+        shown: StringBuilder,
+    ) {
         if (character.isWhitespace()) {
             held.append(character)
             return
         }
-        line = when {
-            character == '{' -> Line.MESSAGE
-            character == '`' -> Line.HELD
-            else -> Line.PROSE
-        }
+        line =
+            when {
+                character == '{' -> Line.MESSAGE
+                character == '`' -> Line.HELD
+                else -> Line.PROSE
+            }
         held.clear()
         if (line == Line.PROSE) {
             shown.append(character)
@@ -158,9 +164,13 @@ class AnswerText {
                 if (!looksLikeFence(text)) shown.append(text)
             }
 
-            Line.UNDECIDED, Line.MESSAGE -> Unit
+            Line.UNDECIDED, Line.MESSAGE -> {
+                Unit
+            }
 
-            Line.PROSE -> Unit
+            Line.PROSE -> {
+                Unit
+            }
         }
         line = Line.UNDECIDED
         held.clear()
@@ -175,7 +185,9 @@ class AnswerText {
                 if (!looksLikeFence(text)) shown.append(text)
             }
 
-            Line.PROSE -> shown.append('\n')
+            Line.PROSE -> {
+                shown.append('\n')
+            }
 
             Line.MESSAGE -> {
                 // The message continues on the next line: it is not closed yet, and the reader
@@ -187,7 +199,9 @@ class AnswerText {
                 return
             }
 
-            Line.UNDECIDED -> Unit
+            Line.UNDECIDED -> {
+                Unit
+            }
         }
         line = Line.UNDECIDED
         held.clear()

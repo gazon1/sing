@@ -29,26 +29,27 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class PlansOverdueLeadsScenarioTest {
-
     @Test
     @DisplayName("PLANS-05 overdue work leads the timeline and is not dated twice")
-    fun overdue_leads_and_is_not_dated_twice() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        tasks(koin).given(due = YESTERDAY, title = "Late task")
-            .given(due = TODAY, title = "Due today")
+    fun overdue_leads_and_is_not_dated_twice() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            tasks(koin)
+                .given(due = YESTERDAY, title = "Late task")
+                .given(due = TODAY, title = "Due today")
 
-        tapTab("Plans")
+            tapTab("Plans")
 
-        assertTagDisplayed(TestTags.plansSection(TimelineGrouperIds.OVERDUE))
-        assertTagDisplayed(TestTags.plansSection("day:2026-09-16"))
+            assertTagDisplayed(TestTags.plansSection(TimelineGrouperIds.OVERDUE))
+            assertTagDisplayed(TestTags.plansSection("day:2026-09-16"))
 
-        val overdue = unclippedBoundsOfTag(TestTags.plansSection(TimelineGrouperIds.OVERDUE)).top
-        val today = unclippedBoundsOfTag(TestTags.plansSection("day:2026-09-16")).top
-        kotlin.test.assertTrue(
-            overdue < today,
-            "the overdue section must come before today's: $overdue is not above $today",
-        )
+            val overdue = unclippedBoundsOfTag(TestTags.plansSection(TimelineGrouperIds.OVERDUE)).top
+            val today = unclippedBoundsOfTag(TestTags.plansSection("day:2026-09-16")).top
+            kotlin.test.assertTrue(
+                overdue < today,
+                "the overdue section must come before today's: $overdue is not above $today",
+            )
 
-        // The late task is in the overdue section and in no other one.
-        assertOneRow("Late task")
-    }
+            // The late task is in the overdue section and in no other one.
+            assertOneRow("Late task")
+        }
 }

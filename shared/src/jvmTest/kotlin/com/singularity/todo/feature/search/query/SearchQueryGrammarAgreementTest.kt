@@ -45,7 +45,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SearchQueryGrammarAgreementTest {
-
     @Test
     fun `every rule in the grammar is cited by the code in the grammar's own words`() {
         val rules = declaredRules()
@@ -57,9 +56,10 @@ class SearchQueryGrammarAgreementTest {
         assertTrue(rules.isNotEmpty(), "the grammar declares no rules: the rules are read from the rule headings")
         assertTrue(citations.isNotEmpty(), "the code cites no rules: the citations are read from the comments")
 
-        val uncited = rules.filter { (id, headline) ->
-            citations.none { it.id == id && it.text.startsWith(headline) }
-        }
+        val uncited =
+            rules.filter { (id, headline) ->
+                citations.none { it.id == id && it.text.startsWith(headline) }
+            }
 
         assertTrue(
             uncited.isEmpty(),
@@ -105,8 +105,10 @@ class SearchQueryGrammarAgreementTest {
     private fun declaredRules(): Map<String, String> {
         val text = grammar()
         val headings = heading.findAll(text).map { it.groupValues[1] }.toList()
-        val declarations = declaration.findAll(text)
-            .associate { it.groupValues[1] to it.groupValues[2].trim() }
+        val declarations =
+            declaration
+                .findAll(text)
+                .associate { it.groupValues[1] to it.groupValues[2].trim() }
 
         assertEquals(
             headings.size,
@@ -118,8 +120,7 @@ class SearchQueryGrammarAgreementTest {
     }
 
     /** Every rule id the grammar mentions, declared or not. */
-    private fun mentionedIdsInGrammar(): Set<String> =
-        ruleId.findAll(grammar()).map { it.groupValues[1] }.toSet()
+    private fun mentionedIdsInGrammar(): Set<String> = ruleId.findAll(grammar()).map { it.groupValues[1] }.toSet()
 
     /** The grammar's text. */
     private fun grammar(): String = File(grammarPath()).readText()
@@ -175,21 +176,24 @@ class SearchQueryGrammarAgreementTest {
      * is here now (#885).
      */
     private fun searchSources(): List<File> {
-        val commonMain = System.getProperty("commonMain.root")
-            ?: error(
-                "the system property `commonMain.root` is not set: the build file has to say " +
-                    "where the sources are",
+        val commonMain =
+            System.getProperty("commonMain.root")
+                ?: error(
+                    "the system property `commonMain.root` is not set: the build file has to say " +
+                        "where the sources are",
+                )
+        val roots =
+            listOf(
+                File(commonMain, "com/singularity/todo/feature/search"),
+                File(commonMain, "com/singularity/todo/core/search"),
             )
-        val roots = listOf(
-            File(commonMain, "com/singularity/todo/feature/search"),
-            File(commonMain, "com/singularity/todo/core/search"),
-        )
         roots.forEach { root ->
             assertTrue(root.isDirectory, "the search sources are not where the build file says: $root")
         }
-        return roots.flatMap { root ->
-            root.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
-        }.sortedBy { it.path }
+        return roots
+            .flatMap { root ->
+                root.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
+            }.sortedBy { it.path }
     }
 
     /**

@@ -1,8 +1,8 @@
 package com.singularity.todo.adr.cli
 
+import com.singularity.todo.adr.cli.TEST_TZ
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.feature.ai.tools.AdrStorage
-import com.singularity.todo.adr.cli.TEST_TZ
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -33,7 +33,6 @@ import kotlin.time.Instant
  */
 @Tag("slow")
 class AdrCliTest {
-
     private val temporaries = mutableListOf<File>()
 
     @AfterTest
@@ -44,7 +43,9 @@ class AdrCliTest {
 
     private class FixedHost(private val workingDir: String, private val homeDir: String) : HostEnvironmentPort {
         override fun workingDirectory(): String = workingDir
+
         override fun homeDirectory(): String = homeDir
+
         override fun applicationDataDirectory(): String = homeDir + "/.singularity-todo"
     }
 
@@ -56,11 +57,12 @@ class AdrCliTest {
         val working = createTempDirectory("adr-cli").toFile().also { temporaries += it }
         working.resolve("docs/decisions").mkdirs()
         if (withRepoScripts) working.resolve("scripts").mkdirs()
-        val storage = AdrStorage(
-            host = FixedHost(working.absolutePath, working.resolve("home").absolutePath),
-            clock = FixedClock,
-            timeZone = TEST_TZ,
-        )
+        val storage =
+            AdrStorage(
+                host = FixedHost(working.absolutePath, working.resolve("home").absolutePath),
+                clock = FixedClock,
+                timeZone = TEST_TZ,
+            )
         return AdrCli(storage, out, err, working.absolutePath) to working
     }
 
@@ -148,7 +150,12 @@ class AdrCliTest {
         assertEquals(ExitCode.OK, cli.run(listOf("list", "--json")))
 
         val root = Json.parseToJsonElement(outText()).jsonObject
-        val row = root.getValue("adrs").jsonArray.first().jsonObject
+        val row =
+            root
+                .getValue("adrs")
+                .jsonArray
+                .first()
+                .jsonObject
         assertEquals("2026-10-10-json", row.getValue("slug").jsonPrimitive.content)
         assertEquals("JSON row", row.getValue("title").jsonPrimitive.content)
         assertEquals(listOf("arch"), row.getValue("tags").jsonArray.map { it.jsonPrimitive.content })
@@ -164,7 +171,11 @@ class AdrCliTest {
 
         assertEquals(
             "2026-10-10-order",
-            Json.parseToJsonElement(outText()).jsonObject.getValue("slug").jsonPrimitive.content,
+            Json
+                .parseToJsonElement(outText())
+                .jsonObject
+                .getValue("slug")
+                .jsonPrimitive.content,
         )
     }
 
@@ -219,10 +230,26 @@ class AdrCliTest {
         assertEquals(ExitCode.OK, cli.run(listOf("stale", "--json")))
 
         val root = Json.parseToJsonElement(outText()).jsonObject
-        assertEquals(30, root.getValue("days").jsonPrimitive.content.toInt())
-        val entry = root.getValue("entries").jsonArray.first().jsonObject
+        assertEquals(
+            30,
+            root
+                .getValue("days")
+                .jsonPrimitive.content
+                .toInt(),
+        )
+        val entry =
+            root
+                .getValue("entries")
+                .jsonArray
+                .first()
+                .jsonObject
         assertEquals("2026-01-01-old", entry.getValue("slug").jsonPrimitive.content)
-        assertTrue(entry.getValue("ageDays").jsonPrimitive.content.toInt() >= 30)
+        assertTrue(
+            entry
+                .getValue("ageDays")
+                .jsonPrimitive.content
+                .toInt() >= 30,
+        )
     }
 
     @Test
@@ -317,7 +344,10 @@ class AdrCliTest {
         assertTrue(err.contains("run from the repository root"), errText())
     }
 
-    private fun writeStubScanner(repo: File, cited: Set<String>) {
+    private fun writeStubScanner(
+        repo: File,
+        cited: Set<String>,
+    ) {
         val body = cited.joinToString("\n") { "print('$it')" }
         File(repo, "scripts/check-adr-references.py").writeText(
             "# stub for AdrCliTest — the real scanner is tested in scripts/tests\n$body\n",
@@ -325,14 +355,16 @@ class AdrCliTest {
     }
 
     private fun outText(): String = out.toString()
+
     private fun errText(): String = err.toString()
 
     private companion object {
         /** Matches the trailing `283d` age column in `adr stale` output. */
         val AGE_SUFFIX = Regex("""\b\d+d$""", RegexOption.MULTILINE)
 
-        val FixedClock: Clock = object : Clock {
-            override fun now(): Instant = Instant.parse("2026-10-11T00:00:00Z")
-        }
+        val FixedClock: Clock =
+            object : Clock {
+                override fun now(): Instant = Instant.parse("2026-10-11T00:00:00Z")
+            }
     }
 }

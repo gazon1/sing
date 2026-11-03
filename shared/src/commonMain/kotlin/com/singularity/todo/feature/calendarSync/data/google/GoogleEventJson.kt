@@ -43,16 +43,18 @@ internal fun JsonObject.booleanOrNull(key: String): Boolean? =
 internal fun JsonObject.longOrNull(key: String): Long? =
     (this[key] as? JsonPrimitive)?.takeUnless { it is JsonNull }?.content?.toLongOrNull()
 
-private fun JsonObject.objOrNull(key: String): JsonObject? =
-    (this[key] as? JsonObject)
+private fun JsonObject.objOrNull(key: String): JsonObject? = (this[key] as? JsonObject)
 
 /** Parses a body that is expected to be a JSON object, or fails with the raw text. */
 internal fun String.asJsonObject(): JsonObject =
-    kotlinx.serialization.json.Json.parseToJsonElement(this).jsonObject
+    kotlinx.serialization.json.Json
+        .parseToJsonElement(this)
+        .jsonObject
 
 /** Parses a body that is expected to be a JSON array. */
 internal fun String.asJsonArray(): JsonArray =
-    kotlinx.serialization.json.Json.parseToJsonElement(this) as? JsonArray ?: JsonArray(emptyList())
+    kotlinx.serialization.json.Json
+        .parseToJsonElement(this) as? JsonArray ?: JsonArray(emptyList())
 
 /**
  * Google timestamps: RFC 3339. A date-only value is an all-day event, which is why
@@ -80,12 +82,14 @@ internal fun JsonObject.toGoogleEventOrNull(): GoogleEvent? {
     // presence of `date` is what marks an all-day event, and reading only `dateTime` would
     // silently drop every all-day event the user has.
     val allDay = start?.containsKey("date") == true
-    val startsAt = start?.let {
-        it.stringOrNull("dateTime")?.let(::parseInstantText) ?: it.stringOrNull("date")?.let(::parseDateText)
-    }
-    val endsAt = end?.let {
-        it.stringOrNull("dateTime")?.let(::parseInstantText) ?: it.stringOrNull("date")?.let(::parseDateText)
-    }
+    val startsAt =
+        start?.let {
+            it.stringOrNull("dateTime")?.let(::parseInstantText) ?: it.stringOrNull("date")?.let(::parseDateText)
+        }
+    val endsAt =
+        end?.let {
+            it.stringOrNull("dateTime")?.let(::parseInstantText) ?: it.stringOrNull("date")?.let(::parseDateText)
+        }
 
     return GoogleEvent(
         id = GoogleEventId(id),
@@ -98,31 +102,35 @@ internal fun JsonObject.toGoogleEventOrNull(): GoogleEvent? {
         location = stringOrNull("location"),
         // Verbatim. See the file comment.
         recurrenceRule = readRecurrenceRule(),
-        status = when (stringOrNull("status")) {
-            "cancelled" -> GoogleEventStatus.Cancelled
-            "tentative" -> GoogleEventStatus.Tentative
-            else -> GoogleEventStatus.Confirmed
-        },
+        status =
+            when (stringOrNull("status")) {
+                "cancelled" -> GoogleEventStatus.Cancelled
+                "tentative" -> GoogleEventStatus.Tentative
+                else -> GoogleEventStatus.Confirmed
+            },
         etag = stringOrNull("etag"),
         updatedAt = parseInstant("updated"),
-        taskId = objOrNull("extendedProperties")
-            ?.objOrNull("private")
-            ?.stringOrNull(TASK_ID_PROPERTY),
+        taskId =
+            objOrNull("extendedProperties")
+                ?.objOrNull("private")
+                ?.stringOrNull(TASK_ID_PROPERTY),
     )
 }
 
 /** Maps a single-event response. Throws-free: an event with no id is not representable. */
-internal fun JsonObject.toGoogleEvent(): GoogleEvent = toGoogleEventOrNull()
-    ?: throw IllegalStateException("Google returned an event with no id; it cannot be addressed")
+internal fun JsonObject.toGoogleEvent(): GoogleEvent =
+    toGoogleEventOrNull()
+        ?: throw IllegalStateException("Google returned an event with no id; it cannot be addressed")
 
 private fun parseInstantText(text: String): Instant? =
     runCatching { Instant.parse(text) }.getOrNull()
         ?: runCatching { Instant.parse("${text}Z") }.getOrNull()
 
 /** An all-day `date` is a bare `yyyy-MM-dd`; read it as the start of that day in UTC. */
-private fun parseDateText(text: String): Instant? = runCatching {
-    Instant.parse("${text}T00:00:00Z")
-}.getOrNull()
+private fun parseDateText(text: String): Instant? =
+    runCatching {
+        Instant.parse("${text}T00:00:00Z")
+    }.getOrNull()
 
 /**
  * Reads the repeat rule out of Google's `recurrence` field.
@@ -159,62 +167,63 @@ internal const val TASK_ID_PROPERTY = "singularityTaskId"
  * would clear any field the app has no model for — a colour, a conference link, a guest
  * list — and Google charges by the fields sent.
  */
-internal fun GoogleEvent.toRequestJson(): String = buildJsonObject {
-    // Every owned field is written once, as an explicit null when cleared. Omitting a
-    // cleared field would leave the old value on Google's side, so a user deleting a
-    // description in the app would watch it reappear on the next sync.
-    // Read from the event's own properties — `stringOrNull` is a JsonObject extension and
-    // has nothing to say about a GoogleEvent.
-    put("summary", title?.let(::JsonPrimitive) ?: JsonNull)
-    put("description", description?.let(::JsonPrimitive) ?: JsonNull)
-    put("location", location?.let(::JsonPrimitive) ?: JsonNull)
+internal fun GoogleEvent.toRequestJson(): String =
+    buildJsonObject {
+        // Every owned field is written once, as an explicit null when cleared. Omitting a
+        // cleared field would leave the old value on Google's side, so a user deleting a
+        // description in the app would watch it reappear on the next sync.
+        // Read from the event's own properties — `stringOrNull` is a JsonObject extension and
+        // has nothing to say about a GoogleEvent.
+        put("summary", title?.let(::JsonPrimitive) ?: JsonNull)
+        put("description", description?.let(::JsonPrimitive) ?: JsonNull)
+        put("location", location?.let(::JsonPrimitive) ?: JsonNull)
 
-    startsAt?.let { start ->
-        endsAt?.let { end ->
+        startsAt?.let { start ->
+            endsAt?.let { end ->
+                put(
+                    "start",
+                    buildJsonObject {
+                        if (allDay == true) {
+                            put("date", JsonPrimitive(start.toDateText()))
+                        } else {
+                            put("dateTime", JsonPrimitive(start.toIsoText()))
+                        }
+                    },
+                )
+                put(
+                    "end",
+                    buildJsonObject {
+                        if (allDay == true) {
+                            put("date", JsonPrimitive(end.toDateText()))
+                        } else {
+                            put("dateTime", JsonPrimitive(end.toIsoText()))
+                        }
+                    },
+                )
+            }
+        }
+
+        recurrenceRule?.let { rule ->
+            // A list of strings, with the `RRULE:` prefix — the same shape `readRecurrenceRule`
+            // reads back. Writing an object here instead would be silently ignored by Google,
+            // and a series would quietly stop repeating.
             put(
-                "start",
-                buildJsonObject {
-                    if (allDay == true) {
-                        put("date", JsonPrimitive(start.toDateText()))
-                    } else {
-                        put("dateTime", JsonPrimitive(start.toIsoText()))
-                    }
-                },
-            )
-            put(
-                "end",
-                buildJsonObject {
-                    if (allDay == true) {
-                        put("date", JsonPrimitive(end.toDateText()))
-                    } else {
-                        put("dateTime", JsonPrimitive(end.toIsoText()))
-                    }
+                "recurrence",
+                buildJsonArray {
+                    add(JsonPrimitive(RRULE_PREFIX + rule))
                 },
             )
         }
-    }
 
-    recurrenceRule?.let { rule ->
-        // A list of strings, with the `RRULE:` prefix — the same shape `readRecurrenceRule`
-        // reads back. Writing an object here instead would be silently ignored by Google,
-        // and a series would quietly stop repeating.
-        put(
-            "recurrence",
-            buildJsonArray {
-                add(JsonPrimitive(RRULE_PREFIX + rule))
-            },
-        )
-    }
-
-    taskId?.let { id ->
-        put(
-            "extendedProperties",
-            buildJsonObject {
-                put("private", buildJsonObject { put(TASK_ID_PROPERTY, JsonPrimitive(id)) })
-            },
-        )
-    }
-}.toString()
+        taskId?.let { id ->
+            put(
+                "extendedProperties",
+                buildJsonObject {
+                    put("private", buildJsonObject { put(TASK_ID_PROPERTY, JsonPrimitive(id)) })
+                },
+            )
+        }
+    }.toString()
 
 /** `yyyy-MM-dd` for an all-day boundary, in UTC. */
 private fun Instant.toDateText(): String = toString().substring(0, 10)

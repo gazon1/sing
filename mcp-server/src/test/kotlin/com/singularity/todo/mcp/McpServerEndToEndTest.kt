@@ -25,6 +25,15 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
+// Every test here drives a real server process over a pipe, and the calls that do
+// the driving are blocking by nature: the answer comes when the server answers. The
+// alternative — a scope that is launched and never awaited — would assert nothing.
+//
+// The note is above the annotations rather than between them: the tag-coverage gate
+// reads the *contiguous* annotation block above the class header, so a comment in
+// the middle of the block hides the tag from it — and an untagged class is one that
+// no CI population ever selects.
+
 /**
  * End-to-end test: spawns the real mcp-server.jar as a subprocess and connects to it via
  * [StdioClientTransport]. Skipped when the fat JAR has not been built yet (e.g., clean
@@ -36,27 +45,19 @@ import kotlin.test.fail
  *   2. `initialize` roundtrip — serverInfo name matches.
  *   3. `tools/list` returns at least one registered tool.
  */
-// Every test here drives a real server process over a pipe, and the calls that do
-// the driving are blocking by nature: the answer comes when the server answers. The
-// alternative — a scope that is launched and never awaited — would assert nothing.
-//
-// The note is above the annotations rather than between them: the tag-coverage gate
-// reads the *contiguous* annotation block above the class header, so a comment in
-// the middle of the block hides the tag from it — and an untagged class is one that
-// no CI population ever selects.
 @Tag("slow")
 @Tag("slow:data")
 @Suppress("NoRunBlocking") // the test drives a real process over a pipe; the calls block by nature
 class McpServerEndToEndTest {
-
     // Absolute path: workingDir for this test suite is build/allure-results (set in
     // mcp-server/build.gradle.kts), so a relative path would resolve to
     // build/allure-results/build/libs/mcp-server.jar which does not exist.
     // The absolute path is passed as a system property from the Gradle build file.
-    private val jar = File(
-        System.getProperty("mcp-server.jar.path")
-            ?: error("mcp-server.jar.path system property not set — run :mcp-server:jar first"),
-    )
+    private val jar =
+        File(
+            System.getProperty("mcp-server.jar.path")
+                ?: error("mcp-server.jar.path system property not set — run :mcp-server:jar first"),
+        )
 
     /**
      * Spawns the fat JAR against an ISOLATED `-Duser.home` temp directory.
@@ -76,15 +77,18 @@ class McpServerEndToEndTest {
      * say that the server recorded anything.
      */
     private fun spawnServerWithHome(): Pair<Process, Path> {
-        val e2eHome = java.nio.file.Files.createTempDirectory("mcp-e2e-home")
-        val process = ProcessBuilder(
-            "java",
-            "-Duser.home=${e2eHome.toAbsolutePath()}",
-            "-jar",
-            jar.absolutePath,
-            "--profile=e2e-${System.currentTimeMillis()}",
-        ).redirectError(ProcessBuilder.Redirect.PIPE)
-            .start()
+        val e2eHome =
+            java.nio.file.Files
+                .createTempDirectory("mcp-e2e-home")
+        val process =
+            ProcessBuilder(
+                "java",
+                "-Duser.home=${e2eHome.toAbsolutePath()}",
+                "-jar",
+                jar.absolutePath,
+                "--profile=e2e-${System.currentTimeMillis()}",
+            ).redirectError(ProcessBuilder.Redirect.PIPE)
+                .start()
         return process to e2eHome
     }
 
@@ -98,14 +102,16 @@ class McpServerEndToEndTest {
         val process = spawnServer()
 
         try {
-            val transport = StdioClientTransport(
-                input = process.inputStream.asSource().buffered(),
-                output = process.outputStream.asSink().buffered(),
-            )
+            val transport =
+                StdioClientTransport(
+                    input = process.inputStream.asSource().buffered(),
+                    output = process.outputStream.asSink().buffered(),
+                )
 
-            val client = Client(
-                clientInfo = Implementation(name = "singularity-e2e-test", version = "0.0.1"),
-            )
+            val client =
+                Client(
+                    clientInfo = Implementation(name = "singularity-e2e-test", version = "0.0.1"),
+                )
 
             runBlocking {
                 withTimeout(timeMillis = 15_000) {
@@ -117,11 +123,12 @@ class McpServerEndToEndTest {
             assertNotNull(serverInfo, "serverInfo should be present after initialize")
             assertEquals("singularity-todo", serverInfo.name)
 
-            val toolNames = runBlocking {
-                withTimeout(timeMillis = 5_000) {
-                    client.listTools().tools.map { it.name }
+            val toolNames =
+                runBlocking {
+                    withTimeout(timeMillis = 5_000) {
+                        client.listTools().tools.map { it.name }
+                    }
                 }
-            }
             assertTrue(toolNames.isNotEmpty(), "Expected at least one registered tool, got $toolNames")
 
             // Regression: every tool's inputSchema must NOT carry a `$schema` key whose
@@ -228,13 +235,15 @@ class McpServerEndToEndTest {
 
     /** Connects to the spawned server over the stdio transport. */
     private fun connect(process: Process): Client {
-        val transport = StdioClientTransport(
-            input = process.inputStream.asSource().buffered(),
-            output = process.outputStream.asSink().buffered(),
-        )
-        val client = Client(
-            clientInfo = Implementation(name = "singularity-e2e-test", version = "0.0.1"),
-        )
+        val transport =
+            StdioClientTransport(
+                input = process.inputStream.asSource().buffered(),
+                output = process.outputStream.asSink().buffered(),
+            )
+        val client =
+            Client(
+                clientInfo = Implementation(name = "singularity-e2e-test", version = "0.0.1"),
+            )
         runBlocking {
             withTimeout(timeMillis = 15_000) {
                 client.connect(transport)
@@ -245,11 +254,12 @@ class McpServerEndToEndTest {
 
     /** Step 1: the toolbox describes itself, and says which contract it speaks. */
     private fun describeTheToolbox(client: Client): JsonObject {
-        val described: CallToolResult = runBlocking {
-            withTimeout(timeMillis = 5_000) {
-                client.callTool("describe_toolbox", emptyMap())
+        val described: CallToolResult =
+            runBlocking {
+                withTimeout(timeMillis = 5_000) {
+                    client.callTool("describe_toolbox", emptyMap())
+                }
             }
-        }
         assertTrue(
             described.isError == false,
             "describe_toolbox returned isError=true: ${described.content}",
@@ -262,11 +272,12 @@ class McpServerEndToEndTest {
 
     /** Step 2: call a tool. */
     private fun callAListTool(client: Client) {
-        val called: CallToolResult = runBlocking {
-            withTimeout(timeMillis = 5_000) {
-                client.callTool("list_tasks", emptyMap())
+        val called: CallToolResult =
+            runBlocking {
+                withTimeout(timeMillis = 5_000) {
+                    client.callTool("list_tasks", emptyMap())
+                }
             }
-        }
         assertTrue(
             called.isError == false,
             "list_tasks returned isError=true: ${called.content}",
@@ -307,16 +318,16 @@ class McpServerEndToEndTest {
         val script = repoRoot().resolve("scripts").resolve("mcp-toolbox-usage.py")
         assertTrue(script.toFile().isFile, "no usage report at $script")
 
-        val process = ProcessBuilder(
-            "python3",
-            script.toString(),
-            "--data-dir",
-            dataDirectory.toString(),
-            "--json",
-        )
-            .directory(repoRoot().toFile())
-            .redirectErrorStream(false)
-            .start()
+        val process =
+            ProcessBuilder(
+                "python3",
+                script.toString(),
+                "--data-dir",
+                dataDirectory.toString(),
+                "--json",
+            ).directory(repoRoot().toFile())
+                .redirectErrorStream(false)
+                .start()
 
         val output = process.inputStream.bufferedReader().readText()
         val finished = process.waitFor()
@@ -325,11 +336,17 @@ class McpServerEndToEndTest {
     }
 
     /** The repository root, found by walking up from the working directory. */
-    private fun repoRoot(): Path = generateSequence(Path.of(System.getProperty("user.dir")).toAbsolutePath()) {
-        it.parent
-    }
-        .firstOrNull { it.resolve("scripts").resolve("mcp-toolbox-usage.py").toFile().isFile }
-        ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
+    private fun repoRoot(): Path =
+        generateSequence(Path.of(System.getProperty("user.dir")).toAbsolutePath()) {
+            it.parent
+        }.firstOrNull {
+            it
+                .resolve("scripts")
+                .resolve("mcp-toolbox-usage.py")
+                .toFile()
+                .isFile
+        }
+            ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
 
     /**
      * The write path proposes: `create_task` stores a proposal, and the task comes into
@@ -361,11 +378,12 @@ class McpServerEndToEndTest {
 
             // Step 1: the tool proposes.
             val title = "E2E roundtrip task ${System.currentTimeMillis()}"
-            val createResult = callTool(
-                client,
-                "create_task",
-                mapOf("title" to title, "priority" to "High"),
-            )
+            val createResult =
+                callTool(
+                    client,
+                    "create_task",
+                    mapOf("title" to title, "priority" to "High"),
+                )
 
             assertTrue(
                 createResult.isError == false,
@@ -428,7 +446,11 @@ class McpServerEndToEndTest {
     }
 
     /** Calls a tool and returns the answer it gave. */
-    private fun callTool(client: Client, name: String, arguments: Map<String, String>): CallToolResult =
+    private fun callTool(
+        client: Client,
+        name: String,
+        arguments: Map<String, String>,
+    ): CallToolResult =
         runBlocking {
             withTimeout(timeMillis = 5_000) {
                 client.callTool(name, arguments)
@@ -436,15 +458,20 @@ class McpServerEndToEndTest {
         }
 
     /** The JSON a tool answered with. */
-    private fun jsonOf(result: CallToolResult): JsonObject = Json.parseToJsonElement(
-        (result.content.first() as TextContent).text,
-    ).jsonObject
+    private fun jsonOf(result: CallToolResult): JsonObject =
+        Json
+            .parseToJsonElement(
+                (result.content.first() as TextContent).text,
+            ).jsonObject
 
     /**
      * The id the proposal reserved for the task, read from the database the server
      * wrote. The table and its columns are the ones `ProposalDao` declares.
      */
-    private fun reservedTaskId(home: Path, proposalId: String): String {
+    private fun reservedTaskId(
+        home: Path,
+        proposalId: String,
+    ): String {
         val database = home.resolve(".singularity-todo").resolve("singularity-todo.db")
         assertTrue(database.toFile().isFile, "the server did not create its database at $database")
         DriverManager.getConnection("jdbc:sqlite:${database.toAbsolutePath()}").use { connection ->

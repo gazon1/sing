@@ -1,16 +1,16 @@
-import java.util.Properties
-import java.time.Duration as JavaDuration
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.tasks.PathSensitivity
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
+import java.time.Duration as JavaDuration
 
 plugins {
-	alias(libs.plugins.kotlinMultiplatform)
-	alias(libs.plugins.androidMultiplatformLibrary)
-	alias(libs.plugins.composeMultiplatform)
-	alias(libs.plugins.composeCompiler)
-	alias(libs.plugins.kotlinxSerialization)
+    alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.androidMultiplatformLibrary)
+    alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.kotlinxSerialization)
     // KSP for Room annotation processing
     alias(libs.plugins.ksp)
     // Room 3 KSP plugin (schema export)
@@ -53,16 +53,18 @@ composeCompiler {
 // The same trap made the stability report unreliable, which is why the report
 // block below forces the compilation to re-run instead of relying on inputs.
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
-    inputs.file(composeStabilityConfiguration)
+    inputs
+        .file(composeStabilityConfiguration)
         .withPropertyName("composeStabilityConfiguration")
         .withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 /** kotlinx-coroutines-debug agent for jvmTest only. */
-val coroutinesDebugAgent = configurations.create("coroutinesDebugAgent") {
-    isCanBeConsumed = false
-    isCanBeResolved = true
-}
+val coroutinesDebugAgent =
+    configurations.create("coroutinesDebugAgent") {
+        isCanBeConsumed = false
+        isCanBeResolved = true
+    }
 
 // ---------------------------------------------------------------------------
 // Compose stability report — an audit instrument, not a build gate
@@ -110,11 +112,12 @@ if (composeStabilityReportEnabled) {
 // The compiler reads the destination from a plugin option, so the flag is
 // `-P plugin:<plugin-id>:<option>=<value>` — the id is the one the compiler
 // registers its command line processor under.
-fun composeStabilityReportArgs(target: String): List<String> = listOf(
-    "-P",
-    "plugin:androidx.compose.compiler.plugins.kotlin:reportsDestination=" +
-        composeStabilityReportsRoot.get().asFile.absolutePath + "/" + target,
-)
+fun composeStabilityReportArgs(target: String): List<String> =
+    listOf(
+        "-P",
+        "plugin:androidx.compose.compiler.plugins.kotlin:reportsDestination=" +
+            composeStabilityReportsRoot.get().asFile.absolutePath + "/" + target,
+    )
 
 kotlin {
     // The one JDK every target is compiled with and every consumer runs on —
@@ -134,8 +137,14 @@ kotlin {
 
     android {
         namespace = "com.singularity.todo.shared"
-        compileSdk = libs.versions.sdk.compile.get().toInt()
-        minSdk = libs.versions.sdk.min.get().toInt()
+        compileSdk =
+            libs.versions.sdk.compile
+                .get()
+                .toInt()
+        minSdk =
+            libs.versions.sdk.min
+                .get()
+                .toInt()
 
         compilerOptions {
             jvmTarget = JvmTarget.JVM_11
@@ -244,21 +253,21 @@ kotlin {
             implementation(libs.androidx.room3.runtime)
             implementation(libs.androidx.sqlite)
 
-			// Koin
-			implementation(libs.koin.core)
-			implementation(libs.koin.compose)
-			implementation(libs.koin.compose.viewmodel)
+            // Koin
+            implementation(libs.koin.core)
+            implementation(libs.koin.compose)
+            implementation(libs.koin.compose.viewmodel)
 
-			// Navigation 3 multiplatform runtime (NavKey, NavBackStack, NavEntry)
-			// Platform-specific implementations (entryProvider, rememberNavBackStack) are in
-			// the platform AARs: navigation3-runtime-android (androidMain).
-			implementation(libs.androidx.navigation3.runtime)
-			// Navigation 3 UI (NavDisplay) — the JetBrains KMP root, so `NavDisplay` is
-			// available in commonMain: on Android it redirects to the androidx artifact,
-			// on Desktop it carries the Compose Multiplatform port. The androidx line
-			// publishes no desktop variant, so this is the only way to put a nested
-			// graph's NavDisplay into common code.
-			implementation(libs.androidx.navigation3.ui)
+            // Navigation 3 multiplatform runtime (NavKey, NavBackStack, NavEntry)
+            // Platform-specific implementations (entryProvider, rememberNavBackStack) are in
+            // the platform AARs: navigation3-runtime-android (androidMain).
+            implementation(libs.androidx.navigation3.runtime)
+            // Navigation 3 UI (NavDisplay) — the JetBrains KMP root, so `NavDisplay` is
+            // available in commonMain: on Android it redirects to the androidx artifact,
+            // on Desktop it carries the Compose Multiplatform port. The androidx line
+            // publishes no desktop variant, so this is the only way to put a nested
+            // graph's NavDisplay into common code.
+            implementation(libs.androidx.navigation3.ui)
 
             // Ktor
             implementation(libs.ktor.client.core)
@@ -331,6 +340,13 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.compose.ui.tooling)
             implementation(libs.compose.ui.tooling.preview)
+
+            // ComponentActivity, SystemBarStyle and enableEdgeToEdge — the system
+            // bars take their polarity from the app's theme mode, which is
+            // resolved in commonMain. The alternative (the style is applied from
+            // the activity, before the mode is known) would leave the bars
+            // following the operating system while the app follows the user.
+            implementation(libs.androidx.activity)
 
             // Google's authorization API — the offline authorization request that
             // produces the one-time code the server redeems.
@@ -485,14 +501,16 @@ kotlin {
 // This module reads its OWN line of the record, so the number its test JVMs
 // run with is the number the record holds for this module. `scripts/check-memory-budget.py`
 // is what keeps the two in step.
-val memoryBudget = Properties().apply {
-    rootProject.file("config/docs/gradle-memory-budget.properties").inputStream().use { load(it) }
-}
-val testTaskHeap = memoryBudget.getProperty("test.heap.module.shared")
-    ?: throw GradleException(
-        "config/docs/gradle-memory-budget.properties declares no test.heap.module.shared — " +
-            "the heap of this module's test tasks has to be recorded somewhere."
-    )
+val memoryBudget =
+    Properties().apply {
+        rootProject.file("config/docs/gradle-memory-budget.properties").inputStream().use { load(it) }
+    }
+val testTaskHeap =
+    memoryBudget.getProperty("test.heap.module.shared")
+        ?: throw GradleException(
+            "config/docs/gradle-memory-budget.properties declares no test.heap.module.shared — " +
+                "the heap of this module's test tasks has to be recorded somewhere.",
+        )
 
 // ── The architecture suite has a task of its own ─────────────────────────────
 //
@@ -521,27 +539,30 @@ val testTaskHeap = memoryBudget.getProperty("test.heap.module.shared")
 // no longer existed — each of those gates still reported green, because a
 // gate that looks for a suite that is not there counts nothing instead of
 // failing.
-val archSuite = Properties().apply {
-    rootProject.file("config/docs/arch-suite.properties").inputStream().use { load(it) }
-}
-val archPackage = archSuite.getProperty("arch.package")
-    ?: throw GradleException(
-        "config/docs/arch-suite.properties declares no arch.package — the package the " +
-            "architecture gates live in has to be recorded somewhere."
-    )
-val archTest = tasks.register<Test>("archTest") {
-    description = "The architecture gates — the ones that read the whole tree."
-    group = "verification"
-    val jvmTestSources = sourceSets.getByName("jvmTest")
-    testClassesDirs = jvmTestSources.output.classesDirs
-    classpath = jvmTestSources.runtimeClasspath
-    filter { includeTestsMatching("$archPackage.*") }
-    // The fork count is set in the `jvmTest`/`archTest` block below, where both
-    // tasks are configured together: one fork for this one, four for the rest.
-    // The merge is the same — a retried class must not be counted twice by the
-    // run floor.
-    reports.junitXml.mergeReruns.set(true)
-}
+val archSuite =
+    Properties().apply {
+        rootProject.file("config/docs/arch-suite.properties").inputStream().use { load(it) }
+    }
+val archPackage =
+    archSuite.getProperty("arch.package")
+        ?: throw GradleException(
+            "config/docs/arch-suite.properties declares no arch.package — the package the " +
+                "architecture gates live in has to be recorded somewhere.",
+        )
+val archTest =
+    tasks.register<Test>("archTest") {
+        description = "The architecture gates — the ones that read the whole tree."
+        group = "verification"
+        val jvmTestSources = sourceSets.getByName("jvmTest")
+        testClassesDirs = jvmTestSources.output.classesDirs
+        classpath = jvmTestSources.runtimeClasspath
+        filter { includeTestsMatching("$archPackage.*") }
+        // The fork count is set in the `jvmTest`/`archTest` block below, where both
+        // tasks are configured together: one fork for this one, four for the rest.
+        // The merge is the same — a retried class must not be counted twice by the
+        // run floor.
+        reports.junitXml.mergeReruns.set(true)
+    }
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
@@ -566,8 +587,11 @@ tasks.withType<Test>().configureEach {
         systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "concurrent")
         systemProperty("junit.jupiter.execution.parallel.config.strategy", "dynamic")
 
-        val tags = (project.findProperty("test.tags") as String?)
-            ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+        val tags =
+            (project.findProperty("test.tags") as String?)
+                ?.split(",")
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() } ?: emptyList()
         when {
             // `testAndroidHostTest` is exempt from an explicit tag list, and NOT by
             // accident. Robolectric is a JUnit4 runner, so its classes execute under the
@@ -594,10 +618,12 @@ tasks.withType<Test>().configureEach {
             name == "testAndroidHostTest" && tags.isNotEmpty() && tags != listOf("all") -> {
                 // Intentionally no filter — see above.
             }
+
             tags.isEmpty() -> {
                 // Default: run everything EXCEPT @Tag("slow") — slow requires -Ptest.tags=slow
                 excludeTags("slow")
             }
+
             // `-Ptest.tags=all` applies no tag filter at all. This is the only
             // setting that runs untagged tests, and JUnit's includeTags()
             // excludes them — so a CI step passing a tag list silently skips
@@ -608,8 +634,13 @@ tasks.withType<Test>().configureEach {
             // (This pointer read `docs/decisions/deferred/an-untagged-test-class-...`,
             // which PR #645 deleted with the whole deferred/ tree; the deferred
             // entry had been promoted into that ADR.)
-            tags == listOf("all") -> Unit
-            else -> includeTags(*tags.toTypedArray())
+            tags == listOf("all") -> {
+                Unit
+            }
+
+            else -> {
+                includeTags(*tags.toTypedArray())
+            }
         }
     }
     // Was the default ~512 MB, then 3 GB. The heap is MEASURED, not chosen: the full
@@ -700,14 +731,15 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // again over the ceiling `config/docs/gradle-memory-budget.properties`
     // records. The count belongs there, beside the heap it multiplies.
     val budgetForks = memoryBudget.getProperty("test.forks.module.shared")?.toIntOrNull() ?: 4
-    maxParallelForks = if (archTask) {
-        // One fork for the architecture suite. The Konsist scope these gates
-        // build is per-JVM, and building it costs a quarter of the suite's CPU:
-        // four forks built the same scope four times. One fork builds it once.
-        1
-    } else {
-        (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, budgetForks)
-    }
+    maxParallelForks =
+        if (archTask) {
+            // One fork for the architecture suite. The Konsist scope these gates
+            // build is per-JVM, and building it costs a quarter of the suite's CPU:
+            // four forks built the same scope four times. One fork builds it once.
+            1
+        } else {
+            (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, budgetForks)
+        }
     // Apply heap directly to the jvmTest fork — the global configureEach above
     // also sets this, but being explicit avoids ordering ambiguity.
     maxHeapSize = testTaskHeap
@@ -739,7 +771,9 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // which is not guaranteed to be the project directory.
     systemProperty(
         "commonMain.root",
-        layout.projectDirectory.dir("src/commonMain/kotlin").asFile.absolutePath,
+        layout.projectDirectory
+            .dir("src/commonMain/kotlin")
+            .asFile.absolutePath,
     )
     // Absolute paths to :shared's own test sources and resources, for the tests that
     // read files rather than calling code.
@@ -758,11 +792,15 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // rather than an assumption about where the JVM was started.
     systemProperty(
         "jvmTestSources.root",
-        layout.projectDirectory.dir("src/jvmTest/kotlin").asFile.absolutePath,
+        layout.projectDirectory
+            .dir("src/jvmTest/kotlin")
+            .asFile.absolutePath,
     )
     systemProperty(
         "jvmTestResources.root",
-        layout.projectDirectory.dir("src/jvmTest/resources").asFile.absolutePath,
+        layout.projectDirectory
+            .dir("src/jvmTest/resources")
+            .asFile.absolutePath,
     )
     // `PlatformSeamGuardTest` answers "is this seam injected anywhere?", and the seam
     // registry is a project-wide declaration — so the scan has to be project-wide too.
@@ -772,7 +810,9 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // repository.
     systemProperty(
         "adrCoreCommonMain.root",
-        rootProject.layout.projectDirectory.dir("adr-core/src/commonMain/kotlin").asFile.absolutePath,
+        rootProject.layout.projectDirectory
+            .dir("adr-core/src/commonMain/kotlin")
+            .asFile.absolutePath,
     )
     // Absolute path to desktopApp jvmTest sources for ViewModelTestCoverageTest, which
     // aggregates test roots across modules and so cannot be written relatively.
@@ -783,7 +823,9 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // unnecessary. The property stays for the remaining reader — see #153.
     systemProperty(
         "desktopAppJvmTest.root",
-        layout.projectDirectory.dir("../desktopApp/src/jvmTest/kotlin").asFile.absolutePath,
+        layout.projectDirectory
+            .dir("../desktopApp/src/jvmTest/kotlin")
+            .asFile.absolutePath,
     )
     // Allure test reporting — results written to build/allure-results/
     // allure-kotlin's `allure.results.directory` key is NOT read by allure-junit5's listener;
@@ -791,7 +833,11 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // Setting workingDir on the forked JVM makes it write to <module>/build/allure-results/,
     // which is where the CI upload step and the existing .gitignore `**/build/` entry
     // expect it. The directory is per-task to avoid collisions when tests run in parallel.
-    val allureDir = layout.buildDirectory.dir("allure-results").get().asFile
+    val allureDir =
+        layout.buildDirectory
+            .dir("allure-results")
+            .get()
+            .asFile
     workingDir = allureDir.also { it.mkdirs() }
     // The tests above read files OUTSIDE :shared while they run, so those trees are
     // inputs to this task whether or not they feed the compiler. Without this, editing
@@ -809,10 +855,12 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // (`archTest`). Declaring them here would make a change to a desktopApp test
     // re-run the four hundred classes that do not read it.
     if (archTask) {
-        inputs.dir(layout.projectDirectory.dir("../desktopApp/src/jvmTest/kotlin"))
+        inputs
+            .dir(layout.projectDirectory.dir("../desktopApp/src/jvmTest/kotlin"))
             .withPropertyName("desktopAppJvmTestSources")
             .withPathSensitivity(PathSensitivity.RELATIVE)
-        inputs.dir(layout.projectDirectory.dir("../mcp-server/src/test"))
+        inputs
+            .dir(layout.projectDirectory.dir("../mcp-server/src/test"))
             .withPropertyName("mcpServerTestSources")
             .withPathSensitivity(PathSensitivity.RELATIVE)
     }
@@ -825,13 +873,14 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // The arch gates read the build files, the flows and the skills — and the
     // arch gates have their own task, so these inputs are declared on it.
     if (archTask) {
-        inputs.files(
-            rootProject.file("shared/build.gradle.kts"),
-            rootProject.file("androidApp/build.gradle.kts"),
-            rootProject.file("desktopApp/build.gradle.kts"),
-            rootProject.file("mcp-server/build.gradle.kts"),
-        ).withPropertyName("moduleBuildFiles")
-         .withPathSensitivity(PathSensitivity.RELATIVE)
+        inputs
+            .files(
+                rootProject.file("shared/build.gradle.kts"),
+                rootProject.file("androidApp/build.gradle.kts"),
+                rootProject.file("desktopApp/build.gradle.kts"),
+                rootProject.file("mcp-server/build.gradle.kts"),
+            ).withPropertyName("moduleBuildFiles")
+            .withPathSensitivity(PathSensitivity.RELATIVE)
     }
     // MaestroFlowTagsTest walks up from commonMain.root to the worktree root and reads
     // Maestro/. That tree is not a compile input of :shared at all, so the gate went
@@ -848,7 +897,8 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // the reason the invariant is now enforced by check-test-task-inputs.py rather than
     // by whoever touches it next.
     if (archTask) {
-        inputs.dir(layout.projectDirectory.dir("../Maestro"))
+        inputs
+            .dir(layout.projectDirectory.dir("../Maestro"))
             .withPropertyName("maestroFlows")
             .withPathSensitivity(PathSensitivity.RELATIVE)
     }
@@ -861,7 +911,9 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // was the defect rather than the style.
     systemProperty(
         "maestro.root",
-        layout.projectDirectory.dir("../Maestro").asFile.absolutePath,
+        layout.projectDirectory
+            .dir("../Maestro")
+            .asFile.absolutePath,
     )
     // The search query grammar, read by `SearchQueryGrammarAgreementTest`.
     //
@@ -878,7 +930,8 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // The document is not a compile input of :shared, so without this the task went
     // UP-TO-DATE on every grammar edit and re-reported the previous run's verdict —
     // a gate that cannot be invalidated by the change it watches.
-    inputs.file(rootProject.file("docs/specs/search-query-grammar.md"))
+    inputs
+        .file(rootProject.file("docs/specs/search-query-grammar.md"))
         .withPropertyName("searchQueryGrammarSpec")
         .withPathSensitivity(PathSensitivity.RELATIVE)
     // The backup bucket's RLS policy, read by `BackupBucketPolicyTest`.
@@ -895,7 +948,8 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
         "backupBucketPolicy.migration",
         rootProject.file("supabase/migrations/2026-10-24-backup_storage_bucket.sql").absolutePath,
     )
-    inputs.file(rootProject.file("supabase/migrations/2026-10-24-backup_storage_bucket.sql"))
+    inputs
+        .file(rootProject.file("supabase/migrations/2026-10-24-backup_storage_bucket.sql"))
         .withPropertyName("backupBucketPolicyMigration")
         .withPathSensitivity(PathSensitivity.RELATIVE)
     // The text-field inventory in the skill, read by `TextFieldShapeConventionTest`.
@@ -908,13 +962,16 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // verdict about a table it never re-read — the same failure mode as the Maestro
     // flows above.
     if (archTask) {
-        inputs.dir(rootProject.layout.projectDirectory.dir(".agents/skills"))
+        inputs
+            .dir(rootProject.layout.projectDirectory.dir(".agents/skills"))
             .withPropertyName("agentSkills")
             .withPathSensitivity(PathSensitivity.RELATIVE)
     }
     systemProperty(
         "skills.root",
-        rootProject.layout.projectDirectory.dir(".agents/skills").asFile.absolutePath,
+        rootProject.layout.projectDirectory
+            .dir(".agents/skills")
+            .asFile.absolutePath,
     )
     // The Desktop packaging script, read by `JvmReminderSchedulerLauncherPathTest`.
     //
@@ -946,10 +1003,12 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // :shared:jvmTest UP-TO-DATE, and the gate re-reports a verdict about the
     // binding it was supposed to have caught missing.
     if (archTask) {
-        inputs.dir(layout.projectDirectory.dir("src/androidMain/kotlin"))
+        inputs
+            .dir(layout.projectDirectory.dir("src/androidMain/kotlin"))
             .withPropertyName("androidMainSources")
             .withPathSensitivity(PathSensitivity.RELATIVE)
-        inputs.dir(layout.projectDirectory.dir("src/jvmMain/kotlin"))
+        inputs
+            .dir(layout.projectDirectory.dir("src/jvmMain/kotlin"))
             .withPropertyName("jvmMainSources")
             .withPathSensitivity(PathSensitivity.RELATIVE)
     }
@@ -960,11 +1019,15 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // the first failure hides behind an initialiser error.
     systemProperty(
         "commonTest.root",
-        layout.projectDirectory.dir("src/commonTest/kotlin").asFile.absolutePath,
+        layout.projectDirectory
+            .dir("src/commonTest/kotlin")
+            .asFile.absolutePath,
     )
     systemProperty(
         "jvmTest.root",
-        layout.projectDirectory.dir("src/jvmTest/kotlin").asFile.absolutePath,
+        layout.projectDirectory
+            .dir("src/jvmTest/kotlin")
+            .asFile.absolutePath,
     )
     // The exported Room schemas, read at runtime by the generated round-trip test.
     //
@@ -978,7 +1041,8 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     //
     // Declared as a directory rather than per version, because the test reads one file
     // per step and the set of steps changes with the chain.
-    inputs.dir(layout.projectDirectory.dir("schemas"))
+    inputs
+        .dir(layout.projectDirectory.dir("schemas"))
         .withPropertyName("exportedRoomSchemas")
         .withPathSensitivity(PathSensitivity.RELATIVE)
     // The positive control of UnannotatedTestMemberTest reads a committed class that is
@@ -986,7 +1050,8 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // it. Declared here for the same reason as every input above: a gate that cannot be
     // invalidated by the change it watches reports a verdict about a file it never re-read.
     if (archTask) {
-        inputs.dir(layout.projectDirectory.dir("src/jvmTest/fixtures"))
+        inputs
+            .dir(layout.projectDirectory.dir("src/jvmTest/fixtures"))
             .withPropertyName("jvmTestFixtures")
             .withPathSensitivity(PathSensitivity.RELATIVE)
     }
@@ -1001,11 +1066,15 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // name are declared as inputs above and nothing else is dragged in.
     systemProperty(
         "androidMain.root",
-        layout.projectDirectory.dir("src/androidMain/kotlin").asFile.absolutePath,
+        layout.projectDirectory
+            .dir("src/androidMain/kotlin")
+            .asFile.absolutePath,
     )
     systemProperty(
         "jvmMain.root",
-        layout.projectDirectory.dir("src/jvmMain/kotlin").asFile.absolutePath,
+        layout.projectDirectory
+            .dir("src/jvmMain/kotlin")
+            .asFile.absolutePath,
     )
     // Enable TAGS.md golden regeneration:
     //   ./gradlew :shared:jvmTest -PupdateGoldens=true
@@ -1015,7 +1084,9 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // Build directory path for FailureContextExtension coroutine dump output.
     systemProperty(
         "shared.build.dir",
-        layout.buildDirectory.get().asFile.absolutePath,
+        layout.buildDirectory
+            .get()
+            .asFile.absolutePath,
     )
     // Global test timeout: makes CoroutinesTimeoutExtension fire on a hard-hang
     // (Extension catches the exception and writes coroutines-timeout.txt before the harness
@@ -1025,11 +1096,13 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // -javaagent for kotlinx-coroutines-debug: required for JDK 21+ compatibility.
     // Resolved eagerly as a plain String (not via CommandLineArgumentProvider) to avoid
     // capturing the Gradle script object, which breaks the configuration cache.
-    val coroutinesDebugAgentPath: String = configurations
-        .named("coroutinesDebugAgent").get()
-        .resolve()
-        .single { it.name.contains("debug") && it.name.endsWith(".jar") }
-        .absolutePath
+    val coroutinesDebugAgentPath: String =
+        configurations
+            .named("coroutinesDebugAgent")
+            .get()
+            .resolve()
+            .single { it.name.contains("debug") && it.name.endsWith(".jar") }
+            .absolutePath
     jvmArgs("-javaagent:$coroutinesDebugAgentPath")
 }
 
@@ -1121,29 +1194,35 @@ val sqliteNativesDir = layout.buildDirectory.dir("sqlite-natives/linux_x64")
 // property.  The task walks the jar inside the resolvable extract configuration and
 // extracts the one .so into build/sqlite-natives/linux_x64/ — a directory that is on
 // java.library.path when the test JVM starts.
-val extractSqliteNatives = tasks.register<Copy>("extractSqliteNatives") {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    val sqliteJar = configurations
-        .named("sqliteBundledJvmExtractedFiles")
-        .get()
-        .files
-        .single { it.name.contains("sqlite-bundled-jvm") }
-    from(zipTree(sqliteJar).filter { entry ->
-        entry.name == "libsqliteJni.so"
-    })
-    into(sqliteNativesDir)
-}
+val extractSqliteNatives =
+    tasks.register<Copy>("extractSqliteNatives") {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        val sqliteJar =
+            configurations
+                .named("sqliteBundledJvmExtractedFiles")
+                .get()
+                .files
+                .single { it.name.contains("sqlite-bundled-jvm") }
+        from(
+            zipTree(sqliteJar).filter { entry ->
+                entry.name == "libsqliteJni.so"
+            },
+        )
+        into(sqliteNativesDir)
+    }
 
 // A resolvable configuration that extends androidHostTestRuntimeOnly so that
 // extractSqliteNatives can iterate over its resolved files.  Without this, the
 // runtime-only configuration is declared `canBeResolved=false` by the Android
 // Gradle Plugin and cannot be used in a task's DOCl.
-val sqliteBundledJvmExtractedFiles = configurations.create("sqliteBundledJvmExtractedFiles") {
-    extendsFrom(configurations.getByName("androidHostTestRuntimeOnly"))
-    isTransitive = false
-}
-dependencies.add("sqliteBundledJvmExtractedFiles",
-    "androidx.sqlite:sqlite-bundled-jvm:${libs.versions.sqlite.get()}"
+val sqliteBundledJvmExtractedFiles =
+    configurations.create("sqliteBundledJvmExtractedFiles") {
+        extendsFrom(configurations.getByName("androidHostTestRuntimeOnly"))
+        isTransitive = false
+    }
+dependencies.add(
+    "sqliteBundledJvmExtractedFiles",
+    "androidx.sqlite:sqlite-bundled-jvm:${libs.versions.sqlite.get()}",
 )
 
 // The test JVM must start with the native library path pointing at the extracted
@@ -1163,6 +1242,16 @@ afterEvaluate {
             "com/singularity/todo/core/notifications/AndroidNotifierTest.class",
             "com/singularity/todo/core/observability/AndroidRecordRetentionTest.class",
             "com/singularity/todo/core/security/ArchiveCryptoGoldenAndroidTest.class",
+            // The Android half of the backup decoder's budget. The decoder lives in
+            // androidMain, and the JVM lane cannot reach it — so the one test that
+            // says "the phone reads an archive under a budget" has to live here, and
+            // this list is what makes the task run it.
+            "com/singularity/todo/core/backup/AndroidBackupCodecBudgetTest.class",
+            // The phone's move. `AndroidFileSystem` lives in androidMain and the
+            // contract test that pins the `FileSystem` port lives in jvmTest, so
+            // the phone's own implementation had no test at all — and the move is
+            // what makes the backup's writes atomic.
+            "com/singularity/todo/core/files/AndroidFileSystemMoveTest.class",
         )
     }
 }
@@ -1211,8 +1300,9 @@ tasks.register("printResolvedArtifacts") {
             // metadata variant is also the right granularity for a *usage*
             // question: it is what the compiler sees for that source set, before
             // platform narrowing.
-            val configuration = configurations.findByName("${name}ResolvableDependenciesMetadata")
-                ?: error("no resolvable configuration for $name")
+            val configuration =
+                configurations.findByName("${name}ResolvableDependenciesMetadata")
+                    ?: error("no resolvable configuration for $name")
             configuration.incoming.artifactView { lenient(true) }.artifacts.forEach { artifact ->
                 val id = artifact.id.componentIdentifier
                 val coordinate = if (id is ModuleComponentIdentifier) "${id.group}:${id.module}" else id.displayName
@@ -1223,13 +1313,13 @@ tasks.register("printResolvedArtifacts") {
 }
 
 // ---------------------------------------------------------------------------
-// detekt — static analysis + ktlint (via detekt-formatting plugin)
+// detekt — static analysis (semantics; formatting is ktlint CLI)
 // ---------------------------------------------------------------------------
 detekt {
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
     baseline = rootProject.file("config/detekt/baseline-shared.xml")
     buildUponDefaultConfig = true
-    ignoreFailures = false              // PR 3.3: enforcing — baseline covers accepted debt
+    ignoreFailures = false // PR 3.3: enforcing — baseline covers accepted debt
     source.setFrom(
         "src/commonMain/kotlin",
         "src/commonTest/kotlin",
@@ -1254,13 +1344,12 @@ detekt {
         // this call's argument list with a regex that stops at the first closing paren
         // anywhere inside the call — including one written inside a comment — and would
         // then read a truncated list and report this source set as unscanned.
-        "src/androidHostTest/kotlin"
+        "src/androidHostTest/kotlin",
     )
 }
 
 dependencies {
-    detektPlugins(libs.detekt.formatting)   // wires ktlint into detekt so detektFormat fixes both
-    detektPlugins(project(":detekt-rules"))  // PassThroughUseCaseRule — flags thin wrappers in *UseCase.kt
+    detektPlugins(project(":detekt-rules")) // PassThroughUseCaseRule — flags thin wrappers in *UseCase.kt
 }
 
 // ---------------------------------------------------------------------------
@@ -1287,21 +1376,22 @@ dependencies {
 // the first closing parenthesis — inside a comment — and so read a list that was
 // three names short.
 
-val exportSyncFieldAllowlist = tasks.register<JavaExec>("exportSyncFieldAllowlist") {
-    description = "Exports the derived sync field lists to config/docs/sync-field-allowlist.json"
-    group = "sync"
-    val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
-    val target = rootProject.layout.projectDirectory.file("config/docs/sync-field-allowlist.json")
-    mainClass.set("com.singularity.todo.core.sync.SyncFieldAllowlistExportKt")
-    classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
-    args(target.asFile.absolutePath)
-    inputs.files(jvmClasses)
-    outputs.file(target)
-    dependsOn("compileKotlinJvm")
-    doFirst {
-        target.asFile.parentFile.mkdirs()
+val exportSyncFieldAllowlist =
+    tasks.register<JavaExec>("exportSyncFieldAllowlist") {
+        description = "Exports the derived sync field lists to config/docs/sync-field-allowlist.json"
+        group = "sync"
+        val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
+        val target = rootProject.layout.projectDirectory.file("config/docs/sync-field-allowlist.json")
+        mainClass.set("com.singularity.todo.core.sync.SyncFieldAllowlistExportKt")
+        classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
+        args(target.asFile.absolutePath)
+        inputs.files(jvmClasses)
+        outputs.file(target)
+        dependsOn("compileKotlinJvm")
+        doFirst {
+            target.asFile.parentFile.mkdirs()
+        }
     }
-}
 
 // ---------------------------------------------------------------------------
 // generateSyncFieldAllowlistSql — the seed, generated from the derived lists
@@ -1315,7 +1405,11 @@ tasks.register<DefaultTask>("generateSyncFieldAllowlistSql") {
     dependsOn("exportSyncFieldAllowlist")
     doLast {
         providers.exec {
-            commandLine("python3", rootProject.file("infra/gen_sync_allowlist_sql.py").absolutePath, rootProject.projectDir.absolutePath)
+            commandLine(
+                "python3",
+                rootProject.file("infra/gen_sync_allowlist_sql.py").absolutePath,
+                rootProject.projectDir.absolutePath,
+            )
         }
     }
 }
@@ -1334,20 +1428,21 @@ tasks.register<DefaultTask>("generateSyncFieldAllowlistSql") {
 // It is cheap on purpose: it compiles the JVM classes and runs one main. The
 // price of the fast answer is that it says "the export is stale" without saying
 // what changed; the export task and the diff say that.
-val verifySyncFieldAllowlist = tasks.register<JavaExec>("verifySyncFieldAllowlist") {
-    description = "Fails when config/docs/sync-field-allowlist.json is not what the code exports"
-    group = "verification"
-    val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
-    val committed = rootProject.layout.projectDirectory.file("config/docs/sync-field-allowlist.json")
-    mainClass.set("com.singularity.todo.core.sync.SyncFieldAllowlistExportKt")
-    classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
-    args("--check", committed.asFile.absolutePath)
-    inputs.files(jvmClasses)
-    // The committed file is an input, not an output: this task reads it and
-    // compares, and it must not write over what it is checking.
-    inputs.file(committed)
-    dependsOn("compileKotlinJvm")
-}
+val verifySyncFieldAllowlist =
+    tasks.register<JavaExec>("verifySyncFieldAllowlist") {
+        description = "Fails when config/docs/sync-field-allowlist.json is not what the code exports"
+        group = "verification"
+        val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
+        val committed = rootProject.layout.projectDirectory.file("config/docs/sync-field-allowlist.json")
+        mainClass.set("com.singularity.todo.core.sync.SyncFieldAllowlistExportKt")
+        classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
+        args("--check", committed.asFile.absolutePath)
+        inputs.files(jvmClasses)
+        // The committed file is an input, not an output: this task reads it and
+        // compares, and it must not write over what it is checking.
+        inputs.file(committed)
+        dependsOn("compileKotlinJvm")
+    }
 
 // ---------------------------------------------------------------------------
 // exportToolSurface — the tool surface, exported from the compiled declarations
@@ -1363,24 +1458,25 @@ val verifySyncFieldAllowlist = tasks.register<JavaExec>("verifySyncFieldAllowlis
 // The file is generated, and it is generated from the code: there is no second copy of
 // a description anywhere, only a projection of the one that exists.
 
-val exportToolSurface = tasks.register<JavaExec>("exportToolSurface") {
-    description = "Exports the declared MCP tool surface to config/docs/tool-surface.json"
-    group = "documentation"
-    // The compiled JVM classes and the JVM runtime classpath, named the way the
-    // module names them. The KMP target objects are awkward to reach from a build
-    // script, and the class directories are what the task actually runs against.
-    val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
-    val target = rootProject.layout.projectDirectory.file("config/docs/tool-surface.json")
-    mainClass.set("com.singularity.todo.mcp.ToolSurfaceExportKt")
-    classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
-    args(target.asFile.absolutePath)
-    inputs.files(jvmClasses)
-    outputs.file(target)
-    dependsOn("compileKotlinJvm")
-    doFirst {
-        target.asFile.parentFile.mkdirs()
+val exportToolSurface =
+    tasks.register<JavaExec>("exportToolSurface") {
+        description = "Exports the declared MCP tool surface to config/docs/tool-surface.json"
+        group = "documentation"
+        // The compiled JVM classes and the JVM runtime classpath, named the way the
+        // module names them. The KMP target objects are awkward to reach from a build
+        // script, and the class directories are what the task actually runs against.
+        val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
+        val target = rootProject.layout.projectDirectory.file("config/docs/tool-surface.json")
+        mainClass.set("com.singularity.todo.mcp.ToolSurfaceExportKt")
+        classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
+        args(target.asFile.absolutePath)
+        inputs.files(jvmClasses)
+        outputs.file(target)
+        dependsOn("compileKotlinJvm")
+        doFirst {
+            target.asFile.parentFile.mkdirs()
+        }
     }
-}
 
 // acpBridgeProbe — the application's ACP client, against a real bridge.
 //
@@ -1403,31 +1499,33 @@ val exportToolSurface = tasks.register<JavaExec>("exportToolSurface") {
 // same string, and the script is the one a reader meets first.
 // The task passes nothing when nobody said which bridge to drive, and the probe
 // falls back to the Claude one — the bridge this repository registered first.
-val acpBridgeProbe = tasks.register<JavaExec>("acpBridgeProbe") {
-    description = "Drives the ACP client against a real agent bridge and prints what came back"
-    group = "verification"
-    val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
-    mainClass.set("com.singularity.todo.feature.ai.acp.AcpBridgeProbeKt")
-    classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
-    // The bridge's command line travels in a file, one argument per line: a command
-    // line that travels as a string comes back as a string, and a path with a space
-    // in it does not survive being split on spaces.
-    val commandFile = providers.gradleProperty("acpBridgeFile").orNull
-    val bridge = if (commandFile != null) {
-        rootProject.file(commandFile).readLines().filter { it.isNotBlank() }
-    } else {
-        emptyList()
+val acpBridgeProbe =
+    tasks.register<JavaExec>("acpBridgeProbe") {
+        description = "Drives the ACP client against a real agent bridge and prints what came back"
+        group = "verification"
+        val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
+        mainClass.set("com.singularity.todo.feature.ai.acp.AcpBridgeProbeKt")
+        classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
+        // The bridge's command line travels in a file, one argument per line: a command
+        // line that travels as a string comes back as a string, and a path with a space
+        // in it does not survive being split on spaces.
+        val commandFile = providers.gradleProperty("acpBridgeFile").orNull
+        val bridge =
+            if (commandFile != null) {
+                rootProject.file(commandFile).readLines().filter { it.isNotBlank() }
+            } else {
+                emptyList()
+            }
+        args(listOf(rootProject.layout.projectDirectory.asFile.absolutePath) + bridge)
+        inputs.files(jvmClasses)
+        dependsOn("compileKotlinJvm")
+        // The bridge may be an `npx` invocation downloading its package on first use,
+        // and that download is not the handshake.
+        timeout.set(JavaDuration.ofMinutes(10))
+        // The probe's own verdict is its exit code, and the script reads the verdict out
+        // of the output — so a probe that did not connect is a report, not a failed build.
+        isIgnoreExitValue = true
     }
-    args(listOf(rootProject.layout.projectDirectory.asFile.absolutePath) + bridge)
-    inputs.files(jvmClasses)
-    dependsOn("compileKotlinJvm")
-    // The bridge may be an `npx` invocation downloading its package on first use,
-    // and that download is not the handshake.
-    timeout.set(JavaDuration.ofMinutes(10))
-    // The probe's own verdict is its exit code, and the script reads the verdict out
-    // of the output — so a probe that did not connect is a report, not a failed build.
-    isIgnoreExitValue = true
-}
 
 // verifyToolSurface — the committed catalogue is what the code exports, checked
 // without running the whole test suite.
@@ -1442,35 +1540,39 @@ val acpBridgeProbe = tasks.register<JavaExec>("acpBridgeProbe") {
 // It is cheap on purpose: it compiles the JVM classes and runs one main. The price
 // of the fast answer is that it says "the catalogue is stale" without saying what
 // changed; the export task and the diff say that.
-val verifyToolSurface = tasks.register<JavaExec>("verifyToolSurface") {
-    description = "Fails when config/docs/tool-surface.json is not what the code exports"
-    group = "verification"
-    val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
-    val committed = rootProject.layout.projectDirectory.file("config/docs/tool-surface.json")
-    val scratch = layout.buildDirectory.file("tool-surface-verify.json")
-    mainClass.set("com.singularity.todo.mcp.ToolSurfaceExportKt")
-    classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
-    args(scratch.get().asFile.absolutePath)
-    inputs.files(jvmClasses)
-    // The committed file is an input, not an output: this task reads it and
-    // compares, and it must not write over what it is checking.
-    inputs.file(committed)
-    outputs.file(scratch)
-    dependsOn("compileKotlinJvm")
-    doFirst {
-        scratch.get().asFile.parentFile.mkdirs()
-    }
-    doLast {
-        val exported = scratch.get().asFile.readText()
-        val current = committed.asFile.takeIf { it.isFile }?.readText()
-        if (exported != current) {
-            throw GradleException(
-                "config/docs/tool-surface.json is not what the code exports. " +
-                    "Regenerate it with: ./gw :shared:exportToolSurface"
-            )
+val verifyToolSurface =
+    tasks.register<JavaExec>("verifyToolSurface") {
+        description = "Fails when config/docs/tool-surface.json is not what the code exports"
+        group = "verification"
+        val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
+        val committed = rootProject.layout.projectDirectory.file("config/docs/tool-surface.json")
+        val scratch = layout.buildDirectory.file("tool-surface-verify.json")
+        mainClass.set("com.singularity.todo.mcp.ToolSurfaceExportKt")
+        classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
+        args(scratch.get().asFile.absolutePath)
+        inputs.files(jvmClasses)
+        // The committed file is an input, not an output: this task reads it and
+        // compares, and it must not write over what it is checking.
+        inputs.file(committed)
+        outputs.file(scratch)
+        dependsOn("compileKotlinJvm")
+        doFirst {
+            scratch
+                .get()
+                .asFile.parentFile
+                .mkdirs()
+        }
+        doLast {
+            val exported = scratch.get().asFile.readText()
+            val current = committed.asFile.takeIf { it.isFile }?.readText()
+            if (exported != current) {
+                throw GradleException(
+                    "config/docs/tool-surface.json is not what the code exports. " +
+                        "Regenerate it with: ./gw :shared:exportToolSurface",
+                )
+            }
         }
     }
-}
 
 // Retro: stale shared-jvm.jar dependency — ensure test compile sees main classes/jar.
 tasks.named("compileTestKotlinJvm") {

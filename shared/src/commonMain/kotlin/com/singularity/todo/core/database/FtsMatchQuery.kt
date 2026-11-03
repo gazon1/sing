@@ -57,7 +57,6 @@ import com.singularity.todo.core.search.TextMatchQuery
  * [FreeTextRule].
  */
 object FtsMatchQuery {
-
     /**
      * The `MATCH` expression for [query], or `null` when the query cannot narrow
      * anything — no terms, or no term that yields a searchable token.
@@ -67,14 +66,15 @@ object FtsMatchQuery {
      */
     fun expression(query: TextMatchQuery): String? {
         if (query.isEmpty) return null
-        val termExpressions = query.terms.mapNotNull { term ->
-            val tokens = TextMatch.tokens(term)
-            if (tokens.isEmpty()) {
-                null
-            } else {
-                phrase(tokens)
+        val termExpressions =
+            query.terms.mapNotNull { term ->
+                val tokens = TextMatch.tokens(term)
+                if (tokens.isEmpty()) {
+                    null
+                } else {
+                    phrase(tokens)
+                }
             }
-        }
         if (termExpressions.isEmpty()) return null
         val separator = if (query.combinesWithOr) " OR " else " "
         return termExpressions.joinToString(separator = separator)

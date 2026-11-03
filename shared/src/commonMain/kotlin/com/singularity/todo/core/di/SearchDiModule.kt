@@ -17,12 +17,13 @@ import org.koin.dsl.module
  * The binding is at the root scope on purpose. A child scope would hide it
  * from the sibling modules that need it (ADR `2026-09-27-di-module-aggregator-narrative`).
  */
-fun searchModule(): Module = module {
-    single<SearchTextIndex> {
-        SearchTextIndexImpl(
-            ftsDao = get(),
-            taskDao = get(),
-            currentUser = get(),
-        )
+fun searchModule(): Module =
+    module {
+        single<SearchTextIndex> {
+            SearchTextIndexImpl(
+                ftsDao = get(),
+                taskDao = get(),
+                currentUser = get(),
+            )
+        }
     }
-}

@@ -15,7 +15,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class GenuiRejectionCounterTest {
-
     private val counter = GenuiRejectionCounter()
 
     @Test
@@ -63,16 +62,18 @@ class GenuiRejectionCounterTest {
         assertEquals("UNKNOWN_COMPONENT=1, MISSING_PROPERTY=1", running)
     }
 
-    private fun unknown(kind: String): A2uiError = A2uiError(
-        code = A2uiErrorCode.UNKNOWN_COMPONENT,
-        message = "No component '$kind'",
-        componentId = kind,
-        allowed = listOf("text"),
-    )
+    private fun unknown(kind: String): A2uiError =
+        A2uiError(
+            code = A2uiErrorCode.UNKNOWN_COMPONENT,
+            message = "No component '$kind'",
+            componentId = kind,
+            allowed = listOf("text"),
+        )
 
-    private fun missing(): A2uiError = A2uiError(
-        code = A2uiErrorCode.MISSING_PROPERTY,
-        message = "A required property is absent",
-        surfaceId = SurfaceId("s1"),
-    )
+    private fun missing(): A2uiError =
+        A2uiError(
+            code = A2uiErrorCode.MISSING_PROPERTY,
+            message = "A required property is absent",
+            surfaceId = SurfaceId("s1"),
+        )
 }

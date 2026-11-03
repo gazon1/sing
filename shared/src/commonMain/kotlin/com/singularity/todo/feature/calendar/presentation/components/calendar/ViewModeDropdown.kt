@@ -33,17 +33,22 @@ import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPal
 
 /** Dropdown selector for CalendarViewMode (Day / 4 days / Week / Month). */
 @Composable
-fun ViewModeDropdown(selected: CalendarViewMode, onSelect: (CalendarViewMode) -> Unit, modifier: Modifier = Modifier) {
+fun ViewModeDropdown(
+    selected: CalendarViewMode,
+    onSelect: (CalendarViewMode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var expanded by remember { mutableStateOf(false) }
     val palette: CalendarPalette = LocalCalendarPalette.current
 
     Box(modifier = modifier) {
         Row(
-            modifier = Modifier
-                .testTag(TestTags.CALENDAR_VIEW_MODE_TRIGGER)
-                .background(palette.surface, RoundedCornerShape(8.dp))
-                .clickable { expanded = true }
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+            modifier =
+                Modifier
+                    .testTag(TestTags.CALENDAR_VIEW_MODE_TRIGGER)
+                    .background(palette.surface, RoundedCornerShape(8.dp))
+                    .clickable { expanded = true }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -66,9 +71,10 @@ fun ViewModeDropdown(selected: CalendarViewMode, onSelect: (CalendarViewMode) ->
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier
-                .background(palette.surface)
-                .mapTestTagsAsResourceIds(),
+            modifier =
+                Modifier
+                    .background(palette.surface)
+                    .mapTestTagsAsResourceIds(),
         ) {
             CalendarViewMode.entries.forEach { mode ->
                 DropdownMenuItem(

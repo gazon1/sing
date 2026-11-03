@@ -3,16 +3,16 @@ package com.singularity.todo.core.di
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.appearance.di.appearanceSettingsModule
 import com.singularity.todo.core.settings.settingsContributorsModule
+import com.singularity.todo.core.work.backgroundWorkModule
 import com.singularity.todo.feature.agenda.agendaModule
-import com.singularity.todo.feature.plans.plansModule
 import com.singularity.todo.feature.ai.di.aiSettingsModule
 import com.singularity.todo.feature.calendarSync.di.calendarSyncModule
-import com.singularity.todo.core.work.backgroundWorkModule
+import com.singularity.todo.feature.genui.di.genuiModule
+import com.singularity.todo.feature.nav.deeplink.deepLinkModule
+import com.singularity.todo.feature.plans.plansModule
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.profileModule
 import com.singularity.todo.feature.proposals.proposalModule
-import com.singularity.todo.feature.genui.di.genuiModule
-import com.singularity.todo.feature.nav.deeplink.deepLinkModule
 import com.singularity.todo.feature.whatsnew.di.whatsNewModule
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -20,9 +20,10 @@ import org.koin.dsl.module
 /**
  * Logging module — Koin + Kermit integration.
  */
-fun coreLoggingModule(): Module = module {
-    factory { Logger.withTag("App") }
-}
+fun coreLoggingModule(): Module =
+    module {
+        factory { Logger.withTag("App") }
+    }
 
 /**
  * Returns all domain-level bindings as a flat list of KOIN [Module]s.
@@ -39,43 +40,44 @@ fun coreLoggingModule(): Module = module {
  *   the application is holding it. The active profile has a file of its own, and a
  *   process told which profile to serve never resolves it at all.
  */
-fun domainModule(fixedProfileId: ProfileId? = null): List<Module> = buildList {
-    add(tasksModule())
-    // The one setting the tools read. Bound separately from the tasks module because
-    // its answer depends on the mode: the application gets the user's setting, and a
-    // process told which profile to serve gets the default without opening the
-    // application's store.
-    add(tasksSettingsModule(fixedProfileId))
-    add(projectsModule())
-    add(notesModule())
-    add(tagsModule())
-    add(searchModule())
-    add(calendarModule())
-    add(agendaModule())
-    add(plansModule())
-    add(deepLinkModule())
-    add(proposalModule())
-    add(calendarSyncModule())
-    add(backgroundWorkModule())
-    // Profile bindings. Added to this list, NOT included: an included module creates a
-    // child scope whose bindings the sibling modules above cannot see. The first attempt
-    // at this arrangement included it, and the profile bindings vanished for every module
-    // that needed them.
-    add(profileModule(fixedProfileId))
-    add(coreModule())
-    add(syncModule())
-    // The refresh gesture's owner. Added to this list, NOT included: the
-    // coordinator is a singleton that every screen's refresh asks, and an
-    // included module would put it in a child scope where the sibling
-    // modules above could not see it.
-    add(refreshModule())
-    add(aiToolsModule())
-    add(genuiModule())
-    add(aiSettingsModule())
-    add(settingsContributorsModule())
-    add(appearanceSettingsModule())
-    add(whatsNewModule())
-}
+fun domainModule(fixedProfileId: ProfileId? = null): List<Module> =
+    buildList {
+        add(tasksModule())
+        // The one setting the tools read. Bound separately from the tasks module because
+        // its answer depends on the mode: the application gets the user's setting, and a
+        // process told which profile to serve gets the default without opening the
+        // application's store.
+        add(tasksSettingsModule(fixedProfileId))
+        add(projectsModule())
+        add(notesModule())
+        add(tagsModule())
+        add(searchModule())
+        add(calendarModule())
+        add(agendaModule())
+        add(plansModule())
+        add(deepLinkModule())
+        add(proposalModule())
+        add(calendarSyncModule())
+        add(backgroundWorkModule())
+        // Profile bindings. Added to this list, NOT included: an included module creates a
+        // child scope whose bindings the sibling modules above cannot see. The first attempt
+        // at this arrangement included it, and the profile bindings vanished for every module
+        // that needed them.
+        add(profileModule(fixedProfileId))
+        add(coreModule())
+        add(syncModule())
+        // The refresh gesture's owner. Added to this list, NOT included: the
+        // coordinator is a singleton that every screen's refresh asks, and an
+        // included module would put it in a child scope where the sibling
+        // modules above could not see it.
+        add(refreshModule())
+        add(aiToolsModule())
+        add(genuiModule())
+        add(aiSettingsModule())
+        add(settingsContributorsModule())
+        add(appearanceSettingsModule())
+        add(whatsNewModule())
+    }
 
 /**
  * AI tools, GenUI, and AI use cases — platform-specific.

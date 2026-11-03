@@ -59,7 +59,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TextFieldSourceContractTest {
-
     /**
      * A field bound to a surface path reads the path through the source.
      *
@@ -72,22 +71,26 @@ class TextFieldSourceContractTest {
      */
     @Test
     fun `a field bound to a surface path reads it through the source`() {
-        val offenders = genuiFieldSites().mapNotNull { path ->
-            val code = TextFieldShapeScan.declarationTexts(path)
-                .joinToString("\n") { KotlinText.stripCode(it) }
+        val offenders =
+            genuiFieldSites()
+                .mapNotNull { path ->
+                    val code =
+                        TextFieldShapeScan
+                            .declarationTexts(path)
+                            .joinToString("\n") { KotlinText.stripCode(it) }
 
-            val readsTheSource = code.contains(TEXT_SOURCE_CALL)
-            val readsWithoutTheCount = code.contains(COUNT_LESS_CALL)
-            if (readsTheSource && !readsWithoutTheCount) {
-                null
-            } else {
-                buildString {
-                    append(path)
-                    if (!readsTheSource) append(" -> reads no $TEXT_SOURCE_CALL")
-                    if (readsWithoutTheCount) append(" -> reads through $COUNT_LESS_CALL")
-                }
-            }
-        }.sorted()
+                    val readsTheSource = code.contains(TEXT_SOURCE_CALL)
+                    val readsWithoutTheCount = code.contains(COUNT_LESS_CALL)
+                    if (readsTheSource && !readsWithoutTheCount) {
+                        null
+                    } else {
+                        buildString {
+                            append(path)
+                            if (!readsTheSource) append(" -> reads no $TEXT_SOURCE_CALL")
+                            if (readsWithoutTheCount) append(" -> reads through $COUNT_LESS_CALL")
+                        }
+                    }
+                }.sorted()
 
         assertTrue(
             offenders.isEmpty(),
@@ -110,10 +113,14 @@ class TextFieldSourceContractTest {
      */
     @Test
     fun `the source a surface hands out carries the count`() {
-        val current = TextFieldShapeScan.properties(BOUND_SOURCE_FILE)
-            .firstOrNull { it.name == "current" }
-        val owned = TextFieldShapeScan.properties(OWNED_SOURCE_FILE)
-            .firstOrNull { it.name == "revision" }
+        val current =
+            TextFieldShapeScan
+                .properties(BOUND_SOURCE_FILE)
+                .firstOrNull { it.name == "current" }
+        val owned =
+            TextFieldShapeScan
+                .properties(OWNED_SOURCE_FILE)
+                .firstOrNull { it.name == "revision" }
 
         assertTrue(
             current != null && current.type?.bareSourceType == OWNED_SOURCE,
@@ -139,7 +146,8 @@ class TextFieldSourceContractTest {
      * applies to the files under it.
      */
     private fun genuiFieldSites(): List<String> =
-        TextFieldShapeScan.shapes()
+        TextFieldShapeScan
+            .shapes()
             .filterValues { shapes -> FieldShape.BRIDGED in shapes }
             .keys
             .filter { it.startsWith(GENUI_RENDERER_PACKAGE) }

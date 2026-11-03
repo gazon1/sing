@@ -98,28 +98,29 @@ fun SpotlightOverlay(
         val density = LocalDensity.current
         val gapPx = with(density) { CARD_GAP.toPx() }
         val cardHeightPx = with(density) { CARD_MAX_HEIGHT.toPx() }
-        val placement = resolveCardPlacement(
-            preferred = SpotlightCardPlacement.Below,
-            holeTop = hole.bounds.top,
-            holeBottom = hole.bounds.bottom,
-            cardHeight = cardHeightPx,
-            availableHeight = constraints.maxHeight.toFloat(),
-            minGap = gapPx,
-        )
+        val placement =
+            resolveCardPlacement(
+                preferred = SpotlightCardPlacement.Below,
+                holeTop = hole.bounds.top,
+                holeBottom = hole.bounds.bottom,
+                cardHeight = cardHeightPx,
+                availableHeight = constraints.maxHeight.toFloat(),
+                minGap = gapPx,
+            )
 
         SpotlightScrim(hole = hole, modifier = Modifier.fillMaxSize())
 
         // Swallow taps so a tour does not let a press reach a control whose effect the
         // user currently cannot see. `indication = null` keeps it from looking pressed.
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() },
-                    onClick = ::absorbScrimTap,
-                )
-                .semantics { liveRegion = LiveRegionMode.Polite },
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                        onClick = ::absorbScrimTap,
+                    ).semantics { liveRegion = LiveRegionMode.Polite },
         )
 
         SpotlightCard(
@@ -128,18 +129,18 @@ fun SpotlightOverlay(
             stepCount = stepCount,
             onNext = onNext,
             onSkip = onSkip,
-            modifier = Modifier
-                .align(
-                    if (placement == SpotlightCardPlacement.Above) {
-                        Alignment.TopCenter
-                    } else {
-                        Alignment.BottomCenter
-                    },
-                )
-                .padding(
-                    horizontal = CARD_INSET,
-                    vertical = CARD_GAP,
-                ),
+            modifier =
+                Modifier
+                    .align(
+                        if (placement == SpotlightCardPlacement.Above) {
+                            Alignment.TopCenter
+                        } else {
+                            Alignment.BottomCenter
+                        },
+                    ).padding(
+                        horizontal = CARD_INSET,
+                        vertical = CARD_GAP,
+                    ),
         )
     }
 }
@@ -156,19 +157,23 @@ private fun absorbScrimTap() = Unit
 
 /** The dimming layer with the hole cut out of it. */
 @Composable
-private fun SpotlightScrim(hole: SpotlightHole, modifier: Modifier = Modifier) {
+private fun SpotlightScrim(
+    hole: SpotlightHole,
+    modifier: Modifier = Modifier,
+) {
     Canvas(modifier = modifier) {
-        val scrim = Path().apply {
-            // EvenOdd is what makes the second contour a hole rather than a second fill.
-            fillType = PathFillType.EvenOdd
-            addRect(Rect(Offset.Zero, size))
-            addRoundRect(
-                RoundRect(
-                    rect = hole.bounds,
-                    cornerRadius = CornerRadius(hole.cornerRadius),
-                ),
-            )
-        }
+        val scrim =
+            Path().apply {
+                // EvenOdd is what makes the second contour a hole rather than a second fill.
+                fillType = PathFillType.EvenOdd
+                addRect(Rect(Offset.Zero, size))
+                addRoundRect(
+                    RoundRect(
+                        rect = hole.bounds,
+                        cornerRadius = CornerRadius(hole.cornerRadius),
+                    ),
+                )
+            }
         drawPath(scrim, SCRIM_COLOR)
     }
 }
@@ -184,9 +189,10 @@ private fun SpotlightCard(
     modifier: Modifier = Modifier,
 ) {
     Card(
-        modifier = modifier
-            .sizeIn(maxWidth = 420.dp, maxHeight = CARD_MAX_HEIGHT)
-            .testTag(TestTags.Onboarding.SPOTLIGHT_CARD),
+        modifier =
+            modifier
+                .sizeIn(maxWidth = 420.dp, maxHeight = CARD_MAX_HEIGHT)
+                .testTag(TestTags.Onboarding.SPOTLIGHT_CARD),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
@@ -227,16 +233,18 @@ private fun SpotlightCard(
 
 @Preview
 @Composable
-private fun SpotlightOverlayPreview() = PreviewThemed {
-    SpotlightOverlay(
-        state = SpotlightTourState(
-            stepIndex = 0,
-            bounds = Rect(left = 200f, top = 96f, right = 296f, bottom = 192f),
-        ),
-        step = SpotlightContent.STEPS.first(),
-        stepPosition = 0,
-        stepCount = SpotlightContent.STEPS.size,
-        onNext = {},
-        onSkip = {},
-    )
-}
+private fun SpotlightOverlayPreview() =
+    PreviewThemed {
+        SpotlightOverlay(
+            state =
+                SpotlightTourState(
+                    stepIndex = 0,
+                    bounds = Rect(left = 200f, top = 96f, right = 296f, bottom = 192f),
+                ),
+            step = SpotlightContent.STEPS.first(),
+            stepPosition = 0,
+            stepCount = SpotlightContent.STEPS.size,
+            onNext = {},
+            onSkip = {},
+        )
+    }

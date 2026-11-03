@@ -57,7 +57,6 @@ internal class ActiveProfileState(
      */
     private val legacyStore: DataStore<Preferences>? = null,
 ) {
-
     /**
      * The stored profile, following the file as it changes.
      *
@@ -66,15 +65,16 @@ internal class ActiveProfileState(
      * After that, the flow follows the file: a profile the user switches to in the
      * application is a profile this flow reports.
      */
-    val ids: Flow<ProfileId> = flow {
-        val stored = store.data.first()[ACTIVE_PROFILE_ID] ?: moveOutOfTheLegacyFile()
-        emit(stored?.let(ProfileId::fromString) ?: ProfileId.default)
-        emitAll(
-            store.data.map { prefs ->
-                prefs[ACTIVE_PROFILE_ID]?.let(ProfileId::fromString) ?: ProfileId.default
-            },
-        )
-    }
+    val ids: Flow<ProfileId> =
+        flow {
+            val stored = store.data.first()[ACTIVE_PROFILE_ID] ?: moveOutOfTheLegacyFile()
+            emit(stored?.let(ProfileId::fromString) ?: ProfileId.default)
+            emitAll(
+                store.data.map { prefs ->
+                    prefs[ACTIVE_PROFILE_ID]?.let(ProfileId::fromString) ?: ProfileId.default
+                },
+            )
+        }
 
     /** Stores the profile the user switched to. */
     suspend fun write(id: ProfileId) {

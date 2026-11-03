@@ -15,7 +15,8 @@ import com.singularity.todo.core.links.InternalLinks
  */
 fun extractOutgoingLinks(text: String): List<String> {
     if (text.isBlank()) return emptyList()
-    return InternalLinks.findIn(text)
+    return InternalLinks
+        .findIn(text)
         .map { it.target.url }
         .distinct()
 }
@@ -42,7 +43,8 @@ fun List<String>.toLinksJson(): String {
 /** Parses a JSON array string from the `outgoing_links` column back to a list of URLs. */
 fun String.parseLinksJson(): List<String> {
     if (isEmpty() || this == "[]") return emptyList()
-    return Regex(""""([^"\\]+)"""").findAll(this)
+    return Regex(""""([^"\\]+)"""")
+        .findAll(this)
         .map { it.groupValues[1] }
         .toList()
 }

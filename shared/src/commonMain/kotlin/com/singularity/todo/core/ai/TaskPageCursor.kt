@@ -1,8 +1,8 @@
 package com.singularity.todo.core.ai
 
-import kotlin.io.encoding.Base64
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlin.io.encoding.Base64
 
 /**
  * Where a reader was in a list, so that they can pick it up where they left it.
@@ -36,9 +36,10 @@ private val urlSafeNoPadding = Base64.UrlSafe.withPadding(Base64.PaddingOption.A
  * URL-safe and unpadded, so the cursor survives being put in a query parameter, a
  * message, or a shell command without being escaped into something unreadable.
  */
-fun TaskPageCursor.encode(): String = urlSafeNoPadding.encode(
-    cursorJson.encodeToString(TaskPageCursor.serializer(), this).encodeToByteArray(),
-)
+fun TaskPageCursor.encode(): String =
+    urlSafeNoPadding.encode(
+        cursorJson.encodeToString(TaskPageCursor.serializer(), this).encodeToByteArray(),
+    )
 
 /**
  * Decodes a cursor, or returns null if the string is not one.
@@ -46,9 +47,10 @@ fun TaskPageCursor.encode(): String = urlSafeNoPadding.encode(
  * A malformed cursor is not an error to report: the reader handed over something that
  * is not a cursor, and the honest answer is that there is no page to continue from.
  */
-fun String.decodeTaskPageCursor(): TaskPageCursor? = runCatching {
-    cursorJson.decodeFromString(
-        TaskPageCursor.serializer(),
-        urlSafeNoPadding.decode(this).decodeToString(),
-    )
-}.getOrNull()
+fun String.decodeTaskPageCursor(): TaskPageCursor? =
+    runCatching {
+        cursorJson.decodeFromString(
+            TaskPageCursor.serializer(),
+            urlSafeNoPadding.decode(this).decodeToString(),
+        )
+    }.getOrNull()

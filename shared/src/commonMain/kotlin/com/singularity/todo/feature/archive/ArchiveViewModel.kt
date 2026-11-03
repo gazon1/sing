@@ -18,12 +18,15 @@ import kotlinx.coroutines.launch
 
 sealed interface ArchiveUiState {
     data object Loading : ArchiveUiState
+
     data class Content(val tasks: List<Task>, val refreshing: Boolean = false) : ArchiveUiState
+
     data class Error(val message: String) : ArchiveUiState
 }
 
 sealed interface ArchiveIntent : MviIntent {
     data object Refresh : ArchiveIntent
+
     data object Retry : ArchiveIntent
 }
 
@@ -48,7 +51,6 @@ class ArchiveViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     private val refreshing = MutableStateFlow(false)
 
     init {
@@ -75,8 +77,7 @@ class ArchiveViewModel(
                             ?: "Error",
                     )
                 }
-            }
-                .collect { newState -> updateState { newState } }
+            }.collect { newState -> updateState { newState } }
         }
     }
 

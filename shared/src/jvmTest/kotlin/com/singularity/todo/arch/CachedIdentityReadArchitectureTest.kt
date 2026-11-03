@@ -1,7 +1,7 @@
 package com.singularity.todo.arch
 
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -50,15 +50,15 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class CachedIdentityReadArchitectureTest {
-
     @Test
     fun scanner_catches_a_cached_read_inside_a_reactive_block() {
-        val source = """
+        val source =
+            """
             fun watch(u: ProfileAwareCurrentUser): Flow<Task> = flow {
                 val uid = u.scopedUserId.value
                 emit(load(uid))
             }
-        """.trimIndent()
+            """.trimIndent()
         val findings = findCachedIdentityReadsInReactiveBlocks(source)
         assertEquals(1, findings.size, "expected the cached read to be flagged: $findings")
         assertTrue(findings.single().line.contains("scopedUserId"))
@@ -66,13 +66,14 @@ class CachedIdentityReadArchitectureTest {
 
     @Test
     fun scanner_flags_every_read_inside_one_reactive_block() {
-        val source = """
+        val source =
+            """
             fun watch(u: ProfileAwareCurrentUser) = flow {
                 val a = u.scopedUserId.value
                 val b = u.localUserId.value
                 emit(a to b)
             }
-        """.trimIndent()
+            """.trimIndent()
         assertEquals(2, findCachedIdentityReadsInReactiveBlocks(source).size)
     }
 
@@ -84,9 +85,10 @@ class CachedIdentityReadArchitectureTest {
         one precise rule: the read must sit between the reactive call's own name and
         its brace.
         """
-        val source = """
+        val source =
+            """
             fun watch(u: ProfileAwareCurrentUser) = combine(u.scopedUserId.value) { it }
-        """.trimIndent()
+            """.trimIndent()
         assertEquals(1, findCachedIdentityReadsInReactiveBlocks(source).size)
     }
 
@@ -98,10 +100,11 @@ class CachedIdentityReadArchitectureTest {
         the flow is constructed — the same one-shot semantics as an imperative repository
         write. Real example: TagGroupRepositoryImpl:123.
         """
-        val source = """
+        val source =
+            """
             fun watch(u: ProfileAwareCurrentUser) =
                 dao.watchByProject(projectId, u.scopedUserId.value).map { list -> list.size }
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(
             findCachedIdentityReadsInReactiveBlocks(source).isEmpty(),
             "a read in a non-reactive call's arguments is not a reactive read",
@@ -111,44 +114,48 @@ class CachedIdentityReadArchitectureTest {
     @Test
     fun scanner_ignores_a_read_inside_a_launch_body() {
         """A launch body runs once: picking the identity there is the correct write."""
-        val source = """
+        val source =
+            """
             private fun stop() {
                 scope.launch {
                     repo.stopEntry(currentUser.scopedUserId.value)
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(findCachedIdentityReadsInReactiveBlocks(source).isEmpty())
     }
 
     @Test
     fun scanner_allows_passing_the_flow_itself_as_an_argument() {
         """`combine(u.scopedUserId)` is the correct way to re-read on every emission."""
-        val source = """
+        val source =
+            """
             fun watch(u: ProfileAwareCurrentUser) = combine(u.scopedUserId) { it }
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(findCachedIdentityReadsInReactiveBlocks(source).isEmpty())
     }
 
     @Test
     fun scanner_ignores_an_imperative_read_outside_any_reactive_block() {
         """The one-shot read a repository does before a write is the supported pattern."""
-        val source = """
+        val source =
+            """
             suspend fun upsert(currentUser: ProfileAwareCurrentUser, task: Task) {
                 val userId = currentUser.scopedUserId.value
                 dao.insert(task.copy(userId = userId))
             }
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(findCachedIdentityReadsInReactiveBlocks(source).isEmpty())
     }
 
     @Test
     fun scanner_ignores_the_live_derivations() {
-        val source = """
+        val source =
+            """
             fun watch(u: ProfileAwareCurrentUser) = flow {
                 combine(u.liveScopedUserId) { uid -> uid }
             }
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(
             findCachedIdentityReadsInReactiveBlocks(source).isEmpty(),
             "liveScopedUserId is the correct accessor inside a reactive block",
@@ -158,52 +165,57 @@ class CachedIdentityReadArchitectureTest {
     @Test
     fun scanner_ignores_a_method_named_like_a_combinator() {
         """`repo.map { }` is a transform, but `remap()` is not — word boundaries matter."""
-        val source = """
+        val source =
+            """
             fun helper(u: ProfileAwareCurrentUser) {
                 remap(u.scopedUserId.value)
             }
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(findCachedIdentityReadsInReactiveBlocks(source).isEmpty())
     }
 
     @Test
     fun scanner_ignores_reads_in_comments_and_kdoc() {
-        val source = """
+        val source =
+            """
             /**
              * Do not read `u.scopedUserId.value` inside a combine.
              */
             fun helper(u: ProfileAwareCurrentUser) = u.scopedUserId.value
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(findCachedIdentityReadsInReactiveBlocks(source).isEmpty())
     }
 
     @Test
     fun scanner_closes_the_block_at_the_matching_brace() {
         """A read after a completed reactive block is imperative again."""
-        val source = """
+        val source =
+            """
             fun f(u: ProfileAwareCurrentUser): Flow<Int> = flow {
                 combine(u.liveScopedUserId) { it }
             }
             fun g(u: ProfileAwareCurrentUser) = u.scopedUserId.value
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(findCachedIdentityReadsInReactiveBlocks(source).isEmpty())
     }
 
     @Test
     fun production_sources_read_no_cached_identity_inside_a_reactive_block() {
-        val root = System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
-        val findings = File(root).walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .filterNot { it.path.contains("${File.separator}test${File.separator}") }
-            .flatMap { file ->
-                findCachedIdentityReadsInReactiveBlocks(file.readText())
-                    .map { finding -> file.name to finding }
-            }
-            .toList()
+        val root =
+            System.getProperty("commonMain.root")
+                ?: error(
+                    "commonMain.root system property is not set — " +
+                        "see the jvmTest task config in shared/build.gradle.kts",
+                )
+        val findings =
+            File(root)
+                .walkTopDown()
+                .filter { it.isFile && it.extension == "kt" }
+                .filterNot { it.path.contains("${File.separator}test${File.separator}") }
+                .flatMap { file ->
+                    findCachedIdentityReadsInReactiveBlocks(file.readText())
+                        .map { finding -> file.name to finding }
+                }.toList()
 
         if (findings.isNotEmpty()) {
             fail(
@@ -235,21 +247,22 @@ class CachedIdentityReadArchitectureTest {
          * Including it flagged `TaskTimeSlot.start/stop/createManual` — three correct
          * one-shot writes — which is how a gate teaches people to ignore it.
          */
-        val REACTIVE_CALLS = setOf(
-            "flow",
-            "channelFlow",
-            "combine",
-            "combineStates",
-            "flatMapLatest",
-            "collect",
-            "collectLatest",
-            "onEach",
-            "map",
-            "filter",
-            "transform",
-            "mapNotNull",
-            "distinctUntilChanged",
-        )
+        val REACTIVE_CALLS =
+            setOf(
+                "flow",
+                "channelFlow",
+                "combine",
+                "combineStates",
+                "flatMapLatest",
+                "collect",
+                "collectLatest",
+                "onEach",
+                "map",
+                "filter",
+                "transform",
+                "mapNotNull",
+                "distinctUntilChanged",
+            )
 
         /**
          * The cached flows. The `live*` derivations are excluded by the negative
@@ -258,9 +271,10 @@ class CachedIdentityReadArchitectureTest {
          * would reject the *correct* `u.scopedUserId.value` too, because the receiver
          * dot looks identical to a `live` prefix.
          */
-        val CACHED_IDENTITY = Regex(
-            """\b(?!live)(scopedUserId|localUserId|currentUserId)\s*\??\.\s*value\b""",
-        )
+        val CACHED_IDENTITY =
+            Regex(
+                """\b(?!live)(scopedUserId|localUserId|currentUserId)\s*\??\.\s*value\b""",
+            )
 
         /**
          * A reactive call whose trailing lambda opens a block. One optional
@@ -269,9 +283,10 @@ class CachedIdentityReadArchitectureTest {
          * matcher miss `map(f(x)) { … }` — a remaining, deliberate gap, in the same
          * direction as the other one below.
          */
-        val REACTIVE_WITH_LAMBDA = Regex(
-            """\b(${REACTIVE_CALLS.joinToString("|")})\s*(<[^<>]*>)?\s*(\([^()]*\))?\s*\{""",
-        )
+        val REACTIVE_WITH_LAMBDA =
+            Regex(
+                """\b(${REACTIVE_CALLS.joinToString("|")})\s*(<[^<>]*>)?\s*(\([^()]*\))?\s*\{""",
+            )
 
         fun findCachedIdentityReadsInReactiveBlocks(source: String): List<Finding> {
             val lines = KotlinText.stripComments(source).split("\n")
@@ -297,9 +312,10 @@ class CachedIdentityReadArchitectureTest {
                     // `dao.watchByProject(id, u.scopedUserId.value).map { … }`, where the
                     // read belongs to a different call and is a one-shot at flow
                     // construction, exactly like an imperative repository write.
-                    val inReactiveArgumentList = reactive != null &&
-                        read.range.first >= reactive.range.first &&
-                        read.range.last < raw.indexOf('{', reactive.range.first)
+                    val inReactiveArgumentList =
+                        reactive != null &&
+                            read.range.first >= reactive.range.first &&
+                            read.range.last < raw.indexOf('{', reactive.range.first)
                     if (insideOpenBlock || insideThisBody || inReactiveArgumentList) {
                         findings += Finding(index + 1, raw)
                     }

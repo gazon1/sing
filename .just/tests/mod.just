@@ -235,11 +235,29 @@ gate:
 
 # ---------------------------------------------------------------------------
 # Lint / static analysis
-# ktlint (formatting) is bundled via detekt-formatting plugin:
-#   - detekt    = logic, complexity, naming, style, performance
-#   - ktlint    = formatting, imports, whitespace (via detekt-formatting)
-#   - detektFormat = auto-fix for both (run: just detekt-fix)
+# Two tools, two jobs:
+#   - ktlint = formatting, imports, whitespace (the ktlint CLI, pinned)
+#   - detekt = logic, complexity, naming, style, performance
 # ---------------------------------------------------------------------------
+
+[group('lint')]
+[doc('Check the Kotlin formatting with the pinned ktlint CLI')]
+[working-directory(justfile_directory())]
+ktlint:
+    #!/bin/bash
+    set -euo pipefail
+    # The formatting check is a separate tool, not a detekt plugin: it answers
+    # in seconds where detekt answers in minutes, and the two never argue
+    # about the same rule.
+    python3 scripts/ktlint-lint.py --require
+
+[group('lint')]
+[doc('Format the Kotlin sources with the pinned ktlint CLI')]
+[working-directory(justfile_directory())]
+ktlint-fix:
+    #!/bin/bash
+    set -euo pipefail
+    python3 scripts/ktlint-lint.py --format --require
 
 [group('lint')]
 [doc('Run detekt analysis (report-only); use detekt-fix to auto-fix')]
@@ -307,8 +325,8 @@ detekt-baseline:
     ./gw :shared:detektBaseline :desktopApp:detektBaseline :androidApp:detektBaseline :mcp-server:detektBaseline
 
 [group('lint')]
-[doc('Alias for detekt (lint = detekt in this project)')]
-lint: detekt
+[doc('Alias for the lint suite (ktlint and detekt)')]
+lint: ktlint detekt
 
 [group('lint')]
 [doc('Run detekt over the changed files only (the scoped lint)')]

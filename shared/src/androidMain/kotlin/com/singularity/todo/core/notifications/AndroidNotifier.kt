@@ -30,7 +30,6 @@ class AndroidNotifier(
     private val notificationsSettings: NotificationsSettingsRepository,
     private val scope: CoroutineScope,
 ) : Notifier {
-
     /**
      * Whether this device will actually show a notification.
      *
@@ -57,11 +56,12 @@ class AndroidNotifier(
      * Cost is one binder call, on a path that already builds a `Notification`.
      */
     override val isSupported: Boolean
-        get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) == PackageManager.PERMISSION_GRANTED
+        get() =
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS,
+                ) == PackageManager.PERMISSION_GRANTED
 
     private val notificationManager: NotificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -85,35 +85,47 @@ class AndroidNotifier(
      * @param viewId Optional SavedAgendaViewId deeplink target — carried as the intent's
      *               data URI and resolved by the deep-link registry on the way in.
      */
-    override fun post(tag: String, title: String, body: String, viewId: String?) {
+    override fun post(
+        tag: String,
+        title: String,
+        body: String,
+        viewId: String?,
+    ) {
         if (!isSupported) return
-        val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
-            if (viewId != null) {
-                // The link travels as a URI, not as a private extra: the URI is the
-                // format the registry matches, and the manifest filter for
-                // `singularity://view` makes the same link openable from outside
-                // the app. The extra stays for the migration window — an older
-                // build of the app may still be the one reading the notification.
-                data = Uri.parse(AgendaLinkSpec.uri(SavedAgendaViewId.fromString(viewId)))
-                putExtra(EXTRA_DEEPLINK_VIEW_ID, viewId)
+        val launchIntent =
+            context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+                if (viewId != null) {
+                    // The link travels as a URI, not as a private extra: the URI is the
+                    // format the registry matches, and the manifest filter for
+                    // `singularity://view` makes the same link openable from outside
+                    // the app. The extra stays for the migration window — an older
+                    // build of the app may still be the one reading the notification.
+                    data = Uri.parse(AgendaLinkSpec.uri(SavedAgendaViewId.fromString(viewId)))
+                    putExtra(EXTRA_DEEPLINK_VIEW_ID, viewId)
+                }
             }
-        }
 
-        val pending = PendingIntent.getActivity(
-            context,
-            tag.hashCode(),
-            launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        val pending =
+            PendingIntent.getActivity(
+                context,
+                tag.hashCode(),
+                launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
-        val notification = android.app.Notification.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(android.app.Notification.BigTextStyle().bigText(body))
-            .setAutoCancel(true)
-            .setContentIntent(pending)
-            .build()
+        val notification =
+            android.app.Notification
+                .Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(
+                    android.app.Notification
+                        .BigTextStyle()
+                        .bigText(body),
+                ).setAutoCancel(true)
+                .setContentIntent(pending)
+                .build()
 
         @Suppress("UnspecifiedFlag")
         notificationManager.notify(tag, tag.hashCode(), notification)
@@ -129,25 +141,29 @@ class AndroidNotifier(
         }
     }
 
-    private fun updateNotificationChannel(sound: Boolean, vibration: Boolean) {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "Task Reminders",
-            NotificationManager.IMPORTANCE_DEFAULT,
-        ).apply {
-            description = "Gentle reminders for tasks"
-            setSound(
-                if (sound) {
-                    android.media.RingtoneManager.getDefaultUri(
-                        android.media.RingtoneManager.TYPE_NOTIFICATION,
-                    )
-                } else {
-                    null
-                },
-                null,
-            )
-            setVibrationPattern(if (vibration) longArrayOf(0, 250, 250, 250) else null)
-        }
+    private fun updateNotificationChannel(
+        sound: Boolean,
+        vibration: Boolean,
+    ) {
+        val channel =
+            NotificationChannel(
+                CHANNEL_ID,
+                "Task Reminders",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = "Gentle reminders for tasks"
+                setSound(
+                    if (sound) {
+                        android.media.RingtoneManager.getDefaultUri(
+                            android.media.RingtoneManager.TYPE_NOTIFICATION,
+                        )
+                    } else {
+                        null
+                    },
+                    null,
+                )
+                setVibrationPattern(if (vibration) longArrayOf(0, 250, 250, 250) else null)
+            }
         notificationManager.createNotificationChannel(channel)
     }
 

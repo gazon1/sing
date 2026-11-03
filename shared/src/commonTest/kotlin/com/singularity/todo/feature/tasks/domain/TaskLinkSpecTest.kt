@@ -16,7 +16,6 @@ import kotlin.test.assertNull
  */
 @Tag("fast")
 class TaskLinkSpecTest {
-
     @Test
     fun `a task id becomes a link`() {
         assertEquals("singularity://task/t1", TaskLinkSpec.uri(TaskId("t1")))

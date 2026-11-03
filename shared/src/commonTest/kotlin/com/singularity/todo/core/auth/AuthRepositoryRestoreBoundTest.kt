@@ -16,8 +16,8 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.helpers.awaitState
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.test.TestScope
@@ -59,7 +59,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AuthRepositoryRestoreBoundTest {
-
     /**
      * The deadline the repository enforces on its restore.
      *
@@ -107,119 +106,125 @@ class AuthRepositoryRestoreBoundTest {
      * answer late is the provider's read — and the provider is what the restore
      * waits on.
      */
-    private fun manager(storage: SecureStorage): SecureSessionManager = SecureSessionManager(
-        log = logger(),
-        secure = storage,
-        legacy = DataStoreSessionStore(FakePreferencesStore(), SequentialIds()),
-    )
+    private fun manager(storage: SecureStorage): SecureSessionManager =
+        SecureSessionManager(
+            log = logger(),
+            secure = storage,
+            legacy = DataStoreSessionStore(FakePreferencesStore(), SequentialIds()),
+        )
 
     /** A session the store can be seeded with. */
-    private fun storedSession() =
-        Session.SignedIn(UserId.fromString("owner-1"), "a@b.c", "access-1", "refresh-1")
+    private fun storedSession() = Session.SignedIn(UserId.fromString("owner-1"), "a@b.c", "access-1", "refresh-1")
 
     @Test
-    fun `a restore that answers in time publishes the session it restored`() = runTest {
-        val storage = FakeSecureStorage()
-        val manager = manager(storage)
-        manager.save(storedSession())
-        val gateway = FakeAuthGateway(
-            manager = manager,
-            refreshResult = Result.success(
-                RemoteSession("owner-1", "a@b.c", "access-2", "refresh-2", isAnonymous = false),
-            ),
-        )
-        val repository = repository(manager, gateway)
+    fun `a restore that answers in time publishes the session it restored`() =
+        runTest {
+            val storage = FakeSecureStorage()
+            val manager = manager(storage)
+            manager.save(storedSession())
+            val gateway =
+                FakeAuthGateway(
+                    manager = manager,
+                    refreshResult =
+                        Result.success(
+                            RemoteSession("owner-1", "a@b.c", "access-2", "refresh-2", isAnonymous = false),
+                        ),
+                )
+            val repository = repository(manager, gateway)
 
-        repository.restoreFailures.test {
-            awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
-            advanceUntilIdle()
+            repository.restoreFailures.test {
+                awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
+                advanceUntilIdle()
 
-            val session = assertIs<Session.SignedIn>(repository.currentSession.value)
-            assertEquals(UserId.fromString("owner-1"), session.userId)
-            assertEquals("access-2", session.accessToken, "the refreshed token is the one the device keeps")
-            // The failure window closed with the restore, so the stream completed
-            // without an event: a reader is told there was no failure.
-            awaitComplete()
+                val session = assertIs<Session.SignedIn>(repository.currentSession.value)
+                assertEquals(UserId.fromString("owner-1"), session.userId)
+                assertEquals("access-2", session.accessToken, "the refreshed token is the one the device keeps")
+                // The failure window closed with the restore, so the stream completed
+                // without an event: a reader is told there was no failure.
+                awaitComplete()
+            }
         }
-    }
 
     @Test
-    fun `a restore that ignores cancellation cannot hold the caller past the deadline`() = runTest {
-        // The read blocks in a driver call and ignores cancellation: the shape a
-        // deadline in the caller's own coroutine cannot end.
-        val storage = FakeSecureStorage(behaviour = ReadBehaviour.Block)
-        val repository = repository(manager(storage))
+    fun `a restore that ignores cancellation cannot hold the caller past the deadline`() =
+        runTest {
+            // The read blocks in a driver call and ignores cancellation: the shape a
+            // deadline in the caller's own coroutine cannot end.
+            val storage = FakeSecureStorage(behaviour = ReadBehaviour.Block)
+            val repository = repository(manager(storage))
 
-        repository.restoreFailures.test {
-            awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
-            advanceUntilIdle()
+            repository.restoreFailures.test {
+                awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
+                advanceUntilIdle()
 
-            assertEquals(
-                restoreDeadlineMs,
-                testScheduler.currentTime,
-                "the caller must be released at the deadline: virtual time was ${testScheduler.currentTime} ms",
-            )
-            assertFalse(
-                storage.readFinished,
-                "the restore must still be running: the caller was released, not the read finished",
-            )
-            assertEquals(Session.SignedOut, repository.currentSession.value)
-            awaitItem()
-            awaitComplete()
+                assertEquals(
+                    restoreDeadlineMs,
+                    testScheduler.currentTime,
+                    "the caller must be released at the deadline: virtual time was ${testScheduler.currentTime} ms",
+                )
+                assertFalse(
+                    storage.readFinished,
+                    "the restore must still be running: the caller was released, not the read finished",
+                )
+                assertEquals(Session.SignedOut, repository.currentSession.value)
+                awaitItem()
+                awaitComplete()
+            }
         }
-    }
 
     @Test
-    fun `a restore that fails is answered the same way as one that misses the deadline`() = runTest {
-        // The conflation the callers' contract depends on: a throwing store and a
-        // hanging store mean the same thing to the user — this install has no session
-        // it can prove — so they get the same answer.
-        val storage = FakeSecureStorage(behaviour = ReadBehaviour.Throw)
-        val repository = repository(manager(storage))
+    fun `a restore that fails is answered the same way as one that misses the deadline`() =
+        runTest {
+            // The conflation the callers' contract depends on: a throwing store and a
+            // hanging store mean the same thing to the user — this install has no session
+            // it can prove — so they get the same answer.
+            val storage = FakeSecureStorage(behaviour = ReadBehaviour.Throw)
+            val repository = repository(manager(storage))
 
-        repository.restoreFailures.test {
-            awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
-            advanceUntilIdle()
+            repository.restoreFailures.test {
+                awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
+                advanceUntilIdle()
 
-            assertEquals(Session.SignedOut, repository.currentSession.value)
-            awaitItem()
-            awaitComplete()
+                assertEquals(Session.SignedOut, repository.currentSession.value)
+                awaitItem()
+                awaitComplete()
+            }
         }
-    }
 
     @Test
-    fun `a restore that fails after the caller gave up is reported, not dropped`() = runTest {
-        // The restore is abandoned at the deadline and fails afterwards. Nobody is left
-        // to handle that failure, so the repository has to report it — the same shape
-        // the remote-config port uses for a read it abandoned.
-        val storage = FakeSecureStorage(behaviour = ReadBehaviour.BlockThenFail)
-        val repository = repository(manager(storage))
+    fun `a restore that fails after the caller gave up is reported, not dropped`() =
+        runTest {
+            // The restore is abandoned at the deadline and fails afterwards. Nobody is left
+            // to handle that failure, so the repository has to report it — the same shape
+            // the remote-config port uses for a read it abandoned.
+            val storage = FakeSecureStorage(behaviour = ReadBehaviour.BlockThenFail)
+            val repository = repository(manager(storage))
 
-        repository.restoreFailures.test {
-            awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
+            repository.restoreFailures.test {
+                awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
 
-            assertTrue(
-                logWriter.entries.none { it.throwable is IllegalStateException },
-                "the failure happens after the deadline, not before it",
-            )
+                assertTrue(
+                    logWriter.entries.none { it.throwable is IllegalStateException },
+                    "the failure happens after the deadline, not before it",
+                )
 
-            // The abandoned restore is still running: it fails only once it is allowed
-            // to answer.
-            storage.releaseRead()
-            advanceUntilIdle()
+                // The abandoned restore is still running: it fails only once it is allowed
+                // to answer.
+                storage.releaseRead()
+                advanceUntilIdle()
 
-            val reported = logWriter.entries.lastOrNull { it.throwable is IllegalStateException }
-            assertNotNull(reported, "a failure nobody is left to handle must be reported, not dropped")
-            assertEquals(Severity.Warn, reported.severity)
-            assertEquals(
-                "the store failed after the caller gave up",
-                reported.throwable?.message,
-                "the report must carry the failure it is about",
-            )
-            awaitItem()
-            awaitComplete()
+                val reported = logWriter.entries.lastOrNull { it.throwable is IllegalStateException }
+                assertNotNull(reported, "a failure nobody is left to handle must be reported, not dropped")
+                assertEquals(Severity.Warn, reported.severity)
+                assertEquals(
+                    "the store failed after the caller gave up",
+                    reported.throwable?.message,
+                    "the report must carry the failure it is about",
+                )
+                awaitItem()
+                awaitComplete()
+            }
         }
-    }
 
     /**
      * The bound on the *reader* of the failure stream.
@@ -235,25 +240,26 @@ class AuthRepositoryRestoreBoundTest {
      * already closed.
      */
     @Test
-    fun `a reader that arrives after the restore is answered without waiting`() = runTest {
-        val storage = FakeSecureStorage()
-        val manager = manager(storage)
-        manager.save(storedSession())
-        val repository = repository(manager)
+    fun `a reader that arrives after the restore is answered without waiting`() =
+        runTest {
+            val storage = FakeSecureStorage()
+            val manager = manager(storage)
+            manager.save(storedSession())
+            val repository = repository(manager)
 
-        awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
-        advanceUntilIdle()
-        val before = testScheduler.currentTime
+            awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
+            advanceUntilIdle()
+            val before = testScheduler.currentTime
 
-        val failure = repository.restoreFailures.firstOrNull()
+            val failure = repository.restoreFailures.firstOrNull()
 
-        assertNull(failure, "a restore that succeeded has no failure to report")
-        assertEquals(
-            before,
-            testScheduler.currentTime,
-            "the reader must be answered at once: the window it waits for has already closed",
-        )
-    }
+            assertNull(failure, "a restore that succeeded has no failure to report")
+            assertEquals(
+                before,
+                testScheduler.currentTime,
+                "the reader must be answered at once: the window it waits for has already closed",
+            )
+        }
 
     /**
      * How a secure storage behaves when it is read.
@@ -287,7 +293,6 @@ class AuthRepositoryRestoreBoundTest {
         private val values: Map<String, String> = emptyMap(),
         private val behaviour: ReadBehaviour = ReadBehaviour.Answer,
     ) : SecureStorage {
-
         /** The gate a blocked read waits on. */
         private val gate = CompletableDeferred<Unit>()
 
@@ -329,7 +334,10 @@ class AuthRepositoryRestoreBoundTest {
             return values[key] ?: written[key]
         }
 
-        override suspend fun write(key: String, value: String) {
+        override suspend fun write(
+            key: String,
+            value: String,
+        ) {
             written[key] = value
         }
 
@@ -343,7 +351,6 @@ class AuthRepositoryRestoreBoundTest {
         private val manager: SecureSessionManager,
         private val refreshResult: Result<RemoteSession?> = Result.success(null),
     ) : AuthGateway {
-
         override suspend fun currentSession(): RemoteSession? {
             // The credential store is behind the provider now. The read that can
             // hang, throw or answer late is the provider's, and the restore waits
@@ -358,11 +365,15 @@ class AuthRepositoryRestoreBoundTest {
             )
         }
 
-        override suspend fun signUp(email: String, password: String): Result<RemoteSession> =
-            Result.failure(IllegalStateException("not scripted"))
+        override suspend fun signUp(
+            email: String,
+            password: String,
+        ): Result<RemoteSession> = Result.failure(IllegalStateException("not scripted"))
 
-        override suspend fun signIn(email: String, password: String): Result<RemoteSession> =
-            Result.failure(IllegalStateException("not scripted"))
+        override suspend fun signIn(
+            email: String,
+            password: String,
+        ): Result<RemoteSession> = Result.failure(IllegalStateException("not scripted"))
 
         override suspend fun signOut(): Result<Unit> = Result.success(Unit)
 
@@ -370,11 +381,15 @@ class AuthRepositoryRestoreBoundTest {
 
         override suspend fun sendMagicLink(email: String): Result<Unit> = Result.success(Unit)
 
-        override suspend fun verifyMagicLink(email: String, token: String): Result<RemoteSession> =
-            Result.failure(IllegalStateException("not scripted"))
+        override suspend fun verifyMagicLink(
+            email: String,
+            token: String,
+        ): Result<RemoteSession> = Result.failure(IllegalStateException("not scripted"))
 
-        override suspend fun refresh(accessToken: String, refreshToken: String): Result<RemoteSession?> =
-            refreshResult
+        override suspend fun refresh(
+            accessToken: String,
+            refreshToken: String,
+        ): Result<RemoteSession?> = refreshResult
 
         /** This gateway never changes the session behind the repository's back. */
         override fun sessionChanges(): Flow<RemoteSession?> = emptyFlow()
@@ -384,6 +399,7 @@ class AuthRepositoryRestoreBoundTest {
     private class FakePreferencesStore : DataStore<Preferences> {
         private val state = MutableStateFlow(emptyPreferences())
         override val data = state
+
         override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
             val next = transform(state.value)
             state.value = next
@@ -394,6 +410,7 @@ class AuthRepositoryRestoreBoundTest {
     /** Ids a test can predict. */
     private class SequentialIds : IdGenerator {
         private var n = 0
+
         override fun next(): String = "id-${n++}"
     }
 
@@ -405,14 +422,18 @@ class AuthRepositoryRestoreBoundTest {
      * touching any global state.
      */
     private class CapturingLogWriter : LogWriter() {
-
         /** One captured log entry. */
         data class Entry(val severity: Severity, val message: String, val tag: String, val throwable: Throwable?)
 
         /** Everything the repository logged, in order. */
         val entries: MutableList<Entry> = mutableListOf()
 
-        override fun log(severity: Severity, message: String, tag: String, throwable: Throwable?) {
+        override fun log(
+            severity: Severity,
+            message: String,
+            tag: String,
+            throwable: Throwable?,
+        ) {
             entries += Entry(severity, message, tag, throwable)
         }
     }

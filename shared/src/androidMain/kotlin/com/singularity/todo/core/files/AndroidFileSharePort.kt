@@ -15,24 +15,28 @@ import androidx.core.content.FileProvider
  *   from Koin, matching the pattern used by [AndroidFileRevealer].
  */
 class AndroidFileSharePort(private val context: Context) : FileSharePort {
-
-    override fun shareFile(filePath: String, mimeType: String): Boolean {
+    override fun shareFile(
+        filePath: String,
+        mimeType: String,
+    ): Boolean {
         val file = java.io.File(filePath)
         if (!file.exists()) return false
 
-        val uri = runCatching {
-            FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file,
-            )
-        }.getOrNull() ?: return false
+        val uri =
+            runCatching {
+                FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file,
+                )
+            }.getOrNull() ?: return false
 
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = mimeType
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
+        val intent =
+            Intent(Intent.ACTION_SEND).apply {
+                type = mimeType
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
 
         val chooser = Intent.createChooser(intent, null)
         chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

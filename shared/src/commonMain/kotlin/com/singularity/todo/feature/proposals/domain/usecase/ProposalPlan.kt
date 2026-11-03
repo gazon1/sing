@@ -2,10 +2,10 @@ package com.singularity.todo.feature.proposals.domain.usecase
 
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
-import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -29,10 +29,15 @@ sealed interface ProposalPlan {
     }
 
     data class AddTags(override val taskId: TaskId, val tagIds: Set<TagId>) : ProposalPlan
+
     data class RemoveTags(override val taskId: TaskId, val tagIds: Set<TagId>) : ProposalPlan
+
     data class SetTaskTags(override val taskId: TaskId, val tagIds: Set<TagId>) : ProposalPlan
+
     data class AddChecklistItems(override val taskId: TaskId, val texts: List<String>) : ProposalPlan
+
     data class AddSubtasks(override val taskId: TaskId, val titles: List<String>) : ProposalPlan
+
     data class AddTimeEntries(override val taskId: TaskId, val entries: List<ProposedTimeEntry>) : ProposalPlan
 
     /**

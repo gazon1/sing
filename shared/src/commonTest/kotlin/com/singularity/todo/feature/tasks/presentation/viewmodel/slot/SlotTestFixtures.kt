@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
-import com.singularity.todo.test.fakes.TEST_TZ
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
@@ -17,16 +16,16 @@ import com.singularity.todo.feature.tasks.domain.model.TaskCollaborationDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
-import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.DetachTaskFromSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.StartRecurringSeriesUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.test.fakes.FakeAttachmentRepository
@@ -41,6 +40,7 @@ import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
+import com.singularity.todo.test.fakes.TEST_TZ
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -76,11 +76,17 @@ internal class RecordingReminderScheduler(override val isSupported: Boolean = tr
         scheduled += reminder
     }
 
-    override suspend fun cancel(id: ReminderId, userId: UserId) {
+    override suspend fun cancel(
+        id: ReminderId,
+        userId: UserId,
+    ) {
         cancelledIds += id
     }
 
-    override suspend fun cancelByTask(taskId: TaskId, userId: UserId) {
+    override suspend fun cancelByTask(
+        taskId: TaskId,
+        userId: UserId,
+    ) {
         cancelledTasks += taskId
     }
 }
@@ -105,9 +111,10 @@ internal class SlotFakes(
 ) {
     val scheduler = RecordingReminderScheduler(isSupported = remindersSupported)
 
-    val currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(
-        authRepository = FakeAuthRepository(Session.Anonymous(TEST_USER)),
-    )
+    val currentUser: ProfileAwareCurrentUser =
+        FakeProfileAwareCurrentUser(
+            authRepository = FakeAuthRepository(Session.Anonymous(TEST_USER)),
+        )
     val taskRepo = FakeTaskRepository(explicitCurrentUser = currentUser)
     val projectsRepo = FakeProjectsRepository(currentUser = currentUser)
     val tagsRepo = FakeTagsRepository(currentUser = currentUser)
@@ -117,14 +124,15 @@ internal class SlotFakes(
     val notesRepo = FakeNotesRepository(currentUser = currentUser)
     val timeTrackingRepo = FakeTimeTrackingRepository(FakeClock(SLOT_NOW))
 
-    fun deps(): TaskDetailDeps = TaskDetailDeps(
-        core = core(),
-        children = children(),
-        scheduling = scheduling(),
-        collaboration = collaboration(),
-        ai = ai(),
-        context = context(),
-    )
+    fun deps(): TaskDetailDeps =
+        TaskDetailDeps(
+            core = core(),
+            children = children(),
+            scheduling = scheduling(),
+            collaboration = collaboration(),
+            ai = ai(),
+            context = context(),
+        )
 
     /**
      * The bundle accessors exist so a slot test can build exactly the group under test
@@ -132,47 +140,53 @@ internal class SlotFakes(
      * grouped constructor.
      */
 
-    fun core() = TaskCoreDeps(
-        taskRepo = taskRepo,
-        updateTask = UpdateTaskUseCase(taskRepo, FakeClock(SLOT_NOW)),
-        createTask = CreateTaskUseCase(taskRepo, FakeClock(SLOT_NOW), currentUser),
-        completeRecurring = stubCompleteRecurring,
-        completion = TaskReopenUseCase(taskRepo, projectsRepo, FakeClock(SLOT_NOW)),
-        updateSeries = UpdateTaskSeriesUseCase(taskRepo, clock = FakeClock(SLOT_NOW)),
-        detachFromSeries = DetachTaskFromSeriesUseCase(taskRepo),
-        startRecurringSeries = StartRecurringSeriesUseCase(
-            repo = taskRepo,
-            clock = FakeClock(SLOT_NOW),
-            timeZone = TEST_TZ,
-            materialize = materialize(),
-        ),
-    )
+    fun core() =
+        TaskCoreDeps(
+            taskRepo = taskRepo,
+            updateTask = UpdateTaskUseCase(taskRepo, FakeClock(SLOT_NOW)),
+            createTask = CreateTaskUseCase(taskRepo, FakeClock(SLOT_NOW), currentUser),
+            completeRecurring = stubCompleteRecurring,
+            completion = TaskReopenUseCase(taskRepo, projectsRepo, FakeClock(SLOT_NOW)),
+            updateSeries = UpdateTaskSeriesUseCase(taskRepo, clock = FakeClock(SLOT_NOW)),
+            detachFromSeries = DetachTaskFromSeriesUseCase(taskRepo),
+            startRecurringSeries =
+                StartRecurringSeriesUseCase(
+                    repo = taskRepo,
+                    clock = FakeClock(SLOT_NOW),
+                    timeZone = TEST_TZ,
+                    materialize = materialize(),
+                ),
+        )
 
     /** The write that fills a recurring series' window. */
-    fun materialize() = MaterializeRecurringSeriesUseCase(
-        repo = taskRepo,
-        unitOfWork = FakeUnitOfWork(),
-        clock = FakeClock(SLOT_NOW),
-    )
+    fun materialize() =
+        MaterializeRecurringSeriesUseCase(
+            repo = taskRepo,
+            unitOfWork = FakeUnitOfWork(),
+            clock = FakeClock(SLOT_NOW),
+        )
 
-    fun children() = TaskChildrenDeps(
-        checklistRepository = checklistRepo,
-        attachmentsRepo = attachmentsRepo,
-        projectsRepo = projectsRepo,
-        tagsRepo = tagsRepo,
-    )
+    fun children() =
+        TaskChildrenDeps(
+            checklistRepository = checklistRepo,
+            attachmentsRepo = attachmentsRepo,
+            projectsRepo = projectsRepo,
+            tagsRepo = tagsRepo,
+        )
 
-    fun scheduling() = TaskSchedulingDeps(
-        reminderRepo = reminderRepo,
-        reminderScheduler = scheduler,
-        timeZoneProvider = TEST_TZ,
-    )
+    fun scheduling() =
+        TaskSchedulingDeps(
+            reminderRepo = reminderRepo,
+            reminderScheduler = scheduler,
+            timeZoneProvider = TEST_TZ,
+        )
 
-    fun collaboration() = TaskCollaborationDeps(
-        notesRepo = notesRepo,
-        timeTrackingRepo = timeTrackingRepo,
-        currentUser = currentUser,
-    )
+    fun collaboration() =
+        TaskCollaborationDeps(
+            notesRepo = notesRepo,
+            timeTrackingRepo = timeTrackingRepo,
+            currentUser = currentUser,
+        )
 
     fun ai() = TaskAiDeps()
 
@@ -204,25 +218,37 @@ internal class SlotFakes(
      * to ask about — so the stub refuses the same way the real use case does,
      * and records the write only when it is allowed to happen.
      */
-    private val stubCompleteRecurring = object : CompleteRecurringTaskUseCase(
-        repo = taskRepo,
-        unitOfWork = FakeUnitOfWork(),
-        clock = FakeClock(SLOT_NOW),
-        timeZoneProvider = TEST_TZ,
-        calculator = RecurrenceCalculator,
-        materialize = materialize(),
-    ) {
-        override suspend fun invoke(taskId: TaskId, force: Boolean): Result<Task> {
-            recurringCalled = taskId
-            val task = taskRepo.get(taskId)
-                ?: return Result.failure(IllegalStateException("Stub — no such task: $taskId"))
-            if (!force && Blocking.activeBlockers(task, taskRepo.tasks.value.values.toList()).isNotEmpty()) {
-                return Result.failure(BlockedTasksException(setOf(taskId)))
+    private val stubCompleteRecurring =
+        object : CompleteRecurringTaskUseCase(
+            repo = taskRepo,
+            unitOfWork = FakeUnitOfWork(),
+            clock = FakeClock(SLOT_NOW),
+            timeZoneProvider = TEST_TZ,
+            calculator = RecurrenceCalculator,
+            materialize = materialize(),
+        ) {
+            override suspend fun invoke(
+                taskId: TaskId,
+                force: Boolean,
+            ): Result<Task> {
+                recurringCalled = taskId
+                val task =
+                    taskRepo.get(taskId)
+                        ?: return Result.failure(IllegalStateException("Stub — no such task: $taskId"))
+                if (!force &&
+                    Blocking
+                        .activeBlockers(
+                            task,
+                            taskRepo.tasks.value.values
+                                .toList(),
+                        ).isNotEmpty()
+                ) {
+                    return Result.failure(BlockedTasksException(setOf(taskId)))
+                }
+                recurringCompleted = taskId
+                return Result.success(task)
             }
-            recurringCompleted = taskId
-            return Result.success(task)
         }
-    }
 }
 
 /** A task flow a slot can be driven from, standing in for the coordinator's subscription. */
@@ -239,21 +265,25 @@ internal fun task(
     id: String = "t1",
     title: String = "Test task",
     seriesId: TaskSeriesId? = null,
-): Task = Task(
-    id = TaskId(id),
-    title = title,
-    userId = TEST_USER,
-    createdAt = SLOT_NOW,
-    updatedAt = SLOT_NOW,
-    seriesId = seriesId,
-)
+): Task =
+    Task(
+        id = TaskId(id),
+        title = title,
+        userId = TEST_USER,
+        createdAt = SLOT_NOW,
+        updatedAt = SLOT_NOW,
+        seriesId = seriesId,
+    )
 
 /** Slot scopes run on the test dispatcher; collectors still need a real-time pump. */
 internal fun testSlotScope(scope: CoroutineScope): AutoCloseableCoroutineScope =
     AutoCloseableCoroutineScope(scope.coroutineContext)
 
 /** A tag for the catalogue the entity slot filters against. */
-internal fun tag(id: com.singularity.todo.feature.tags.TagId, name: String) = com.singularity.todo.feature.tags.Tag(
+internal fun tag(
+    id: com.singularity.todo.feature.tags.TagId,
+    name: String,
+) = com.singularity.todo.feature.tags.Tag(
     id = id,
     name = name,
     color = 0xFF00FF00.toInt(),

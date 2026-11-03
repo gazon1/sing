@@ -34,6 +34,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,15 +46,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.DialogState
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.text.StaticText
-import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.DialogState
+import com.singularity.todo.core.ui.components.formatRussianDueDateWithTime
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
@@ -62,17 +65,16 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
-import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.LocalTime
-import androidx.compose.material3.MaterialTheme
-import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
-import kotlin.time.Instant
+import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
+import kotlin.time.Instant
+
 /**
  * Unified task editor Composable for both Create and View modes.
  *
@@ -176,10 +178,12 @@ private fun TaskEditorContent(
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
-            modifier = Modifier.padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = TaskSpacing.screenPadding),
+            modifier =
+                Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = TaskSpacing.screenPadding),
             verticalArrangement = Arrangement.spacedBy(TaskSpacing.md),
         ) {
             // Title row
@@ -207,16 +211,18 @@ private fun TaskEditorContent(
             // tasks.
             if (availableTasks.isNotEmpty()) {
                 val relations = blockedBy + followsUp
-                val relationTitles = relations.mapNotNull { depId ->
-                    availableTasks.find { it.id == depId }?.title?.ifBlank { null }
-                }
+                val relationTitles =
+                    relations.mapNotNull { depId ->
+                        availableTasks.find { it.id == depId }?.title?.ifBlank { null }
+                    }
                 TaskAttributeCard(
                     icon = Icons.Filled.Block,
-                    label = when {
-                        relations.isEmpty() -> "Add dependencies"
-                        relationTitles.isNotEmpty() -> relationTitles.joinToString(", ")
-                        else -> "${relations.size} relation${if (relations.size > 1) "s" else ""}"
-                    },
+                    label =
+                        when {
+                            relations.isEmpty() -> "Add dependencies"
+                            relationTitles.isNotEmpty() -> relationTitles.joinToString(", ")
+                            else -> "${relations.size} relation${if (relations.size > 1) "s" else ""}"
+                        },
                     isActive = relations.isNotEmpty(),
                     onClick = { sheets.show(TaskEditorSheet.Dependencies) },
                     modifier = Modifier.testTag(TestTags.TASK_EDITOR_DEPENDENCIES_ROW),
@@ -251,11 +257,12 @@ private fun TaskEditorContent(
                 attachmentsCallbacks?.let { cb ->
                     TaskAttributeCard(
                         icon = Icons.Filled.AttachFile,
-                        label = if (attachmentsCount > 0) {
-                            "Attachments ($attachmentsCount)"
-                        } else {
-                            "Attachments"
-                        },
+                        label =
+                            if (attachmentsCount > 0) {
+                                "Attachments ($attachmentsCount)"
+                            } else {
+                                "Attachments"
+                            },
                         isActive = attachmentsCount > 0,
                         onClick = cb.onOpen,
                         modifier = Modifier.testTag(TestTags.TASK_EDITOR_ATTACHMENTS_ROW),
@@ -324,25 +331,27 @@ private fun TaskEditorContent(
                     label = project?.value ?: "No project",
                     isActive = project != null,
                     onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Project) },
-                    trailingContent = if (cb.onClear != null && project != null) {
-                        {
-                            IconButton(
-                                onClick = cb.onClear,
-                                modifier = Modifier
-                                    .touchTarget(TaskListSizes.MinTouchTarget)
-                                    .size(24.dp),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Close,
-                                    contentDescription = "Clear project",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp),
-                                )
+                    trailingContent =
+                        if (cb.onClear != null && project != null) {
+                            {
+                                IconButton(
+                                    onClick = cb.onClear,
+                                    modifier =
+                                        Modifier
+                                            .touchTarget(TaskListSizes.MinTouchTarget)
+                                            .size(24.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = "Clear project",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
                             }
-                        }
-                    } else {
-                        null
-                    },
+                        } else {
+                            null
+                        },
                     modifier = Modifier.testTag(TestTags.TASK_EDITOR_PROJECT_ROW),
                 )
             }
@@ -376,8 +385,9 @@ private fun TaskEditorContent(
                     label = if (isPinned) "Pinned" else "Not pinned",
                     isActive = isPinned,
                     onClick = cb.onToggle,
-                    modifier = Modifier
-                        .testTag(TestTags.TASK_EDITOR_PIN_ROW),
+                    modifier =
+                        Modifier
+                            .testTag(TestTags.TASK_EDITOR_PIN_ROW),
                 )
             }
 
@@ -395,7 +405,6 @@ private fun TaskEditorContent(
             // so the mapping is re-asserted here or every row tag stays
             // invisible to UI automation.
             modifier = Modifier.mapTestTagsAsResourceIds(),
-
         ) {
             menuItems.forEach { item ->
                 DropdownMenuItem(
@@ -404,12 +413,12 @@ private fun TaskEditorContent(
                         showMenu = false
                         item.onClick()
                     },
-                    modifier = if (item.testTag != null) {
-                        Modifier.testTag(item.testTag)
-                    } else {
-                        Modifier
-                    },
-
+                    modifier =
+                        if (item.testTag != null) {
+                            Modifier.testTag(item.testTag)
+                        } else {
+                            Modifier
+                        },
                 )
             }
         }
@@ -423,11 +432,11 @@ private fun StartDateRow(
     callbacks: DateRowCallbacks,
     onStartDateClick: () -> Unit,
 ) {
-    val label = when {
-        startDate == null -> "No start date"
-        startTime != null -> "$startDate $startTime"
-        else -> startDate.toString()
-    }
+    val label =
+        when {
+            startDate == null -> "No start date"
+            else -> formatRussianDueDateWithTime(startDate, startTime)
+        }
     TaskAttributeCard(
         icon = Icons.Filled.CalendarToday,
         label = label,
@@ -610,108 +619,99 @@ private fun TaskEditorScaffold(
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-private fun priorityLabel(priority: TaskPriority): String = when (priority) {
-    TaskPriority.None -> "No priority"
-    TaskPriority.Low -> "Low priority"
-    TaskPriority.Medium -> "Medium priority"
-    TaskPriority.High -> "High priority"
-    TaskPriority.Urgent -> "Urgent"
-}
-
-private fun dueDateLabel(date: LocalDate?, time: LocalTime?): String {
-    if (date == null) return "Добавить дату"
-    val dateStr = date.toString()
-    return if (time != null) {
-        "$dateStr ${
-            time.toString()
-                .take(5)
-        }"
-    } else {
-        dateStr
+private fun priorityLabel(priority: TaskPriority): String =
+    when (priority) {
+        TaskPriority.None -> "No priority"
+        TaskPriority.Low -> "Low priority"
+        TaskPriority.Medium -> "Medium priority"
+        TaskPriority.High -> "High priority"
+        TaskPriority.Urgent -> "Urgent"
     }
-}
 
 // ===== Preview =====
 
 @Preview
 @Composable
-private fun TaskEditorContentEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    TaskEditorContent(
-        taskId = "",
-        titleState = TextFieldState(""),
-        isCompleted = false,
-        onCheckToggle = null,
-        descriptionState = TextFieldState(""),
-        priority = TaskPriority.None,
-        onPriorityClear = null,
-        dueDate = null,
-        dueTime = null,
-        onDueDateClear = null,
-        blockedBy = persistentSetOf(),
-        availableTasks = persistentListOf(),
-        extraSections = null,
-        bottomBar = null,
-        menuItems = persistentListOf(),
-        onBack = {},
-        sheets = rememberDialogState(),
-    )
-}
+private fun TaskEditorContentEmptyPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        TaskEditorContent(
+            taskId = "",
+            titleState = TextFieldState(""),
+            isCompleted = false,
+            onCheckToggle = null,
+            descriptionState = TextFieldState(""),
+            priority = TaskPriority.None,
+            onPriorityClear = null,
+            dueDate = null,
+            dueTime = null,
+            onDueDateClear = null,
+            blockedBy = persistentSetOf(),
+            availableTasks = persistentListOf(),
+            extraSections = null,
+            bottomBar = null,
+            menuItems = persistentListOf(),
+            onBack = {},
+            sheets = rememberDialogState(),
+        )
+    }
 
 @Preview
 @Composable
-private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    val today = PreviewSamples.today
-    TaskEditorContent(
-        taskId = "",
-        titleState = TextFieldState("Buy groceries"),
-        isCompleted = false,
-        onCheckToggle = null,
-        descriptionState = TextFieldState("Milk, eggs, bread"),
-        priority = TaskPriority.High,
-        onPriorityClear = {},
-        dueDate = today,
-        dueTime = LocalTime(14, 30),
-        onDueDateClear = {},
-        blockedBy = persistentSetOf(),
-        availableTasks = persistentListOf(),
-        extraSections = null,
-        bottomBar = null,
-        menuItems = persistentListOf(
-            TaskEditorMenuItem("Archive", onClick = {}),
-            TaskEditorMenuItem("Delete", onClick = {}),
-
-        ),
-        onBack = {},
-        sheets = rememberDialogState(),
-    )
-}
+private fun TaskEditorContentFilledPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        val today = PreviewSamples.today
+        TaskEditorContent(
+            taskId = "",
+            titleState = TextFieldState("Buy groceries"),
+            isCompleted = false,
+            onCheckToggle = null,
+            descriptionState = TextFieldState("Milk, eggs, bread"),
+            priority = TaskPriority.High,
+            onPriorityClear = {},
+            dueDate = today,
+            dueTime = LocalTime(14, 30),
+            onDueDateClear = {},
+            blockedBy = persistentSetOf(),
+            availableTasks = persistentListOf(),
+            extraSections = null,
+            bottomBar = null,
+            menuItems =
+                persistentListOf(
+                    TaskEditorMenuItem("Archive", onClick = {}),
+                    TaskEditorMenuItem("Delete", onClick = {}),
+                ),
+            onBack = {},
+            sheets = rememberDialogState(),
+        )
+    }
 
 @Preview
 @Composable
-private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    val today = PreviewSamples.today
-    val sampleTask = PreviewSamples.task(id = "t2", title = "Review PR")
-    TaskEditorContent(
-        taskId = "",
-        titleState = TextFieldState("Review PR"),
-        isCompleted = false,
-        onCheckToggle = null,
-        descriptionState = TextFieldState(""),
-        priority = TaskPriority.Urgent,
-        onPriorityClear = {},
-        dueDate = today,
-        dueTime = null,
-        onDueDateClear = {},
-        blockedBy = persistentSetOf(sampleTask.id),
-        availableTasks = persistentListOf(sampleTask),
-        extraSections = null,
-        bottomBar = null,
-        menuItems = persistentListOf(
-            TaskEditorMenuItem("Archive", onClick = {}),
-            TaskEditorMenuItem("Delete", onClick = {}),
-
-        ),
-        onBack = {},
-        sheets = rememberDialogState(),
-    )
-}
+private fun TaskEditorContentDarkPreview() =
+    PreviewThemed(darkTheme = true, useSurface = false) {
+        val today = PreviewSamples.today
+        val sampleTask = PreviewSamples.task(id = "t2", title = "Review PR")
+        TaskEditorContent(
+            taskId = "",
+            titleState = TextFieldState("Review PR"),
+            isCompleted = false,
+            onCheckToggle = null,
+            descriptionState = TextFieldState(""),
+            priority = TaskPriority.Urgent,
+            onPriorityClear = {},
+            dueDate = today,
+            dueTime = null,
+            onDueDateClear = {},
+            blockedBy = persistentSetOf(sampleTask.id),
+            availableTasks = persistentListOf(sampleTask),
+            extraSections = null,
+            bottomBar = null,
+            menuItems =
+                persistentListOf(
+                    TaskEditorMenuItem("Archive", onClick = {}),
+                    TaskEditorMenuItem("Delete", onClick = {}),
+                ),
+            onBack = {},
+            sheets = rememberDialogState(),
+        )
+    }

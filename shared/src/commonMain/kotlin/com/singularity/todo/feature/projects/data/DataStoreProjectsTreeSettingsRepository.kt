@@ -27,7 +27,6 @@ import kotlinx.coroutines.flow.map
 class DataStoreProjectsTreeSettingsRepository(dataStore: DataStore<Preferences>, private val userId: Flow<UserId>) :
     BaseSettingsRepository(dataStore),
     ProjectsTreeSettingsRepository {
-
     /** The preference of one profile. */
     private fun collapsedPref(profileUserId: UserId) =
         stringSetPref(nsKey(SettingsNamespace.PROJECTS, "collapsed.${profileUserId.value}"))

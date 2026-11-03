@@ -14,6 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.feature.calendar.domain.logic.YearMonth
 import com.singularity.todo.feature.calendar.domain.logic.headerLabel
 import com.singularity.todo.feature.calendar.domain.logic.toLocalDate
@@ -25,7 +26,6 @@ import com.singularity.todo.feature.calendar.presentation.components.calendar.Mi
 import com.singularity.todo.feature.calendar.presentation.components.calendar.MonthGridView
 import com.singularity.todo.feature.calendar.presentation.components.calendar.TimeGridView
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
-import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
 import kotlinx.datetime.LocalDate
 
@@ -59,32 +59,43 @@ fun CalendarContent(
 ) {
     Surface(modifier = modifier.fillMaxSize()) {
         StatefulContent(
-            state = when (state) {
-                is CalendarUiState.Loaded -> com.singularity.todo.core.ui.components.ContentState.Ready(state)
-                else -> com.singularity.todo.core.ui.components.ContentState.Loading
-            },
+            state =
+                when (state) {
+                    is CalendarUiState.Loaded -> {
+                        com.singularity.todo.core.ui.components.ContentState
+                            .Ready(state)
+                    }
+
+                    else -> {
+                        com.singularity.todo.core.ui.components.ContentState.Loading
+                    }
+                },
             emptyTitle = "Calendar",
             modifier = Modifier.fillMaxSize(),
         ) { loadedState, contentModifier ->
             // Top bar derives its header label live from the current pager page —
             // this avoids a VM round-trip per swipe frame and ensures the label
             // updates instantly as the user drags, not just on settle.
-            val liveMonth: YearMonth? = pagerState?.let { ps ->
-                val anchorYm = remember(loadedState.anchor) {
-                    YearMonth(loadedState.anchor.year, loadedState.anchor.month)
+            val liveMonth: YearMonth? =
+                pagerState?.let { ps ->
+                    val anchorYm =
+                        remember(loadedState.anchor) {
+                            YearMonth(loadedState.anchor.year, loadedState.anchor.month)
+                        }
+                    yearMonthForPage(anchorYm, ps.currentPage)
                 }
-                yearMonthForPage(anchorYm, ps.currentPage)
-            }
-            val liveHeaderLabel = liveMonth?.toLocalDate()?.let { anchorDate ->
-                headerLabel(anchorDate, loadedState.viewMode)
-            }
+            val liveHeaderLabel =
+                liveMonth?.toLocalDate()?.let { anchorDate ->
+                    headerLabel(anchorDate, loadedState.viewMode)
+                }
 
             Row(modifier = contentModifier.fillMaxSize()) {
                 // Main calendar area: Column carries the weight so child views fill height
                 Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight(),
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
                 ) {
                     CalendarTopBar(
                         state = loadedState,
@@ -158,28 +169,32 @@ private fun CalendarGrid(
     pagerState: PagerState?,
 ) {
     when (loadedState.viewMode) {
-        CalendarViewMode.MONTH -> MonthGridView(
-            monthAnchor = loadedState.anchor,
-            today = loadedState.today,
-            selectedDate = loadedState.selectedDate,
-            tasksByDate = loadedState.tasksByDate,
-            onDayClick = { onIntent(CalendarIntent.DayClicked(it)) },
-            onTaskClick = { task -> onIntent(CalendarIntent.TaskClicked(task.id)) },
-            onMonthPageChanged = { month -> onIntent(CalendarIntent.MonthPageChanged(month)) },
-            onEmptyCellLongPress = { date -> onIntent(CalendarIntent.EmptyCellLongPressed(date)) },
-            selectedDates = loadedState.selectedDates,
-            onDayLongPress = { date -> onIntent(CalendarIntent.EnterDateSelectionMode(date)) },
-            modifier = Modifier.fillMaxSize(),
-            pagerState = pagerState ?: rememberPagerState(initialPage = 120) { 240 },
-        )
+        CalendarViewMode.MONTH -> {
+            MonthGridView(
+                monthAnchor = loadedState.anchor,
+                today = loadedState.today,
+                selectedDate = loadedState.selectedDate,
+                tasksByDate = loadedState.tasksByDate,
+                onDayClick = { onIntent(CalendarIntent.DayClicked(it)) },
+                onTaskClick = { task -> onIntent(CalendarIntent.TaskClicked(task.id)) },
+                onMonthPageChanged = { month -> onIntent(CalendarIntent.MonthPageChanged(month)) },
+                onEmptyCellLongPress = { date -> onIntent(CalendarIntent.EmptyCellLongPressed(date)) },
+                selectedDates = loadedState.selectedDates,
+                onDayLongPress = { date -> onIntent(CalendarIntent.EnterDateSelectionMode(date)) },
+                modifier = Modifier.fillMaxSize(),
+                pagerState = pagerState ?: rememberPagerState(initialPage = 120) { 240 },
+            )
+        }
 
-        else -> TimeGridView(
-            dates = loadedState.visibleDates,
-            tasksByDate = loadedState.tasksByDate,
-            today = loadedState.today,
-            selectedTaskId = loadedState.selectedTaskId,
-            onTaskClick = { task -> onIntent(CalendarIntent.TaskClicked(task.id)) },
-            modifier = Modifier.fillMaxSize(),
-        )
+        else -> {
+            TimeGridView(
+                dates = loadedState.visibleDates,
+                tasksByDate = loadedState.tasksByDate,
+                today = loadedState.today,
+                selectedTaskId = loadedState.selectedTaskId,
+                onTaskClick = { task -> onIntent(CalendarIntent.TaskClicked(task.id)) },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }

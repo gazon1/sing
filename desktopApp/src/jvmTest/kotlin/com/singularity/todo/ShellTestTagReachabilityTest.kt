@@ -59,7 +59,6 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:compose")
 class ShellTestTagReachabilityTest {
-
     /**
      * The shell rendered, and every tag the shared UI applies is reachable in the
      * merged semantics tree.
@@ -151,11 +150,12 @@ class ShellTestTagReachabilityTest {
          * and a computed tag — the computed one is the one that breaks when a
          * title is renamed, a locale changes, or a row is rebuilt.
          */
-        val SHELL_TAGS: List<String> = listOf(
-            TestTags.AGENDA_SAVED_VIEWS_BUTTON,
-            TestTags.AGENDA_SAVE_CURRENT_BUTTON,
-            TestTags.taskItem(TASK_TITLE),
-            TestTags.taskCheckbox(TASK_TITLE),
-        )
+        val SHELL_TAGS: List<String> =
+            listOf(
+                TestTags.AGENDA_SAVED_VIEWS_BUTTON,
+                TestTags.AGENDA_SAVE_CURRENT_BUTTON,
+                TestTags.taskItem(TASK_TITLE),
+                TestTags.taskCheckbox(TASK_TITLE),
+            )
     }
 }

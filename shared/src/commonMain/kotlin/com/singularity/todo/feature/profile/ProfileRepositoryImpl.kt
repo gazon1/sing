@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.singularity.todo.core.database.ProfileDao
 import com.singularity.todo.core.database.ProfileEntity
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.wipe.ContentResetter
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import kotlinx.coroutines.CoroutineScope
@@ -14,7 +15,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.Instant
-import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Room + DataStore implementation of [ProfileRepository].
@@ -44,7 +44,6 @@ class ProfileRepositoryImpl(
     private val contentResetterProvider: () -> ContentResetter? = { null },
     private val currentUserProvider: () -> ProfileAwareCurrentUser? = { null },
 ) : ProfileRepository {
-
     /**
      * The stored active profile, or null when this process does not have one.
      *
@@ -83,24 +82,28 @@ class ProfileRepositoryImpl(
 
     override suspend fun get(id: ProfileId): Profile? = profileDao.getById(id.value)?.toDomain()
 
-    override suspend fun create(item: Profile): Result<Profile> = runCatchingCancellable {
-        val entity = item.toEntity()
-        profileDao.upsert(entity)
-        item
-    }
+    override suspend fun create(item: Profile): Result<Profile> =
+        runCatchingCancellable {
+            val entity = item.toEntity()
+            profileDao.upsert(entity)
+            item
+        }
 
-    override suspend fun update(item: Profile): Result<Profile> = runCatchingCancellable {
-        val existing = profileDao.getById(item.id.value)
-            ?: throw IllegalArgumentException("Profile not found: ${item.id.value}")
-        val updated = existing.copy(
-            name = item.name,
-            emoji = item.emoji,
-            colorIdx = item.colorIdx,
-            updatedAt = instantToEpochMillis(clock.now()),
-        )
-        profileDao.upsert(updated)
-        updated.toDomain()
-    }
+    override suspend fun update(item: Profile): Result<Profile> =
+        runCatchingCancellable {
+            val existing =
+                profileDao.getById(item.id.value)
+                    ?: throw IllegalArgumentException("Profile not found: ${item.id.value}")
+            val updated =
+                existing.copy(
+                    name = item.name,
+                    emoji = item.emoji,
+                    colorIdx = item.colorIdx,
+                    updatedAt = instantToEpochMillis(clock.now()),
+                )
+            profileDao.upsert(updated)
+            updated.toDomain()
+        }
 
     override suspend fun delete(id: ProfileId): Result<Unit> {
         if (fixedProfileId != null && id == fixedProfileId) {
@@ -138,11 +141,12 @@ class ProfileRepositoryImpl(
 
     // ── Profile-specific observers ─────────────────────────────────────────────
 
-    override fun activeProfile(): Flow<Profile> = _activeProfileId.map { id ->
-        profileDao.getById(id.value)?.toDomain()
-            ?: profileDao.getDefault()?.toDomain()
-            ?: Profile.createDefault(clock)
-    }
+    override fun activeProfile(): Flow<Profile> =
+        _activeProfileId.map { id ->
+            profileDao.getById(id.value)?.toDomain()
+                ?: profileDao.getDefault()?.toDomain()
+                ?: Profile.createDefault(clock)
+        }
 
     override val activeProfileId: StateFlow<ProfileId> = _activeProfileId
 
@@ -163,8 +167,7 @@ class ProfileRepositoryImpl(
         }
     }
 
-    override suspend fun findByName(name: String): Profile? =
-        profileDao.findByName(name)?.toDomain()
+    override suspend fun findByName(name: String): Profile? = profileDao.findByName(name)?.toDomain()
 
     override suspend fun ensureDefaults(extraProfiles: List<Triple<String, String, Int>>) {
         // Idempotent: if a default profile already exists, leave it.
@@ -206,24 +209,26 @@ class ProfileRepositoryImpl(
 
 // ─── Mapping ───────────────────────────────────────────────────────────────────
 
-private fun ProfileEntity.toDomain(): Profile = Profile(
-    id = ProfileId.fromString(id),
-    name = name,
-    emoji = emoji,
-    colorIdx = colorIdx,
-    isDefault = isDefault,
-    createdAt = Instant.fromEpochMilliseconds(createdAt),
-    updatedAt = Instant.fromEpochMilliseconds(updatedAt),
-)
+private fun ProfileEntity.toDomain(): Profile =
+    Profile(
+        id = ProfileId.fromString(id),
+        name = name,
+        emoji = emoji,
+        colorIdx = colorIdx,
+        isDefault = isDefault,
+        createdAt = Instant.fromEpochMilliseconds(createdAt),
+        updatedAt = Instant.fromEpochMilliseconds(updatedAt),
+    )
 
-private fun Profile.toEntity(): ProfileEntity = ProfileEntity(
-    id = id.value,
-    name = name,
-    emoji = emoji,
-    colorIdx = colorIdx,
-    isDefault = isDefault,
-    createdAt = instantToEpochMillis(createdAt),
-    updatedAt = instantToEpochMillis(updatedAt),
-)
+private fun Profile.toEntity(): ProfileEntity =
+    ProfileEntity(
+        id = id.value,
+        name = name,
+        emoji = emoji,
+        colorIdx = colorIdx,
+        isDefault = isDefault,
+        createdAt = instantToEpochMillis(createdAt),
+        updatedAt = instantToEpochMillis(updatedAt),
+    )
 
 private fun instantToEpochMillis(instant: Instant): Long = instant.toEpochMilliseconds()

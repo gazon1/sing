@@ -35,7 +35,6 @@ import kotlin.time.Instant
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class TaskExtrasLoadingTest {
-
     private val testUserId = UserId("test-user")
     private val repo = FakeTaskRepository()
 
@@ -60,63 +59,67 @@ class TaskExtrasLoadingTest {
     }
 
     @Test
-    fun `observeAll returns tasks with tags and blockedBy`() = runTest {
-        val tag1 = TagId.fromString("tag-1")
-        val tag2 = TagId.fromString("tag-2")
-        val dep1 = TaskId.fromString("dep-1")
+    fun `observeAll returns tasks with tags and blockedBy`() =
+        runTest {
+            val tag1 = TagId.fromString("tag-1")
+            val tag2 = TagId.fromString("tag-2")
+            val dep1 = TaskId.fromString("dep-1")
 
-        repo.seed(
-            makeTask("t1", "Task 1", tags = listOf(tag1, tag2), blockedBy = setOf(dep1)),
-            makeTask("t2", "Task 2", tags = listOf(tag1)),
-            makeTask("dep-1", "Dependency", tags = emptyList()),
-        )
+            repo.seed(
+                makeTask("t1", "Task 1", tags = listOf(tag1, tag2), blockedBy = setOf(dep1)),
+                makeTask("t2", "Task 2", tags = listOf(tag1)),
+                makeTask("dep-1", "Dependency", tags = emptyList()),
+            )
 
-        val tasks = repo.observeAll().first()
-        val byId = tasks.associateBy { it.id.value }
+            val tasks = repo.observeAll().first()
+            val byId = tasks.associateBy { it.id.value }
 
-        assertEquals(listOf(tag1, tag2), byId["t1"]!!.tags)
-        assertEquals(setOf(dep1), byId["t1"]!!.blockedBy)
-        assertEquals(listOf(tag1), byId["t2"]!!.tags)
-        assertEquals(emptyList<TagId>(), byId["dep-1"]!!.tags)
-    }
-
-    @Test
-    fun `isBlocked returns true when dependency is not completed`() = runTest {
-        val depId = TaskId.fromString("dep-unfinished")
-        repo.seed(
-            makeTask("t1", "Blocked task", blockedBy = setOf(depId)),
-            makeTask("dep-unfinished", "Unfinished dependency"),
-        )
-
-        val tasks = repo.observeAll().first()
-        val t1 = tasks.first { it.id.value == "t1" }
-        val allTasks = tasks
-
-        assertTrue(Blocking.isBlocked(t1, allTasks))
-    }
+            assertEquals(listOf(tag1, tag2), byId["t1"]!!.tags)
+            assertEquals(setOf(dep1), byId["t1"]!!.blockedBy)
+            assertEquals(listOf(tag1), byId["t2"]!!.tags)
+            assertEquals(emptyList<TagId>(), byId["dep-1"]!!.tags)
+        }
 
     @Test
-    fun `isBlocked returns false when dependency is completed`() = runTest {
-        val depId = TaskId.fromString("dep-finished")
-        repo.seed(
-            makeTask("t1", "Blocked task", blockedBy = setOf(depId)),
-            makeTask("dep-finished", "Finished dependency", completedAt = Clock.System.now()),
-        )
+    fun `isBlocked returns true when dependency is not completed`() =
+        runTest {
+            val depId = TaskId.fromString("dep-unfinished")
+            repo.seed(
+                makeTask("t1", "Blocked task", blockedBy = setOf(depId)),
+                makeTask("dep-unfinished", "Unfinished dependency"),
+            )
 
-        val tasks = repo.observeAll().first()
-        val t1 = tasks.first { it.id.value == "t1" }
-        val allTasks = tasks
+            val tasks = repo.observeAll().first()
+            val t1 = tasks.first { it.id.value == "t1" }
+            val allTasks = tasks
 
-        assertFalse(Blocking.isBlocked(t1, allTasks))
-    }
+            assertTrue(Blocking.isBlocked(t1, allTasks))
+        }
 
     @Test
-    fun `isBlocked returns false when task has no dependencies`() = runTest {
-        repo.seed(makeTask("t1", "Free task"))
+    fun `isBlocked returns false when dependency is completed`() =
+        runTest {
+            val depId = TaskId.fromString("dep-finished")
+            repo.seed(
+                makeTask("t1", "Blocked task", blockedBy = setOf(depId)),
+                makeTask("dep-finished", "Finished dependency", completedAt = Clock.System.now()),
+            )
 
-        val tasks = repo.observeAll().first()
-        val t1 = tasks.first { it.id.value == "t1" }
+            val tasks = repo.observeAll().first()
+            val t1 = tasks.first { it.id.value == "t1" }
+            val allTasks = tasks
 
-        assertFalse(Blocking.isBlocked(t1, tasks))
-    }
+            assertFalse(Blocking.isBlocked(t1, allTasks))
+        }
+
+    @Test
+    fun `isBlocked returns false when task has no dependencies`() =
+        runTest {
+            repo.seed(makeTask("t1", "Free task"))
+
+            val tasks = repo.observeAll().first()
+            val t1 = tasks.first { it.id.value == "t1" }
+
+            assertFalse(Blocking.isBlocked(t1, tasks))
+        }
 }

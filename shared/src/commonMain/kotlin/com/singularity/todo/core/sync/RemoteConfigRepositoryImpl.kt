@@ -8,18 +8,21 @@ internal class RemoteConfigRepositoryImpl(
     private val clock: kotlin.time.Clock,
     private val log: Logger = Logger.withTag("RemoteConfigRepository"),
 ) : RemoteConfigRepository {
-
     override val defaultConfig: Flow<RemoteConfigEntity?> = dao.watchDefault()
 
     override suspend fun getConfig(): RemoteConfigEntity? = dao.getDefault()
 
-    override suspend fun saveConfig(supabaseUrl: String, anonKey: String) {
-        val entity = RemoteConfigEntity(
-            id = "default",
-            supabaseUrl = supabaseUrl,
-            anonKey = anonKey,
-            updatedAt = clock.now().toEpochMilliseconds(),
-        )
+    override suspend fun saveConfig(
+        supabaseUrl: String,
+        anonKey: String,
+    ) {
+        val entity =
+            RemoteConfigEntity(
+                id = "default",
+                supabaseUrl = supabaseUrl,
+                anonKey = anonKey,
+                updatedAt = clock.now().toEpochMilliseconds(),
+            )
         dao.upsert(entity)
         log.d { "Remote config saved" }
     }

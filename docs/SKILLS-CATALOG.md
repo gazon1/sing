@@ -26,8 +26,8 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-attachments` | 406 | Attachment feature pattern for the Singularity Todo KMP app. |
 | `singularity-todo-auth-seam` | 115 | The auth seam of this KMP app: the AuthGateway port the domain speaks, the Supabase (KMPAuth) binding behind it, the SecureSessionManager that is the one session store, the provider session observation, and the E2E stub that replaces the whole seam in the debug build. |
 | `singularity-todo-backup` | 182 | Backup/restore pattern for the Singularity Todo KMP app. |
-| `singularity-todo-build-and-gates` | 173 | How to build, test and lint the Singularity Todo KMP project, and how to run its gate suite. |
-| `singularity-todo-ci-cd` | 152 | How the gate suite, the CI workflows and the review verdicts fit together in the Singularity Todo repository. |
+| `singularity-todo-build-and-gates` | 192 | How to build, test and lint the Singularity Todo KMP project, and how to run its gate suite. |
+| `singularity-todo-ci-cd` | 153 | How the gate suite, the CI workflows and the review verdicts fit together in the Singularity Todo repository. |
 | `singularity-todo-clean-architecture-audit` | 213 | Audit tool to verify that a feature follows clean architecture: presentation depends only on domain (via interfaces), data depends only on domain, no cross-layer imports. |
 | `singularity-todo-cli-tool-surface` | 396 | Write-tool surface contract for Singularity Todo KMP MCP server. |
 | `singularity-todo-compose-overview` | 52 | Router skill — index to all Compose UI skills. |
@@ -37,7 +37,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-decisions-workflow` | 309 | Lightweight decision-log workflow for this project. |
 | `singularity-todo-desktop-compose-ui-tests` | 451 | Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. |
 | `singularity-todo-detekt-rules-authoring` | 489 | How to write and register custom detekt rules in the Singularity Todo project. |
-| `singularity-todo-detekt-workflow` | 105 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules. |
+| `singularity-todo-detekt-workflow` | 127 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules. |
 | `singularity-todo-di-graph-testing` | 152 | Validate Koin DI graph at compile time via koin-compiler-plugin. |
 | `singularity-todo-document-style-detail` | 214 | Generic document-style UX pattern for any read-only detail screen (Task, Project, Note, etc.). |
 | `singularity-todo-domain-logic-pattern` | 176 | Documents the pattern for pure business-logic classes placed in feature/X/domain/logic/. |
@@ -56,7 +56,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-koog-agent` | 242 | KMP-native AI agent pattern using JetBrains Koog 1.1.1 with SimpleTool<T>, expect/actual PromptExecutor, ToolRegistry, and Koin auto-registration. |
 | `singularity-todo-kotlin-idioms` | 454 | Kotlin boilerplate-reduction catalog for Kotlin 2.4. |
 | `singularity-todo-llm-usage-tracking` | 332 | LLM token usage tracking in Singularity Todo KMP. |
-| `singularity-todo-maestro-flows` | 525 | Author and run Maestro UI flows for the Android app. |
+| `singularity-todo-maestro-flows` | 368 | Author and run Maestro UI flows for the Android app. |
 | `singularity-todo-mcp-dogfooding` | 275 | How the AI agent should use the Singularity Todo MCP server to track its own multi-step plans via tasks/projects/tags/ADRs. |
 | `singularity-todo-mcp-init` | 276 | MCP init command pattern for Singularity Todo KMP. |
 | `singularity-todo-monthly-doc-audit` | 113 | Monthly or pre-release sweep of the documentation ecosystem in this repo. |
@@ -71,7 +71,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-openspec-workflow` | 178 | OpenSpec spec-driven workflow for this project. |
 | `singularity-todo-preview-with-koin` | 160 | Use when writing @Preview composables in this KMP project and the preview crashes with "KoinApplication has not been started". |
 | `singularity-todo-pure-formatters` | 195 | How to extract user-facing string formatting out of Composables and into pure-Kotlin helpers that can be unit-tested without a Compose runtime. |
-| `singularity-todo-quality-tools` | 513 | Run detekt, ktlint, and kover on the Singularity Todo KMP project. |
+| `singularity-todo-quality-tools` | 267 | Run detekt, ktlint, and kover on the Singularity Todo KMP project. |
 | `singularity-todo-relational-counts` | 216 | How to display aggregate counts (task count per project, note count per tag) in list screens. |
 | `singularity-todo-repository-architecture` | 261 | Canonical repository-architecture invariants in this KMP project. |
 | `singularity-todo-rich-editor` | 352 | Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes using com.mohamedrejeb.richeditor:richeditor-compose 1.2.0. |
@@ -91,7 +91,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-test-helpers` | 349 | Standardized test helpers and patterns for ViewModel tests in this project. |
 | `singularity-todo-test-tag-strategy` | 270 | Decide which JUnit tag a test class carries, and how the fast/slow split is applied in Gradle, CI and local runs. |
 | `singularity-todo-testable-vm` | 469 | Testable ViewModel pattern for Singularity Todo KMP app. |
-| `singularity-todo-text-field-states` | 591 | How to add or change a text field in Singularity Todo. |
+| `singularity-todo-text-field-states` | 313 | How to add or change a text field in Singularity Todo. |
 | `singularity-todo-top-bar-entry` | 158 | Use when adding an IconButton to the TopAppBar that opens a nested screen (Saved Views, Search, Filters). |
 | `singularity-todo-ui-event-vs-state` | 62 | How to model one-shot UI events, routing state and continuous state separately in Singularity Todo ViewModels. |
 | `singularity-todo-unwired-surface-audit` | 113 | Find code that is fully implemented but wired to nothing — a screen no graph composes, a callback whose empty default defeats its own fallback, a DAO no Koin module binds, a UI affordance with no control. |
@@ -107,7 +107,7 @@ state *which tasks need the skill*, not summarise its contents.
 
 | Skill | Lines | Description |
 |---|---:|---|
-| `code-review-pr-workflow` | 394 | Author and review a pull request in this project. |
+| `code-review-pr-workflow` | 401 | Author and review a pull request in this project. |
 | `codebase-design` | 113 | Shared vocabulary for designing deep modules. |
 | `debugging-investigation` | 334 | Step-by-step incident diagnosis for production issues — log retrieval, trace filtering, crash analysis — and for failing or hanging tests: diagnostics bundle, thread dumps, frozen frame clock, headless DI-graph probe, DebugProbes for silent coroutine death. |
 | `diagnosing-bugs` | 137 | Diagnosis loop for hard bugs and performance regressions. |

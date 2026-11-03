@@ -80,8 +80,9 @@ private val payloadJson = Json.Default
  *   [ProposalItemKind.Unknown] so the row can be written back unchanged.
  */
 internal fun decodeKind(raw: String): ProposalItemKind {
-    val obj = runCatching { payloadJson.parseToJsonElement(raw) as JsonObject }.getOrNull()
-        ?: return ProposalItemKind.Unknown(raw, NOT_A_BLOB_REASON)
+    val obj =
+        runCatching { payloadJson.parseToJsonElement(raw) as JsonObject }.getOrNull()
+            ?: return ProposalItemKind.Unknown(raw, NOT_A_BLOB_REASON)
     return if (obj.carriesStructure()) {
         // The sealed format: the one this build writes. A blob that does not decode
         // is a blob a newer build wrote — it stays, with the reason.
@@ -100,8 +101,7 @@ internal fun decodeKind(raw: String): ProposalItemKind {
  * so a flat blob has no structure. The sealed format carries the model's own
  * shape, and the model has objects and lists in it.
  */
-private fun JsonObject.carriesStructure(): Boolean =
-    values.any { it is JsonObject || it is JsonArray }
+private fun JsonObject.carriesStructure(): Boolean = values.any { it is JsonObject || it is JsonArray }
 
 /** The reason a blob that is not an object at all carries. */
 private const val NOT_A_BLOB_REASON =
@@ -128,7 +128,10 @@ private fun decodeSealed(obj: JsonObject): ProposalItemKind? =
  * stays readable for as long as a build that writes it can be in the user's
  * hands.
  */
-private fun decodeFlat(obj: JsonObject, raw: String): ProposalItemKind? =
+private fun decodeFlat(
+    obj: JsonObject,
+    raw: String,
+): ProposalItemKind? =
     decodeUnknownKind(obj, raw)
         ?: decodeTaskKind(obj)
         ?: decodeEntityKind(obj)
@@ -141,7 +144,10 @@ private fun decodeFlat(obj: JsonObject, raw: String): ProposalItemKind? =
  * It is read first: the row says so itself, and the blob it carries is the
  * original one — the whole stored blob when the row does not name it.
  */
-private fun decodeUnknownKind(obj: JsonObject, raw: String): ProposalItemKind? =
+private fun decodeUnknownKind(
+    obj: JsonObject,
+    raw: String,
+): ProposalItemKind? =
     if (obj.stringOrNull("type") == "Unknown") {
         // The reason is read when it is there. The flat format never had one — the
         // reason belongs to the reader, and the reader names it — but the sealed
@@ -162,43 +168,57 @@ private fun decodeUnknownKind(obj: JsonObject, raw: String): ProposalItemKind? =
  * `when` over every kind is a function nobody can read — and a function nobody can
  * read is one that gets a new kind added to it wrongly.
  */
-private fun decodeTaskKind(obj: JsonObject): ProposalItemKind? = when (obj.stringOrNull("type")) {
-    "SetTaskField" -> ProposalItemKind.SetTaskField(readValue(obj, TaskValue::read, TaskValue::Unreadable))
-    "SetTaskTags" -> ProposalItemKind.SetTaskTags(obj.list("tagIds"))
-    "AddTags" -> ProposalItemKind.AddTags(obj.list("names"))
-    "RemoveTags" -> ProposalItemKind.RemoveTags(obj.list("tagIds"))
-    "AddChecklistItems" -> ProposalItemKind.AddChecklistItems(obj.list("texts"))
-    "AddSubtasks" -> ProposalItemKind.AddSubtasks(obj.list("titles"))
-    "AddTimeEntries" -> ProposalItemKind.AddTimeEntries(decodeTimeEntries(obj))
-    "SetTagField" -> ProposalItemKind.SetTagField(readValue(obj, TagValue::read, TagValue::Unreadable))
-    else -> null
-}
+private fun decodeTaskKind(obj: JsonObject): ProposalItemKind? =
+    when (obj.stringOrNull("type")) {
+        "SetTaskField" -> ProposalItemKind.SetTaskField(readValue(obj, TaskValue::read, TaskValue::Unreadable))
+        "SetTaskTags" -> ProposalItemKind.SetTaskTags(obj.list("tagIds"))
+        "AddTags" -> ProposalItemKind.AddTags(obj.list("names"))
+        "RemoveTags" -> ProposalItemKind.RemoveTags(obj.list("tagIds"))
+        "AddChecklistItems" -> ProposalItemKind.AddChecklistItems(obj.list("texts"))
+        "AddSubtasks" -> ProposalItemKind.AddSubtasks(obj.list("titles"))
+        "AddTimeEntries" -> ProposalItemKind.AddTimeEntries(decodeTimeEntries(obj))
+        "SetTagField" -> ProposalItemKind.SetTagField(readValue(obj, TagValue::read, TagValue::Unreadable))
+        else -> null
+    }
 
 /** The kinds a note or a project carries. */
-private fun decodeEntityKind(obj: JsonObject): ProposalItemKind? = when (obj.stringOrNull("type")) {
-    "SetNoteField" -> ProposalItemKind.SetNoteField(readValue(obj, NoteValue::read, NoteValue::Unreadable))
-    "SetProjectField" -> ProposalItemKind.SetProjectField(readValue(obj, ProjectValue::read, ProjectValue::Unreadable))
-    else -> null
-}
+private fun decodeEntityKind(obj: JsonObject): ProposalItemKind? =
+    when (obj.stringOrNull("type")) {
+        "SetNoteField" -> {
+            ProposalItemKind.SetNoteField(readValue(obj, NoteValue::read, NoteValue::Unreadable))
+        }
+
+        "SetProjectField" -> {
+            ProposalItemKind.SetProjectField(
+                readValue(obj, ProjectValue::read, ProjectValue::Unreadable),
+            )
+        }
+
+        else -> {
+            null
+        }
+    }
 
 /** The kinds that bring something into being. */
-private fun decodeCreationKind(obj: JsonObject): ProposalItemKind? = when (obj.stringOrNull("type")) {
-    "CreateTask" -> ProposalItemKind.CreateTask(decodeProposedTask(obj))
-    "CreateProject" -> ProposalItemKind.CreateProject(decodeProposedProject(obj))
-    "CreateNote" -> ProposalItemKind.CreateNote(decodeProposedNote(obj))
-    "ExtractActions" -> ProposalItemKind.ExtractActions(obj.list("actions"))
-    "CreateTag" -> ProposalItemKind.CreateTag(decodeProposedTag(obj))
-    else -> null
-}
+private fun decodeCreationKind(obj: JsonObject): ProposalItemKind? =
+    when (obj.stringOrNull("type")) {
+        "CreateTask" -> ProposalItemKind.CreateTask(decodeProposedTask(obj))
+        "CreateProject" -> ProposalItemKind.CreateProject(decodeProposedProject(obj))
+        "CreateNote" -> ProposalItemKind.CreateNote(decodeProposedNote(obj))
+        "ExtractActions" -> ProposalItemKind.ExtractActions(obj.list("actions"))
+        "CreateTag" -> ProposalItemKind.CreateTag(decodeProposedTag(obj))
+        else -> null
+    }
 
 /** The kinds that take something away. */
-private fun decodeDeletionKind(obj: JsonObject): ProposalItemKind? = when (obj.stringOrNull("type")) {
-    "DeleteNote" -> ProposalItemKind.DeleteNote(reason = obj.stringOrNull("reason"))
-    "DeleteTask" -> ProposalItemKind.DeleteTask(reason = obj.stringOrNull("reason"))
-    "DeleteProject" -> ProposalItemKind.DeleteProject(reason = obj.stringOrNull("reason"))
-    "DeleteTag" -> ProposalItemKind.DeleteTag(reason = obj.stringOrNull("reason"))
-    else -> null
-}
+private fun decodeDeletionKind(obj: JsonObject): ProposalItemKind? =
+    when (obj.stringOrNull("type")) {
+        "DeleteNote" -> ProposalItemKind.DeleteNote(reason = obj.stringOrNull("reason"))
+        "DeleteTask" -> ProposalItemKind.DeleteTask(reason = obj.stringOrNull("reason"))
+        "DeleteProject" -> ProposalItemKind.DeleteProject(reason = obj.stringOrNull("reason"))
+        "DeleteTag" -> ProposalItemKind.DeleteTag(reason = obj.stringOrNull("reason"))
+        else -> null
+    }
 
 /**
  * The value a row carries, read through the domain's own reader.
@@ -230,57 +250,63 @@ private fun <T> readValue(
 private const val UNKNOWN_FIELD = "unknown"
 
 /** The packed time entries of an `AddTimeEntries` item. */
-private fun decodeTimeEntries(obj: JsonObject): List<ProposedTimeEntry> = obj.stringOrNull("entries")
-    .orEmpty()
-    .split(ProposalPayloadSep.RECORD)
-    .filter { it.isNotEmpty() }
-    .mapNotNull { record ->
-        val parts = record.split(ProposalPayloadSep.FIELD)
-        if (parts.size < 2) return@mapNotNull null
-        val start = parts[0].toLongOrNull() ?: return@mapNotNull null
-        val end = parts[1].toLongOrNull() ?: return@mapNotNull null
-        ProposedTimeEntry(
-            startedAt = start,
-            endedAt = end,
-            note = parts.getOrNull(2)?.takeIf { it.isNotEmpty() },
-        )
-    }
+private fun decodeTimeEntries(obj: JsonObject): List<ProposedTimeEntry> =
+    obj
+        .stringOrNull("entries")
+        .orEmpty()
+        .split(ProposalPayloadSep.RECORD)
+        .filter { it.isNotEmpty() }
+        .mapNotNull { record ->
+            val parts = record.split(ProposalPayloadSep.FIELD)
+            if (parts.size < 2) return@mapNotNull null
+            val start = parts[0].toLongOrNull() ?: return@mapNotNull null
+            val end = parts[1].toLongOrNull() ?: return@mapNotNull null
+            ProposedTimeEntry(
+                startedAt = start,
+                endedAt = end,
+                note = parts.getOrNull(2)?.takeIf { it.isNotEmpty() },
+            )
+        }
 
 /** The task a `CreateTask` item brings into being. */
-private fun decodeProposedTask(obj: JsonObject): ProposedTask = ProposedTask(
-    title = obj.stringOrNull("title").orEmpty(),
-    description = obj.stringOrNull("description"),
-    priority = readPriority(obj.stringOrNull("priority")),
-    kind = readKind(obj.stringOrNull("kind")),
-    projectId = obj.stringOrNull("projectId"),
-    parentTaskId = obj.stringOrNull("parentTaskId"),
-    tagIds = obj.list("tagIds"),
-    dueDate = readDate(obj.stringOrNull("dueDate")),
-    dueTime = readTime(obj.stringOrNull("dueTime")),
-    someday = obj.stringOrNull("someday") == "true",
-)
+private fun decodeProposedTask(obj: JsonObject): ProposedTask =
+    ProposedTask(
+        title = obj.stringOrNull("title").orEmpty(),
+        description = obj.stringOrNull("description"),
+        priority = readPriority(obj.stringOrNull("priority")),
+        kind = readKind(obj.stringOrNull("kind")),
+        projectId = obj.stringOrNull("projectId"),
+        parentTaskId = obj.stringOrNull("parentTaskId"),
+        tagIds = obj.list("tagIds"),
+        dueDate = readDate(obj.stringOrNull("dueDate")),
+        dueTime = readTime(obj.stringOrNull("dueTime")),
+        someday = obj.stringOrNull("someday") == "true",
+    )
 
 /** The project a `CreateProject` item brings into being. */
-private fun decodeProposedProject(obj: JsonObject): ProposedProject = ProposedProject(
-    name = obj.stringOrNull("name").orEmpty(),
-    description = obj.stringOrNull("description"),
-    color = obj.stringOrNull("color")?.toIntOrNull() ?: 0xFF2196F3.toInt(),
-    icon = obj.stringOrNull("icon"),
-)
+private fun decodeProposedProject(obj: JsonObject): ProposedProject =
+    ProposedProject(
+        name = obj.stringOrNull("name").orEmpty(),
+        description = obj.stringOrNull("description"),
+        color = obj.stringOrNull("color")?.toIntOrNull() ?: 0xFF2196F3.toInt(),
+        icon = obj.stringOrNull("icon"),
+    )
 
 /** The tag a `CreateTag` item brings into being. */
-private fun decodeProposedTag(obj: JsonObject): ProposedTag = ProposedTag(
-    name = obj.stringOrNull("name").orEmpty(),
-    color = obj.stringOrNull("color")?.toIntOrNull() ?: 0xFF9E9E9E.toInt(),
-)
+private fun decodeProposedTag(obj: JsonObject): ProposedTag =
+    ProposedTag(
+        name = obj.stringOrNull("name").orEmpty(),
+        color = obj.stringOrNull("color")?.toIntOrNull() ?: 0xFF9E9E9E.toInt(),
+    )
 
 /** The note a `CreateNote` item brings into being. */
-private fun decodeProposedNote(obj: JsonObject): ProposedNote = ProposedNote(
-    title = obj.stringOrNull("title").orEmpty(),
-    bodyHtml = obj.stringOrNull("bodyHtml"),
-    isFolder = obj.stringOrNull("isFolder") == "true",
-    parentNoteId = obj.stringOrNull("parentNoteId"),
-)
+private fun decodeProposedNote(obj: JsonObject): ProposedNote =
+    ProposedNote(
+        title = obj.stringOrNull("title").orEmpty(),
+        bodyHtml = obj.stringOrNull("bodyHtml"),
+        isFolder = obj.stringOrNull("isFolder") == "true",
+        parentNoteId = obj.stringOrNull("parentNoteId"),
+    )
 
 /**
  * Serializes a kind for storage.
@@ -293,14 +319,15 @@ private fun decodeProposedNote(obj: JsonObject): ProposedNote = ProposedNote(
  * model are the same declaration, so a field that changed is a field the
  * serializer changed with.
  */
-internal fun ProposalItemKind.toJsonString(): String =
-    payloadJson.encodeToString(ProposalItemKind.serializer(), this)
+internal fun ProposalItemKind.toJsonString(): String = payloadJson.encodeToString(ProposalItemKind.serializer(), this)
 
 /** Splits a packed list column, dropping blanks. */
-private fun JsonObject.list(key: String): List<String> = stringOrNull(key).orEmpty()
-    .split(ProposalPayloadSep.LIST)
-    .map { it.trim() }
-    .filter { it.isNotEmpty() }
+private fun JsonObject.list(key: String): List<String> =
+    stringOrNull(key)
+        .orEmpty()
+        .split(ProposalPayloadSep.LIST)
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
 
 /** Reads a `JsonPrimitive` as a non-empty string, or null. */
 private fun JsonObject.stringOrNull(key: String): String? =

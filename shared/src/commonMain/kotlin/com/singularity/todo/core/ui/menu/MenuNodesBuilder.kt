@@ -39,16 +39,17 @@ class MenuNodesBuilder {
         enabled: Boolean = true,
         onClick: () -> Unit,
     ) {
-        items += MenuNode.Action(
-            id = id,
-            label = label,
-            icon = icon,
-            shortcut = shortcut,
-            danger = danger,
-            checked = checked,
-            enabled = enabled,
-            onClick = onClick,
-        )
+        items +=
+            MenuNode.Action(
+                id = id,
+                label = label,
+                icon = icon,
+                shortcut = shortcut,
+                danger = danger,
+                checked = checked,
+                enabled = enabled,
+                onClick = onClick,
+            )
     }
 
     fun divider() {
@@ -62,15 +63,16 @@ class MenuNodesBuilder {
         enabled: Boolean = true,
         children: List<MenuNode>,
     ) {
-        items += MenuNode.SubMenu(
-            id = id,
-            label = label,
-            icon = icon,
-            enabled = enabled,
-            // A copy: the caller keeps its list, and the node keeps a list
-            // that never changes after this. The contract vouches for that.
-            children = children.toImmutableList(),
-        )
+        items +=
+            MenuNode.SubMenu(
+                id = id,
+                label = label,
+                icon = icon,
+                enabled = enabled,
+                // A copy: the caller keeps its list, and the node keeps a list
+                // that never changes after this. The contract vouches for that.
+                children = children.toImmutableList(),
+            )
     }
 
     /** Trailing lambda overload — convenient DSL form for nested submenus. */
@@ -81,13 +83,14 @@ class MenuNodesBuilder {
         enabled: Boolean = true,
         block: MenuNodesBuilder.() -> Unit,
     ) {
-        items += MenuNode.SubMenu(
-            id = id,
-            label = label,
-            icon = icon,
-            enabled = enabled,
-            children = buildMenuNodes(block),
-        )
+        items +=
+            MenuNode.SubMenu(
+                id = id,
+                label = label,
+                icon = icon,
+                enabled = enabled,
+                children = buildMenuNodes(block),
+            )
     }
 
     /** Returns an immutable snapshot of the menu built so far. */
@@ -101,5 +104,7 @@ class MenuNodesBuilder {
  * @param block the DSL lambda — calls [MenuNodesBuilder.item],
  *              [MenuNodesBuilder.divider], and [MenuNodesBuilder.subMenu]
  */
-fun buildMenuNodes(block: MenuNodesBuilder.() -> Unit): ImmutableList<MenuNode> = MenuNodesBuilder().apply(block)
-    .build()
+fun buildMenuNodes(block: MenuNodesBuilder.() -> Unit): ImmutableList<MenuNode> =
+    MenuNodesBuilder()
+        .apply(block)
+        .build()

@@ -1,8 +1,8 @@
 package com.singularity.todo.core.ui
 
 import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.Test
 import java.io.File
 import java.nio.file.Files
 import kotlin.test.assertEquals
@@ -30,7 +30,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TestTagsCatalogJvmTest {
-
     // ─── Catalog parsing ────────────────────────────────────────────────────────
 
     @Test
@@ -66,9 +65,13 @@ class TestTagsCatalogJvmTest {
 
     /** Mirrors [TestTagsCatalog]'s path resolution; kept separate so the catalog stays parse-only. */
     private fun readTestTagsSourceForCount(): String {
-        val commonMainRoot = System.getProperty("commonMain.root")
-            ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
-        val moduleRoot = java.nio.file.Paths.get(commonMainRoot).parent.parent.parent
+        val commonMainRoot =
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
+        val moduleRoot =
+            java.nio.file.Paths
+                .get(commonMainRoot)
+                .parent.parent.parent
         // Mirrors TestTagsCatalog.TEST_TAGS_SOURCE but is private there
         return java.nio.file.Files.readString(
             moduleRoot.resolve("src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"),
@@ -157,15 +160,18 @@ class TestTagsCatalogJvmTest {
                 val end = declarations.getOrNull(index + 1)?.range?.first ?: source.length
                 val declaration = source.substring(match.range.first, end)
                 match.groupValues[1].takeIf { SLUG_TEMPLATE.containsMatchIn(declaration) }
-            }
-            .toSet()
+            }.toSet()
     }
 
     /** Mirrors [TestTagsCatalog]'s path resolution; kept separate so the catalog stays parse-only. */
     private fun readTestTagsSourceForFunCount(): String {
-        val commonMainRoot = System.getProperty("commonMain.root")
-            ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
-        val moduleRoot = java.nio.file.Paths.get(commonMainRoot).parent.parent.parent
+        val commonMainRoot =
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
+        val moduleRoot =
+            java.nio.file.Paths
+                .get(commonMainRoot)
+                .parent.parent.parent
         return java.nio.file.Files.readString(
             moduleRoot.resolve("src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"),
         )
@@ -299,10 +305,11 @@ class TestTagsCatalogJvmTest {
     }
 
     /** The `:shared` module root, derived from `commonMain.root`. */
-    private val moduleRoot: File = File(
-        System.getProperty("commonMain.root")
-            ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
-    ).parentFile.parentFile.parentFile
+    private val moduleRoot: File =
+        File(
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
+        ).parentFile.parentFile.parentFile
 
     /** The workspace (git) root — `commonMain.root` is three levels below it. */
     private val workspaceRoot: File = moduleRoot.parentFile
@@ -338,7 +345,8 @@ class TestTagsCatalogJvmTest {
         val violations = mutableListOf<Pair<String, String>>()
         val testTagCall = Regex("""\.testTag\s*\(\s*"([^"]+)"""")
         for (root in roots) {
-            root.walkTopDown()
+            root
+                .walkTopDown()
                 .filter { it.isFile && it.extension == "kt" && it != testTagsFile }
                 .forEach { file ->
                     testTagCall.findAll(Files.readString(file.toPath())).forEach { match ->
@@ -373,9 +381,10 @@ class TestTagsCatalogJvmTest {
          * as `internal fun slug(...)` ends its own slice — an unnamed declaration
          * would otherwise hand the next function's text to the previous one.
          */
-        private val FUN_DECLARATION = Regex(
-            """(?m)^[ \t]*(?:(?:public|private|internal|protected|override|suspend|open|abstract|inline|operator|tailrec|expect|actual)\s+)*fun\s+(\w+)""",
-        )
+        private val FUN_DECLARATION =
+            Regex(
+                """(?m)^[ \t]*(?:(?:public|private|internal|protected|override|suspend|open|abstract|inline|operator|tailrec|expect|actual)\s+)*fun\s+(\w+)""",
+            )
 
         /** The value template of a slug-expanding tag function. */
         private val SLUG_TEMPLATE = Regex("""\$\{slug\(""")

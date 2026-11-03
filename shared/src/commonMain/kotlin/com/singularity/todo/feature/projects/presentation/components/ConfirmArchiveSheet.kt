@@ -9,7 +9,11 @@ import androidx.compose.runtime.Composable
  * Confirmation dialog for project archive/unarchive.
  */
 @Composable
-fun ConfirmArchiveSheet(isArchived: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+fun ConfirmArchiveSheet(
+    isArchived: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (isArchived) "Unarchive project?" else "Archive project?") },

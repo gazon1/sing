@@ -32,7 +32,6 @@ import kotlin.time.Instant
  *   that were never asked for.
  */
 object TaskSeriesPlanner {
-
     /**
      * The hard ceiling on how many dates one series may hold.
      *
@@ -93,27 +92,28 @@ object TaskSeriesPlanner {
             // kotlinx-datetime 0.8's `LocalDate - LocalDate` is a DatePeriod, not a
             // number of days, so the offset is taken off the epoch-day count.
             val delta = (date.toEpochDays() - primary.toEpochDays()).toInt()
-            val input = base.copy(
-                dueDate = date,
-                startDate = base.startDate?.shiftByDays(delta),
-                endDate = base.endDate?.shiftByDays(delta),
-                // A row with a rule would generate occurrences of its own; inside a
-                // series that would be occurrences nobody asked for.
-                recurrence = null,
-                // A dated row is not a someday row.
-                someday = false,
-            )
-            TaskDomain.buildTask(
-                input = input,
-                id = TaskId.generate(),
-                createdAt = now,
-                updatedAt = now,
-                userId = userId,
-            ).copy(seriesId = effectiveSeriesId)
+            val input =
+                base.copy(
+                    dueDate = date,
+                    startDate = base.startDate?.shiftByDays(delta),
+                    endDate = base.endDate?.shiftByDays(delta),
+                    // A row with a rule would generate occurrences of its own; inside a
+                    // series that would be occurrences nobody asked for.
+                    recurrence = null,
+                    // A dated row is not a someday row.
+                    someday = false,
+                )
+            TaskDomain
+                .buildTask(
+                    input = input,
+                    id = TaskId.generate(),
+                    createdAt = now,
+                    updatedAt = now,
+                    userId = userId,
+                ).copy(seriesId = effectiveSeriesId)
         }
     }
 
     /** Moves a date by [days] — positive forward, negative back. */
-    private fun LocalDate.shiftByDays(days: Int): LocalDate =
-        if (days == 0) this else plus(days, DateTimeUnit.DAY)
+    private fun LocalDate.shiftByDays(days: Int): LocalDate = if (days == 0) this else plus(days, DateTimeUnit.DAY)
 }

@@ -34,7 +34,6 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 @LargeTest
 class EditorBackGuardTest : InstrumentedTestBase() {
-
     @Before
     fun setup() {
         device.executeShellCommand("input keyevent KEYCODE_WAKEUP")

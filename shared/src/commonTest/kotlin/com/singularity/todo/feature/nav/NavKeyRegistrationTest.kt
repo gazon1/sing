@@ -25,12 +25,13 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class NavKeyRegistrationTest {
-
-    private val json = Json {
-        serializersModule = SerializersModule {
-            polymorphic(NavKey::class) { subclassesOfSealed(AppNavKey.serializer()) }
+    private val json =
+        Json {
+            serializersModule =
+                SerializersModule {
+                    polymorphic(NavKey::class) { subclassesOfSealed(AppNavKey.serializer()) }
+                }
         }
-    }
 
     private fun assertRoundTrips(route: NavKey) {
         val poly = PolymorphicSerializer(NavKey::class)

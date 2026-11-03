@@ -66,7 +66,6 @@ import kotlinx.coroutines.flow.StateFlow
  * @see docs/decisions/2026-09-27-feature-slot-pattern.md
  */
 interface FeatureSlot<S, I : MviIntent> {
-
     /** The current state of this slice. Must always have a value. */
     val state: StateFlow<S>
 

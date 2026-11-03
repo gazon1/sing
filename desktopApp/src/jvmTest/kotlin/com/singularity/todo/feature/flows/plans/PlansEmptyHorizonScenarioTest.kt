@@ -27,16 +27,16 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class PlansEmptyHorizonScenarioTest {
-
     @Test
     @DisplayName("PLANS-10 an empty horizon says so and undated work stays out")
-    fun an_empty_horizon_says_so() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        tasks(koin).givenUndated(title = "Undated task")
+    fun an_empty_horizon_says_so() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            tasks(koin).givenUndated(title = "Undated task")
 
-        tapTab("Plans")
+            tapTab("Plans")
 
-        assertTagDisplayed(TestTags.PLANS_EMPTY_STATE)
-        // The undated task has no period to belong to, so it is not on the timeline.
-        awaitTagGone(TestTags.taskItem("Undated task"))
-    }
+            assertTagDisplayed(TestTags.PLANS_EMPTY_STATE)
+            // The undated task has no period to belong to, so it is not on the timeline.
+            awaitTagGone(TestTags.taskItem("Undated task"))
+        }
 }

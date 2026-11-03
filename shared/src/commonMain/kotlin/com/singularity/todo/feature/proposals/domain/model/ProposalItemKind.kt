@@ -45,7 +45,6 @@ sealed interface TagBoundKind
  * arrangement exists to make impossible.
  */
 sealed interface CreationBoundKind {
-
     /** What this change brings into being. */
     val targetKind: ProposalTargetKind
 }
@@ -67,7 +66,6 @@ sealed interface CreationBoundKind {
  * all, and a kind that arrives with the wrong one does not compile either.
  */
 sealed interface ProposalTarget {
-
     /**
      * What this change is about, in the word the row is addressed by.
      *
@@ -153,7 +151,6 @@ private const val UNREADABLE_TARGET_KIND = "UNKNOWN"
  */
 @Serializable
 sealed interface ProposalItemKind {
-
     /**
      * What this change is about.
      *
@@ -172,11 +169,12 @@ sealed interface ProposalItemKind {
      * So the change says what it carries, and the caller resolves it.
      */
     val tagNames: Set<String>
-        get() = when (this) {
-            is AddTags -> names.toSet()
-            is SetTaskTags -> tagIds.toSet()
-            else -> emptySet()
-        }
+        get() =
+            when (this) {
+                is AddTags -> names.toSet()
+                is SetTaskTags -> tagIds.toSet()
+                else -> emptySet()
+            }
 
     /**
      * What the user reads on the card.
@@ -235,11 +233,13 @@ sealed interface ProposalItemKind {
         override val fingerprintTarget: String = value.fieldName
         override val readFailure: String?
             get() = value.readFailure
-        override fun editableProposal(): EditableProposal? = value.editableValue()?.let { editable ->
-            EditableProposal(editable.text) { newText ->
-                editable.change(newText).map { newValue -> SetTaskField(newValue) }
+
+        override fun editableProposal(): EditableProposal? =
+            value.editableValue()?.let { editable ->
+                EditableProposal(editable.text) { newText ->
+                    editable.change(newText).map { newValue -> SetTaskField(newValue) }
+                }
             }
-        }
     }
 
     /**
@@ -258,6 +258,7 @@ sealed interface ProposalItemKind {
         override val target: ProposalTarget = ProposalTarget.OnTask(this)
         override val humanSummary: String = "Set the tags"
         override val fingerprintTarget: String = tagIds.normalized()
+
         override fun editableProposal(): EditableProposal? = null
     }
 
@@ -271,6 +272,7 @@ sealed interface ProposalItemKind {
         override val target: ProposalTarget = ProposalTarget.OnTask(this)
         override val humanSummary: String = "Add tags"
         override val fingerprintTarget: String = names.normalized()
+
         override fun editableProposal(): EditableProposal? = null
     }
 
@@ -284,6 +286,7 @@ sealed interface ProposalItemKind {
         override val target: ProposalTarget = ProposalTarget.OnTask(this)
         override val humanSummary: String = "Remove tags"
         override val fingerprintTarget: String = tagIds.normalized()
+
         override fun editableProposal(): EditableProposal? = null
     }
 
@@ -297,6 +300,7 @@ sealed interface ProposalItemKind {
         override val target: ProposalTarget = ProposalTarget.OnTask(this)
         override val humanSummary: String = "${texts.size} checklist item(s)"
         override val fingerprintTarget: String = texts.normalized()
+
         override fun editableProposal(): EditableProposal? = null
     }
 
@@ -310,6 +314,7 @@ sealed interface ProposalItemKind {
         override val target: ProposalTarget = ProposalTarget.OnTask(this)
         override val humanSummary: String = "${titles.size} subtask(s)"
         override val fingerprintTarget: String = titles.normalized()
+
         override fun editableProposal(): EditableProposal? = null
     }
 
@@ -322,10 +327,12 @@ sealed interface ProposalItemKind {
         /** What this change is about — see [ProposalTarget]. */
         override val target: ProposalTarget = ProposalTarget.OnTask(this)
         override val humanSummary: String = "Add time entry"
-        override val fingerprintTarget: String = entries
-            .map { "${it.startedAt}-${it.endedAt}" }
-            .sorted()
-            .joinToString("|")
+        override val fingerprintTarget: String =
+            entries
+                .map { "${it.startedAt}-${it.endedAt}" }
+                .sorted()
+                .joinToString("|")
+
         override fun editableProposal(): EditableProposal? = null
     }
 
@@ -341,11 +348,13 @@ sealed interface ProposalItemKind {
         override val fingerprintTarget: String = value.fieldName
         override val readFailure: String?
             get() = value.readFailure
-        override fun editableProposal(): EditableProposal? = value.editableValue()?.let { editable ->
-            EditableProposal(editable.text) { newText ->
-                editable.change(newText).map { newValue -> SetNoteField(newValue) }
+
+        override fun editableProposal(): EditableProposal? =
+            value.editableValue()?.let { editable ->
+                EditableProposal(editable.text) { newText ->
+                    editable.change(newText).map { newValue -> SetNoteField(newValue) }
+                }
             }
-        }
     }
 
     /** Set a field on the owning project. */
@@ -360,11 +369,13 @@ sealed interface ProposalItemKind {
         override val fingerprintTarget: String = value.fieldName
         override val readFailure: String?
             get() = value.readFailure
-        override fun editableProposal(): EditableProposal? = value.editableValue()?.let { editable ->
-            EditableProposal(editable.text) { newText ->
-                editable.change(newText).map { newValue -> SetProjectField(newValue) }
+
+        override fun editableProposal(): EditableProposal? =
+            value.editableValue()?.let { editable ->
+                EditableProposal(editable.text) { newText ->
+                    editable.change(newText).map { newValue -> SetProjectField(newValue) }
+                }
             }
-        }
     }
 
     /** Set a field on the owning tag. */
@@ -379,11 +390,13 @@ sealed interface ProposalItemKind {
         override val fingerprintTarget: String = value.fieldName
         override val readFailure: String?
             get() = value.readFailure
-        override fun editableProposal(): EditableProposal? = value.editableValue()?.let { editable ->
-            EditableProposal(editable.text) { newText ->
-                editable.change(newText).map { newValue -> SetTagField(newValue) }
+
+        override fun editableProposal(): EditableProposal? =
+            value.editableValue()?.let { editable ->
+                EditableProposal(editable.text) { newText ->
+                    editable.change(newText).map { newValue -> SetTagField(newValue) }
+                }
             }
-        }
     }
 
     /**
@@ -405,14 +418,16 @@ sealed interface ProposalItemKind {
         override val targetKind: ProposalTargetKind = ProposalTargetKind.Tag
         override val humanSummary: String = "Create a tag «${tag.name.asCardValue()}»"
         override val fingerprintTarget: String = tag.name.trim().lowercase()
-        override fun editableProposal(): EditableProposal = EditableProposal(tag.name) { newText ->
-            val name = newText.trim()
-            if (name.isEmpty()) {
-                ReadResult.Rejected("A tag needs a name.")
-            } else {
-                ReadResult.Ok(CreateTag(tag.copy(name = name)))
+
+        override fun editableProposal(): EditableProposal =
+            EditableProposal(tag.name) { newText ->
+                val name = newText.trim()
+                if (name.isEmpty()) {
+                    ReadResult.Rejected("A tag needs a name.")
+                } else {
+                    ReadResult.Ok(CreateTag(tag.copy(name = name)))
+                }
             }
-        }
     }
 
     /**
@@ -434,14 +449,16 @@ sealed interface ProposalItemKind {
         override val targetKind: ProposalTargetKind = ProposalTargetKind.Task
         override val humanSummary: String = "Create a task «${task.title.asCardValue()}»"
         override val fingerprintTarget: String = task.title.trim().lowercase()
-        override fun editableProposal(): EditableProposal = EditableProposal(task.title) { newText ->
-            val title = newText.trim()
-            if (title.isEmpty()) {
-                ReadResult.Rejected("A task needs a title.")
-            } else {
-                ReadResult.Ok(CreateTask(task.copy(title = title)))
+
+        override fun editableProposal(): EditableProposal =
+            EditableProposal(task.title) { newText ->
+                val title = newText.trim()
+                if (title.isEmpty()) {
+                    ReadResult.Rejected("A task needs a title.")
+                } else {
+                    ReadResult.Ok(CreateTask(task.copy(title = title)))
+                }
             }
-        }
     }
 
     /** Create a project with these fields. */
@@ -457,14 +474,16 @@ sealed interface ProposalItemKind {
         override val targetKind: ProposalTargetKind = ProposalTargetKind.Project
         override val humanSummary: String = "Create a project «${project.name.asCardValue()}»"
         override val fingerprintTarget: String = project.name.trim().lowercase()
-        override fun editableProposal(): EditableProposal = EditableProposal(project.name) { newText ->
-            val name = newText.trim()
-            if (name.isEmpty()) {
-                ReadResult.Rejected("A project needs a name.")
-            } else {
-                ReadResult.Ok(CreateProject(project.copy(name = name)))
+
+        override fun editableProposal(): EditableProposal =
+            EditableProposal(project.name) { newText ->
+                val name = newText.trim()
+                if (name.isEmpty()) {
+                    ReadResult.Rejected("A project needs a name.")
+                } else {
+                    ReadResult.Ok(CreateProject(project.copy(name = name)))
+                }
             }
-        }
     }
 
     /** Create a note or folder with these fields. */
@@ -480,14 +499,16 @@ sealed interface ProposalItemKind {
         override val targetKind: ProposalTargetKind = ProposalTargetKind.Note
         override val humanSummary: String = "Create a note «${note.title.asCardValue()}»"
         override val fingerprintTarget: String = note.title.trim().lowercase()
-        override fun editableProposal(): EditableProposal = EditableProposal(note.title) { newText ->
-            val title = newText.trim()
-            if (title.isEmpty()) {
-                ReadResult.Rejected("A note needs a title.")
-            } else {
-                ReadResult.Ok(CreateNote(note.copy(title = title)))
+
+        override fun editableProposal(): EditableProposal =
+            EditableProposal(note.title) { newText ->
+                val title = newText.trim()
+                if (title.isEmpty()) {
+                    ReadResult.Rejected("A note needs a title.")
+                } else {
+                    ReadResult.Ok(CreateNote(note.copy(title = title)))
+                }
             }
-        }
     }
 
     /** Delete the owning note. */
@@ -500,6 +521,7 @@ sealed interface ProposalItemKind {
         override val target: ProposalTarget = ProposalTarget.OnNote(this)
         override val humanSummary: String = "Delete note"
         override val fingerprintTarget: String = ""
+
         override fun editableProposal(): EditableProposal? = null
     }
 
@@ -517,6 +539,7 @@ sealed interface ProposalItemKind {
         override val target: ProposalTarget = ProposalTarget.OnNote(this)
         override val humanSummary: String = "${actions.size} action(s) from note"
         override val fingerprintTarget: String = actions.normalized()
+
         override fun editableProposal(): EditableProposal? = null
     }
 
@@ -530,6 +553,7 @@ sealed interface ProposalItemKind {
         override val target: ProposalTarget = ProposalTarget.OnTask(this)
         override val humanSummary: String = "Delete task"
         override val fingerprintTarget: String = ""
+
         override fun editableProposal(): EditableProposal? = null
     }
 
@@ -543,6 +567,7 @@ sealed interface ProposalItemKind {
         override val target: ProposalTarget = ProposalTarget.OnProject(this)
         override val humanSummary: String = "Delete project"
         override val fingerprintTarget: String = ""
+
         override fun editableProposal(): EditableProposal? = null
     }
 
@@ -556,6 +581,7 @@ sealed interface ProposalItemKind {
         override val target: ProposalTarget = ProposalTarget.OnTag(this)
         override val humanSummary: String = "Delete tag"
         override val fingerprintTarget: String = ""
+
         override fun editableProposal(): EditableProposal? = null
     }
 
@@ -588,11 +614,11 @@ sealed interface ProposalItemKind {
         override val humanSummary: String = "A change this version cannot read"
         override val fingerprintTarget: String = raw
         override val readFailure: String? = reason
+
         override fun editableProposal(): EditableProposal? = null
     }
 
     companion object {
-
         /**
          * The reason a change carries when nothing more specific is known.
          *
@@ -606,4 +632,8 @@ sealed interface ProposalItemKind {
 
 /** Trimmed, blank-free, de-duplicated, sorted — the canonical form for hashing. */
 private fun List<String>.normalized(): String =
-    map { it.trim() }.filter { it.isNotEmpty() }.distinct().sorted().joinToString("|")
+    map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .distinct()
+        .sorted()
+        .joinToString("|")

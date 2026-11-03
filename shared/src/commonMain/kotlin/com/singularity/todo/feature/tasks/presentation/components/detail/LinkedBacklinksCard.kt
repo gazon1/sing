@@ -14,9 +14,11 @@ import androidx.compose.material.icons.automirrored.filled.TextSnippet
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -29,10 +31,8 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
-import androidx.compose.material3.MaterialTheme
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
-import androidx.compose.runtime.remember
 
 /**
  * Shows notes and tasks that link TO this task via `task://<id>` URL scheme.
@@ -50,12 +50,14 @@ fun LinkedBacklinksCard(
     onOpenTask: (TaskId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val noteTitles = remember(linkedNotes) {
-        linkedNotes.map { it.title.ifBlank { "(untitled)" } }.toImmutableList()
-    }
-    val taskTitles = remember(linkedTasks) {
-        linkedTasks.map { it.title.ifBlank { "(untitled)" } }.toImmutableList()
-    }
+    val noteTitles =
+        remember(linkedNotes) {
+            linkedNotes.map { it.title.ifBlank { "(untitled)" } }.toImmutableList()
+        }
+    val taskTitles =
+        remember(linkedTasks) {
+            linkedTasks.map { it.title.ifBlank { "(untitled)" } }.toImmutableList()
+        }
     Column(modifier = modifier) {
         if (linkedNotes.isNotEmpty()) {
             BacklinkSection(
@@ -87,11 +89,12 @@ private fun BacklinkSection(
         modifier = modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(
-                horizontal = TaskSpacing.cardPaddingHorizontal,
-                vertical = TaskSpacing.cardPaddingVertical,
-            )
-                .fillMaxWidth(),
+            modifier =
+                Modifier
+                    .padding(
+                        horizontal = TaskSpacing.cardPaddingHorizontal,
+                        vertical = TaskSpacing.cardPaddingVertical,
+                    ).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -111,9 +114,11 @@ private fun BacklinkSection(
                 items.forEachIndexed { index, title ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                            .clickable { onItemClick(index) }
-                            .padding(vertical = 2.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { onItemClick(index) }
+                                .padding(vertical = 2.dp),
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.TextSnippet,

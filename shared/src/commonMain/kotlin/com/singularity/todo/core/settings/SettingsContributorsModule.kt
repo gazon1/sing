@@ -25,39 +25,40 @@ import org.koin.dsl.module
  *
  * Add to [domainModule]: `add(settingsContributorsModule())`.
  */
-fun settingsContributorsModule(): Module = module {
-    // Appearance is deliberately absent: it is bound by `appearanceSettingsModule()`,
-    // which also provides the repository and store its contributor reads from. It used
-    // to be bound here as well, and both definitions were added to `domainModule()`, so
-    // the second silently replaced the first. Resolution still worked — both constructed
-    // the same class from the same dependencies — which is exactly why nothing caught
-    // it: `KoinGraphValidationTest` asks "does this resolve?", not "is this defined
-    // twice?", and the answer was yes in both cases.
-    //
-    // The failure mode of leaving it is the reverse of an obvious one. Deleting the
-    // binding that happens to win would be a no-op, and deleting the one that is
-    // shadowed looks like a cleanup until the other is removed too.
-    //
-    // Every other contributor below is bound only here, which is why this module exists
-    // and why the appearance block was the outlier rather than the rule.
+fun settingsContributorsModule(): Module =
+    module {
+        // Appearance is deliberately absent: it is bound by `appearanceSettingsModule()`,
+        // which also provides the repository and store its contributor reads from. It used
+        // to be bound here as well, and both definitions were added to `domainModule()`, so
+        // the second silently replaced the first. Resolution still worked — both constructed
+        // the same class from the same dependencies — which is exactly why nothing caught
+        // it: `KoinGraphValidationTest` asks "does this resolve?", not "is this defined
+        // twice?", and the answer was yes in both cases.
+        //
+        // The failure mode of leaving it is the reverse of an obvious one. Deleting the
+        // binding that happens to win would be a no-op, and deleting the one that is
+        // shadowed looks like a cleanup until the other is removed too.
+        //
+        // Every other contributor below is bound only here, which is why this module exists
+        // and why the appearance block was the outlier rather than the rule.
 
-    // Notifications
-    single { NotificationsSettingsStore(get<SettingsRepository>().notifications) }
-    single<NotificationsContributor> { NotificationsSettingsContributor(get()) }
+        // Notifications
+        single { NotificationsSettingsStore(get<SettingsRepository>().notifications) }
+        single<NotificationsContributor> { NotificationsSettingsContributor(get()) }
 
-    // Work Schedule
-    single { WorkScheduleSettingsStore(get<SettingsRepository>().workSchedule) }
-    single<WorkScheduleContributor> { WorkScheduleSettingsContributor(get()) }
+        // Work Schedule
+        single { WorkScheduleSettingsStore(get<SettingsRepository>().workSchedule) }
+        single<WorkScheduleContributor> { WorkScheduleSettingsContributor(get()) }
 
-    // Greeting
-    single { GreetingSettingsStore(get<SettingsRepository>().greeting) }
-    single<GreetingContributor> { GreetingSettingsContributor(get()) }
+        // Greeting
+        single { GreetingSettingsStore(get<SettingsRepository>().greeting) }
+        single<GreetingContributor> { GreetingSettingsContributor(get()) }
 
-    // Default Agenda View
-    single { DefaultAgendaViewSettingsStore(get<SettingsRepository>().defaultAgendaView) }
-    single<DefaultAgendaViewContributor> { DefaultAgendaViewSettingsContributor(get()) }
+        // Default Agenda View
+        single { DefaultAgendaViewSettingsStore(get<SettingsRepository>().defaultAgendaView) }
+        single<DefaultAgendaViewContributor> { DefaultAgendaViewSettingsContributor(get()) }
 
-    // Tasks
-    single { TasksSettingsStore(get()) }
-    single<TasksContributor> { TasksSettingsContributor(get()) }
-}
+        // Tasks
+        single { TasksSettingsStore(get()) }
+        single<TasksContributor> { TasksSettingsContributor(get()) }
+    }

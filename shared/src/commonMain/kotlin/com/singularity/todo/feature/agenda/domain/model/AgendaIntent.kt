@@ -8,10 +8,15 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  */
 sealed interface AgendaIntent : MviIntent {
     data class TaskClicked(val taskId: TaskId) : AgendaIntent
+
     data class TaskCheckClicked(val taskId: TaskId) : AgendaIntent
+
     data class TaskLongClicked(val taskId: TaskId) : AgendaIntent
+
     data class TaskPinClicked(val taskId: TaskId) : AgendaIntent
+
     data class TaskDeleteClicked(val taskId: TaskId) : AgendaIntent
+
     data class TaskExpandClicked(val taskId: TaskId) : AgendaIntent
 
     /**

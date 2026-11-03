@@ -13,19 +13,20 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class TitleMatchRankingTest {
-
     private data class Record(val title: String, val body: String)
 
     @Test
     fun `the record that carries the word in its title comes first`() {
-        val records = listOf(
-            Record(title = "Shopping", body = "buy architecture books"),
-            Record(title = "Architecture", body = "the house"),
-        )
+        val records =
+            listOf(
+                Record(title = "Shopping", body = "buy architecture books"),
+                Record(title = "Architecture", body = "the house"),
+            )
 
-        val ranked = titleMatchesFirst(records) { record ->
-            TextMatch.matches(record.title, "arch")
-        }
+        val ranked =
+            titleMatchesFirst(records) { record ->
+                TextMatch.matches(record.title, "arch")
+            }
 
         assertEquals(
             listOf("Architecture", "Shopping"),
@@ -37,15 +38,17 @@ class TitleMatchRankingTest {
     fun `the order inside each group is the order the user asked for`() {
         // The records arrive sorted by their due date. The ranking groups them,
         // and the order inside the group is the one they came in with.
-        val records = listOf(
-            Record(title = "Later title match", body = ""),
-            Record(title = "Earlier title match", body = ""),
-            Record(title = "Body match", body = "architecture"),
-        )
+        val records =
+            listOf(
+                Record(title = "Later title match", body = ""),
+                Record(title = "Earlier title match", body = ""),
+                Record(title = "Body match", body = "architecture"),
+            )
 
-        val ranked = titleMatchesFirst(records) { record ->
-            TextMatch.matches(record.title, "title match")
-        }
+        val ranked =
+            titleMatchesFirst(records) { record ->
+                TextMatch.matches(record.title, "title match")
+            }
 
         assertEquals(
             listOf("Later title match", "Earlier title match", "Body match"),

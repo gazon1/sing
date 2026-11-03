@@ -26,7 +26,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SearchModeTest {
-
     @Test
     fun `the word mode finds a word by its beginning`() {
         assertTrue(SearchMode.Word.matches("architecture", "arch"))
@@ -68,9 +67,10 @@ class SearchModeTest {
         // The record says what it is searched by (F3), and the caller does not
         // choose the text — so a caller cannot answer the question about the
         // wrong field.
-        val record = object : Searchable {
-            override val searchableSurfaces: List<String?> = listOf("Trip", "Airport transfer")
-        }
+        val record =
+            object : Searchable {
+                override val searchableSurfaces: List<String?> = listOf("Trip", "Airport transfer")
+            }
 
         assertTrue(SearchMode.Word.matches(record, "air"))
         assertFalse(SearchMode.Word.matches(record, "port"))
@@ -133,6 +133,8 @@ class SearchModeTest {
         assertEquals(TextMatchQuery.EMPTY, rule("port").indexQuery(SearchMode.Contains))
     }
 
-    private fun rule(text: String, negated: Boolean = false): FreeTextRule =
-        FreeTextRule(terms = listOf(FreeTextRule.Term(text = text, negated = negated)))
+    private fun rule(
+        text: String,
+        negated: Boolean = false,
+    ): FreeTextRule = FreeTextRule(terms = listOf(FreeTextRule.Term(text = text, negated = negated)))
 }

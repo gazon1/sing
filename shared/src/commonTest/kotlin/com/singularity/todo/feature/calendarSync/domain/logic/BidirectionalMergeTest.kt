@@ -2,13 +2,13 @@ package com.singularity.todo.feature.calendarSync.domain.logic
 
 import com.singularity.todo.feature.calendarSync.domain.model.GoogleEvent
 import com.singularity.todo.feature.calendarSync.domain.model.GoogleEventId
-import kotlin.time.Instant
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * The merge is the piece most likely to be "simplified" into being wrong, so it is tested
@@ -17,7 +17,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class BidirectionalMergeTest {
-
     private val eventId = GoogleEventId("evt_1")
     private val t0 = Instant.fromEpochMilliseconds(1_700_000_000_000)
     private val t1 = Instant.fromEpochMilliseconds(1_700_003_600_000)
@@ -130,11 +129,12 @@ class BidirectionalMergeTest {
     @Test
     fun `a repeat rule changed on both sides is held back for a human`() {
         val base = "FREQ=WEEKLY;BYDAY=MO,WE"
-        val result = BidirectionalMerge.merge(
-            event(recurrenceRule = "FREQ=WEEKLY;BYDAY=TU"),
-            event(recurrenceRule = "FREQ=WEEKLY;BYDAY=TH"),
-            shadow(recurrenceRule = base),
-        )
+        val result =
+            BidirectionalMerge.merge(
+                event(recurrenceRule = "FREQ=WEEKLY;BYDAY=TU"),
+                event(recurrenceRule = "FREQ=WEEKLY;BYDAY=TH"),
+                shadow(recurrenceRule = base),
+            )
         assertTrue(result.hasConflict)
         assertTrue(result.requiresAttention, "a series change must not be pushed silently")
         assertEquals("recurrenceRule", result.conflictedField)
@@ -150,11 +150,12 @@ class BidirectionalMergeTest {
     @Test
     fun `absent and empty are different states`() {
         val base = shadow(description = null)
-        val result = BidirectionalMerge.merge(
-            event(description = ""),
-            event(description = null),
-            base,
-        )
+        val result =
+            BidirectionalMerge.merge(
+                event(description = ""),
+                event(description = null),
+                base,
+            )
         assertEquals(FieldOutcome.Push(""), result.fields[DESCRIPTION])
     }
 
@@ -168,21 +169,23 @@ class BidirectionalMergeTest {
      */
     @Test
     fun `clearing a remote field is applied to the task`() {
-        val result = BidirectionalMerge.merge(
-            event(description = "had one"),
-            event(description = null),
-            shadow(description = "had one"),
-        )
+        val result =
+            BidirectionalMerge.merge(
+                event(description = "had one"),
+                event(description = null),
+                shadow(description = "had one"),
+            )
         assertEquals(FieldOutcome.ApplyToTask(null), result.fields[DESCRIPTION])
     }
 
     @Test
     fun `both sides having cleared a field is a no-op, not an apply`() {
-        val result = BidirectionalMerge.merge(
-            event(description = null),
-            event(description = null),
-            shadow(description = "had one"),
-        )
+        val result =
+            BidirectionalMerge.merge(
+                event(description = null),
+                event(description = null),
+                shadow(description = "had one"),
+            )
         assertEquals(FieldOutcome.NoOp, result.fields[DESCRIPTION])
     }
 
@@ -200,11 +203,12 @@ class BidirectionalMergeTest {
      */
     @Test
     fun `an unknown base never produces a push`() {
-        val result = BidirectionalMerge.merge(
-            event(title = "ours"),
-            event(title = "theirs"),
-            EventShadow.emptyShadow(),
-        )
+        val result =
+            BidirectionalMerge.merge(
+                event(title = "ours"),
+                event(title = "theirs"),
+                EventShadow.emptyShadow(),
+            )
         assertTrue(result.pushes.isEmpty(), "an unknown base must not justify a write: ${result.fields}")
         assertTrue(result.hasConflict)
     }
@@ -219,11 +223,12 @@ class BidirectionalMergeTest {
 
     @Test
     fun `a mixed set of outcomes is reported per field`() {
-        val result = BidirectionalMerge.merge(
-            event(title = "pushed", allDay = true, description = null),
-            event(title = "base title", allDay = false, description = "from google"),
-            shadow(),
-        )
+        val result =
+            BidirectionalMerge.merge(
+                event(title = "pushed", allDay = true, description = null),
+                event(title = "base title", allDay = false, description = "from google"),
+                shadow(),
+            )
         assertEquals(FieldOutcome.Push("pushed"), result.fields[TITLE])
         assertEquals(FieldOutcome.Push(true), result.fields[ALL_DAY])
         assertEquals(FieldOutcome.ApplyToTask("from google"), result.fields[DESCRIPTION])
@@ -250,12 +255,13 @@ class BidirectionalMergeTest {
 
     @Test
     fun `a shadow taken from an event reproduces no changes on the next merge`() {
-        val written = event(
-            title = "final",
-            description = "desc",
-            location = "office",
-            recurrenceRule = "FREQ=WEEKLY;INTERVAL=2;COUNT=10;UNTIL=20270101T000000Z",
-        )
+        val written =
+            event(
+                title = "final",
+                description = "desc",
+                location = "office",
+                recurrenceRule = "FREQ=WEEKLY;INTERVAL=2;COUNT=10;UNTIL=20270101T000000Z",
+            )
         val shadow = written.toShadow()
 
         // Same event on both sides, with the shadow recorded: nothing to do.

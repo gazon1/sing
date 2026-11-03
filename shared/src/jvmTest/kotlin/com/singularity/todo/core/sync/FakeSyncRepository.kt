@@ -32,9 +32,10 @@ open class FakeSyncRepository(private val testScope: TestScope? = null) : SyncRe
      */
     var syncOnceYields = false
 
-    var syncOnceResult: Result<SyncOutcome> = Result.success(
-        SyncOutcome.Completed(Result.success(PushSummary(0, 0, 0)), Result.success(PullSummary(0, 0, 0))),
-    )
+    var syncOnceResult: Result<SyncOutcome> =
+        Result.success(
+            SyncOutcome.Completed(Result.success(PushSummary(0, 0, 0)), Result.success(PullSummary(0, 0, 0))),
+        )
     val syncOnceOutcome get() = syncOnceResult.getOrThrow()
 
     /** Tracks the most recent syncOnce Job when [testScope] is provided. */
@@ -66,7 +67,9 @@ open class FakeSyncRepository(private val testScope: TestScope? = null) : SyncRe
     }
 
     override fun startScheduledSync(interval: kotlin.time.Duration) { /* no-op */ }
+
     override fun stopScheduledSync() { /* no-op */ }
+
     override fun close() { /* no-op */ }
 
     override suspend fun testConnection(): ConnectionTestResult = ConnectionTestResult.Success

@@ -1,9 +1,8 @@
 package com.singularity.todo.feature.ai.tools
 
-import kotlin.time.Instant
-import com.singularity.todo.test.fakes.TEST_TZ
-import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.core.platform.HostEnvironmentPort
+import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.TEST_TZ
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -18,6 +17,7 @@ import kotlin.test.AfterTest
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * [AdrStorage] writing and reading a real ADR, which means real directories.
@@ -30,7 +30,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class AdrStorageRoundTripTest {
-
     private val temporaries = mutableListOf<File>()
 
     @AfterTest
@@ -41,7 +40,9 @@ class AdrStorageRoundTripTest {
 
     private class FakeHost(private val workingDir: String, private val homeDir: String) : HostEnvironmentPort {
         override fun workingDirectory(): String = workingDir
+
         override fun homeDirectory(): String = homeDir
+
         override fun applicationDataDirectory(): String = homeDir + "/.singularity-todo"
     }
 
@@ -84,12 +85,13 @@ class AdrStorageRoundTripTest {
     fun `an ADR survives a write and a read`() {
         val storage = storageFor(hasDecisionsDir = true)
 
-        val path = storage.writeAdr(
-            slug = "2026-10-05-example",
-            title = "Example",
-            tags = listOf("arch"),
-            body = "Because.\n",
-        )
+        val path =
+            storage.writeAdr(
+                slug = "2026-10-05-example",
+                title = "Example",
+                tags = listOf("arch"),
+                body = "Because.\n",
+            )
 
         assertTrue(Path.of(path).exists())
         val read = storage.readAdr("2026-10-05-example")!!
@@ -138,7 +140,9 @@ class AdrStorageRoundTripTest {
     fun `an ADR written by hand without frontmatter is still readable`() {
         val storage = storageFor(hasDecisionsDir = true)
         val slug = "2026-10-05-bare"
-        Path.of(storage.filePath(slug)).also { it.parent.createDirectories() }
+        Path
+            .of(storage.filePath(slug))
+            .also { it.parent.createDirectories() }
             .writeText("Just a body, no frontmatter.\n")
 
         val read = storage.readAdr(slug)!!

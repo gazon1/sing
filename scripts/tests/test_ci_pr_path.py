@@ -259,8 +259,12 @@ class PrPathHasNoCoverage(unittest.TestCase):
         settings = SETTINGS.read_text(encoding="utf-8")
 
         # The switch is a property, and it is read from the property — not a
-        # constant someone flipped by hand.
-        self.assertIn('providers.gradleProperty("coverage.enabled")', settings)
+        # constant someone flipped by hand. The formatter may break the call
+        # across lines, so the whitespace is not pinned.
+        self.assertRegex(
+            settings,
+            r'providers\s*\.gradleProperty\("coverage\.enabled"\)',
+        )
 
         # The switch is a CONDITION: `enableCoverage()` inside the `if` is
         # what makes the agent optional at all.

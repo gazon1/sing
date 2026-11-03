@@ -14,7 +14,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class StatisticsWorksTest {
-
     private fun row(
         id: String,
         seriesId: String? = null,
@@ -32,11 +31,12 @@ class StatisticsWorksTest {
 
     @Test
     fun `a series that was completed counts once`() {
-        val rows = listOf(
-            row(id = "t1", seriesId = "s1", completedAt = 100),
-            row(id = "t2", seriesId = "s1", completedAt = 200),
-            row(id = "t3", seriesId = "s1", completedAt = 300),
-        )
+        val rows =
+            listOf(
+                row(id = "t1", seriesId = "s1", completedAt = 100),
+                row(id = "t2", seriesId = "s1", completedAt = 200),
+                row(id = "t3", seriesId = "s1", completedAt = 300),
+            )
 
         val (completed, overdue) = groupIntoWorks(rows)
 
@@ -46,11 +46,12 @@ class StatisticsWorksTest {
 
     @Test
     fun `a completed series is counted on the day the work was first completed`() {
-        val rows = listOf(
-            row(id = "t1", seriesId = "s1", completedAt = 300),
-            row(id = "t2", seriesId = "s1", completedAt = 100),
-            row(id = "t3", seriesId = "s1", completedAt = 200),
-        )
+        val rows =
+            listOf(
+                row(id = "t1", seriesId = "s1", completedAt = 300),
+                row(id = "t2", seriesId = "s1", completedAt = 100),
+                row(id = "t3", seriesId = "s1", completedAt = 200),
+            )
 
         val (completed, _) = groupIntoWorks(rows)
 
@@ -59,11 +60,12 @@ class StatisticsWorksTest {
 
     @Test
     fun `a series that was not completed counts as overdue once, on its earliest date`() {
-        val rows = listOf(
-            row(id = "t1", seriesId = "s1", dueAt = 300),
-            row(id = "t2", seriesId = "s1", dueAt = 100),
-            row(id = "t3", seriesId = "s1", dueAt = 200),
-        )
+        val rows =
+            listOf(
+                row(id = "t1", seriesId = "s1", dueAt = 300),
+                row(id = "t2", seriesId = "s1", dueAt = 100),
+                row(id = "t3", seriesId = "s1", dueAt = 200),
+            )
 
         val (completed, overdue) = groupIntoWorks(rows)
 
@@ -74,10 +76,11 @@ class StatisticsWorksTest {
 
     @Test
     fun `a series that was started is not overdue`() {
-        val rows = listOf(
-            row(id = "t1", seriesId = "s1", completedAt = 100),
-            row(id = "t2", seriesId = "s1", dueAt = 200),
-        )
+        val rows =
+            listOf(
+                row(id = "t1", seriesId = "s1", completedAt = 100),
+                row(id = "t2", seriesId = "s1", dueAt = 200),
+            )
 
         val (_, overdue) = groupIntoWorks(rows)
 
@@ -86,10 +89,11 @@ class StatisticsWorksTest {
 
     @Test
     fun `two series are two works`() {
-        val rows = listOf(
-            row(id = "t1", seriesId = "s1", completedAt = 100),
-            row(id = "t2", seriesId = "s2", completedAt = 200),
-        )
+        val rows =
+            listOf(
+                row(id = "t1", seriesId = "s1", completedAt = 100),
+                row(id = "t2", seriesId = "s2", completedAt = 200),
+            )
 
         val (completed, _) = groupIntoWorks(rows)
 
@@ -98,10 +102,11 @@ class StatisticsWorksTest {
 
     @Test
     fun `a series and a task that stands alone are two works`() {
-        val rows = listOf(
-            row(id = "t1", seriesId = "s1", completedAt = 100),
-            row(id = "t2", completedAt = 200),
-        )
+        val rows =
+            listOf(
+                row(id = "t1", seriesId = "s1", completedAt = 100),
+                row(id = "t2", completedAt = 200),
+            )
 
         val (completed, _) = groupIntoWorks(rows)
 

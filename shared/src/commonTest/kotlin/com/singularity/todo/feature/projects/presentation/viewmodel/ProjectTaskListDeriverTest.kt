@@ -23,7 +23,6 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class ProjectTaskListDeriverTest {
-
     private val owner = UserId("test-user")
     private val project = ProjectId("p1")
     private val at = Instant.parse("2026-01-15T12:00:00Z")
@@ -36,18 +35,19 @@ class ProjectTaskListDeriverTest {
         archived: Boolean = false,
         blockedBy: Set<TaskId> = emptySet(),
         updatedAt: Instant = at,
-    ): Task = Task(
-        id = TaskId(id),
-        title = "Task $id",
-        projectId = projectId,
-        dueDate = dueDate,
-        completedAt = if (completed) at else null,
-        archivedAt = if (archived) at else null,
-        blockedBy = blockedBy,
-        createdAt = at,
-        updatedAt = updatedAt,
-        userId = owner,
-    )
+    ): Task =
+        Task(
+            id = TaskId(id),
+            title = "Task $id",
+            projectId = projectId,
+            dueDate = dueDate,
+            completedAt = if (completed) at else null,
+            archivedAt = if (archived) at else null,
+            blockedBy = blockedBy,
+            createdAt = at,
+            updatedAt = updatedAt,
+            userId = owner,
+        )
 
     // ─── Filtering ──────────────────────────────────────────────────────────────
 
@@ -65,11 +65,12 @@ class ProjectTaskListDeriverTest {
         val open = task("a")
         val done = task("b", completed = true)
 
-        val visible = ProjectTaskListDeriver.visible(
-            listOf(open, done),
-            TaskVisibility(hideCompleted = true),
-            emptySet(),
-        )
+        val visible =
+            ProjectTaskListDeriver.visible(
+                listOf(open, done),
+                TaskVisibility(hideCompleted = true),
+                emptySet(),
+            )
 
         assertEquals(listOf(open), visible)
     }
@@ -83,11 +84,12 @@ class ProjectTaskListDeriverTest {
         val tasks = listOf(blocker, blocked, free)
         val blockedIds = ProjectTaskListDeriver.blockedIds(tasks)
 
-        val visible = ProjectTaskListDeriver.visible(
-            tasks,
-            TaskVisibility(hideBlocked = true),
-            blockedIds,
-        )
+        val visible =
+            ProjectTaskListDeriver.visible(
+                tasks,
+                TaskVisibility(hideBlocked = true),
+                blockedIds,
+            )
 
         assertEquals(setOf(TaskId("blocked")), blockedIds)
         assertEquals(listOf(blocker, free), visible)
@@ -114,11 +116,12 @@ class ProjectTaskListDeriverTest {
             "a completed dependency does not block",
         )
 
-        val visible = ProjectTaskListDeriver.visible(
-            tasks,
-            TaskVisibility(hideCompleted = true, hideBlocked = true),
-            ProjectTaskListDeriver.blockedIds(tasks),
-        )
+        val visible =
+            ProjectTaskListDeriver.visible(
+                tasks,
+                TaskVisibility(hideCompleted = true, hideBlocked = true),
+                ProjectTaskListDeriver.blockedIds(tasks),
+            )
 
         assertEquals(listOf(blocked), visible, "the dependent survives; the blocker is merely hidden")
     }
@@ -136,11 +139,12 @@ class ProjectTaskListDeriverTest {
     fun `counts ignore the filters`() {
         val tasks = (1..8).map { task("t$it", completed = it <= 3) }
 
-        val visible = ProjectTaskListDeriver.visible(
-            tasks,
-            TaskVisibility(hideCompleted = true),
-            emptySet(),
-        )
+        val visible =
+            ProjectTaskListDeriver.visible(
+                tasks,
+                TaskVisibility(hideCompleted = true),
+                emptySet(),
+            )
 
         assertEquals(5, visible.size)
         assertEquals(8, ProjectTaskListDeriver.totalCount(tasks))
@@ -163,11 +167,12 @@ class ProjectTaskListDeriverTest {
     fun `the cap is applied after filtering, not before`() {
         val tasks = (1..8).map { task("t$it", completed = it > 5) }
 
-        val preview = ProjectTaskListDeriver.preview(
-            tasks,
-            TaskVisibility(hideCompleted = true),
-            emptySet(),
-        )
+        val preview =
+            ProjectTaskListDeriver.preview(
+                tasks,
+                TaskVisibility(hideCompleted = true),
+                emptySet(),
+            )
 
         assertEquals(
             5,
@@ -192,10 +197,11 @@ class ProjectTaskListDeriverTest {
         val mine = task("mine")
         val doneElsewhere = task("done", projectId = ProjectId("p2"), completed = true)
 
-        val candidates = ProjectTaskListDeriver.quickAddCandidates(
-            listOf(other, inbox, mine, doneElsewhere),
-            project,
-        )
+        val candidates =
+            ProjectTaskListDeriver.quickAddCandidates(
+                listOf(other, inbox, mine, doneElsewhere),
+                project,
+            )
 
         assertEquals(listOf(TaskId("other")), candidates.map { it.id })
     }
@@ -207,10 +213,11 @@ class ProjectTaskListDeriverTest {
         val soon = task("soon", dueDate = LocalDate(2026, 1, 20))
         val all = listOf(ProjectId("p2"))
 
-        val candidates = ProjectTaskListDeriver.quickAddCandidates(
-            listOf(late, undated, soon).map { it.copy(projectId = all.first()) },
-            project,
-        )
+        val candidates =
+            ProjectTaskListDeriver.quickAddCandidates(
+                listOf(late, undated, soon).map { it.copy(projectId = all.first()) },
+                project,
+            )
 
         assertEquals(
             listOf(TaskId("soon"), TaskId("late"), TaskId("undated")),
@@ -221,16 +228,18 @@ class ProjectTaskListDeriverTest {
     @Test
     fun `quick-add breaks a due-date tie by most recently updated`() {
         val older = task("older", dueDate = LocalDate(2026, 2, 1), updatedAt = at)
-        val newer = task(
-            "newer",
-            dueDate = LocalDate(2026, 2, 1),
-            updatedAt = Instant.parse("2026-01-16T12:00:00Z"),
-        )
+        val newer =
+            task(
+                "newer",
+                dueDate = LocalDate(2026, 2, 1),
+                updatedAt = Instant.parse("2026-01-16T12:00:00Z"),
+            )
 
-        val candidates = ProjectTaskListDeriver.quickAddCandidates(
-            listOf(older, newer).map { it.copy(projectId = ProjectId("p2")) },
-            project,
-        )
+        val candidates =
+            ProjectTaskListDeriver.quickAddCandidates(
+                listOf(older, newer).map { it.copy(projectId = ProjectId("p2")) },
+                project,
+            )
 
         assertEquals(listOf(TaskId("newer"), TaskId("older")), candidates.map { it.id })
     }

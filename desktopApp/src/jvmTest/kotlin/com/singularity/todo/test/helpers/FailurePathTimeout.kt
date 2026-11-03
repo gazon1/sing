@@ -25,17 +25,22 @@ package com.singularity.todo.test.helpers
  * @param block the work to run.
  * @return the block's result, or [fallback] when the block was interrupted.
  */
-internal fun <T> withFailurePathTimeout(timeoutMs: Long, fallback: T, block: () -> T): T {
+internal fun <T> withFailurePathTimeout(
+    timeoutMs: Long,
+    fallback: T,
+    block: () -> T,
+): T {
     val thread = Thread.currentThread()
-    val watchdog = Thread({
-        try {
-            Thread.sleep(timeoutMs)
-        } catch (e: InterruptedException) {
-            // The block finished first — nothing to interrupt.
-            return@Thread
-        }
-        thread.interrupt()
-    }, "failure-path-watchdog").apply { isDaemon = true }
+    val watchdog =
+        Thread({
+            try {
+                Thread.sleep(timeoutMs)
+            } catch (e: InterruptedException) {
+                // The block finished first — nothing to interrupt.
+                return@Thread
+            }
+            thread.interrupt()
+        }, "failure-path-watchdog").apply { isDaemon = true }
     watchdog.start()
     return try {
         block()

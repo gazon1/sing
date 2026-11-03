@@ -1,7 +1,7 @@
 package com.singularity.todo.arch
 
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -36,7 +36,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class CapabilityFlagTest {
-
     @Test
     fun `every constant capability flag names itself in the sanctioned list`() {
         val sanctioned = SANCTIONED_CONSTANTS.keys.toSet()
@@ -55,10 +54,11 @@ class CapabilityFlagTest {
 
     @Test
     fun `every sanctioned constant carries a reason that is not a restatement`() {
-        val restated = SANCTIONED_CONSTANTS.filterValues { reason ->
-            val flag = reason.substringBeforeLast(' ').trim()
-            flag.isNotEmpty() && reason.trim().lowercase() == flag.lowercase()
-        }
+        val restated =
+            SANCTIONED_CONSTANTS.filterValues { reason ->
+                val flag = reason.substringBeforeLast(' ').trim()
+                flag.isNotEmpty() && reason.trim().lowercase() == flag.lowercase()
+            }
         assertTrue(
             restated.isEmpty(),
             "Sanctioned capability flags whose reason just repeats the value: ${restated.keys}. " +
@@ -72,20 +72,21 @@ class CapabilityFlagTest {
         // looked for `fun isSupported(`, found nothing, and reported every entry as
         // missing — which would have been a failing gate whose message was wrong, and
         // therefore worse than no gate.
-        val missing = SANCTIONED_CONSTANTS.keys.filterNot { entry ->
-            // The split is on the **last** dot, not the first: a file whose name
-            // carries a dot of its own — `GoogleConsent.jvm.kt` — would otherwise be
-            // read as the file `GoogleConsent` and the flag `jvm.isSupported`, and
-            // every such entry would report itself missing.
-            val file = entry.substringBeforeLast('.')
-            val flag = entry.substringAfterLast('.')
-            productionRoots().any { root ->
-                root.walkTopDown().any { source ->
-                    source.name == "$file.kt" &&
-                        Regex("""val\s+$flag\s*:\s*Boolean""").containsMatchIn(source.readText())
+        val missing =
+            SANCTIONED_CONSTANTS.keys.filterNot { entry ->
+                // The split is on the **last** dot, not the first: a file whose name
+                // carries a dot of its own — `GoogleConsent.jvm.kt` — would otherwise be
+                // read as the file `GoogleConsent` and the flag `jvm.isSupported`, and
+                // every such entry would report itself missing.
+                val file = entry.substringBeforeLast('.')
+                val flag = entry.substringAfterLast('.')
+                productionRoots().any { root ->
+                    root.walkTopDown().any { source ->
+                        source.name == "$file.kt" &&
+                            Regex("""val\s+$flag\s*:\s*Boolean""").containsMatchIn(source.readText())
+                    }
                 }
             }
-        }
         assertTrue(
             missing.isEmpty(),
             "SANCTIONED_CONSTANTS names flags that no longer exist: $missing. " +
@@ -129,23 +130,25 @@ class CapabilityFlagTest {
     private fun constantCapabilityFlags(): List<String> =
         productionRoots().flatMap { root ->
             with(SourceScan) {
-                root.walkTopDown()
+                root
+                    .walkTopDown()
                     .filter { it.isFile && it.name.endsWith(".kt") && !it.isTestDouble() }
                     .flatMap { file ->
-                        CAPABILITY_FLAG.findAll(KotlinText.stripComments(file.readText()))
+                        CAPABILITY_FLAG
+                            .findAll(KotlinText.stripComments(file.readText()))
                             .map { it.groupValues[1] }
                             .filter { it in CAPABILITY_FLAGS }
                             .map { "${file.nameWithoutExtension}.$it" }
                             .toList()
-                    }
-                    .toList()
+                    }.toList()
             }
         }
 
-    private fun productionRoots(): List<File> = listOf("commonMain.root", "androidMain.root", "jvmMain.root")
-        .mapNotNull { System.getProperty(it) }
-        .map(::File)
-        .filter { it.isDirectory }
+    private fun productionRoots(): List<File> =
+        listOf("commonMain.root", "androidMain.root", "jvmMain.root")
+            .mapNotNull { System.getProperty(it) }
+            .map(::File)
+            .filter { it.isDirectory }
 
     private companion object {
         /**
@@ -188,32 +191,33 @@ class CapabilityFlagTest {
          * — a desktop machine has both. What can fail is the user's browser, and that
          * fails loudly at the call, not silently as "unsupported".
          */
-        val SANCTIONED_CONSTANTS: Map<String, String> = mapOf(
-            "AlarmManagerReminderScheduler.isSupported" to
-                "AlarmManager is always present on Android and setAlarmClock needs no " +
-                "permission; unlike setExactAndAllowWhileIdle there is no " +
-                "SCHEDULE_EXACT_ALARM gate to observe.",
-            "JvmCalendarAppQueries.isSupported" to
-                "There is no JVM implementation of the port: the desktop has no calendar " +
-                "apps to list, so false is the complete answer and cannot become stale.",
-            "JvmPomodoroTaskListProvider.isSupported" to
-                "There is no JVM implementation of the port, so false is the complete " +
-                "answer and cannot become stale.",
-            "NoopCalendarProvider.isSupported" to
-                "The desktop has no system calendar this app may write to, and the class " +
-                "holds nothing whose support could change while the app runs.",
-            "NoopCalendarSyncRepositoryImpl.isSupported" to
-                "The class is the JVM's answer to a port only Android implements, and it " +
-                "holds no state: the desktop has nowhere to keep a sync preference, so " +
-                "false is the complete answer.",
-            "NoopCalendarSyncWorkScheduler.isSupported" to
-                "The scheduler enqueues background work, and the desktop has no " +
-                "background work to enqueue into; the class does nothing, so false is " +
-                "the complete answer.",
-            "GoogleConsent.jvm.isSupported" to
-                "The desktop is the platform Google exempts from the loopback block, and " +
-                "the consent needs only a browser and a local socket, which a desktop " +
-                "machine has. A missing browser fails at the call, not as 'unsupported'.",
-        )
+        val SANCTIONED_CONSTANTS: Map<String, String> =
+            mapOf(
+                "AlarmManagerReminderScheduler.isSupported" to
+                    "AlarmManager is always present on Android and setAlarmClock needs no " +
+                    "permission; unlike setExactAndAllowWhileIdle there is no " +
+                    "SCHEDULE_EXACT_ALARM gate to observe.",
+                "JvmCalendarAppQueries.isSupported" to
+                    "There is no JVM implementation of the port: the desktop has no calendar " +
+                    "apps to list, so false is the complete answer and cannot become stale.",
+                "JvmPomodoroTaskListProvider.isSupported" to
+                    "There is no JVM implementation of the port, so false is the complete " +
+                    "answer and cannot become stale.",
+                "NoopCalendarProvider.isSupported" to
+                    "The desktop has no system calendar this app may write to, and the class " +
+                    "holds nothing whose support could change while the app runs.",
+                "NoopCalendarSyncRepositoryImpl.isSupported" to
+                    "The class is the JVM's answer to a port only Android implements, and it " +
+                    "holds no state: the desktop has nowhere to keep a sync preference, so " +
+                    "false is the complete answer.",
+                "NoopCalendarSyncWorkScheduler.isSupported" to
+                    "The scheduler enqueues background work, and the desktop has no " +
+                    "background work to enqueue into; the class does nothing, so false is " +
+                    "the complete answer.",
+                "GoogleConsent.jvm.isSupported" to
+                    "The desktop is the platform Google exempts from the loopback block, and " +
+                    "the consent needs only a browser and a local socket, which a desktop " +
+                    "machine has. A missing browser fails at the call, not as 'unsupported'.",
+            )
     }
 }

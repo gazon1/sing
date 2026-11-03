@@ -5,10 +5,10 @@ import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.security.JvmArchiveCrypto
 import com.singularity.todo.test.fakes.MapFileSystem
-import java.util.concurrent.Executors
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
+import java.util.concurrent.Executors
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -32,13 +32,16 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class RemoteBackupServiceThreadTest {
-
     /** A bucket that remembers which thread it was called on. */
     private class ThreadRecordingBucket : BackupBucket {
         var uploadThread: String? = null
             private set
 
-        override suspend fun upload(path: String, source: ByteSource, sizeBytes: Long) {
+        override suspend fun upload(
+            path: String,
+            source: ByteSource,
+            sizeBytes: Long,
+        ) {
             uploadThread = Thread.currentThread().name
             val buffer = ByteArray(1024)
             while (source.read(buffer, 0, buffer.size) >= 0) {
@@ -46,40 +49,47 @@ class RemoteBackupServiceThreadTest {
             }
         }
 
-        override suspend fun download(path: String, sink: ByteSink) = Unit
+        override suspend fun download(
+            path: String,
+            sink: ByteSink,
+        ) = Unit
 
         override suspend fun list(prefix: String): List<BucketObject> = emptyList()
     }
 
     /** The upload runs on the dispatcher's thread, not on the caller's. */
     @Test
-    fun `the upload does not run on the caller's thread`() = runTest {
-        val fs = MapFileSystem()
-        fs.writeBytes("/backups/archive.zip", "the archive".encodeToByteArray())
-        val bucket = ThreadRecordingBucket()
-        val dispatcher = Executors.newSingleThreadExecutor { runnable ->
-            Thread(runnable, "backup-io")
-        }.asCoroutineDispatcher()
+    fun `the upload does not run on the caller's thread`() =
+        runTest {
+            val fs = MapFileSystem()
+            fs.writeBytes("/backups/archive.zip", "the archive".encodeToByteArray())
+            val bucket = ThreadRecordingBucket()
+            val dispatcher =
+                Executors
+                    .newSingleThreadExecutor { runnable ->
+                        Thread(runnable, "backup-io")
+                    }.asCoroutineDispatcher()
 
-        try {
-            val service = RemoteBackupServiceImpl(bucket, fs, EncryptedArchive(JvmArchiveCrypto()), dispatcher)
-            val caller = Thread.currentThread().name
+            try {
+                val service = RemoteBackupServiceImpl(bucket, fs, EncryptedArchive(JvmArchiveCrypto()), dispatcher)
+                val caller = Thread.currentThread().name
 
-            val result = service.upload(
-                RemoteArchive(basePath = "/backups/archive.zip"),
-                UserId("user-1"),
-                ArchiveSealer.UnderPassword("horse".toCharArray()),
-            )
+                val result =
+                    service.upload(
+                        RemoteArchive(basePath = "/backups/archive.zip"),
+                        UserId("user-1"),
+                        ArchiveSealer.UnderPassword("horse".toCharArray()),
+                    )
 
-            assertTrue(result.isSuccess, "the upload must succeed: ${result.exceptionOrNull()}")
-            assertNotEquals(
-                caller,
-                bucket.uploadThread,
-                "the archive must not be encrypted on the thread that asked for it",
-            )
-            assertEquals("backup-io", bucket.uploadThread, "the work must run on the dispatcher's thread")
-        } finally {
-            dispatcher.close()
+                assertTrue(result.isSuccess, "the upload must succeed: ${result.exceptionOrNull()}")
+                assertNotEquals(
+                    caller,
+                    bucket.uploadThread,
+                    "the archive must not be encrypted on the thread that asked for it",
+                )
+                assertEquals("backup-io", bucket.uploadThread, "the work must run on the dispatcher's thread")
+            } finally {
+                dispatcher.close()
+            }
         }
-    }
 }

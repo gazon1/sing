@@ -21,7 +21,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SyncIdentityMapperTest {
-
     private val mapper = SyncIdentityMapper()
     private val scope = SyncScope(ownerId = "owner-1", profileId = "work")
 

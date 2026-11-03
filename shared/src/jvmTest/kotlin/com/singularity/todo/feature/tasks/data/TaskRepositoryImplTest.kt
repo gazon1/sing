@@ -34,86 +34,93 @@ import kotlin.time.Clock
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class TaskRepositoryImplTest {
-
     private val userA = UserId("user-a")
     private val userB = UserId("user-b")
 
     @Test
-    fun observeAllForCurrentUser_re_subscribes_on_user_switch() = runTest {
-        val authRepo = FakeAuthRepository(Session.Anonymous(userA))
-        val currentUser = FakeProfileAwareCurrentUser(authRepo, scope = backgroundScope)
-        val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
+    fun observeAllForCurrentUser_re_subscribes_on_user_switch() =
+        runTest {
+            val authRepo = FakeAuthRepository(Session.Anonymous(userA))
+            val currentUser = FakeProfileAwareCurrentUser(authRepo, scope = backgroundScope)
+            val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
 
-        val taskA = makeTask(title = "Task for A", userId = userA)
-        repo.seed(taskA)
-        advanceUntilIdle()
+            val taskA = makeTask(title = "Task for A", userId = userA)
+            repo.seed(taskA)
+            advanceUntilIdle()
 
-        // take(1) auto-cancels after first emission so the subscription is not leaked
-        val resultA = repo.observeAll().take(1).first()
-        assertEquals(1, resultA.size, "user-a should see their task")
-        assertEquals("Task for A", resultA.first().title)
+            // take(1) auto-cancels after first emission so the subscription is not leaked
+            val resultA = repo.observeAll().take(1).first()
+            assertEquals(1, resultA.size, "user-a should see their task")
+            assertEquals("Task for A", resultA.first().title)
 
-        authRepo.setUserId(userB)
-        advanceUntilIdle()
+            authRepo.setUserId(userB)
+            advanceUntilIdle()
 
-        val resultB = repo.observeAll().take(1).first()
-        assertTrue(resultB.isEmpty(), "user-b should see no tasks")
-    }
-
-    @Test
-    fun observeByFilter_re_subscribes_on_user_switch() = runTest {
-        val authRepo = FakeAuthRepository(Session.Anonymous(userA))
-        val currentUser = FakeProfileAwareCurrentUser(authRepo, scope = backgroundScope)
-        val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
-
-        val taskA = makeTask(title = "Inbox A", userId = userA)
-        repo.seed(taskA)
-        advanceUntilIdle()
-
-        val resultA = repo.observeByFilter(TaskFilter.Inbox).take(1).first()
-        assertEquals(1, resultA.size, "user-a should see their inbox task")
-        assertEquals("Inbox A", resultA.first().title)
-
-        authRepo.setUserId(userB)
-        advanceUntilIdle()
-
-        val resultB = repo.observeByFilter(TaskFilter.Inbox).take(1).first()
-        assertTrue(resultB.isEmpty(), "user-b should see no inbox tasks")
-    }
+            val resultB = repo.observeAll().take(1).first()
+            assertTrue(resultB.isEmpty(), "user-b should see no tasks")
+        }
 
     @Test
-    fun create_and_observeForCurrentUser_round_trip() = runTest {
-        val authRepo = FakeAuthRepository(Session.Anonymous(userA))
-        val currentUser = FakeProfileAwareCurrentUser(authRepo, scope = backgroundScope)
-        val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
+    fun observeByFilter_re_subscribes_on_user_switch() =
+        runTest {
+            val authRepo = FakeAuthRepository(Session.Anonymous(userA))
+            val currentUser = FakeProfileAwareCurrentUser(authRepo, scope = backgroundScope)
+            val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
 
-        val task = makeTask(title = "New Task", userId = userA)
-        repo.create(task)
-        advanceUntilIdle()
+            val taskA = makeTask(title = "Inbox A", userId = userA)
+            repo.seed(taskA)
+            advanceUntilIdle()
 
-        // take(1) prevents the never-completing flatMapLatest subscription from leaking
-        val observed = repo.observe(task.id).take(1).first()
-        assertNotNull(observed, "created task should be observable by id")
-        assertEquals("New Task", observed.title)
-    }
+            val resultA = repo.observeByFilter(TaskFilter.Inbox).take(1).first()
+            assertEquals(1, resultA.size, "user-a should see their inbox task")
+            assertEquals("Inbox A", resultA.first().title)
 
-    private fun makeTask(id: TaskId = TaskId.generate(), title: String, userId: UserId): Task = Task(
-        id = id,
-        title = title,
-        description = null,
-        priority = TaskPriority.Medium,
-        kind = TaskKind.Task,
-        projectId = null,
-        parentTaskId = null,
-        dueDate = null,
-        dueTime = null,
-        completedAt = null,
-        someday = false,
-        archivedAt = null,
-        isPinned = false,
-        createdAt = Clock.System.now(),
-        updatedAt = Clock.System.now(),
-        userId = userId,
-        tags = emptyList(),
-    )
+            authRepo.setUserId(userB)
+            advanceUntilIdle()
+
+            val resultB = repo.observeByFilter(TaskFilter.Inbox).take(1).first()
+            assertTrue(resultB.isEmpty(), "user-b should see no inbox tasks")
+        }
+
+    @Test
+    fun create_and_observeForCurrentUser_round_trip() =
+        runTest {
+            val authRepo = FakeAuthRepository(Session.Anonymous(userA))
+            val currentUser = FakeProfileAwareCurrentUser(authRepo, scope = backgroundScope)
+            val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
+
+            val task = makeTask(title = "New Task", userId = userA)
+            repo.create(task)
+            advanceUntilIdle()
+
+            // take(1) prevents the never-completing flatMapLatest subscription from leaking
+            val observed = repo.observe(task.id).take(1).first()
+            assertNotNull(observed, "created task should be observable by id")
+            assertEquals("New Task", observed.title)
+        }
+
+    private fun makeTask(
+        id: TaskId = TaskId.generate(),
+        title: String,
+        userId: UserId,
+    ): Task =
+        Task(
+            id = id,
+            title = title,
+            description = null,
+            priority = TaskPriority.Medium,
+            kind = TaskKind.Task,
+            projectId = null,
+            parentTaskId = null,
+            dueDate = null,
+            dueTime = null,
+            completedAt = null,
+            someday = false,
+            archivedAt = null,
+            isPinned = false,
+            createdAt = Clock.System.now(),
+            updatedAt = Clock.System.now(),
+            userId = userId,
+            tags = emptyList(),
+        )
 }

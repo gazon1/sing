@@ -32,15 +32,18 @@ fun CalendarSelectionBar(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth()
-            .testTag(TestTags.Calendar.SELECTION_BAR)
-            .mapTestTagsAsResourceIds(),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag(TestTags.Calendar.SELECTION_BAR)
+                .mapTestTagsAsResourceIds(),
         tonalElevation = 3.dp,
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -51,16 +54,18 @@ fun CalendarSelectionBar(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(
                     onClick = onCancel,
-                    modifier = Modifier
-                        .testTag(TestTags.Calendar.CANCEL_SELECTION)
-                        .mapTestTagsAsResourceIds(),
+                    modifier =
+                        Modifier
+                            .testTag(TestTags.Calendar.CANCEL_SELECTION)
+                            .mapTestTagsAsResourceIds(),
                 ) { Text("Отмена") }
                 TextButton(
                     onClick = onCreateTask,
                     enabled = selectedCount > 0,
-                    modifier = Modifier
-                        .testTag(TestTags.Calendar.CREATE_ON_SELECTED)
-                        .mapTestTagsAsResourceIds(),
+                    modifier =
+                        Modifier
+                            .testTag(TestTags.Calendar.CREATE_ON_SELECTED)
+                            .mapTestTagsAsResourceIds(),
                 ) { Text("Создать задачу") }
             }
         }

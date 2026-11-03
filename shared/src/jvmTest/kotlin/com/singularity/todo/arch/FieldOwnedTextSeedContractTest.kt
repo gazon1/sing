@@ -65,7 +65,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class FieldOwnedTextSeedContractTest {
-
     /**
      * No seed carries a field's own text.
      *
@@ -74,10 +73,11 @@ class FieldOwnedTextSeedContractTest {
      */
     @Test
     fun `a seed does not carry the field's own text`() {
-        val offending = seedSites()
-            .filter { (_, argument) -> readsFieldText(argument) }
-            .map { (site, argument) -> "$site -> seeded(${argument.trim()})" }
-            .sorted()
+        val offending =
+            seedSites()
+                .filter { (_, argument) -> readsFieldText(argument) }
+                .map { (site, argument) -> "$site -> seeded(${argument.trim()})" }
+                .sorted()
 
         assertTrue(
             offending.isEmpty(),
@@ -141,11 +141,12 @@ class FieldOwnedTextSeedContractTest {
      * @return the argument of every seed, in the order the seeds appear.
      */
     private fun seedSites(source: String? = null): List<Pair<String, String>> {
-        val texts = if (source != null) {
-            listOf("control" to source)
-        } else {
-            TextFieldShapeScan.allFileTexts()
-        }
+        val texts =
+            if (source != null) {
+                listOf("control" to source)
+            } else {
+                TextFieldShapeScan.allFileTexts()
+            }
         return texts.flatMap { (site, text) ->
             val code = KotlinText.stripComments(text)
             seedArguments(code).map { argument -> "$site" to argument }
@@ -187,11 +188,16 @@ class FieldOwnedTextSeedContractTest {
      * a literal's contents cannot hold an unbalanced parenthesis in Kotlin
      * without being a raw string.
      */
-    private fun matchingParen(code: String, open: Int): Int {
+    private fun matchingParen(
+        code: String,
+        open: Int,
+    ): Int {
         var depth = 0
         for (index in open until code.length) {
             when (code[index]) {
-                '(' -> depth++
+                '(' -> {
+                    depth++
+                }
 
                 ')' -> {
                     depth--

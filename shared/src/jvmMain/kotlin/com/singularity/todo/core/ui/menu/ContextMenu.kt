@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,7 +35,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.tasks.presentation.theme.dividerColor
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
-import androidx.compose.material3.MaterialTheme
+import com.singularity.todo.feature.tasks.presentation.theme.dividerColor
 import kotlinx.collections.immutable.ImmutableList
 
 /** State that opens a context menu at a given screen offset. */
@@ -57,10 +58,11 @@ fun ContextMenuHost(
     if (openState == null) return
 
     val density = LocalDensity.current
-    val offsetPx = IntOffset(
-        x = (openState.offset.x.value * density.density).toInt(),
-        y = (openState.offset.y.value * density.density).toInt(),
-    )
+    val offsetPx =
+        IntOffset(
+            x = (openState.offset.x.value * density.density).toInt(),
+            y = (openState.offset.y.value * density.density).toInt(),
+        )
 
     Popup(
         alignment = Alignment.TopStart,
@@ -82,10 +84,11 @@ private fun MenuPanel(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .width(220.dp)
-            .padding(vertical = 4.dp)
-            .verticalScroll(rememberScrollState()),
+        modifier =
+            modifier
+                .width(220.dp)
+                .padding(vertical = 4.dp)
+                .verticalScroll(rememberScrollState()),
     ) {
         entries.forEach { node ->
             MenuPanelItem(
@@ -97,7 +100,10 @@ private fun MenuPanel(
 }
 
 @Composable
-private fun MenuPanelItem(node: MenuNode, onDismissAll: () -> Unit) {
+private fun MenuPanelItem(
+    node: MenuNode,
+    onDismissAll: () -> Unit,
+) {
     var openSubMenu by remember { mutableStateOf(false) }
 
     when (node) {
@@ -130,12 +136,16 @@ private fun MenuPanelItem(node: MenuNode, onDismissAll: () -> Unit) {
 }
 
 @Composable
-private fun ActionMenuRow(node: MenuNode.Action, onClick: () -> Unit) {
-    val textColor = if (node.enabled) {
-        if (node.danger) TaskSemanticColors.Danger else MaterialTheme.colorScheme.onSurface
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-    }
+private fun ActionMenuRow(
+    node: MenuNode.Action,
+    onClick: () -> Unit,
+) {
+    val textColor =
+        if (node.enabled) {
+            if (node.danger) TaskSemanticColors.Danger else MaterialTheme.colorScheme.onSurface
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+        }
 
     Box(
         modifier = Modifier
@@ -183,28 +193,31 @@ private fun SubMenuRow(
     onOpenSubMenu: () -> Unit,
     onDismissAll: () -> Unit,
 ) {
-    val hover = rememberHoverOpenState(
-        delayMs = 300L,
-        isOpen = openSubMenu,
-        onOpen = onOpenSubMenu,
-    )
+    val hover =
+        rememberHoverOpenState(
+            delayMs = 300L,
+            isOpen = openSubMenu,
+            onOpen = onOpenSubMenu,
+        )
 
     // Track this row's bounds in window coordinates for submenu positioning.
     var rowBounds by remember { mutableStateOf(Rect.Zero) }
 
-    val textColor = if (node.enabled) {
-        MaterialTheme.colorScheme.onSurface
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
+    val textColor =
+        if (node.enabled) {
+            MaterialTheme.colorScheme.onSurface
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(36.dp)
-            .hoverable(interactionSource = hover.interactionSource, enabled = node.enabled)
-            .padding(horizontal = 8.dp)
-            .onGloballyPositioned { rowBounds = it.boundsInWindow() },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+                .hoverable(interactionSource = hover.interactionSource, enabled = node.enabled)
+                .padding(horizontal = 8.dp)
+                .onGloballyPositioned { rowBounds = it.boundsInWindow() },
         contentAlignment = Alignment.CenterStart,
     ) {
         Row(

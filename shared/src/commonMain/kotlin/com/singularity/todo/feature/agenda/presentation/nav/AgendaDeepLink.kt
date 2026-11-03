@@ -30,21 +30,22 @@ private data class AgendaLinkKey(val viewId: String)
  * хочет увидеть список, в котором задача находится.
  */
 class AgendaDeepLink : AppDeepLink {
-
     override val id: String = "view"
 
-    private val matcher = UriDeepLinkMatcher(
-        uriPattern = DeepLinkUri(AgendaLinkSpec.URI),
-        serializer = AgendaLinkKey.serializer(),
-    )
+    private val matcher =
+        UriDeepLinkMatcher(
+            uriPattern = DeepLinkUri(AgendaLinkSpec.URI),
+            serializer = AgendaLinkKey.serializer(),
+        )
 
     override fun match(request: DeepLinkRequest): DeepLinkTarget? {
         val hit = matcher.match(request) ?: return null
         return DeepLinkTarget(
             tab = AppDestination.AgendaGraph(AgendaStartRoute.Today),
-            screen = AppDestination.AgendaGraph(
-                AgendaStartRoute.SavedAgendaResults(SavedAgendaViewId.fromString(hit.key.viewId)),
-            ),
+            screen =
+                AppDestination.AgendaGraph(
+                    AgendaStartRoute.SavedAgendaResults(SavedAgendaViewId.fromString(hit.key.viewId)),
+                ),
         )
     }
 }

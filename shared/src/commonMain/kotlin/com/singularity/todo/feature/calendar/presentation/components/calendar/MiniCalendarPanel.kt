@@ -54,11 +54,12 @@ fun MiniCalendarPanel(
     val gridDates = remember(monthAnchor) { monthGridDates(monthAnchor) }
 
     Column(
-        modifier = modifier
-            .width(340.dp)
-            .fillMaxHeight()
-            .background(palette.background)
-            .padding(20.dp),
+        modifier =
+            modifier
+                .width(340.dp)
+                .fillMaxHeight()
+                .background(palette.background)
+                .padding(20.dp),
     ) {
         // Header with month name and close button
         Row(
@@ -76,10 +77,11 @@ fun MiniCalendarPanel(
                 Icons.Default.Close,
                 contentDescription = "Close",
                 tint = palette.textSecondary,
-                modifier = Modifier
-                    .touchTarget(TaskListSizes.MinTouchTarget)
-                    .size(20.dp)
-                    .clickable { onClose() },
+                modifier =
+                    Modifier
+                        .touchTarget(TaskListSizes.MinTouchTarget)
+                        .size(20.dp)
+                        .clickable { onClose() },
             )
         }
 
@@ -103,9 +105,10 @@ fun MiniCalendarPanel(
         // Date grid
         gridDates.chunked(7).forEach { week ->
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
             ) {
                 week.forEach { date ->
                     MiniDateCell(
@@ -141,28 +144,29 @@ private fun MiniDateCell(
     val palette = LocalCalendarPalette.current
 
     Box(
-        modifier = modifier
-            .aspectRatio(1f)
-            .padding(2.dp)
-            .clip(CircleShape)
-            .background(
-                when {
-                    isSelected -> palette.accent
-                    isToday -> palette.accent.copy(alpha = 0.25f)
-                    else -> Color.Transparent
-                },
-            )
-            .clickable { onClick() },
+        modifier =
+            modifier
+                .aspectRatio(1f)
+                .padding(2.dp)
+                .clip(CircleShape)
+                .background(
+                    when {
+                        isSelected -> palette.accent
+                        isToday -> palette.accent.copy(alpha = 0.25f)
+                        else -> Color.Transparent
+                    },
+                ).clickable { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = "${date.day}",
-                color = when {
-                    isSelected -> Color.White
-                    !isCurrentMonth -> palette.textMuted
-                    else -> palette.textPrimary
-                },
+                color =
+                    when {
+                        isSelected -> Color.White
+                        !isCurrentMonth -> palette.textMuted
+                        else -> palette.textPrimary
+                    },
                 fontSize = 14.sp,
                 fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
             )

@@ -13,13 +13,13 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
 import com.singularity.todo.test.fakes.TestUsers
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonObject
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.time.Instant
-import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.JsonObject
-import org.junit.jupiter.api.Tag
 
 /**
  * The project keeps what the document does not say — the row and the inheritance.
@@ -56,7 +56,6 @@ import org.junit.jupiter.api.Tag
  */
 @Tag("fast")
 class ProjectDocumentWriteTest {
-
     private val created = Instant.fromEpochMilliseconds(1_000)
 
     private fun project(
@@ -101,151 +100,158 @@ class ProjectDocumentWriteTest {
         externalId = null,
     )
 
-    private fun repository(db: FakeAppDatabase): ProjectsRepository = ProjectsRepositoryImpl(
-        projectDao = db.projectDao(),
-        inheritedTagGroupDao = db.projectInheritedTagGroupDao(),
-        clock = FakeClock(),
-        currentUser = FakeProfileAwareCurrentUser(),
-        syncRepository = FakeSyncRepository(),
-        unitOfWork = FakeUnitOfWork(),
-    )
+    private fun repository(db: FakeAppDatabase): ProjectsRepository =
+        ProjectsRepositoryImpl(
+            projectDao = db.projectDao(),
+            inheritedTagGroupDao = db.projectInheritedTagGroupDao(),
+            clock = FakeClock(),
+            currentUser = FakeProfileAwareCurrentUser(),
+            syncRepository = FakeSyncRepository(),
+            unitOfWork = FakeUnitOfWork(),
+        )
 
     // ── the row ───────────────────────────────────────────────────────────
 
     @Test
-    fun `a project document that carries no description leaves the description alone`() = runTest {
-        val db = FakeAppDatabase()
-        db.projectDao().upsert(row())
-        val repo = repository(db)
+    fun `a project document that carries no description leaves the description alone`() =
+        runTest {
+            val db = FakeAppDatabase()
+            db.projectDao().upsert(row())
+            val repo = repository(db)
 
-        fakeSyncDocumentWriter(projects = repo).upsert(
-            DocType.Project,
-            JsonObject(project().toJson() - "description"),
-        )
+            fakeSyncDocumentWriter(projects = repo).upsert(
+                DocType.Project,
+                JsonObject(project().toJson() - "description"),
+            )
 
-        assertEquals(
-            "the description",
-            db.projectDao().getByIdForUser("p1", TestUsers.DEFAULT.value)?.description,
-            "the description of the project is still the description of the project",
-        )
-    }
+            assertEquals(
+                "the description",
+                db.projectDao().getByIdForUser("p1", TestUsers.DEFAULT.value)?.description,
+                "the description of the project is still the description of the project",
+            )
+        }
 
     @Test
-    fun `a project document that omits the name is a partial write`() = runTest {
-        // The name is a field the model cannot do without, so a document without
-        // it cannot be decoded on its own: the pull drops it, and nothing the
-        // document said is applied. Read against the row that is already here,
-        // the document is a partial write — the name of the row stays, and the
-        // rest of the document is applied.
-        val db = FakeAppDatabase()
-        db.projectDao().upsert(row())
-        val repo = repository(db)
+    fun `a project document that omits the name is a partial write`() =
+        runTest {
+            // The name is a field the model cannot do without, so a document without
+            // it cannot be decoded on its own: the pull drops it, and nothing the
+            // document said is applied. Read against the row that is already here,
+            // the document is a partial write — the name of the row stays, and the
+            // rest of the document is applied.
+            val db = FakeAppDatabase()
+            db.projectDao().upsert(row())
+            val repo = repository(db)
 
-        fakeSyncDocumentWriter(projects = repo).upsert(
-            DocType.Project,
-            JsonObject(project(description = "from the server").toJson() - "name"),
-        )
+            fakeSyncDocumentWriter(projects = repo).upsert(
+                DocType.Project,
+                JsonObject(project(description = "from the server").toJson() - "name"),
+            )
 
-        val stored = db.projectDao().getByIdForUser("p1", TestUsers.DEFAULT.value)
-        assertEquals(
-            "Work",
-            stored?.name,
-            "the name of the project is still the name of the project",
-        )
-        assertEquals(
-            "from the server",
-            stored?.description,
-            "the rest of the document is applied — a dropped document applies nothing",
-        )
-    }
+            val stored = db.projectDao().getByIdForUser("p1", TestUsers.DEFAULT.value)
+            assertEquals(
+                "Work",
+                stored?.name,
+                "the name of the project is still the name of the project",
+            )
+            assertEquals(
+                "from the server",
+                stored?.description,
+                "the rest of the document is applied — a dropped document applies nothing",
+            )
+        }
 
     // ── the inheritance ───────────────────────────────────────────────────
 
     @Test
-    fun `a project document that says nothing about the inheritance leaves the groups alone`() = runTest {
-        // The groups live in a table, and the table is what the write replaces.
-        // A document that says nothing about the inheritance says nothing — it
-        // does not say "the project inherits nothing", and the groups the
-        // project has are not a claim either: the row cannot see them.
-        val db = FakeAppDatabase()
-        db.projectDao().upsert(row())
-        db.projectInheritedTagGroupDao().insertForUser("p1", "g1", TestUsers.DEFAULT.value)
-        db.projectInheritedTagGroupDao().insertForUser("p1", "g2", TestUsers.DEFAULT.value)
-        val repo = repository(db)
+    fun `a project document that says nothing about the inheritance leaves the groups alone`() =
+        runTest {
+            // The groups live in a table, and the table is what the write replaces.
+            // A document that says nothing about the inheritance says nothing — it
+            // does not say "the project inherits nothing", and the groups the
+            // project has are not a claim either: the row cannot see them.
+            val db = FakeAppDatabase()
+            db.projectDao().upsert(row())
+            db.projectInheritedTagGroupDao().insertForUser("p1", "g1", TestUsers.DEFAULT.value)
+            db.projectInheritedTagGroupDao().insertForUser("p1", "g2", TestUsers.DEFAULT.value)
+            val repo = repository(db)
 
-        fakeSyncDocumentWriter(projects = repo).upsert(
-            DocType.Project,
-            JsonObject(project().toJson() - "inheritedTagGroupIds"),
-        )
+            fakeSyncDocumentWriter(projects = repo).upsert(
+                DocType.Project,
+                JsonObject(project().toJson() - "inheritedTagGroupIds"),
+            )
 
-        assertEquals(
-            listOf("g1", "g2"),
-            db.projectInheritedTagGroupDao().getByProject("p1", TestUsers.DEFAULT.value).sorted(),
-            "the groups the project inherits are still the groups it inherits",
-        )
-    }
-
-    @Test
-    fun `a project document that claims no inheritance takes the groups away`() = runTest {
-        // The other side of the claim: an empty set is a claim, and it is taken
-        // as one. A fix that made the table untouchable would pass the test
-        // above and fail this one.
-        val db = FakeAppDatabase()
-        db.projectDao().upsert(row())
-        db.projectInheritedTagGroupDao().insertForUser("p1", "g1", TestUsers.DEFAULT.value)
-        val repo = repository(db)
-
-        fakeSyncDocumentWriter(projects = repo).upsert(
-            DocType.Project,
-            JsonObject(project(inherited = emptySet()).toJson()),
-        )
-
-        assertEquals(
-            emptyList(),
-            db.projectInheritedTagGroupDao().getByProject("p1", TestUsers.DEFAULT.value),
-            "a document that claims the project inherits nothing takes the groups away",
-        )
-    }
+            assertEquals(
+                listOf("g1", "g2"),
+                db.projectInheritedTagGroupDao().getByProject("p1", TestUsers.DEFAULT.value).sorted(),
+                "the groups the project inherits are still the groups it inherits",
+            )
+        }
 
     @Test
-    fun `a project document that claims other groups replaces the set`() = runTest {
-        val db = FakeAppDatabase()
-        db.projectDao().upsert(row())
-        db.projectInheritedTagGroupDao().insertForUser("p1", "g1", TestUsers.DEFAULT.value)
-        val repo = repository(db)
+    fun `a project document that claims no inheritance takes the groups away`() =
+        runTest {
+            // The other side of the claim: an empty set is a claim, and it is taken
+            // as one. A fix that made the table untouchable would pass the test
+            // above and fail this one.
+            val db = FakeAppDatabase()
+            db.projectDao().upsert(row())
+            db.projectInheritedTagGroupDao().insertForUser("p1", "g1", TestUsers.DEFAULT.value)
+            val repo = repository(db)
 
-        fakeSyncDocumentWriter(projects = repo).upsert(
-            DocType.Project,
-            JsonObject(project(inherited = setOf(TagGroupId("g9"))).toJson()),
-        )
+            fakeSyncDocumentWriter(projects = repo).upsert(
+                DocType.Project,
+                JsonObject(project(inherited = emptySet()).toJson()),
+            )
 
-        assertEquals(
-            listOf("g9"),
-            db.projectInheritedTagGroupDao().getByProject("p1", TestUsers.DEFAULT.value),
-            "the groups of the document are the groups of the project",
-        )
-    }
+            assertEquals(
+                emptyList(),
+                db.projectInheritedTagGroupDao().getByProject("p1", TestUsers.DEFAULT.value),
+                "a document that claims the project inherits nothing takes the groups away",
+            )
+        }
+
+    @Test
+    fun `a project document that claims other groups replaces the set`() =
+        runTest {
+            val db = FakeAppDatabase()
+            db.projectDao().upsert(row())
+            db.projectInheritedTagGroupDao().insertForUser("p1", "g1", TestUsers.DEFAULT.value)
+            val repo = repository(db)
+
+            fakeSyncDocumentWriter(projects = repo).upsert(
+                DocType.Project,
+                JsonObject(project(inherited = setOf(TagGroupId("g9"))).toJson()),
+            )
+
+            assertEquals(
+                listOf("g9"),
+                db.projectInheritedTagGroupDao().getByProject("p1", TestUsers.DEFAULT.value),
+                "the groups of the document are the groups of the project",
+            )
+        }
 
     // ── the row of another profile ────────────────────────────────────────
 
     @Test
-    fun `a project document of another profile is not filled from this profile's row`() = runTest {
-        // A document of another profile can name a row this device already
-        // holds: the row is keyed by the id alone. The foreign document says
-        // nothing about the description, and the row says "the description" —
-        // filling the foreign document from this profile's row would write this
-        // profile's data into a document that says nothing about it.
-        val repo = FakeProjectsRepository()
-        repo.add(project())
+    fun `a project document of another profile is not filled from this profile's row`() =
+        runTest {
+            // A document of another profile can name a row this device already
+            // holds: the row is keyed by the id alone. The foreign document says
+            // nothing about the description, and the row says "the description" —
+            // filling the foreign document from this profile's row would write this
+            // profile's data into a document that says nothing about it.
+            val repo = FakeProjectsRepository()
+            repo.add(project())
 
-        fakeSyncDocumentWriter(projects = repo).upsert(
-            DocType.Project,
-            JsonObject(project(owner = UserId("bob")).toJson() - "description"),
-        )
+            fakeSyncDocumentWriter(projects = repo).upsert(
+                DocType.Project,
+                JsonObject(project(owner = UserId("bob")).toJson() - "description"),
+            )
 
-        assertNull(
-            repo.store["p1"]?.description,
-            "the row of another profile is not filled from this profile's row",
-        )
-    }
+            assertNull(
+                repo.store["p1"]?.description,
+                "the row of another profile is not filled from this profile's row",
+            )
+        }
 }

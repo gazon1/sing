@@ -25,10 +25,9 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class GoogleEventTaskMapperTest {
-
     private val utc = TimeZone.UTC
-    private val noon = LocalDateTime(2026, 3, 4, 12, 0).toInstant(utc)
-    private val onePm = LocalDateTime(2026, 3, 4, 13, 0).toInstant(utc)
+    private val noon = localDateTime(2026, 3, 4, 12, 0).toInstant(utc)
+    private val onePm = localDateTime(2026, 3, 4, 13, 0).toInstant(utc)
 
     private fun event(
         id: String = "evt-1",
@@ -56,8 +55,13 @@ class GoogleEventTaskMapperTest {
         taskId = null,
     )
 
-    private fun LocalDateTime(y: Int, m: Int, d: Int, h: Int, min: Int) =
-        kotlinx.datetime.LocalDateTime(LocalDate(y, m, d), LocalTime(h, min))
+    private fun localDateTime(
+        y: Int,
+        m: Int,
+        d: Int,
+        h: Int,
+        min: Int,
+    ) = kotlinx.datetime.LocalDateTime(LocalDate(y, m, d), LocalTime(h, min))
 
     // ─── draftFor ───────────────────────────────────────────────────────
 
@@ -134,19 +138,21 @@ class GoogleEventTaskMapperTest {
 
     @Test
     fun `only ApplyToTask outcomes become edits`() {
-        val merge = MergeResult(
-            eventId = GoogleEventId("evt-1"),
-            fields = listOf(
-                FieldOutcome.ApplyToTask("Renamed on phone"),
-                FieldOutcome.Push("Local title"),
-                FieldOutcome.NoOp,
-                FieldOutcome.Conflict("ours", "theirs"),
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-            ),
-            hasConflict = true,
-        )
+        val merge =
+            MergeResult(
+                eventId = GoogleEventId("evt-1"),
+                fields =
+                    listOf(
+                        FieldOutcome.ApplyToTask("Renamed on phone"),
+                        FieldOutcome.Push("Local title"),
+                        FieldOutcome.NoOp,
+                        FieldOutcome.Conflict("ours", "theirs"),
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                    ),
+                hasConflict = true,
+            )
         val edits = GoogleEventTaskMapper.editsFor(merge, event(), utc)
         assertEquals(setOf(GoogleEventTaskMapper.TaskField.Title), edits.changed)
         assertEquals("Renamed on phone", edits.title)
@@ -154,11 +160,12 @@ class GoogleEventTaskMapperTest {
 
     @Test
     fun `a merge with nothing to apply produces no edits`() {
-        val merge = MergeResult(
-            eventId = GoogleEventId("evt-1"),
-            fields = List(7) { FieldOutcome.NoOp },
-            hasConflict = false,
-        )
+        val merge =
+            MergeResult(
+                eventId = GoogleEventId("evt-1"),
+                fields = List(7) { FieldOutcome.NoOp },
+                hasConflict = false,
+            )
         assertTrue(GoogleEventTaskMapper.editsFor(merge, event(), utc).isEmpty)
     }
 
@@ -166,19 +173,21 @@ class GoogleEventTaskMapperTest {
     fun `a remotely cleared field is a change, not an absence`() {
         // The distinction the `changed` set exists for: null here means "clear the
         // description", and a type carrying only nullable values could not say so.
-        val merge = MergeResult(
-            eventId = GoogleEventId("evt-1"),
-            fields = listOf(
-                FieldOutcome.NoOp,
-                FieldOutcome.ApplyToTask(null),
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-            ),
-            hasConflict = false,
-        )
+        val merge =
+            MergeResult(
+                eventId = GoogleEventId("evt-1"),
+                fields =
+                    listOf(
+                        FieldOutcome.NoOp,
+                        FieldOutcome.ApplyToTask(null),
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                    ),
+                hasConflict = false,
+            )
         val edits = GoogleEventTaskMapper.editsFor(merge, event(), utc)
         assertEquals(setOf(GoogleEventTaskMapper.TaskField.Description), edits.changed)
         assertNull(edits.description)
@@ -186,19 +195,21 @@ class GoogleEventTaskMapperTest {
 
     @Test
     fun `a remote time change is a move`() {
-        val merge = MergeResult(
-            eventId = GoogleEventId("evt-1"),
-            fields = listOf(
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.ApplyToTask(LocalDateTime(2026, 3, 5, 9, 30).toInstant(utc)),
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-            ),
-            hasConflict = false,
-        )
+        val merge =
+            MergeResult(
+                eventId = GoogleEventId("evt-1"),
+                fields =
+                    listOf(
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.ApplyToTask(localDateTime(2026, 3, 5, 9, 30).toInstant(utc)),
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                    ),
+                hasConflict = false,
+            )
         val edits = GoogleEventTaskMapper.editsFor(merge, event(), utc)
         assertTrue(edits.movesTime)
         assertEquals(LocalDate(2026, 3, 5), edits.dueDate)
@@ -208,37 +219,41 @@ class GoogleEventTaskMapperTest {
     @Test
     fun `a remote title change is not a move`() {
         // A rename must not drag a reminder along with it.
-        val merge = MergeResult(
-            eventId = GoogleEventId("evt-1"),
-            fields = listOf(
-                FieldOutcome.ApplyToTask("Shorter"),
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-            ),
-            hasConflict = false,
-        )
+        val merge =
+            MergeResult(
+                eventId = GoogleEventId("evt-1"),
+                fields =
+                    listOf(
+                        FieldOutcome.ApplyToTask("Shorter"),
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                    ),
+                hasConflict = false,
+            )
         assertFalse(GoogleEventTaskMapper.editsFor(merge, event(), utc).movesTime)
     }
 
     @Test
     fun `a moved all-day event lands on a date with no time`() {
-        val merge = MergeResult(
-            eventId = GoogleEventId("evt-1"),
-            fields = listOf(
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.ApplyToTask(LocalDateTime(2026, 3, 6, 0, 0).toInstant(utc)),
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-            ),
-            hasConflict = false,
-        )
+        val merge =
+            MergeResult(
+                eventId = GoogleEventId("evt-1"),
+                fields =
+                    listOf(
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.ApplyToTask(localDateTime(2026, 3, 6, 0, 0).toInstant(utc)),
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                    ),
+                hasConflict = false,
+            )
         val edits = GoogleEventTaskMapper.editsFor(merge, event(allDay = true), utc)
         assertEquals(LocalDate(2026, 3, 6), edits.dueDate)
         assertNull(edits.dueTime)
@@ -249,19 +264,21 @@ class GoogleEventTaskMapperTest {
         // Google's RRULE is stored and re-sent verbatim and is never parsed. Setting
         // `Task.recurrence` would mean an RFC 5545 parser, and a lossy one would silently
         // change how many occurrences a series has.
-        val merge = MergeResult(
-            eventId = GoogleEventId("evt-1"),
-            fields = listOf(
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.NoOp,
-                FieldOutcome.ApplyToTask("RRULE:FREQ=WEEKLY"),
-            ),
-            hasConflict = false,
-        )
+        val merge =
+            MergeResult(
+                eventId = GoogleEventId("evt-1"),
+                fields =
+                    listOf(
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.NoOp,
+                        FieldOutcome.ApplyToTask("RRULE:FREQ=WEEKLY"),
+                    ),
+                hasConflict = false,
+            )
         assertTrue(GoogleEventTaskMapper.editsFor(merge, event(recurrenceRule = "RRULE:FREQ=WEEKLY"), utc).isEmpty)
     }
 }

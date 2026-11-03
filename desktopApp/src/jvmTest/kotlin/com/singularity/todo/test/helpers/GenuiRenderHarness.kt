@@ -102,15 +102,16 @@ fun runGenuiRenderTest(
     val presses: MutableList<GenuiPress> = mutableListOf()
     val writes: MutableList<GenuiWrite> = mutableListOf()
     val registry: ComponentRegistry = ComponentRegistry().also { Material3Catalog.installAll(it) }
-    val context = DefaultDataContext(
-        surfaceId = GenuiSurfaceId,
-        controller = controller,
-        registry = registry,
-        onDataChange = { surfaceId, path, value -> writes += GenuiWrite(surfaceId, path, value) },
-        // A fixed date, so "Today" and `formatRelative` mean something the test can assert. Reading
-        // the wall clock here would make every date-bearing assertion depend on the day it runs.
-        clock = FakeClock(FIXED_INSTANT),
-    )
+    val context =
+        DefaultDataContext(
+            surfaceId = GenuiSurfaceId,
+            controller = controller,
+            registry = registry,
+            onDataChange = { surfaceId, path, value -> writes += GenuiWrite(surfaceId, path, value) },
+            // A fixed date, so "Today" and `formatRelative` mean something the test can assert. Reading
+            // the wall clock here would make every date-bearing assertion depend on the day it runs.
+            clock = FakeClock(FIXED_INSTANT),
+        )
 
     val owner: TestLifecycleOwner = TestLifecycleOwner()
     setContent {
@@ -147,8 +148,7 @@ class GenuiRenderScope(
     val writes: List<GenuiWrite>,
 ) {
     /** What the surface's data model holds at [path]. */
-    fun valueAt(path: String): JsonElement? =
-        controller.snapshot(GenuiSurfaceId)?.dataModel?.get(UiPath.parse(path))
+    fun valueAt(path: String): JsonElement? = controller.snapshot(GenuiSurfaceId)?.dataModel?.get(UiPath.parse(path))
 
     /**
      * The **server** writes a value into the surface's data model.
@@ -158,7 +158,10 @@ class GenuiRenderScope(
      * own drops a rewrite that lands on a value it had already sent — the value looks
      * like an echo of the field's own last push, and the echo guard does its job.
      */
-    fun serverWrites(path: String, value: String) {
+    fun serverWrites(
+        path: String,
+        value: String,
+    ) {
         controller.apply(
             UiEvent.UpdateData(
                 surfaceId = GenuiSurfaceId,
@@ -188,7 +191,10 @@ class GenuiRenderScope(
      * it. The tag is the one the renderer publishes, so the node is the field and not its
      * decoration.
      */
-    fun assertFieldText(name: String, expected: String) {
+    fun assertFieldText(
+        name: String,
+        expected: String,
+    ) {
         ui.assertTagTextEquals(TestTags.genUi(name), expected)
     }
 
@@ -200,8 +206,7 @@ class GenuiRenderScope(
      * "drew a card" from "drew a container of nothing" — a surface of correctly placed empty boxes
      * passes any test that stops at the structure of the semantics tree.
      */
-    fun node(name: String): SemanticsNodeInteraction =
-        ui.onNodeWithTag(TestTags.genUi(name), useUnmergedTree = true)
+    fun node(name: String): SemanticsNodeInteraction = ui.onNodeWithTag(TestTags.genUi(name), useUnmergedTree = true)
 
     /** As [node], for a tag the fixture built from a value the renderer composed. */
     fun nodeTagged(tag: String): SemanticsNodeInteraction = ui.onNodeWithTag(tag, useUnmergedTree = true)

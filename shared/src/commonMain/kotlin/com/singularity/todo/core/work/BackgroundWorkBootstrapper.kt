@@ -30,7 +30,6 @@ package com.singularity.todo.core.work
  * stacking. Safe to call unconditionally.
  */
 class BackgroundWorkBootstrapper(private val scheduler: BackgroundWorkScheduler) {
-
     /**
      * Arm every maintenance job. Safe to call on every app start.
      *

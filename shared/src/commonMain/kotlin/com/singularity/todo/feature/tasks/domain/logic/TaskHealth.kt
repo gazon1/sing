@@ -134,38 +134,48 @@ fun summarizeTaskHealthFromSelectors(
     // Selector mirrors — one per TaskHealthBucket with meaningful precedence order.
     val overdueSelector = Selector.DateBucket(RelativeBucket.Overdue)
     val blockedSelector = Selector.Blocked
-    val stagnantSelector = stagnationWindow?.let { Selector.Stagnant(it) }
-        ?: Selector.Stagnant() // null window → use Selector's built-in default threshold
+    val stagnantSelector =
+        stagnationWindow?.let { Selector.Stagnant(it) }
+            ?: Selector.Stagnant() // null window → use Selector's built-in default threshold
 
-    val perTask = open.map { task ->
-        when {
-            overdueSelector.matches(task, context) -> TaskHealth(TaskHealthBucket.OVERDUE)
+    val perTask =
+        open.map { task ->
+            when {
+                overdueSelector.matches(task, context) -> {
+                    TaskHealth(TaskHealthBucket.OVERDUE)
+                }
 
-            blockedSelector.matches(task, context) -> TaskHealth(TaskHealthBucket.BLOCKED)
+                blockedSelector.matches(task, context) -> {
+                    TaskHealth(TaskHealthBucket.BLOCKED)
+                }
 
-            stagnantSelector.matches(task, context) -> {
-                val stalled = now - lastActivityOf(task)
-                TaskHealth(TaskHealthBucket.STAGNANT, stalledFor = stalled)
+                stagnantSelector.matches(task, context) -> {
+                    val stalled = now - lastActivityOf(task)
+                    TaskHealth(TaskHealthBucket.STAGNANT, stalledFor = stalled)
+                }
+
+                else -> {
+                    TaskHealth(TaskHealthBucket.FINE)
+                }
             }
-
-            else -> TaskHealth(TaskHealthBucket.FINE)
         }
-    }
 
-    val counts = TaskHealthBucket.entries.associateWith { bucket ->
-        perTask.count { it.bucket == bucket }
-    }
+    val counts =
+        TaskHealthBucket.entries.associateWith { bucket ->
+            perTask.count { it.bucket == bucket }
+        }
 
     val created = allTasks.count { !it.isTrashed }
     val completed = allTasks.count { it.isCompleted }
 
     val stalledDurations = perTask.mapNotNull { it.stalledFor }.sorted()
 
-    val medianStalledFor: Duration? = if (stalledDurations.isEmpty()) {
-        null
-    } else {
-        stalledDurations[stalledDurations.size / 2]
-    }
+    val medianStalledFor: Duration? =
+        if (stalledDurations.isEmpty()) {
+            null
+        } else {
+            stalledDurations[stalledDurations.size / 2]
+        }
 
     return TaskHealthSummary(
         counts = counts,

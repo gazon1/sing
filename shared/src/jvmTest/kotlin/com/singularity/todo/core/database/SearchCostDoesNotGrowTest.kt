@@ -64,7 +64,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class SearchCostDoesNotGrowTest {
-
     private lateinit var tempDir: File
     private lateinit var db: AppDatabase
 
@@ -81,58 +80,62 @@ class SearchCostDoesNotGrowTest {
     }
 
     @Test
-    fun `the search asks the index for the word`() = runTest {
-        val plan = explain(INDEXED_QUERY)
+    fun `the search asks the index for the word`() =
+        runTest {
+            val plan = explain(INDEXED_QUERY)
 
-        assertTrue(
-            plan.any { it.contains("tasks_fts") },
-            "the index has to be the thing the search asks for the word. The plan says: $plan",
-        )
-    }
-
-    @Test
-    fun `the way the search used to run asked no index at all`() = runTest {
-        val plan = explain(SCANNING_QUERY)
-
-        assertTrue(
-            plan.none { it.contains("tasks_fts") },
-            "the old way had no index of words to ask, and the plan says so. If this ever " +
-                "stops being true the comparison in this test has lost its other half. " +
-                "The plan says: $plan",
-        )
-    }
+            assertTrue(
+                plan.any { it.contains("tasks_fts") },
+                "the index has to be the thing the search asks for the word. The plan says: $plan",
+            )
+        }
 
     @Test
-    fun `the number of records the search reads does not grow with the profile`() = runTest {
-        seed(100)
-        val small = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("needle"))).first()
+    fun `the way the search used to run asked no index at all`() =
+        runTest {
+            val plan = explain(SCANNING_QUERY)
 
-        seed(4_900)
-        val large = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("needle"))).first()
-
-        assertEquals(5, small.size, "the corpus holds five records that carry the word")
-        assertEquals(
-            small.map { it.task.id }.sorted(),
-            large.map { it.task.id }.sorted(),
-            "the same records are found when the profile is fifty times larger",
-        )
-    }
+            assertTrue(
+                plan.none { it.contains("tasks_fts") },
+                "the old way had no index of words to ask, and the plan says so. If this ever " +
+                    "stops being true the comparison in this test has lost its other half. " +
+                    "The plan says: $plan",
+            )
+        }
 
     @Test
-    fun `the search reads a handful of records out of a profile that holds thousands`() = runTest {
-        seed(5_000)
+    fun `the number of records the search reads does not grow with the profile`() =
+        runTest {
+            seed(100)
+            val small = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("needle"))).first()
 
-        val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("needle"))).first()
-        val profile = countRecords()
+            seed(4_900)
+            val large = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("needle"))).first()
 
-        assertEquals(5_000, profile, "the profile holds five thousand records")
-        assertEquals(5, found.size, "and the search reads five of them")
-        assertTrue(
-            found.size < profile,
-            "the old way read every record of the profile — $profile of them — and looked at " +
-                "each one, for every keystroke. The search reads ${found.size}.",
-        )
-    }
+            assertEquals(5, small.size, "the corpus holds five records that carry the word")
+            assertEquals(
+                small.map { it.task.id }.sorted(),
+                large.map { it.task.id }.sorted(),
+                "the same records are found when the profile is fifty times larger",
+            )
+        }
+
+    @Test
+    fun `the search reads a handful of records out of a profile that holds thousands`() =
+        runTest {
+            seed(5_000)
+
+            val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("needle"))).first()
+            val profile = countRecords()
+
+            assertEquals(5_000, profile, "the profile holds five thousand records")
+            assertEquals(5, found.size, "and the search reads five of them")
+            assertTrue(
+                found.size < profile,
+                "the old way read every record of the profile — $profile of them — and looked at " +
+                    "each one, for every keystroke. The search reads ${found.size}.",
+            )
+        }
 
     @Test
     fun `the dao still asks the index`() {
@@ -140,11 +143,12 @@ class SearchCostDoesNotGrowTest {
         // stopped asking the index, the plan would still say what it says and the
         // comparison would keep passing — over a query the application no longer
         // runs.
-        val source = File(
-            System.getProperty("commonMain.root")
-                ?: error("commonMain.root system property is not set"),
-            "com/singularity/todo/core/database/FtsDao.kt",
-        ).readText()
+        val source =
+            File(
+                System.getProperty("commonMain.root")
+                    ?: error("commonMain.root system property is not set"),
+                "com/singularity/todo/core/database/FtsDao.kt",
+            ).readText()
 
         assertTrue(
             source.contains("JOIN tasks_fts ON t.rowid = tasks_fts.docid"),
@@ -168,11 +172,12 @@ class SearchCostDoesNotGrowTest {
             dao.upsert(
                 TaskEntity(
                     id = "t-$index",
-                    title = if (carriesTheWord) {
-                        "A record that carries the needle in its title $index"
-                    } else {
-                        "A record that carries nothing $index"
-                    },
+                    title =
+                        if (carriesTheWord) {
+                            "A record that carries the needle in its title $index"
+                        } else {
+                            "A record that carries nothing $index"
+                        },
                     description = null,
                     projectId = null,
                     dueDate = null,

@@ -6,8 +6,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
@@ -26,13 +26,18 @@ import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import kotlinx.collections.immutable.ImmutableList
+
 /**
  * Tags section for [com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen].
  *
  * Renders up to 5 tags as chips, each with a remove button.
  */
 @Composable
-fun TaskDetailTagsSection(tags: ImmutableList<Tag>, onDeleteTag: (TagId) -> Unit, modifier: Modifier = Modifier) {
+fun TaskDetailTagsSection(
+    tags: ImmutableList<Tag>,
+    onDeleteTag: (TagId) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     if (tags.isEmpty()) return
     ExtraSectionCard(
         icon = { Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null) },
@@ -45,9 +50,10 @@ fun TaskDetailTagsSection(tags: ImmutableList<Tag>, onDeleteTag: (TagId) -> Unit
             ) {
                 tags.forEach { tag ->
                     Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
+                        colors =
+                            CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -61,10 +67,11 @@ fun TaskDetailTagsSection(tags: ImmutableList<Tag>, onDeleteTag: (TagId) -> Unit
                             Icon(
                                 Icons.Filled.Close,
                                 contentDescription = "Remove tag",
-                                modifier = Modifier
-                                    .touchTarget(TaskListSizes.MinTouchTarget)
-                                    .size(14.dp)
-                                    .clickable { onDeleteTag(tag.id) },
+                                modifier =
+                                    Modifier
+                                        .touchTarget(TaskListSizes.MinTouchTarget)
+                                        .size(14.dp)
+                                        .clickable { onDeleteTag(tag.id) },
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             )
                         }

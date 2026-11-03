@@ -30,7 +30,10 @@ import androidx.compose.ui.unit.dp
  * @param modifier Modifier for the row.
  */
 @Composable
-fun SavedIndicator(visible: Boolean, modifier: Modifier = Modifier) {
+fun SavedIndicator(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+) {
     val alpha by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
         animationSpec = tween(durationMillis = 300),
@@ -39,9 +42,10 @@ fun SavedIndicator(visible: Boolean, modifier: Modifier = Modifier) {
 
     if (alpha > 0f) {
         Row(
-            modifier = modifier
-                .padding(horizontal = 8.dp)
-                .alpha(alpha),
+            modifier =
+                modifier
+                    .padding(horizontal = 8.dp)
+                    .alpha(alpha),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(

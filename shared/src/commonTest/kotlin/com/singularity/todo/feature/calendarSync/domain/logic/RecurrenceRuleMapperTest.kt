@@ -9,29 +9,33 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class RecurrenceRuleMapperTest {
-
     companion object {
         @JvmStatic
-        fun happyCases(): List<Arguments> = listOf(
-            Arguments.of("DAILY", RecurrenceRule.Daily),
-            Arguments.of("WEEKLY:MON,WED,FRI", RecurrenceRule.Weekly(listOf(1, 3, 5))),
-            Arguments.of("WEEKLY:", RecurrenceRule.Custom("WEEKLY:")),
-            Arguments.of("WEEKLY:INVALID", RecurrenceRule.Custom("WEEKLY:INVALID")),
-            Arguments.of("MONTHLY:15", RecurrenceRule.Monthly(15)),
-            Arguments.of("YEARLY", RecurrenceRule.Yearly),
-            Arguments.of("", RecurrenceRule.Custom("")),
-        )
+        fun happyCases(): List<Arguments> =
+            listOf(
+                Arguments.of("DAILY", RecurrenceRule.Daily),
+                Arguments.of("WEEKLY:MON,WED,FRI", RecurrenceRule.Weekly(listOf(1, 3, 5))),
+                Arguments.of("WEEKLY:", RecurrenceRule.Custom("WEEKLY:")),
+                Arguments.of("WEEKLY:INVALID", RecurrenceRule.Custom("WEEKLY:INVALID")),
+                Arguments.of("MONTHLY:15", RecurrenceRule.Monthly(15)),
+                Arguments.of("YEARLY", RecurrenceRule.Yearly),
+                Arguments.of("", RecurrenceRule.Custom("")),
+            )
 
         @JvmStatic
-        fun monthlyOutOfRangeCases(): List<Arguments> = listOf(
-            Arguments.of("MONTHLY:32"),
-            Arguments.of("MONTHLY:0"),
-        )
+        fun monthlyOutOfRangeCases(): List<Arguments> =
+            listOf(
+                Arguments.of("MONTHLY:32"),
+                Arguments.of("MONTHLY:0"),
+            )
     }
 
     @ParameterizedTest(name = "\"{0}\" → {1}")
     @MethodSource("happyCases")
-    fun `map parses pattern to expected rule`(pattern: String, expected: RecurrenceRule) {
+    fun `map parses pattern to expected rule`(
+        pattern: String,
+        expected: RecurrenceRule,
+    ) {
         assertEquals(expected, RecurrenceRuleMapper.map(pattern))
     }
 

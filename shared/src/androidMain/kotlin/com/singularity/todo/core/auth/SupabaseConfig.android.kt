@@ -12,14 +12,20 @@ package com.singularity.todo.core.auth
  * does it — `shared` compiles before `androidApp` has generated its `BuildConfig`.
  */
 actual fun buildTimeSupabaseConfig(): BuildTimeSupabaseConfig? {
-    val url = runCatching {
-        Class.forName("com.singularity.todo.BuildConfig")
-            .getField("SUPABASE_URL").get(null) as? String
-    }.getOrNull()
-    val key = runCatching {
-        Class.forName("com.singularity.todo.BuildConfig")
-            .getField("SUPABASE_ANON_KEY").get(null) as? String
-    }.getOrNull()
+    val url =
+        runCatching {
+            Class
+                .forName("com.singularity.todo.BuildConfig")
+                .getField("SUPABASE_URL")
+                .get(null) as? String
+        }.getOrNull()
+    val key =
+        runCatching {
+            Class
+                .forName("com.singularity.todo.BuildConfig")
+                .getField("SUPABASE_ANON_KEY")
+                .get(null) as? String
+        }.getOrNull()
     if (url.isNullOrBlank() || key.isNullOrBlank()) return null
     return BuildTimeSupabaseConfig(url = url, anonKey = key)
 }

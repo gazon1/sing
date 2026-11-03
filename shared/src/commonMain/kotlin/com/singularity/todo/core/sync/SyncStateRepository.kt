@@ -15,11 +15,28 @@ import kotlin.time.Duration.Companion.minutes
  */
 interface SyncStateRepository {
     fun observe(scope: SyncScope): Flow<SyncState>
+
     suspend fun get(scope: SyncScope): SyncState
-    suspend fun setLastLsn(scope: SyncScope, lsn: Long)
-    suspend fun recordSuccessfulSync(scope: SyncScope, at: Long)
-    suspend fun setAutoSyncEnabled(scope: SyncScope, enabled: Boolean)
-    suspend fun setScheduledInterval(scope: SyncScope, interval: Duration)
+
+    suspend fun setLastLsn(
+        scope: SyncScope,
+        lsn: Long,
+    )
+
+    suspend fun recordSuccessfulSync(
+        scope: SyncScope,
+        at: Long,
+    )
+
+    suspend fun setAutoSyncEnabled(
+        scope: SyncScope,
+        enabled: Boolean,
+    )
+
+    suspend fun setScheduledInterval(
+        scope: SyncScope,
+        interval: Duration,
+    )
 
     /**
      * Records whether this scope uploads attachment payloads.
@@ -32,10 +49,23 @@ interface SyncStateRepository {
      * and why adding a runner-side observer today would be a new inert surface
      * rather than a fix.
      */
-    suspend fun setAttachmentsSyncEnabled(scope: SyncScope, enabled: Boolean)
-    suspend fun setEnabledTriggers(scope: SyncScope, triggers: Set<SyncTrigger>)
+    suspend fun setAttachmentsSyncEnabled(
+        scope: SyncScope,
+        enabled: Boolean,
+    )
+
+    suspend fun setEnabledTriggers(
+        scope: SyncScope,
+        triggers: Set<SyncTrigger>,
+    )
+
     suspend fun isSeedCompleted(scope: SyncScope): Boolean
-    suspend fun setSeedCompleted(scope: SyncScope, completed: Boolean)
+
+    suspend fun setSeedCompleted(
+        scope: SyncScope,
+        completed: Boolean,
+    )
+
     suspend fun clearAll()
 }
 
@@ -55,16 +85,17 @@ data class SyncState(
     val attachmentsSyncEnabled: Boolean = false,
 ) {
     companion object {
-        fun from(entity: SyncStateEntity): SyncState = SyncState(
-            lastLsn = entity.lastLsn,
-            lastSuccessfulSyncAt = entity.lastSuccessfulSyncAt,
-            deviceId = entity.deviceId,
-            autoSyncEnabled = entity.autoSyncEnabled,
-            scheduledInterval = entity.scheduledIntervalMinutes.minutes,
-            enabledTriggers = entity.triggers,
-            seedCompleted = entity.seedCompleted,
-            attachmentsSyncEnabled = entity.attachmentsSyncEnabled,
-        )
+        fun from(entity: SyncStateEntity): SyncState =
+            SyncState(
+                lastLsn = entity.lastLsn,
+                lastSuccessfulSyncAt = entity.lastSuccessfulSyncAt,
+                deviceId = entity.deviceId,
+                autoSyncEnabled = entity.autoSyncEnabled,
+                scheduledInterval = entity.scheduledIntervalMinutes.minutes,
+                enabledTriggers = entity.triggers,
+                seedCompleted = entity.seedCompleted,
+                attachmentsSyncEnabled = entity.attachmentsSyncEnabled,
+            )
     }
 }
 
@@ -88,29 +119,39 @@ internal class RoomSyncStateRepository(
     private val legacyPrefs: SyncPrefs,
     private val idGenerator: IdGenerator,
 ) : SyncStateRepository {
-
     override fun observe(scope: SyncScope): Flow<SyncState> =
         dao.observe(scope.ownerId, scope.profileId).map { it?.let(SyncState::from) ?: SyncState() }
 
-    override suspend fun get(scope: SyncScope): SyncState =
-        SyncState.from(ensureRow(scope))
+    override suspend fun get(scope: SyncScope): SyncState = SyncState.from(ensureRow(scope))
 
-    override suspend fun setLastLsn(scope: SyncScope, lsn: Long) {
+    override suspend fun setLastLsn(
+        scope: SyncScope,
+        lsn: Long,
+    ) {
         ensureRow(scope)
         dao.setLastLsn(scope.ownerId, scope.profileId, lsn)
     }
 
-    override suspend fun recordSuccessfulSync(scope: SyncScope, at: Long) {
+    override suspend fun recordSuccessfulSync(
+        scope: SyncScope,
+        at: Long,
+    ) {
         ensureRow(scope)
         dao.setLastSuccessfulSyncAt(scope.ownerId, scope.profileId, at)
     }
 
-    override suspend fun setAutoSyncEnabled(scope: SyncScope, enabled: Boolean) {
+    override suspend fun setAutoSyncEnabled(
+        scope: SyncScope,
+        enabled: Boolean,
+    ) {
         ensureRow(scope)
         dao.setAutoSyncEnabled(scope.ownerId, scope.profileId, enabled)
     }
 
-    override suspend fun setScheduledInterval(scope: SyncScope, interval: Duration) {
+    override suspend fun setScheduledInterval(
+        scope: SyncScope,
+        interval: Duration,
+    ) {
         ensureRow(scope)
         dao.setScheduledIntervalMinutes(
             scope.ownerId,
@@ -119,19 +160,28 @@ internal class RoomSyncStateRepository(
         )
     }
 
-    override suspend fun setEnabledTriggers(scope: SyncScope, triggers: Set<SyncTrigger>) {
+    override suspend fun setEnabledTriggers(
+        scope: SyncScope,
+        triggers: Set<SyncTrigger>,
+    ) {
         ensureRow(scope)
         dao.setEnabledTriggers(scope.ownerId, scope.profileId, SyncTrigger.toCsv(triggers))
     }
 
-    override suspend fun setAttachmentsSyncEnabled(scope: SyncScope, enabled: Boolean) {
+    override suspend fun setAttachmentsSyncEnabled(
+        scope: SyncScope,
+        enabled: Boolean,
+    ) {
         ensureRow(scope)
         dao.setAttachmentsSyncEnabled(scope.ownerId, scope.profileId, enabled)
     }
 
     override suspend fun isSeedCompleted(scope: SyncScope): Boolean = get(scope).seedCompleted
 
-    override suspend fun setSeedCompleted(scope: SyncScope, completed: Boolean) {
+    override suspend fun setSeedCompleted(
+        scope: SyncScope,
+        completed: Boolean,
+    ) {
         ensureRow(scope)
         dao.setSeedCompleted(scope.ownerId, scope.profileId, completed)
     }
@@ -142,23 +192,26 @@ internal class RoomSyncStateRepository(
         val existing = dao.get(scope.ownerId, scope.profileId)
         if (existing != null) return existing
 
-        val adopted = SyncStateEntity(
-            ownerId = scope.ownerId,
-            profileId = scope.profileId,
-            lastLsn = legacyPrefs.lastLsn,
-            lastSuccessfulSyncAt = legacyPrefs.lastSuccessfulSyncAt,
-            // A device id is generated, not adopted — the old one lived in the session
-            // store, and inventing a second source of truth for it would be worse than
-            // generating a fresh one. Generating it here rather than at first use means
-            // the row is complete the moment it exists, so nothing ever sends a sync
-            // labelled with an empty device.
-            deviceId = idGenerator.next(),
-            autoSyncEnabled = legacyPrefs.autoSyncEnabled,
-            scheduledIntervalMinutes = legacyPrefs.scheduledInterval
-                .inWholeMinutes.toInt()
-                .coerceAtLeast(1),
-            enabledTriggers = SyncTrigger.toCsv(legacyPrefs.enabledTriggers),
-        )
+        val adopted =
+            SyncStateEntity(
+                ownerId = scope.ownerId,
+                profileId = scope.profileId,
+                lastLsn = legacyPrefs.lastLsn,
+                lastSuccessfulSyncAt = legacyPrefs.lastSuccessfulSyncAt,
+                // A device id is generated, not adopted — the old one lived in the session
+                // store, and inventing a second source of truth for it would be worse than
+                // generating a fresh one. Generating it here rather than at first use means
+                // the row is complete the moment it exists, so nothing ever sends a sync
+                // labelled with an empty device.
+                deviceId = idGenerator.next(),
+                autoSyncEnabled = legacyPrefs.autoSyncEnabled,
+                scheduledIntervalMinutes =
+                    legacyPrefs.scheduledInterval
+                        .inWholeMinutes
+                        .toInt()
+                        .coerceAtLeast(1),
+                enabledTriggers = SyncTrigger.toCsv(legacyPrefs.enabledTriggers),
+            )
         // IGNORE, not REPLACE: two scopes can initialise concurrently, and whichever
         // loses the race must not overwrite the row that won with a different one.
         dao.insertIfAbsent(adopted)

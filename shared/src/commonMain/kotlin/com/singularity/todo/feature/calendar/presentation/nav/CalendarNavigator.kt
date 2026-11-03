@@ -19,7 +19,6 @@ open class CalendarNavigator(
     private val backStack: NavBackStack<CalendarRoute>,
     private val onExitGraph: (AppDestination?) -> Unit,
 ) {
-
     /** Navigate to a specific day, pushing a [CalendarRoute.Day] entry. */
     open fun openDay(date: LocalDate) {
         backStack.add(CalendarRoute.Day(date.toString()))

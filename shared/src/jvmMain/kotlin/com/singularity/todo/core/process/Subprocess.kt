@@ -1,17 +1,17 @@
 package com.singularity.todo.core.process
 
 import co.touchlab.kermit.Logger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
 
 /**
  * A child process with both directions open.
@@ -72,14 +72,15 @@ class DuplexProcess internal constructor(
      * signal can end, and a test that closes a session waits for a coroutine that will
      * never finish.
      */
-    fun stdoutLines(): Flow<String> = flow<String> {
-        val reader = InputStreamReader(stdout, Charsets.UTF_8)
-        try {
-            readCappedLines(reader, 1_048_576).asFlow().collect { emit(it) }
-        } finally {
-            runCatching { reader.close() }
-        }
-    }.flowOn(Dispatchers.IO)
+    fun stdoutLines(): Flow<String> =
+        flow<String> {
+            val reader = InputStreamReader(stdout, Charsets.UTF_8)
+            try {
+                readCappedLines(reader, 1_048_576).asFlow().collect { emit(it) }
+            } finally {
+                runCatching { reader.close() }
+            }
+        }.flowOn(Dispatchers.IO)
 
     /**
      * Waits for the child to exit, up to [timeoutMillis].
@@ -165,7 +166,6 @@ class DuplexProcess internal constructor(
  * and it does not block on a child that writes more than a pipe buffer would hold.
  */
 object Subprocess {
-
     /**
      * Run [argv] and return its exit code, or `-1` if it could not be started.
      *
@@ -176,13 +176,14 @@ object Subprocess {
      * user-authored text through it — a task title, a reminder id — and a shell would give
      * that text a way out of being data.
      */
-    fun runQuietly(argv: List<String>): Int = runCatching {
-        ProcessBuilder(argv)
-            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-            .redirectError(ProcessBuilder.Redirect.DISCARD)
-            .start()
-            .waitFor()
-    }.getOrDefault(-1)
+    fun runQuietly(argv: List<String>): Int =
+        runCatching {
+            ProcessBuilder(argv)
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start()
+                .waitFor()
+        }.getOrDefault(-1)
 
     /**
      * Run [argv] and return its standard output, or null when it could not be started or
@@ -218,44 +219,49 @@ object Subprocess {
      * [workingDirectory] runs the command somewhere else — a `git` that has to run in a
      * checkout, for instance, which cannot be expressed as an argument to `git` itself.
      */
-    fun runCapturing(argv: List<String>, stdin: String? = null, workingDirectory: File? = null): String? = runCatching {
-        val builder = ProcessBuilder(argv).redirectErrorStream(true)
-        if (workingDirectory != null) builder.directory(workingDirectory)
-        val process = builder.start()
-
-        // Close stdin whatever happens. A child that reads stdin to EOF and never gets it
-        // waits forever, and `waitFor()` below would wait right along with it.
+    fun runCapturing(
+        argv: List<String>,
+        stdin: String? = null,
+        workingDirectory: File? = null,
+    ): String? =
         runCatching {
-            process.outputStream.use { out ->
-                stdin?.let { out.write(it.toByteArray()) }
-            }
-        }
+            val builder = ProcessBuilder(argv).redirectErrorStream(true)
+            if (workingDirectory != null) builder.directory(workingDirectory)
+            val process = builder.start()
 
-        // Read to EOF *before* waiting. Reversing these two is the deadlock above.
-        //
-        // One exit, not two: a loop with more than one `break` is a loop whose
-        // exits nobody holds in their head at once, and the linter says so. The
-        // flag says it instead.
-        val maxOutput = 16 * 1024 * 1024
-        val buf = CharArray(8192)
-        val out = StringBuilder()
-        InputStreamReader(process.inputStream, Charsets.UTF_8).use { reader ->
-            var done = false
-            while (!done) {
-                val n = reader.read(buf)
-                if (n == -1) {
-                    done = true
-                } else if (out.length + n > maxOutput) {
-                    out.append(buf, 0, (maxOutput - out.length).coerceAtLeast(0))
-                    subprocessLog.w { "subprocess output truncated at $maxOutput bytes" }
-                    done = true
-                } else {
-                    out.append(buf, 0, n)
+            // Close stdin whatever happens. A child that reads stdin to EOF and never gets it
+            // waits forever, and `waitFor()` below would wait right along with it.
+            runCatching {
+                process.outputStream.use { out ->
+                    stdin?.let { out.write(it.toByteArray()) }
                 }
             }
-        }
-        if (process.waitFor() != 0) null else out.toString()
-    }.getOrNull()
+
+            // Read to EOF *before* waiting. Reversing these two is the deadlock above.
+            //
+            // One exit, not two: a loop with more than one `break` is a loop whose
+            // exits nobody holds in their head at once, and the linter says so. The
+            // flag says it instead.
+            val maxOutput = 16 * 1024 * 1024
+            val buf = CharArray(8192)
+            val out = StringBuilder()
+            InputStreamReader(process.inputStream, Charsets.UTF_8).use { reader ->
+                var done = false
+                while (!done) {
+                    val n = reader.read(buf)
+                    if (n == -1) {
+                        done = true
+                    } else if (out.length + n > maxOutput) {
+                        out.append(buf, 0, (maxOutput - out.length).coerceAtLeast(0))
+                        subprocessLog.w { "subprocess output truncated at $maxOutput bytes" }
+                        done = true
+                    } else {
+                        out.append(buf, 0, n)
+                    }
+                }
+            }
+            if (process.waitFor() != 0) null else out.toString()
+        }.getOrNull()
 
     /**
      * Starts [argv] with both directions open.
@@ -309,7 +315,10 @@ object Subprocess {
      * coroutine started the process and must not be cancelled by it: the child is still
      * writing, and a cancelled drain is an unread pipe.
      */
-    private fun drainStderr(stream: InputStream, sink: (String) -> Unit) {
+    private fun drainStderr(
+        stream: InputStream,
+        sink: (String) -> Unit,
+    ) {
         Thread({
             runCatching {
                 val reader = InputStreamReader(stream, Charsets.UTF_8)
@@ -323,7 +332,9 @@ object Subprocess {
     }
 }
 
-private val subprocessLog = co.touchlab.kermit.Logger.withTag("subprocess")
+private val subprocessLog =
+    co.touchlab.kermit.Logger
+        .withTag("subprocess")
 
 /**
  * The child's output, line by line, each line capped at [maxLine] characters.
@@ -339,34 +350,39 @@ private val subprocessLog = co.touchlab.kermit.Logger.withTag("subprocess")
  * was reachable only through a spawned process, and a test that needs a spawn
  * belongs to the slow population, which the pull request does not run.
  */
-internal fun readCappedLines(reader: java.io.Reader, maxLine: Int): Sequence<String> = sequence {
-    val buf = CharArray(8192)
-    val line = StringBuilder()
-    while (true) {
-        val n = try {
-            reader.read(buf)
-        } catch (e: IOException) {
-            subprocessLog.d(e) { "The child's output ended while it was being read." }
-            -1
-        }
-        // `break`, not `return@sequence`: the return leaves the builder and the
-        // trailing line below is never reached — and the child's last line is
-        // not newline-terminated whenever it is not, so it is exactly the line
-        // that gets dropped.
-        if (n == -1) break
-        for (i in 0 until n) {
-            val c = buf[i]
-            if (c == '\n') {
-                yield(line.toString())
-                line.setLength(0)
-            } else if (line.length >= maxLine) {
-                yield(line.toString())
-                line.setLength(0)
-                if (c != '\r') line.append(c)
-            } else {
-                line.append(c)
+internal fun readCappedLines(
+    reader: java.io.Reader,
+    maxLine: Int,
+): Sequence<String> =
+    sequence {
+        val buf = CharArray(8192)
+        val line = StringBuilder()
+        while (true) {
+            val n =
+                try {
+                    reader.read(buf)
+                } catch (e: IOException) {
+                    subprocessLog.d(e) { "The child's output ended while it was being read." }
+                    -1
+                }
+            // `break`, not `return@sequence`: the return leaves the builder and the
+            // trailing line below is never reached — and the child's last line is
+            // not newline-terminated whenever it is not, so it is exactly the line
+            // that gets dropped.
+            if (n == -1) break
+            for (i in 0 until n) {
+                val c = buf[i]
+                if (c == '\n') {
+                    yield(line.toString())
+                    line.setLength(0)
+                } else if (line.length >= maxLine) {
+                    yield(line.toString())
+                    line.setLength(0)
+                    if (c != '\r') line.append(c)
+                } else {
+                    line.append(c)
+                }
             }
         }
+        if (line.isNotEmpty()) yield(line.toString())
     }
-    if (line.isNotEmpty()) yield(line.toString())
-}

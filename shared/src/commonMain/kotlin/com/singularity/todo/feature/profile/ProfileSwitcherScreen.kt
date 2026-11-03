@@ -34,7 +34,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -54,10 +53,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LoadingIndicator
-import com.singularity.todo.core.ui.textfields.maxLengthTransformation
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewProfileRepository
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.textfields.maxLengthTransformation
 import com.singularity.todo.core.ui.theme.ProfileIdentityColors
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
@@ -66,7 +66,10 @@ import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileSwitcherScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}) {
+fun ProfileSwitcherScreen(
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit = {},
+) {
     val viewModel: ProfileSwitcherViewModel = koinViewModel()
     ProfileSwitcherContent(viewModel = viewModel, modifier = modifier, onBack = onBack)
 }
@@ -146,9 +149,10 @@ private fun ProfileListContent(
     onCreateClick: () -> Unit,
 ) {
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -178,11 +182,12 @@ private fun ProfileListContent(
                     profile = profile,
                     isActive = profile.id == activeProfileId,
                     onSelect = { onSelect(profile.id) },
-                    onDelete = if (!profile.isDefault && profiles.size > 1) {
-                        { onDeleteRequest(profile) }
-                    } else {
-                        null
-                    },
+                    onDelete =
+                        if (!profile.isDefault && profiles.size > 1) {
+                            { onDeleteRequest(profile) }
+                        } else {
+                            null
+                        },
                 )
             }
         }
@@ -190,7 +195,11 @@ private fun ProfileListContent(
 }
 
 @Composable
-private fun DeleteProfileDialog(profile: Profile, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+private fun DeleteProfileDialog(
+    profile: Profile,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Delete profile?") },
@@ -207,32 +216,42 @@ private fun DeleteProfileDialog(profile: Profile, onDismiss: () -> Unit, onConfi
 }
 
 @Composable
-private fun ProfileCard(profile: Profile, isActive: Boolean, onSelect: () -> Unit, onDelete: (() -> Unit)?) {
+private fun ProfileCard(
+    profile: Profile,
+    isActive: Boolean,
+    onSelect: () -> Unit,
+    onDelete: (() -> Unit)?,
+) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(TestTags.profileItem(profile.name))
-            .clickable { onSelect() },
-        colors = if (isActive) {
-            androidx.compose.material3.CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-            )
-        } else {
-            androidx.compose.material3.CardDefaults.cardColors()
-        },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.profileItem(profile.name))
+                .clickable { onSelect() },
+        colors =
+            if (isActive) {
+                androidx.compose.material3.CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                )
+            } else {
+                androidx.compose.material3.CardDefaults
+                    .cardColors()
+            },
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Color dot
             Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(ProfileIdentityColors.at(profile.colorIdx)),
+                modifier =
+                    Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(ProfileIdentityColors.at(profile.colorIdx)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -298,10 +317,11 @@ private fun CreateProfileDialog(
                     state = nameState,
                     label = { Text("Name") },
                     lineLimits = TextFieldLineLimits.SingleLine,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag(TestTags.PROFILE_CREATE_NAME_INPUT)
-                        .mapTestTagsAsResourceIds(),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .testTag(TestTags.PROFILE_CREATE_NAME_INPUT)
+                            .mapTestTagsAsResourceIds(),
                 )
                 OutlinedTextField(
                     state = emojiState,
@@ -316,19 +336,19 @@ private fun CreateProfileDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ProfileIdentityColors.ordered.forEachIndexed { idx, color ->
                         Box(
-                            modifier = Modifier
-                                .touchTarget(TaskListSizes.MinTouchTarget)
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(color)
-                                // A circle of colour is a button a screen reader has to be
-                                // able to name — it carries no text, and the check inside
-                                // is decorative.
-                                .semantics {
-                                    contentDescription = "Colour ${ProfileIdentityColors.nameOf(color)}" +
-                                        if (idx == colorIdx) ", selected" else ""
-                                }
-                                .clickable { colorIdx = idx },
+                            modifier =
+                                Modifier
+                                    .touchTarget(TaskListSizes.MinTouchTarget)
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(color)
+                                    // A circle of colour is a button a screen reader has to be
+                                    // able to name — it carries no text, and the check inside
+                                    // is decorative.
+                                    .semantics {
+                                        contentDescription = "Colour ${ProfileIdentityColors.nameOf(color)}" +
+                                            if (idx == colorIdx) ", selected" else ""
+                                    }.clickable { colorIdx = idx },
                             contentAlignment = Alignment.Center,
                         ) {
                             if (idx == colorIdx) {
@@ -353,9 +373,10 @@ private fun CreateProfileDialog(
                 // A dialog is its own Android window: the app-root
                 // testTagsAsResourceId does not reach it, so an unexposed tag is
                 // invisible to Maestro. See Modifier.mapTestTagsAsResourceIds.
-                modifier = Modifier
-                    .testTag(TestTags.Dialog.CONFIRM)
-                    .mapTestTagsAsResourceIds(),
+                modifier =
+                    Modifier
+                        .testTag(TestTags.Dialog.CONFIRM)
+                        .mapTestTagsAsResourceIds(),
             ) {
                 Text("Create")
             }
@@ -366,29 +387,36 @@ private fun CreateProfileDialog(
     )
 }
 
+// Preview pattern: construct VM with Fake* deps directly
 @androidx.compose.ui.tooling.preview.Preview
-@Suppress("VIEW_MODEL_IN_COMPOSABLE", "ViewModelConstructorInComposable") // Preview pattern: construct VM with Fake* deps directly
+@Suppress("VIEW_MODEL_IN_COMPOSABLE", "ViewModelConstructorInComposable")
 @Composable
-private fun ProfileSwitcherScreenPreview() = PreviewThemed {
-    val fakeProfileRepo = PreviewProfileRepository
-    val vm = ProfileSwitcherViewModel(
-        profileRepository = fakeProfileRepo,
-        clock = object : kotlin.time.Clock {
-            override fun now() = kotlin.time.Instant.fromEpochMilliseconds(0)
-        },
-    )
-    ProfileSwitcherContent(viewModel = vm)
-}
+private fun ProfileSwitcherScreenPreview() =
+    PreviewThemed {
+        val fakeProfileRepo = PreviewProfileRepository
+        val vm =
+            ProfileSwitcherViewModel(
+                profileRepository = fakeProfileRepo,
+                clock =
+                    object : kotlin.time.Clock {
+                        override fun now() = kotlin.time.Instant.fromEpochMilliseconds(0)
+                    },
+            )
+        ProfileSwitcherContent(viewModel = vm)
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Suppress("VIEW_MODEL_IN_COMPOSABLE", "ViewModelConstructorInComposable")
 @Composable
-private fun ProfileSwitcherScreenDarkPreview() = PreviewThemed(darkTheme = true) {
-    val vm = ProfileSwitcherViewModel(
-        profileRepository = PreviewProfileRepository,
-        clock = object : kotlin.time.Clock {
-            override fun now() = kotlin.time.Instant.fromEpochMilliseconds(0)
-        },
-    )
-    ProfileSwitcherContent(viewModel = vm)
-}
+private fun ProfileSwitcherScreenDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        val vm =
+            ProfileSwitcherViewModel(
+                profileRepository = PreviewProfileRepository,
+                clock =
+                    object : kotlin.time.Clock {
+                        override fun now() = kotlin.time.Instant.fromEpochMilliseconds(0)
+                    },
+            )
+        ProfileSwitcherContent(viewModel = vm)
+    }

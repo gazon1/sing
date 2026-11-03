@@ -19,11 +19,15 @@ class PreviewTasksNavigator(private val onOpenProject: (ProjectId) -> Unit = {})
         onExitGraph = {},
     ) {
     override fun openDetail(id: TaskId) { /* no-op for preview */ }
+
     override fun openCreate(initialDueDate: LocalDate?) { /* no-op for preview */ }
+
     override fun openProject(projectId: ProjectId) {
         onOpenProject(projectId)
     }
+
     override fun back() { /* no-op for preview */ }
+
     override fun closeGraph() { /* no-op for preview */ }
 }
 

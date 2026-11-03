@@ -19,7 +19,6 @@ import kotlin.test.assertNull
  */
 @Tag("fast")
 class NotesNavigatorTest {
-
     private val stack: NavBackStack<NotesRoute> = NavBackStack(NotesRoute.List)
 
     private var exitedWith: AppDestination? = null

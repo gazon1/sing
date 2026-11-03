@@ -29,6 +29,7 @@ import kotlinx.serialization.Serializable
 value class AttachmentAnnotationId(val value: String) {
     companion object {
         fun generate() = AttachmentAnnotationId("ann_${nextId()}")
+
         fun fromString(value: String) = AttachmentAnnotationId(value)
     }
 }

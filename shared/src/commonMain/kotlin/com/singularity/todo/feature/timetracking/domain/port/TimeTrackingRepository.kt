@@ -38,7 +38,10 @@ interface TimeTrackingRepository {
      * document is read against, so that the fields the document is silent
      * about keep the values the row already had.
      */
-    suspend fun get(entryId: TimeEntryId, userId: UserId): TimeEntry?
+    suspend fun get(
+        entryId: TimeEntryId,
+        userId: UserId,
+    ): TimeEntry?
 
     /**
      * Start a new time entry for [taskId].
@@ -83,7 +86,11 @@ interface TimeTrackingRepository {
     /**
      * Update the note on an existing entry.
      */
-    suspend fun updateNote(entryId: TimeEntryId, userId: UserId, note: String?): Result<Unit>
+    suspend fun updateNote(
+        entryId: TimeEntryId,
+        userId: UserId,
+        note: String?,
+    ): Result<Unit>
 
     /**
      * Soft-delete a time entry.
@@ -113,5 +120,8 @@ interface TimeTrackingRepository {
      * Scoped to the current user via [com.singularity.todo.feature.profile.ProfileAwareCurrentUser].
      * Soft-deleted entries are excluded.
      */
-    fun watchEntriesInRange(startMs: Long, endMs: Long): Flow<List<TimeEntry>>
+    fun watchEntriesInRange(
+        startMs: Long,
+        endMs: Long,
+    ): Flow<List<TimeEntry>>
 }

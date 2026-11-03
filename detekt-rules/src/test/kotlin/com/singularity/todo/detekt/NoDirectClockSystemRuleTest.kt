@@ -4,25 +4,25 @@ import dev.detekt.test.FakeLanguageVersionSettings
 import dev.detekt.test.TestConfig
 import dev.detekt.test.utils.compileContentForTest
 import org.jetbrains.kotlin.config.ExplicitApiMode
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import java.io.File
 
 class NoDirectClockSystemRuleTest {
-
     private val rule = NoDirectClockSystemRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
     @Test
     fun `ClockSystem dot call is flagged`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.feature.tasks.data
 
             class TaskRepository {
                 fun now() = Clock.System.now()
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(1, findings.size)
@@ -31,11 +31,12 @@ class NoDirectClockSystemRuleTest {
 
     @Test
     fun `ClockSystem now call is flagged`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.core.backup
 
             fun export(): Instant = Clock.System.now()
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(1, findings.size)
@@ -43,11 +44,12 @@ class NoDirectClockSystemRuleTest {
 
     @Test
     fun `Clock dot System dot now is flagged`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.core.auth.oauth
 
             fun tokenExpiry() = Clock.System.now().toEpochMilliseconds()
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(1, findings.size)
@@ -56,13 +58,14 @@ class NoDirectClockSystemRuleTest {
     @Test
     fun `injected Clock parameter is not flagged`() {
         // Injected Clock is the recommended pattern — never touches Clock.System directly
-        val code = """
+        val code =
+            """
             package com.singularity.todo.core.sync
 
             class SyncEngine(private val clock: Clock) {
                 fun now(): Instant = clock.now()
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(0, findings.size)
@@ -71,11 +74,12 @@ class NoDirectClockSystemRuleTest {
     @Test
     fun `Clock System without dot call is not flagged`() {
         // Clock type reference without accessing .System
-        val code = """
+        val code =
+            """
             package com.singularity.todo.core.platform
 
             fun format(clock: Clock) = clock.toString()
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(0, findings.size)
@@ -83,14 +87,15 @@ class NoDirectClockSystemRuleTest {
 
     @Test
     fun `multiple ClockSystem references in same file are each flagged`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.core.auth.oauth
 
             class TokenManager {
                 fun issuedAt() = Clock.System.now()
                 fun expiresAt() = Clock.System.now().plusMillis(3600_000)
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(2, findings.size)
@@ -106,7 +111,6 @@ class NoDirectClockSystemRuleTest {
 // `NoStaticProfileAwareCurrentUserRule` no-ops, so the whitelist is now covered directly.
 
 class NoDirectClockSystemWhitelistTest {
-
     @Test
     fun `Clock platform file is allowed`() {
         assertTrue(
@@ -168,16 +172,18 @@ class NoDirectClockSystemWhitelistTest {
         // fails when someone explains themselves is a guard that gets deleted.
         val rule = NoDirectClockSystemRule(TestConfig())
         val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
-        val offenders = repoFiles()
-            .filter { it.contains("/test/fakes/") }
-            .mapNotNull { path ->
-                val source = File(repoRoot(), path)
-                if (!source.isFile) return@mapNotNull null
-                val ktFile = compileContentForTest(source.readText(), "com.example")
-                rule.visitFile(ktFile, languageSettings)
-                    .takeIf { it.isNotEmpty() }
-                    ?.let { path }
-            }
+        val offenders =
+            repoFiles()
+                .filter { it.contains("/test/fakes/") }
+                .mapNotNull { path ->
+                    val source = File(repoRoot(), path)
+                    if (!source.isFile) return@mapNotNull null
+                    val ktFile = compileContentForTest(source.readText(), "com.example")
+                    rule
+                        .visitFile(ktFile, languageSettings)
+                        .takeIf { it.isNotEmpty() }
+                        ?.let { path }
+                }
         assertEquals(
             emptyList<String>(),
             offenders,
@@ -228,7 +234,8 @@ private fun repoRoot(): File {
 
 private fun repoFiles(): List<String> {
     val root = repoRoot()
-    return root.walkTopDown()
+    return root
+        .walkTopDown()
         .filter { it.isFile && it.name.endsWith(".kt") }
         .map { it.relativeTo(root).invariantSeparatorsPath }
         .toList()

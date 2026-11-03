@@ -9,8 +9,8 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.singularity.todo.feature.search.presentation.RenameSearchDialog
 import com.singularity.todo.feature.search.presentation.SaveSearchDialog
-import com.singularity.todo.test.helpers.assertTextEnabled
 import com.singularity.todo.test.helpers.assertButtonNotEnabled
+import com.singularity.todo.test.helpers.assertTextEnabled
 import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import org.junit.jupiter.api.Tag

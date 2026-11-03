@@ -9,7 +9,6 @@ import kotlinx.serialization.json.Json
  * Two arguments, two meanings, never both.
  */
 sealed interface ProfileSelection {
-
     /**
      * Work as this profile id, and do not touch the application's stored active profile.
      *
@@ -95,7 +94,10 @@ private val errorJson = Json { encodeDefaults = true }
  * @param message what the caller is told. Neutral by contract: it says what happened,
  *   and it does not carry a path, a stack trace or an exception message.
  */
-fun jsonRpcError(code: Int, message: String): String =
+fun jsonRpcError(
+    code: Int,
+    message: String,
+): String =
     errorJson.encodeToString(
         JsonRpcErrorEnvelope.serializer(),
         JsonRpcErrorEnvelope(error = JsonRpcErrorBody(code = code, message = message)),

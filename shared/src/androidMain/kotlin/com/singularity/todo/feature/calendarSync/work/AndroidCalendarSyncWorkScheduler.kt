@@ -15,23 +15,24 @@ import java.util.concurrent.TimeUnit
  * job is running are idempotent.
  */
 class AndroidCalendarSyncWorkScheduler(private val context: Context) : CalendarSyncWorkScheduler {
-
     private val workManager: WorkManager
         get() = WorkManager.getInstance(context)
 
-    private val constraints = Constraints.Builder()
-        .setRequiresBatteryNotLow(true)
-        .build()
+    private val constraints =
+        Constraints
+            .Builder()
+            .setRequiresBatteryNotLow(true)
+            .build()
 
     override fun enqueueSync() {
-        val request = OneTimeWorkRequestBuilder<CalendarSyncWorker>()
-            .setConstraints(constraints)
-            .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
-                30,
-                TimeUnit.SECONDS,
-            )
-            .build()
+        val request =
+            OneTimeWorkRequestBuilder<CalendarSyncWorker>()
+                .setConstraints(constraints)
+                .setBackoffCriteria(
+                    BackoffPolicy.EXPONENTIAL,
+                    30,
+                    TimeUnit.SECONDS,
+                ).build()
 
         workManager.enqueueUniqueWork(
             WORK_NAME,

@@ -20,7 +20,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TimelinePeriodsTest {
-
     // Wednesday 2026-09-16.
     private val today = LocalDate(2026, Month.SEPTEMBER, 16)
 

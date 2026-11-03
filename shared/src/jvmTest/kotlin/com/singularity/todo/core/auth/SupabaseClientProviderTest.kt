@@ -34,113 +34,121 @@ import kotlin.test.assertSame
  */
 @Tag("fast")
 class SupabaseClientProviderTest {
+    @Test
+    fun `the same configuration yields the same client`() =
+        runTest {
+            val provider = providerWithStoredConfig()
+
+            val first = assertNotNull(provider.client())
+            val second = assertNotNull(provider.client())
+
+            assertSame(
+                first,
+                second,
+                "two calls for the same configuration handed out two clients, so the " +
+                    "session signed in on the first one is unreachable from the second",
+            )
+
+            provider.forget()
+        }
 
     @Test
-    fun `the same configuration yields the same client`() = runTest {
-        val provider = providerWithStoredConfig()
+    fun `the session carrier is the same object across calls`() =
+        runTest {
+            val provider = providerWithStoredConfig()
 
-        val first = assertNotNull(provider.client())
-        val second = assertNotNull(provider.client())
+            val first = assertNotNull(provider.client())
+            val second = assertNotNull(provider.client())
 
-        assertSame(
-            first,
-            second,
-            "two calls for the same configuration handed out two clients, so the " +
-                "session signed in on the first one is unreachable from the second",
+            assertSame(
+                first.auth,
+                second.auth,
+                "the auth plugin is where the session lives; two plugins mean two sessions",
+            )
+
+            provider.forget()
+        }
+
+    @Test
+    fun `a configured project is the client that is handed out`() =
+        runTest {
+            val storage = MapSecureStorage()
+            val provider = provider(storage)
+
+            provider.configure(CONFIG)
+
+            assertSame(
+                assertNotNull(provider.client()),
+                provider.client(),
+                "the client built for the configuration must be the one the cache keeps",
+            )
+
+            provider.forget()
+        }
+
+    @Test
+    fun `a changed configuration replaces the client`() =
+        runTest {
+            val storage = MapSecureStorage()
+            val provider = provider(storage)
+            provider.configure(CONFIG)
+            val before = assertNotNull(provider.client())
+
+            provider.configure(CONFIG.copy(url = "https://other.supabase.co"))
+
+            assertNotSame(
+                before,
+                provider.client(),
+                "a client pointing at the previous project must not answer for the new one",
+            )
+
+            provider.forget()
+        }
+
+    @Test
+    fun `a client is not built when nothing is configured`() =
+        runTest {
+            val provider = provider(MapSecureStorage())
+
+            assertNull(provider.client(), "an unconfigured app has no client to hand out")
+        }
+
+    @Test
+    fun `the session manager the client carries is the store the application holds`() =
+        runTest {
+            val storage = MapSecureStorage()
+            val manager = sessionManager(storage)
+            val provider = provider(storage, manager)
+            storage.write(SupabaseConfigResolver.KEY_URL, CONFIG.url)
+            storage.write(SupabaseConfigResolver.KEY_ANON_KEY, CONFIG.anonKey)
+
+            val client = assertNotNull(provider.client())
+
+            assertSame(
+                manager,
+                client.auth.sessionManager,
+                "the session lives in the store the application holds; a client that carries " +
+                    "another one is a session the application cannot read, and cannot sign out",
+            )
+
+            provider.forget()
+        }
+
+    private fun sessionManager(storage: MapSecureStorage) =
+        SecureSessionManager(
+            log = testLogger(),
+            secure = storage,
+            legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
         )
 
-        provider.forget()
-    }
-
-    @Test
-    fun `the session carrier is the same object across calls`() = runTest {
-        val provider = providerWithStoredConfig()
-
-        val first = assertNotNull(provider.client())
-        val second = assertNotNull(provider.client())
-
-        assertSame(
-            first.auth,
-            second.auth,
-            "the auth plugin is where the session lives; two plugins mean two sessions",
-        )
-
-        provider.forget()
-    }
-
-    @Test
-    fun `a configured project is the client that is handed out`() = runTest {
-        val storage = MapSecureStorage()
-        val provider = provider(storage)
-
-        provider.configure(CONFIG)
-
-        assertSame(
-            assertNotNull(provider.client()),
-            provider.client(),
-            "the client built for the configuration must be the one the cache keeps",
-        )
-
-        provider.forget()
-    }
-
-    @Test
-    fun `a changed configuration replaces the client`() = runTest {
-        val storage = MapSecureStorage()
-        val provider = provider(storage)
-        provider.configure(CONFIG)
-        val before = assertNotNull(provider.client())
-
-        provider.configure(CONFIG.copy(url = "https://other.supabase.co"))
-
-        assertNotSame(
-            before,
-            provider.client(),
-            "a client pointing at the previous project must not answer for the new one",
-        )
-
-        provider.forget()
-    }
-
-    @Test
-    fun `a client is not built when nothing is configured`() = runTest {
-        val provider = provider(MapSecureStorage())
-
-        assertNull(provider.client(), "an unconfigured app has no client to hand out")
-    }
-
-    @Test
-    fun `the session manager the client carries is the store the application holds`() = runTest {
-        val storage = MapSecureStorage()
-        val manager = sessionManager(storage)
-        val provider = provider(storage, manager)
-        storage.write(SupabaseConfigResolver.KEY_URL, CONFIG.url)
-        storage.write(SupabaseConfigResolver.KEY_ANON_KEY, CONFIG.anonKey)
-
-        val client = assertNotNull(provider.client())
-
-        assertSame(
-            manager,
-            client.auth.sessionManager,
-            "the session lives in the store the application holds; a client that carries " +
-                "another one is a session the application cannot read, and cannot sign out",
-        )
-
-        provider.forget()
-    }
-
-    private fun sessionManager(storage: MapSecureStorage) = SecureSessionManager(
-        log = testLogger(),
-        secure = storage,
-        legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
+    private fun provider(
+        storage: MapSecureStorage,
+        sessionStore: SecureSessionManager = sessionManager(storage),
+    ) = SupabaseClientProvider(
+        resolver = SupabaseConfigResolver(idGenerator = FixedIdGenerator(), buildTime = { null }),
+        store = storage,
+        sessionStore = sessionStore,
     )
-
-    private fun provider(storage: MapSecureStorage, sessionStore: SecureSessionManager = sessionManager(storage)) =
-        SupabaseClientProvider(
-            resolver = SupabaseConfigResolver(idGenerator = FixedIdGenerator(), buildTime = { null }),
-            store = storage,
-            sessionStore = sessionStore,
-        )
 
     /**
      * A provider whose configuration was written straight into the store.

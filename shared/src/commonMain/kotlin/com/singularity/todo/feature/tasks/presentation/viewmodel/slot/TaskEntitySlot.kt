@@ -2,7 +2,9 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
+import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tags.domain.model.TagEditActor
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskChildrenDeps
@@ -11,11 +13,13 @@ import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskEntityIntent
+import com.singularity.todo.feature.tasks.presentation.state.TaskTagIntent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -40,29 +44,38 @@ class TaskEntitySlot(
     private val children: TaskChildrenDeps,
     private val scope: AutoCloseableCoroutineScope,
     private val taskFlow: StateFlow<Task?>,
+    /**
+     * A tag was taken off the task, and the user may want it back.
+     *
+     * The tag travels whole: the toast says its name, and the undo needs its id.
+     */
+    private val onUndoRemoveTag: (Tag) -> Unit = {},
     private val onError: (String) -> Unit,
 ) : FeatureSlot<TaskEntityState, TaskEntityIntent> {
-
     private val _state = MutableStateFlow(TaskEntityState())
     override val state: StateFlow<TaskEntityState> = _state.asStateFlow()
 
     init {
         scope.launch {
-            val projectFlow = taskFlow.flatMapLatest { task ->
-                task?.projectId?.let { children.projectsRepo.observe(it) }
-                    ?: flowOf(null)
-            }
+            val projectFlow =
+                taskFlow.flatMapLatest { task ->
+                    task?.projectId?.let { children.projectsRepo.observe(it) }
+                        ?: flowOf(null)
+                }
             // The picker must not offer the task as its own dependency, nor trashed tasks.
-            val availableFlow = core.taskRepo.observeByFilter(TaskFilter.All)
-                .map { all -> all.filter { !it.isTrashed && it.id != taskId } }
+            val availableFlow =
+                core.taskRepo
+                    .observeByFilter(TaskFilter.All)
+                    .map { all -> all.filter { !it.isTrashed && it.id != taskId } }
             val allTags = children.tagsRepo.observeAll()
             // The members of the series, if the task belongs to one. A task that
             // stands alone has no series, and the flow says so without a special
             // case elsewhere.
-            val seriesFlow = taskFlow.flatMapLatest { task ->
-                task?.seriesId?.let { core.taskRepo.observeSeries(it) }
-                    ?: flowOf(emptyList())
-            }
+            val seriesFlow =
+                taskFlow.flatMapLatest { task ->
+                    task?.seriesId?.let { core.taskRepo.observeSeries(it) }
+                        ?: flowOf(emptyList())
+                }
 
             combine(
                 projectFlow,
@@ -83,64 +96,147 @@ class TaskEntitySlot(
     }
 
     override fun onIntent(intent: TaskEntityIntent) {
-        val task = taskFlow.value
-            ?: return
+        val task =
+            taskFlow.value
+                ?: return
         when (intent) {
-            is TaskDetailIntent.Domain.SetDueDate -> mutate(task, intent) { copy(dueDate = intent.date) }
+            is TaskDetailIntent.Domain.SetDueDate -> {
+                mutate(task, intent) { copy(dueDate = intent.date) }
+            }
 
-            is TaskDetailIntent.Domain.SetDueTime -> mutate(task, intent) { copy(dueTime = intent.time) }
+            is TaskDetailIntent.Domain.SetDueTime -> {
+                mutate(task, intent) { copy(dueTime = intent.time) }
+            }
 
-            is TaskDetailIntent.Domain.SetStartDate -> mutate(task, intent) { copy(startDate = intent.date) }
+            is TaskDetailIntent.Domain.SetStartDate -> {
+                mutate(task, intent) { copy(startDate = intent.date) }
+            }
 
-            is TaskDetailIntent.Domain.SetStartTime -> mutate(task, intent) { copy(startTime = intent.time) }
+            is TaskDetailIntent.Domain.SetStartTime -> {
+                mutate(task, intent) { copy(startTime = intent.time) }
+            }
 
-            is TaskDetailIntent.Domain.SetPriority -> mutate(task, intent) { copy(priority = intent.priority) }
+            is TaskDetailIntent.Domain.SetPriority -> {
+                mutate(task, intent) { copy(priority = intent.priority) }
+            }
 
-            is TaskDetailIntent.Domain.SetWorkflowState ->
+            is TaskDetailIntent.Domain.SetWorkflowState -> {
                 mutate(task, intent) { copy(workflowState = intent.state) }
+            }
 
-            is TaskDetailIntent.Domain.SetProject -> mutate(task, intent) { copy(projectId = intent.projectId) }
+            is TaskDetailIntent.Domain.SetProject -> {
+                mutate(task, intent) { copy(projectId = intent.projectId) }
+            }
 
-            is TaskDetailIntent.Domain.SetTags -> setTags(task, intent.tagIds)
+            is TaskDetailIntent.Domain.SetTags,
+            is TaskDetailIntent.Domain.RemoveTag,
+            is TaskDetailIntent.Domain.RestoreTag,
+            -> {
+                handleTagIntent(task, intent)
+            }
 
-            is TaskDetailIntent.Domain.RemoveTag -> setTags(task, task.tags - intent.tagId)
-
-            is TaskDetailIntent.Domain.SetKind -> mutate(
-                task,
-                intent,
-                "Failed to set kind",
-            ) { copy(kind = intent.kind) }
+            is TaskDetailIntent.Domain.SetKind -> {
+                mutate(
+                    task,
+                    intent,
+                    "Failed to set kind",
+                ) { copy(kind = intent.kind) }
+            }
 
             // `data object` branches are equality checks, not type checks, so the
             // smart cast does not happen: the object is named explicitly.
-            TaskDetailIntent.Domain.ToggleSomeday -> mutate(
-                task,
-                TaskDetailIntent.Domain.ToggleSomeday,
-                "Failed to set someday",
-            ) { copy(someday = !someday) }
+            TaskDetailIntent.Domain.ToggleSomeday -> {
+                mutate(
+                    task,
+                    TaskDetailIntent.Domain.ToggleSomeday,
+                    "Failed to set someday",
+                ) { copy(someday = !someday) }
+            }
 
-            TaskDetailIntent.Domain.TogglePinned -> mutate(
-                task,
-                TaskDetailIntent.Domain.TogglePinned,
-            ) { copy(isPinned = !isPinned) }
+            TaskDetailIntent.Domain.TogglePinned -> {
+                mutate(
+                    task,
+                    TaskDetailIntent.Domain.TogglePinned,
+                ) { copy(isPinned = !isPinned) }
+            }
 
-            is TaskDetailIntent.Domain.SetRecurrence -> setRecurrence(task, intent.spec)
+            is TaskDetailIntent.Domain.SetRecurrence -> {
+                setRecurrence(task, intent.spec)
+            }
 
-            is TaskDetailIntent.Domain.SetDependencies -> setDependencies(task, intent)
+            is TaskDetailIntent.Domain.SetDependencies -> {
+                setDependencies(task, intent)
+            }
 
-            is TaskDetailIntent.Domain.SetDependencyRelations -> setDependencyRelations(task, intent)
+            is TaskDetailIntent.Domain.SetDependencyRelations -> {
+                setDependencyRelations(task, intent)
+            }
 
-            is TaskDetailIntent.Domain.SetEstimate -> mutate(
-                task,
-                intent,
-                "Failed to set estimate",
-            ) { copy(estimateMinutes = intent.minutes) }
+            is TaskDetailIntent.Domain.SetEstimate -> {
+                mutate(
+                    task,
+                    intent,
+                    "Failed to set estimate",
+                ) { copy(estimateMinutes = intent.minutes) }
+            }
 
-            TaskDetailIntent.Domain.ApplyToAllOccurrences -> applyToAllOccurrences(task)
+            TaskDetailIntent.Domain.ApplyToAllOccurrences -> {
+                applyToAllOccurrences(task)
+            }
 
-            TaskDetailIntent.Domain.DetachFromSeries -> detachFromSeries(task)
+            TaskDetailIntent.Domain.DetachFromSeries -> {
+                detachFromSeries(task)
+            }
         }
     }
+
+    /**
+     * Handles the three intents that write the tags of the task.
+     *
+     * They live together because they are one decision — what the tag set of
+     * the task is — read, written and put back.
+     */
+    private fun handleTagIntent(
+        task: Task,
+        intent: TaskTagIntent,
+    ) {
+        when (intent) {
+            is TaskDetailIntent.Domain.SetTags -> {
+                setTags(task, intent.tagIds)
+            }
+
+            is TaskDetailIntent.Domain.RemoveTag -> {
+                // The tag is read before the write: afterwards the state no longer
+                // holds it, and the undo would have nothing to say.
+                val tag = _state.value.tags.firstOrNull { it.id == intent.tagId }
+                removeTag(task, intent.tagId, tag)
+            }
+
+            is TaskDetailIntent.Domain.RestoreTag -> {
+                restoreTag(intent.tagId)
+            }
+        }
+    }
+
+    /**
+     * Puts a removed tag back on the task.
+     *
+     * The tags are read from the repository rather than from the task the screen
+     * last saw: the write that removed the tag may not have come back through
+     * the flow yet, and a tag added to a stale list is a tag twice.
+     *
+     * The write is the undo of a removal, not a fresh choice of tags: the AI stays
+     * quiet about the tag the user took off, or the proposal would come straight
+     * back over the tag the user just put back.
+     */
+    private fun restoreTag(tagId: TagId) =
+        scope.launch {
+            val current = core.taskRepo.getTagIds(taskId).first()
+            if (tagId in current) return@launch
+            core.taskRepo
+                .setTags(taskId, current + tagId, actor = TagEditActor.UserUndo)
+                .onFailure { onError("Failed to set tags") }
+        }
 
     /**
      * Writes the tags of the task.
@@ -154,8 +250,38 @@ class TaskEntitySlot(
      * A series is handled by the same path: the tags are a shared field of a
      * series, and `setTags` repairs the series around the task it changed.
      */
-    private fun setTags(task: Task, tagIds: List<TagId>) = scope.launch {
-        core.taskRepo.setTags(task.id, tagIds)
+    private fun setTags(
+        task: Task,
+        tagIds: List<TagId>,
+    ) = scope.launch {
+        core.taskRepo
+            .setTags(task.id, tagIds)
+            .onFailure { onError("Failed to set tags") }
+    }
+
+    /**
+     * Takes a tag off the task and offers to put it back.
+     *
+     * A tag is one of the task's tags: the write is the same one [setTags] makes,
+     * and the difference is only that the user is told what happened and given a
+     * way back — a tap on a 14dp icon is a mis-tap as often as it is a decision.
+     *
+     * The tags that are written are the ones the task carries *now*, read from the
+     * repository: the task the screen last saw is a snapshot, and a tag added to
+     * the task since that snapshot would be taken off with this one.
+     */
+    private fun removeTag(
+        task: Task,
+        tagId: TagId,
+        tag: Tag?,
+    ) = scope.launch {
+        val current = core.taskRepo.getTagIds(task.id).first()
+        // The tag is not on the task any more — another device took it off, or the
+        // user tapped twice. There is nothing to remove, and nothing to undo.
+        if (tagId !in current) return@launch
+        core.taskRepo
+            .setTags(task.id, current - tagId)
+            .onSuccess { if (tag != null) onUndoRemoveTag(tag) }
             .onFailure { onError("Failed to set tags") }
     }
 
@@ -178,14 +304,23 @@ class TaskEntitySlot(
     ) = scope.launch {
         val seriesId = task.seriesId
         when {
-            seriesId != null -> core.updateSeries.updateSeries(seriesId) { it.copy(recurrence = spec) }
-                .onFailure { onError("Failed to set recurrence") }
+            seriesId != null -> {
+                core.updateSeries
+                    .updateSeries(seriesId) { it.copy(recurrence = spec) }
+                    .onFailure { onError("Failed to set recurrence") }
+            }
 
-            spec != null -> core.startRecurringSeries(task.id, spec)
-                .onFailure { onError("Failed to set recurrence") }
+            spec != null -> {
+                core
+                    .startRecurringSeries(task.id, spec)
+                    .onFailure { onError("Failed to set recurrence") }
+            }
 
-            else -> core.updateTask(task.id) { it.copy(recurrence = null) }
-                .onFailure { onError("Failed to set recurrence") }
+            else -> {
+                core
+                    .updateTask(task.id) { it.copy(recurrence = null) }
+                    .onFailure { onError("Failed to set recurrence") }
+            }
         }
     }
 
@@ -206,10 +341,12 @@ class TaskEntitySlot(
     ) = scope.launch {
         val seriesId = task.seriesId
         if (seriesId != null && sharedFieldOf(intent) != null) {
-            core.updateSeries.updateSeries(seriesId) { it.transform() }
+            core.updateSeries
+                .updateSeries(seriesId) { it.transform() }
                 .onFailure { onError(error) }
         } else {
-            core.updateTask(task.id) { it.transform() }
+            core
+                .updateTask(task.id) { it.transform() }
                 .onFailure { onError(error) }
         }
     }
@@ -223,12 +360,14 @@ class TaskEntitySlot(
      * every date, and a pinned work should be pinned on every date. The date
      * itself is not offered — every occurrence has its own, by definition.
      */
-    private fun applyToAllOccurrences(task: Task) = scope.launch {
-        val seriesId = task.seriesId ?: return@launch
-        core.updateSeries.updateSeries(seriesId) {
-            it.copy(dueTime = task.dueTime, isPinned = task.isPinned)
-        }.onFailure { onError("Failed to apply to all occurrences") }
-    }
+    private fun applyToAllOccurrences(task: Task) =
+        scope.launch {
+            val seriesId = task.seriesId ?: return@launch
+            core.updateSeries
+                .updateSeries(seriesId) {
+                    it.copy(dueTime = task.dueTime, isPinned = task.isPinned)
+                }.onFailure { onError("Failed to apply to all occurrences") }
+        }
 
     /**
      * Takes this occurrence out of its series.
@@ -236,13 +375,19 @@ class TaskEntitySlot(
      * The occurrence keeps its date and becomes a task that stands alone; the
      * series it left keeps its id while it still has more than one member.
      */
-    private fun detachFromSeries(task: Task) = scope.launch {
-        core.detachFromSeries(task.id)
-            .onFailure { onError("Failed to detach the occurrence") }
-    }
+    private fun detachFromSeries(task: Task) =
+        scope.launch {
+            core
+                .detachFromSeries(task.id)
+                .onFailure { onError("Failed to detach the occurrence") }
+        }
 
-    private fun setDependencies(task: Task, intent: TaskDetailIntent.Domain.SetDependencies) = scope.launch {
-        core.taskRepo.setDependencies(task.id, intent.blockedBy)
+    private fun setDependencies(
+        task: Task,
+        intent: TaskDetailIntent.Domain.SetDependencies,
+    ) = scope.launch {
+        core.taskRepo
+            .setDependencies(task.id, intent.blockedBy)
             .onFailure { onError("Failed to set dependencies") }
     }
 
@@ -260,26 +405,32 @@ class TaskEntitySlot(
         task: Task,
         intent: TaskDetailIntent.Domain.SetDependencyRelations,
     ) = scope.launch {
-        val current = task.blockedBy.associateWith { DependencyVerb.BLOCKS } +
-            task.followsUp.associateWith { DependencyVerb.FOLLOWS_UP }
+        val current =
+            task.blockedBy.associateWith { DependencyVerb.BLOCKS } +
+                task.followsUp.associateWith { DependencyVerb.FOLLOWS_UP }
         val touched = current.keys + intent.relations.keys
         touched.forEach { depId ->
             val was = current[depId]
             val now = intent.relations[depId]
-            val result = when {
-                was == null && now != null ->
-                    core.taskRepo.setDependency(task.id, depId, now, enabled = true)
+            val result =
+                when {
+                    was == null && now != null -> {
+                        core.taskRepo.setDependency(task.id, depId, now, enabled = true)
+                    }
 
-                was != null && now == null ->
-                    core.taskRepo.setDependency(task.id, depId, was, enabled = false)
+                    was != null && now == null -> {
+                        core.taskRepo.setDependency(task.id, depId, was, enabled = false)
+                    }
 
-                was != null && now != null && was != now -> {
-                    core.taskRepo.setDependency(task.id, depId, was, enabled = false)
-                    core.taskRepo.setDependency(task.id, depId, now, enabled = true)
+                    was != null && now != null && was != now -> {
+                        core.taskRepo.setDependency(task.id, depId, was, enabled = false)
+                        core.taskRepo.setDependency(task.id, depId, now, enabled = true)
+                    }
+
+                    else -> {
+                        null
+                    }
                 }
-
-                else -> null
-            }
             result?.onFailure { onError("Failed to set dependencies") }
         }
     }

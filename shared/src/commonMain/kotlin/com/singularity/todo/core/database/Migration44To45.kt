@@ -44,7 +44,6 @@ import com.singularity.todo.core.links.InternalLinkSchemes
  * column's format: the column still holds a JSON array of URL strings.
  */
 class Migration44To45 : Migration(44, 45) {
-
     override suspend fun migrate(connection: SQLiteConnection) {
         backfillNoteTaskIds(connection)
         dropUnreadableLinks(connection, "notes")
@@ -58,9 +57,10 @@ class Migration44To45 : Migration(44, 45) {
      * without the quantifier. Deriving it keeps the two from drifting apart — a new
      * character allowed in an identifier is allowed here too.
      */
-    private val idClass: String = InternalLinkSchemes.ID_PATTERN
-        .removePrefix("[")
-        .removeSuffix("]+")
+    private val idClass: String =
+        InternalLinkSchemes.ID_PATTERN
+            .removePrefix("[")
+            .removeSuffix("]+")
 
     /**
      * A `GLOB` that matches a whole link of one scheme and nothing else.
@@ -112,10 +112,14 @@ class Migration44To45 : Migration(44, 45) {
      * A link that cannot be opened is not a relation; keeping it in the column makes
      * the column claim something the app cannot deliver.
      */
-    private fun dropUnreadableLinks(connection: SQLiteConnection, table: String) {
-        val globs = InternalLinkSchemes.ALL
-            .map { linkGlob(it) }
-            .joinToString(" OR ")
+    private fun dropUnreadableLinks(
+        connection: SQLiteConnection,
+        table: String,
+    ) {
+        val globs =
+            InternalLinkSchemes.ALL
+                .map { linkGlob(it) }
+                .joinToString(" OR ")
         connection.execSQL(
             """
             UPDATE $table

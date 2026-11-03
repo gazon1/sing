@@ -38,7 +38,6 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * @see NoDirectClockSystemProvider for registration.
  */
 class NoDirectClockSystemRule(config: Config) : Rule(config, "", null) {
-
     /**
      * Returns true if [expr] is `Clock.System`.
      */
@@ -109,7 +108,10 @@ class NoDirectClockSystemRule(config: Config) : Rule(config, "", null) {
             normalized.endsWith("/core/di/CoreDiModule.kt")
     }
 
-    private fun reportFinding(element: org.jetbrains.kotlin.psi.KtElement, message: String) {
+    private fun reportFinding(
+        element: org.jetbrains.kotlin.psi.KtElement,
+        message: String,
+    ) {
         report(
             Finding(
                 entity = Entity.from(element),
@@ -126,10 +128,12 @@ class NoDirectClockSystemRule(config: Config) : Rule(config, "", null) {
  */
 class NoDirectClockSystemProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-direct-clock-system")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoDirectClockSystem") to { cfg: Config -> NoDirectClockSystemRule(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoDirectClockSystem") to { cfg: Config -> NoDirectClockSystemRule(cfg) },
+            ),
+        )
 }

@@ -1,5 +1,6 @@
 package com.singularity.todo.detekt
 
+import com.intellij.psi.PsiElement
 import dev.detekt.api.Config
 import dev.detekt.api.Entity
 import dev.detekt.api.Finding
@@ -8,7 +9,6 @@ import dev.detekt.api.RuleName
 import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
-import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNamedFunction
@@ -112,7 +112,6 @@ class NoUnstableCollectionParamRule(config: Config, private val register: Map<St
         "",
         null,
     ) {
-
     override fun visitNamedFunction(function: KtNamedFunction) {
         super.visitNamedFunction(function)
         if (!function.isComposable()) return
@@ -150,10 +149,11 @@ class NoUnstableCollectionParamRule(config: Config, private val register: Map<St
         report(
             Finding(
                 entity = Entity.from(parameter),
-                message = "the register of debt records '$name' of $qualifiedName as " +
-                    "'$recorded', and the parameter declares '$actual'. The entry no longer " +
-                    "describes the code — update it, or delete it if the parameter is no " +
-                    "longer a raw collection.",
+                message =
+                    "the register of debt records '$name' of $qualifiedName as " +
+                        "'$recorded', and the parameter declares '$actual'. The entry no longer " +
+                        "describes the code — update it, or delete it if the parameter is no " +
+                        "longer a raw collection.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -172,13 +172,14 @@ class NoUnstableCollectionParamRule(config: Config, private val register: Map<St
         report(
             Finding(
                 entity = Entity.from(parameter),
-                message = "@Composable function takes a raw '$collection' parameter. " +
-                    "The Compose compiler cannot treat it as stable, so the composable is " +
-                    "not skippable. Pass a persistent collection " +
-                    "(ImmutableList / ImmutableSet / ImmutableMap) and build it with " +
-                    "toImmutableList() / toImmutableSet() at the boundary, or wrap a local " +
-                    "list in remember { }. If this site is a known debt, name the " +
-                    "parameter in ComposeCollectionExemptions.",
+                message =
+                    "@Composable function takes a raw '$collection' parameter. " +
+                        "The Compose compiler cannot treat it as stable, so the composable is " +
+                        "not skippable. Pass a persistent collection " +
+                        "(ImmutableList / ImmutableSet / ImmutableMap) and build it with " +
+                        "toImmutableList() / toImmutableSet() at the boundary, or wrap a local " +
+                        "list in remember { }. If this site is a known debt, name the " +
+                        "parameter in ComposeCollectionExemptions.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -261,12 +262,13 @@ class NoUnstableCollectionParamRule(config: Config, private val register: Map<St
          * else: `List<String>` and `List<String?>` are different types, and the
          * register that called them the same would be wrong about the code.
          */
-        fun sameType(recorded: String, declared: String): Boolean =
-            recorded.normalizedType() == declared.normalizedType()
+        fun sameType(
+            recorded: String,
+            declared: String,
+        ): Boolean = recorded.normalizedType() == declared.normalizedType()
 
         /** The type text without whitespace and without package qualifiers. */
-        fun String.normalizedType(): String =
-            replace(WHITESPACE, "").replace(QUALIFIED_PATH, "$2")
+        fun String.normalizedType(): String = replace(WHITESPACE, "").replace(QUALIFIED_PATH, "$2")
     }
 }
 
@@ -276,15 +278,17 @@ class NoUnstableCollectionParamRule(config: Config, private val register: Map<St
  */
 class NoUnstableCollectionParamProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-unstable-collection-param")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            // The register is wired here, at the seam: the rule compares code
-            // with the register it was given, and this is the one place that
-            // says which register that is.
-            RuleName("NoUnstableCollectionParam") to { cfg: Config ->
-                NoUnstableCollectionParamRule(cfg, ComposeCollectionExemptions.KNOWN)
-            },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                // The register is wired here, at the seam: the rule compares code
+                // with the register it was given, and this is the one place that
+                // says which register that is.
+                RuleName("NoUnstableCollectionParam") to { cfg: Config ->
+                    NoUnstableCollectionParamRule(cfg, ComposeCollectionExemptions.KNOWN)
+                },
+            ),
+        )
 }

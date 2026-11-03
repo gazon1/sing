@@ -63,7 +63,6 @@ import java.io.File
 @MediumTest
 @Suppress("NoRunBlocking") // Instrumented tests use runBlocking to test suspend functions synchronously.
 class AndroidSecureStorageRecoveryTest : InstrumentedTestBase() {
-
     private lateinit var context: Context
 
     private val prefsDir: File
@@ -98,6 +97,7 @@ class AndroidSecureStorageRecoveryTest : InstrumentedTestBase() {
      * the file is not on disk the instant `write` returns. Asserting on it immediately is a
      * race that passes or fails on the device's disk speed.
      */
+    @Suppress("ThreadSleepInTest") // Instrumented test: a real fs write has no virtual-time substitute.
     private fun awaitPrefsFile(timeoutMillis: Long = 5_000): File {
         val deadline = System.currentTimeMillis() + timeoutMillis
         while (System.currentTimeMillis() < deadline) {
@@ -108,48 +108,52 @@ class AndroidSecureStorageRecoveryTest : InstrumentedTestBase() {
     }
 
     @Test
-    fun storesAndReadsBackAValue() = runBlocking {
-        val storage = AndroidSecureStorage(context)
+    fun storesAndReadsBackAValue() =
+        runBlocking {
+            val storage = AndroidSecureStorage(context)
 
-        storage.write("token", "value-1")
+            storage.write("token", "value-1")
 
-        assertEquals("value-1", storage.read("token"))
-    }
-
-    @Test
-    fun writesAFileRatherThanKeepingValuesInMemoryAlone() = runBlocking {
-        // The encryption is only real if something lands on disk. A fake asserts this
-        // trivially; here it is the difference between an encrypted store and a map.
-        AndroidSecureStorage(context).write("token", "value-1")
-
-        val file = awaitPrefsFile()
-
-        assertTrue("precondition: a prefs file must exist", file.exists())
-        val contents = file.readText()
-        assertTrue("the file must not be empty", contents.isNotEmpty())
-        assertTrue(
-            "the stored value must not be readable as plaintext in the file, was: $contents",
-            !contents.contains("value-1"),
-        )
-    }
+            assertEquals("value-1", storage.read("token"))
+        }
 
     @Test
-    fun reopeningAHealthyStoreDoesNotDisturbIt() = runBlocking {
-        // The guard on the recovery: erasing is only correct for a file that cannot be read.
-        // If it were unconditional, this value would be lost on every second open.
-        AndroidSecureStorage(context).write("token", "value-1")
+    fun writesAFileRatherThanKeepingValuesInMemoryAlone() =
+        runBlocking {
+            // The encryption is only real if something lands on disk. A fake asserts this
+            // trivially; here it is the difference between an encrypted store and a map.
+            AndroidSecureStorage(context).write("token", "value-1")
 
-        assertEquals("value-1", AndroidSecureStorage(context).read("token"))
-        assertEquals("value-1", AndroidSecureStorage(context).read("token"))
-    }
+            val file = awaitPrefsFile()
+
+            assertTrue("precondition: a prefs file must exist", file.exists())
+            val contents = file.readText()
+            assertTrue("the file must not be empty", contents.isNotEmpty())
+            assertTrue(
+                "the stored value must not be readable as plaintext in the file, was: $contents",
+                !contents.contains("value-1"),
+            )
+        }
 
     @Test
-    fun deleteRemovesTheValue() = runBlocking {
-        val storage = AndroidSecureStorage(context)
-        storage.write("token", "value-1")
+    fun reopeningAHealthyStoreDoesNotDisturbIt() =
+        runBlocking {
+            // The guard on the recovery: erasing is only correct for a file that cannot be read.
+            // If it were unconditional, this value would be lost on every second open.
+            AndroidSecureStorage(context).write("token", "value-1")
 
-        storage.delete("token")
+            assertEquals("value-1", AndroidSecureStorage(context).read("token"))
+            assertEquals("value-1", AndroidSecureStorage(context).read("token"))
+        }
 
-        assertNull("a deleted key must read back absent", storage.read("token"))
-    }
+    @Test
+    fun deleteRemovesTheValue() =
+        runBlocking {
+            val storage = AndroidSecureStorage(context)
+            storage.write("token", "value-1")
+
+            storage.delete("token")
+
+            assertNull("a deleted key must read back absent", storage.read("token"))
+        }
 }

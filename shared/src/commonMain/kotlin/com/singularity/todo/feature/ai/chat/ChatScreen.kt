@@ -19,7 +19,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -31,30 +30,31 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.llm.AgentPlanStep
 import com.singularity.todo.core.llm.AgentToolCall
-import com.singularity.todo.core.llm.ToolCallStatus
 import com.singularity.todo.core.llm.AgentTurnOutcome
+import com.singularity.todo.core.llm.ToolCallStatus
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.BubbleRole
 import com.singularity.todo.core.ui.components.ChatInputBar
 import com.singularity.todo.core.ui.components.MessageBubble
-import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.genui.render.ComponentRegistry
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.ai.ui.AgentPlanCard
 import com.singularity.todo.feature.ai.ui.humanToolName
-import kotlinx.serialization.json.JsonElement
+import com.singularity.todo.feature.genui.render.ComponentRegistry
 import com.singularity.todo.feature.genui.render.GenuiSurface
 import com.singularity.todo.feature.genui.render.LocalGenuiOnAction
 import com.singularity.todo.feature.genui.render.rememberDataContext
 import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.surface.SurfaceId
-import org.koin.compose.koinInject
-import org.koin.compose.viewmodel.koinViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.serialization.json.JsonElement
+import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * The chat screen.
@@ -84,10 +84,11 @@ fun ChatScreenContent(
     // The field owns its text; the ViewModel keeps the last value so the chat can still be
     // restored and the send action can read it. Sending clears the ViewModel's copy, and the
     // bridge pulls that empty value back into the field.
-    val inputState = rememberBridgedTextFieldState(
-        source = state.inputSource,
-        onTextChanged = { vm.onIntent(ChatViewModel.Intent.InputChanged(it)) },
-    )
+    val inputState =
+        rememberBridgedTextFieldState(
+            source = state.inputSource,
+            onTextChanged = { vm.onIntent(ChatViewModel.Intent.InputChanged(it)) },
+        )
 
     Scaffold(
         modifier = modifier,
@@ -95,10 +96,11 @@ fun ChatScreenContent(
     ) { padding ->
         RefreshableContent {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .imePadding(),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .imePadding(),
             ) {
                 ChatMessagesList(
                     messages = state.messages,
@@ -115,9 +117,10 @@ fun ChatScreenContent(
                 )
                 state.surfaceError?.let { err ->
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -138,11 +141,12 @@ fun ChatScreenContent(
                     onSend = { vm.onIntent(ChatViewModel.Intent.Send) },
                     enabled = !state.isLoading,
                     // While a turn runs there is nothing to send, and the reader may want it to stop.
-                    onStop = if (state.isLoading) {
-                        { vm.onIntent(ChatViewModel.Intent.Stop) }
-                    } else {
-                        null
-                    },
+                    onStop =
+                        if (state.isLoading) {
+                            { vm.onIntent(ChatViewModel.Intent.Stop) }
+                        } else {
+                            null
+                        },
                 )
             }
         }
@@ -155,9 +159,10 @@ fun ChatScreenContent(
     )
 }
 
-private fun ChatUiEvent.toNotification(): Notification = when (this) {
-    is ChatUiEvent.Error -> Notification.Error(message)
-}
+private fun ChatUiEvent.toNotification(): Notification =
+    when (this) {
+        is ChatUiEvent.Error -> Notification.Error(message)
+    }
 
 /**
  * Draws the surface attached to a message, if one is still there.
@@ -173,16 +178,17 @@ private fun GenuiMessageSurface(
 ) {
     val controller: SurfaceController = koinInject()
     val registry: ComponentRegistry = koinInject()
-    val ctx = rememberDataContext(
-        surfaceId = surfaceId,
-        controller = controller,
-        registry = registry,
-        // A generated screen's own data model is the source of truth here, so there is
-        // nothing to notify. Stated as null rather than `{ _, _, _ -> }`: the parameter
-        // means "tell someone", and there is no someone.
-        onDataChange = null,
-        clock = koinInject(),
-    )
+    val ctx =
+        rememberDataContext(
+            surfaceId = surfaceId,
+            controller = controller,
+            registry = registry,
+            // A generated screen's own data model is the source of truth here, so there is
+            // nothing to notify. Stated as null rather than `{ _, _, _ -> }`: the parameter
+            // means "tell someone", and there is no someone.
+            onDataChange = null,
+            clock = koinInject(),
+        )
     CompositionLocalProvider(
         LocalGenuiOnAction provides { _, name, data -> onSurfaceAction(name, data) },
     ) {
@@ -243,9 +249,10 @@ private fun AgentActivitySection(
     if (plan.isEmpty() && calls.isEmpty() && outcome == null) return
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         if (plan.isNotEmpty()) {
@@ -254,11 +261,12 @@ private fun AgentActivitySection(
         if (calls.isNotEmpty()) {
             val failed = calls.any { it.status == ToolCallStatus.FAILED }
             val last = calls.last()
-            val statusText = when {
-                failed -> "failed"
-                calls.all { it.status == ToolCallStatus.COMPLETED } -> "done"
-                else -> "running"
-            }
+            val statusText =
+                when {
+                    failed -> "failed"
+                    calls.all { it.status == ToolCallStatus.COMPLETED } -> "done"
+                    else -> "running"
+                }
             Text(
                 text = "${calls.size} call(s) · ${humanToolName(last.name)} · $statusText",
                 style = MaterialTheme.typography.bodySmall,
@@ -266,19 +274,25 @@ private fun AgentActivitySection(
             )
         }
         when (outcome) {
-            is AgentTurnOutcome.Failed -> Text(
-                text = outcome.reason,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
+            is AgentTurnOutcome.Failed -> {
+                Text(
+                    text = outcome.reason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
 
-            is AgentTurnOutcome.Cancelled -> Text(
-                text = "Cancelled",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            is AgentTurnOutcome.Cancelled -> {
+                Text(
+                    text = "Cancelled",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
-            else -> Unit
+            else -> {
+                Unit
+            }
         }
     }
 }
@@ -299,90 +313,98 @@ private fun ThinkingIndicator() {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ChatScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("AI Assistant") }) },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
+private fun ChatScreenLightPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        Scaffold(
+            topBar = { TopAppBar(title = { Text("AI Assistant") }) },
+        ) { padding ->
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+            ) {
+                ChatMessagesList(
+                    messages =
+                        persistentListOf(
+                            ChatMessage("m1", ChatRole.User, "Hello, what can you help me with?"),
+                            ChatMessage(
+                                "m2",
+                                ChatRole.Assistant,
+                                "Hi! I can help you manage your tasks, take notes, and organize your projects.",
+                            ),
+                            ChatMessage("m3", ChatRole.User, "Can you show me my tasks for today?"),
+                            ChatMessage(
+                                "m4",
+                                ChatRole.Assistant,
+                                "You have 3 tasks due today: Buy groceries, Finish project report, and Send follow-up emails.",
+                            ),
+                        ),
+                    isLoading = false,
+                    onSurfaceAction = { _, _ -> },
+                    modifier = Modifier.weight(1f),
+                )
+                HorizontalDivider()
+                ChatInputBar(
+                    state = rememberTextFieldState(),
+                    onSend = {},
+                    enabled = true,
+                )
+            }
+        }
+    }
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ChatScreenLoadingPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        Scaffold(
+            topBar = { TopAppBar(title = { Text("AI Assistant") }) },
+        ) { padding ->
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+            ) {
+                ChatMessagesList(
+                    messages =
+                        persistentListOf(
+                            ChatMessage("m1", ChatRole.User, "Can you explain Kotlin coroutines?"),
+                            ChatMessage(
+                                "m2",
+                                ChatRole.Assistant,
+                                "Kotlin Coroutines are a way to handle asynchronous programming in a sequential manner. They allow you to write code that looks synchronous but can pause and resume without blocking.",
+                            ),
+                        ),
+                    isLoading = true,
+                    onSurfaceAction = { _, _ -> },
+                    modifier = Modifier.weight(1f),
+                )
+                HorizontalDivider()
+                ChatInputBar(
+                    state = rememberTextFieldState(),
+                    onSend = {},
+                    enabled = false,
+                )
+            }
+        }
+    }
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ChatMessagesListDarkPreview() =
+    PreviewThemed(darkTheme = true, useSurface = false) {
+        Column(modifier = Modifier.fillMaxSize()) {
             ChatMessagesList(
-                messages = persistentListOf(
-                    ChatMessage("m1", ChatRole.User, "Hello, what can you help me with?"),
-                    ChatMessage(
-                        "m2",
-                        ChatRole.Assistant,
-                        "Hi! I can help you manage your tasks, take notes, and organize your projects.",
+                messages =
+                    persistentListOf(
+                        ChatMessage("m1", ChatRole.User, "Draft the release notes"),
+                        ChatMessage("m2", ChatRole.Assistant, "Here is a first pass at the release notes."),
                     ),
-                    ChatMessage("m3", ChatRole.User, "Can you show me my tasks for today?"),
-                    ChatMessage(
-                        "m4",
-                        ChatRole.Assistant,
-                        "You have 3 tasks due today: Buy groceries, Finish project report, and Send follow-up emails.",
-                    ),
-                ),
                 isLoading = false,
                 onSurfaceAction = { _, _ -> },
                 modifier = Modifier.weight(1f),
             )
-            HorizontalDivider()
-            ChatInputBar(
-                state = rememberTextFieldState(),
-                onSend = {},
-                enabled = true,
-            )
         }
     }
-}
-
-@androidx.compose.ui.tooling.preview.Preview
-@Composable
-private fun ChatScreenLoadingPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("AI Assistant") }) },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-            ChatMessagesList(
-                messages = persistentListOf(
-                    ChatMessage("m1", ChatRole.User, "Can you explain Kotlin coroutines?"),
-                    ChatMessage(
-                        "m2",
-                        ChatRole.Assistant,
-                        "Kotlin Coroutines are a way to handle asynchronous programming in a sequential manner. They allow you to write code that looks synchronous but can pause and resume without blocking.",
-                    ),
-                ),
-                isLoading = true,
-                onSurfaceAction = { _, _ -> },
-                modifier = Modifier.weight(1f),
-            )
-            HorizontalDivider()
-            ChatInputBar(
-                state = rememberTextFieldState(),
-                onSend = {},
-                enabled = false,
-            )
-        }
-    }
-}
-
-@androidx.compose.ui.tooling.preview.Preview
-@Composable
-private fun ChatMessagesListDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        ChatMessagesList(
-            messages = persistentListOf(
-                ChatMessage("m1", ChatRole.User, "Draft the release notes"),
-                ChatMessage("m2", ChatRole.Assistant, "Here is a first pass at the release notes."),
-            ),
-            isLoading = false,
-            onSurfaceAction = { _, _ -> },
-            modifier = Modifier.weight(1f),
-        )
-    }
-}

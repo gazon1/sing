@@ -16,7 +16,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SpotlightHoleTest {
-
     @Test
     fun `a circle covers a wide target rather than being clipped to its height`() {
         val wide = Rect(left = 0f, top = 0f, right = 200f, bottom = 40f)

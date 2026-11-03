@@ -21,7 +21,6 @@ open class TasksNavigator(
     private val backStack: NavBackStack<TasksRoute>,
     protected val onExitGraph: (AppDestination?) -> Unit,
 ) {
-
     /** Push a task detail onto the stack. */
     open fun openDetail(id: TaskId) {
         backStack.add(TasksRoute.Detail(id))

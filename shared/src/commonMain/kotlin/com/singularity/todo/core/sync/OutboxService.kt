@@ -53,8 +53,7 @@ internal class OutboxService(
             .fold(
                 onSuccess = { it },
                 onFailure = { Result.failure(it) },
-            )
-            .asAppError()
+            ).asAppError()
 
     /**
      * The scope the write is attributed to, or `null` when the device has no active

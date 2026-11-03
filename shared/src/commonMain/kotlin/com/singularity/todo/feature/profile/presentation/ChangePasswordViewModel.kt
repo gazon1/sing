@@ -16,7 +16,9 @@ import kotlinx.coroutines.launch
  */
 sealed interface ChangePasswordUiState {
     data object Idle : ChangePasswordUiState
+
     data object Loading : ChangePasswordUiState
+
     data object Success : ChangePasswordUiState
 }
 
@@ -25,6 +27,7 @@ sealed interface ChangePasswordUiState {
  */
 sealed interface ChangePasswordEvent : MviEvent {
     data object Success : ChangePasswordEvent
+
     data class Error(val message: String) : ChangePasswordEvent
 }
 
@@ -33,6 +36,7 @@ sealed interface ChangePasswordEvent : MviEvent {
  */
 sealed interface ChangePasswordIntent : MviIntent {
     data class Submit(val password: String) : ChangePasswordIntent
+
     data object Reset : ChangePasswordIntent
 }
 
@@ -50,7 +54,6 @@ class ChangePasswordViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     override fun onIntent(intent: ChangePasswordIntent) {
         when (intent) {
             is ChangePasswordIntent.Submit -> submit(intent.password)

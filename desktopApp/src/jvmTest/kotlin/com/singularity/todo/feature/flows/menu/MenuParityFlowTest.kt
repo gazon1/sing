@@ -29,7 +29,6 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:compose")
 class MenuParityFlowTest {
-
     @Test
     @DisplayName("NAV-02 Android and Desktop expose the same menu entries and the same project tree")
     fun both_platforms_expose_the_same_entries() {
@@ -61,16 +60,17 @@ class MenuParityFlowTest {
 
     @Test
     @DisplayName("the drawer offers the entries of the shared menu model")
-    fun the_drawer_offers_the_model() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
-        openDrawer()
+    fun the_drawer_offers_the_model() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) {
+            openDrawer()
 
-        // Every entry of the model is on the screen. The drawer's column is
-        // long, so the entries at the end are addressed by their tag rather
-        // than by their position.
-        for (entry in AppMenu.destinations) {
-            awaitTag(entry.id)
+            // Every entry of the model is on the screen. The drawer's column is
+            // long, so the entries at the end are addressed by their tag rather
+            // than by their position.
+            for (entry in AppMenu.destinations) {
+                awaitTag(entry.id)
+            }
         }
-    }
 
     private companion object {
         val CLOCK: FakeClock = FakeClock(Instant.parse("2026-09-16T10:00:00Z"))

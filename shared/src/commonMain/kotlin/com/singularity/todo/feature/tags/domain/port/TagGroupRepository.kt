@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.Flow
  * All observation variants automatically re-subscribe when the active user changes.
  */
 interface TagGroupRepository {
-
     /** Emits all tag groups for the current user. */
     fun observeAll(): Flow<List<TagGroup>>
 

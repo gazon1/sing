@@ -16,31 +16,32 @@ import kotlin.test.Test
 @Tag("slow:compose")
 class BackupScreenSmokeTest {
     @Test
-    fun `authorize scheduled backup dialog opens and dismisses`() = runIsolatedComposeTest {
-        setContent {
-            BackupScreen(
-                state = BackupUiState(),
-                events = emptyFlow(),
-                onBack = {},
-                onCreateBackup = {},
-                onSelectRestoreFile = {},
-                onRestore = {},
-                onDelete = {},
-                onPush = { _, _ -> },
-                onSaveToFile = {},
-                onExportSettings = {},
-                onSelectSettingsFile = {},
-                onShareSettingsJson = {},
-                onImportSettings = {},
-                onLoadRemoteBackups = {},
-                onRestoreFromCloud = { _, _ -> },
-                onAuthorizeScheduledBackup = {},
-            )
-        }
+    fun `authorize scheduled backup dialog opens and dismisses`() =
+        runIsolatedComposeTest {
+            setContent {
+                BackupScreen(
+                    state = BackupUiState(),
+                    events = emptyFlow(),
+                    onBack = {},
+                    onCreateBackup = {},
+                    onSelectRestoreFile = {},
+                    onRestore = {},
+                    onDelete = {},
+                    onPush = { _, _ -> },
+                    onSaveToFile = {},
+                    onExportSettings = {},
+                    onSelectSettingsFile = {},
+                    onShareSettingsJson = {},
+                    onImportSettings = {},
+                    onLoadRemoteBackups = {},
+                    onRestoreFromCloud = { _, _ -> },
+                    onAuthorizeScheduledBackup = {},
+                )
+            }
 
-        clickText("Let this device back up on its own")
-        assertTextDisplayed("Back up on its own")
-        clickText("Cancel")
-        onAllNodesWithText("Back up on its own").assertCountEquals(0)
-    }
+            clickText("Let this device back up on its own")
+            assertTextDisplayed("Back up on its own")
+            clickText("Cancel")
+            onAllNodesWithText("Back up on its own").assertCountEquals(0)
+        }
 }

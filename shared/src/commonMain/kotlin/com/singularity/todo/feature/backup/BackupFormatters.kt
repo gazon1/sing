@@ -1,23 +1,25 @@
 package com.singularity.todo.feature.backup
 
+import com.singularity.todo.core.format.formatPadded
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
 
-/**
+/*
  * Pure formatting helpers for backup UI.
  * Moved out of [BackupScreen] so they can be unit-tested without Compose
  * and used in JVM-only environments without [java.text.SimpleDateFormat].
  */
 
 /** Formats an epoch-milliseconds instant into a local date-time string. */
-internal fun formatBackupDate(epochMillis: Long, zone: TimeZone): String {
-    val ldt = kotlin.time.Instant.fromEpochMilliseconds(epochMillis).toLocalDateTime(zone)
-    return "%04d-%02d-%02d %02d:%02d".format(
-        ldt.year,
-        ldt.month.number,
-        ldt.day,
-        ldt.hour,
-        ldt.minute,
-    )
+internal fun formatBackupDate(
+    epochMillis: Long,
+    zone: TimeZone,
+): String {
+    val ldt =
+        kotlin.time.Instant
+            .fromEpochMilliseconds(epochMillis)
+            .toLocalDateTime(zone)
+    return "${formatPadded(ldt.year, 4)}-${formatPadded(ldt.month.number)}-${formatPadded(ldt.day)} " +
+        "${formatPadded(ldt.hour)}:${formatPadded(ldt.minute)}"
 }

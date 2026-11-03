@@ -34,7 +34,6 @@ import kotlin.time.Duration
  * a latency floor, not a guarantee.
  */
 class JvmSyncWorkScheduler(private val background: BackgroundWorkScheduler) : SyncWorkScheduler {
-
     override fun enqueuePush() {
         background.runNow(SyncPushJob.ID)
     }

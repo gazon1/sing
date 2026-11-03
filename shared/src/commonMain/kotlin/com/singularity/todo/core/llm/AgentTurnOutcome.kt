@@ -23,7 +23,6 @@ package com.singularity.todo.core.llm
  * cannot change how it ended.
  */
 sealed interface AgentTurnOutcome {
-
     /**
      * The turn finished successfully.
      *

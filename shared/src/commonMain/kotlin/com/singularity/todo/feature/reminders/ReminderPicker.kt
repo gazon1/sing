@@ -23,7 +23,11 @@ import com.singularity.todo.core.ui.touchTarget
  * Does not persist — callers handle the [onSelect] callback.
  */
 @Composable
-fun ReminderPicker(selected: ReminderOffset, onSelect: (ReminderOffset) -> Unit, modifier: Modifier = Modifier) {
+fun ReminderPicker(
+    selected: ReminderOffset,
+    onSelect: (ReminderOffset) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             "Remind me",

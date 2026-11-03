@@ -37,11 +37,15 @@ class UsageRecordingTextGen(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : TextGenPort {
-
-    override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> {
-        val (result, duration) = measureTimedValue {
-            delegate.generate(prompt, systemPrompt, model)
-        }
+    override suspend fun generate(
+        prompt: String,
+        systemPrompt: String?,
+        model: String?,
+    ): Result<String> {
+        val (result, duration) =
+            measureTimedValue {
+                delegate.generate(prompt, systemPrompt, model)
+            }
         val response = result.getOrNull() ?: ""
         val error = result.exceptionOrNull()?.message
 
@@ -62,11 +66,15 @@ class UsageRecordingTextGen(
         return result
     }
 
-    override fun streamChat(message: String, instructions: String): Flow<AgentEvent> {
+    override fun streamChat(
+        message: String,
+        instructions: String,
+    ): Flow<AgentEvent> {
         val start = clock.now()
         val outputBuilder = StringBuilder()
 
-        return delegate.streamChat(message, instructions)
+        return delegate
+            .streamChat(message, instructions)
             // One writer, one row per call. `onCompletion` runs on every ending of the
             // flow — normal completion, failure and cancellation alike — and the cause it
             // is handed is the failure when there was one. Recording again in `catch` gave
@@ -92,8 +100,7 @@ class UsageRecordingTextGen(
                         timestamp = start,
                     ),
                 )
-            }
-            .map { event ->
+            }.map { event ->
                 // Only the text counts towards the response the model produced. The activity
                 // around it is not output, and counting a tool call as tokens would make the
                 // recorded usage depend on how chatty the tool names are.
@@ -102,8 +109,10 @@ class UsageRecordingTextGen(
             }
     }
 
-    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> =
-        delegate.listModels(baseUrl, apiKey)
+    override suspend fun listModels(
+        baseUrl: String,
+        apiKey: String,
+    ): Result<List<String>> = delegate.listModels(baseUrl, apiKey)
 
     /**
      * Rough token approximation: characters / 4.

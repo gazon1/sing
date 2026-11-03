@@ -30,7 +30,6 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class GoogleSyncEngineTest {
-
     private val t0 = Instant.fromEpochMilliseconds(1_700_000_000_000)
     private val clock = MutableClock()
 
@@ -50,13 +49,19 @@ class GoogleSyncEngineTest {
         override suspend fun listCalendars() =
             emptyList<com.singularity.todo.feature.calendarSync.domain.model.GoogleCalendarSummary>()
 
-        override suspend fun fetchChanges(calendarId: String, syncToken: String?): ChangePage {
+        override suspend fun fetchChanges(
+            calendarId: String,
+            syncToken: String?,
+        ): ChangePage {
             requestedTokens += syncToken
             return pagesByToken[syncToken]?.firstOrNull()
                 ?: ChangePage(events = emptyList(), nextSyncToken = "token-end-${requestedTokens.size}")
         }
 
-        override suspend fun insert(calendarId: String, event: GoogleEvent): GoogleEvent {
+        override suspend fun insert(
+            calendarId: String,
+            event: GoogleEvent,
+        ): GoogleEvent {
             inserted += event.title ?: ""
             return event
         }
@@ -71,10 +76,16 @@ class GoogleSyncEngineTest {
             return event
         }
 
-        override suspend fun get(calendarId: String, eventId: GoogleEventId): GoogleEvent =
-            GoogleEvent(id = eventId, calendarId = calendarId)
+        override suspend fun get(
+            calendarId: String,
+            eventId: GoogleEventId,
+        ): GoogleEvent = GoogleEvent(id = eventId, calendarId = calendarId)
 
-        override suspend fun cancel(calendarId: String, eventId: GoogleEventId, etag: String?) {
+        override suspend fun cancel(
+            calendarId: String,
+            eventId: GoogleEventId,
+            etag: String?,
+        ) {
             cancelled += eventId.value
         }
     }
@@ -101,16 +112,19 @@ class GoogleSyncEngineTest {
         taskId = taskId,
     )
 
-    private fun engine(source: FakeSource, db: FakeAppDatabase, userId: String = "user-1") =
-        GoogleSyncEngine(
-            eventSource = source,
-            importWindow = ImportWindow.DEFAULT,
-            shadowDao = db.googleEventShadowDao(),
-            stateDao = db.calendarSyncStateDao(),
-            importDao = db.calendarImportEventDao(),
-            userId = userId,
-            clock = clock,
-        )
+    private fun engine(
+        source: FakeSource,
+        db: FakeAppDatabase,
+        userId: String = "user-1",
+    ) = GoogleSyncEngine(
+        eventSource = source,
+        importWindow = ImportWindow.DEFAULT,
+        shadowDao = db.googleEventShadowDao(),
+        stateDao = db.calendarSyncStateDao(),
+        importDao = db.calendarImportEventDao(),
+        userId = userId,
+        clock = clock,
+    )
 
     // ─── Cursor discipline ──────────────────────────────────────────────
 
@@ -120,130 +134,157 @@ class GoogleSyncEngineTest {
      * — with no error to show for it.
      */
     @Test
-    fun `a multi-page walk stores the token from the final page only`() = runTest {
-        val db = FakeAppDatabase()
-        val source = FakeSource(
-            mapOf(
-                null to listOf(
-                    ChangePage(events = listOf(event(1)), nextPageToken = "page-2"),
-                ),
-            ),
-        )
-        // Second page answers under the page token; the fake falls through to a final page
-        // carrying the real sync token.
-        val engine = engine(source, db)
+    fun `a multi-page walk stores the token from the final page only`() =
+        runTest {
+            val db = FakeAppDatabase()
+            val source =
+                FakeSource(
+                    mapOf(
+                        null to
+                            listOf(
+                                ChangePage(events = listOf(event(1)), nextPageToken = "page-2"),
+                            ),
+                    ),
+                )
+            // Second page answers under the page token; the fake falls through to a final page
+            // carrying the real sync token.
+            val engine = engine(source, db)
 
-        engine.sync("primary")
+            engine.sync("primary")
 
-        val state = db.calendarSyncStateDao().get("user-1", "google", "primary")
-        assertNotNull(state?.nextSyncToken)
-        assertTrue(
-            state.nextSyncToken!!.startsWith("token-end-"),
-            "stored \"${state.nextSyncToken}\" — that is not a final-page token",
-        )
-        assertEquals(listOf(null, "page-2"), source.requestedTokens, "the walk must follow the page token")
-    }
+            val state = db.calendarSyncStateDao().get("user-1", "google", "primary")
+            assertNotNull(state?.nextSyncToken)
+            assertTrue(
+                state.nextSyncToken!!.startsWith("token-end-"),
+                "stored \"${state.nextSyncToken}\" — that is not a final-page token",
+            )
+            assertEquals(listOf(null, "page-2"), source.requestedTokens, "the walk must follow the page token")
+        }
 
     @Test
-    fun `a first sync stores the token it was given`() = runTest {
-        val db = FakeAppDatabase()
-        val source = FakeSource(emptyMap())
-        engine(source, db).sync("primary")
+    fun `a first sync stores the token it was given`() =
+        runTest {
+            val db = FakeAppDatabase()
+            val source = FakeSource(emptyMap())
+            engine(source, db).sync("primary")
 
-        val state = db.calendarSyncStateDao().get("user-1", "google", "primary")
-        assertNotNull(state)
-        assertTrue(state.nextSyncToken!!.isNotBlank())
-    }
+            val state = db.calendarSyncStateDao().get("user-1", "google", "primary")
+            assertNotNull(state)
+            assertTrue(state.nextSyncToken!!.isNotBlank())
+        }
 
     /**
      * A dead token is a normal outcome. Throwing here would turn a routine invalidation
      * into a failure and cost the user a full re-listing of their calendar as an "error".
      */
     @Test
-    fun `a dead cursor triggers a full resync rather than an error`() = runTest {
-        val db = FakeAppDatabase()
-        val source = object : CalendarEventSource {
-            var calls = 0
-            override suspend fun listCalendars() =
-                emptyList<com.singularity.todo.feature.calendarSync.domain.model.GoogleCalendarSummary>()
+    fun `a dead cursor triggers a full resync rather than an error`() =
+        runTest {
+            val db = FakeAppDatabase()
+            val source =
+                object : CalendarEventSource {
+                    var calls = 0
 
-            override suspend fun fetchChanges(calendarId: String, syncToken: String?) =
-                if (syncToken != null) {
-                    calls++
-                    ChangePage(events = emptyList(), requiresFullResync = true)
-                } else {
-                    calls++
-                    ChangePage(events = listOf(event(1, taskId = "task-1")))
+                    override suspend fun listCalendars() =
+                        emptyList<com.singularity.todo.feature.calendarSync.domain.model.GoogleCalendarSummary>()
+
+                    override suspend fun fetchChanges(
+                        calendarId: String,
+                        syncToken: String?,
+                    ) = if (syncToken != null) {
+                        calls++
+                        ChangePage(events = emptyList(), requiresFullResync = true)
+                    } else {
+                        calls++
+                        ChangePage(events = listOf(event(1, taskId = "task-1")))
+                    }
+
+                    override suspend fun insert(
+                        calendarId: String,
+                        event: GoogleEvent,
+                    ) = event
+
+                    override suspend fun patch(
+                        calendarId: String,
+                        eventId: GoogleEventId,
+                        etag: String?,
+                        event: GoogleEvent,
+                    ) = event
+
+                    override suspend fun get(
+                        calendarId: String,
+                        eventId: GoogleEventId,
+                    ) = event(1)
+
+                    override suspend fun cancel(
+                        calendarId: String,
+                        eventId: GoogleEventId,
+                        etag: String?,
+                    ) = Unit
                 }
+            // Seed a dead token.
+            db.calendarSyncStateDao().upsert(
+                CalendarSyncStateEntity("user-1", "google", "primary", nextSyncToken = "dead"),
+            )
 
-            override suspend fun insert(calendarId: String, event: GoogleEvent) = event
-            override suspend fun patch(
-                calendarId: String,
-                eventId: GoogleEventId,
-                etag: String?,
-                event: GoogleEvent,
-            ) = event
-            override suspend fun get(calendarId: String, eventId: GoogleEventId) = event(1)
-            override suspend fun cancel(calendarId: String, eventId: GoogleEventId, etag: String?) = Unit
+            val result =
+                GoogleSyncEngine(
+                    eventSource = source,
+                    importWindow = ImportWindow.DEFAULT,
+                    shadowDao = db.googleEventShadowDao(),
+                    stateDao = db.calendarSyncStateDao(),
+                    importDao = db.calendarImportEventDao(),
+                    userId = "user-1",
+                    clock = clock,
+                ).sync("primary")
+
+            assertTrue(result.neededFullResync, "the caller has to know the cursor was replaced")
+            assertTrue(source.calls >= 2, "a full listing must follow the invalidation")
         }
-        // Seed a dead token.
-        db.calendarSyncStateDao().upsert(
-            CalendarSyncStateEntity("user-1", "google", "primary", nextSyncToken = "dead"),
-        )
-
-        val result = GoogleSyncEngine(
-            eventSource = source,
-            importWindow = ImportWindow.DEFAULT,
-            shadowDao = db.googleEventShadowDao(),
-            stateDao = db.calendarSyncStateDao(),
-            importDao = db.calendarImportEventDao(),
-            userId = "user-1",
-            clock = clock,
-        ).sync("primary")
-
-        assertTrue(result.neededFullResync, "the caller has to know the cursor was replaced")
-        assertTrue(source.calls >= 2, "a full listing must follow the invalidation")
-    }
 
     // ─── Ownership ──────────────────────────────────────────────────────
 
     @Test
-    fun `a foreign event is offered for import, not adopted`() = runTest {
-        val db = FakeAppDatabase()
-        val source = FakeSource(
-            mapOf(null to listOf(ChangePage(events = listOf(event(1, title = "Dentist"))))),
-        )
+    fun `a foreign event is offered for import, not adopted`() =
+        runTest {
+            val db = FakeAppDatabase()
+            val source =
+                FakeSource(
+                    mapOf(null to listOf(ChangePage(events = listOf(event(1, title = "Dentist"))))),
+                )
 
-        val result = engine(source, db).sync("primary")
+            val result = engine(source, db).sync("primary")
 
-        assertEquals(1, result.imported)
-        assertEquals(0, result.adopted)
-        assertEquals("Dentist", db.calendarImportEventDao().get("user-1", "evt_1")?.title)
-        assertNull(
-            db.googleEventShadowDao().get("user-1", "evt_1"),
-            "a foreign event has no task, so it has no shadow to compare against",
-        )
-    }
+            assertEquals(1, result.imported)
+            assertEquals(0, result.adopted)
+            assertEquals("Dentist", db.calendarImportEventDao().get("user-1", "evt_1")?.title)
+            assertNull(
+                db.googleEventShadowDao().get("user-1", "evt_1"),
+                "a foreign event has no task, so it has no shadow to compare against",
+            )
+        }
 
     /**
      * An insert interrupted before its shadow was written leaves an orphan that already
      * carries our marker. Adopting it is what stops a second identical event appearing.
      */
     @Test
-    fun `an orphan carrying our marker is adopted rather than duplicated`() = runTest {
-        val db = FakeAppDatabase()
-        val source = FakeSource(
-            mapOf(null to listOf(ChangePage(events = listOf(event(1, taskId = "task-1"))))),
-        )
+    fun `an orphan carrying our marker is adopted rather than duplicated`() =
+        runTest {
+            val db = FakeAppDatabase()
+            val source =
+                FakeSource(
+                    mapOf(null to listOf(ChangePage(events = listOf(event(1, taskId = "task-1"))))),
+                )
 
-        val result = engine(source, db).sync("primary")
+            val result = engine(source, db).sync("primary")
 
-        assertEquals(1, result.adopted)
-        assertEquals(0, result.imported)
-        val shadow = db.googleEventShadowDao().get("user-1", "evt_1")
-        assertEquals("task-1", shadow?.taskId)
-        assertTrue(source.patched.isEmpty(), "adopting must not also write")
-    }
+            assertEquals(1, result.adopted)
+            assertEquals(0, result.imported)
+            val shadow = db.googleEventShadowDao().get("user-1", "evt_1")
+            assertEquals("task-1", shadow?.taskId)
+            assertTrue(source.patched.isEmpty(), "adopting must not also write")
+        }
 
     /**
      * Cancelled is not deleted, and that is the whole point. The mapping is *marked*
@@ -252,52 +293,56 @@ class GoogleSyncEngineTest {
      * the worst outcome, because the user removed it on purpose.
      */
     @Test
-    fun `a cancelled event is tombstoned and is not re-created`() = runTest {
-        val db = FakeAppDatabase()
-        val source = FakeSource(
-            mapOf(null to listOf(ChangePage(events = listOf(event(1, status = GoogleEventStatus.Cancelled))))),
-        )
-        // A shadow exists from a previous sync.
-        db.googleEventShadowDao().upsert(
-            com.singularity.todo.feature.calendarSync.data.GoogleEventShadowEntity(
-                userId = "user-1",
-                eventId = "evt_1",
-                taskId = "task-1",
-                calendarId = "primary",
-                etag = "\"etag1\"",
-                baseJson = EventShadowCodec.encode(event(1, taskId = "task-1").toShadow()),
-                lastSyncedAt = t0.toEpochMilliseconds(),
-            ),
-        )
+    fun `a cancelled event is tombstoned and is not re-created`() =
+        runTest {
+            val db = FakeAppDatabase()
+            val source =
+                FakeSource(
+                    mapOf(null to listOf(ChangePage(events = listOf(event(1, status = GoogleEventStatus.Cancelled))))),
+                )
+            // A shadow exists from a previous sync.
+            db.googleEventShadowDao().upsert(
+                com.singularity.todo.feature.calendarSync.data.GoogleEventShadowEntity(
+                    userId = "user-1",
+                    eventId = "evt_1",
+                    taskId = "task-1",
+                    calendarId = "primary",
+                    etag = "\"etag1\"",
+                    baseJson = EventShadowCodec.encode(event(1, taskId = "task-1").toShadow()),
+                    lastSyncedAt = t0.toEpochMilliseconds(),
+                ),
+            )
 
-        val result = engine(source, db).sync("primary")
+            val result = engine(source, db).sync("primary")
 
-        assertEquals(0, result.seen, "a cancelled event is not live")
-        val shadow = db.googleEventShadowDao().get("user-1", "evt_1")
-        assertNotNull(shadow, "the tombstone must survive the pass that wrote it")
-        assertNotNull(shadow?.cancelledAt, "the row must be marked, not removed")
-        assertEquals("task-1", shadow?.taskId, "the task link is what the planner needs")
-        assertTrue(source.patched.isEmpty(), "a cancelled event must never be written back")
-        assertTrue(source.inserted.isEmpty(), "a cancelled event must never be re-inserted")
-    }
+            assertEquals(0, result.seen, "a cancelled event is not live")
+            val shadow = db.googleEventShadowDao().get("user-1", "evt_1")
+            assertNotNull(shadow, "the tombstone must survive the pass that wrote it")
+            assertNotNull(shadow?.cancelledAt, "the row must be marked, not removed")
+            assertEquals("task-1", shadow?.taskId, "the task link is what the planner needs")
+            assertTrue(source.patched.isEmpty(), "a cancelled event must never be written back")
+            assertTrue(source.inserted.isEmpty(), "a cancelled event must never be re-inserted")
+        }
 
     // ─── Profile isolation ──────────────────────────────────────────────
 
     @Test
-    fun `one profile's sync leaves another profile's rows alone`() = runTest {
-        val db = FakeAppDatabase()
-        val homeSource = FakeSource(
-            mapOf(null to listOf(ChangePage(events = listOf(event(1, taskId = "task-h"))))),
-        )
-        engine(homeSource, db, userId = "home").sync("primary")
+    fun `one profile's sync leaves another profile's rows alone`() =
+        runTest {
+            val db = FakeAppDatabase()
+            val homeSource =
+                FakeSource(
+                    mapOf(null to listOf(ChangePage(events = listOf(event(1, taskId = "task-h"))))),
+                )
+            engine(homeSource, db, userId = "home").sync("primary")
 
-        val workSource = FakeSource(mapOf(null to listOf(ChangePage(events = emptyList()))))
-        engine(workSource, db, userId = "work").sync("primary")
+            val workSource = FakeSource(mapOf(null to listOf(ChangePage(events = emptyList()))))
+            engine(workSource, db, userId = "work").sync("primary")
 
-        assertNotNull(
-            db.googleEventShadowDao().get("home", "evt_1"),
-            "another profile's cleanup must not delete this row",
-        )
-        assertNotNull(db.calendarSyncStateDao().get("home", "google", "primary"))
-    }
+            assertNotNull(
+                db.googleEventShadowDao().get("home", "evt_1"),
+                "another profile's cleanup must not delete this row",
+            )
+            assertNotNull(db.calendarSyncStateDao().get("home", "google", "primary"))
+        }
 }

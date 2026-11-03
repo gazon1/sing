@@ -25,7 +25,7 @@ import kotlin.test.assertTrue
  * ## What this test holds
  *
  * The classification is published in **one** place: the inventory table in
- * `.agents/skills/singularity-todo-text-field-states/SKILL.md` — one row per file, with
+ * `.agents/skills/singularity-todo-text-field-states/FIELDS.md` — one row per file, with
  * the shapes that file's fields have. This test *is* that table's reader; it holds no
  * second copy of it. A registry written twice is a registry that can disagree with itself,
  * and the copy nobody reads is the copy that rots.
@@ -65,25 +65,25 @@ import kotlin.test.assertTrue
  * ## What it cannot check
  *
  * The derivation is per file, not per field: a file with three fields of two shapes is
- * classified as *both*, and the per-field answer lives in the skill's table (the
+ * classified as *both*, and the per-field answer lives in the published table (the
  * "Field" column). A field whose owner is wrong in a way the helper cannot express —
  * a bridged field whose upstream is not the ViewModel — is not visible here.
  */
 @Tag("fast")
 class TextFieldShapeConventionTest {
-
     @Test
     fun `every file with a text field is classified`() {
         val classified = registry.keys.toSet()
-        val unclassified = fieldSites()
-            .keys
-            .filterNot { it in classified }
-            .sorted()
+        val unclassified =
+            fieldSites()
+                .keys
+                .filterNot { it in classified }
+                .sorted()
 
         assertTrue(
             unclassified.isEmpty(),
             "These files own a text field and are not classified in the inventory table " +
-                "of .agents/skills/singularity-todo-text-field-states/SKILL.md:\n" +
+                "of .agents/skills/singularity-todo-text-field-states/FIELDS.md:\n" +
                 unclassified.joinToString("\n") { "  - $it" } +
                 "\n\nAdd the file to the table with the shape its fields have. The table " +
                 "has one row per file: | File | Shape | Field |.",
@@ -93,17 +93,18 @@ class TextFieldShapeConventionTest {
     @Test
     fun `the classified shapes are the shapes the code uses`() {
         val sites = fieldSites()
-        val mismatches = registry.mapNotNull { (path, declared) ->
-            val used = sites[path]
-            if (used == null) {
-                "  - $path: classified as $declared but the file has no text field " +
-                    "any more (stale row)"
-            } else if (used != declared) {
-                "  - $path: classified as $declared but the file uses $used"
-            } else {
-                null
+        val mismatches =
+            registry.mapNotNull { (path, declared) ->
+                val used = sites[path]
+                if (used == null) {
+                    "  - $path: classified as $declared but the file has no text field " +
+                        "any more (stale row)"
+                } else if (used != declared) {
+                    "  - $path: classified as $declared but the file uses $used"
+                } else {
+                    null
+                }
             }
-        }
 
         assertTrue(
             mismatches.isEmpty(),
@@ -112,10 +113,11 @@ class TextFieldShapeConventionTest {
         )
     }
 
-    // ── the registry: the skill's inventory table ───────────────────────────────
+    // ── the registry: the published inventory table ───────────────────────────────
 
     /**
-     * The classification of every file that owns a text field, as the skill publishes it.
+     * The classification of every file that owns a text field, as the contract
+     * document publishes it.
      *
      * The key is the path relative to `commonMain/kotlin/com/singularity/todo/`; the
      * value is the shapes the file's fields have. A file with fields of two shapes lists
@@ -132,13 +134,14 @@ class TextFieldShapeConventionTest {
      * import and not a mention.
      */
     private fun fieldSites(): Map<String, Set<String>> =
-        TextFieldShapeScan.shapes()
+        TextFieldShapeScan
+            .shapes()
             .mapValues { (_, shapes) -> shapes.map { shape -> shape.label }.toSet() }
 
-    // ── the skill's inventory ───────────────────────────────────────────────────
+    // ── the published inventory ───────────────────────────────────────────────────
 
     /**
-     * The inventory table of the text-field skill, as (file, shapes) pairs.
+     * The inventory table of the text-field contract document, as (file, shapes) pairs.
      *
      * The table is a Markdown table of `| File | Shape | Field |` rows; the file cell
      * holds a backticked path and the shape cell holds the shape names, comma
@@ -146,16 +149,17 @@ class TextFieldShapeConventionTest {
      * read as a row of this one.
      */
     private fun skillInventory(): Map<String, Set<String>> =
-        SkillTables.table("File", "Shape", "Field")
+        SkillTables
+            .table("File", "Shape", "Field")
             .mapNotNull { cells ->
                 val file = cells[0].removeSurrounding("`").trim()
                 if (!file.endsWith(".kt")) return@mapNotNull null
-                val shapes = cells[1]
-                    .split(",")
-                    .map { it.trim().removeSurrounding("`") }
-                    .filter { it in setOf("local", "bridged", "anchored") }
-                    .toSet()
+                val shapes =
+                    cells[1]
+                        .split(",")
+                        .map { it.trim().removeSurrounding("`") }
+                        .filter { it in setOf("local", "bridged", "anchored") }
+                        .toSet()
                 if (shapes.isEmpty()) null else file to shapes
-            }
-            .toMap()
+            }.toMap()
 }

@@ -4,10 +4,11 @@ import com.singularity.todo.core.database.AgendaViewEntity
 import com.singularity.todo.core.database.SavedSearchEntity
 import kotlinx.serialization.Serializable
 
+// ─── AgendaViewDto (MR-1: agenda_views in backup) ─────────────────────────────
+
 /**
  * The saved views of a payload: the agenda views, and the saved searches.
  */
-// ─── AgendaViewDto (MR-1: agenda_views in backup) ─────────────────────────────
 
 @Serializable
 data class AgendaViewDto(

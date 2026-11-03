@@ -42,18 +42,22 @@ data class ChecklistRowTags(
 ) {
     companion object {
         /** The tags of a checklist item row. */
-        fun forChecklistItem(id: String, title: String) = ChecklistRowTags(
+        fun forChecklistItem(
+            id: String,
+            title: String,
+        ) = ChecklistRowTags(
             checkbox = TestTags.checklistItemCheckbox(id = id, title = title),
             item = TestTags.checklistItem(id = id, title = title),
             delete = TestTags.checklistItemDelete(id = id, title = title),
         )
 
         /** The tags of a subtask row. */
-        fun forSubtask(title: String) = ChecklistRowTags(
-            checkbox = TestTags.subtaskCheckbox(title),
-            item = TestTags.subtaskItem(title),
-            delete = TestTags.subtaskDelete(title),
-        )
+        fun forSubtask(title: String) =
+            ChecklistRowTags(
+                checkbox = TestTags.subtaskCheckbox(title),
+                item = TestTags.subtaskItem(title),
+                delete = TestTags.subtaskDelete(title),
+            )
     }
 }
 
@@ -92,9 +96,10 @@ fun ChecklistItemRow(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Celebration(
@@ -114,15 +119,17 @@ fun ChecklistItemRow(
             text = text,
             style = MaterialTheme.typography.bodyLarge,
             textDecoration = if (checked) TextDecoration.LineThrough else TextDecoration.None,
-            color = if (checked) {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
-            modifier = Modifier
-                .weight(1f)
-                .clickable { (onOpen ?: onToggle)() }
-                .testTag(tags.item),
+            color =
+                if (checked) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .clickable { (onOpen ?: onToggle)() }
+                    .testTag(tags.item),
         )
 
         if (onDelete != null) {
@@ -147,22 +154,24 @@ fun ChecklistItemRow(
 
 @Preview
 @Composable
-private fun ChecklistItemRowLightPreview() = PreviewThemed(darkTheme = false) {
-    ChecklistItemRow(
-        text = "Buy groceries",
-        checked = false,
-        onToggle = {},
-        onDelete = {},
-    )
-}
+private fun ChecklistItemRowLightPreview() =
+    PreviewThemed(darkTheme = false) {
+        ChecklistItemRow(
+            text = "Buy groceries",
+            checked = false,
+            onToggle = {},
+            onDelete = {},
+        )
+    }
 
 @Preview
 @Composable
-private fun ChecklistItemRowDoneDarkPreview() = PreviewThemed(darkTheme = true) {
-    ChecklistItemRow(
-        text = "Read documentation",
-        checked = true,
-        onToggle = {},
-        onDelete = {},
-    )
-}
+private fun ChecklistItemRowDoneDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        ChecklistItemRow(
+            text = "Read documentation",
+            checked = true,
+            onToggle = {},
+            onDelete = {},
+        )
+    }

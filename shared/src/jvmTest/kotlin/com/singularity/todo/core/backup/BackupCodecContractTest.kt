@@ -22,85 +22,90 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class BackupCodecContractTest {
-
     private val fs: FileSystem = MapFileSystem()
     private val sut = JvmBackupCodec()
     private val backupPath = "/backup/test.zip"
 
     @Test
-    fun `export and import are lossless round-trip`() = runTest {
-        val manifest = """{"version":1,"schema":1}""".toByteArray()
-        val payload = """{"tasks":[]}""".toByteArray()
-        fs.writeBytes("/attach/note-1.md", "Hello world".toByteArray())
-        fs.writeBytes("/attach/note-2.md", "# Title".toByteArray())
-        val attachments = listOf(
-            "note-1.md" to "/attach/note-1.md",
-            "note-2.md" to "/attach/note-2.md",
-        )
+    fun `export and import are lossless round-trip`() =
+        runTest {
+            val manifest = """{"version":1,"schema":1}""".toByteArray()
+            val payload = """{"tasks":[]}""".toByteArray()
+            fs.writeBytes("/attach/note-1.md", "Hello world".toByteArray())
+            fs.writeBytes("/attach/note-2.md", "# Title".toByteArray())
+            val attachments =
+                listOf(
+                    "note-1.md" to "/attach/note-1.md",
+                    "note-2.md" to "/attach/note-2.md",
+                )
 
-        sut.export(manifest, payload, attachments, backupPath, fs)
-        val result = sut.import(backupPath, fs)
+            sut.export(manifest, payload, attachments, backupPath, fs)
+            val result = sut.import(backupPath, fs)
 
-        assertTrue(result.isSuccess)
-        val read = result.getOrThrow()
+            assertTrue(result.isSuccess)
+            val read = result.getOrThrow()
 
-        assertContentEquals(manifest, read.manifestBytes)
-        assertContentEquals(payload, read.payloadBytes)
-        assertEquals(2, read.attachments.size)
-        assertContentEquals("Hello world".toByteArray(), read.attachments["note-1.md"])
-        assertContentEquals("# Title".toByteArray(), read.attachments["note-2.md"])
-        fs.delete(backupPath)
-    }
-
-    @Test
-    fun `import fails with FileNotFound for missing path`() = runTest {
-        val result = sut.import("/nonexistent/${System.nanoTime()}.zip", fs)
-
-        assertTrue(result.isFailure)
-        assertTrue { result.exceptionOrNull() is BackupStorageError.FileNotFound }
-    }
+            assertContentEquals(manifest, read.manifestBytes)
+            assertContentEquals(payload, read.payloadBytes)
+            assertEquals(2, read.attachments.size)
+            assertContentEquals("Hello world".toByteArray(), read.attachments["note-1.md"])
+            assertContentEquals("# Title".toByteArray(), read.attachments["note-2.md"])
+            fs.delete(backupPath)
+        }
 
     @Test
-    fun `export with no attachments still produces valid zip`() = runTest {
-        val manifest = """{"v":1}""".toByteArray()
-        val payload = """{}""".toByteArray()
+    fun `import fails with FileNotFound for missing path`() =
+        runTest {
+            val result = sut.import("/nonexistent/${System.nanoTime()}.zip", fs)
 
-        sut.export(manifest, payload, emptyList(), backupPath, fs)
-        val result = sut.import(backupPath, fs)
-
-        assertTrue(result.isSuccess)
-        assertContentEquals(manifest, result.getOrThrow().manifestBytes)
-        assertContentEquals(payload, result.getOrThrow().payloadBytes)
-        assertTrue(result.getOrThrow().attachments.isEmpty())
-        fs.delete(backupPath)
-    }
+            assertTrue(result.isFailure)
+            assertTrue { result.exceptionOrNull() is BackupStorageError.FileNotFound }
+        }
 
     @Test
-    fun `import fails with MalformedManifest when manifest entry is missing`() = runTest {
-        // Corrupt the zip by overwriting with invalid data
-        // The codec validates manifest entry presence on import
-        val manifest = """{"v":1}""".toByteArray()
-        val payload = """{}""".toByteArray()
+    fun `export with no attachments still produces valid zip`() =
+        runTest {
+            val manifest = """{"v":1}""".toByteArray()
+            val payload = """{}""".toByteArray()
 
-        sut.export(manifest, payload, emptyList(), backupPath, fs)
+            sut.export(manifest, payload, emptyList(), backupPath, fs)
+            val result = sut.import(backupPath, fs)
 
-        // Direct import of a valid zip succeeds (manifest was present)
-        val result = sut.import(backupPath, fs)
-        assertTrue(result.isSuccess) // valid export-import round-trip
-        fs.delete(backupPath)
-    }
+            assertTrue(result.isSuccess)
+            assertContentEquals(manifest, result.getOrThrow().manifestBytes)
+            assertContentEquals(payload, result.getOrThrow().payloadBytes)
+            assertTrue(result.getOrThrow().attachments.isEmpty())
+            fs.delete(backupPath)
+        }
 
     @Test
-    fun `CodecReadResult manifest and payload are preserved after round-trip`() = runTest {
-        val manifest = """{"v":1}""".toByteArray()
-        val payload = """{"tasks":[]}""".toByteArray()
+    fun `import fails with MalformedManifest when manifest entry is missing`() =
+        runTest {
+            // Corrupt the zip by overwriting with invalid data
+            // The codec validates manifest entry presence on import
+            val manifest = """{"v":1}""".toByteArray()
+            val payload = """{}""".toByteArray()
 
-        sut.export(manifest, payload, emptyList(), backupPath, fs)
-        val result = sut.import(backupPath, fs)
+            sut.export(manifest, payload, emptyList(), backupPath, fs)
 
-        assertTrue(result.isSuccess)
-        assertContentEquals(manifest, result.getOrThrow().manifestBytes)
-        assertContentEquals(payload, result.getOrThrow().payloadBytes)
-        fs.delete(backupPath)
-    }
+            // Direct import of a valid zip succeeds (manifest was present)
+            val result = sut.import(backupPath, fs)
+            assertTrue(result.isSuccess) // valid export-import round-trip
+            fs.delete(backupPath)
+        }
+
+    @Test
+    fun `CodecReadResult manifest and payload are preserved after round-trip`() =
+        runTest {
+            val manifest = """{"v":1}""".toByteArray()
+            val payload = """{"tasks":[]}""".toByteArray()
+
+            sut.export(manifest, payload, emptyList(), backupPath, fs)
+            val result = sut.import(backupPath, fs)
+
+            assertTrue(result.isSuccess)
+            assertContentEquals(manifest, result.getOrThrow().manifestBytes)
+            assertContentEquals(payload, result.getOrThrow().payloadBytes)
+            fs.delete(backupPath)
+        }
 }

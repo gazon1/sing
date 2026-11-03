@@ -6,7 +6,7 @@ import co.touchlab.kermit.Severity
 import java.text.SimpleDateFormat
 import java.util.Date
 
-/**
+/*
  * ## Available `singularity.*` system properties for desktop UI tests
  *
  * All properties are forwarded from the Gradle CLI to the forked test JVM via

@@ -67,7 +67,6 @@ class ToolRegistrar(
     private val recorder: ToolCallRecorder? = null,
     private val sessionContext: () -> ToolCallContext = { ToolCallContext() },
 ) {
-
     /**
      * The tool list is handed in, not fetched from a global context.
      *
@@ -89,11 +88,12 @@ class ToolRegistrar(
      */
     val snapshot: ToolsetSnapshot = buildSnapshot()
 
-    private val json = Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-        prettyPrint = false
-    }
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+            prettyPrint = false
+        }
 
     private val serializer = KotlinxSerializer(json)
 
@@ -109,12 +109,13 @@ class ToolRegistrar(
         val exposed = (registered + disabled).map { it.name }.toSet()
         val unmatched = toolFlags.keys.filterNot { it in exposed }.sorted()
         return ToolsetSnapshot(
-            identity = ToolboxIdentity(
-                buildVersion = ToolboxIdentityFactory.buildVersion(),
-                checkout = ToolboxIdentityFactory.checkout(),
-                catalogFingerprint = ToolboxIdentityFactory.catalogFingerprint(),
-                activeToolsetFingerprint = ToolboxIdentityFactory.activeToolsetFingerprint(registered),
-            ),
+            identity =
+                ToolboxIdentity(
+                    buildVersion = ToolboxIdentityFactory.buildVersion(),
+                    checkout = ToolboxIdentityFactory.checkout(),
+                    catalogFingerprint = ToolboxIdentityFactory.catalogFingerprint(),
+                    activeToolsetFingerprint = ToolboxIdentityFactory.activeToolsetFingerprint(registered),
+                ),
             registered = registered,
             disabled = disabled,
             configurationStatus = configurationStatus,
@@ -152,12 +153,13 @@ class ToolRegistrar(
         // here (previous bug) caused Fred Perry's client to reject responses
         // whose JSON lacked required input fields (e.g. write_adr returning
         // {slug,path,title} but the client expected {slug,title,body}).
-        val emptyOutputSchema = ToolSchema(
-            schema = null as String?,
-            properties = JsonObject(emptyMap()),
-            required = emptyList(),
-            defs = null as JsonObject?,
-        )
+        val emptyOutputSchema =
+            ToolSchema(
+                schema = null as String?,
+                properties = JsonObject(emptyMap()),
+                required = emptyList(),
+                defs = null as JsonObject?,
+            )
 
         server.addTool(
             name,
@@ -172,7 +174,10 @@ class ToolRegistrar(
     }
 
     @Suppress("UNCHECKED_CAST")
-    private suspend fun handleToolCall(tool: Tool<*, *>, request: CallToolRequest): CallToolResult {
+    private suspend fun handleToolCall(
+        tool: Tool<*, *>,
+        request: CallToolRequest,
+    ): CallToolResult {
         // The measurement happens here, at the dispatch boundary, because this is the
         // only place that knows the call's arguments, its outcome and its error kind.
         // A decorator would have to wrap every tool to reach the same place, and it
@@ -193,20 +198,25 @@ class ToolRegistrar(
      * A code, never the message: an exception message can carry arguments, paths and
      * server responses, and a record outlives the session it describes.
      */
-    private fun classifyFailure(error: Throwable): ToolCallError = when (error) {
-        is McpToolError.Validation -> ToolCallError("validation", business = true)
-        is McpToolError.NotFound -> ToolCallError("not_found", business = true)
-        is McpToolError.Conflict -> ToolCallError("conflict", business = true)
-        is McpToolError.Unauthorized -> ToolCallError("unauthorized", business = true)
-        is McpToolError.Internal -> ToolCallError("internal", business = false)
-        else -> ToolCallError("internal", business = false)
-    }
+    private fun classifyFailure(error: Throwable): ToolCallError =
+        when (error) {
+            is McpToolError.Validation -> ToolCallError("validation", business = true)
+            is McpToolError.NotFound -> ToolCallError("not_found", business = true)
+            is McpToolError.Conflict -> ToolCallError("conflict", business = true)
+            is McpToolError.Unauthorized -> ToolCallError("unauthorized", business = true)
+            is McpToolError.Internal -> ToolCallError("internal", business = false)
+            else -> ToolCallError("internal", business = false)
+        }
 
     @Suppress("UNCHECKED_CAST", "TooGenericExceptionCaught")
-    private suspend fun dispatch(tool: Tool<*, *>, request: CallToolRequest): CallToolResult {
-        val koogArgs: JSONObject = request.arguments?.let { args ->
-            JSONObject(args.mapValues { (_, v) -> v.toKoog() })
-        } ?: JSONObject(emptyMap())
+    private suspend fun dispatch(
+        tool: Tool<*, *>,
+        request: CallToolRequest,
+    ): CallToolResult {
+        val koogArgs: JSONObject =
+            request.arguments?.let { args ->
+                JSONObject(args.mapValues { (_, v) -> v.toKoog() })
+            } ?: JSONObject(emptyMap())
 
         return try {
             val koogTool = tool as SimpleTool<Any>
@@ -214,9 +224,10 @@ class ToolRegistrar(
 
             val resultString: String = koogTool.execute(args)
 
-            val structuredContent = runCatchingCancellable {
-                json.parseToJsonElement(resultString).jsonObject
-            }.getOrNull()
+            val structuredContent =
+                runCatchingCancellable {
+                    json.parseToJsonElement(resultString).jsonObject
+                }.getOrNull()
 
             CallToolResult(
                 content = listOf(TextContent(text = resultString)),
@@ -253,19 +264,23 @@ class ToolRegistrar(
      * Letting it fall through to the internal tier made it a JSON-RPC error instead: a
      * protocol-level failure the caller cannot correct, over a typo in an argument.
      */
-    private fun decodeArguments(tool: SimpleTool<Any>, koogArgs: JSONObject): Any = try {
-        tool.decodeArgs(koogArgs, serializer)
-    } catch (malformed: SerializationException) {
-        throw McpToolError.Validation(
-            field = tool.descriptor.name,
-            text = "The arguments do not fit the tool \"${tool.descriptor.name}\": ${malformed.message}",
-            cause = malformed,
-        )
-    } catch (malformed: IllegalArgumentException) {
-        throw McpToolError.Validation(
-            field = tool.descriptor.name,
-            text = "The arguments do not fit the tool \"${tool.descriptor.name}\": ${malformed.message}",
-            cause = malformed,
-        )
-    }
+    private fun decodeArguments(
+        tool: SimpleTool<Any>,
+        koogArgs: JSONObject,
+    ): Any =
+        try {
+            tool.decodeArgs(koogArgs, serializer)
+        } catch (malformed: SerializationException) {
+            throw McpToolError.Validation(
+                field = tool.descriptor.name,
+                text = "The arguments do not fit the tool \"${tool.descriptor.name}\": ${malformed.message}",
+                cause = malformed,
+            )
+        } catch (malformed: IllegalArgumentException) {
+            throw McpToolError.Validation(
+                field = tool.descriptor.name,
+                text = "The arguments do not fit the tool \"${tool.descriptor.name}\": ${malformed.message}",
+                cause = malformed,
+            )
+        }
 }

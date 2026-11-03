@@ -30,8 +30,19 @@ interface ChecklistRepository {
         title: String,
         id: ChecklistItemId = ChecklistItemId.generate(),
     ): Result<ChecklistItemId>
-    suspend fun toggleItem(taskId: String, itemId: ChecklistItemId, actor: String = "user"): Result<Unit>
+
+    suspend fun toggleItem(
+        taskId: String,
+        itemId: ChecklistItemId,
+        actor: String = "user",
+    ): Result<Unit>
+
     suspend fun upsert(item: ChecklistItem): Result<Unit>
+
     suspend fun delete(id: ChecklistItemId): Result<Unit>
-    suspend fun createBatch(taskId: String, items: List<ChecklistItem>): Result<Unit>
+
+    suspend fun createBatch(
+        taskId: String,
+        items: List<ChecklistItem>,
+    ): Result<Unit>
 }

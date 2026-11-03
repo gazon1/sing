@@ -9,9 +9,9 @@ import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
+import com.singularity.todo.feature.projects.data.toEntity
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.projects.data.toEntity
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeUnitOfWork
@@ -40,19 +40,19 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class ProjectCloseRepositoryTest {
-
     private val alice = UserId("alice")
     private val now = kotlin.time.Instant.fromEpochMilliseconds(1_000)
 
     private val tempDirLazy = lazy { Files.createTempDirectory("singularity-project-close-").toFile() }
     private val tempDir: File by tempDirLazy
 
-    private val dbLazy = lazy {
-        AppDatabaseFactory.build(
-            driver = createSqlDriver(),
-            dbPath = File(tempDir, "projects.db").absolutePath,
-        )
-    }
+    private val dbLazy =
+        lazy {
+            AppDatabaseFactory.build(
+                driver = createSqlDriver(),
+                dbPath = File(tempDir, "projects.db").absolutePath,
+            )
+        }
     private val db: AppDatabase by dbLazy
 
     @AfterTest
@@ -61,7 +61,10 @@ class ProjectCloseRepositoryTest {
         if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
     }
 
-    private fun project(id: String = "p1", name: String = "Project") = Project(
+    private fun project(
+        id: String = "p1",
+        name: String = "Project",
+    ) = Project(
         id = ProjectId(id),
         name = name,
         color = 0xFF5500,
@@ -70,120 +73,129 @@ class ProjectCloseRepositoryTest {
         userId = alice,
     )
 
-    private fun repository() = run {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val currentUser = FakeProfileAwareCurrentUser(auth)
-        ProjectsRepositoryImpl(
-            projectDao = db.projectDao(),
-            inheritedTagGroupDao = db.projectInheritedTagGroupDao(),
-            clock = kotlin.time.Clock.System,
-            currentUser = currentUser,
-            syncRepository = FakeSyncRepository(),
-            unitOfWork = FakeUnitOfWork(),
-        )
-    }
+    private fun repository() =
+        run {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val currentUser = FakeProfileAwareCurrentUser(auth)
+            ProjectsRepositoryImpl(
+                projectDao = db.projectDao(),
+                inheritedTagGroupDao = db.projectInheritedTagGroupDao(),
+                clock = kotlin.time.Clock.System,
+                currentUser = currentUser,
+                syncRepository = FakeSyncRepository(),
+                unitOfWork = FakeUnitOfWork(),
+            )
+        }
 
     @Test
-    fun `closing a project stamps the closed timestamp`() = runTest {
-        val repo = repository()
-        repo.create(project())
-        advanceUntilIdle()
+    fun `closing a project stamps the closed timestamp`() =
+        runTest {
+            val repo = repository()
+            repo.create(project())
+            advanceUntilIdle()
 
-        repo.close(ProjectId("p1"), 5_000L).getOrThrow()
-        advanceUntilIdle()
+            repo.close(ProjectId("p1"), 5_000L).getOrThrow()
+            advanceUntilIdle()
 
-        val closed = repo.observeProject(ProjectId("p1")).first()
-        assertNotNull(closed, "a closed project stays readable")
-        assertEquals(5_000L, closed.closedAt?.toEpochMilliseconds(), "the close must be stamped")
-    }
-
-    @Test
-    fun `a closed project leaves the project list`() = runTest {
-        val repo = repository()
-        repo.create(project())
-        repo.create(project("p2", "Other"))
-        advanceUntilIdle()
-
-        repo.close(ProjectId("p1"), 5_000L).getOrThrow()
-        advanceUntilIdle()
-
-        val listed = repo.observeAll().first()
-        assertTrue(listed.none { it.id == ProjectId("p1") }, "a closed project must leave the list")
-        assertTrue(listed.any { it.id == ProjectId("p2") }, "the other project must stay")
-    }
+            val closed = repo.observeProject(ProjectId("p1")).first()
+            assertNotNull(closed, "a closed project stays readable")
+            assertEquals(5_000L, closed.closedAt?.toEpochMilliseconds(), "the close must be stamped")
+        }
 
     @Test
-    fun `the close leaves the rest of the row alone`() = runTest {
-        val repo = repository()
-        repo.create(project())
-        advanceUntilIdle()
+    fun `a closed project leaves the project list`() =
+        runTest {
+            val repo = repository()
+            repo.create(project())
+            repo.create(project("p2", "Other"))
+            advanceUntilIdle()
 
-        // The project is renamed elsewhere between this device's read and its
-        // close — the classic lost-update the narrow UPDATE exists to avoid.
-        db.projectDao().upsert(
-            project().copy(
-                name = "Renamed elsewhere",
-                updatedAt = kotlin.time.Instant.fromEpochMilliseconds(4_000),
-            ).toEntity(),
-        )
+            repo.close(ProjectId("p1"), 5_000L).getOrThrow()
+            advanceUntilIdle()
 
-        repo.close(ProjectId("p1"), 5_000L).getOrThrow()
-        advanceUntilIdle()
-
-        val closed = repo.observeProject(ProjectId("p1")).first()
-        assertEquals("Renamed elsewhere", closed?.name, "the close must not put the old name back")
-        assertEquals(5_000L, closed?.closedAt?.toEpochMilliseconds())
-    }
+            val listed = repo.observeAll().first()
+            assertTrue(listed.none { it.id == ProjectId("p1") }, "a closed project must leave the list")
+            assertTrue(listed.any { it.id == ProjectId("p2") }, "the other project must stay")
+        }
 
     @Test
-    fun `closing a project that does not exist fails`() = runTest {
-        val repo = repository()
+    fun `the close leaves the rest of the row alone`() =
+        runTest {
+            val repo = repository()
+            repo.create(project())
+            advanceUntilIdle()
 
-        val result = repo.close(ProjectId("missing"), 5_000L)
+            // The project is renamed elsewhere between this device's read and its
+            // close — the classic lost-update the narrow UPDATE exists to avoid.
+            db.projectDao().upsert(
+                project()
+                    .copy(
+                        name = "Renamed elsewhere",
+                        updatedAt = kotlin.time.Instant.fromEpochMilliseconds(4_000),
+                    ).toEntity(),
+            )
 
-        assertTrue(result.isFailure, "there is no row to close")
-    }
+            repo.close(ProjectId("p1"), 5_000L).getOrThrow()
+            advanceUntilIdle()
 
-    @Test
-    fun `reopening a closed project opens it and puts it back in the list`() = runTest {
-        val repo = repository()
-        repo.create(project())
-        advanceUntilIdle()
-        repo.close(ProjectId("p1"), 5_000L).getOrThrow()
-        advanceUntilIdle()
-
-        repo.reopen(ProjectId("p1"), 6_000L).getOrThrow()
-        advanceUntilIdle()
-
-        val reopened = repo.observeProject(ProjectId("p1")).first()
-        assertEquals(null, reopened?.closedAt?.toEpochMilliseconds(), "the open must be stamped")
-        assertTrue(
-            repo.observeAll().first().any { it.id == ProjectId("p1") },
-            "an open project belongs in the list again",
-        )
-    }
+            val closed = repo.observeProject(ProjectId("p1")).first()
+            assertEquals("Renamed elsewhere", closed?.name, "the close must not put the old name back")
+            assertEquals(5_000L, closed?.closedAt?.toEpochMilliseconds())
+        }
 
     @Test
-    fun `reopening a project that is not closed is a no-op, not an error`() = runTest {
-        val repo = repository()
-        repo.create(project())
-        advanceUntilIdle()
+    fun `closing a project that does not exist fails`() =
+        runTest {
+            val repo = repository()
 
-        // The project was opened on another device between this device's read
-        // and its write. The state the caller asked for is the state the server
-        // already has, so the lost race resolves to that state.
-        val result = repo.reopen(ProjectId("p1"), 6_000L)
+            val result = repo.close(ProjectId("missing"), 5_000L)
 
-        assertTrue(result.isSuccess, "an already-open project is not an error")
-        assertEquals(null, repo.observeProject(ProjectId("p1")).first()?.closedAt)
-    }
+            assertTrue(result.isFailure, "there is no row to close")
+        }
 
     @Test
-    fun `reopening a project that does not exist fails`() = runTest {
-        val repo = repository()
+    fun `reopening a closed project opens it and puts it back in the list`() =
+        runTest {
+            val repo = repository()
+            repo.create(project())
+            advanceUntilIdle()
+            repo.close(ProjectId("p1"), 5_000L).getOrThrow()
+            advanceUntilIdle()
 
-        val result = repo.reopen(ProjectId("missing"), 5_000L)
+            repo.reopen(ProjectId("p1"), 6_000L).getOrThrow()
+            advanceUntilIdle()
 
-        assertTrue(result.isFailure, "there is no row to open")
-    }
+            val reopened = repo.observeProject(ProjectId("p1")).first()
+            assertEquals(null, reopened?.closedAt?.toEpochMilliseconds(), "the open must be stamped")
+            assertTrue(
+                repo.observeAll().first().any { it.id == ProjectId("p1") },
+                "an open project belongs in the list again",
+            )
+        }
+
+    @Test
+    fun `reopening a project that is not closed is a no-op, not an error`() =
+        runTest {
+            val repo = repository()
+            repo.create(project())
+            advanceUntilIdle()
+
+            // The project was opened on another device between this device's read
+            // and its write. The state the caller asked for is the state the server
+            // already has, so the lost race resolves to that state.
+            val result = repo.reopen(ProjectId("p1"), 6_000L)
+
+            assertTrue(result.isSuccess, "an already-open project is not an error")
+            assertEquals(null, repo.observeProject(ProjectId("p1")).first()?.closedAt)
+        }
+
+    @Test
+    fun `reopening a project that does not exist fails`() =
+        runTest {
+            val repo = repository()
+
+            val result = repo.reopen(ProjectId("missing"), 5_000L)
+
+            assertTrue(result.isFailure, "there is no row to open")
+        }
 }

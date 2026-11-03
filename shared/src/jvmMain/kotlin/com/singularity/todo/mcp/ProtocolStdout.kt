@@ -52,7 +52,6 @@ import java.io.PrintStream
  * closes the other, and the transport closes the output it was handed.
  */
 internal class ProtocolStdout private constructor(private val stream: PrintStream) {
-
     /**
      * The protocol's stream.
      *
@@ -68,7 +67,6 @@ internal class ProtocolStdout private constructor(private val stream: PrintStrea
     fun asByteWriteChannel(): ByteWriteChannel = stream.asByteWriteChannel()
 
     companion object {
-
         /**
          * Takes standard output for the protocol and moves everything else to standard error.
          *
@@ -89,7 +87,11 @@ internal class ProtocolStdout private constructor(private val stream: PrintStrea
                         System.err.write(b)
                     }
 
-                    override fun write(b: ByteArray, off: Int, len: Int) {
+                    override fun write(
+                        b: ByteArray,
+                        off: Int,
+                        len: Int,
+                    ) {
                         System.err.write(b, off, len)
                     }
 

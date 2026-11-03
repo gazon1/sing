@@ -24,7 +24,6 @@ import kotlin.time.Instant
  * cannot be applied, and the user can still turn it down.
  */
 sealed interface ProposalItemStatus {
-
     /**
      * The value the row carries.
      *
@@ -69,7 +68,6 @@ sealed interface ProposalItemStatus {
     }
 
     companion object {
-
         /** The statuses this build knows. */
         private val known: List<ProposalItemStatus> = listOf(Pending, Confirmed, Rejected, Retracted)
 
@@ -101,9 +99,10 @@ val ProposalItemStatus.isPending: Boolean get() = this == ProposalItemStatus.Pen
  * down.
  */
 val ProposalItemStatus.isDecided: Boolean
-    get() = this == ProposalItemStatus.Confirmed ||
-        this == ProposalItemStatus.Rejected ||
-        this == ProposalItemStatus.Retracted
+    get() =
+        this == ProposalItemStatus.Confirmed ||
+            this == ProposalItemStatus.Rejected ||
+            this == ProposalItemStatus.Retracted
 
 /** Who made the decision. */
 enum class DecidedActor {
@@ -177,13 +176,17 @@ data class ProposalItem(
      * one reason, and it is not the same reason as a value that does not read.
      */
     val statusFailure: String?
-        get() = when (status) {
-            is ProposalItemStatus.Unknown ->
-                "This change was written with the status «${status.raw}», " +
-                    "which this version of the app does not know."
+        get() =
+            when (status) {
+                is ProposalItemStatus.Unknown -> {
+                    "This change was written with the status «${status.raw}», " +
+                        "which this version of the app does not know."
+                }
 
-            else -> null
-        }
+                else -> {
+                    null
+                }
+            }
 
     /**
      * What the user reads for a change that has already been decided.
@@ -194,16 +197,16 @@ data class ProposalItem(
      * prints what the domain says, and never asks what the status is.
      */
     val outcomeLabel: String
-        get() = when (status) {
-            ProposalItemStatus.Confirmed -> "Applied"
-            ProposalItemStatus.Rejected -> "Turned down"
-            ProposalItemStatus.Retracted -> "Withdrawn"
-            ProposalItemStatus.Pending -> "Waiting"
-            is ProposalItemStatus.Unknown -> "Unknown"
-        }
+        get() =
+            when (status) {
+                ProposalItemStatus.Confirmed -> "Applied"
+                ProposalItemStatus.Rejected -> "Turned down"
+                ProposalItemStatus.Retracted -> "Withdrawn"
+                ProposalItemStatus.Pending -> "Waiting"
+                is ProposalItemStatus.Unknown -> "Unknown"
+            }
 
     companion object {
-
         /**
          * A change waiting for a decision.
          *
@@ -221,15 +224,16 @@ data class ProposalItem(
             humanSummary: String,
             fingerprint: String,
             sortOrder: Int = 0,
-        ): ProposalItem = ProposalItem(
-            id = id,
-            proposalId = proposalId,
-            kind = kind,
-            targetId = targetId,
-            humanSummary = humanSummary,
-            status = ProposalItemStatus.Pending,
-            fingerprint = fingerprint,
-            sortOrder = sortOrder,
-        )
+        ): ProposalItem =
+            ProposalItem(
+                id = id,
+                proposalId = proposalId,
+                kind = kind,
+                targetId = targetId,
+                humanSummary = humanSummary,
+                status = ProposalItemStatus.Pending,
+                fingerprint = fingerprint,
+                sortOrder = sortOrder,
+            )
     }
 }

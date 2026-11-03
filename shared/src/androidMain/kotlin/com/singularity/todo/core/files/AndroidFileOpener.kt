@@ -4,8 +4,8 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
-import java.io.File
 import kotlinx.coroutines.CancellationException
+import java.io.File
 
 /**
  * Android implementation of [FileOpener].
@@ -21,29 +21,33 @@ import kotlinx.coroutines.CancellationException
  * instead of leaving the user on a button that did nothing.
  */
 class AndroidFileOpener(private val context: Context) : FileOpener {
-
-    override suspend fun open(filePath: String, mimeType: String): OpenOutcome {
+    override suspend fun open(
+        filePath: String,
+        mimeType: String,
+    ): OpenOutcome {
         val file = File(filePath)
         if (!file.exists()) return OpenOutcome.NoHandler
 
-        val uri = try {
-            FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file,
-            )
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: IllegalArgumentException) {
-            // The path is outside every `files-path` in file_paths.xml. Same situation
-            // as "no handler": the file cannot be opened from here.
-            return OpenOutcome.NoHandler
-        }
+        val uri =
+            try {
+                FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: IllegalArgumentException) {
+                // The path is outside every `files-path` in file_paths.xml. Same situation
+                // as "no handler": the file cannot be opened from here.
+                return OpenOutcome.NoHandler
+            }
 
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, mimeType)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
+        val intent =
+            Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mimeType)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
 
         return try {
             context.startActivity(intent)

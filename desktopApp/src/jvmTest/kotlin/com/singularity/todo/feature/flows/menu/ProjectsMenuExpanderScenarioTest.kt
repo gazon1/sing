@@ -31,24 +31,24 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:compose")
 class ProjectsMenuExpanderScenarioTest {
-
     @Test
     @DisplayName("MENU-05 a project without children shows no expander and a closed project is absent")
-    fun a_childless_project_has_no_expander() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        seedProject(koin, "robot-childless", "Childless")
-        seedProject(koin, "robot-closed", "Closed", closed = true)
+    fun a_childless_project_has_no_expander() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            seedProject(koin, "robot-childless", "Childless")
+            seedProject(koin, "robot-closed", "Closed", closed = true)
 
-        openDrawer()
+            openDrawer()
 
-        // The tree sits at the end of the drawer, below the fold.
-        scrollToTag(TestTags.menuProjectNode("robot-childless"))
-        assertTagDisplayed(TestTags.menuProjectNode("robot-childless"))
-        // Nothing to expand, so no expander is offered.
-        assertTrue(
-            countNodes(TestTags.menuProjectExpander("robot-childless")) == 0,
-            "a project without children must not offer an expander",
-        )
-        // A closed project has left the work, and the tree shows the work.
-        awaitTagGone(TestTags.menuProjectNode("robot-closed"))
-    }
+            // The tree sits at the end of the drawer, below the fold.
+            scrollToTag(TestTags.menuProjectNode("robot-childless"))
+            assertTagDisplayed(TestTags.menuProjectNode("robot-childless"))
+            // Nothing to expand, so no expander is offered.
+            assertTrue(
+                countNodes(TestTags.menuProjectExpander("robot-childless")) == 0,
+                "a project without children must not offer an expander",
+            )
+            // A closed project has left the work, and the tree shows the work.
+            awaitTagGone(TestTags.menuProjectNode("robot-closed"))
+        }
 }

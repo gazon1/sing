@@ -14,8 +14,11 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class RecurrenceFormattersTest {
-
-    private fun d(y: Int, m: Int, day: Int) = LocalDate(y, m, day)
+    private fun d(
+        y: Int,
+        m: Int,
+        day: Int,
+    ) = LocalDate(y, m, day)
 
     // ─── label ─────────────────────────────────────────────────────────────────
 
@@ -108,8 +111,9 @@ class RecurrenceFormattersTest {
 
     @Test
     fun `label shows the end date so a self-stopping series explains itself`() {
-        val spec = Interval(RecurrenceBase.FROM_COMPLETION, 1, DateTimeUnit.WEEK)
-            .copy(termination = RecurrenceTermination(d(2026, 12, 31)))
+        val spec =
+            Interval(RecurrenceBase.FROM_COMPLETION, 1, DateTimeUnit.WEEK)
+                .copy(termination = RecurrenceTermination(d(2026, 12, 31)))
         assertEquals("Weekly until 2026-12-31", RecurrenceFormatters.label(spec))
     }
 
@@ -121,8 +125,9 @@ class RecurrenceFormattersTest {
 
     @Test
     fun `label keeps its base marker alongside the end date`() {
-        val spec = Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
-            .copy(termination = RecurrenceTermination(d(2026, 12, 31)))
+        val spec =
+            Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
+                .copy(termination = RecurrenceTermination(d(2026, 12, 31)))
         assertEquals("↑ Weekly until 2026-12-31", RecurrenceFormatters.label(spec))
     }
 }

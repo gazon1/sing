@@ -16,16 +16,16 @@ import com.singularity.todo.test.helpers.assertTagEnabled
 import com.singularity.todo.test.helpers.assertTagNotEnabled
 import com.singularity.todo.test.helpers.assertTagTextEquals
 import com.singularity.todo.test.helpers.assertTextDisplayed
+import com.singularity.todo.test.helpers.awaitTag
+import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.clickContentDescription
 import com.singularity.todo.test.helpers.clickSheetClose
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.clickTagScrolled
-import com.singularity.todo.test.helpers.typeIntoTag
-import com.singularity.todo.test.helpers.awaitTag
-import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
+import com.singularity.todo.test.helpers.typeIntoTag
 import kotlinx.coroutines.flow.first
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -52,57 +52,60 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class CreateTaskFlowTest {
+    @Test
+    fun the_fab_opens_the_task_editor() =
+        runDesktopAppTest(checkA11y = true) {
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
+
+            assertTagDisplayed(TestTags.TASK_EDITOR_TITLE_INPUT)
+            assertTagDisplayed(TestTags.TASK_EDITOR_SAVE)
+        }
 
     @Test
-    fun the_fab_opens_the_task_editor() = runDesktopAppTest(checkA11y = true) {
-        clickContentDescription(DesktopShell.FAB_ADD_TASK)
+    fun save_stays_disabled_until_the_title_is_entered() =
+        runDesktopAppTest(checkA11y = true) {
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
 
-        assertTagDisplayed(TestTags.TASK_EDITOR_TITLE_INPUT)
-        assertTagDisplayed(TestTags.TASK_EDITOR_SAVE)
-    }
-
-    @Test
-    fun save_stays_disabled_until_the_title_is_entered() = runDesktopAppTest(checkA11y = true) {
-        clickContentDescription(DesktopShell.FAB_ADD_TASK)
-
-        // DraftMviViewModel derives this from validate(draft), which rejects a
-        // blank title — so an initially disabled button is the contract, and a
-        // click that silently did nothing would be indistinguishable from a
-        // broken editor if this were not asserted.
-        assertTagNotEnabled(TestTags.TASK_EDITOR_SAVE)
-    }
+            // DraftMviViewModel derives this from validate(draft), which rejects a
+            // blank title — so an initially disabled button is the contract, and a
+            // click that silently did nothing would be indistinguishable from a
+            // broken editor if this were not asserted.
+            assertTagNotEnabled(TestTags.TASK_EDITOR_SAVE)
+        }
 
     @Test
-    fun typing_a_title_enables_save() = runDesktopAppTest(checkA11y = true) {
-        clickContentDescription(DesktopShell.FAB_ADD_TASK)
+    fun typing_a_title_enables_save() =
+        runDesktopAppTest(checkA11y = true) {
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
 
-        typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
+            typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
 
-        // Assert the field before saving: a BasicTextField can drop a
-        // composition, and without this the failure would resurface later as a
-        // missing row, which reads as a save-button bug rather than an input one.
-        assertTagTextEquals(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
-        assertTagEnabled(TestTags.TASK_EDITOR_SAVE)
-    }
+            // Assert the field before saving: a BasicTextField can drop a
+            // composition, and without this the failure would resurface later as a
+            // missing row, which reads as a save-button bug rather than an input one.
+            assertTagTextEquals(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
+            assertTagEnabled(TestTags.TASK_EDITOR_SAVE)
+        }
 
     @Test
-    fun the_editor_can_be_left_with_the_shell_back_arrow() = runDesktopAppTest(checkA11y = true) {
-        clickContentDescription(DesktopShell.FAB_ADD_TASK)
-        typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
+    fun the_editor_can_be_left_with_the_shell_back_arrow() =
+        runDesktopAppTest(checkA11y = true) {
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
+            typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
 
-        // Pushing the editor turns the shell's hamburger into a back arrow, so
-        // the drawer is unreachable until the push is popped. This is desktop
-        // behaviour with no Android counterpart, since the bottom bar stays put.
-        assertContentDescriptionDisplayed(DesktopShell.BACK)
-        clickContentDescription(DesktopShell.BACK)
+            // Pushing the editor turns the shell's hamburger into a back arrow, so
+            // the drawer is unreachable until the push is popped. This is desktop
+            // behaviour with no Android counterpart, since the bottom bar stays put.
+            assertContentDescriptionDisplayed(DesktopShell.BACK)
+            clickContentDescription(DesktopShell.BACK)
 
-        // The pop is asynchronous: the editor stays composed until the shell has
-        // navigated back, so a one-shot "does not exist" right after the click
-        // races the transition and fails intermittently under machine load.
-        // The hamburger has no testTag, so wait on the editor leaving instead.
-        awaitTagGone(TestTags.TASK_EDITOR_TITLE_INPUT)
-        assertContentDescriptionDisplayed(DesktopShell.HAMBURGER)
-    }
+            // The pop is asynchronous: the editor stays composed until the shell has
+            // navigated back, so a one-shot "does not exist" right after the click
+            // races the transition and fails intermittently under machine load.
+            // The hamburger has no testTag, so wait on the editor leaving instead.
+            awaitTagGone(TestTags.TASK_EDITOR_TITLE_INPUT)
+            assertContentDescriptionDisplayed(DesktopShell.HAMBURGER)
+        }
 
     /**
      * The create editor's sheets open.
@@ -115,13 +118,14 @@ class CreateTaskFlowTest {
      * editor's rows were inert in the create flow and no test said so.
      */
     @Test
-    fun tapping_the_priority_row_opens_the_priority_sheet() = runDesktopAppTest(checkA11y = true) {
-        clickContentDescription(DesktopShell.FAB_ADD_TASK)
+    fun tapping_the_priority_row_opens_the_priority_sheet() =
+        runDesktopAppTest(checkA11y = true) {
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
 
-        clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
+            clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
 
-        assertTagDisplayed(TestTags.PRIORITY_OPTION_HIGH)
-    }
+            assertTagDisplayed(TestTags.PRIORITY_OPTION_HIGH)
+        }
 
     /**
      * The sheet writes back to the row that opened it.
@@ -131,14 +135,15 @@ class CreateTaskFlowTest {
      * two apart.
      */
     @Test
-    fun the_priority_sheet_writes_the_value_back_to_the_row() = runDesktopAppTest(checkA11y = true) {
-        clickContentDescription(DesktopShell.FAB_ADD_TASK)
+    fun the_priority_sheet_writes_the_value_back_to_the_row() =
+        runDesktopAppTest(checkA11y = true) {
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
 
-        clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
-        clickTag(TestTags.PRIORITY_OPTION_HIGH)
+            clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
+            clickTag(TestTags.PRIORITY_OPTION_HIGH)
 
-        assertTextDisplayed("High priority")
-    }
+            assertTextDisplayed("High priority")
+        }
 
     /**
      * The create editor's checklist row opens the checklist.
@@ -151,19 +156,20 @@ class CreateTaskFlowTest {
      * row that opened it, or the sheet opens onto a list that never changes.
      */
     @Test
-    fun the_checklist_row_opens_the_checklist_and_shows_what_was_added() = runDesktopAppTest(checkA11y = true) {
-        clickContentDescription(DesktopShell.FAB_ADD_TASK)
+    fun the_checklist_row_opens_the_checklist_and_shows_what_was_added() =
+        runDesktopAppTest(checkA11y = true) {
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
 
-        clickTagScrolled(TestTags.TASK_EDITOR_CHECKLIST_ROW)
-        typeIntoTag(TestTags.CHECKLIST_ADD_INPUT, "Buy milk")
-        clickTag(TestTags.CHECKLIST_ADD_BUTTON)
+            clickTagScrolled(TestTags.TASK_EDITOR_CHECKLIST_ROW)
+            typeIntoTag(TestTags.CHECKLIST_ADD_INPUT, "Buy milk")
+            clickTag(TestTags.CHECKLIST_ADD_BUTTON)
 
-        assertTagDisplayed(TestTags.checklistItem("", "Buy milk"))
+            assertTagDisplayed(TestTags.checklistItem("", "Buy milk"))
 
-        clickSheetClose()
+            clickSheetClose()
 
-        assertTextDisplayed("Checklist (1)")
-    }
+            assertTextDisplayed("Checklist (1)")
+        }
 
     /**
      * The editor shows the rows it was given.
@@ -172,15 +178,16 @@ class CreateTaskFlowTest {
      * and nothing else said so.
      */
     @Test
-    fun the_editor_shows_the_checklist_and_the_attachments_rows() = runDesktopAppTest(checkA11y = true) {
-        clickContentDescription(DesktopShell.FAB_ADD_TASK)
+    fun the_editor_shows_the_checklist_and_the_attachments_rows() =
+        runDesktopAppTest(checkA11y = true) {
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
 
-        scrollToTag(TestTags.TASK_EDITOR_CHECKLIST_ROW)
-        assertTagDisplayed(TestTags.TASK_EDITOR_CHECKLIST_ROW)
+            scrollToTag(TestTags.TASK_EDITOR_CHECKLIST_ROW)
+            assertTagDisplayed(TestTags.TASK_EDITOR_CHECKLIST_ROW)
 
-        scrollToTag(TestTags.TASK_EDITOR_ATTACHMENTS_ROW)
-        assertTagDisplayed(TestTags.TASK_EDITOR_ATTACHMENTS_ROW)
-    }
+            scrollToTag(TestTags.TASK_EDITOR_ATTACHMENTS_ROW)
+            assertTagDisplayed(TestTags.TASK_EDITOR_ATTACHMENTS_ROW)
+        }
 
     /**
      * Save, then find the task in the agenda.
@@ -195,16 +202,17 @@ class CreateTaskFlowTest {
      * which would put the task in the Today bucket instead.
      */
     @Test
-    fun a_saved_task_without_a_due_date_appears_under_inbox_no_date() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Inbox")
-        clickContentDescription(DesktopShell.FAB_ADD_TASK)
-        typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Call the dentist")
-        clickTag(TestTags.TASK_EDITOR_SAVE)
+    fun a_saved_task_without_a_due_date_appears_under_inbox_no_date() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Inbox")
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
+            typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Call the dentist")
+            clickTag(TestTags.TASK_EDITOR_SAVE)
 
-        // Saving pops the editor back to the Inbox agenda it was opened from.
-        assertTagDisplayed(TestTags.agendaSection("No Date"))
-        assertTagDisplayed(TestTags.taskItem("Call the dentist"))
-    }
+            // Saving pops the editor back to the Inbox agenda it was opened from.
+            assertTagDisplayed(TestTags.agendaSection("No Date"))
+            assertTagDisplayed(TestTags.taskItem("Call the dentist"))
+        }
 
     /**
      * Positive control: proves that a missing tag produces an actionable error
@@ -222,12 +230,13 @@ class CreateTaskFlowTest {
      */
     @Test
     fun a_missing_tag_emits_nearby_tags_in_the_failure_message() {
-        val thrown = runCatching {
-            runDesktopAppTest {
-                // A tag that definitely does not exist in any screen.
-                awaitTag("nonexistent-tag-for-positive-control").assertIsDisplayed()
-            }
-        }.exceptionOrNull()
+        val thrown =
+            runCatching {
+                runDesktopAppTest {
+                    // A tag that definitely does not exist in any screen.
+                    awaitTag("nonexistent-tag-for-positive-control").assertIsDisplayed()
+                }
+            }.exceptionOrNull()
 
         // The harness re-throws after adding the bundle as suppressed.
         val message = thrown?.message ?: ""

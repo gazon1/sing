@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.Flow
  * [CalendarSyncTaskMapDao] (Room), not in this repository.
  */
 interface CalendarSyncRepository {
-
     /**
      * Whether this port can do its job on this platform.
      *

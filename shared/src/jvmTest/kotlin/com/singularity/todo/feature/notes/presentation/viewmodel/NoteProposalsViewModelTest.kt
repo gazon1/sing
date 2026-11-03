@@ -6,6 +6,8 @@ import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
@@ -18,8 +20,6 @@ import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUs
 import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
-import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
@@ -51,7 +51,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class NoteProposalsViewModelTest {
-
     private val clock = FakeClock()
 
     // The fakes scope every read to their own current user, which defaults to
@@ -70,15 +69,16 @@ class NoteProposalsViewModelTest {
     private val projects: ProjectsRepository = FakeProjectsRepository(FakeProfileAwareCurrentUser(user))
     private val deleteProject = DeleteProjectUseCase(projects, tasks)
 
-    private val useCase = ApplyProposalItemUseCase(
-        proposals = proposals,
-        tasks = tasks,
-        notes = notes,
-        projects = projects,
-        tags = tags,
-        planner = ProposalPlanner(clock),
-        dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, projects, deleteProject, clock),
-    )
+    private val useCase =
+        ApplyProposalItemUseCase(
+            proposals = proposals,
+            tasks = tasks,
+            notes = notes,
+            projects = projects,
+            tags = tags,
+            planner = ProposalPlanner(clock),
+            dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, projects, deleteProject, clock),
+        )
 
     /**
      * The ViewModel under test.
@@ -100,137 +100,164 @@ class NoteProposalsViewModelTest {
         }
 
     @Test
-    fun `the proposed changes are shown`() = runTest {
-        seedProposal()
+    fun `the proposed changes are shown`() =
+        runTest {
+            seedProposal()
 
-        val ctx = viewModel()
+            val ctx = viewModel()
 
-        val state = ctx.state.value
-        assertEquals(1, state.proposals.size, "the proposal is there")
-        assertEquals(1, state.proposals.first().pendingItems.size, "with its change")
-    }
-
-    @Test
-    fun `the user applies the change`() = runTest {
-        val itemId = seedProposal()
-
-        val ctx = viewModel()
-
-        ctx.act { onIntent(NoteProposalsIntent.Confirm(itemId)) }
-
-        val items = proposals.watchProposal(proposalId).first()!!.items
-        assertEquals(ProposalItemStatus.Confirmed, items.first().status, "the change is applied")
-    }
+            val state = ctx.state.value
+            assertEquals(1, state.proposals.size, "the proposal is there")
+            assertEquals(
+                1,
+                state.proposals
+                    .first()
+                    .pendingItems.size,
+                "with its change",
+            )
+        }
 
     @Test
-    fun `the user turns the change down`() = runTest {
-        val itemId = seedProposal()
+    fun `the user applies the change`() =
+        runTest {
+            val itemId = seedProposal()
 
-        val ctx = viewModel()
+            val ctx = viewModel()
 
-        ctx.act { onIntent(NoteProposalsIntent.Reject(itemId, null)) }
+            ctx.act { onIntent(NoteProposalsIntent.Confirm(itemId)) }
 
-        val items = proposals.watchProposal(proposalId).first()!!.items
-        assertEquals(ProposalItemStatus.Rejected, items.first().status, "nothing is applied")
-    }
-
-    @Test
-    fun `the reason the user typed is not kept here`() = runTest {
-        val itemId = seedProposal()
-
-        val ctx = viewModel()
-
-        ctx.act { onIntent(NoteProposalsIntent.Reject(itemId, "the body is right already")) }
-
-        val items = proposals.watchProposal(proposalId).first()!!.items
-        assertNull(
-            items.first().rejectionReason,
-            "this editor has always dropped the reason the user typed",
-        )
-    }
+            val items = proposals.watchProposal(proposalId).first()!!.items
+            assertEquals(ProposalItemStatus.Confirmed, items.first().status, "the change is applied")
+        }
 
     @Test
-    fun `a decided change is no longer waiting`() = runTest {
-        val itemId = seedProposal()
+    fun `the user turns the change down`() =
+        runTest {
+            val itemId = seedProposal()
 
-        val ctx = viewModel()
+            val ctx = viewModel()
 
-        ctx.act { onIntent(NoteProposalsIntent.Confirm(itemId)) }
+            ctx.act { onIntent(NoteProposalsIntent.Reject(itemId, null)) }
 
-        assertTrue(ctx.state.value.proposals.isEmpty(), "the decided change is gone")
-    }
-
-    @Test
-    fun `a refused change keeps its reason next to it`() = runTest {
-        // The value the user typed does not read, so the change is refused — and the
-        // reason has to be visible. A refusal the user cannot see is a refusal the
-        // user can only guess at.
-        val itemId = seedProposal(
-            kind = ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
-        )
-
-        val ctx = viewModel()
-
-        ctx.act { onIntent(NoteProposalsIntent.Edit(itemId, "whenever")) }
-
-        val failure = ctx.state.value.failures[itemId]
-        assertTrue(
-            failure != null && failure.contains("whenever"),
-            "the reason sits next to the change: ${ctx.state.value.failures}",
-        )
-    }
+            val items = proposals.watchProposal(proposalId).first()!!.items
+            assertEquals(ProposalItemStatus.Rejected, items.first().status, "nothing is applied")
+        }
 
     @Test
-    fun `a change that goes through leaves no reason behind`() = runTest {
-        val itemId = seedProposal(
-            kind = ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
-        )
+    fun `the reason the user typed is not kept here`() =
+        runTest {
+            val itemId = seedProposal()
 
-        val ctx = viewModel()
+            val ctx = viewModel()
 
-        // A refused change leaves its reason behind; a change that goes through takes it away.
-        ctx.act { onIntent(NoteProposalsIntent.Edit(itemId, "whenever")) }
-        assertTrue(ctx.state.value.failures.isNotEmpty(), "the refusal left its reason")
+            ctx.act { onIntent(NoteProposalsIntent.Reject(itemId, "the body is right already")) }
 
-        ctx.act { onIntent(NoteProposalsIntent.Edit(itemId, "high")) }
-
-        assertTrue(
-            ctx.state.value.failures.isEmpty(),
-            "there is nothing to explain: ${ctx.state.value.failures}",
-        )
-    }
+            val items = proposals.watchProposal(proposalId).first()!!.items
+            assertNull(
+                items.first().rejectionReason,
+                "this editor has always dropped the reason the user typed",
+            )
+        }
 
     @Test
-    fun `the user turns the whole proposal down`() = runTest {
-        seedProposal()
+    fun `a decided change is no longer waiting`() =
+        runTest {
+            val itemId = seedProposal()
 
-        val ctx = viewModel()
+            val ctx = viewModel()
 
-        ctx.act { onIntent(NoteProposalsIntent.Dismiss(proposalId)) }
+            ctx.act { onIntent(NoteProposalsIntent.Confirm(itemId)) }
 
-        val items = proposals.watchProposal(proposalId).first()!!.items
-        assertEquals(ProposalItemStatus.Rejected, items.first().status, "every change is turned down")
-    }
+            assertTrue(
+                ctx.state.value.proposals
+                    .isEmpty(),
+                "the decided change is gone",
+            )
+        }
 
     @Test
-    fun `a turned down change leaves no reason behind`() = runTest {
-        // The note is not seeded, so the change cannot be applied — and the reason
-        // sits next to it. Turning the proposal down answers the change, so the
-        // reason has nothing left to explain.
-        val itemId = seedProposal(seedNote = false)
+    fun `a refused change keeps its reason next to it`() =
+        runTest {
+            // The value the user typed does not read, so the change is refused — and the
+            // reason has to be visible. A refusal the user cannot see is a refusal the
+            // user can only guess at.
+            val itemId =
+                seedProposal(
+                    kind = ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
+                )
 
-        val ctx = viewModel()
+            val ctx = viewModel()
 
-        ctx.act { onIntent(NoteProposalsIntent.Confirm(itemId)) }
-        assertNotNull(ctx.state.value.failures[itemId], "the refusal left its reason")
+            ctx.act { onIntent(NoteProposalsIntent.Edit(itemId, "whenever")) }
 
-        ctx.act { onIntent(NoteProposalsIntent.Dismiss(proposalId)) }
+            val failure = ctx.state.value.failures[itemId]
+            assertTrue(
+                failure != null && failure.contains("whenever"),
+                "the reason sits next to the change: ${ctx.state.value.failures}",
+            )
+        }
 
-        assertTrue(
-            ctx.state.value.failures.isEmpty(),
-            "there is nothing left to explain: ${ctx.state.value.failures}",
-        )
-    }
+    @Test
+    fun `a change that goes through leaves no reason behind`() =
+        runTest {
+            val itemId =
+                seedProposal(
+                    kind = ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
+                )
+
+            val ctx = viewModel()
+
+            // A refused change leaves its reason behind; a change that goes through takes it away.
+            ctx.act { onIntent(NoteProposalsIntent.Edit(itemId, "whenever")) }
+            assertTrue(
+                ctx.state.value.failures
+                    .isNotEmpty(),
+                "the refusal left its reason",
+            )
+
+            ctx.act { onIntent(NoteProposalsIntent.Edit(itemId, "high")) }
+
+            assertTrue(
+                ctx.state.value.failures
+                    .isEmpty(),
+                "there is nothing to explain: ${ctx.state.value.failures}",
+            )
+        }
+
+    @Test
+    fun `the user turns the whole proposal down`() =
+        runTest {
+            seedProposal()
+
+            val ctx = viewModel()
+
+            ctx.act { onIntent(NoteProposalsIntent.Dismiss(proposalId)) }
+
+            val items = proposals.watchProposal(proposalId).first()!!.items
+            assertEquals(ProposalItemStatus.Rejected, items.first().status, "every change is turned down")
+        }
+
+    @Test
+    fun `a turned down change leaves no reason behind`() =
+        runTest {
+            // The note is not seeded, so the change cannot be applied — and the reason
+            // sits next to it. Turning the proposal down answers the change, so the
+            // reason has nothing left to explain.
+            val itemId = seedProposal(seedNote = false)
+
+            val ctx = viewModel()
+
+            ctx.act { onIntent(NoteProposalsIntent.Confirm(itemId)) }
+            assertNotNull(ctx.state.value.failures[itemId], "the refusal left its reason")
+
+            ctx.act { onIntent(NoteProposalsIntent.Dismiss(proposalId)) }
+
+            assertTrue(
+                ctx.state.value.failures
+                    .isEmpty(),
+                "there is nothing left to explain: ${ctx.state.value.failures}",
+            )
+        }
 
     /** Seeds the note the proposal is about, and a one-item proposal for it. */
     private suspend fun seedProposal(
@@ -248,15 +275,16 @@ class NoteProposalsViewModelTest {
                 ),
             )
         }
-        val item = ProposalItem(
-            id = ProposalItemId.fromString("item-1"),
-            proposalId = proposalId,
-            kind = kind,
-            targetId = noteId.value,
-            humanSummary = "Rewrite the body",
-            status = ProposalItemStatus.Pending,
-            fingerprint = "note-body-1",
-        )
+        val item =
+            ProposalItem(
+                id = ProposalItemId.fromString("item-1"),
+                proposalId = proposalId,
+                kind = kind,
+                targetId = noteId.value,
+                humanSummary = "Rewrite the body",
+                status = ProposalItemStatus.Pending,
+                fingerprint = "note-body-1",
+            )
         proposals.save(
             AiProposal(
                 id = proposalId,

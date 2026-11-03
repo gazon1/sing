@@ -20,8 +20,11 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class RecurringSeriesWindowTest {
-
-    private fun d(y: Int, m: Int, day: Int) = LocalDate(y, m, day)
+    private fun d(
+        y: Int,
+        m: Int,
+        day: Int,
+    ) = LocalDate(y, m, day)
 
     /** A Monday — the anchor of the weekly case in the quickstart. */
     private val monday = d(2026, 6, 15)
@@ -78,8 +81,9 @@ class RecurringSeriesWindowTest {
     @Test
     fun `a rule with no date inside the horizon and past its end gives nothing`() {
         // The `beyond` date would land past the end date, so it must not be produced.
-        val yearly = Yearly(RecurrenceBase.FROM_DUE, 6, 15)
-            .copy(termination = RecurrenceTermination(d(2027, 1, 1)))
+        val yearly =
+            Yearly(RecurrenceBase.FROM_DUE, 6, 15)
+                .copy(termination = RecurrenceTermination(d(2027, 1, 1)))
         val window = RecurringSeriesWindow.plan(yearly, monday)
 
         assertTrue(window.isEmpty(), "a beyond date past the end date must not be produced")

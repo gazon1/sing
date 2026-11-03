@@ -38,15 +38,15 @@ class RecordingTool<TArgs, TResult>(
     private val context: () -> ToolCallContext = { ToolCallContext() },
     private val classify: (Throwable) -> ToolCallError? = { null },
 ) : Tool<TArgs, TResult>(delegate.argsType, delegate.resultType, delegate.descriptor, delegate.metadata) {
-
-    override suspend fun execute(args: TArgs): TResult = recorder.timed(
-        tool = delegate.descriptor.name,
-        source = source,
-        context = context(),
-        classify = classify,
-    ) {
-        delegate.execute(args)
-    }
+    override suspend fun execute(args: TArgs): TResult =
+        recorder.timed(
+            tool = delegate.descriptor.name,
+            source = source,
+            context = context(),
+            classify = classify,
+        ) {
+            delegate.execute(args)
+        }
 
     /**
      * The delegate decides how its result reads, not this wrapper.
@@ -57,6 +57,8 @@ class RecordingTool<TArgs, TResult>(
      * model receives `"the text"` instead of `the text` — a difference the model reads as
      * part of the payload rather than as the tool's answer.
      */
-    override fun encodeResultToString(result: TResult, serializer: JSONSerializer): String =
-        delegate.encodeResultToString(result, serializer)
+    override fun encodeResultToString(
+        result: TResult,
+        serializer: JSONSerializer,
+    ): String = delegate.encodeResultToString(result, serializer)
 }

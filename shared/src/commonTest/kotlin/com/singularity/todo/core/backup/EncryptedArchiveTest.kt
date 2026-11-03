@@ -1,13 +1,13 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.security.FakeArchiveCrypto
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Tag
 
 /**
  * The encrypted archive's container: what it looks like, and what it refuses.
@@ -36,7 +36,6 @@ import org.junit.jupiter.api.Tag
  */
 @Tag("fast")
 class EncryptedArchiveTest {
-
     private val crypto = FakeArchiveCrypto()
     private val archive = EncryptedArchive(crypto)
 
@@ -132,9 +131,10 @@ class EncryptedArchiveTest {
     fun `a wrong password is reported as a wrong password`() {
         val sealed = archive.seal(plaintext, password)
 
-        val error = assertFailsWith<ArchiveEnvelopeError.WrongPassword> {
-            archive.open(sealed, "wrong horse".toCharArray())
-        }
+        val error =
+            assertFailsWith<ArchiveEnvelopeError.WrongPassword> {
+                archive.open(sealed, "wrong horse".toCharArray())
+            }
         assertTrue(
             error.message?.contains("password") == true,
             "the message must name the password: ${error.message}",
@@ -150,9 +150,10 @@ class EncryptedArchiveTest {
      */
     @Test
     fun `bytes that are not an encrypted archive are refused`() {
-        val error = assertFailsWith<ArchiveEnvelopeError.NotEncrypted> {
-            archive.open("PK\u0003\u0004a-plain-zip".encodeToByteArray(), password)
-        }
+        val error =
+            assertFailsWith<ArchiveEnvelopeError.NotEncrypted> {
+                archive.open("PK\u0003\u0004a-plain-zip".encodeToByteArray(), password)
+            }
         assertTrue(
             error.message?.contains("not encrypted") == true,
             "the message must say what is wrong: ${error.message}",
@@ -168,13 +169,15 @@ class EncryptedArchiveTest {
     @Test
     fun `a newer container version is refused`() {
         val sealed = archive.seal(plaintext, password)
-        val newer = sealed.copyOf().also {
-            it[ArchiveFormat.MAGIC.length] = (ArchiveFormat.LATEST_VERSION + 1).toByte()
-        }
+        val newer =
+            sealed.copyOf().also {
+                it[ArchiveFormat.MAGIC.length] = (ArchiveFormat.LATEST_VERSION + 1).toByte()
+            }
 
-        val error = assertFailsWith<ArchiveEnvelopeError.UnsupportedArchiveVersion> {
-            archive.open(newer, password)
-        }
+        val error =
+            assertFailsWith<ArchiveEnvelopeError.UnsupportedArchiveVersion> {
+                archive.open(newer, password)
+            }
         assertEquals(ArchiveFormat.LATEST_VERSION + 1, error.version)
     }
 

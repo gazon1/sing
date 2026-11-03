@@ -13,7 +13,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class SlugTest {
-
     @Test
     fun `lowercases and replaces spaces`() {
         assertEquals("buy_milk", slug("Buy Milk"))

@@ -31,16 +31,18 @@ actual fun rememberNav3State(): Nav3State {
     val topLevelRoutes: Set<NavKey> =
         DestinationKind.tabs.toSet() + DestinationKind.menuEntries.toSet()
 
-    val topLevelRouteState: MutableState<NavKey> = remember(startRoute) {
-        mutableStateOf(startRoute)
-    }
+    val topLevelRouteState: MutableState<NavKey> =
+        remember(startRoute) {
+            mutableStateOf(startRoute)
+        }
 
-    val backStacks = topLevelRoutes.associateWith { key ->
-        // No process death on JVM Desktop. An in-memory NavBackStack survives as long as the
-        // Compose composition is alive. LocalSaveableStateRegistry == null here, so any
-        // SavedStateConfiguration would be dead code AND a polymorphic-serialization foot-gun.
-        rememberInMemoryNavBackStack(key)
-    }
+    val backStacks =
+        topLevelRoutes.associateWith { key ->
+            // No process death on JVM Desktop. An in-memory NavBackStack survives as long as the
+            // Compose composition is alive. LocalSaveableStateRegistry == null here, so any
+            // SavedStateConfiguration would be dead code AND a polymorphic-serialization foot-gun.
+            rememberInMemoryNavBackStack(key)
+        }
 
     return remember(startRoute, topLevelRoutes) {
         Nav3State(startRoute, topLevelRouteState, backStacks)

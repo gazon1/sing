@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -31,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
-import androidx.compose.material3.MaterialTheme
 
 /**
  * Универсальная обёртка со свайпом-для-удаления.
@@ -63,10 +63,11 @@ fun SwipeableTaskRow(
     content: @Composable () -> Unit,
     isSelectionMode: Boolean = false,
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        positionalThreshold = { it * 0.4f },
-        // без confirmValueChange
-    )
+    val dismissState =
+        rememberSwipeToDismissBoxState(
+            positionalThreshold = { it * 0.4f },
+            // без confirmValueChange
+        )
 
     LaunchedEffect(dismissState.currentValue) {
         // (2) side effect: onDelete когда стейт осёл на EndToStart
@@ -110,20 +111,22 @@ fun SwipeableTaskRow(
         enableDismissFromEndToStart = !isSelectionMode,
         backgroundContent = {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(backgroundShape)
-                    .background(TaskSemanticColors.Danger)
-                    .padding(horizontal = TaskListSpacing.Xxl),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .clip(backgroundShape)
+                        .background(TaskSemanticColors.Danger)
+                        .padding(horizontal = TaskListSpacing.Xxl),
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Удалить задачу",
                     tint = Color.White,
-                    modifier = Modifier
-                        .size(TaskListSizes.MinTouchTarget - TaskListSpacing.Md) // 32dp
-                        .scale(iconScale),
+                    modifier =
+                        Modifier
+                            .size(TaskListSizes.MinTouchTarget - TaskListSpacing.Md) // 32dp
+                            .scale(iconScale),
                 )
             }
         },
@@ -139,6 +142,5 @@ fun SwipeableTaskRow(
                 }
             }
         },
-
     )
 }

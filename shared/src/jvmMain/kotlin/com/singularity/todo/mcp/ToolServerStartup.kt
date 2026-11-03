@@ -20,7 +20,6 @@ import io.modelcontextprotocol.kotlin.sdk.server.Server
  * never acts on the process.
  */
 internal sealed interface ToolServerStartup {
-
     /**
      * The server is up: its container is started, its database is open, its tools are
      * registered and its shutdown hook is installed.

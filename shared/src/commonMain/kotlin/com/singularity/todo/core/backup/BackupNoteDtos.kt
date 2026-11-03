@@ -4,10 +4,11 @@ import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.database.SyncColumns
 import kotlinx.serialization.Serializable
 
+// ─── NoteDto ───────────────────────────────────────────────────────────────────
+
 /**
  * The note rows of a payload.
  */
-// ─── NoteDto ───────────────────────────────────────────────────────────────────
 
 @Serializable
 data class NoteDto(

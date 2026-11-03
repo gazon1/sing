@@ -43,25 +43,27 @@ open class HlcFactory(
      * keeps that loud, makes the cause diagnosable, and leaves the next call failing the
      * same deterministic way rather than flapping between outcomes.
      */
-    private val nodeIdDeferred: Deferred<String> = CompletableDeferred<String>().also { deferred ->
-        scope.launch {
-            runCatchingCancellable { deviceIdProvider.getOrInitDeviceId() }
-                .onSuccess(deferred::complete)
-                .onFailure(deferred::completeExceptionally)
+    private val nodeIdDeferred: Deferred<String> =
+        CompletableDeferred<String>().also { deferred ->
+            scope.launch {
+                runCatchingCancellable { deviceIdProvider.getOrInitDeviceId() }
+                    .onSuccess(deferred::complete)
+                    .onFailure(deferred::completeExceptionally)
+            }
         }
-    }
 
     // Last HLC, restored from storage if available.
     private var _lastHlc: Hlc? = null
 
-    private val lastHlcDeferred: Deferred<Hlc> = CompletableDeferred<Hlc>().also { deferred ->
-        scope.launch {
-            runCatchingCancellable {
-                hlcStore?.load() ?: Hlc.zero("pending")
-            }.onSuccess(deferred::complete)
-                .onFailure(deferred::completeExceptionally)
+    private val lastHlcDeferred: Deferred<Hlc> =
+        CompletableDeferred<Hlc>().also { deferred ->
+            scope.launch {
+                runCatchingCancellable {
+                    hlcStore?.load() ?: Hlc.zero("pending")
+                }.onSuccess(deferred::complete)
+                    .onFailure(deferred::completeExceptionally)
+            }
         }
-    }
 
     /**
      * Creates a new tick HLC for a local event.
@@ -91,14 +93,15 @@ open class HlcFactory(
      * for the same reason.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun tick(): Hlc = synchronized(this) {
-        val node = nodeIdDeferred.getCompleted()
-        val last = _lastHlc ?: lastHlcDeferred.getCompleted()
-        Hlc.tick(last = last, node = node, nowMillis = currentTimeMillis()).also {
-            _lastHlc = it
-            persist(it)
+    fun tick(): Hlc =
+        synchronized(this) {
+            val node = nodeIdDeferred.getCompleted()
+            val last = _lastHlc ?: lastHlcDeferred.getCompleted()
+            Hlc.tick(last = last, node = node, nowMillis = currentTimeMillis()).also {
+                _lastHlc = it
+                persist(it)
+            }
         }
-    }
 
     /**
      * Merges a received remote HLC with the local state.
@@ -107,20 +110,22 @@ open class HlcFactory(
      * `_lastHlc`, and a `tock` racing a `tick` loses a counter increment the same way.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun tock(remote: Hlc): Hlc = synchronized(this) {
-        val node = nodeIdDeferred.getCompleted()
-        val local = _lastHlc ?: lastHlcDeferred.getCompleted()
-        Hlc.tock(local = local, remote = remote, node = node, nowMillis = currentTimeMillis()).also {
-            _lastHlc = it
-            persist(it)
+    fun tock(remote: Hlc): Hlc =
+        synchronized(this) {
+            val node = nodeIdDeferred.getCompleted()
+            val local = _lastHlc ?: lastHlcDeferred.getCompleted()
+            Hlc.tock(local = local, remote = remote, node = node, nowMillis = currentTimeMillis()).also {
+                _lastHlc = it
+                persist(it)
+            }
         }
-    }
 
     /** Returns the last generated HLC. Guarded for the reason given on [tick]. */
-    fun current(): Hlc = synchronized(this) {
-        _lastHlc ?: runCatching { lastHlcDeferred.getCompleted() }
-            .getOrElse { Hlc.zero("pending") }
-    }
+    fun current(): Hlc =
+        synchronized(this) {
+            _lastHlc ?: runCatching { lastHlcDeferred.getCompleted() }
+                .getOrElse { Hlc.zero("pending") }
+        }
 
     private fun persist(hlc: Hlc) {
         val store = hlcStore ?: return

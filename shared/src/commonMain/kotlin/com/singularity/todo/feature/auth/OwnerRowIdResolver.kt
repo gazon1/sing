@@ -87,7 +87,6 @@ data class OwnerIdMapping(val fromOwnerId: String, val toOwnerId: String, val by
  * @param database the Room database, used read-only by [resolve].
  */
 class OwnerRowIdResolver(private val database: AppDatabase) {
-
     /**
      * Reads the owner's profiles and composes the scoped ids their rows are filed under.
      *
@@ -101,9 +100,10 @@ class OwnerRowIdResolver(private val database: AppDatabase) {
         // not a default profile row exists: the row can be absent and the rows still be
         // there, and vice versa. Including it unconditionally is what makes the default
         // profile's data erasable at all.
-        val scoped = profileIds
-            .map { scopedUserIdFor(ProfileId.fromString(it), owner).value }
-            .toMutableSet()
+        val scoped =
+            profileIds
+                .map { scopedUserIdFor(ProfileId.fromString(it), owner).value }
+                .toMutableSet()
         scoped.add(owner.value)
         return OwnerRowIds(
             ownerId = owner.value,
@@ -121,18 +121,22 @@ class OwnerRowIdResolver(private val database: AppDatabase) {
      *
      * @param to the owner that will hold the rows afterwards.
      */
-    suspend fun resolveMapping(from: UserId, to: UserId): OwnerIdMapping {
+    suspend fun resolveMapping(
+        from: UserId,
+        to: UserId,
+    ): OwnerIdMapping {
         val profiles = database.profileDao().listOwnedBy(from.value)
-        val byScoped = profiles
-            .map { it.id }
-            .associate { profileId ->
-                val id = ProfileId.fromString(profileId)
-                scopedUserIdFor(id, from).value to scopedUserIdFor(id, to).value
-            }
-            // The default profile's scope is the bare owner, and it is included whether
-            // or not a default profile row exists — for the same reason as in `resolve`:
-            // the row can be absent while the data is still there.
-            .plus(from.value to to.value)
+        val byScoped =
+            profiles
+                .map { it.id }
+                .associate { profileId ->
+                    val id = ProfileId.fromString(profileId)
+                    scopedUserIdFor(id, from).value to scopedUserIdFor(id, to).value
+                }
+                // The default profile's scope is the bare owner, and it is included whether
+                // or not a default profile row exists — for the same reason as in `resolve`:
+                // the row can be absent while the data is still there.
+                .plus(from.value to to.value)
         return OwnerIdMapping(
             fromOwnerId = from.value,
             toOwnerId = to.value,

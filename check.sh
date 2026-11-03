@@ -105,7 +105,7 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# The numbered steps are 1..11; the lettered ones (2b, 2c, 3a, 3b, 4b, 7b, 7c, 8a, 8b, 11b, 11c)
+# The numbered steps are 1..11; the lettered ones (1b, 2b, 2c, 3a, 3b, 4b, 7b, 7c, 8a, 8b, 11b, 11c)
 # are extra checks that hang off a numbered step and are not counted here.
 TOTAL=11
 
@@ -141,6 +141,36 @@ run_static_gates() {
     }
     timed "static gates" sgate run-all || {
         echo -e "${RED}a static gate failed — see sgate run-all output above${NC}"
+        return 1
+    }
+}
+
+# ── The formatting ─────────────────────────────────────────────────────────────
+#
+# ktlint owns the layout of the Kotlin sources — wrapping, imports, indentation,
+# trailing commas — and it is a CLI: no Gradle daemon, no configuration cache, and
+# the whole tree in seconds. So the local loop can afford to judge the WHOLE tree
+# on every run, and the whole tree is the point.
+#
+# Three surfaces judged the formatting before this step existed — CI's `detekt`
+# job, the pre-push hook, and `scripts/lint-changed.py` over the changed files
+# only — and none of them was the loop a developer runs before merging. A defect
+# that arrived on `main` and was carried by a later branch was invisible to that
+# loop: the CI job was the first surface to see it, minutes into a run.
+#
+# The check JUDGES; it never rewrites. `just ktlint-fix` is the thing that
+# rewrites, and a loop that fixes the tree cannot report what it fixed.
+#
+# `--require` turns a missing ktlint into a FAILURE rather than a silent skip: a
+# check that could not run looks exactly like a check that had nothing to report,
+# and the preflight above already fails this loop for the same missing tool.
+#
+# ONE call site, called from both lanes — the rule the static gates follow. The
+# lanes differ in WHAT they judge, not in whether they judge the formatting: a
+# stray trailing space is exactly the kind of defect a change introduces.
+run_format_check() {
+    timed "ktlint (formatting)" python3 scripts/ktlint-lint.py --require || {
+        echo -e "${RED}the Kotlin sources are not formatted — see the files named above (or the install command, when ktlint is missing)${NC}"
         return 1
     }
 }
@@ -206,14 +236,21 @@ run_affected_tests() {
 # closes one issue at a time.
 #
 # The fast lane answers exactly that, with the tools the repository already
-# has: the app compiles, the tests this change can break run, the detekt of
-# the files it touched runs, and the tree-level static gates run — 38 seconds,
-# and they catch the dead file reference a moved file leaves behind.
+# has: the tree's formatting is judged, the app compiles, the tests this change
+# can break run, the detekt of the files it touched runs, and the tree-level
+# static gates run — 38 seconds for the gates, and they catch the dead file
+# reference a moved file leaves behind.
 #
 # What it skips is judged elsewhere, not nowhere: CI runs the full loop, and
 # the merge pipeline runs it again on a branch that moved.
 fast_lane() {
     echo -e "${YELLOW}=== fast lane: the checks this change can break ===${NC}"
+
+    # The formatting: the whole tree, in seconds, and no Gradle daemon. It is
+    # the cheapest check here and it catches the most common defect a change
+    # makes — a stray trailing space or a wrapped call the formatter would
+    # rewrite.
+    run_format_check || return 1
 
     # The app compiles. androidMain is compiled by neither the JVM tests nor
     # detekt — detekt runs without type resolution — and a broken androidMain
@@ -264,6 +301,17 @@ run_static_gates || exit 1
 # and a PR must not be blocked by how the work queue is annotated. Declared
 # `local` in scripts/check-gate-wiring.py's GATE_PARITY, so the asymmetry is
 # visible rather than silent.
+
+echo -e "${YELLOW}=== [1b/$TOTAL] Kotlin formatting (ktlint) ===${NC}"
+# The formatting of the Kotlin sources, judged in seconds: run_format_check()
+# above.
+#
+# It runs right after the static gates because it is the cheapest check there
+# is — a CLI over the sources, no Gradle daemon — and a formatting defect found
+# here costs seconds instead of the minutes the compile and the test steps
+# would have cost first.
+run_format_check || exit 1
+
 echo -e "${YELLOW}=== [2/$TOTAL] androidApp:compileDebugKotlin ===${NC}"
 # Cheapest thing that compiles `androidMain`, run early and unconditionally.
 #

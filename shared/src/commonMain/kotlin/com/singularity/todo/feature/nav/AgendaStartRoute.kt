@@ -11,7 +11,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface AgendaStartRoute : AppNavKey {
-
     /** Inbox — all active tasks grouped by relative date bucket. */
     @Serializable
     data object Inbox : AgendaStartRoute

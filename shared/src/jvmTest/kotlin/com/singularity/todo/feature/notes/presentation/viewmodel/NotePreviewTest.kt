@@ -5,6 +5,7 @@ package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
@@ -21,34 +22,47 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.time.Clock
-import com.singularity.todo.core.search.SearchMode
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class NotePreviewTest {
-
     private val testUserId = UserId("test-user")
 
-    private val testNote = Note(
-        id = NoteId("note-1"),
-        userId = testUserId,
-        title = "Test Note",
-        bodyHtml = "<p>Hello world</p>",
-        wordCount = 2,
-        charCount = 11,
-        createdAt = Clock.System.now(),
-        updatedAt = Clock.System.now(),
-    )
+    private val testNote =
+        Note(
+            id = NoteId("note-1"),
+            userId = testUserId,
+            title = "Test Note",
+            bodyHtml = "<p>Hello world</p>",
+            wordCount = 2,
+            charCount = 11,
+            createdAt = Clock.System.now(),
+            updatedAt = Clock.System.now(),
+        )
 
-    private val emptyLinkRepo = object : InternalLinkRepository {
-        override suspend fun searchNotes(query: String, mode: SearchMode): List<Note> = emptyList()
-        override suspend fun searchTasks(query: String, mode: SearchMode): List<Task> = emptyList()
-        override suspend fun getBacklinkNotes(noteId: String): List<Note> = emptyList()
-        override suspend fun getBacklinkTasks(taskId: String): List<Task> = emptyList()
-        override suspend fun getNotesLinkingToTask(taskId: String): List<Note> = emptyList()
-    }
+    private val emptyLinkRepo =
+        object : InternalLinkRepository {
+            override suspend fun searchNotes(
+                query: String,
+                mode: SearchMode,
+            ): List<Note> = emptyList()
 
-    private fun createVm(notesRepo: FakeNotesRepository = FakeNotesRepository(), scope: CoroutineScope): NotePreview =
+            override suspend fun searchTasks(
+                query: String,
+                mode: SearchMode,
+            ): List<Task> = emptyList()
+
+            override suspend fun getBacklinkNotes(noteId: String): List<Note> = emptyList()
+
+            override suspend fun getBacklinkTasks(taskId: String): List<Task> = emptyList()
+
+            override suspend fun getNotesLinkingToTask(taskId: String): List<Note> = emptyList()
+        }
+
+    private fun createVm(
+        notesRepo: FakeNotesRepository = FakeNotesRepository(),
+        scope: CoroutineScope,
+    ): NotePreview =
         NotePreview(
             repo = notesRepo,
             linkRepo = emptyLinkRepo,
@@ -56,95 +70,101 @@ class NotePreviewTest {
         )
 
     @Test
-    fun initial_state_is_Loading() = runTest {
-        val vm = createVm(scope = this)
-        assertIs<NotePreviewState.Loading>(vm.stateFlow.value)
-    }
+    fun initial_state_is_Loading() =
+        runTest {
+            val vm = createVm(scope = this)
+            assertIs<NotePreviewState.Loading>(vm.stateFlow.value)
+        }
 
     @Test
-    fun Load_sets_state_to_Loaded() = runTest {
-        val notesRepo = FakeNotesRepository()
-        notesRepo.seed(testNote)
-        val vm = createVm(notesRepo = notesRepo, scope = this)
+    fun loadSetsStateToLoaded() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            notesRepo.seed(testNote)
+            val vm = createVm(notesRepo = notesRepo, scope = this)
 
-        vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
-        advanceTimeBy(1_000)
-        runCurrent()
+            vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        val state = vm.stateFlow.value
-        assertIs<NotePreviewState.Loaded>(state)
-        assertEquals(testNote.id, state.note.id)
-        assertEquals("Test Note", state.note.title)
-    }
-
-    @Test
-    fun Refresh_reloads_current_note() = runTest {
-        val notesRepo = FakeNotesRepository()
-        notesRepo.seed(testNote)
-        val vm = createVm(notesRepo = notesRepo, scope = this)
-
-        vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
-        advanceTimeBy(1_000)
-        runCurrent()
-
-        // Update the note in the store — collect{} sees the new emission
-        notesRepo.add(testNote.copy(title = "Updated Title"))
-
-        vm.onIntent(NotePreviewIntent.Refresh)
-        advanceTimeBy(1_000)
-        runCurrent()
-
-        val state = vm.stateFlow.value
-        assertIs<NotePreviewState.Loaded>(state)
-        assertEquals("Updated Title", state.note.title)
-    }
+            val state = vm.stateFlow.value
+            assertIs<NotePreviewState.Loaded>(state)
+            assertEquals(testNote.id, state.note.id)
+            assertEquals("Test Note", state.note.title)
+        }
 
     @Test
-    fun rapid_Load_calls_cancel_previous_job() = runTest {
-        val notesRepo = FakeNotesRepository()
-        notesRepo.seed(testNote)
-        val vm = createVm(notesRepo = notesRepo, scope = this)
+    fun refreshReloadsCurrentNote() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            notesRepo.seed(testNote)
+            val vm = createVm(notesRepo = notesRepo, scope = this)
 
-        // Start two loads in rapid succession — second should cancel first
-        vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
-        vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
-        advanceTimeBy(1_000)
-        runCurrent()
+            vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        // Should not throw — second load cancelled the first
-        assertIs<NotePreviewState.Loaded>(vm.stateFlow.value)
-    }
+            // Update the note in the store — collect{} sees the new emission
+            notesRepo.add(testNote.copy(title = "Updated Title"))
 
-    @Test
-    fun Delete_fires_softDelete_on_repository() = runTest {
-        val notesRepo = FakeNotesRepository()
-        notesRepo.seed(testNote)
-        val vm = createVm(notesRepo = notesRepo, scope = this)
+            vm.onIntent(NotePreviewIntent.Refresh)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
-        advanceTimeBy(1_000)
-        runCurrent()
-
-        vm.onIntent(NotePreviewIntent.Delete)
-        advanceTimeBy(1_000)
-        runCurrent()
-
-        // Note should be soft-deleted (deletedAt set)
-        val notes = notesRepo.notes
-        assertEquals(1, notes.size)
-        assertNotNull(notes.values.first().deletedAt)
-    }
+            val state = vm.stateFlow.value
+            assertIs<NotePreviewState.Loaded>(state)
+            assertEquals("Updated Title", state.note.title)
+        }
 
     @Test
-    fun Delete_when_not_loaded_does_nothing() = runTest {
-        val notesRepo = FakeNotesRepository()
-        val vm = createVm(notesRepo = notesRepo, scope = this)
+    fun rapid_Load_calls_cancel_previous_job() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            notesRepo.seed(testNote)
+            val vm = createVm(notesRepo = notesRepo, scope = this)
 
-        vm.onIntent(NotePreviewIntent.Delete)
-        advanceTimeBy(1_000)
-        runCurrent()
+            // Start two loads in rapid succession — second should cancel first
+            vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
+            vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        // No error, state unchanged
-        assertIs<NotePreviewState.Loading>(vm.stateFlow.value)
-    }
+            // Should not throw — second load cancelled the first
+            assertIs<NotePreviewState.Loaded>(vm.stateFlow.value)
+        }
+
+    @Test
+    fun deleteFiresSoftDeleteOnRepository() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            notesRepo.seed(testNote)
+            val vm = createVm(notesRepo = notesRepo, scope = this)
+
+            vm.onIntent(NotePreviewIntent.Load(testNote.id.value))
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            vm.onIntent(NotePreviewIntent.Delete)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            // Note should be soft-deleted (deletedAt set)
+            val notes = notesRepo.notes
+            assertEquals(1, notes.size)
+            assertNotNull(notes.values.first().deletedAt)
+        }
+
+    @Test
+    fun deleteWhenNotLoadedDoesNothing() =
+        runTest {
+            val notesRepo = FakeNotesRepository()
+            val vm = createVm(notesRepo = notesRepo, scope = this)
+
+            vm.onIntent(NotePreviewIntent.Delete)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            // No error, state unchanged
+            assertIs<NotePreviewState.Loading>(vm.stateFlow.value)
+        }
 }

@@ -4,11 +4,11 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
 import com.singularity.todo.core.search.SearchColumn
 import com.singularity.todo.core.search.TextMatchRange
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlinx.collections.immutable.persistentListOf
 
 /**
  * The matched word is drawn over the word.
@@ -20,7 +20,6 @@ import kotlinx.collections.immutable.persistentListOf
  */
 @Tag("fast")
 class HighlightedTextTest {
-
     private val style = SpanStyle(fontWeight = FontWeight.Bold)
 
     @Test

@@ -7,7 +7,10 @@ package com.singularity.todo.core.llm
  */
 sealed interface AiTestResult {
     data object Idle : AiTestResult
+
     data object Testing : AiTestResult
+
     data class Ok(val latencyMs: Long) : AiTestResult
+
     data class Error(val message: String) : AiTestResult
 }

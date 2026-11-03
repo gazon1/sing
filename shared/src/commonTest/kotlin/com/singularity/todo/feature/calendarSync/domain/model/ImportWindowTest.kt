@@ -14,7 +14,6 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class ImportWindowTest {
-
     private val now = Instant.parse("2026-10-05T12:00:00Z")
     private val window = ImportWindow.DEFAULT
 

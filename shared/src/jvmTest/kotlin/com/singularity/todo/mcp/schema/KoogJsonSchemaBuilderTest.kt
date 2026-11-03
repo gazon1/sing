@@ -1,6 +1,7 @@
 package com.singularity.todo.mcp.schema
 
 import ai.koog.agents.core.tools.SimpleTool
+import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.ai.tools.CreateTaskTool
 import com.singularity.todo.feature.ai.tools.GetTaskTool
 import com.singularity.todo.feature.ai.tools.ListLinkedTasksTool
@@ -12,20 +13,19 @@ import com.singularity.todo.feature.search.query.ProjectLookup
 import com.singularity.todo.feature.search.query.ProjectLookupResult
 import com.singularity.todo.feature.search.query.TagLookup
 import com.singularity.todo.feature.search.query.TagLookupResult
-import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
-import com.singularity.todo.test.fakes.FakeProposalRepository
 import com.singularity.todo.test.fakes.FakeProjectsRepository
+import com.singularity.todo.test.fakes.FakeProposalRepository
 import com.singularity.todo.test.fakes.FakeSearchTextIndex
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import kotlinx.datetime.TimeZone
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
-import kotlinx.datetime.TimeZone
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -48,7 +48,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class KoogJsonSchemaBuilderTest {
-
     @Test
     fun schema_field_is_never_populated_for_any_tool() {
         // The MCP SDK serializes ToolSchema.schema: String? as `$schema`, which
@@ -147,21 +146,23 @@ class KoogJsonSchemaBuilderTest {
 
     // ─── Helpers ───────────────────────────────────────────────────────────────
 
-    private fun listTasksTool() = ListTasksTool(
-        taskRepository = FakeTaskRepository(),
-        checklistRepository = FakeChecklistRepository(),
-        clock = FakeClock(),
-        timeZoneProvider = UtcTimeZone,
-        tasksSettingsRepository = FakeSettingsRepository(),
-    )
+    private fun listTasksTool() =
+        ListTasksTool(
+            taskRepository = FakeTaskRepository(),
+            checklistRepository = FakeChecklistRepository(),
+            clock = FakeClock(),
+            timeZoneProvider = UtcTimeZone,
+            tasksSettingsRepository = FakeSettingsRepository(),
+        )
 
-    private fun getTaskTool() = GetTaskTool(
-        taskRepository = FakeTaskRepository(),
-        checklistRepository = FakeChecklistRepository(),
-        clock = FakeClock(),
-        timeZoneProvider = UtcTimeZone,
-        tasksSettingsRepository = FakeSettingsRepository(),
-    )
+    private fun getTaskTool() =
+        GetTaskTool(
+            taskRepository = FakeTaskRepository(),
+            checklistRepository = FakeChecklistRepository(),
+            clock = FakeClock(),
+            timeZoneProvider = UtcTimeZone,
+            tasksSettingsRepository = FakeSettingsRepository(),
+        )
 
     private fun searchTasksTool(): SearchTasksTool {
         val tasks = FakeTaskRepository()
@@ -169,45 +170,58 @@ class KoogJsonSchemaBuilderTest {
         val projects = FakeProjectsRepository()
         val tags = FakeTagsRepository()
         return SearchTasksTool(
-            search = SearchUseCase(
-                taskRepo = tasks,
-                noteRepo = notes,
-                projectRepo = projects,
-                tagRepo = tags,
-                textIndex = FakeSearchTextIndex(tasks, notes, projects, tags),
-                queryResolver = DefaultSearchQueryResolver(
-                    tagLookup = object : TagLookup {
-                        override suspend fun findByName(userId: String, name: String): TagLookupResult? = null
-                    },
-                    projectLookup = object : ProjectLookup {
-                        override suspend fun findByName(userId: String, name: String): ProjectLookupResult? = null
-                    },
-                    clock = FakeClock(),
-                    timeZone = UtcTimeZone,
+            search =
+                SearchUseCase(
+                    taskRepo = tasks,
+                    noteRepo = notes,
+                    projectRepo = projects,
+                    tagRepo = tags,
+                    textIndex = FakeSearchTextIndex(tasks, notes, projects, tags),
+                    queryResolver =
+                        DefaultSearchQueryResolver(
+                            tagLookup =
+                                object : TagLookup {
+                                    override suspend fun findByName(
+                                        userId: String,
+                                        name: String,
+                                    ): TagLookupResult? = null
+                                },
+                            projectLookup =
+                                object : ProjectLookup {
+                                    override suspend fun findByName(
+                                        userId: String,
+                                        name: String,
+                                    ): ProjectLookupResult? = null
+                                },
+                            clock = FakeClock(),
+                            timeZone = UtcTimeZone,
+                        ),
                 ),
-            ),
             currentUser = FakeProfileAwareCurrentUser(),
         )
     }
 
-    private fun listLinkedTasksTool() = ListLinkedTasksTool(
-        taskRepository = FakeTaskRepository(),
-    )
+    private fun listLinkedTasksTool() =
+        ListLinkedTasksTool(
+            taskRepository = FakeTaskRepository(),
+        )
 
-    private fun createTaskTool() = CreateTaskTool(
-        proposals = FakeProposalRepository(kotlin.time.Clock.System),
-        currentUser = FakeProfileAwareCurrentUser(),
-        clock = kotlin.time.Clock.System,
-    )
+    private fun createTaskTool() =
+        CreateTaskTool(
+            proposals = FakeProposalRepository(kotlin.time.Clock.System),
+            currentUser = FakeProfileAwareCurrentUser(),
+            clock = kotlin.time.Clock.System,
+        )
 
     /** Tools that don't need an LLM executor at construction time. */
-    private fun dataOnlyTools(): List<Any> = listOf(
-        listTasksTool(),
-        getTaskTool(),
-        searchTasksTool(),
-        listLinkedTasksTool(),
-        createTaskTool(),
-    )
+    private fun dataOnlyTools(): List<Any> =
+        listOf(
+            listTasksTool(),
+            getTaskTool(),
+            searchTasksTool(),
+            listLinkedTasksTool(),
+            createTaskTool(),
+        )
 
     /** The zone the tests read dates in — UTC, so a date is a date. */
     private object UtcTimeZone : TimeZoneProvider {

@@ -20,24 +20,28 @@ import com.singularity.todo.core.error.runCatchingCancellable
  * redemption happens on the server — see [SupabaseGoogleGrantRedeemer].
  */
 class LocalGoogleGrantRedeemer(private val tokenClientFactory: (String) -> GoogleTokenExchange) : GoogleGrantRedeemer {
-
     override suspend fun redeem(
         grant: GoogleGrant,
         clientId: String,
         codeVerifier: String?,
-    ): Result<GoogleCredentials> = when (grant) {
-        is GoogleGrant.AuthorizationCode -> runCatchingCancellable {
-            tokenClientFactory(clientId).exchangeCode(
-                code = grant.code,
-                redirectUri = grant.redirectUri,
-                codeVerifier = codeVerifier,
-            )
-        }
+    ): Result<GoogleCredentials> =
+        when (grant) {
+            is GoogleGrant.AuthorizationCode -> {
+                runCatchingCancellable {
+                    tokenClientFactory(clientId).exchangeCode(
+                        code = grant.code,
+                        redirectUri = grant.redirectUri,
+                        codeVerifier = codeVerifier,
+                    )
+                }
+            }
 
-        is GoogleGrant.ServerAuthCode -> Result.failure(
-            GoogleAuthorizationException(
-                "A server auth code can only be redeemed by the server that holds the client secret",
-            ),
-        )
-    }
+            is GoogleGrant.ServerAuthCode -> {
+                Result.failure(
+                    GoogleAuthorizationException(
+                        "A server auth code can only be redeemed by the server that holds the client secret",
+                    ),
+                )
+            }
+        }
 }

@@ -32,9 +32,10 @@ internal class ViewModelMustHaveKDocRule(config: Config) : Rule(config, "", null
         report(
             Finding(
                 entity = Entity.atName(clazz),
-                message = "ViewModel '$name' has no class-level KDoc. " +
-                    "Add a KDoc block describing this ViewModel's responsibility, " +
-                    "UiState sealed subclass, and Intent/Event sealed subclass.",
+                message =
+                    "ViewModel '$name' has no class-level KDoc. " +
+                        "Add a KDoc block describing this ViewModel's responsibility, " +
+                        "UiState sealed subclass, and Intent/Event sealed subclass.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -73,8 +74,9 @@ internal class RepositoryInterfaceMustHaveKDocRule(config: Config) : Rule(config
         report(
             Finding(
                 entity = Entity.atName(clazz),
-                message = "Repository interface '$name' has no class-level KDoc. " +
-                    "Document the repository's responsibility, key methods, and error semantics.",
+                message =
+                    "Repository interface '$name' has no class-level KDoc. " +
+                        "Document the repository's responsibility, key methods, and error semantics.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -89,11 +91,14 @@ internal class RepositoryInterfaceMustHaveKDocRule(config: Config) : Rule(config
 
 class KDocEnforcementRulesProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("kdoc-enforcement")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("ViewModelMustHaveKDoc") to { cfg: Config -> ViewModelMustHaveKDocRule(cfg) },
-            RuleName("RepositoryInterfaceMustHaveKDoc") to { cfg: Config -> RepositoryInterfaceMustHaveKDocRule(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("ViewModelMustHaveKDoc") to { cfg: Config -> ViewModelMustHaveKDocRule(cfg) },
+                RuleName("RepositoryInterfaceMustHaveKDoc") to
+                    { cfg: Config -> RepositoryInterfaceMustHaveKDocRule(cfg) },
+            ),
+        )
 }

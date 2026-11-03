@@ -86,42 +86,45 @@ fun buildTaskContextMenu(
         subMenu(
             id = "move_to_project",
             label = "Move to project",
-            children = buildMenuNodes {
-                item(id = "move_project_none", label = "No project", enabled = false) {
-                    // Unwired: `onSetProject: ((ProjectId?) -> Unit)?` on TaskMenuActions; null clears
-                    // the project.
-                    actions.onDismiss()
-                }
-                // Unwired: the submenu needs the project list. Either pass it in as a
-                // parameter to buildTaskContextMenu, or expose `onListProjects: (() -> List<ProjectUi>)?`
-                // and build the children from it.
-                item(id = "move_project_placeholder", label = "— add project —", enabled = false) {}
-            },
+            children =
+                buildMenuNodes {
+                    item(id = "move_project_none", label = "No project", enabled = false) {
+                        // Unwired: `onSetProject: ((ProjectId?) -> Unit)?` on TaskMenuActions; null clears
+                        // the project.
+                        actions.onDismiss()
+                    }
+                    // Unwired: the submenu needs the project list. Either pass it in as a
+                    // parameter to buildTaskContextMenu, or expose `onListProjects: (() -> List<ProjectUi>)?`
+                    // and build the children from it.
+                    item(id = "move_project_placeholder", label = "— add project —", enabled = false) {}
+                },
         )
 
         // ── 7. Set priority → ──────────────────────────────────────────────────
         subMenu(
             id = "set_priority",
             label = "Set priority",
-            children = buildMenuNodes {
-                item(id = "priority_p1", label = "P1  High", enabled = false) {}
-                item(id = "priority_p2", label = "P2  Medium", enabled = false) {}
-                item(id = "priority_p3", label = "P3  Low", enabled = false) {}
-                item(id = "priority_p4", label = "P4  None", enabled = false) {}
-            },
+            children =
+                buildMenuNodes {
+                    item(id = "priority_p1", label = "P1  High", enabled = false) {}
+                    item(id = "priority_p2", label = "P2  Medium", enabled = false) {}
+                    item(id = "priority_p3", label = "P3  Low", enabled = false) {}
+                    item(id = "priority_p4", label = "P4  None", enabled = false) {}
+                },
         )
 
         // ── 8. Set due date → ─────────────────────────────────────────────────
         subMenu(
             id = "set_due_date",
             label = "Set due date",
-            children = buildMenuNodes {
-                item(id = "due_today", label = "Today", enabled = false) {}
-                item(id = "due_tomorrow", label = "Tomorrow", enabled = false) {}
-                item(id = "due_next_week", label = "Next week", enabled = false) {}
-                item(id = "due_pick", label = "Pick date…", enabled = false) {}
-                item(id = "due_none", label = "No date", enabled = false) {}
-            },
+            children =
+                buildMenuNodes {
+                    item(id = "due_today", label = "Today", enabled = false) {}
+                    item(id = "due_tomorrow", label = "Tomorrow", enabled = false) {}
+                    item(id = "due_next_week", label = "Next week", enabled = false) {}
+                    item(id = "due_pick", label = "Pick date…", enabled = false) {}
+                    item(id = "due_none", label = "No date", enabled = false) {}
+                },
         )
 
         // ── 9. Add label ───────────────────────────────────────────────────────
@@ -207,56 +210,57 @@ fun buildTaskContextMenu(
             id = "ai_actions",
             label = "AI Actions",
             enabled = actions.onAiAction != null && hasAiContext,
-            children = buildMenuNodes {
-                item(
-                    id = "ai_refine",
-                    label = "Improve with SMART",
-                    enabled = actions.onAiAction != null && hasAiContext,
-                ) {
-                    actions.onAiAction?.invoke(TaskAiAction.RefineTitle)
-                    actions.onDismiss()
-                }
-                item(
-                    id = "ai_description",
-                    label = "Generate description",
-                    enabled = actions.onAiAction != null && hasAiContext,
-                ) {
-                    actions.onAiAction?.invoke(TaskAiAction.GenerateDescription)
-                    actions.onDismiss()
-                }
-                item(
-                    id = "ai_checklist",
-                    label = "Generate checklist",
-                    enabled = actions.onAiAction != null && hasAiContext,
-                ) {
-                    actions.onAiAction?.invoke(TaskAiAction.GenerateChecklist)
-                    actions.onDismiss()
-                }
-                item(
-                    id = "ai_decompose",
-                    label = "Decompose into subtasks",
-                    enabled = actions.onAiAction != null && hasAiContext,
-                ) {
-                    actions.onAiAction?.invoke(TaskAiAction.Decompose)
-                    actions.onDismiss()
-                }
-                item(
-                    id = "ai_suggest_time",
-                    label = "Suggest best time",
-                    enabled = actions.onAiAction != null && hasAiContext,
-                ) {
-                    actions.onAiAction?.invoke(TaskAiAction.SuggestTime)
-                    actions.onDismiss()
-                }
-                item(
-                    id = "ai_first_step",
-                    label = "Find the first step",
-                    enabled = actions.onAiAction != null && hasAiContext,
-                ) {
-                    actions.onAiAction?.invoke(TaskAiAction.FirstStep)
-                    actions.onDismiss()
-                }
-            },
+            children =
+                buildMenuNodes {
+                    item(
+                        id = "ai_refine",
+                        label = "Improve with SMART",
+                        enabled = actions.onAiAction != null && hasAiContext,
+                    ) {
+                        actions.onAiAction?.invoke(TaskAiAction.RefineTitle)
+                        actions.onDismiss()
+                    }
+                    item(
+                        id = "ai_description",
+                        label = "Generate description",
+                        enabled = actions.onAiAction != null && hasAiContext,
+                    ) {
+                        actions.onAiAction?.invoke(TaskAiAction.GenerateDescription)
+                        actions.onDismiss()
+                    }
+                    item(
+                        id = "ai_checklist",
+                        label = "Generate checklist",
+                        enabled = actions.onAiAction != null && hasAiContext,
+                    ) {
+                        actions.onAiAction?.invoke(TaskAiAction.GenerateChecklist)
+                        actions.onDismiss()
+                    }
+                    item(
+                        id = "ai_decompose",
+                        label = "Decompose into subtasks",
+                        enabled = actions.onAiAction != null && hasAiContext,
+                    ) {
+                        actions.onAiAction?.invoke(TaskAiAction.Decompose)
+                        actions.onDismiss()
+                    }
+                    item(
+                        id = "ai_suggest_time",
+                        label = "Suggest best time",
+                        enabled = actions.onAiAction != null && hasAiContext,
+                    ) {
+                        actions.onAiAction?.invoke(TaskAiAction.SuggestTime)
+                        actions.onDismiss()
+                    }
+                    item(
+                        id = "ai_first_step",
+                        label = "Find the first step",
+                        enabled = actions.onAiAction != null && hasAiContext,
+                    ) {
+                        actions.onAiAction?.invoke(TaskAiAction.FirstStep)
+                        actions.onDismiss()
+                    }
+                },
         )
 
         divider()

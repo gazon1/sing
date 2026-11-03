@@ -30,7 +30,6 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
  * — that is what makes the merged series say one thing about the work.
  */
 class MergeTaskSeriesUseCase(private val repo: TaskRepository) {
-
     /**
      * Merges the series [otherSeriesId] into [seriesId].
      *
@@ -38,7 +37,10 @@ class MergeTaskSeriesUseCase(private val repo: TaskRepository) {
      *   with itself is a mistake in the caller: the result would be the same
      *   series, written twice.
      */
-    suspend operator fun invoke(seriesId: TaskSeriesId, otherSeriesId: TaskSeriesId): Result<List<Task>> {
+    suspend operator fun invoke(
+        seriesId: TaskSeriesId,
+        otherSeriesId: TaskSeriesId,
+    ): Result<List<Task>> {
         val problem = validate(seriesId, otherSeriesId)
         if (problem != null) {
             return Result.failure(problem)
@@ -48,10 +50,11 @@ class MergeTaskSeriesUseCase(private val repo: TaskRepository) {
 
         // The rows that join take the shared fields of the series they joined, and
         // keep everything that belongs to the occurrence they are.
-        val joined = TaskSeriesInvariants.alignedTo(
-            others.map { it.copy(seriesId = seriesId) },
-            members.first(),
-        )
+        val joined =
+            TaskSeriesInvariants.alignedTo(
+                others.map { it.copy(seriesId = seriesId) },
+                members.first(),
+            )
         val merged = members + joined
         return repo.updateAll(merged)
     }
@@ -64,7 +67,10 @@ class MergeTaskSeriesUseCase(private val repo: TaskRepository) {
      * or of a series that is not there are all mistakes in the caller, and none of
      * them may leave a write behind.
      */
-    private suspend fun validate(seriesId: TaskSeriesId, otherSeriesId: TaskSeriesId): Throwable? {
+    private suspend fun validate(
+        seriesId: TaskSeriesId,
+        otherSeriesId: TaskSeriesId,
+    ): Throwable? {
         if (seriesId == otherSeriesId) {
             return IllegalArgumentException("A series is not merged with itself: $seriesId")
         }

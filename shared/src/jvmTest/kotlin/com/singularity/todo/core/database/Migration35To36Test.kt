@@ -30,7 +30,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:migration")
 class Migration35To36Test {
-
     private lateinit var tempDir: File
     private lateinit var dbPath: String
 
@@ -51,61 +50,64 @@ class Migration35To36Test {
     }
 
     @Test
-    fun `an existing row upgrades and reads as not yet seeded`() = runTest {
-        val db = openMigrated()
-        try {
-            db.syncStateDao().insertIfAbsent(
-                SyncStateEntity(ownerId = "owner-1", profileId = "work", lastLsn = 7),
-            )
+    fun `an existing row upgrades and reads as not yet seeded`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                db.syncStateDao().insertIfAbsent(
+                    SyncStateEntity(ownerId = "owner-1", profileId = "work", lastLsn = 7),
+                )
 
-            val migrated = db.syncStateDao().get("owner-1", "work")
+                val migrated = db.syncStateDao().get("owner-1", "work")
 
-            assertEquals(7L, migrated?.lastLsn, "the cursor must survive the upgrade")
-            assertFalse(
-                migrated!!.seedCompleted,
-                "nothing has been uploaded on this row's behalf; defaulting to true would " +
-                    "strand everything the user created before signing in",
-            )
-        } finally {
-            db.close()
+                assertEquals(7L, migrated?.lastLsn, "the cursor must survive the upgrade")
+                assertFalse(
+                    migrated!!.seedCompleted,
+                    "nothing has been uploaded on this row's behalf; defaulting to true would " +
+                        "strand everything the user created before signing in",
+                )
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `a fresh row defaults to not seeded and can be marked`() = runTest {
-        val db = openMigrated()
-        try {
-            val scope = SyncScope("owner-2", "home")
-            db.syncStateDao().insertIfAbsent(SyncStateEntity(ownerId = scope.ownerId, profileId = scope.profileId))
+    fun `a fresh row defaults to not seeded and can be marked`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val scope = SyncScope("owner-2", "home")
+                db.syncStateDao().insertIfAbsent(SyncStateEntity(ownerId = scope.ownerId, profileId = scope.profileId))
 
-            assertFalse(db.syncStateDao().get(scope.ownerId, scope.profileId)!!.seedCompleted)
+                assertFalse(db.syncStateDao().get(scope.ownerId, scope.profileId)!!.seedCompleted)
 
-            db.syncStateDao().setSeedCompleted(scope.ownerId, scope.profileId, true)
+                db.syncStateDao().setSeedCompleted(scope.ownerId, scope.profileId, true)
 
-            assertTrue(db.syncStateDao().get(scope.ownerId, scope.profileId)!!.seedCompleted)
-        } finally {
-            db.close()
+                assertTrue(db.syncStateDao().get(scope.ownerId, scope.profileId)!!.seedCompleted)
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `the seed marker is per scope`() = runTest {
-        val db = openMigrated()
-        try {
-            val work = SyncScope("owner-3", "work")
-            val home = SyncScope("owner-3", "home")
-            db.syncStateDao().insertIfAbsent(SyncStateEntity(ownerId = work.ownerId, profileId = work.profileId))
-            db.syncStateDao().insertIfAbsent(SyncStateEntity(ownerId = home.ownerId, profileId = home.profileId))
+    fun `the seed marker is per scope`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val work = SyncScope("owner-3", "work")
+                val home = SyncScope("owner-3", "home")
+                db.syncStateDao().insertIfAbsent(SyncStateEntity(ownerId = work.ownerId, profileId = work.profileId))
+                db.syncStateDao().insertIfAbsent(SyncStateEntity(ownerId = home.ownerId, profileId = home.profileId))
 
-            db.syncStateDao().setSeedCompleted(work.ownerId, work.profileId, true)
+                db.syncStateDao().setSeedCompleted(work.ownerId, work.profileId, true)
 
-            assertTrue(db.syncStateDao().get(work.ownerId, work.profileId)!!.seedCompleted)
-            assertFalse(
-                db.syncStateDao().get(home.ownerId, home.profileId)!!.seedCompleted,
-                "one profile being seeded says nothing about the other",
-            )
-        } finally {
-            db.close()
+                assertTrue(db.syncStateDao().get(work.ownerId, work.profileId)!!.seedCompleted)
+                assertFalse(
+                    db.syncStateDao().get(home.ownerId, home.profileId)!!.seedCompleted,
+                    "one profile being seeded says nothing about the other",
+                )
+            } finally {
+                db.close()
+            }
         }
-    }
 }

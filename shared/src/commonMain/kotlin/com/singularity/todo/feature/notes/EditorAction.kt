@@ -12,24 +12,34 @@ import androidx.compose.runtime.Stable
 sealed interface EditorAction {
     // ─── Inline spans ──────────────────────────────────────────────────────
     data object Bold : EditorAction
+
     data object Italic : EditorAction
+
     data object Underline : EditorAction
+
     data object Strike : EditorAction
+
     data object Code : EditorAction
 
     // ─── Headings ──────────────────────────────────────────────────────────
     data object H1 : EditorAction
+
     data object H2 : EditorAction
+
     data object H3 : EditorAction
 
     // ─── Block elements ─────────────────────────────────────────────────────
     data object Bullet : EditorAction
+
     data object Ordered : EditorAction
+
     data object Quote : EditorAction // blockquote via toggleBlockquote()
 
     // ─── Alignment ────────────────────────────────────────────────────────
     data object AlignLeft : EditorAction
+
     data object AlignCenter : EditorAction
+
     data object AlignRight : EditorAction
 
     // ─── Links ────────────────────────────────────────────────────────────
@@ -42,21 +52,29 @@ sealed interface EditorAction {
 
     companion object {
         /** Toolbar primary row — common formatting actions. */
-        val primary: List<EditorAction> = listOf(
-            Bold,
-            Italic,
-            Underline,
-            Strike,
-            H1,
-            Bullet,
-            Ordered,
-        )
+        val primary: List<EditorAction> =
+            listOf(
+                Bold,
+                Italic,
+                Underline,
+                Strike,
+                H1,
+                Bullet,
+                Ordered,
+            )
 
         /** Overflow menu actions — less common or dialog-triggered. */
-        val overflow: List<EditorAction> = listOf(
-            H2, H3, Code, Quote,
-            AlignLeft, AlignCenter, AlignRight,
-            ExternalLink, InternalLink,
-        )
+        val overflow: List<EditorAction> =
+            listOf(
+                H2,
+                H3,
+                Code,
+                Quote,
+                AlignLeft,
+                AlignCenter,
+                AlignRight,
+                ExternalLink,
+                InternalLink,
+            )
     }
 }

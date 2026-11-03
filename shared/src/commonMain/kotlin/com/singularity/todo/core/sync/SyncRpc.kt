@@ -39,5 +39,8 @@ interface SyncRpc {
      * Throws whatever the underlying transport throws. Callers that need a typed
      * failure translate at the boundary — see [SupabaseSyncApiClient].
      */
-    suspend fun call(function: String, params: JsonObject): String
+    suspend fun call(
+        function: String,
+        params: JsonObject,
+    ): String
 }

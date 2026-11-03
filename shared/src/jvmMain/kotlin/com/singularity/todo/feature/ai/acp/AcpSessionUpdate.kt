@@ -30,7 +30,6 @@ package com.singularity.todo.feature.ai.acp
  * read without knowing the protocol at all.
  */
 sealed interface AcpSessionUpdate {
-
     /** The agent said something, in words. */
     data class TextDelta(val text: String) : AcpSessionUpdate
 

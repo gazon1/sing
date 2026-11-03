@@ -16,7 +16,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class FileOpenerOutcomeTest {
-
     @Test
     fun `the two outcomes are distinct values`() {
         // Not an enum, so there is no `entries` to count — which is the point: adding a
@@ -31,10 +30,11 @@ class FileOpenerOutcomeTest {
     fun `a total when over the outcome handles both cases`() {
         // Stands in for the caller's `when`. If a case were missing this would not
         // compile, which is the property the sealed type exists to provide.
-        fun describe(outcome: OpenOutcome): String = when (outcome) {
-            OpenOutcome.Opened -> "opened externally"
-            OpenOutcome.NoHandler -> "nothing handles this type"
-        }
+        fun describe(outcome: OpenOutcome): String =
+            when (outcome) {
+                OpenOutcome.Opened -> "opened externally"
+                OpenOutcome.NoHandler -> "nothing handles this type"
+            }
         assertEquals("opened externally", describe(OpenOutcome.Opened))
         assertEquals("nothing handles this type", describe(OpenOutcome.NoHandler))
     }

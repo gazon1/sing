@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.search.query
 
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.TEST_TZ
@@ -8,7 +9,6 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
-import com.singularity.todo.core.search.SearchMode
 
 /**
  * The share of the searches the index cannot narrow.
@@ -60,7 +60,6 @@ import com.singularity.todo.core.search.SearchMode
  */
 @Tag("fast")
 class SearchPlanShareTest {
-
     // ─── The corpus ───────────────────────────────────────────────────────────
 
     /**
@@ -72,49 +71,59 @@ class SearchPlanShareTest {
      */
     private data class Corpus(val query: String, val source: String)
 
-    private val corpus = listOf(
-        // The free-text queries the search tests use.
-        Corpus("milk", "SearchTextQueryTest"),
-        Corpus("milk report", "SearchTextQueryTest"),
-        Corpus("alpha beta", "SearchFreeTextRuleTest"),
-        Corpus("alpha", "SearchFreeTextRuleTest"),
-        Corpus("beta", "SearchFreeTextRuleTest"),
-        Corpus("alpha NOT beta", "SearchFreeTextRuleTest"),
-        Corpus("cafe", "FtsMatcherAgreementTest"),
-        Corpus("quarterly numbers", "FtsMatcherAgreementTest"),
-        Corpus("zzzznomatchzzzz999999", "the search tests — a query that matches nothing"),
-        // The queries the flows type.
-        Corpus("Pokupki", "Maestro/flows/search"),
-        Corpus("arch", "Maestro/flows/search/08-word-prefix.yaml"),
-        Corpus("port", "Maestro/flows/search/08-word-prefix.yaml"),
-        Corpus("Task2026", "Maestro/flows/search"),
-        Corpus("Saved2026", "Maestro/flows/search/07-saved-search.yaml"),
-        // The filters the filter sheet produces — a query of filters only.
-        Corpus("priority:high", "the filter sheet"),
-        Corpus("due:today", "the filter sheet"),
-        Corpus("pinned", "the filter sheet"),
-        Corpus("tag:work", "the filter sheet"),
-        // The shapes the product's own surfaces cannot produce.
-        Corpus("NOT beta", "the grammar only — a rule with nothing but a negation"),
-        Corpus("alpha OR NOT beta", "the grammar only — an OR with a negation"),
-    )
+    private val corpus =
+        listOf(
+            // The free-text queries the search tests use.
+            Corpus("milk", "SearchTextQueryTest"),
+            Corpus("milk report", "SearchTextQueryTest"),
+            Corpus("alpha beta", "SearchFreeTextRuleTest"),
+            Corpus("alpha", "SearchFreeTextRuleTest"),
+            Corpus("beta", "SearchFreeTextRuleTest"),
+            Corpus("alpha NOT beta", "SearchFreeTextRuleTest"),
+            Corpus("cafe", "FtsMatcherAgreementTest"),
+            Corpus("quarterly numbers", "FtsMatcherAgreementTest"),
+            Corpus("zzzznomatchzzzz999999", "the search tests — a query that matches nothing"),
+            // The queries the flows type.
+            Corpus("Pokupki", "Maestro/flows/search"),
+            Corpus("arch", "Maestro/flows/search/08-word-prefix.yaml"),
+            Corpus("port", "Maestro/flows/search/08-word-prefix.yaml"),
+            Corpus("Task2026", "Maestro/flows/search"),
+            Corpus("Saved2026", "Maestro/flows/search/07-saved-search.yaml"),
+            // The filters the filter sheet produces — a query of filters only.
+            Corpus("priority:high", "the filter sheet"),
+            Corpus("due:today", "the filter sheet"),
+            Corpus("pinned", "the filter sheet"),
+            Corpus("tag:work", "the filter sheet"),
+            // The shapes the product's own surfaces cannot produce.
+            Corpus("NOT beta", "the grammar only — a rule with nothing but a negation"),
+            Corpus("alpha OR NOT beta", "the grammar only — an OR with a negation"),
+        )
 
     // ─── The measurement ──────────────────────────────────────────────────────
 
-    private val tagLookup = object : TagLookup {
-        override suspend fun findByName(userId: String, name: String): TagLookupResult? = null
-    }
+    private val tagLookup =
+        object : TagLookup {
+            override suspend fun findByName(
+                userId: String,
+                name: String,
+            ): TagLookupResult? = null
+        }
 
-    private val projectLookup = object : ProjectLookup {
-        override suspend fun findByName(userId: String, name: String): ProjectLookupResult? = null
-    }
+    private val projectLookup =
+        object : ProjectLookup {
+            override suspend fun findByName(
+                userId: String,
+                name: String,
+            ): ProjectLookupResult? = null
+        }
 
-    private val resolver = DefaultSearchQueryResolver(
-        tagLookup,
-        projectLookup,
-        FakeClock(Instant.parse("2026-09-16T10:00:00Z")),
-        TEST_TZ,
-    )
+    private val resolver =
+        DefaultSearchQueryResolver(
+            tagLookup,
+            projectLookup,
+            FakeClock(Instant.parse("2026-09-16T10:00:00Z")),
+            TEST_TZ,
+        )
 
     private val userId = "user_1"
 
@@ -136,62 +145,68 @@ class SearchPlanShareTest {
     // ─── The tests ────────────────────────────────────────────────────────────
 
     @Test
-    fun `the index narrows most of the corpus, and the broad scan is the minority`() = runTest {
-        val measured = corpus.map { measure(it) }
+    fun `the index narrows most of the corpus, and the broad scan is the minority`() =
+        runTest {
+            val measured = corpus.map { measure(it) }
 
-        val narrowed = measured.filter { it.plan is TextMatchPlan.Narrowed }
-        val broad = measured.filter { it.plan is TextMatchPlan.BroadScan }
+            val narrowed = measured.filter { it.plan is TextMatchPlan.Narrowed }
+            val broad = measured.filter { it.plan is TextMatchPlan.BroadScan }
 
-        assertEquals(
-            14,
-            narrowed.size,
-            "the queries the index answers: " +
-                narrowed.joinToString { it.corpus.query },
-        )
-        assertEquals(
-            6,
-            broad.size,
-            "the queries that reach the broad scan: " +
-                broad.joinToString { "${it.corpus.query} (${it.corpus.source})" },
-        )
-    }
-
-    @Test
-    fun `the broad scan is reached by the shapes the product cannot produce`() = runTest {
-        val measured = corpus.map { measure(it) }
-
-        val broad = measured.filter { it.plan is TextMatchPlan.BroadScan }
-            .map { it.corpus.query }
-
-        assertEquals(
-            listOf("priority:high", "due:today", "pinned", "tag:work", "NOT beta", "alpha OR NOT beta"),
-            broad,
-        )
-    }
+            assertEquals(
+                14,
+                narrowed.size,
+                "the queries the index answers: " +
+                    narrowed.joinToString { it.corpus.query },
+            )
+            assertEquals(
+                6,
+                broad.size,
+                "the queries that reach the broad scan: " +
+                    broad.joinToString { "${it.corpus.query} (${it.corpus.source})" },
+            )
+        }
 
     @Test
-    fun `a query of filters only does not scan the tasks`() = runTest {
-        val measured = corpus.map { measure(it) }
+    fun `the broad scan is reached by the shapes the product cannot produce`() =
+        runTest {
+            val measured = corpus.map { measure(it) }
 
-        val scans = measured.filter { it.scansTheRows }.map { it.corpus.query }
+            val broad =
+                measured
+                    .filter { it.plan is TextMatchPlan.BroadScan }
+                    .map { it.corpus.query }
 
-        assertEquals(
-            listOf("NOT beta", "alpha OR NOT beta"),
-            scans,
-            "the queries that read every task of the profile and filter it in memory",
-        )
-    }
+            assertEquals(
+                listOf("priority:high", "due:today", "pinned", "tag:work", "NOT beta", "alpha OR NOT beta"),
+                broad,
+            )
+        }
 
     @Test
-    fun `a query of filters only reads the other kinds for nothing`() = runTest {
-        val measured = corpus.map { measure(it) }
+    fun `a query of filters only does not scan the tasks`() =
+        runTest {
+            val measured = corpus.map { measure(it) }
 
-        val reads = measured.filter { it.readsTheOtherKinds }.map { it.corpus.query }
+            val scans = measured.filter { it.scansTheRows }.map { it.corpus.query }
 
-        assertEquals(
-            listOf("priority:high", "due:today", "pinned", "tag:work"),
-            reads,
-            "the queries that read every note, project and tag to find that they match none",
-        )
-    }
+            assertEquals(
+                listOf("NOT beta", "alpha OR NOT beta"),
+                scans,
+                "the queries that read every task of the profile and filter it in memory",
+            )
+        }
+
+    @Test
+    fun `a query of filters only reads the other kinds for nothing`() =
+        runTest {
+            val measured = corpus.map { measure(it) }
+
+            val reads = measured.filter { it.readsTheOtherKinds }.map { it.corpus.query }
+
+            assertEquals(
+                listOf("priority:high", "due:today", "pinned", "tag:work"),
+                reads,
+                "the queries that read every note, project and tag to find that they match none",
+            )
+        }
 }

@@ -79,7 +79,6 @@ data class TaskCognitiveLoadThresholds(
  * beyond the thresholds it is given.
  */
 object TaskCognitiveLoadCalculator {
-
     /**
      * How much thinking the task asks for.
      *
@@ -103,13 +102,14 @@ object TaskCognitiveLoadCalculator {
      * `None` is zero — not "the least", but "not stated" — and the rule below keeps it
      * out of the verdict.
      */
-    fun valueOf(priority: TaskPriority): Int = when (priority) {
-        TaskPriority.None -> 0
-        TaskPriority.Low -> 1
-        TaskPriority.Medium -> 2
-        TaskPriority.High -> 3
-        TaskPriority.Urgent -> 4
-    }
+    fun valueOf(priority: TaskPriority): Int =
+        when (priority) {
+            TaskPriority.None -> 0
+            TaskPriority.Low -> 1
+            TaskPriority.Medium -> 2
+            TaskPriority.High -> 3
+            TaskPriority.Urgent -> 4
+        }
 
     /**
      * How much the task weighs on the user.

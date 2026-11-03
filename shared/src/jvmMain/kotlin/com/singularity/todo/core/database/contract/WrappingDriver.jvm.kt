@@ -14,14 +14,15 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
  *
  * Room only ever sees the [SQLiteDriver] interface, so the concrete type is irrelevant.
  */
-actual val wrappingDriver: SQLiteDriver = object : SQLiteDriver {
-    private val native = BundledSQLiteDriver()
+actual val wrappingDriver: SQLiteDriver =
+    object : SQLiteDriver {
+        private val native = BundledSQLiteDriver()
 
-    override fun open(path: String): SQLiteConnection {
-        val conn = native.open(path)
-        PlatformPragmas.applyTo(conn)
-        return conn
+        override fun open(path: String): SQLiteConnection {
+            val conn = native.open(path)
+            PlatformPragmas.applyTo(conn)
+            return conn
+        }
+
+        override val hasConnectionPool: Boolean get() = native.hasConnectionPool
     }
-
-    override val hasConnectionPool: Boolean get() = native.hasConnectionPool
-}

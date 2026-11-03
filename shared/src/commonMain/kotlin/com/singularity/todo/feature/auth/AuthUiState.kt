@@ -14,7 +14,9 @@ import androidx.compose.runtime.Immutable
 @Immutable
 sealed interface AuthUiState {
     data object Idle : AuthUiState
+
     data object Loading : AuthUiState
+
     data object Success : AuthUiState
 
     /** No Supabase project has been configured yet, so there is nothing to sign in to. */

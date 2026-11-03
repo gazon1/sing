@@ -1,7 +1,7 @@
 package com.singularity.todo.arch
 
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -70,14 +70,15 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class VendorSdkConfinementTest {
-
     private fun productionSources(): List<File> {
-        val root = System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
-        return File(root).walkTopDown()
+        val root =
+            System.getProperty("commonMain.root")
+                ?: error(
+                    "commonMain.root system property is not set — " +
+                        "see the jvmTest task config in shared/build.gradle.kts",
+                )
+        return File(root)
+            .walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .toList()
     }
@@ -85,10 +86,11 @@ class VendorSdkConfinementTest {
     @Test
     fun `only the declared seams import a vendor sdk`() {
         for (vendor in VENDORS) {
-            val offenders = productionSources()
-                .filter { file -> file.readText().contains(vendor.prefix) }
-                .filterNot { file -> vendor.seams.any { file.path.endsWith(it) } }
-                .map { it.name }
+            val offenders =
+                productionSources()
+                    .filter { file -> file.readText().contains(vendor.prefix) }
+                    .filterNot { file -> vendor.seams.any { file.path.endsWith(it) } }
+                    .map { it.name }
 
             assertEquals(
                 emptyList(),
@@ -126,17 +128,19 @@ class VendorSdkConfinementTest {
     fun `the rule detects a vendor import outside a seam`() {
         // Positive control. See the class comment.
         for (vendor in VENDORS) {
-            val offender = """
+            val offender =
+                """
                 package com.singularity.todo.feature.tasks
 
                 import ${vendor.prefix}.Something
 
                 class Sneaky
-            """.trimIndent()
+                """.trimIndent()
 
-            val caught = listOf(offender)
-                .filter { it.contains(vendor.prefix) }
-                .filterNot { text -> vendor.seams.any { text.endsWith(it) } }
+            val caught =
+                listOf(offender)
+                    .filter { it.contains(vendor.prefix) }
+                    .filterNot { text -> vendor.seams.any { text.endsWith(it) } }
 
             assertEquals(
                 1,
@@ -158,25 +162,28 @@ class VendorSdkConfinementTest {
     private data class Vendor(val prefix: String, val seams: List<String>)
 
     private companion object {
-        val VENDORS = listOf(
-            Vendor(
-                prefix = "io.github.jan.supabase",
-                seams = listOf(
-                    "auth/SupabaseClientProvider.kt",
-                    "auth/SupabaseAuthGateway.kt",
-                    "auth/SecureSessionManager.kt",
-                    "sync/PostgrestSyncRpc.kt",
-                    "backup/SupabaseBackupBucket.kt",
-                    "calendarSync/auth/SupabaseGoogleTokenGateway.kt",
-                    "transport/SupabaseTransportFailure.kt",
+        val VENDORS =
+            listOf(
+                Vendor(
+                    prefix = "io.github.jan.supabase",
+                    seams =
+                        listOf(
+                            "auth/SupabaseClientProvider.kt",
+                            "auth/SupabaseAuthGateway.kt",
+                            "auth/SecureSessionManager.kt",
+                            "sync/PostgrestSyncRpc.kt",
+                            "backup/SupabaseBackupBucket.kt",
+                            "calendarSync/auth/SupabaseGoogleTokenGateway.kt",
+                            "transport/SupabaseTransportFailure.kt",
+                        ),
                 ),
-            ),
-            Vendor(
-                prefix = "com.mmk.kmpauth",
-                seams = listOf(
-                    "auth/SupabaseAuthGateway.kt",
+                Vendor(
+                    prefix = "com.mmk.kmpauth",
+                    seams =
+                        listOf(
+                            "auth/SupabaseAuthGateway.kt",
+                        ),
                 ),
-            ),
-        )
+            )
     }
 }

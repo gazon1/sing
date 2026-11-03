@@ -8,10 +8,10 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
-import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Settings
 import com.singularity.todo.feature.nav.SystemBackHandler
+import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.rememberAppNavBackStack
 import com.singularity.todo.feature.settings.SettingsScreen
 
@@ -36,9 +36,10 @@ fun SettingsNavGraph(
 ) {
     val stack: NavBackStack<Settings> = backStack ?: rememberAppNavBackStack(Settings)
     val onExitGraph: (AppDestination?) -> Unit = navCallbacks.graphExit
-    val navigator = remember(onExitGraph) {
-        SettingsNavigator(onExitGraph)
-    }
+    val navigator =
+        remember(onExitGraph) {
+            SettingsNavigator(onExitGraph)
+        }
     CompositionLocalProvider(
         LocalSettingsNavigator provides navigator,
     ) {
@@ -60,6 +61,7 @@ fun SettingsNavGraph(
  * nested graph — the map from [Settings] to [SettingsScreen].
  */
 @Composable
-internal fun settingsScreenEntryProvider() = entryProvider {
-    entry<Settings> { SettingsScreen() }
-}
+internal fun settingsScreenEntryProvider() =
+    entryProvider {
+        entry<Settings> { SettingsScreen() }
+    }

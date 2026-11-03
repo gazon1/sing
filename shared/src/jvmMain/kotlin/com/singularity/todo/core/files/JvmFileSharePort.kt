@@ -10,8 +10,10 @@ import java.io.File
  * via this mechanism; other file types are offered as plain file references.
  */
 class JvmFileSharePort : FileSharePort {
-
-    override fun shareFile(filePath: String, mimeType: String): Boolean {
+    override fun shareFile(
+        filePath: String,
+        mimeType: String,
+    ): Boolean {
         val file = File(filePath)
         if (!file.exists()) return false
 

@@ -78,7 +78,6 @@ package com.singularity.todo.arch
  *   points at the same place in the source.
  */
 internal object KotlinText {
-
     private const val TRIPLE = "\"\"\""
 
     /** The template opener, `${`. */
@@ -118,14 +117,19 @@ internal object KotlinText {
      * the text of a template is not a brace of the file; a brace in a template's
      * *body* is, because it opens and closes a real block.
      */
-    fun matchingBrace(source: String, openIndex: Int): Int {
+    fun matchingBrace(
+        source: String,
+        openIndex: Int,
+    ): Int {
         if (openIndex < 0 || openIndex >= source.length) return -1
         val kinds = Walk(source).run()
         var depth = 0
         for (i in openIndex until source.length) {
             if (kinds[i] != CODE) continue
             when (source[i]) {
-                '{' -> depth++
+                '{' -> {
+                    depth++
+                }
 
                 '}' -> {
                     depth--
@@ -196,7 +200,6 @@ internal object KotlinText {
      * are written to it.
      */
     private class Walk(private val source: String) {
-
         private val kinds = ByteArray(source.length)
         private var index = 0
 
@@ -281,7 +284,9 @@ internal object KotlinText {
                         return
                     }
 
-                    else -> i++
+                    else -> {
+                        i++
+                    }
                 }
             }
             mark(contentStart, source.length, LITERAL)
@@ -294,7 +299,9 @@ internal object KotlinText {
             while (i < source.length) {
                 val ch = source[i]
                 when {
-                    ch == '\\' -> i += 2
+                    ch == '\\' -> {
+                        i += 2
+                    }
 
                     ch == '"' -> {
                         mark(contentStart, i, LITERAL)
@@ -317,7 +324,9 @@ internal object KotlinText {
                         contentStart = i
                     }
 
-                    else -> i++
+                    else -> {
+                        i++
+                    }
                 }
             }
             mark(contentStart, source.length, LITERAL)
@@ -330,7 +339,9 @@ internal object KotlinText {
             while (i < source.length) {
                 val ch = source[i]
                 when {
-                    ch == '\\' -> i += 2
+                    ch == '\\' -> {
+                        i += 2
+                    }
 
                     ch == '\'' -> {
                         mark(contentStart, i, LITERAL)
@@ -344,7 +355,9 @@ internal object KotlinText {
                         return
                     }
 
-                    else -> i++
+                    else -> {
+                        i++
+                    }
                 }
             }
             mark(contentStart, source.length, LITERAL)
@@ -362,15 +375,25 @@ internal object KotlinText {
             while (index < source.length) {
                 val ch = source[index]
                 when {
-                    source.startsWith("//", index) -> lineComment()
+                    source.startsWith("//", index) -> {
+                        lineComment()
+                    }
 
-                    source.startsWith("/*", index) -> blockComment()
+                    source.startsWith("/*", index) -> {
+                        blockComment()
+                    }
 
-                    source.startsWith(TRIPLE, index) -> rawString()
+                    source.startsWith(TRIPLE, index) -> {
+                        rawString()
+                    }
 
-                    ch == '"' -> plainString()
+                    ch == '"' -> {
+                        plainString()
+                    }
 
-                    ch == '\'' -> charLiteral()
+                    ch == '\'' -> {
+                        charLiteral()
+                    }
 
                     ch == '{' -> {
                         depth++
@@ -387,13 +410,19 @@ internal object KotlinText {
                         index++
                     }
 
-                    else -> index++
+                    else -> {
+                        index++
+                    }
                 }
             }
             return index
         }
 
-        private fun mark(start: Int, end: Int, kind: Byte) {
+        private fun mark(
+            start: Int,
+            end: Int,
+            kind: Byte,
+        ) {
             for (i in start until minOf(end, kinds.size)) kinds[i] = kind
         }
     }
@@ -404,7 +433,11 @@ internal object KotlinText {
      * Newlines survive, so a line number from the result still points at the
      * same line of the source, and in-line offsets do not move either.
      */
-    private fun blank(source: String, kinds: ByteArray, predicate: (Byte) -> Boolean): String {
+    private fun blank(
+        source: String,
+        kinds: ByteArray,
+        predicate: (Byte) -> Boolean,
+    ): String {
         val out = source.toCharArray()
         var start = -1
         for (i in kinds.indices) {
@@ -420,7 +453,11 @@ internal object KotlinText {
         return String(out)
     }
 
-    private fun blankRange(out: CharArray, start: Int, end: Int) {
+    private fun blankRange(
+        out: CharArray,
+        start: Int,
+        end: Int,
+    ) {
         for (i in start until minOf(end, out.size)) {
             if (out[i] != '\n') out[i] = ' '
         }

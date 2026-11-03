@@ -7,10 +7,10 @@ import androidx.compose.ui.test.hasText
 import com.singularity.todo.test.helpers.assertNodeDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertTrue
-import kotlinx.collections.immutable.persistentListOf
 
 /**
  * The confirmation shown when a task with unfinished prerequisites is closed.
@@ -22,40 +22,41 @@ import kotlinx.collections.immutable.persistentListOf
  */
 @Tag("fast")
 class BlockedCompletionDialogTest {
-
     @Test
-    fun `the dialog names the open prerequisites`() = runIsolatedComposeTest {
-        setContent {
-            BlockedCompletionDialog(
-                taskTitle = "Ship the release",
-                blockerTitles = persistentListOf("Write the changelog", "Run the tests"),
-                onConfirm = {},
-                onDismiss = {},
-            )
+    fun `the dialog names the open prerequisites`() =
+        runIsolatedComposeTest {
+            setContent {
+                BlockedCompletionDialog(
+                    taskTitle = "Ship the release",
+                    blockerTitles = persistentListOf("Write the changelog", "Run the tests"),
+                    onConfirm = {},
+                    onDismiss = {},
+                )
+            }
+
+            // The body is one text node with the names on separate lines, so the
+            // match has to be a substring match — an exact one would look for a node
+            // whose whole text is the name, and there is no such node.
+            assertNodeDisplayed(hasText("Write the changelog", substring = true), "the first prerequisite")
+            assertNodeDisplayed(hasText("Run the tests", substring = true), "the second prerequisite")
+            assertNodeDisplayed(hasText("Ship the release", substring = true), "the task")
         }
 
-        // The body is one text node with the names on separate lines, so the
-        // match has to be a substring match — an exact one would look for a node
-        // whose whole text is the name, and there is no such node.
-        assertNodeDisplayed(hasText("Write the changelog", substring = true), "the first prerequisite")
-        assertNodeDisplayed(hasText("Run the tests", substring = true), "the second prerequisite")
-        assertNodeDisplayed(hasText("Ship the release", substring = true), "the task")
-    }
-
     @Test
-    fun `the dialog offers both answers`() = runIsolatedComposeTest {
-        setContent {
-            BlockedCompletionDialog(
-                taskTitle = "Ship the release",
-                blockerTitles = persistentListOf("Write the changelog"),
-                onConfirm = {},
-                onDismiss = {},
-            )
-        }
+    fun `the dialog offers both answers`() =
+        runIsolatedComposeTest {
+            setContent {
+                BlockedCompletionDialog(
+                    taskTitle = "Ship the release",
+                    blockerTitles = persistentListOf("Write the changelog"),
+                    onConfirm = {},
+                    onDismiss = {},
+                )
+            }
 
-        assertTextDisplayed(BLOCKED_COMPLETION_CONFIRM)
-        assertTextDisplayed(BLOCKED_COMPLETION_DISMISS)
-    }
+            assertTextDisplayed(BLOCKED_COMPLETION_CONFIRM)
+            assertTextDisplayed(BLOCKED_COMPLETION_DISMISS)
+        }
 
     @Test
     fun `the wording names every prerequisite`() {

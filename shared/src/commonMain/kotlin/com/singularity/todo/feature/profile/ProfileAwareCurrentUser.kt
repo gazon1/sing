@@ -4,9 +4,9 @@ import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -18,11 +18,15 @@ import kotlinx.coroutines.launch
  * resolve the target profile's namespace. Exposed as a top-level function so the
  * two call sites cannot drift.
  */
-fun scopedUserIdFor(profileId: ProfileId, userId: UserId): UserId = if (profileId == ProfileId.default) {
-    userId
-} else {
-    UserId.fromString("${profileId.value}/${userId.value}")
-}
+fun scopedUserIdFor(
+    profileId: ProfileId,
+    userId: UserId,
+): UserId =
+    if (profileId == ProfileId.default) {
+        userId
+    } else {
+        UserId.fromString("${profileId.value}/${userId.value}")
+    }
 
 /**
  * Wraps [CurrentUser] and adds per-profile isolation.
@@ -44,9 +48,11 @@ open class ProfileAwareCurrentUser(
     profileRepository: ProfileRepository,
     private val scope: CoroutineScope,
 ) {
-
     /** Computes the scoped userId from the current upstreams — synchronous, no dispatch. */
-    private fun computeScopedUserId(userId: UserId, profileId: ProfileId): UserId = scopedUserIdFor(profileId, userId)
+    private fun computeScopedUserId(
+        userId: UserId,
+        profileId: ProfileId,
+    ): UserId = scopedUserIdFor(profileId, userId)
 
     /**
      * Profile-scoped userId: `"{profileId}/{userId}"` or just `userId`
@@ -78,12 +84,13 @@ open class ProfileAwareCurrentUser(
      *
      * See ADR `2026-10-04-derived-identity-flows`.
      */
-    private val _scopedUserId = MutableStateFlow(
-        computeScopedUserId(
-            currentUser.userId.value,
-            profileRepository.activeProfileId.value,
-        ),
-    )
+    private val _scopedUserId =
+        MutableStateFlow(
+            computeScopedUserId(
+                currentUser.userId.value,
+                profileRepository.activeProfileId.value,
+            ),
+        )
     open val scopedUserId: StateFlow<UserId> = _scopedUserId
 
     /**

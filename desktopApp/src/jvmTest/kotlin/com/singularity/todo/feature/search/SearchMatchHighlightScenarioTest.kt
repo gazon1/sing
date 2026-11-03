@@ -16,13 +16,13 @@ import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.test.helpers.semanticsRoots
 import com.singularity.todo.test.helpers.visit
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Instant
-import kotlinx.collections.immutable.persistentListOf
 
 /**
  * Desktop automation for scenario `SEARCH-09` — see
@@ -51,50 +51,51 @@ import kotlinx.collections.immutable.persistentListOf
 @Tag("slow")
 @Tag("slow:compose")
 class SearchMatchHighlightScenarioTest {
-
     @Test
     @DisplayName("SEARCH-09 the result shows the word that was matched")
-    fun the_result_shows_the_word_that_was_matched() = runIsolatedComposeTest {
-        val task = task("Architecture of the house")
+    fun the_result_shows_the_word_that_was_matched() =
+        runIsolatedComposeTest {
+            val task = task("Architecture of the house")
 
-        setContent {
-            SingularityTheme(themeMode = ThemeMode.Light) {
-                TaskCard(
-                    task = task,
-                    onClick = {},
-                    matchRanges = persistentListOf(TextMatchRange(SearchColumn.TITLE, 0, 12)),
-                )
+            setContent {
+                SingularityTheme(themeMode = ThemeMode.Light) {
+                    TaskCard(
+                        task = task,
+                        onClick = {},
+                        matchRanges = persistentListOf(TextMatchRange(SearchColumn.TITLE, 0, 12)),
+                    )
+                }
             }
+
+            val title = textShown(task.title)
+
+            val span = title.spanStyles.single()
+            assertEquals(0, span.start, "the match starts at the first character of the title")
+            assertEquals(12, span.end, "the match covers the word the index reported")
         }
-
-        val title = textShown(task.title)
-
-        val span = title.spanStyles.single()
-        assertEquals(0, span.start, "the match starts at the first character of the title")
-        assertEquals(12, span.end, "the match covers the word the index reported")
-    }
 
     @Test
-    fun `a match that belongs to another column is not drawn in the title`() = runIsolatedComposeTest {
-        val task = task("The plan")
+    fun `a match that belongs to another column is not drawn in the title`() =
+        runIsolatedComposeTest {
+            val task = task("The plan")
 
-        setContent {
-            SingularityTheme(themeMode = ThemeMode.Light) {
-                TaskCard(
-                    task = task,
-                    onClick = {},
-                    matchRanges = persistentListOf(TextMatchRange(SearchColumn.DESCRIPTION, 0, 12)),
-                )
+            setContent {
+                SingularityTheme(themeMode = ThemeMode.Light) {
+                    TaskCard(
+                        task = task,
+                        onClick = {},
+                        matchRanges = persistentListOf(TextMatchRange(SearchColumn.DESCRIPTION, 0, 12)),
+                    )
+                }
             }
+
+            val title = textShown(task.title)
+
+            assertTrue(
+                title.spanStyles.isEmpty(),
+                "the title does not carry the word, so nothing is drawn in it: ${title.spanStyles}",
+            )
         }
-
-        val title = textShown(task.title)
-
-        assertTrue(
-            title.spanStyles.isEmpty(),
-            "the title does not carry the word, so nothing is drawn in it: ${title.spanStyles}",
-        )
-    }
 
     /**
      * The text the scene shows, as the scene holds it.
@@ -118,33 +119,35 @@ class SearchMatchHighlightScenarioTest {
     }
 
     @Test
-    fun `a blocked task shows the blocked marking`() = runIsolatedComposeTest {
-        val t = task("Blocked task")
-        setContent {
-            SingularityTheme(themeMode = ThemeMode.Light) {
-                TaskCard(
-                    task = t,
-                    onClick = {},
-                    blockedTaskIds = kotlinx.collections.immutable.persistentSetOf(t.id),
-                )
+    fun `a blocked task shows the blocked marking`() =
+        runIsolatedComposeTest {
+            val t = task("Blocked task")
+            setContent {
+                SingularityTheme(themeMode = ThemeMode.Light) {
+                    TaskCard(
+                        task = t,
+                        onClick = {},
+                        blockedTaskIds = kotlinx.collections.immutable.persistentSetOf(t.id),
+                    )
+                }
             }
-        }
-        var found = false
-        for (root in semanticsRoots()) {
-            root.visit { node ->
-                val desc = node.config.getOrNull(SemanticsProperties.ContentDescription)
-                if (desc != null && desc.contains("Задача заблокирована зависимостями")) found = true
+            var found = false
+            for (root in semanticsRoots()) {
+                root.visit { node ->
+                    val desc = node.config.getOrNull(SemanticsProperties.ContentDescription)
+                    if (desc != null && desc.contains("Задача заблокирована зависимостями")) found = true
+                }
             }
+            assertTrue(found, "blocked marking should be rendered")
         }
-        assertTrue(found, "blocked marking should be rendered")
-    }
 
     /** A task with the given title — the card under test is the card the search draws. */
-    private fun task(title: String): Task = Task(
-        id = TaskId("t-search-match"),
-        title = title,
-        createdAt = Instant.fromEpochMilliseconds(1_760_000_000_000),
-        updatedAt = Instant.fromEpochMilliseconds(1_760_000_000_000),
-        userId = UserId("u1"),
-    )
+    private fun task(title: String): Task =
+        Task(
+            id = TaskId("t-search-match"),
+            title = title,
+            createdAt = Instant.fromEpochMilliseconds(1_760_000_000_000),
+            updatedAt = Instant.fromEpochMilliseconds(1_760_000_000_000),
+            userId = UserId("u1"),
+        )
 }

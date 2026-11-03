@@ -25,7 +25,6 @@ import kotlin.time.Instant
  * saying the same thing.
  */
 internal object ProjectsMenuScenarioSupport {
-
     val CLOCK: FakeClock = FakeClock(Instant.parse("2026-09-16T10:00:00Z"))
 
     /** Seeds the project [id] named [name], under [parent] when given, closed when [closed]. */

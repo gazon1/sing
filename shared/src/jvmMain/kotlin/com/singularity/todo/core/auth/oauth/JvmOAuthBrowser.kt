@@ -12,7 +12,6 @@ import java.net.URI
  * a redirect that cannot come.
  */
 class JvmOAuthBrowser : OAuthBrowser {
-
     /**
      * Whether this machine has a browser to open.
      *
@@ -21,24 +20,26 @@ class JvmOAuthBrowser : OAuthBrowser {
      * headless host says no here, and the caller disables the button rather than
      * failing after the user pressed it.
      */
-    override fun isAvailable(): Boolean = runCatchingCancellable {
-        Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)
-    }.getOrDefault(false)
+    override fun isAvailable(): Boolean =
+        runCatchingCancellable {
+            Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)
+        }.getOrDefault(false)
 
-    override suspend fun open(url: String): Boolean = runCatchingCancellable {
-        if (!Desktop.isDesktopSupported()) {
-            false
-        } else {
-            val desktop = Desktop.getDesktop()
-            if (!desktop.isSupported(Desktop.Action.BROWSE)) {
+    override suspend fun open(url: String): Boolean =
+        runCatchingCancellable {
+            if (!Desktop.isDesktopSupported()) {
                 false
             } else {
-                // `browse` hands the URL to the desktop and returns nothing: the
-                // browser is the one that opens, not this call. An IOException here
-                // means there is no browser to hand it to.
-                desktop.browse(URI(url))
-                true
+                val desktop = Desktop.getDesktop()
+                if (!desktop.isSupported(Desktop.Action.BROWSE)) {
+                    false
+                } else {
+                    // `browse` hands the URL to the desktop and returns nothing: the
+                    // browser is the one that opens, not this call. An IOException here
+                    // means there is no browser to hand it to.
+                    desktop.browse(URI(url))
+                    true
+                }
             }
-        }
-    }.getOrDefault(false)
+        }.getOrDefault(false)
 }

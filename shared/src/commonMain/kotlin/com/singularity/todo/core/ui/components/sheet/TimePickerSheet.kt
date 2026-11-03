@@ -8,27 +8,35 @@ import kotlinx.datetime.LocalTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TimePickerSheet(initialTime: LocalTime? = null, onTimeSelected: (LocalTime?) -> Unit, onDismiss: () -> Unit) {
-    val timePickerState = rememberTimePickerState(
-        initialHour = initialTime?.hour
-            ?: 12,
-        initialMinute = initialTime?.minute
-            ?: 0,
-    )
+fun TimePickerSheet(
+    initialTime: LocalTime? = null,
+    onTimeSelected: (LocalTime?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val timePickerState =
+        rememberTimePickerState(
+            initialHour =
+                initialTime?.hour
+                    ?: 12,
+            initialMinute =
+                initialTime?.minute
+                    ?: 0,
+        )
 
     BottomSheetHost(onDismiss = onDismiss) {
         SheetScaffold(
-            actions = SheetActions(
-                onClear = {
-                    onTimeSelected(null)
-                    onDismiss()
-                },
-                onCancel = onDismiss,
-                onConfirm = {
-                    onTimeSelected(LocalTime(timePickerState.hour, timePickerState.minute))
-                    onDismiss()
-                },
-            ),
+            actions =
+                SheetActions(
+                    onClear = {
+                        onTimeSelected(null)
+                        onDismiss()
+                    },
+                    onCancel = onDismiss,
+                    onConfirm = {
+                        onTimeSelected(LocalTime(timePickerState.hour, timePickerState.minute))
+                        onDismiss()
+                    },
+                ),
         ) {
             TimePicker(state = timePickerState)
         }

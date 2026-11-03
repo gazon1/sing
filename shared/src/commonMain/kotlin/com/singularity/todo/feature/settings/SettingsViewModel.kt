@@ -12,11 +12,11 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.schedule.GreetingContributor
 import com.singularity.todo.core.schedule.WorkScheduleContributor
-import com.singularity.todo.core.tasks.TasksContributor
 import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.core.tasks.TasksContributor
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
@@ -58,7 +58,6 @@ class SettingsViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     // ─── Per-section state flows ──────────────────────────────────────────────
     // Each section feeds its own MutableStateFlow so combine doesn't block on
     // missing contributors. Each contributor's observe() is collected once.
@@ -103,30 +102,33 @@ class SettingsViewModel(
         bind(defaultAgendaViewContributor, defaultAgendaViewFlow)
         bind(tasksContributor, tasksFlow)
 
-        savedAgendaViewsRepo.observeAll()
+        savedAgendaViewsRepo
+            .observeAll()
             .onEach { views ->
                 agendaEphemeral.value = agendaEphemeral.value.copy(savedViews = views)
                 rebuildState()
-            }
-            .launchIn(vmScope)
+            }.launchIn(vmScope)
 
         // Bridge AI ephemeral state from the single combined flow.
-        aiContributor?.ephemeralStateFlow
+        aiContributor
+            ?.ephemeralStateFlow
             ?.onEach { aiEph ->
                 aiEphemeral.value = aiEph
                 updateState { it.copy(aiEphemeral = aiEph) }
-            }
-            ?.launchIn(vmScope)
+            }?.launchIn(vmScope)
     }
 
     /** Collects [contributor]'s section flow into [slot]; every change rebuilds the merged state. */
-    private fun <S : SettingsSection> bind(contributor: SettingsContributor<S, *>?, slot: MutableStateFlow<S>) {
-        contributor?.observe()
+    private fun <S : SettingsSection> bind(
+        contributor: SettingsContributor<S, *>?,
+        slot: MutableStateFlow<S>,
+    ) {
+        contributor
+            ?.observe()
             ?.onEach { section ->
                 slot.value = section
                 rebuildState()
-            }
-            ?.launchIn(vmScope)
+            }?.launchIn(vmScope)
     }
 
     /** Rebuilds the full Content from current per-section flows. */
@@ -149,29 +151,47 @@ class SettingsViewModel(
 
     override fun onIntent(intent: SettingsIntent) {
         when (intent) {
-            is SettingsIntent.Appearance -> dispatch(appearanceContributor, "Update appearance failed", intent)
+            is SettingsIntent.Appearance -> {
+                dispatch(appearanceContributor, "Update appearance failed", intent)
+            }
 
-            is SettingsIntent.Notifications -> dispatch(notificationsContributor, "Update notifications failed", intent)
+            is SettingsIntent.Notifications -> {
+                dispatch(notificationsContributor, "Update notifications failed", intent)
+            }
 
-            is SettingsIntent.WorkSchedule -> dispatch(workScheduleContributor, "Update work schedule failed", intent)
+            is SettingsIntent.WorkSchedule -> {
+                dispatch(workScheduleContributor, "Update work schedule failed", intent)
+            }
 
-            is SettingsIntent.Greeting -> dispatch(greetingContributor, "Update greeting failed", intent)
+            is SettingsIntent.Greeting -> {
+                dispatch(greetingContributor, "Update greeting failed", intent)
+            }
 
-            is SettingsIntent.Ai -> dispatch(aiContributor, "AI ${intent::class.simpleName} failed", intent)
+            is SettingsIntent.Ai -> {
+                dispatch(aiContributor, "AI ${intent::class.simpleName} failed", intent)
+            }
 
-            is SettingsIntent.DefaultAgendaView -> dispatch(
-                defaultAgendaViewContributor,
-                "Update default agenda view failed",
-                intent,
-            )
+            is SettingsIntent.DefaultAgendaView -> {
+                dispatch(
+                    defaultAgendaViewContributor,
+                    "Update default agenda view failed",
+                    intent,
+                )
+            }
 
-            is SettingsIntent.Tasks -> dispatch(tasksContributor, "Update tasks settings failed", intent)
+            is SettingsIntent.Tasks -> {
+                dispatch(tasksContributor, "Update tasks settings failed", intent)
+            }
 
             SettingsIntent.DismissError -> { /* ephemeral; cleared on next emit */ }
 
-            SettingsIntent.OpenAttachmentsFolder -> openAttachmentsFolder()
+            SettingsIntent.OpenAttachmentsFolder -> {
+                openAttachmentsFolder()
+            }
 
-            SettingsIntent.ExportLogs -> exportLogs()
+            SettingsIntent.ExportLogs -> {
+                exportLogs()
+            }
         }
     }
 
@@ -182,7 +202,11 @@ class SettingsViewModel(
      * intent belong to the same section (e.g. `NotificationsContributor` only
      * receives `SettingsIntent.Notifications`).
      */
-    private fun dispatch(contributor: SettingsContributor<*, *>?, errorLabel: String, intent: SettingsIntent) {
+    private fun dispatch(
+        contributor: SettingsContributor<*, *>?,
+        errorLabel: String,
+        intent: SettingsIntent,
+    ) {
         updateState { it.copy(errorMessage = null) }
         catchTo(errorLabel, { msg -> updateState { it.copy(errorMessage = msg) } }) {
             runCatchingCancellable {
@@ -214,17 +238,18 @@ class SettingsViewModel(
 
             val result = logBundleExporter.export()
 
-            val newState = result.fold(
-                onSuccess = { path ->
-                    EphemeralState.LogExport(isExporting = false, exportedPath = path)
-                },
-                onFailure = { error ->
-                    EphemeralState.LogExport(
-                        isExporting = false,
-                        errorMessage = error.message ?: "Export failed",
-                    )
-                },
-            )
+            val newState =
+                result.fold(
+                    onSuccess = { path ->
+                        EphemeralState.LogExport(isExporting = false, exportedPath = path)
+                    },
+                    onFailure = { error ->
+                        EphemeralState.LogExport(
+                            isExporting = false,
+                            errorMessage = error.message ?: "Export failed",
+                        )
+                    },
+                )
             logExportEphemeral.value = newState
             rebuildState()
 

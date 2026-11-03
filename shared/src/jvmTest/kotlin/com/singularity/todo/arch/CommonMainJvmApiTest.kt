@@ -1,7 +1,7 @@
 package com.singularity.todo.arch
 
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -73,13 +73,13 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class CommonMainJvmApiTest {
-
     private val commonMain: File by lazy {
-        val root = System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
+        val root =
+            System.getProperty("commonMain.root")
+                ?: error(
+                    "commonMain.root system property is not set — " +
+                        "see the jvmTest task config in shared/build.gradle.kts",
+                )
         File(root)
     }
 
@@ -98,22 +98,25 @@ class CommonMainJvmApiTest {
      */
     private val baseline = listOf<KnownFinding>()
 
-    private fun kotlinFiles(): List<File> = commonMain.walkTopDown()
-        .filter { it.isFile && it.extension == "kt" }
-        .toList()
+    private fun kotlinFiles(): List<File> =
+        commonMain
+            .walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .toList()
 
-    private fun relative(file: File): String =
-        file.relativeTo(commonMain).path.replace(File.separatorChar, '/')
+    private fun relative(file: File): String = file.relativeTo(commonMain).path.replace(File.separatorChar, '/')
 
     /** Every code line in the tree that names a `java`/`javax`/`android` type. */
-    private fun findings(): List<Pair<String, String>> = kotlinFiles().flatMap { file ->
-        val path = relative(file)
-        codeOnly(file.readText()).lines()
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-            .filter { JVM_REFERENCE.containsMatchIn(it) }
-            .map { path to it }
-    }
+    private fun findings(): List<Pair<String, String>> =
+        kotlinFiles().flatMap { file ->
+            val path = relative(file)
+            codeOnly(file.readText())
+                .lines()
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .filter { JVM_REFERENCE.containsMatchIn(it) }
+                .map { path to it }
+        }
 
     @Test
     fun commonMain_declares_no_new_jvm_only_references() {
@@ -179,7 +182,8 @@ class CommonMainJvmApiTest {
      */
     @Test
     fun `the scan detects references and ignores the prose around them`() {
-        val source = """
+        val source =
+            """
             package com.singularity.todo.sample
 
             import java.util.UUID
@@ -197,12 +201,14 @@ class CommonMainJvmApiTest {
             }
 
             fun id(): String = "run_${'$'}{java.util.UUID.randomUUID()}"
-        """.trimIndent()
+            """.trimIndent()
 
-        val lines = codeOnly(source).lines()
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-            .filter { JVM_REFERENCE.containsMatchIn(it) }
+        val lines =
+            codeOnly(source)
+                .lines()
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .filter { JVM_REFERENCE.containsMatchIn(it) }
 
         assertEquals(
             listOf(
@@ -219,7 +225,6 @@ class CommonMainJvmApiTest {
     }
 
     private companion object {
-
         /**
          * Any qualified reference to a JVM-only type, import or not.
          *
@@ -249,18 +254,19 @@ class CommonMainJvmApiTest {
          * The alternatives are ordered longest-construct-first, so a triple quote is
          * tried before a single one and a closed block comment before an open one.
          */
-        private val NON_CODE = Regex(
-            listOf(
-                "/\\*[\\s\\S]*?\\*/",
-                "//[^\\n]*",
-                RAW_OPEN + "[\\s\\S]*?" + RAW_CLOSE,
-                "\"(?:\\\\.|[^\"\\\\\\n])*\"",
-                "'(?:\\\\.|[^'\\\\\\n])*'",
-                "/\\*[\\s\\S]*$",
-                RAW_OPEN + "[\\s\\S]*$",
-                "\"(?:\\\\.|[^\"\\\\\\n])*$",
-            ).joinToString("|"),
-        )
+        private val NON_CODE =
+            Regex(
+                listOf(
+                    "/\\*[\\s\\S]*?\\*/",
+                    "//[^\\n]*",
+                    RAW_OPEN + "[\\s\\S]*?" + RAW_CLOSE,
+                    "\"(?:\\\\.|[^\"\\\\\\n])*\"",
+                    "'(?:\\\\.|[^'\\\\\\n])*'",
+                    "/\\*[\\s\\S]*$",
+                    RAW_OPEN + "[\\s\\S]*$",
+                    "\"(?:\\\\.|[^\"\\\\\\n])*$",
+                ).joinToString("|"),
+            )
 
         private const val RAW_OPEN = "\"\"\""
 

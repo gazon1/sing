@@ -20,7 +20,6 @@ import kotlin.test.assertTrue
  * block the sanctioned shapes, not just annoy.
  */
 class NoTextFieldStateInViewModelRuleTest {
-
     private val rule = NoTextFieldStateInViewModelRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 

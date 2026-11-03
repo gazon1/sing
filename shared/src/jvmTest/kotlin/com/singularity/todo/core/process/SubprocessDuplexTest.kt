@@ -1,10 +1,10 @@
 package com.singularity.todo.core.process
 
-import java.io.IOException
 import com.singularity.todo.test.helpers.awaitState
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
+import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -33,54 +33,58 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:platform")
 class SubprocessDuplexTest {
+    @Test
+    fun `a child that writes more than a pipe buffer holds does not deadlock`() =
+        runTest {
+            val process = Subprocess.spawnDuplex(listOf("sh", "-c", "seq 1 50000"))
+
+            val lines = process.stdoutLines().toList()
+
+            assertEquals(50_000, lines.size, "every line arrived: the child was never blocked on a full pipe")
+            process.close()
+        }
 
     @Test
-    fun `a child that writes more than a pipe buffer holds does not deadlock`() = runTest {
-        val process = Subprocess.spawnDuplex(listOf("sh", "-c", "seq 1 50000"))
+    fun `standard error goes to its own sink and never into the protocol stream`() =
+        runTest {
+            val diagnostics = mutableListOf<String>()
+            val process =
+                Subprocess.spawnDuplex(
+                    argv = listOf("sh", "-c", "echo to-stdout; echo to-stderr 1>&2"),
+                    stderrSink = { diagnostics += it },
+                )
 
-        val lines = process.stdoutLines().toList()
+            val lines = process.stdoutLines().toList()
 
-        assertEquals(50_000, lines.size, "every line arrived: the child was never blocked on a full pipe")
-        process.close()
-    }
-
-    @Test
-    fun `standard error goes to its own sink and never into the protocol stream`() = runTest {
-        val diagnostics = mutableListOf<String>()
-        val process = Subprocess.spawnDuplex(
-            argv = listOf("sh", "-c", "echo to-stdout; echo to-stderr 1>&2"),
-            stderrSink = { diagnostics += it },
-        )
-
-        val lines = process.stdoutLines().toList()
-
-        assertEquals(listOf("to-stdout"), lines, "the protocol stream carries the protocol and nothing else")
-        // The drain is a thread of its own, so the line arrives in its own time.
-        awaitState { diagnostics.isNotEmpty() }
-        assertEquals(listOf("to-stderr"), diagnostics, "the diagnostic reached the sink")
-        process.close()
-    }
+            assertEquals(listOf("to-stdout"), lines, "the protocol stream carries the protocol and nothing else")
+            // The drain is a thread of its own, so the line arrives in its own time.
+            awaitState { diagnostics.isNotEmpty() }
+            assertEquals(listOf("to-stderr"), diagnostics, "the diagnostic reached the sink")
+            process.close()
+        }
 
     @Test
-    fun `a clean end of output ends the stream`() = runTest {
-        val process = Subprocess.spawnDuplex(listOf("sh", "-c", "echo one; echo two"))
+    fun `a clean end of output ends the stream`() =
+        runTest {
+            val process = Subprocess.spawnDuplex(listOf("sh", "-c", "echo one; echo two"))
 
-        val lines = process.stdoutLines().toList()
+            val lines = process.stdoutLines().toList()
 
-        assertEquals(listOf("one", "two"), lines, "the stream ended by itself")
-        process.close()
-    }
+            assertEquals(listOf("one", "two"), lines, "the stream ended by itself")
+            process.close()
+        }
 
     @Test
-    fun `a line written to the child comes back`() = runTest {
-        val process = Subprocess.spawnDuplex(listOf("sh", "-c", "read line; echo \"got \$line\""))
+    fun `a line written to the child comes back`() =
+        runTest {
+            val process = Subprocess.spawnDuplex(listOf("sh", "-c", "read line; echo \"got \$line\""))
 
-        process.writeLine("hello")
+            process.writeLine("hello")
 
-        val lines = process.stdoutLines().toList()
-        assertEquals(listOf("got hello"), lines, "the child read the line and answered it")
-        process.close()
-    }
+            val lines = process.stdoutLines().toList()
+            assertEquals(listOf("got hello"), lines, "the child read the line and answered it")
+            process.close()
+        }
 
     @Test
     fun `a missing binary is reported rather than swallowed`() {

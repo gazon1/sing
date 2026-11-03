@@ -19,13 +19,11 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.collections.immutable.toImmutableList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -39,6 +37,7 @@ import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.OverlayState
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.components.sheet.ListPickerItem
 import com.singularity.todo.core.ui.components.sheet.ListPickerSheet
@@ -46,8 +45,6 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
-import com.singularity.todo.feature.profile.ProfileId
-import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.feature.agenda.presentation.components.SavedAgendaCard
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.nav.PreviewAgendaNavigator
@@ -55,10 +52,13 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaLis
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListIntent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListState
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaListViewModel
+import com.singularity.todo.feature.profile.ProfileId
+import com.singularity.todo.feature.profile.domain.port.ProfileRepository
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Instant
-import androidx.compose.runtime.getValue
 
 /**
  * Root composable for the saved agenda views list screen.
@@ -80,7 +80,9 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
         events = viewModel.events,
         mapper = { e ->
             when (e) {
-                is SavedAgendaListEvent.ShowError -> Notification.Error(e.message)
+                is SavedAgendaListEvent.ShowError -> {
+                    Notification.Error(e.message)
+                }
 
                 is SavedAgendaListEvent.CopySuccess -> {
                     scope.launch {
@@ -106,9 +108,10 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
             )
         },
         floatingActionButton = {
@@ -173,18 +176,25 @@ private fun DialogsOverlay(
             )
         }
 
-        null -> Unit
+        null -> {
+            Unit
+        }
     }
 }
 
 private sealed interface SavedAgendaDialog {
     data class Copy(val viewId: SavedAgendaViewId) : SavedAgendaDialog
+
     data class Delete(val viewId: SavedAgendaViewId, val viewName: String?) : SavedAgendaDialog
 }
 
-private fun viewNameFor(state: SavedAgendaListState, viewId: SavedAgendaViewId): String =
+private fun viewNameFor(
+    state: SavedAgendaListState,
+    viewId: SavedAgendaViewId,
+): String =
     (state as? SavedAgendaListState.Loaded)
-        ?.views?.find { it.id == viewId }
+        ?.views
+        ?.find { it.id == viewId }
         ?.name
         ?.ifBlank { "this view" }
         ?: "this view"
@@ -278,23 +288,26 @@ private fun ProfilePickerSheet(
     onDismiss: () -> Unit,
     onPick: (ProfileId) -> Unit,
 ) {
-    val profiles by profileRepo.observeAll()
+    val profiles by profileRepo
+        .observeAll()
         .collectAsStateWithLifecycle(initialValue = emptyList())
 
     ListPickerSheet(
         title = "Copy to profile",
         testTag = TestTags.SAVED_AGENDA_COPY_TO_PROFILE_SHEET,
-        items = remember(profiles) {
-            profiles.map { profile ->
-                ListPickerItem(
-                    key = profile.id,
-                    label = profile.name,
-                    subtitle = if (profile.isDefault) "Default" else null,
-                    leading = { Text(profile.emoji, style = MaterialTheme.typography.titleLarge) },
-                    testTag = TestTags.profileItem(profile.name),
-                )
-            }.toImmutableList()
-        },
+        items =
+            remember(profiles) {
+                profiles
+                    .map { profile ->
+                        ListPickerItem(
+                            key = profile.id,
+                            label = profile.name,
+                            subtitle = if (profile.isDefault) "Default" else null,
+                            leading = { Text(profile.emoji, style = MaterialTheme.typography.titleLarge) },
+                            testTag = TestTags.profileItem(profile.name),
+                        )
+                    }.toImmutableList()
+            },
         onItemSelected = onPick,
         onDismiss = onDismiss,
     )
@@ -304,47 +317,50 @@ private fun ProfilePickerSheet(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SavedAgendaListContentEmptyPreview() = PreviewAgendaNavigator {
-    PreviewThemed(darkTheme = false) {
-        SavedAgendaListContent(
-            state = SavedAgendaListState.Loaded(emptyList()),
-            onViewSelected = {},
-            onDelete = {},
-            onEdit = {},
-            onCopyToProfile = {},
-        )
+private fun SavedAgendaListContentEmptyPreview() =
+    PreviewAgendaNavigator {
+        PreviewThemed(darkTheme = false) {
+            SavedAgendaListContent(
+                state = SavedAgendaListState.Loaded(emptyList()),
+                onViewSelected = {},
+                onDelete = {},
+                onEdit = {},
+                onCopyToProfile = {},
+            )
+        }
     }
-}
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SavedAgendaListContentLoadedPreview() = PreviewAgendaNavigator {
-    PreviewThemed(darkTheme = false) {
-        SavedAgendaListContent(
-            state = SavedAgendaListState.Loaded(
-                listOf(
-                    SavedAgendaView(
-                        id = SavedAgendaViewId("v1"),
-                        userId = UserId("u1"),
-                        name = "Weekly Review",
-                        sectionsJson = "{}",
-                        createdAt = Instant.fromEpochSeconds(1784253600),
-                        updatedAt = Instant.fromEpochSeconds(1785496200),
+private fun SavedAgendaListContentLoadedPreview() =
+    PreviewAgendaNavigator {
+        PreviewThemed(darkTheme = false) {
+            SavedAgendaListContent(
+                state =
+                    SavedAgendaListState.Loaded(
+                        listOf(
+                            SavedAgendaView(
+                                id = SavedAgendaViewId("v1"),
+                                userId = UserId("u1"),
+                                name = "Weekly Review",
+                                sectionsJson = "{}",
+                                createdAt = Instant.fromEpochSeconds(1784253600),
+                                updatedAt = Instant.fromEpochSeconds(1785496200),
+                            ),
+                            SavedAgendaView(
+                                id = SavedAgendaViewId("v2"),
+                                userId = UserId("u1"),
+                                name = "Focus Today",
+                                sectionsJson = "{}",
+                                createdAt = Instant.fromEpochSeconds(1784253600),
+                                updatedAt = Instant.fromEpochSeconds(1785496200),
+                            ),
+                        ),
                     ),
-                    SavedAgendaView(
-                        id = SavedAgendaViewId("v2"),
-                        userId = UserId("u1"),
-                        name = "Focus Today",
-                        sectionsJson = "{}",
-                        createdAt = Instant.fromEpochSeconds(1784253600),
-                        updatedAt = Instant.fromEpochSeconds(1785496200),
-                    ),
-                ),
-            ),
-            onViewSelected = {},
-            onDelete = {},
-            onEdit = {},
-            onCopyToProfile = {},
-        )
+                onViewSelected = {},
+                onDelete = {},
+                onEdit = {},
+                onCopyToProfile = {},
+            )
+        }
     }
-}

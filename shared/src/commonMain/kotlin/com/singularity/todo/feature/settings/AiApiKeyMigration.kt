@@ -28,13 +28,17 @@ object AiApiKeyMigration {
      * Idempotent — safe to call on every startup. Returns `true` if a key
      * was migrated in this call, `false` otherwise.
      */
-    suspend fun run(dataStore: DataStore<Preferences>, secureStorage: SecureStoragePort): Boolean {
+    suspend fun run(
+        dataStore: DataStore<Preferences>,
+        secureStorage: SecureStoragePort,
+    ): Boolean {
         // Don't overwrite an already-configured secure key.
         val existing = secureStorage.read(OpenAiConfig.KEY_OPENAI)
         if (!existing.isNullOrBlank()) return false
 
-        val legacy = dataStore.data.first()[stringPreferencesKey(LEGACY_DATASTORE_KEY)]
-            ?: return false
+        val legacy =
+            dataStore.data.first()[stringPreferencesKey(LEGACY_DATASTORE_KEY)]
+                ?: return false
 
         secureStorage.write(OpenAiConfig.KEY_OPENAI, legacy)
         dataStore.edit { it.remove(stringPreferencesKey(LEGACY_DATASTORE_KEY)) }

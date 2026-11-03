@@ -33,24 +33,24 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class PlansTaskInheritsDateScenarioTest {
-
     @Test
     @DisplayName("PLANS-09 a task opens from its section and a new task inherits the section's date")
-    fun a_task_opens_and_a_new_one_inherits_the_date() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        tasks(koin).given(due = TODAY, title = "Due today")
+    fun a_task_opens_and_a_new_one_inherits_the_date() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            tasks(koin).given(due = TODAY, title = "Due today")
 
-        tapTab("Plans")
+            tapTab("Plans")
 
-        // Tapping the row reaches that task's own screen.
-        awaitTag(TestTags.taskItem("Due today")).performClick()
-        assertTagDisplayed(TestTags.TASK_EDITOR_TITLE_INPUT)
+            // Tapping the row reaches that task's own screen.
+            awaitTag(TestTags.taskItem("Due today")).performClick()
+            assertTagDisplayed(TestTags.TASK_EDITOR_TITLE_INPUT)
 
-        goBack()
+            goBack()
 
-        // The section's add control opens the editor with the section's date.
-        clickTagScrolled(TestTags.plansSectionAdd("day:2026-09-16"))
-        assertTagDisplayed(TestTags.TASK_EDITOR_TITLE_INPUT)
-        // The due date is prefilled with the section's date — the day itself.
-        assertTextDisplayed("2026-09-16")
-    }
+            // The section's add control opens the editor with the section's date.
+            clickTagScrolled(TestTags.plansSectionAdd("day:2026-09-16"))
+            assertTagDisplayed(TestTags.TASK_EDITOR_TITLE_INPUT)
+            // The due date is prefilled with the section's date — the day itself.
+            assertTextDisplayed("2026-09-16")
+        }
 }

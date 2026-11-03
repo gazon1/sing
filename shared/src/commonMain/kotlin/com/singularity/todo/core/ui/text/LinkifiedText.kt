@@ -54,43 +54,49 @@ fun LinkifiedText(
     val handler by rememberUpdatedState(onInternalLink)
     val uriHandler = rememberAppUriHandler(onInternalLink)
     val primary = MaterialTheme.colorScheme.primary
-    val linkStyles = remember(primary) {
-        TextLinkStyles(style = SpanStyle(color = primary, textDecoration = TextDecoration.Underline))
-    }
-    val annotated = remember(text, spans, linkStyles, uriHandler) {
-        if (spans.isEmpty()) {
-            null
-        } else {
-            buildAnnotatedString {
-                append(text)
-                for (span in spans) {
-                    val start = span.range.first
-                    val end = span.range.last + 1
-                    when (val link = span.link) {
-                        is TextLink.Web -> addLink(
-                            LinkAnnotation.Url(
-                                url = link.url,
-                                styles = linkStyles,
-                                linkInteractionListener = { uriHandler.openUri(link.url) },
-                            ),
-                            start,
-                            end,
-                        )
+    val linkStyles =
+        remember(primary) {
+            TextLinkStyles(style = SpanStyle(color = primary, textDecoration = TextDecoration.Underline))
+        }
+    val annotated =
+        remember(text, spans, linkStyles, uriHandler) {
+            if (spans.isEmpty()) {
+                null
+            } else {
+                buildAnnotatedString {
+                    append(text)
+                    for (span in spans) {
+                        val start = span.range.first
+                        val end = span.range.last + 1
+                        when (val link = span.link) {
+                            is TextLink.Web -> {
+                                addLink(
+                                    LinkAnnotation.Url(
+                                        url = link.url,
+                                        styles = linkStyles,
+                                        linkInteractionListener = { uriHandler.openUri(link.url) },
+                                    ),
+                                    start,
+                                    end,
+                                )
+                            }
 
-                        is TextLink.Internal -> addLink(
-                            LinkAnnotation.Clickable(
-                                tag = link.target.url,
-                                styles = linkStyles,
-                                linkInteractionListener = { handler(link) },
-                            ),
-                            start,
-                            end,
-                        )
+                            is TextLink.Internal -> {
+                                addLink(
+                                    LinkAnnotation.Clickable(
+                                        tag = link.target.url,
+                                        styles = linkStyles,
+                                        linkInteractionListener = { handler(link) },
+                                    ),
+                                    start,
+                                    end,
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
-    }
     SelectionContainer(modifier = modifier) {
         if (annotated == null) {
             Text(text = text, style = style, color = color)

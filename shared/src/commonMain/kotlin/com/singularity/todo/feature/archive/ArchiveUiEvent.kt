@@ -7,5 +7,6 @@ import com.singularity.todo.core.ui.MviEvent
  */
 sealed interface ArchiveUiEvent : MviEvent {
     data class Archived(val message: String) : ArchiveUiEvent
+
     data class Error(val message: String) : ArchiveUiEvent
 }

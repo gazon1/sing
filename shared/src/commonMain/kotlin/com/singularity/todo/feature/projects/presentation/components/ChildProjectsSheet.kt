@@ -24,7 +24,11 @@ import kotlinx.collections.immutable.ImmutableList
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChildProjectsSheet(children: ImmutableList<Project>, onShowChildren: (Project) -> Unit, onDismiss: () -> Unit) {
+fun ChildProjectsSheet(
+    children: ImmutableList<Project>,
+    onShowChildren: (Project) -> Unit,
+    onDismiss: () -> Unit,
+) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(24.dp)) {
             Text("Sub-projects", style = MaterialTheme.typography.titleMedium)

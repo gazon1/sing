@@ -28,31 +28,31 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsSection
-import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.text.SelectableText
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
+import com.singularity.todo.feature.calendarSync.auth.GoogleAuthorization
+import com.singularity.todo.feature.calendarSync.auth.rememberGoogleConsent
 import com.singularity.todo.feature.calendarSync.domain.model.CalendarSyncStatus
 import com.singularity.todo.feature.calendarSync.domain.model.GoogleCalendarSummary
 import com.singularity.todo.feature.calendarSync.permission.rememberCalendarPermissionRequester
 import com.singularity.todo.feature.calendarSync.presentation.CalendarProvider.Google
 import com.singularity.todo.feature.calendarSync.presentation.CalendarProvider.SystemCalendar
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.ConnectGoogle
+import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.GoogleAuthorizationCompleted
+import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.GoogleAuthorizationFailed
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.LoadCalendars
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SaveGoogleClientId
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SelectAppPackage
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SelectCalendar
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SelectGoogleCalendar
-import com.singularity.todo.feature.calendarSync.auth.GoogleAuthorization
-import com.singularity.todo.feature.calendarSync.auth.rememberGoogleConsent
-import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.GoogleAuthorizationCompleted
-import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.GoogleAuthorizationFailed
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SelectProvider
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SetEnabled
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SetGoogleClientId
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SetGoogleConnected
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SetImportFromGoogle
-import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SyncNow
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SyncGoogleNow
+import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SyncNow
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -113,9 +113,10 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
     }
 
     Column(
-        modifier = modifier
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+        modifier =
+            modifier
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // ─── Provider selector ───────────────────────────────────────────
@@ -159,7 +160,10 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProviderSelector(selected: CalendarProvider, onSelect: (CalendarProvider) -> Unit) {
+private fun ProviderSelector(
+    selected: CalendarProvider,
+    onSelect: (CalendarProvider) -> Unit,
+) {
     SettingsSection(title = "Calendar Sync") {
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             CalendarProvider.entries.forEachIndexed { index, provider ->
@@ -180,10 +184,11 @@ private fun ProviderSelector(selected: CalendarProvider, onSelect: (CalendarProv
 }
 
 /** Segmented-button labels. Short, because the row splits the width in two. */
-private fun providerLabel(provider: CalendarProvider): String = when (provider) {
-    SystemCalendar -> "System calendar"
-    Google -> "Google Calendar"
-}
+private fun providerLabel(provider: CalendarProvider): String =
+    when (provider) {
+        SystemCalendar -> "System calendar"
+        Google -> "Google Calendar"
+    }
 
 /**
  * "Last synced 06 Oct 2026 02:14", in the device's own zone.
@@ -195,7 +200,11 @@ private fun providerLabel(provider: CalendarProvider): String = when (provider) 
  */
 private fun formatGoogleSyncTime(at: kotlinx.datetime.Instant): String {
     val local = at.toLocalDateTime(TimeZone.currentSystemDefault())
-    val month = local.month.name.lowercase().replaceFirstChar { it.uppercase() }.take(3)
+    val month =
+        local.month.name
+            .lowercase()
+            .replaceFirstChar { it.uppercase() }
+            .take(3)
     val hour = local.hour.toString().padStart(2, '0')
     val minute = local.minute.toString().padStart(2, '0')
     return "$month ${local.day}, ${local.year} $hour:$minute"
@@ -250,7 +259,10 @@ private fun SystemCalendarPanel(
  * present choices that nothing will act on.
  */
 @Composable
-private fun SystemCalendarControls(state: CalendarSyncUiState, onIntent: (CalendarSyncIntent) -> Unit) {
+private fun SystemCalendarControls(
+    state: CalendarSyncUiState,
+    onIntent: (CalendarSyncIntent) -> Unit,
+) {
     // ─── Enable toggle ──────────────────────────────────────────────────
     SettingsSection(title = "System Calendar Sync") {
         SettingsSwitchRow(
@@ -284,7 +296,10 @@ private fun SystemCalendarControls(state: CalendarSyncUiState, onIntent: (Calend
 
 /** The device calendar to write into, chosen from the calendars the platform reports. */
 @Composable
-private fun SystemTargetCalendarSection(state: CalendarSyncUiState, onIntent: (CalendarSyncIntent) -> Unit) {
+private fun SystemTargetCalendarSection(
+    state: CalendarSyncUiState,
+    onIntent: (CalendarSyncIntent) -> Unit,
+) {
     SettingsSection(title = "Target Calendar") {
         if (state.availableCalendars.isEmpty() && state.isLoading) {
             Text(
@@ -313,7 +328,10 @@ private fun SystemTargetCalendarSection(state: CalendarSyncUiState, onIntent: (C
 
 /** Status and explanatory copy, kept together because both describe the device calendar. */
 @Composable
-private fun SystemStatusSections(state: CalendarSyncUiState, onIntent: (CalendarSyncIntent) -> Unit) {
+private fun SystemStatusSections(
+    state: CalendarSyncUiState,
+    onIntent: (CalendarSyncIntent) -> Unit,
+) {
     SettingsSection(title = "Status") {
         Text(
             text = systemStatusText(state.status),
@@ -324,9 +342,10 @@ private fun SystemStatusSections(state: CalendarSyncUiState, onIntent: (Calendar
         Button(
             onClick = { onIntent(SyncNow) },
             enabled = state.status !is CalendarSyncStatus.Syncing,
-            modifier = Modifier
-                .testTag(TestTags.CalendarSync.SYSTEM_SYNC_NOW_BUTTON)
-                .padding(top = 8.dp),
+            modifier =
+                Modifier
+                    .testTag(TestTags.CalendarSync.SYSTEM_SYNC_NOW_BUTTON)
+                    .padding(top = 8.dp),
         ) {
             Text("Sync Now")
         }
@@ -335,8 +354,9 @@ private fun SystemStatusSections(state: CalendarSyncUiState, onIntent: (Calendar
     // ─── Info ─────────────────────────────────────────────────────────
     SettingsSection(title = "About") {
         Text(
-            text = "Syncs task title, due date, due time, and recurrence to your system calendar " +
-                "as all-day or timed events. Deep-links back to this app are embedded in the event description.",
+            text =
+                "Syncs task title, due date, due time, and recurrence to your system calendar " +
+                    "as all-day or timed events. Deep-links back to this app are embedded in the event description.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -350,25 +370,37 @@ private fun SystemStatusSections(state: CalendarSyncUiState, onIntent: (Calendar
  * text reports what the *system* half last did, and presenting it as Google's status would
  * be a claim about a different calendar.
  */
-private fun systemStatusText(status: CalendarSyncStatus): String = when (status) {
-    is CalendarSyncStatus.Disabled -> "Disabled"
+private fun systemStatusText(status: CalendarSyncStatus): String =
+    when (status) {
+        is CalendarSyncStatus.Disabled -> {
+            "Disabled"
+        }
 
-    is CalendarSyncStatus.Idle -> {
-        val date = status.lastSyncedAt?.let { ts ->
-            val instant = Instant.fromEpochMilliseconds(ts)
-            val local = instant.toLocalDateTime(TimeZone.currentSystemDefault())
-            val month = local.month.name.lowercase().replaceFirstChar { it.uppercase() }.take(3)
-            val hour = local.hour.toString().padStart(2, '0')
-            val minute = local.minute.toString().padStart(2, '0')
-            "$month ${local.day}, ${local.year} $hour:$minute"
-        } ?: "Never"
-        "Last synced: $date"
+        is CalendarSyncStatus.Idle -> {
+            val date =
+                status.lastSyncedAt?.let { ts ->
+                    val instant = Instant.fromEpochMilliseconds(ts)
+                    val local = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+                    val month =
+                        local.month.name
+                            .lowercase()
+                            .replaceFirstChar { it.uppercase() }
+                            .take(3)
+                    val hour = local.hour.toString().padStart(2, '0')
+                    val minute = local.minute.toString().padStart(2, '0')
+                    "$month ${local.day}, ${local.year} $hour:$minute"
+                } ?: "Never"
+            "Last synced: $date"
+        }
+
+        is CalendarSyncStatus.Syncing -> {
+            "Syncing..."
+        }
+
+        is CalendarSyncStatus.Failed -> {
+            "Failed: ${status.reason}"
+        }
     }
-
-    is CalendarSyncStatus.Syncing -> "Syncing..."
-
-    is CalendarSyncStatus.Failed -> "Failed: ${status.reason}"
-}
 
 /**
  * The Google half, which needs neither the device calendar nor its permission.
@@ -420,15 +452,19 @@ private fun GoogleCalendarPanel(
  * without it.
  */
 @Composable
-private fun GoogleClientIdSection(state: CalendarSyncUiState, onIntent: (CalendarSyncIntent) -> Unit) {
+private fun GoogleClientIdSection(
+    state: CalendarSyncUiState,
+    onIntent: (CalendarSyncIntent) -> Unit,
+) {
     // Bridged, not anchored: the field is editable, and the ViewModel needs the
     // text while the user types it — the bridge keeps the two in step. The value
     // is a *draft* until the button says otherwise, so a keystroke never writes
     // to the keystore; only the save does.
-    val clientIdState = rememberBridgedTextFieldState(
-        source = state.googleClientIdSource,
-        onTextChanged = { onIntent(SetGoogleClientId(it)) },
-    )
+    val clientIdState =
+        rememberBridgedTextFieldState(
+            source = state.googleClientIdSource,
+            onTextChanged = { onIntent(SetGoogleClientId(it)) },
+        )
     SettingsSection(title = "Google Cloud client id") {
         Text(
             "Create a Web application OAuth client in the Google Cloud console and paste its " +
@@ -442,9 +478,10 @@ private fun GoogleClientIdSection(state: CalendarSyncUiState, onIntent: (Calenda
             state = clientIdState,
             label = { Text("Client id") },
             lineLimits = TextFieldLineLimits.SingleLine,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
         )
         Button(
             onClick = { onIntent(SaveGoogleClientId) },
@@ -475,8 +512,9 @@ private fun GoogleAccountSection(
     SettingsSection(title = "Google Account") {
         if (!state.googleConnected) {
             Text(
-                text = "Connecting asks Google for permission to read and edit your calendar. " +
-                    "The app uses it only to sync your tasks.",
+                text =
+                    "Connecting asks Google for permission to read and edit your calendar. " +
+                        "The app uses it only to sync your tasks.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp),
@@ -521,8 +559,9 @@ private fun GoogleAccountSection(
             // cannot, and the button says so before the press rather than after it.
             if (!consentSupported) {
                 Text(
-                    text = "This device cannot run the Google sign-in, so an account cannot be " +
-                        "connected here.",
+                    text =
+                        "This device cannot run the Google sign-in, so an account cannot be " +
+                            "connected here.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(bottom = 8.dp),
@@ -549,13 +588,15 @@ private fun GoogleAccountSection(
         // to replace it.
         if (!state.googleCanRenew) {
             Text(
-                text = "This connection cannot be renewed in the background, so sync will stop " +
-                    "when the current permission expires. Reconnect then to keep syncing.",
+                text =
+                    "This connection cannot be renewed in the background, so sync will stop " +
+                        "when the current permission expires. Reconnect then to keep syncing.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
-                modifier = Modifier
-                    .testTag(TestTags.CalendarSync.GOOGLE_RENEW_WARNING)
-                    .padding(bottom = 8.dp),
+                modifier =
+                    Modifier
+                        .testTag(TestTags.CalendarSync.GOOGLE_RENEW_WARNING)
+                        .padding(bottom = 8.dp),
             )
         }
 
@@ -570,45 +611,57 @@ private fun GoogleAccountSection(
 
 /** The Google calendar to sync into, or the reason there is nothing to choose from. */
 @Composable
-private fun GoogleCalendarPickerSection(state: CalendarSyncUiState, onIntent: (CalendarSyncIntent) -> Unit) {
+private fun GoogleCalendarPickerSection(
+    state: CalendarSyncUiState,
+    onIntent: (CalendarSyncIntent) -> Unit,
+) {
     SettingsSection(title = "Google Calendar") {
         when {
-            state.isLoading -> Text(
-                text = "Loading calendars...",
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(vertical = 8.dp),
-            )
+            state.isLoading -> {
+                Text(
+                    text = "Loading calendars...",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+            }
 
             // Error first, and never merged into "no calendars": an empty list
             // after a failed read is the reason the field exists at all, and a
             // reauth or network problem has nothing to do with the account having
             // no calendars.
-            state.googleError != null -> SelectableText(
-                text = "Could not read your Google calendars: ${state.googleError}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier
-                    .testTag(TestTags.CalendarSync.GOOGLE_LIST_ERROR)
-                    .padding(vertical = 8.dp),
-            )
-
-            state.googleCalendars.isEmpty() -> Text(
-                text = "No calendars were found on this account",
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(vertical = 8.dp),
-            )
-
-            else -> state.googleCalendars.forEach { calendar ->
-                RadioRow(
-                    label = googleCalendarLabel(calendar),
-                    selected = state.selectedGoogleCalendarId == calendar.id,
-                    enabled = calendar.canWrite,
-                    onClick = { onIntent(SelectGoogleCalendar(calendar.id)) },
-                    // Keyed by the Google id rather than the row order: the listing is
-                    // sorted by Google, so "the first row" is not a stable selector and
-                    // would silently retarget whenever the account's order changed.
-                    testTag = TestTags.CalendarSync.googleCalendarRow(calendar.id),
+            state.googleError != null -> {
+                SelectableText(
+                    text = "Could not read your Google calendars: ${state.googleError}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier =
+                        Modifier
+                            .testTag(TestTags.CalendarSync.GOOGLE_LIST_ERROR)
+                            .padding(vertical = 8.dp),
                 )
+            }
+
+            state.googleCalendars.isEmpty() -> {
+                Text(
+                    text = "No calendars were found on this account",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+            }
+
+            else -> {
+                state.googleCalendars.forEach { calendar ->
+                    RadioRow(
+                        label = googleCalendarLabel(calendar),
+                        selected = state.selectedGoogleCalendarId == calendar.id,
+                        enabled = calendar.canWrite,
+                        onClick = { onIntent(SelectGoogleCalendar(calendar.id)) },
+                        // Keyed by the Google id rather than the row order: the listing is
+                        // sorted by Google, so "the first row" is not a stable selector and
+                        // would silently retarget whenever the account's order changed.
+                        testTag = TestTags.CalendarSync.googleCalendarRow(calendar.id),
+                    )
+                }
             }
         }
     }
@@ -616,12 +669,16 @@ private fun GoogleCalendarPickerSection(state: CalendarSyncUiState, onIntent: (C
 
 /** Whether foreign Google events come in, and how far the listing reaches. */
 @Composable
-private fun GoogleImportSection(state: CalendarSyncUiState, onIntent: (CalendarSyncIntent) -> Unit) {
+private fun GoogleImportSection(
+    state: CalendarSyncUiState,
+    onIntent: (CalendarSyncIntent) -> Unit,
+) {
     SettingsSection(title = "Import From Google") {
         SettingsSwitchRow(
             title = "Import events from Google",
-            subtitle = "Events this app did not create are added as tasks you can edit, and " +
-                "edits flow back. Turning this off leaves your own tasks still syncing to Google.",
+            subtitle =
+                "Events this app did not create are added as tasks you can edit, and " +
+                    "edits flow back. Turning this off leaves your own tasks still syncing to Google.",
             testTag = TestTags.CalendarSync.GOOGLE_IMPORT_SWITCH,
             checked = state.importFromGoogle,
             onCheckedChange = { onIntent(SetImportFromGoogle(it)) },
@@ -632,13 +689,15 @@ private fun GoogleImportSection(state: CalendarSyncUiState, onIntent: (CalendarS
         // was free to drift without anything noticing. The screen would then describe a
         // window the pass does not use.
         Text(
-            text = "Imports events from the past ${formatWindowBound(state.importWindow.past)} " +
-                "to ${formatWindowBound(state.importWindow.future)}.",
+            text =
+                "Imports events from the past ${formatWindowBound(state.importWindow.past)} " +
+                    "to ${formatWindowBound(state.importWindow.future)}.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .testTag(TestTags.CalendarSync.GOOGLE_IMPORT_WINDOW)
-                .padding(top = 4.dp),
+            modifier =
+                Modifier
+                    .testTag(TestTags.CalendarSync.GOOGLE_IMPORT_WINDOW)
+                    .padding(top = 4.dp),
         )
     }
 }
@@ -650,7 +709,10 @@ private fun GoogleImportSection(state: CalendarSyncUiState, onIntent: (CalendarS
  * reporting it here would describe a calendar this panel is not talking to.
  */
 @Composable
-private fun GoogleSyncSection(state: CalendarSyncUiState, onIntent: (CalendarSyncIntent) -> Unit) {
+private fun GoogleSyncSection(
+    state: CalendarSyncUiState,
+    onIntent: (CalendarSyncIntent) -> Unit,
+) {
     SettingsSection(title = "Google Sync") {
         // No Sync button until a calendar is chosen. A button that is present and
         // does nothing is the failure this screen was restructured to avoid.
@@ -678,9 +740,10 @@ private fun GoogleSyncSection(state: CalendarSyncUiState, onIntent: (CalendarSyn
                     text = "Sync failed: $error",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier
-                        .testTag(TestTags.CalendarSync.GOOGLE_SYNC_OUTCOME)
-                        .padding(top = 4.dp),
+                    modifier =
+                        Modifier
+                            .testTag(TestTags.CalendarSync.GOOGLE_SYNC_OUTCOME)
+                            .padding(top = 4.dp),
                 )
             } else {
                 state.googleLastSyncedAt?.let { at ->
@@ -688,24 +751,27 @@ private fun GoogleSyncSection(state: CalendarSyncUiState, onIntent: (CalendarSyn
                         text = "Last synced ${formatGoogleSyncTime(at)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .testTag(TestTags.CalendarSync.GOOGLE_SYNC_OUTCOME)
-                            .padding(top = 4.dp),
+                        modifier =
+                            Modifier
+                                .testTag(TestTags.CalendarSync.GOOGLE_SYNC_OUTCOME)
+                                .padding(top = 4.dp),
                     )
                 }
             }
         } else {
             Text(
-                text = if (state.googleConnected) {
-                    "Choose a calendar above to start syncing."
-                } else {
-                    "Connect a Google account and choose a calendar to start syncing."
-                },
+                text =
+                    if (state.googleConnected) {
+                        "Choose a calendar above to start syncing."
+                    } else {
+                        "Connect a Google account and choose a calendar to start syncing."
+                    },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .testTag(TestTags.CalendarSync.GOOGLE_SYNC_NEEDS_CALENDAR)
-                    .padding(vertical = 4.dp),
+                modifier =
+                    Modifier
+                        .testTag(TestTags.CalendarSync.GOOGLE_SYNC_NEEDS_CALENDAR)
+                        .padding(vertical = 4.dp),
             )
         }
     }
@@ -719,11 +785,12 @@ private fun GoogleSyncSection(state: CalendarSyncUiState, onIntent: (CalendarSyn
  * A read-only calendar is marked inline because the row is visibly unselectable and an
  * unexplained disabled control invites the user to hunt for the missing permission.
  */
-private fun googleCalendarLabel(calendar: GoogleCalendarSummary): String = buildString {
-    append(calendar.summary)
-    if (calendar.isPrimary) append(" (primary)")
-    if (!calendar.canWrite) append(" — read-only, this account cannot create events there")
-}
+private fun googleCalendarLabel(calendar: GoogleCalendarSummary): String =
+    buildString {
+        append(calendar.summary)
+        if (calendar.isPrimary) append(" (primary)")
+        if (!calendar.canWrite) append(" — read-only, this account cannot create events there")
+    }
 
 /**
  * Renders one end of the import window.
@@ -763,8 +830,9 @@ private fun PermissionGate(onRequestPermission: () -> Unit) {
 private fun UnavailableOnThisPlatform() {
     SettingsSection(title = "System Calendar Sync") {
         Text(
-            text = "System calendar sync needs Android. " +
-                "Your tasks are unaffected — they stay in the app.",
+            text =
+                "System calendar sync needs Android. " +
+                    "Your tasks are unaffected — they stay in the app.",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.testTag(TestTags.CalendarSync.SYSTEM_UNAVAILABLE),
         )
@@ -788,25 +856,27 @@ private fun RadioRow(
     testTag: String? = null,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick)
-            // Applied before `clickable` so the tag lands on the node that owns the
-            // click, matching how SettingsRow tags itself: one semantic node for the
-            // whole row rather than a tagged wrapper around an untagged clickable.
-            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
-            .padding(vertical = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(enabled = enabled, onClick = onClick)
+                // Applied before `clickable` so the tag lands on the node that owns the
+                // click, matching how SettingsRow tags itself: one semantic node for the
+                // whole row rather than a tagged wrapper around an untagged clickable.
+                .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
+                .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(selected = selected, onClick = if (enabled) onClick else null, enabled = enabled)
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = if (enabled) {
-                MaterialTheme.colorScheme.onSurface
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+            color =
+                if (enabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             modifier = Modifier.padding(start = 8.dp),
         )
     }

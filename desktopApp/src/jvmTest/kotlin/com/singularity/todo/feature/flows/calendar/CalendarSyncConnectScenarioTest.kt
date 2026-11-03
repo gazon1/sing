@@ -3,17 +3,17 @@ package com.singularity.todo.feature.flows.calendar
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.fakes.TestUsers
-import com.singularity.todo.test.helpers.connectedCredential
-import com.singularity.todo.test.helpers.googleCalendarModule
 import com.singularity.todo.test.helpers.FakeCalendarEventSource
-import com.singularity.todo.test.helpers.FakeGoogleSettings
 import com.singularity.todo.test.helpers.FakeGoogleCredentialStore
+import com.singularity.todo.test.helpers.FakeGoogleSettings
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.clickTagScrolled
+import com.singularity.todo.test.helpers.connectedCredential
+import com.singularity.todo.test.helpers.googleCalendarModule
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
@@ -51,25 +51,26 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class CalendarSyncConnectScenarioTest {
-
     @Test
     @DisplayName("CAL-SYNC-CONNECT-01 the sync control appears only once a calendar is chosen")
     fun connect_offers_a_control_only_after_a_calendar_is_chosen() =
         runDesktopAppTest(
-            overrides = googleCalendarModule(
-                // Seeded *connected* rather than connected by clicking, and the reason is
-                // the honest one: `SetGoogleConnected(true)` optimistically flips the flag
-                // and then re-reads the credential store, so a store with nothing in it
-                // puts the screen straight back to "not connected". That is correct — the
-                // credential comes from a real OAuth grant, which a JVM test cannot
-                // produce. A test that clicked Connect and expected the panel to change
-                // would be asserting that a button fabricates a token.
-                credentials = FakeGoogleCredentialStore(
-                    initial = mapOf(TestUsers.DEFAULT.value to connectedCredential()),
+            overrides =
+                googleCalendarModule(
+                    // Seeded *connected* rather than connected by clicking, and the reason is
+                    // the honest one: `SetGoogleConnected(true)` optimistically flips the flag
+                    // and then re-reads the credential store, so a store with nothing in it
+                    // puts the screen straight back to "not connected". That is correct — the
+                    // credential comes from a real OAuth grant, which a JVM test cannot
+                    // produce. A test that clicked Connect and expected the panel to change
+                    // would be asserting that a button fabricates a token.
+                    credentials =
+                        FakeGoogleCredentialStore(
+                            initial = mapOf(TestUsers.DEFAULT.value to connectedCredential()),
+                        ),
+                    settings = FakeGoogleSettings(),
+                    eventSource = FakeCalendarEventSource(),
                 ),
-                settings = FakeGoogleSettings(),
-                eventSource = FakeCalendarEventSource(),
-            ),
         ) {
             openDrawer()
             clickContentDescriptionScrolled("Settings")

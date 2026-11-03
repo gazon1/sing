@@ -10,8 +10,8 @@ import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.typeIntoTag
-import kotlin.test.Test
 import org.junit.jupiter.api.Tag
+import kotlin.test.Test
 
 /**
  * Desktop mirror of `Maestro/flows/profile/01-create-profile.yaml`.
@@ -25,24 +25,24 @@ import org.junit.jupiter.api.Tag
 @Tag("slow")
 @Tag("slow:compose")
 class ProfileFlowTest {
-
     @Test
-    fun create_profile_from_drawer() = runDesktopAppTest(checkA11y = true) {
-        openDrawer()
-        clickContentDescriptionScrolled("Profiles")
+    fun create_profile_from_drawer() =
+        runDesktopAppTest(checkA11y = true) {
+            openDrawer()
+            clickContentDescriptionScrolled("Profiles")
 
-        // Wait for drawer to close and ProfileSwitcher to render — use the
-        // create button (unique to this screen) rather than "Profiles" text,
-        // which also appears in the closed-drawer semantics node.
-        assertTagDisplayed(TestTags.PROFILE_CREATE_BUTTON)
+            // Wait for drawer to close and ProfileSwitcher to render — use the
+            // create button (unique to this screen) rather than "Profiles" text,
+            // which also appears in the closed-drawer semantics node.
+            assertTagDisplayed(TestTags.PROFILE_CREATE_BUTTON)
 
-        // Create a new profile.
-        clickTag(TestTags.PROFILE_CREATE_BUTTON)
-        assertTextDisplayed("New Profile")
-        typeIntoTag(TestTags.PROFILE_CREATE_NAME_INPUT, "Work")
-        clickTag(TestTags.Dialog.CONFIRM)
+            // Create a new profile.
+            clickTag(TestTags.PROFILE_CREATE_BUTTON)
+            assertTextDisplayed("New Profile")
+            typeIntoTag(TestTags.PROFILE_CREATE_NAME_INPUT, "Work")
+            clickTag(TestTags.Dialog.CONFIRM)
 
-        // The new profile card appears.
-        assertTagDisplayed(TestTags.profileItem("Work"))
-    }
+            // The new profile card appears.
+            assertTagDisplayed(TestTags.profileItem("Work"))
+        }
 }

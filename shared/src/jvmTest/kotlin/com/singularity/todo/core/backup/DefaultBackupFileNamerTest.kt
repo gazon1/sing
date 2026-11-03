@@ -7,7 +7,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class DefaultBackupFileNamerTest {
-
     @Test
     fun `nextBackupName includes timestamp in filename`() {
         val namer = DefaultBackupFileNamer()

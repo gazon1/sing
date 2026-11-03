@@ -22,9 +22,11 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class BackupDeltaMergeTest {
-
     /** A task, with a title that says which one it is. */
-    private fun task(id: String, title: String) = TaskDto(
+    private fun task(
+        id: String,
+        title: String,
+    ) = TaskDto(
         id = id,
         title = title,
         createdAt = 1L,
@@ -68,10 +70,11 @@ class BackupDeltaMergeTest {
      */
     @Test
     fun `a row the change does not mention is kept`() {
-        val base = BackupPayload(
-            schemaVersion = 1,
-            tasks = listOf(task("t-1", "before"), task("t-2", "untouched")),
-        )
+        val base =
+            BackupPayload(
+                schemaVersion = 1,
+                tasks = listOf(task("t-1", "before"), task("t-2", "untouched")),
+            )
         val delta = BackupPayload(schemaVersion = 1, tasks = listOf(task("t-1", "after")))
 
         val merged = merge(base, delta)
@@ -105,14 +108,16 @@ class BackupDeltaMergeTest {
      */
     @Test
     fun `a link row is keyed by the pair it joins`() {
-        val base = BackupPayload(
-            schemaVersion = 1,
-            taskTags = listOf(TaskTagDto(taskId = "t-1", tagId = "tag-1")),
-        )
-        val delta = BackupPayload(
-            schemaVersion = 1,
-            taskTags = listOf(TaskTagDto(taskId = "t-1", tagId = "tag-2")),
-        )
+        val base =
+            BackupPayload(
+                schemaVersion = 1,
+                taskTags = listOf(TaskTagDto(taskId = "t-1", tagId = "tag-1")),
+            )
+        val delta =
+            BackupPayload(
+                schemaVersion = 1,
+                taskTags = listOf(TaskTagDto(taskId = "t-1", tagId = "tag-2")),
+            )
 
         val merged = merge(base, delta)
 
@@ -131,16 +136,19 @@ class BackupDeltaMergeTest {
      */
     @Test
     fun `a dependency edge is keyed by the pair it joins`() {
-        val base = BackupPayload(
-            schemaVersion = 1,
-            taskDependencies = listOf(TaskDependencyDto(taskId = "t-1", dependsOnTaskId = "t-2")),
-        )
-        val delta = BackupPayload(
-            schemaVersion = 1,
-            taskDependencies = listOf(
-                TaskDependencyDto(taskId = "t-1", dependsOnTaskId = "t-2", verb = "FOLLOWS_UP"),
-            ),
-        )
+        val base =
+            BackupPayload(
+                schemaVersion = 1,
+                taskDependencies = listOf(TaskDependencyDto(taskId = "t-1", dependsOnTaskId = "t-2")),
+            )
+        val delta =
+            BackupPayload(
+                schemaVersion = 1,
+                taskDependencies =
+                    listOf(
+                        TaskDependencyDto(taskId = "t-1", dependsOnTaskId = "t-2", verb = "FOLLOWS_UP"),
+                    ),
+            )
 
         val merged = merge(base, delta)
 

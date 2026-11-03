@@ -37,11 +37,11 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class DetektSourceSetsAreAllScannedTest {
-
-    private val repoRoot: File = File(
-        System.getProperty("commonMain.root")
-            ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
-    ).parentFile.parentFile.parentFile.parentFile
+    private val repoRoot: File =
+        File(
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
+        ).parentFile.parentFile.parentFile.parentFile
 
     /**
      * Module -> the source sets it actually has.
@@ -65,10 +65,10 @@ class DetektSourceSetsAreAllScannedTest {
                 .filter { File(it, "kotlin").isDirectory }
                 .map { "src/${it.name}/kotlin" }
                 .filter { rel ->
-                    File(repoRoot, "$module/$rel").walkTopDown()
+                    File(repoRoot, "$module/$rel")
+                        .walkTopDown()
                         .any { f -> f.isFile && f.extension == "kt" }
-                }
-                .toSortedSet()
+                }.toSortedSet()
         }
     }
 
@@ -76,9 +76,10 @@ class DetektSourceSetsAreAllScannedTest {
         val buildFile = File(repoRoot, "$module/build.gradle.kts")
         if (!buildFile.isFile) return null
         val text = buildFile.readText()
-        val block = Regex(
-            """source\.setFrom\(([^)]*)\)""",
-        ).find(text)?.groupValues?.get(1) ?: return null
+        val block =
+            Regex(
+                """source\.setFrom\(([^)]*)\)""",
+            ).find(text)?.groupValues?.get(1) ?: return null
         return Regex("\"([^\"]+)\"").findAll(block).map { it.groupValues[1] }.toList()
     }
 

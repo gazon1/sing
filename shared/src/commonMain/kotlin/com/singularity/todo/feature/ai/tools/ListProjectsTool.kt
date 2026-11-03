@@ -25,22 +25,24 @@ data class ProjectSummary(
 
 class ListProjectsTool(private val projectsRepository: ProjectsRepository) :
     SimpleTool<ListProjectsInput>(TypeToken.of(ListProjectsInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: ListProjectsInput): String {
-        val rows = projectsRepository.observeProjectsWithCounts().first()
-            .filter { args.includeArchived || (!it.project.isDeleted && it.project.closedAt == null) }
-            .take(args.limit)
-            .map { row ->
-                ProjectSummary(
-                    id = row.project.id,
-                    name = row.project.name,
-                    color = row.project.color,
-                    icon = row.project.icon,
-                    description = row.project.description,
-                    totalCount = row.totalCount,
-                    completedCount = row.completedCount,
-                )
-            }
+        val rows =
+            projectsRepository
+                .observeProjectsWithCounts()
+                .first()
+                .filter { args.includeArchived || (!it.project.isDeleted && it.project.closedAt == null) }
+                .take(args.limit)
+                .map { row ->
+                    ProjectSummary(
+                        id = row.project.id,
+                        name = row.project.name,
+                        color = row.project.color,
+                        icon = row.project.icon,
+                        description = row.project.description,
+                        totalCount = row.totalCount,
+                        completedCount = row.completedCount,
+                    )
+                }
         return kotlinx.serialization.json.Json.encodeToString(
             ListProjectsOutput.serializer(),
             ListProjectsOutput(rows),

@@ -57,8 +57,7 @@ enum class SearchScope(val id: String, val isDocumentScope: Boolean) {
     ;
 
     companion object {
-        fun from(raw: String?): SearchScope =
-            entries.firstOrNull { it.id == raw?.trim()?.lowercase() } ?: ALL
+        fun from(raw: String?): SearchScope = entries.firstOrNull { it.id == raw?.trim()?.lowercase() } ?: ALL
     }
 }
 
@@ -70,8 +69,7 @@ enum class SearchKind(val id: String) {
     ;
 
     companion object {
-        fun from(raw: String?): SearchKind =
-            entries.firstOrNull { it.id == raw?.trim()?.lowercase() } ?: ALL
+        fun from(raw: String?): SearchKind = entries.firstOrNull { it.id == raw?.trim()?.lowercase() } ?: ALL
     }
 }
 
@@ -182,15 +180,17 @@ class CorpusSearch internal constructor(
      */
     private val documents: DocumentCorpusConfig = DocumentCorpusConfig.DEFAULT,
 ) {
-
     /**
      * The decisions and the deferred backlog.
      *
      * A blank query is a *caller* error, not an empty result: nothing was searched, so
      * the envelope says so instead of pretending the corpus is empty.
      */
-    fun searchDecisions(query: String, limit: Int = DEFAULT_LIMIT, kind: SearchKind = SearchKind.ALL):
-        SearchEnvelope {
+    fun searchDecisions(
+        query: String,
+        limit: Int = DEFAULT_LIMIT,
+        kind: SearchKind = SearchKind.ALL,
+    ): SearchEnvelope {
         val needle = query.trim()
         if (needle.isEmpty()) {
             return SearchEnvelope(
@@ -214,24 +214,28 @@ class CorpusSearch internal constructor(
             // says a backlog entry is not a decision is `isDecision`, and it has to be
             // applied here — otherwise the search would list the backlog twice, once
             // as a decision and once as a backlog entry.
-            hits += corpus.discover(decisionsDir)
-                .filter { corpus.isDecision(it) }
-                .mapNotNull { path -> decisionHit(path, needle, warnings) }
+            hits +=
+                corpus
+                    .discover(decisionsDir)
+                    .filter { corpus.isDecision(it) }
+                    .mapNotNull { path -> decisionHit(path, needle, warnings) }
         }
 
         if (kind != SearchKind.DECISION) {
             val deferredDir = Path(decisionsDir, corpus.deferredDir)
             if (deferredDir.isDirectory()) {
-                hits += corpus.deferred(decisionsDir).mapNotNull { slug ->
-                    val path = Path(deferredDir.toString(), "$slug.md").toString()
-                    deferredHit(path, needle, warnings)
-                }
+                hits +=
+                    corpus.deferred(decisionsDir).mapNotNull { slug ->
+                        val path = Path(deferredDir.toString(), "$slug.md").toString()
+                        deferredHit(path, needle, warnings)
+                    }
             }
         }
 
-        val ordered = hits
-            .sortedWith(compareByDescending<AdrSearchHit> { it.date }.thenBy { it.slug })
-            .take(clamp(limit))
+        val ordered =
+            hits
+                .sortedWith(compareByDescending<AdrSearchHit> { it.date }.thenBy { it.slug })
+                .take(clamp(limit))
         return SearchEnvelope(available = true, hits = ordered, warnings = warnings)
     }
 
@@ -241,8 +245,11 @@ class CorpusSearch internal constructor(
      * The decisions are included when the scope covers them, so that "search
      * everything" is one call rather than two.
      */
-    fun searchDocuments(query: String, scope: SearchScope = SearchScope.ALL, limit: Int = DEFAULT_LIMIT):
-        SearchEnvelope {
+    fun searchDocuments(
+        query: String,
+        scope: SearchScope = SearchScope.ALL,
+        limit: Int = DEFAULT_LIMIT,
+    ): SearchEnvelope {
         val needle = query.trim()
         if (needle.isEmpty()) {
             return SearchEnvelope(available = false, error = "query must not be blank")
@@ -263,15 +270,18 @@ class CorpusSearch internal constructor(
             if (projectRoot == null) {
                 warnings += "the document scopes need a project checkout, and this process has none"
             } else {
-                hits += SearchScope.entries
-                    .filter { it.isDocumentScope }
-                    .filter { scope == SearchScope.ALL || it == scope }
-                    .flatMap { searchScopeDirectory(it, needle, warnings) }
+                hits +=
+                    SearchScope.entries
+                        .filter { it.isDocumentScope }
+                        .filter { scope == SearchScope.ALL || it == scope }
+                        .flatMap { searchScopeDirectory(it, needle, warnings) }
             }
         }
 
-        val ordered = hits.sortedWith(compareBy<AdrSearchHit> { it.scope }.thenBy { it.path })
-            .take(clamp(limit))
+        val ordered =
+            hits
+                .sortedWith(compareBy<AdrSearchHit> { it.scope }.thenBy { it.path })
+                .take(clamp(limit))
         return SearchEnvelope(
             available = true,
             hits = ordered,
@@ -279,8 +289,11 @@ class CorpusSearch internal constructor(
         )
     }
 
-    private fun searchScopeDirectory(scope: SearchScope, needle: String, warnings: MutableList<String>):
-        List<AdrSearchHit> {
+    private fun searchScopeDirectory(
+        scope: SearchScope,
+        needle: String,
+        warnings: MutableList<String>,
+    ): List<AdrSearchHit> {
         val roots = documents.rootsFor(scope.id)
         if (roots.isEmpty()) {
             warnings += "the ${scope.id} scope is not declared in $DocumentCorpusConfig.CONFIG_PATH"
@@ -295,10 +308,11 @@ class CorpusSearch internal constructor(
             markdownFiles(root).mapNotNull { file ->
                 // An unreadable file is a warning, not a failure: one broken document must
                 // not turn the whole scope into "nothing was searched".
-                val text = runCatching { file.readText() }.getOrElse {
-                    warnings += "skipped an unreadable file under $relative"
-                    return@mapNotNull null
-                }
+                val text =
+                    runCatching { file.readText() }.getOrElse {
+                        warnings += "skipped an unreadable file under $relative"
+                        return@mapNotNull null
+                    }
                 val match = matchIn(needle, titleOf(text), emptyList(), text) ?: return@mapNotNull null
                 AdrSearchHit(
                     slug = file.fileName.toString().removeSuffix(documents.fileExtension),
@@ -322,11 +336,13 @@ class CorpusSearch internal constructor(
      */
     fun documentsIn(scope: SearchScope): List<String> {
         val root = projectRoot ?: return emptyList()
-        return documents.rootsFor(scope.id).flatMap { relative ->
-            val directory = Path(root, relative)
-            if (!directory.isDirectory()) return@flatMap emptyList()
-            markdownFiles(directory).map { relativeToRoot(it.toString()) }
-        }.sorted()
+        return documents
+            .rootsFor(scope.id)
+            .flatMap { relative ->
+                val directory = Path(root, relative)
+                if (!directory.isDirectory()) return@flatMap emptyList()
+                markdownFiles(directory).map { relativeToRoot(it.toString()) }
+            }.sorted()
     }
 
     /**
@@ -335,11 +351,16 @@ class CorpusSearch internal constructor(
      * A decision that cannot be read is a warning rather than a failure: the rest of
      * the corpus was still searched, and the caller is told what was skipped.
      */
-    private fun decisionHit(path: String, needle: String, warnings: MutableList<String>): AdrSearchHit? {
-        val adr = readAdr(path) ?: run {
-            warnings += "skipped an unreadable decision under $decisionsDir"
-            return null
-        }
+    private fun decisionHit(
+        path: String,
+        needle: String,
+        warnings: MutableList<String>,
+    ): AdrSearchHit? {
+        val adr =
+            readAdr(path) ?: run {
+                warnings += "skipped an unreadable decision under $decisionsDir"
+                return null
+            }
         val match = matchIn(needle, adr.title, adr.tags, adr.body) ?: return null
         return AdrSearchHit(
             slug = adr.slug,
@@ -355,11 +376,16 @@ class CorpusSearch internal constructor(
     }
 
     /** One backlog entry, if it matches. */
-    private fun deferredHit(path: String, needle: String, warnings: MutableList<String>): AdrSearchHit? {
-        val adr = readAdr(path) ?: run {
-            warnings += "skipped an unreadable backlog entry under ${corpus.deferredDir}"
-            return null
-        }
+    private fun deferredHit(
+        path: String,
+        needle: String,
+        warnings: MutableList<String>,
+    ): AdrSearchHit? {
+        val adr =
+            readAdr(path) ?: run {
+                warnings += "skipped an unreadable backlog entry under ${corpus.deferredDir}"
+                return null
+            }
         val match = matchIn(needle, adr.title, adr.tags, adr.body) ?: return null
         return AdrSearchHit(
             slug = adr.slug,
@@ -374,7 +400,10 @@ class CorpusSearch internal constructor(
         )
     }
 
-    private fun markdownFiles(root: Path, depth: Int = 0): List<Path> {
+    private fun markdownFiles(
+        root: Path,
+        depth: Int = 0,
+    ): List<Path> {
         if (depth > documents.maxDepth) return emptyList()
         return root.listDirectoryEntries().flatMap { entry ->
             when {
@@ -385,12 +414,14 @@ class CorpusSearch internal constructor(
         }
     }
 
-    private fun titleOf(text: String): String = text.lineSequence()
-        .firstOrNull { it.trimStart().startsWith("# ") }
-        ?.trimStart('#', ' ')
-        ?.trim()
-        ?.takeIf { it.isNotEmpty() }
-        ?: ""
+    private fun titleOf(text: String): String =
+        text
+            .lineSequence()
+            .firstOrNull { it.trimStart().startsWith("# ") }
+            ?.trimStart('#', ' ')
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?: ""
 
     /**
      * The first line that matches, trimmed to [SNIPPET_MAX].
@@ -398,7 +429,12 @@ class CorpusSearch internal constructor(
      * The line, not the whole document: a hit that shows the whole body is a hit that
      * costs the reader the same context the search was meant to save.
      */
-    private fun matchIn(needle: String, title: String, tags: List<String>, body: String): String? {
+    private fun matchIn(
+        needle: String,
+        title: String,
+        tags: List<String>,
+        body: String,
+    ): String? {
         val lowerNeedle = needle.lowercase()
         if (title.lowercase().contains(lowerNeedle)) {
             return title.trim().take(SNIPPET_MAX)
@@ -406,9 +442,11 @@ class CorpusSearch internal constructor(
         if (tags.any { it.lowercase().contains(lowerNeedle) }) {
             return "tag: ${tags.joinToString(", ")}".take(SNIPPET_MAX)
         }
-        val line = body.lineSequence()
-            .firstOrNull { it.lowercase().contains(lowerNeedle) }
-            ?: return null
+        val line =
+            body
+                .lineSequence()
+                .firstOrNull { it.lowercase().contains(lowerNeedle) }
+                ?: return null
         val trimmed = line.trim()
         return if (trimmed.length > SNIPPET_MAX) {
             trimmed.take(SNIPPET_MAX) + "…"

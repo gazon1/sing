@@ -1,11 +1,11 @@
 package com.singularity.todo.detekt
 
 import dev.detekt.api.RuleName
-import java.nio.file.Path
 import dev.detekt.test.FakeLanguageVersionSettings
 import dev.detekt.test.TestConfig
 import dev.detekt.test.utils.compileContentForTest
 import org.jetbrains.kotlin.config.ExplicitApiMode
+import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -35,7 +35,6 @@ import kotlin.test.assertTrue
  * @see 2026-10-05-no-direct-dispatchers-rule-was-a-no-op
  */
 class RuleFiresSmokeTest {
-
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
     /**
@@ -51,11 +50,13 @@ class RuleFiresSmokeTest {
      * Only a positive assertion distinguishes a working rule from a broken fixture, which
      * is the entire reason this file exists.
      */
-    private fun <T : dev.detekt.api.Rule> findings(rule: T, code: String) =
-        rule.visitFile(
-            compileContentForTest(code.trimIndent(), Path.of("Fixture.kt")),
-            languageSettings,
-        )
+    private fun <T : dev.detekt.api.Rule> findings(
+        rule: T,
+        code: String,
+    ) = rule.visitFile(
+        compileContentForTest(code.trimIndent(), Path.of("Fixture.kt")),
+        languageSettings,
+    )
 
     /**
      * Resolve a rule through its [dev.detekt.api.RuleSetProvider] by name.
@@ -71,9 +72,10 @@ class RuleFiresSmokeTest {
         name: dev.detekt.api.RuleName,
     ): dev.detekt.api.Rule {
         val rules = provider.instance().rules
-        val factory = requireNotNull(rules[name]) {
-            "rule set '${provider.ruleSetId}' does not provide '$name'; it has ${rules.keys}"
-        }
+        val factory =
+            requireNotNull(rules[name]) {
+                "rule set '${provider.ruleSetId}' does not provide '$name'; it has ${rules.keys}"
+            }
         return factory(TestConfig())
     }
 
@@ -216,16 +218,17 @@ class RuleFiresSmokeTest {
     @Test
     fun `NoStaticProfileAwareCurrentUser allows constructor injection`() {
         val rule = NoStaticProfileAwareCurrentUserRule(TestConfig())
-        val found = findings(
-            rule,
-            """
+        val found =
+            findings(
+                rule,
+                """
             package com.example
 
             class Screen {
                 private val currentUser: ProfileAwareCurrentUser = ProfileAwareCurrentUser()
             }
             """,
-        )
+            )
         assertTrue(
             found.isEmpty(),
             "constructor injection is the sanctioned form, but got $found",
@@ -270,9 +273,10 @@ class RuleFiresSmokeTest {
 
     @Test
     fun `MviViewModelExt ignores an unrelated inferred property`() {
-        val found = findings(
-            rule(MviViewModelRulesProvider(), RuleName("MviViewModelExt")),
-            """
+        val found =
+            findings(
+                rule(MviViewModelRulesProvider(), RuleName("MviViewModelExt")),
+                """
             package com.example
 
             class AgendaViewModel {
@@ -280,7 +284,7 @@ class RuleFiresSmokeTest {
                 private val scope = CoroutineScope(SupervisorJob())
             }
             """,
-        )
+            )
         assertTrue(
             found.isEmpty(),
             "the initialiser check must not turn every property into a finding, got $found",
@@ -395,9 +399,10 @@ class RuleFiresSmokeTest {
 
     @Test
     fun `NoCoroutineLaunchInInit exempts SyncEngine`() {
-        val found = findings(
-            NoCoroutineLaunchInInit(TestConfig()),
-            """
+        val found =
+            findings(
+                NoCoroutineLaunchInInit(TestConfig()),
+                """
             package com.example
 
             class SyncEngine {
@@ -406,7 +411,7 @@ class RuleFiresSmokeTest {
                 }
             }
             """,
-        )
+            )
         assertTrue(
             found.isEmpty(),
             "SyncEngine is grandfathered but got findings: $found",
@@ -415,9 +420,10 @@ class RuleFiresSmokeTest {
 
     @Test
     fun `NoCoroutineLaunchInInit exempts SyncBootstrapper`() {
-        val found = findings(
-            NoCoroutineLaunchInInit(TestConfig()),
-            """
+        val found =
+            findings(
+                NoCoroutineLaunchInInit(TestConfig()),
+                """
             package com.example
 
             class SyncBootstrapper {
@@ -426,7 +432,7 @@ class RuleFiresSmokeTest {
                 }
             }
             """,
-        )
+            )
         assertTrue(
             found.isEmpty(),
             "SyncBootstrapper is grandfathered but got findings: $found",
@@ -435,9 +441,10 @@ class RuleFiresSmokeTest {
 
     @Test
     fun `NoCoroutineLaunchInInit exempts SyncCoordinator`() {
-        val found = findings(
-            NoCoroutineLaunchInInit(TestConfig()),
-            """
+        val found =
+            findings(
+                NoCoroutineLaunchInInit(TestConfig()),
+                """
             package com.example
 
             class SyncCoordinator {
@@ -446,7 +453,7 @@ class RuleFiresSmokeTest {
                 }
             }
             """,
-        )
+            )
         assertTrue(
             found.isEmpty(),
             "SyncCoordinator is grandfathered but got findings: $found",
@@ -462,19 +469,24 @@ class RuleFiresSmokeTest {
 // project's canonical VM shape, so a no-op here would be the most expensive kind.
 
 class MviViewModelRuleFiresTest {
-
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
     private fun rule(name: dev.detekt.api.RuleName) =
         MviViewModelRulesProvider().instance().rules[name]!!.invoke(TestConfig())
 
-    private fun findings(rule: dev.detekt.api.Rule, code: String) =
-        rule.visitFile(
-            compileContentForTest(code.trimIndent(), Path.of("Fixture.kt")),
-            languageSettings,
-        )
+    private fun findings(
+        rule: dev.detekt.api.Rule,
+        code: String,
+    ) = rule.visitFile(
+        compileContentForTest(code.trimIndent(), Path.of("Fixture.kt")),
+        languageSettings,
+    )
 
-    private fun assertFires(rule: dev.detekt.api.Rule, code: String, label: String) {
+    private fun assertFires(
+        rule: dev.detekt.api.Rule,
+        code: String,
+        label: String,
+    ) {
         val found = findings(rule, code)
         assertTrue(found.isNotEmpty(), "$label reported nothing for a known violation: $found")
     }
@@ -499,9 +511,10 @@ class MviViewModelRuleFiresTest {
 
     @Test
     fun `IntentMethodName allows onIntent`() {
-        val found = findings(
-            rule(RuleName("IntentMethodName")),
-            """
+        val found =
+            findings(
+                rule(RuleName("IntentMethodName")),
+                """
             package com.example
 
             class AgendaViewModel {
@@ -511,7 +524,7 @@ class MviViewModelRuleFiresTest {
                 }
             }
             """,
-        )
+            )
         assertTrue(found.isEmpty(), "onIntent is the sanctioned name, got $found")
     }
 
@@ -533,9 +546,10 @@ class MviViewModelRuleFiresTest {
 
     @Test
     fun `VmScopePosition allows scope last`() {
-        val found = findings(
-            rule(RuleName("VmScopePosition")),
-            """
+        val found =
+            findings(
+                rule(RuleName("VmScopePosition")),
+                """
             package com.example
 
             class AgendaViewModel(
@@ -543,7 +557,7 @@ class MviViewModelRuleFiresTest {
                 private val scope: CoroutineScope,
             )
             """,
-        )
+            )
         assertTrue(found.isEmpty(), "scope last is the canonical shape, got $found")
     }
 
@@ -569,9 +583,10 @@ class MviViewModelRuleFiresTest {
 
     @Test
     fun `VmCloseable allows addCloseable in the init block`() {
-        val found = findings(
-            rule(RuleName("VmCloseable")),
-            """
+        val found =
+            findings(
+                rule(RuleName("VmCloseable")),
+                """
             package com.example
 
             class AgendaViewModel(
@@ -583,7 +598,7 @@ class MviViewModelRuleFiresTest {
                 }
             }
             """,
-        )
+            )
         assertTrue(found.isEmpty(), "addCloseable(scope) is the canonical shape, got $found")
     }
 
@@ -604,9 +619,10 @@ class MviViewModelRuleFiresTest {
 
     @Test
     fun `ShadowedState allows updateState usage`() {
-        val found = findings(
-            rule(RuleName("ShadowedState")),
-            """
+        val found =
+            findings(
+                rule(RuleName("ShadowedState")),
+                """
             package com.example
 
             class AgendaViewModel : MviViewModel<UiState, Intent>(initialState = UiState.Loading) {
@@ -615,7 +631,7 @@ class MviViewModelRuleFiresTest {
                 }
             }
             """,
-        )
+            )
         assertTrue(found.isEmpty(), "updateState is the sanctioned form, got $found")
     }
 }

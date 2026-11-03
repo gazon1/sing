@@ -9,6 +9,7 @@ import androidx.compose.runtime.compositionLocalOf
  *
  * The only cross-feature hop from settings is to [ProfileSwitcher][com.singularity.todo.feature.nav.AppDestination.ProfileSwitcher].
  */
-val LocalSettingsNavigator = compositionLocalOf<SettingsNavigator> {
-    error("SettingsNavigator not provided — wrap with SettingsNavGraph")
-}
+val LocalSettingsNavigator =
+    compositionLocalOf<SettingsNavigator> {
+        error("SettingsNavigator not provided — wrap with SettingsNavGraph")
+    }

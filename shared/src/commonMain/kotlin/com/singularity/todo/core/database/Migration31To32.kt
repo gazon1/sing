@@ -36,7 +36,6 @@ import androidx.sqlite.execSQL
  * `AutoMigration(from = 31, to = 32)` entry (kept out of [AppDatabase] now).
  */
 class Migration31To32 : Migration(31, 32) {
-
     override suspend fun migrate(connection: SQLiteConnection) {
         backfillTargets(connection)
         rebuildNotes(connection)

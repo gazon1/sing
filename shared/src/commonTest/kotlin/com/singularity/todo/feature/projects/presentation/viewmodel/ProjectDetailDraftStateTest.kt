@@ -9,7 +9,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class ProjectDetailDraftStateTest {
-
     private fun newState(initial: ProjectDetailDraft = ProjectDetailDraft.empty()) = ProjectDetailDraftState(initial)
 
     /**

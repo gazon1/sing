@@ -1,11 +1,11 @@
 package com.singularity.todo.core.auth
 
+import com.singularity.todo.core.ids.UserId
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.OtpVerifyResult
 import io.github.jan.supabase.auth.exception.AuthRestException
 import io.github.jan.supabase.auth.user.UserInfo
 import io.github.jan.supabase.auth.user.UserSession
-import com.singularity.todo.core.ids.UserId
 import io.github.jan.supabase.exceptions.HttpRequestException
 import io.ktor.client.HttpClient
 import io.ktor.client.call.HttpClientCall
@@ -26,11 +26,11 @@ import io.ktor.util.Attributes
 import io.ktor.util.date.GMTDate
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.InternalAPI
-import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -47,118 +47,130 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SupabaseAuthGatewayTest {
-
     private val secure = MapSecureStorage()
     private val legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev"))
     private val store = SecureSessionManager(log = testLogger(), secure = secure, legacy = legacy)
     private val plugin = FakeSupabaseAuth(store)
 
-    private val gateway = SupabaseAuthGateway(
-        clients = object : SupabaseClientProvider(
-            resolver = SupabaseConfigResolver(idGenerator = FixedIdGenerator(), buildTime = { null }),
-            store = secure,
-            sessionStore = store,
-        ) {
-            override suspend fun auth(): Auth? = plugin
-        },
-        log = testLogger(),
-    )
-
-    @Test
-    fun `a magic link to an unknown address creates no account`() = runTest {
-        val result = gateway.sendMagicLink("a@b.c")
-
-        assertTrue(result.isSuccess, "the provider refused the link: ${result.exceptionOrNull()}")
-        assertEquals("a@b.c", plugin.lastOtpEmail)
-        assertEquals(
-            false,
-            plugin.lastOtpCreateUser,
-            "the link must ask for a link to an *existing* account, not for one to be created",
-        )
-    }
-
-    @Test
-    fun `a magic link token is exchanged for a session`() = runTest {
-        plugin.verifyResult = OtpVerifyResult.Authenticated(providerSession())
-
-        val result = gateway.verifyMagicLink("a@b.c", "token-1")
-
-        val session = result.getOrThrow()
-        assertEquals("owner-1", session.userId)
-        assertEquals("a@b.c", session.email)
-        assertEquals("access-1", session.accessToken)
-        assertEquals("refresh-1", session.refreshToken)
-    }
-
-    @Test
-    fun `a rejected refresh token is reported as a rejection`() = runTest {
-        plugin.refreshFailure = AuthRestException(
-            errorCode = "invalid_grant",
-            errorDescription = "Invalid Refresh Token",
-            response = StubResponse(HttpStatusCode.BadRequest),
+    private val gateway =
+        SupabaseAuthGateway(
+            clients =
+                object : SupabaseClientProvider(
+                    resolver = SupabaseConfigResolver(idGenerator = FixedIdGenerator(), buildTime = { null }),
+                    store = secure,
+                    sessionStore = store,
+                ) {
+                    override suspend fun auth(): Auth? = plugin
+                },
+            log = testLogger(),
         )
 
-        val result = gateway.refresh("access-1", "refresh-1")
+    @Test
+    fun `a magic link to an unknown address creates no account`() =
+        runTest {
+            val result = gateway.sendMagicLink("a@b.c")
 
-        assertTrue(result.isSuccess, "a rejection is an answer, not a failure")
-        assertNull(result.getOrThrow(), "the rejection is the null the repository acts on")
-    }
+            assertTrue(result.isSuccess, "the provider refused the link: ${result.exceptionOrNull()}")
+            assertEquals("a@b.c", plugin.lastOtpEmail)
+            assertEquals(
+                false,
+                plugin.lastOtpCreateUser,
+                "the link must ask for a link to an *existing* account, not for one to be created",
+            )
+        }
 
     @Test
-    fun `a provider that is unwell does not end the session`() = runTest {
-        plugin.refreshFailure = AuthRestException(
-            errorCode = "unexpected_failure",
-            errorDescription = "The provider is unwell",
-            response = StubResponse(HttpStatusCode.InternalServerError),
+    fun `a magic link token is exchanged for a session`() =
+        runTest {
+            plugin.verifyResult = OtpVerifyResult.Authenticated(providerSession())
+
+            val result = gateway.verifyMagicLink("a@b.c", "token-1")
+
+            val session = result.getOrThrow()
+            assertEquals("owner-1", session.userId)
+            assertEquals("a@b.c", session.email)
+            assertEquals("access-1", session.accessToken)
+            assertEquals("refresh-1", session.refreshToken)
+        }
+
+    @Test
+    fun `a rejected refresh token is reported as a rejection`() =
+        runTest {
+            plugin.refreshFailure =
+                AuthRestException(
+                    errorCode = "invalid_grant",
+                    errorDescription = "Invalid Refresh Token",
+                    response = StubResponse(HttpStatusCode.BadRequest),
+                )
+
+            val result = gateway.refresh("access-1", "refresh-1")
+
+            assertTrue(result.isSuccess, "a rejection is an answer, not a failure")
+            assertNull(result.getOrThrow(), "the rejection is the null the repository acts on")
+        }
+
+    @Test
+    fun `a provider that is unwell does not end the session`() =
+        runTest {
+            plugin.refreshFailure =
+                AuthRestException(
+                    errorCode = "unexpected_failure",
+                    errorDescription = "The provider is unwell",
+                    response = StubResponse(HttpStatusCode.InternalServerError),
+                )
+
+            val result = gateway.refresh("access-1", "refresh-1")
+
+            assertTrue(result.isFailure, "a server that is unwell is not a rejection")
+        }
+
+    @Test
+    fun `a transport failure does not end the session`() =
+        runTest {
+            // The plugin's own answer to a provider it could not reach: the SDK wraps
+            // every transport failure in this exception, and the seam tells it apart
+            // from a status the provider chose.
+            plugin.refreshFailure =
+                HttpRequestException(
+                    "offline",
+                    HttpRequestBuilder().apply { url("https://project.supabase.co/auth/v1/token") },
+                )
+
+            val result = gateway.refresh("access-1", "refresh-1")
+
+            assertTrue(result.isFailure, "a failure to reach the provider is not a rejection")
+        }
+
+    @Test
+    fun `the live session is read from the credential store and handed to the plugin`() =
+        runTest {
+            store.save(Session.SignedIn(UserId.fromString("owner-1"), "a@b.c", "access-1", "refresh-1"))
+
+            val session = gateway.currentSession()
+
+            assertEquals("owner-1", session?.userId)
+            assertEquals("access-1", session?.accessToken)
+            assertEquals(
+                1,
+                plugin.importSessions.size,
+                "the plugin is told who is signed in, or its own requests go out as a stranger",
+            )
+        }
+
+    @Test
+    fun `a device with no session has none to restore`() =
+        runTest {
+            assertNull(gateway.currentSession(), "no session is an ordinary state, not a failure")
+        }
+
+    private fun providerSession() =
+        UserSession(
+            accessToken = "access-1",
+            refreshToken = "refresh-1",
+            expiresIn = 3600L,
+            tokenType = "bearer",
+            user = UserInfo(aud = "", id = "owner-1", email = "a@b.c"),
         )
-
-        val result = gateway.refresh("access-1", "refresh-1")
-
-        assertTrue(result.isFailure, "a server that is unwell is not a rejection")
-    }
-
-    @Test
-    fun `a transport failure does not end the session`() = runTest {
-        // The plugin's own answer to a provider it could not reach: the SDK wraps
-        // every transport failure in this exception, and the seam tells it apart
-        // from a status the provider chose.
-        plugin.refreshFailure = HttpRequestException(
-            "offline",
-            HttpRequestBuilder().apply { url("https://project.supabase.co/auth/v1/token") },
-        )
-
-        val result = gateway.refresh("access-1", "refresh-1")
-
-        assertTrue(result.isFailure, "a failure to reach the provider is not a rejection")
-    }
-
-    @Test
-    fun `the live session is read from the credential store and handed to the plugin`() = runTest {
-        store.save(Session.SignedIn(UserId.fromString("owner-1"), "a@b.c", "access-1", "refresh-1"))
-
-        val session = gateway.currentSession()
-
-        assertEquals("owner-1", session?.userId)
-        assertEquals("access-1", session?.accessToken)
-        assertEquals(
-            1,
-            plugin.importSessions.size,
-            "the plugin is told who is signed in, or its own requests go out as a stranger",
-        )
-    }
-
-    @Test
-    fun `a device with no session has none to restore`() = runTest {
-        assertNull(gateway.currentSession(), "no session is an ordinary state, not a failure")
-    }
-
-    private fun providerSession() = UserSession(
-        accessToken = "access-1",
-        refreshToken = "refresh-1",
-        expiresIn = 3600L,
-        tokenType = "bearer",
-        user = UserInfo(aud = "", id = "owner-1", email = "a@b.c"),
-    )
 }
 
 /**
@@ -191,22 +203,24 @@ private class StubResponse(override val status: HttpStatusCode) : HttpResponse()
 @OptIn(InternalAPI::class)
 private fun stubCall(status: HttpStatusCode): HttpClientCall {
     val client = HttpClient(StubEngine(status))
-    val request = HttpRequestData(
-        url = Url("https://project.supabase.co/auth/v1/token"),
-        method = HttpMethod.Post,
-        headers = Headers.Empty,
-        body = EmptyContent,
-        executionContext = Job(),
-        attributes = Attributes(),
-    )
-    val response = HttpResponseData(
-        statusCode = status,
-        requestTime = GMTDate(0),
-        headers = Headers.Empty,
-        version = HttpProtocolVersion.HTTP_1_1,
-        body = ByteReadChannel.Empty,
-        callContext = EmptyCoroutineContext,
-    )
+    val request =
+        HttpRequestData(
+            url = Url("https://project.supabase.co/auth/v1/token"),
+            method = HttpMethod.Post,
+            headers = Headers.Empty,
+            body = EmptyContent,
+            executionContext = Job(),
+            attributes = Attributes(),
+        )
+    val response =
+        HttpResponseData(
+            statusCode = status,
+            requestTime = GMTDate(0),
+            headers = Headers.Empty,
+            version = HttpProtocolVersion.HTTP_1_1,
+            body = ByteReadChannel.Empty,
+            callContext = EmptyCoroutineContext,
+        )
     return HttpClientCall(client, request, response)
 }
 
@@ -221,12 +235,13 @@ private fun stubCall(status: HttpStatusCode): HttpClientCall {
 private class StubEngine(private val status: HttpStatusCode) : HttpClientEngineBase("stub") {
     override val config: HttpClientEngineConfig = HttpClientEngineConfig()
 
-    override suspend fun execute(data: HttpRequestData): HttpResponseData = HttpResponseData(
-        statusCode = status,
-        requestTime = GMTDate(0),
-        headers = Headers.Empty,
-        version = HttpProtocolVersion.HTTP_1_1,
-        body = ByteReadChannel.Empty,
-        callContext = EmptyCoroutineContext,
-    )
+    override suspend fun execute(data: HttpRequestData): HttpResponseData =
+        HttpResponseData(
+            statusCode = status,
+            requestTime = GMTDate(0),
+            headers = Headers.Empty,
+            version = HttpProtocolVersion.HTTP_1_1,
+            body = ByteReadChannel.Empty,
+            callContext = EmptyCoroutineContext,
+        )
 }

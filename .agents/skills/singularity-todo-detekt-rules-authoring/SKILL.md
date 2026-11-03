@@ -131,7 +131,7 @@ Five traps this repository has actually fallen into:
 
 A rule absent from `detekt.yml` runs on detekt's built-in default — undecided, not
 off, and invisible in review. `check-rule-intent.py` lists them; the key spelling
-differs per ruleset and a wrong one fails *silently* in `ktlint:` — see
+differs per ruleset and a wrong one fails *silently* — see
 [`DECLARING-RULES.md`](DECLARING-RULES.md).
 
 ## Registering the same rule twice

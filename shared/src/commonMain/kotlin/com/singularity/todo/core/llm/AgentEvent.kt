@@ -49,7 +49,6 @@ package com.singularity.todo.core.llm
  * the port would invert that.
  */
 sealed interface AgentEvent {
-
     /**
      * A piece of the answer, as it arrives.
      *

@@ -17,41 +17,42 @@ import kotlin.test.assertNull
 
 @Tag("fast")
 class BackupDtoTest {
-
     @Test
     fun taskDtoToEntityRoundtripPreservesFields() {
         val now = System.currentTimeMillis()
-        val entity = TaskEntity(
-            id = "task-1",
-            title = "Test Task",
-            description = "Description",
-            priority = TaskPriority.High,
-            kind = TaskKind.Task,
-            projectId = "proj-1",
-            dueDate = "2025-01-15",
-            dueTime = "14:00",
-            startDate = null,
-            startTime = null,
-            endDate = null,
-            endTime = null,
-            accentColor = null,
-            emoji = null,
-            completedAt = null,
-            someday = false,
-            archivedAt = null,
-            isPinned = true,
-            createdAt = now,
-            updatedAt = now,
-            userId = "user-1",
-            sync = SyncColumns(
-                serverVersion = 5L,
-                syncStatus = "SYNCED",
-                syncError = "err",
-                lastSyncedAt = now,
-                deviceId = "device",
-                hlc = "hlc-val",
-            ),
-        )
+        val entity =
+            TaskEntity(
+                id = "task-1",
+                title = "Test Task",
+                description = "Description",
+                priority = TaskPriority.High,
+                kind = TaskKind.Task,
+                projectId = "proj-1",
+                dueDate = "2025-01-15",
+                dueTime = "14:00",
+                startDate = null,
+                startTime = null,
+                endDate = null,
+                endTime = null,
+                accentColor = null,
+                emoji = null,
+                completedAt = null,
+                someday = false,
+                archivedAt = null,
+                isPinned = true,
+                createdAt = now,
+                updatedAt = now,
+                userId = "user-1",
+                sync =
+                    SyncColumns(
+                        serverVersion = 5L,
+                        syncStatus = "SYNCED",
+                        syncError = "err",
+                        lastSyncedAt = now,
+                        deviceId = "device",
+                        hlc = "hlc-val",
+                    ),
+            )
 
         val dto = entity.toDto()
         assertEquals("task-1", dto.id)
@@ -83,28 +84,29 @@ class BackupDtoTest {
     @Test
     fun noteDtoToEntityRoundtripPreservesFields() {
         val now = System.currentTimeMillis()
-        val entity = NoteEntity(
-            id = "note-1",
-            userId = "user-1",
-            title = "Note Title",
-            bodyMarkdown = "# Hello",
-            bodyHtml = "<h1>Hello</h1>",
-            isFolder = false,
-            parentNoteId = null,
-            isPinned = true,
-            pinnedAt = now,
-            color = 0xFF0000,
-            sortOrder = 5,
-            wordCount = 42,
-            charCount = 200,
-            outgoingLinks = "[]",
-            taskId = "task-linked",
-            createdAt = now,
-            updatedAt = now,
-            deletedAt = null,
-            archivedAt = null,
-            sync = SyncColumns(),
-        )
+        val entity =
+            NoteEntity(
+                id = "note-1",
+                userId = "user-1",
+                title = "Note Title",
+                bodyMarkdown = "# Hello",
+                bodyHtml = "<h1>Hello</h1>",
+                isFolder = false,
+                parentNoteId = null,
+                isPinned = true,
+                pinnedAt = now,
+                color = 0xFF0000,
+                sortOrder = 5,
+                wordCount = 42,
+                charCount = 200,
+                outgoingLinks = "[]",
+                taskId = "task-linked",
+                createdAt = now,
+                updatedAt = now,
+                deletedAt = null,
+                archivedAt = null,
+                sync = SyncColumns(),
+            )
 
         val dto = entity.toDto()
         val restored = dto.toEntity("user-1")
@@ -131,26 +133,27 @@ class BackupDtoTest {
     @Test
     fun projectDtoToEntityRoundtripPreservesFields() {
         val now = System.currentTimeMillis()
-        val entity = ProjectEntity(
-            id = "proj-1",
-            userId = "user-1",
-            name = "My Project",
-            color = 0xFF5500,
-            icon = "📁",
-            description = "A project",
-            createdAt = now,
-            updatedAt = now,
-            isDefault = false,
-            dueDate = null,
-            team = null,
-            isDeleted = false,
-            deletedAt = null,
-            parentId = null,
-            sortOrder = 0,
-            idempotencyKey = null,
-            externalId = null,
-            sync = SyncColumns(),
-        )
+        val entity =
+            ProjectEntity(
+                id = "proj-1",
+                userId = "user-1",
+                name = "My Project",
+                color = 0xFF5500,
+                icon = "📁",
+                description = "A project",
+                createdAt = now,
+                updatedAt = now,
+                isDefault = false,
+                dueDate = null,
+                team = null,
+                isDeleted = false,
+                deletedAt = null,
+                parentId = null,
+                sortOrder = 0,
+                idempotencyKey = null,
+                externalId = null,
+                sync = SyncColumns(),
+            )
 
         val dto = entity.toDto()
         val restored = dto.toEntity("user-1")
@@ -163,27 +166,28 @@ class BackupDtoTest {
     @Test
     fun projectDtoRoundtripPreservesTheClosedTimestamp() {
         val now = System.currentTimeMillis()
-        val entity = ProjectEntity(
-            id = "proj-closed",
-            userId = "user-1",
-            name = "Finished project",
-            color = 0xFF5500,
-            icon = null,
-            description = null,
-            createdAt = now,
-            updatedAt = now,
-            isDefault = false,
-            dueDate = null,
-            team = null,
-            isDeleted = false,
-            deletedAt = null,
-            closedAt = now,
-            parentId = null,
-            sortOrder = 0,
-            idempotencyKey = null,
-            externalId = null,
-            sync = SyncColumns(),
-        )
+        val entity =
+            ProjectEntity(
+                id = "proj-closed",
+                userId = "user-1",
+                name = "Finished project",
+                color = 0xFF5500,
+                icon = null,
+                description = null,
+                createdAt = now,
+                updatedAt = now,
+                isDefault = false,
+                dueDate = null,
+                team = null,
+                isDeleted = false,
+                deletedAt = null,
+                closedAt = now,
+                parentId = null,
+                sortOrder = 0,
+                idempotencyKey = null,
+                externalId = null,
+                sync = SyncColumns(),
+            )
 
         val restored = entity.toDto().toEntity("user-1")
 
@@ -197,38 +201,40 @@ class BackupDtoTest {
     @Test
     fun anOpenProjectHasNoClosedTimestamp() {
         val now = System.currentTimeMillis()
-        val entity = ProjectEntity(
-            id = "proj-open",
-            userId = "user-1",
-            name = "Open project",
-            color = 0xFF5500,
-            icon = null,
-            description = null,
-            createdAt = now,
-            updatedAt = now,
-            isDefault = false,
-            dueDate = null,
-            team = null,
-            isDeleted = false,
-            deletedAt = null,
-            closedAt = null,
-            parentId = null,
-            sortOrder = 0,
-            idempotencyKey = null,
-            externalId = null,
-            sync = SyncColumns(),
-        )
+        val entity =
+            ProjectEntity(
+                id = "proj-open",
+                userId = "user-1",
+                name = "Open project",
+                color = 0xFF5500,
+                icon = null,
+                description = null,
+                createdAt = now,
+                updatedAt = now,
+                isDefault = false,
+                dueDate = null,
+                team = null,
+                isDeleted = false,
+                deletedAt = null,
+                closedAt = null,
+                parentId = null,
+                sortOrder = 0,
+                idempotencyKey = null,
+                externalId = null,
+                sync = SyncColumns(),
+            )
 
         assertNull(entity.toDto().toEntity("user-1").closedAt)
     }
 
     @Test
     fun aDependencyEdgeKeepsItsVerb() {
-        val edge = TaskDependencyCrossRef(
-            taskId = "task-1",
-            dependsOnTaskId = "task-2",
-            verb = "FOLLOWS_UP",
-        )
+        val edge =
+            TaskDependencyCrossRef(
+                taskId = "task-1",
+                dependsOnTaskId = "task-2",
+                verb = "FOLLOWS_UP",
+            )
 
         val restored = edge.toDto().toEntity()
 
@@ -239,10 +245,11 @@ class BackupDtoTest {
     fun anEdgeWithoutAVerbIsABlock() {
         // What a backup written before the verb existed decodes to: the edge had
         // no meaning recorded, and the only meaning it can have had is a block.
-        val decoded = Json.decodeFromString(
-            TaskDependencyDto.serializer(),
-            """{"taskId":"task-1","dependsOnTaskId":"task-2"}""",
-        )
+        val decoded =
+            Json.decodeFromString(
+                TaskDependencyDto.serializer(),
+                """{"taskId":"task-1","dependsOnTaskId":"task-2"}""",
+            )
 
         assertEquals("BLOCKS", decoded.verb)
         assertEquals("BLOCKS", decoded.toEntity().verb)

@@ -46,7 +46,6 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class SyncEngineTakesNoFeatureTypesTest {
-
     @Test
     fun `the sync engine's constructor names no feature type`() {
         val source = engineSource()
@@ -69,14 +68,15 @@ class SyncEngineTakesNoFeatureTypesTest {
     fun `the rule can see a feature type when one is there`() {
         // A guard that has never fired is indistinguishable from one that is not looking.
         // Synthetic source, so the answer is known before it is asked for.
-        val offenders = constructorParameterTypes(
-            """
-            internal class SyncEngine(
-                private val shadowDao: ShadowDao,
-                private val writer: com.singularity.todo.feature.tasks.domain.port.TaskRepository,
-            ) : Clock
-            """.trimIndent(),
-        ).filter { it.startsWith("com.singularity.todo.feature") }
+        val offenders =
+            constructorParameterTypes(
+                """
+                internal class SyncEngine(
+                    private val shadowDao: ShadowDao,
+                    private val writer: com.singularity.todo.feature.tasks.domain.port.TaskRepository,
+                ) : Clock
+                """.trimIndent(),
+            ).filter { it.startsWith("com.singularity.todo.feature") }
 
         assertTrue(
             offenders.size == 1 && offenders.single().endsWith("TaskRepository"),
@@ -88,13 +88,14 @@ class SyncEngineTakesNoFeatureTypesTest {
     fun `a provider parameter is not a feature parameter`() {
         // The shape the fix takes. If this failed, the rule would forbid the only correct
         // answer and the honest response would be to weaken it.
-        val offenders = constructorParameterTypes(
-            """
-            internal class SyncEngine(
-                private val writerProvider: () -> com.singularity.todo.core.sync.SyncDocumentWriter,
-            ) : Clock
-            """.trimIndent(),
-        ).filter { it.startsWith("com.singularity.todo.feature") }
+        val offenders =
+            constructorParameterTypes(
+                """
+                internal class SyncEngine(
+                    private val writerProvider: () -> com.singularity.todo.core.sync.SyncDocumentWriter,
+                ) : Clock
+                """.trimIndent(),
+            ).filter { it.startsWith("com.singularity.todo.feature") }
 
         assertTrue(offenders.isEmpty(), "a deferred provider was read as a feature parameter: $offenders")
     }
@@ -102,8 +103,9 @@ class SyncEngineTakesNoFeatureTypesTest {
     // ── source ─────────────────────────────────────────────────────────────────────
 
     private fun engineSource(): String {
-        val root = System.getProperty("commonMain.root")
-            ?: error("commonMain.root system property is not set — see the jvmTest task config")
+        val root =
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root system property is not set — see the jvmTest task config")
         val file = File(root, "com/singularity/todo/core/sync/SyncEngine.kt")
         assertTrue(file.isFile, "SyncEngine.kt is not where this test expects it: ${file.path}")
         return file.readText()
@@ -122,7 +124,8 @@ class SyncEngineTakesNoFeatureTypesTest {
     private fun constructorParameterTypes(source: String): List<String> {
         val header = Regex("""class\s+SyncEngine\s*\(""").find(source) ?: return emptyList()
         val lines = source.substring(header.range.last + 1).split("\n")
-        return lines.takeWhile { !it.trim().startsWith(")") }
+        return lines
+            .takeWhile { !it.trim().startsWith(")") }
             .mapNotNull { line ->
                 val afterColon = line.substringAfterLast(":", "")
                 val type = afterColon.substringBefore(",").substringBefore("=").trim()

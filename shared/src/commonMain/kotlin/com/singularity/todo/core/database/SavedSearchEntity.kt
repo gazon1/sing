@@ -26,19 +26,14 @@ import androidx.room3.Index
 data class SavedSearchEntity(
     @ColumnInfo(name = "id")
     val id: String,
-
     @ColumnInfo(name = "user_id", index = true)
     val userId: String,
-
     @ColumnInfo(name = "name")
     val name: String,
-
     @ColumnInfo(name = "query_string")
     val queryString: String,
-
     @ColumnInfo(name = "created_at")
     val createdAt: Long,
-
     @ColumnInfo(name = "updated_at")
     val updatedAt: Long,
 )

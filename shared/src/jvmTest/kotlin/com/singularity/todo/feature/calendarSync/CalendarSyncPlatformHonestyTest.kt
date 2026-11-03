@@ -29,7 +29,6 @@ import kotlin.test.assertFalse
  */
 @Tag("fast")
 class CalendarSyncPlatformHonestyTest {
-
     @Test
     fun `the desktop's calendar ports say they cannot work`() {
         assertFalse(NoopCalendarProvider().isSupported, "the calendar provider must say it is a no-op")

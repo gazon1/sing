@@ -34,9 +34,10 @@ class DataStoreSyncPrefs(
      * could not assert what the screen shows without tolerating a real clock.
      */
     private val clock: Clock,
-    private val log: co.touchlab.kermit.Logger = co.touchlab.kermit.Logger.withTag("DataStoreSyncPrefs"),
+    private val log: co.touchlab.kermit.Logger =
+        co.touchlab.kermit.Logger
+            .withTag("DataStoreSyncPrefs"),
 ) : SyncPrefs {
-
     private object Keys {
         val AUTO_SYNC_ENABLED = booleanPreferencesKey("sync/auto_sync_enabled")
         val ENABLED_TRIGGERS = stringPreferencesKey("sync/enabled_triggers")
@@ -148,8 +149,12 @@ interface SyncPrefs {
     val lastLsn: Long // last server log sequence number
 
     suspend fun setAutoSyncEnabled(value: Boolean)
+
     suspend fun setEnabledTriggers(triggers: Set<SyncTrigger>)
+
     suspend fun setScheduledInterval(interval: Duration)
+
     suspend fun recordSuccessfulSync()
+
     suspend fun setLastLsn(lsn: Long)
 }

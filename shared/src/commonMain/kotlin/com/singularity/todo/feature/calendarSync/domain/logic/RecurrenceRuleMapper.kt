@@ -17,12 +17,13 @@ import com.singularity.todo.feature.calendarSync.domain.model.RecurrenceRule
  * into a sealed variant, it falls through to [Custom] and is passed verbatim.
  */
 object RecurrenceRuleMapper {
-
     fun map(pattern: String): RecurrenceRule? {
         val trimmed = pattern.trim().uppercase()
 
         return when {
-            trimmed == "DAILY" -> RecurrenceRule.Daily
+            trimmed == "DAILY" -> {
+                RecurrenceRule.Daily
+            }
 
             trimmed.startsWith("WEEKLY") -> {
                 parseWeekdays(trimmed.removePrefix("WEEKLY:"))
@@ -31,16 +32,21 @@ object RecurrenceRuleMapper {
             }
 
             trimmed.startsWith("MONTHLY") -> {
-                trimmed.removePrefix("MONTHLY:")
+                trimmed
+                    .removePrefix("MONTHLY:")
                     .toIntOrNull()
                     ?.let { RecurrenceRule.Monthly(it) }
                     ?: RecurrenceRule.Custom(pattern)
             }
 
-            trimmed == "YEARLY" -> RecurrenceRule.Yearly
+            trimmed == "YEARLY" -> {
+                RecurrenceRule.Yearly
+            }
 
             // Pass through any unrecognized pattern verbatim
-            else -> RecurrenceRule.Custom(pattern)
+            else -> {
+                RecurrenceRule.Custom(pattern)
+            }
         }
     }
 
@@ -52,16 +58,17 @@ object RecurrenceRuleMapper {
         if (part.isBlank()) return null
         val result = mutableListOf<Int>()
         for (token in part.split(",")) {
-            val day = when (token.trim().lowercase()) {
-                "mon", "monday", "1" -> 1
-                "tue", "tuesday", "2" -> 2
-                "wed", "wednesday", "3" -> 3
-                "thu", "thursday", "4" -> 4
-                "fri", "friday", "5" -> 5
-                "sat", "saturday", "6" -> 6
-                "sun", "sunday", "7" -> 7
-                else -> return null
-            }
+            val day =
+                when (token.trim().lowercase()) {
+                    "mon", "monday", "1" -> 1
+                    "tue", "tuesday", "2" -> 2
+                    "wed", "wednesday", "3" -> 3
+                    "thu", "thursday", "4" -> 4
+                    "fri", "friday", "5" -> 5
+                    "sat", "saturday", "6" -> 6
+                    "sun", "sunday", "7" -> 7
+                    else -> return null
+                }
             result.add(day)
         }
         return result.distinct().sorted()

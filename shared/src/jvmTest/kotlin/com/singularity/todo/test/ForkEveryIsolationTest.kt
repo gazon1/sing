@@ -37,14 +37,14 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ForkEveryIsolationTest {
-
     @Test
     fun `jvmTest does not fork a JVM per class`() {
-        val configured = System.getProperty("jvmTest.forkEvery")
-            ?: error(
-                "jvmTest.forkEvery is not published as a system property — " +
-                    "see the jvmTest block in shared/build.gradle.kts",
-            )
+        val configured =
+            System.getProperty("jvmTest.forkEvery")
+                ?: error(
+                    "jvmTest.forkEvery is not published as a system property — " +
+                        "see the jvmTest block in shared/build.gradle.kts",
+                )
 
         assertEquals(
             "0",
@@ -56,13 +56,22 @@ class ForkEveryIsolationTest {
 
     @Test
     fun `KoinIsolationExtension is registered as a global JUnit extension`() {
-        val commonMain = System.getProperty("commonMain.root")
-            ?: error("commonMain.root system property is not set")
-        val moduleDir = Path.of(commonMain).toAbsolutePath().normalize().parent?.parent?.parent
-            ?: error("Could not derive module directory")
-        val servicesFile = moduleDir.resolve(
-            "src/jvmTest/resources/META-INF/services/org.junit.jupiter.api.extension.Extension",
-        )
+        val commonMain =
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root system property is not set")
+        val moduleDir =
+            Path
+                .of(commonMain)
+                .toAbsolutePath()
+                .normalize()
+                .parent
+                ?.parent
+                ?.parent
+                ?: error("Could not derive module directory")
+        val servicesFile =
+            moduleDir.resolve(
+                "src/jvmTest/resources/META-INF/services/org.junit.jupiter.api.extension.Extension",
+            )
         assertTrue(servicesFile.exists(), "JUnit extension service file is missing")
         assertTrue(
             servicesFile.readText().contains("KoinIsolationExtension"),
@@ -79,20 +88,29 @@ class ForkEveryIsolationTest {
      * `src/commonMain/kotlin`, so the module directory is three levels up.
      */
     private fun testFiles(): List<TestFile> {
-        val commonMain = System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest block in shared/build.gradle.kts",
-            )
-        val moduleDir = Path.of(commonMain).toAbsolutePath().normalize().parent?.parent?.parent
-            ?: error("Could not derive the module directory from commonMain.root=$commonMain")
+        val commonMain =
+            System.getProperty("commonMain.root")
+                ?: error(
+                    "commonMain.root system property is not set — " +
+                        "see the jvmTest block in shared/build.gradle.kts",
+                )
+        val moduleDir =
+            Path
+                .of(commonMain)
+                .toAbsolutePath()
+                .normalize()
+                .parent
+                ?.parent
+                ?.parent
+                ?: error("Could not derive the module directory from commonMain.root=$commonMain")
 
         return listOf("src/commonTest", "src/jvmTest")
             .map { moduleDir.resolve(it) }
             .filter { it.exists() }
             .flatMap { root ->
                 Files.walk(root).use { stream ->
-                    stream.filter { Files.isRegularFile(it) && it.toString().endsWith(".kt") }
+                    stream
+                        .filter { Files.isRegularFile(it) && it.toString().endsWith(".kt") }
                         .map { TestFile(it, stripComments(it.readText())) }
                         .toList()
                 }
@@ -100,7 +118,8 @@ class ForkEveryIsolationTest {
     }
 
     /** Comments are not code: a KDoc that *mentions* a call must not count as one. */
-    private fun stripComments(text: String): String = text
-        .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
-        .replace(Regex("""//[^\n]*"""), "")
+    private fun stripComments(text: String): String =
+        text
+            .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
+            .replace(Regex("""//[^\n]*"""), "")
 }

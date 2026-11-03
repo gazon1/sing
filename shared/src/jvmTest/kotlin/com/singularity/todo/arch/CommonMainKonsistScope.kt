@@ -11,9 +11,9 @@ import com.lemonappdev.konsist.api.container.KoScope
  * the test run is going, so a single lazy scope is enough.
  */
 internal object CommonMainKonsistScope {
-
-    val commonMainRoot: String = System.getProperty("commonMain.root")
-        ?: error("commonMain.root system property is not set — see the jvmTest task config")
+    val commonMainRoot: String =
+        System.getProperty("commonMain.root")
+            ?: error("commonMain.root system property is not set — see the jvmTest task config")
 
     val scope: KoScope by lazy { Konsist.scopeFromExternalDirectory(commonMainRoot) }
 }

@@ -10,7 +10,6 @@ package com.singularity.todo.feature.search
  * (`search_empty_placeholder` vs `search_empty_results`).
  */
 sealed interface SearchContent {
-
     /** Nothing has been typed yet — the screen invites the user to search. */
     data object IdlePrompt : SearchContent
 
@@ -32,8 +31,12 @@ sealed interface SearchContent {
  * @param query The raw query string as entered.
  * @param results The results of the last executed search.
  */
-fun searchContent(query: String, results: SearchResults): SearchContent = when {
-    query.isBlank() -> SearchContent.IdlePrompt
-    results.isEmpty -> SearchContent.NoResults
-    else -> SearchContent.Results
-}
+fun searchContent(
+    query: String,
+    results: SearchResults,
+): SearchContent =
+    when {
+        query.isBlank() -> SearchContent.IdlePrompt
+        results.isEmpty -> SearchContent.NoResults
+        else -> SearchContent.Results
+    }

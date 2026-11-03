@@ -24,7 +24,6 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class AwaitStateTest {
-
     /**
      * A predicate that becomes true is polled, and the guard does not interfere.
      *
@@ -36,14 +35,15 @@ class AwaitStateTest {
      * something was scheduled, and then this test's behaviour applies.
      */
     @Test
-    fun `a predicate that becomes true does not trip the spin guard`() = runTest {
-        var seen = 0
-        awaitState(spinGuardMillis = 30_000L) {
-            seen++
-            seen > 3
+    fun `a predicate that becomes true does not trip the spin guard`() =
+        runTest {
+            var seen = 0
+            awaitState(spinGuardMillis = 30_000L) {
+                seen++
+                seen > 3
+            }
+            assertTrue(seen > 3, "the predicate is polled until it holds")
         }
-        assertTrue(seen > 3, "the predicate is polled until it holds")
-    }
 
     /**
      * The case the guard exists for. A predicate that is never true, with nothing scheduled,
@@ -53,21 +53,23 @@ class AwaitStateTest {
      * arithmetic at a different scale, not a different code path.
      */
     @Test
-    fun `an unreachable predicate fails instead of spinning forever`() = runTest {
-        val message = try {
-            awaitState(spinGuardMillis = 1L) { false }
-            fail("expected the spin guard to fire")
-        } catch (e: AssertionError) {
-            e.message.orEmpty()
-        }
+    fun `an unreachable predicate fails instead of spinning forever`() =
+        runTest {
+            val message =
+                try {
+                    awaitState(spinGuardMillis = 1L) { false }
+                    fail("expected the spin guard to fire")
+                } catch (e: AssertionError) {
+                    e.message.orEmpty()
+                }
 
-        assertTrue(
-            message.contains("spun"),
-            "the failure must name the spin, not report a bare timeout: $message",
-        )
-        assertTrue(
-            message.contains("unreachable"),
-            "the failure must say the state was unreachable: $message",
-        )
-    }
+            assertTrue(
+                message.contains("spun"),
+                "the failure must name the spin, not report a bare timeout: $message",
+            )
+            assertTrue(
+                message.contains("unreachable"),
+                "the failure must say the state was unreachable: $message",
+            )
+        }
 }

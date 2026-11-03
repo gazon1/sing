@@ -31,7 +31,6 @@ import kotlinx.coroutines.flow.update
  * @param initial Starting value, used as both `current` and the initial checkpoint.
  */
 class DraftState<S>(initial: S) {
-
     private val _current = MutableStateFlow(initial)
 
     /** Reactive view of the current draft value. */

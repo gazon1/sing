@@ -13,7 +13,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
@@ -57,13 +57,15 @@ fun SavedAgendaCard(
     var menuExpanded by remember { mutableStateOf(false) }
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag(TestTags.savedAgendaCard(view.name))
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag(TestTags.savedAgendaCard(view.name))
+                .clickable(onClick = onClick),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+            ),
     ) {
         Row(
             modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
@@ -140,36 +142,39 @@ fun SavedAgendaCard(
 
 @Preview
 @Composable
-private fun SavedAgendaCardPreview() = PreviewThemed(darkTheme = false) {
-    SavedAgendaCard(
-        view = PreviewSamples.savedAgendaView(name = "Weekly Review"),
-        onClick = {},
-        onDelete = {},
-        onEdit = {},
-        onCopyToProfile = {},
-    )
-}
+private fun SavedAgendaCardPreview() =
+    PreviewThemed(darkTheme = false) {
+        SavedAgendaCard(
+            view = PreviewSamples.savedAgendaView(name = "Weekly Review"),
+            onClick = {},
+            onDelete = {},
+            onEdit = {},
+            onCopyToProfile = {},
+        )
+    }
 
 @Preview
 @Composable
-private fun SavedAgendaCardDarkPreview() = PreviewThemed(darkTheme = true) {
-    SavedAgendaCard(
-        view = PreviewSamples.savedAgendaView(name = "Weekly Review"),
-        onClick = {},
-        onDelete = {},
-        onEdit = {},
-        onCopyToProfile = {},
-    )
-}
+private fun SavedAgendaCardDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        SavedAgendaCard(
+            view = PreviewSamples.savedAgendaView(name = "Weekly Review"),
+            onClick = {},
+            onDelete = {},
+            onEdit = {},
+            onCopyToProfile = {},
+        )
+    }
 
 @Preview
 @Composable
-private fun SavedAgendaCardUnnamedPreview() = PreviewThemed(darkTheme = false) {
-    SavedAgendaCard(
-        view = PreviewSamples.savedAgendaView(name = ""),
-        onClick = {},
-        onDelete = {},
-        onEdit = {},
-        onCopyToProfile = {},
-    )
-}
+private fun SavedAgendaCardUnnamedPreview() =
+    PreviewThemed(darkTheme = false) {
+        SavedAgendaCard(
+            view = PreviewSamples.savedAgendaView(name = ""),
+            onClick = {},
+            onDelete = {},
+            onEdit = {},
+            onCopyToProfile = {},
+        )
+    }
