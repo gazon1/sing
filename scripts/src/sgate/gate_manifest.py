@@ -446,6 +446,24 @@ second whether they still agree.
 It reports; it does not rewrite. Regeneration needs the JVM
 (`-PupdateGoldens=true`), and the gate names that command when it finds a
 difference."""),
+    "skills catalogue is current": Placement(
+        kind=PlacementKind.STATIC,
+        command='bash scripts/regen-skills-catalog.sh --check',
+        note="""The catalogue of the skills, generated from the skills' own frontmatter.
+
+`docs/SKILLS-CATALOG.md` is what an agent reads to choose a skill, so a stale
+line count or a stale description sends it to the wrong file. The catalogue was
+committed stale on a clean tree and nobody noticed: "do not edit by hand"
+discourages the wrong edit, and it does not catch the edit nobody made.
+
+The generator had a `--check` mode for exactly that, and nothing ran it. This
+gate is that mode — the generator compares the committed catalogue with a
+fresh generation and exits non-zero when they differ, so a pull request that
+edits a skill without regenerating the catalogue fails instead of landing one.
+
+The script is invoked directly rather than through `sgate`: a gate dispatched
+through `sgate` is asked for `--json` and held to the JSON contract, and this
+one prints a sentence."""),
     "GitHub workflows are valid": Placement(
         kind=PlacementKind.STATIC,
         command='github_workflows_valid',
