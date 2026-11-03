@@ -1,5 +1,6 @@
 package com.singularity.todo.core.database
 
+import com.singularity.todo.core.format.formatPadded
 import kotlinx.datetime.LocalTime
 
 /**
@@ -40,7 +41,5 @@ object LocalTimeFormats {
      * inputs all read it back.
      */
     fun format(time: LocalTime): String =
-        "${time.hour.paddedTime()}:${time.minute.paddedTime()}:${time.second.paddedTime()}"
+        "${formatPadded(time.hour)}:${formatPadded(time.minute)}:${formatPadded(time.second)}"
 }
-
-private fun Int.paddedTime(): String = toString().padStart(2, '0')

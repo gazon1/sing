@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui
 
+import com.singularity.todo.core.format.formatPadded
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
@@ -35,23 +36,12 @@ import kotlin.time.Instant
  */
 
 /**
- * Left-pads to two digits: `7` → `"07"`, `59` → `"59"`.
- *
- * Two overloads rather than a generic `T : Number` because [kotlin.String.padStart]
- * is the only operation involved and a generic would buy a `Number.toString()` that
- * has to be re-implemented per type anyway.
- */
-private fun Int.padded(): String = formatPadded(this)
-
-private fun Long.padded(): String = toString().padStart(2, '0')
-
-/**
  * A decimal number in the app's own format: `1.5`, `0.0`, `12.34`.
  *
  * `"%.1f".format(x)` has no locale on the JVM, so it follows the *device*: a
  * phone set to Russian renders "0,0" inside an English screen. Formatting by
  * hand keeps the output the same everywhere, for the same reason the padding
- * helpers below do.
+ * helper does.
  *
  * [decimals] is the number of digits after the dot; `0` gives an integer.
  * Rounds half away from zero, like `%.1f` does.
@@ -71,18 +61,6 @@ fun formatDecimal(
 }
 
 /**
- * An integer in the app's own digits: `7` → `"07"`, `2026` → `"2026"`.
- *
- * `"%02d".format(x)` is the same trap as `"%.1f"`: it follows the device
- * locale, and on an Arabic phone it writes "١٤" where the app means "14".
- * The digits are the app's own, so they are padded by hand.
- */
-fun formatPadded(
-    value: Int,
-    digits: Int = 2,
-): String = value.toString().padStart(digits, '0')
-
-/**
  * Elapsed milliseconds as a clock: "4:07", or "1:02:03" once past an hour.
  *
  * Truncates to whole seconds — this is a duration display, not a stopwatch.
@@ -99,9 +77,9 @@ fun formatElapsed(elapsedMs: Long): String {
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
     return if (hours > 0) {
-        "$hours:${minutes.padded()}:${seconds.padded()}"
+        "$hours:${formatPadded(minutes)}:${formatPadded(seconds)}"
     } else {
-        "$minutes:${seconds.padded()}"
+        "$minutes:${formatPadded(seconds)}"
     }
 }
 
@@ -204,5 +182,5 @@ fun formatMonthDayTime(
     zone: TimeZone = TimeZone.currentSystemDefault(),
 ): String {
     val local = instant.toLocalDateTime(zone)
-    return "${monthAbbreviation(local.month)} ${local.day}, ${local.hour.padded()}:${local.minute.padded()}"
+    return "${monthAbbreviation(local.month)} ${local.day}, ${formatPadded(local.hour)}:${formatPadded(local.minute)}"
 }

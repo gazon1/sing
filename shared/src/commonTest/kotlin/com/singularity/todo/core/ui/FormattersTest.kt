@@ -177,20 +177,4 @@ class FormattersTest {
         assertEquals("0.0", formatDecimal(-0.0, 1))
         assertEquals("0", formatDecimal(-0.4, 0))
     }
-
-    // ─── formatPadded ───────────────────────────────────────────────────────────
-
-    /**
-     * The digits are the app's own.
-     *
-     * `"%02d".format(x)` follows the *device* locale and writes "١٤" on an Arabic
-     * phone — where the app means "14". Padding by hand cannot have a locale.
-     */
-    @Test
-    fun `padded integers keep the app's own digits`() {
-        assertEquals("07", formatPadded(7))
-        assertEquals("14", formatPadded(14))
-        assertEquals("2026", formatPadded(2026, 4))
-        assertEquals("2026", formatPadded(2026))
-    }
 }

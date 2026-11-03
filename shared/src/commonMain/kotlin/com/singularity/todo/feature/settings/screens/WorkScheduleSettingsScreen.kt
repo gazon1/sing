@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.format.formatPadded
 import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.core.schedule.displayName
 import com.singularity.todo.core.settings.SettingsIntent
@@ -31,7 +32,6 @@ import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
-import com.singularity.todo.core.ui.formatPadded
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
 import com.singularity.todo.feature.settings.SettingsUiState

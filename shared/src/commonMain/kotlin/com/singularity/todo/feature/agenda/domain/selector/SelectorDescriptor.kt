@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.agenda.domain.selector
 
-import com.singularity.todo.core.ui.formatPadded
+import com.singularity.todo.core.format.formatPadded
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
