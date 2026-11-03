@@ -3,6 +3,7 @@ package com.singularity.todo.arch
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertTrue
 import kotlin.test.fail
 
 /**
@@ -11,9 +12,10 @@ import kotlin.test.fail
  *
  * `core/di/Modules.kt` is a **facade aggregator**, not a source of truth: it composes the
  * per-domain `*DiModule.kt` functions and registers the few bindings that must land at
- * root scope. The rule is that `single { }`, `factory { }` and `viewModel { }` declarations
- * appear **only inside a facade function** — never loose in the file body, and never in a
- * `*DiModule.kt`.
+ * root scope. The rule is that a `single { }`, `factory { }` or `viewModel { }` declaration
+ * lives inside a function that builds a module — never loose in the file body. In the
+ * aggregator that function is one of the facades; in a per-domain `*DiModule.kt` it is
+ * the domain's own `*Module()` factory.
  *
  * ## Why a rule that passes on its first run
  *
@@ -167,6 +169,11 @@ class DiFacadeTest {
      * body ends on the signature line. A scan that waits for a block never closes
      * that body, credits the next top-level binding to the facade, and lets it
      * through.
+     *
+     * The binding below is loose in the FILE BODY — not inside another function.
+     * That is the shape that tells the two apart: a binding inside a following
+     * function is reported by a scan that closes the facade AND by a scan that
+     * does not, so it cannot tell whether the hole is closed.
      */
     @Test
     fun positiveControlDetectsLooseBindingAfterABracelessFacade() {
@@ -175,6 +182,45 @@ class DiFacadeTest {
             package com.example
 
             fun coreLoggingModule(): Module = compute()
+
+            single { SomethingElse(get()) }
+            """.trimIndent()
+
+        val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("coreLoggingModule"))
+
+        if (strayDeclarations.isEmpty()) {
+            fail(
+                "a binding declared after a brace-less facade was not reported — the scan " +
+                    "keeps the facade open forever, so the binding is credited to the facade " +
+                    "and the guard is dead",
+            )
+        }
+        kotlin.test.assertEquals(1, strayDeclarations.size, "expected the one stray binding")
+        // The owner is part of the finding, not decoration: the per-domain half of the
+        // guard reads exactly this owner to tell a file-level binding from one that
+        // sits inside a module function.
+        kotlin.test.assertTrue(
+            strayDeclarations.single().endsWith("<file body>"),
+            "a binding loose in the file body is owned by the file body, not by a function",
+        )
+    }
+
+    /**
+     * Positive control: a binding after a facade whose body is a wrapped CALL.
+     *
+     * The call closes the facade, and what follows it is at file level again — so
+     * the stray binding has to be reported.
+     */
+    @Test
+    fun positiveControlDetectsLooseBindingAfterAWrappedCallFacade() {
+        val synthetic =
+            """
+            package com.example
+
+            fun coreLoggingModule(): Module =
+                module(
+                    factory { Logger.withTag("App") },
+                )
 
             fun strayHelper() {
                 single { SomethingElse(get()) }
@@ -185,9 +231,9 @@ class DiFacadeTest {
 
         if (strayDeclarations.isEmpty()) {
             fail(
-                "a binding declared after a brace-less facade was not reported — the scan " +
-                    "keeps the facade open forever, so the binding is credited to the facade " +
-                    "and the guard is dead",
+                "a binding declared after a facade whose body is a wrapped call was not " +
+                    "reported — the facade is closed by the call, and the binding after it " +
+                    "is loose",
             )
         }
         kotlin.test.assertEquals(1, strayDeclarations.size, "expected the one stray binding")
@@ -221,6 +267,95 @@ class DiFacadeTest {
         )
     }
 
+    /**
+     * Negative control: a facade whose body is a wrapped CALL, not a block.
+     *
+     * `= module(` opens a parenthesis that closes two lines later, and the bindings
+     * between them are inside the facade. A scan that closes the facade as soon as
+     * the braces balance reports them as loose — and a gate that cries wolf gets
+     * allowlisted.
+     */
+    @Test
+    fun aFacadeWhoseBodyIsAWrappedCallReportsNothing() {
+        val synthetic =
+            """
+            package com.example
+
+            fun coreLoggingModule(): Module =
+                module(
+                    factory { Logger.withTag("App") },
+                    single { SomethingElse(get()) },
+                )
+            """.trimIndent()
+
+        val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("coreLoggingModule"))
+
+        kotlin.test.assertEquals(
+            emptyList<String>(),
+            strayDeclarations,
+            "bindings inside a facade's wrapped call belong to the facade",
+        )
+    }
+
+    /**
+     * Negative control: a comment between the `=` and the body.
+     *
+     * A comment is not the end of the body. A scan that ends it there loses the
+     * facade and reports the binding inside the body as loose.
+     */
+    @Test
+    fun aCommentBetweenTheSignatureAndTheBodyReportsNothing() {
+        val synthetic =
+            """
+            package com.example
+
+            fun coreLoggingModule(): Module =
+                // the module the logging setup lives in
+                module {
+                    factory { Logger.withTag("App") }
+                }
+            """.trimIndent()
+
+        val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("coreLoggingModule"))
+
+        kotlin.test.assertEquals(
+            emptyList<String>(),
+            strayDeclarations,
+            "a comment does not end the body of the facade it sits in",
+        )
+    }
+
+    /**
+     * Positive control: a facade whose body carries a string with a brace and a paren.
+     *
+     * The scanner counts braces and parentheses to know where a body ends, and a
+     * string literal carries characters that are not code. Counting the `(` of
+     * `"App ( {"` leaves the facade open forever, so the binding after it is credited
+     * to the facade and the guard misses exactly what it exists to catch.
+     */
+    @Test
+    fun aStrayBindingAfterAFacadeWithBracesInAStringIsReported() {
+        val synthetic =
+            """
+            package com.example
+
+            fun coreLoggingModule(): Module =
+                module {
+                    factory { Logger.withTag("App ( {") }
+                }
+
+            single { SomethingElse(get()) }
+            """.trimIndent()
+
+        val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("coreLoggingModule"))
+
+        kotlin.test.assertEquals(
+            1,
+            strayDeclarations.size,
+            "a binding after a facade whose body carries a string with braces is loose",
+        )
+    }
+
     @Test
     fun `Modules kt declares no binding outside a facade function`() {
         val stray = bindingDeclarationsIn(modulesFile.codeOnly(), FACADE_FUNCTIONS)
@@ -234,22 +369,32 @@ class DiFacadeTest {
         }
     }
 
+    /**
+     * A per-domain `*DiModule.kt` declares bindings — the ADR puts them there — but it
+     * declares them inside a module function, never loose in the file body.
+     *
+     * The filter is on [KoFileDeclaration.nameWithExtension], not on `name`: Konsist's
+     * `name` is the file name WITHOUT its extension, so `name.endsWith("DiModule.kt")`
+     * matched nothing and this test scanned no file at all. A guard that never runs
+     * is not a guard.
+     */
     @Test
-    fun `per-domain DiModule files declare no bindings`() {
+    fun `per-domain DiModule files declare no loose bindings`() {
         val offenders =
             scope.files
-                .filter { it.name.endsWith("DiModule.kt") }
+                .filter { it.nameWithExtension.endsWith("DiModule.kt") }
                 .filter { it.packageName().startsWith("$PKG.core.di") }
                 .filter { file ->
-                    bindingDeclarationsIn(file.codeOnly(), facadeNames = emptySet()).isNotEmpty()
+                    bindingDeclarationsIn(file.codeOnly(), facadeNames = emptySet())
+                        .any { it.endsWith("<file body>") }
                 }.map { it.path }
 
         if (offenders.isNotEmpty()) {
             fail(
-                "A per-domain *DiModule.kt declares Koin bindings directly. Each must return a " +
-                    "single `module { }` built from its feature's declarations, so the " +
-                    "aggregator in core/di/Modules.kt stays the only place that composes them. " +
-                    "Offenders: $offenders",
+                "A per-domain *DiModule.kt declares a Koin binding loose in the file body. " +
+                    "Each must return a single `module { }` built from its feature's " +
+                    "declarations, so the aggregator in core/di/Modules.kt stays the only " +
+                    "place that composes them. Offenders: $offenders",
             )
         }
     }
@@ -274,7 +419,9 @@ class DiFacadeTest {
      *
      * Brace-depth counting rather than a PSI walk, because the question is positional —
      * "is this declaration inside a facade body" — and the file is a facade aggregator by
-     * construction, so the scan only ever runs over a handful of lines.
+     * construction, so the scan only ever runs over a handful of lines. Parentheses are
+     * counted as well: a facade whose body is a wrapped call (`= module(`) stays open
+     * until the call closes, and the bindings inside it belong to the facade.
      */
     private fun bindingDeclarationsIn(
         source: String,
@@ -282,6 +429,7 @@ class DiFacadeTest {
     ): List<String> {
         val offenders = mutableListOf<String>()
         var depth = 0
+        var parenDepth = 0
         var enclosingFns = mutableListOf<String>()
         // Whether the body of the function whose name was just read starts on a LATER
         // line. The name is known before the body starts, so the body must not be
@@ -292,6 +440,13 @@ class DiFacadeTest {
 
         source.lines().forEachIndexed { index, rawLine ->
             val line = rawLine.trim()
+            // A comment carries no code: it must not open a body, count a brace, or
+            // end the body of a function that is waiting for one.
+            if (isComment(line)) return@forEachIndexed
+            // A string literal carries characters that are not code. A `(` or a `{`
+            // inside a literal would unbalance the counters and leave the facade open
+            // forever, so the counters read the line without the literal content.
+            val code = codeWithoutStrings(line)
 
             // A top-level `fun name(` opens a function body at depth 0.
             if (depth == 0 && line.startsWith("fun ")) {
@@ -306,18 +461,21 @@ class DiFacadeTest {
                         .trim(),
                 )
                 // The body opens on this line when the line carries the brace. When the
-                // signature ends with `=` it opens BELOW — the shape ktlint's
-                // multiline-expression-wrapping produces. A body that is an expression
-                // without braces (`= compute()`) ends on the signature line itself.
-                bodyPending = !line.contains('{') && line.endsWith("=")
+                // signature ends with `=` — or with an expression that is still open —
+                // it opens BELOW: the shape ktlint's multiline-expression-wrapping
+                // produces. A body that is an expression without braces (`= compute()`)
+                // ends on the signature line itself.
+                bodyPending =
+                    !code.contains('{') &&
+                    (line.endsWith("=") || expressionContinuesOnNextLine(code))
             } else if (depth == 0 && bodyPending) {
                 // This line carries the body of the function whose name was read above.
                 // The body ends with this line unless it opens a brace — the depth
                 // counter then says where it ends — or the expression continues on the
                 // next line.
                 if (line.isNotEmpty()) {
-                    val opensBlock = line.contains('{')
-                    val continues = !opensBlock && expressionContinuesOnNextLine(line)
+                    val opensBlock = code.contains('{')
+                    val continues = !opensBlock && expressionContinuesOnNextLine(code)
                     bodyPending = continues
                     if (!opensBlock && !continues) {
                         // The body is over; the next line is at file level again.
@@ -337,13 +495,18 @@ class DiFacadeTest {
                 offenders += "line ${index + 1} in $owner"
             }
 
-            depth += line.count { it == '{' }
-            depth -= line.count { it == '}' }
+            depth += code.count { it == '{' }
+            depth -= code.count { it == '}' }
+            // An argument list that is still open keeps the function open too: the
+            // bindings inside it belong to the facade, not to the file body.
+            parenDepth += code.count { it == '(' }
+            parenDepth -= code.count { it == ')' }
+            if (parenDepth < 0) parenDepth = 0
             if (depth > 0) {
                 // The body has started — the function is no longer "pending".
                 bodyPending = false
             }
-            if (depth <= 0 && !bodyPending) {
+            if (depth <= 0 && parenDepth <= 0 && !bodyPending) {
                 depth = 0
                 enclosingFns.clear()
             }
@@ -365,5 +528,72 @@ class DiFacadeTest {
             return true
         }
         return CONTINUATION_SUFFIXES.any { line.endsWith(it) }
+    }
+
+    /** True when [line] is a line comment or a piece of a KDoc block. */
+    private fun isComment(line: String): Boolean =
+        line.startsWith("//") ||
+            line.startsWith("/*") ||
+            line == "*/" ||
+            (line.startsWith("*") && (line.length == 1 || line[1].isWhitespace()))
+
+    /**
+     * [line] with the CONTENT of every string literal removed; the quotes stay.
+     *
+     * The scanner counts braces and parentheses to know where a body ends, and a
+     * literal carries characters that are not code: the `(` of `"App ("` would leave
+     * the facade open forever, and the next loose binding would be credited to it.
+     * Keeping the quotes preserves the shape of the line — a trailing comma outside
+     * a literal is still the last character.
+     */
+    private fun codeWithoutStrings(line: String): String {
+        val out = StringBuilder(line.length)
+        var i = 0
+        while (i < line.length) {
+            when {
+                line.startsWith("\"\"\"", i) -> {
+                    val end = line.indexOf("\"\"\"", i + 3)
+                    if (end < 0) {
+                        out.append(line, i, line.length)
+                        i = line.length
+                    } else {
+                        out.append("\"\"\"")
+                        i = end + 3
+                    }
+                }
+
+                line[i] == '"' -> {
+                    out.append('"')
+                    i++
+                    while (i < line.length && line[i] != '"') {
+                        if (line[i] == '\\') i++
+                        i++
+                    }
+                    if (i < line.length) {
+                        out.append('"')
+                        i++
+                    }
+                }
+
+                line[i] == '\'' -> {
+                    out.append('\'')
+                    i++
+                    while (i < line.length && line[i] != '\'') {
+                        if (line[i] == '\\') i++
+                        i++
+                    }
+                    if (i < line.length) {
+                        out.append('\'')
+                        i++
+                    }
+                }
+
+                else -> {
+                    out.append(line[i])
+                    i++
+                }
+            }
+        }
+        return out.toString()
     }
 }
