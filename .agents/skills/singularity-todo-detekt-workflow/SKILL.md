@@ -121,6 +121,10 @@ Ktlint is a **standalone CLI** — its rules live in `.editorconfig` under the
 - `ktlint_code_style = ktlint_official` — the code style, plus per-rule
   `ktlint_<rule-id> = disabled` opt-outs
 - `.editorconfig` owns `max_line_length = 120`; detekt's own `MaxLineLength` is off
+- detekt's `WildcardImport`, `UnusedImport` and `TrailingWhitespace` are off too — ktlint
+  owns them (`standard:no-wildcard-imports`, `standard:no-unused-imports`,
+  `standard:no-trailing-spaces`). `standard:no-unused-imports` is experimental, so
+  `.editorconfig` enables it by name
 
 ## See also
 

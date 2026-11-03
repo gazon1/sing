@@ -115,7 +115,7 @@ class MyViewModel(
 ### Testing notes
 
 **`kotlin.test.assertTrue` does NOT accept a lambda as message** — use `assertTrue(condition, "description")`.
-**`import kotlin.io.path.*` bypasses detekt's `NoWildcardImports` rule** — use explicit imports
+**`import kotlin.io.path.*` is caught by ktlint's `standard:no-wildcard-imports`** — use explicit imports
 (`kotlin.io.path.exists`, `kotlin.io.path.readText`, `kotlin.io.path.isRegularFile`).
 **Stale-test-classes is NOT a thing (verified 2026-10-04)** — a plain rerun after editing a test
 recompiles and re-executes; `--rerun-tasks` — только отладочная костыль. ADR `2026-10-04-configuration-cache-hardening` §A3.
