@@ -1220,10 +1220,11 @@ open class FakeTaskRepository(
         restoreOverride?.let { return it }
         restoreObserver?.invoke(id)
         return runCatchingCancellable {
-            store[id.value]?.let { task ->
-                val restored = task.copy(archivedAt = null)
-                store.upsert(restored)
-            }
+            // The same refusal the real repository makes: only a task that is in
+            // the trash can be put back out of it.
+            val task = store[id.value] ?: throw IllegalArgumentException("Task $id not found")
+            require(task.archivedAt != null) { "Task $id is not archived" }
+            store.upsert(task.copy(archivedAt = null))
         }
     }
 

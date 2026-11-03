@@ -118,11 +118,20 @@ sealed interface TaskDetailIntent : MviIntent {
 
         data class SetTags(val tagIds: List<TagId>) :
             Domain,
-            TaskEntityIntent
+            TaskTagIntent
 
         data class RemoveTag(val tagId: TagId) :
             Domain,
-            TaskEntityIntent
+            TaskTagIntent
+
+        /**
+         * Puts a removed tag back on the task.
+         *
+         * The undo of [RemoveTag]: the tag is one of the task's tags again.
+         */
+        data class RestoreTag(val tagId: TagId) :
+            Domain,
+            TaskTagIntent
 
         // ── Checklist ───────────────────────────────────────────────────────
 
@@ -131,6 +140,17 @@ sealed interface TaskDetailIntent : MviIntent {
             TaskChildrenIntent
 
         data class DeleteChecklistItem(val id: ChecklistItemId) :
+            Domain,
+            TaskChildrenIntent
+
+        /**
+         * Puts a removed checklist item back.
+         *
+         * The undo of [DeleteChecklistItem]: the snapshot travels with the intent,
+         * because the row is gone from the database and the write has to be given
+         * the item it puts back.
+         */
+        data class RestoreChecklistItem(val item: ChecklistItem) :
             Domain,
             TaskChildrenIntent
 
@@ -145,6 +165,16 @@ sealed interface TaskDetailIntent : MviIntent {
             TaskChildrenIntent
 
         data class DeleteSubtask(val task: Task) :
+            Domain,
+            TaskChildrenIntent
+
+        /**
+         * Puts a removed subtask back.
+         *
+         * The undo of [DeleteSubtask]: the subtask was soft-deleted, so it comes
+         * back with a restore of its own id.
+         */
+        data class RestoreSubtask(val taskId: TaskId) :
             Domain,
             TaskChildrenIntent
 

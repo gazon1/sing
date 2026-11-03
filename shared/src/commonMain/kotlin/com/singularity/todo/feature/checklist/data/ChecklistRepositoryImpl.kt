@@ -120,11 +120,11 @@ class ChecklistRepositoryImpl(
                         title = item.title,
                         isCompleted = item.isCompleted,
                         sortOrder = index,
-                        createdAt = existingItem?.createdAt ?: now,
+                        createdAt = existingItem?.createdAt ?: item.createdAt ?: now,
                         updatedAt = now,
                         checkedBy = item.checkedBy ?: existingItem?.checkedBy,
                         checkedAt = item.checkedAt ?: existingItem?.checkedAt,
-                        rowVersion = existingItem?.rowVersion ?: 1,
+                        rowVersion = existingItem?.rowVersion ?: item.rowVersion ?: 1,
                     ),
                 )
             }
@@ -140,8 +140,18 @@ private fun ChecklistItemEntity.toItem() =
         sortOrder = sortOrder,
         checkedBy = checkedBy,
         checkedAt = checkedAt,
+        createdAt = createdAt,
+        rowVersion = rowVersion,
     )
 
+/**
+ * The row of the item, as it is written.
+ *
+ * The creation time and the version of a row that is already there are kept, and
+ * the ones the caller carries are the fallback: a row that was deleted and is put
+ * back is written anew, and without the values it travels with, the put-back row
+ * would claim to be a new item.
+ */
 private fun ChecklistItem.toEntity(
     now: Long,
     existing: ChecklistItemEntity? = null,
@@ -151,9 +161,9 @@ private fun ChecklistItem.toEntity(
     title = title,
     isCompleted = isCompleted,
     sortOrder = sortOrder,
-    createdAt = existing?.createdAt ?: now,
+    createdAt = existing?.createdAt ?: createdAt ?: now,
     updatedAt = now,
     checkedBy = checkedBy ?: existing?.checkedBy,
     checkedAt = checkedAt ?: existing?.checkedAt,
-    rowVersion = existing?.rowVersion ?: 1,
+    rowVersion = existing?.rowVersion ?: rowVersion ?: 1,
 )

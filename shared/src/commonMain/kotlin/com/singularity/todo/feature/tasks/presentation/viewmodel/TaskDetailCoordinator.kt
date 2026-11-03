@@ -152,7 +152,16 @@ class TaskDetailCoordinator(
     /** Flushes any pending debounced title/description edits before navigation. */
     fun flushDraft() = draft.flush()
 
-    private val entity = TaskEntitySlot(taskId, deps.core, deps.children, vmScope, taskFlow, ::reportError)
+    private val entity =
+        TaskEntitySlot(
+            taskId = taskId,
+            core = deps.core,
+            children = deps.children,
+            scope = vmScope,
+            taskFlow = taskFlow,
+            onError = ::reportError,
+            onUndoRemoveTag = { tryEmit(TaskDetailUiEvent.UndoRemoveTag(it.id, it.name)) },
+        )
 
     private val completion =
         TaskCompletionSlot(
@@ -178,6 +187,8 @@ class TaskDetailCoordinator(
             onError = ::reportError,
             onSaved = ::reportSaved,
             onBlockedClose = ::raiseBlockedClose,
+            onUndoDeleteChecklistItem = { tryEmit(TaskDetailUiEvent.UndoDeleteChecklistItem(it)) },
+            onUndoDeleteSubtask = { tryEmit(TaskDetailUiEvent.UndoDeleteSubtask(it.id, it.title)) },
         )
 
     private val reminders =
@@ -511,6 +522,7 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.SetProject,
             is TaskDetailIntent.Domain.SetTags,
             is TaskDetailIntent.Domain.RemoveTag,
+            is TaskDetailIntent.Domain.RestoreTag,
             is TaskDetailIntent.Domain.SetKind,
             is TaskDetailIntent.Domain.ToggleSomeday,
             is TaskDetailIntent.Domain.TogglePinned,
@@ -529,6 +541,8 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.AddChecklistItem,
             is TaskDetailIntent.Domain.ToggleSubtask,
             is TaskDetailIntent.Domain.DeleteSubtask,
+            is TaskDetailIntent.Domain.RestoreChecklistItem,
+            is TaskDetailIntent.Domain.RestoreSubtask,
             is TaskDetailIntent.Domain.AddSubtask,
             -> {
                 children.onIntent(intent)

@@ -157,6 +157,44 @@ fun TaskDetailContent(
                     )
                 }
 
+                is TaskDetailUiEvent.UndoRemoveTag -> {
+                    notifications.send(
+                        Notification.Undo(
+                            title = "Tag \"${event.tagName}\" removed",
+                            actionLabel = "Undo",
+                            onAction = {
+                                coordinator.onIntent(TaskDetailIntent.Domain.RestoreTag(event.tagId))
+                            },
+                        ),
+                    )
+                }
+
+                is TaskDetailUiEvent.UndoDeleteChecklistItem -> {
+                    notifications.send(
+                        Notification.Undo(
+                            title = "Item deleted",
+                            actionLabel = "Undo",
+                            onAction = {
+                                coordinator.onIntent(
+                                    TaskDetailIntent.Domain.RestoreChecklistItem(event.item),
+                                )
+                            },
+                        ),
+                    )
+                }
+
+                is TaskDetailUiEvent.UndoDeleteSubtask -> {
+                    notifications.send(
+                        Notification.Undo(
+                            title = "Subtask \"${event.title}\" deleted",
+                            actionLabel = "Undo",
+                            onAction = {
+                                coordinator.onIntent(TaskDetailIntent.Domain.RestoreSubtask(event.taskId))
+                            },
+                        ),
+                    )
+                }
+
                 is TaskDetailUiEvent.UndoDeleteSeries -> {
                     notifications.send(
                         Notification.Undo(
