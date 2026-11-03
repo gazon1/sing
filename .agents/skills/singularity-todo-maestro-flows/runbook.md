@@ -1,10 +1,14 @@
-# Diagnosing a Maestro flow failure
+# Maestro flow runbook
 
-Load this when a flow has already failed and you need to find out why, and when
-you need the seeding walkthrough, the app's behaviour facts, or the probe
-recipe. Authoring a flow — selectors, scrolling, syntax — lives in `SKILL.md`.
+This is the runbook for the `singularity-todo-maestro-flows` skill. It carries
+the seeding walkthrough, the app's behaviour facts, the probe recipe, and the
+failure classes of the last CI run with the triage steps that go with them.
+Load it when a flow needs data or misbehaves. Authoring a flow — selectors,
+scrolling, syntax — lives in `SKILL.md`.
 
-## Root causes of known failures (CI run 38223116125)
+## Diagnosing a Maestro flow failure
+
+### Root causes of known failures (CI run 38223116125)
 
 | Class | Root cause | Flows | Fix |
 |---|---|---|---|
@@ -15,7 +19,7 @@ recipe. Authoring a flow — selectors, scrolling, syntax — lives in `SKILL.md
 | E | Seed/state leakage, wrong testTag, agenda section timing | 4 flows | Fixed — see rows below |
 | F | Action row laid out past the screen edge | `agenda-smart-lists` | `SheetScaffold` column made scrollable |
 
-### Class E resolved — three separate defects
+#### Class E resolved — three separate defects
 
 Only one of the four flows was a test problem; the other two were real bugs. All
 four pass on `emulator-5554` with a `pm clear` slate.
@@ -27,7 +31,7 @@ four pass on `emulator-5554` with a `pm clear` slate.
 | `agenda-smart-lists` | DatePicker actions off-screen | **product** |
 | `auth-first-run-anonymous` | seeded row invisible until re-query | harness |
 
-## A selector that cannot be reached
+### A selector that cannot be reached
 
 `Not found` on an element the source proves exists is a **layout** bug, not a
 selector bug. Two causes, and the hierarchy dump separates them:
@@ -47,9 +51,9 @@ the touch target for users and tests together.
 When a flow cannot tap something the code plainly wires up, check the geometry
 before rewriting the selector.
 
-## Debugging a failure
+### Debugging a failure
 
-### Check the runner's verdict against Maestro's own
+#### Check the runner's verdict against Maestro's own
 
 **A flow can pass in Maestro and still be reported failed by
 `run-maestro`.** Both happened here, and both made the suite's exit code
@@ -66,7 +70,7 @@ script's summary. When the two disagree, the disagreement is in the harness, not
 the flow — and reproducing with a direct `maestro test <flow>` is what
 separates them.
 
-### Then triage
+#### Then triage
 
 1. **Crash or assertion?** `adb -s emulator-5554 logcat -d -b crash | grep -A30
    "FATAL EXCEPTION"`. An app crash surfaces as the system "keeps stopping"
@@ -88,7 +92,7 @@ separates them.
    `run-maestro`, which writes a raw framebuffer screenshot and a
    logcat dump per failed flow into `build/maestro-results/<flow>/`.
 
-## Retry strategy: when to fix vs when to retry
+### Retry strategy: when to fix vs when to retry
 
 **Fix the root cause, not the symptom.** A flow that fails because an element
 was not visible after 5 s is telling you the element needs 5+ s on that device
@@ -104,7 +108,7 @@ Do NOT use retry when:
   not independent variance. Check `seed-task.yaml` first.
 - The failure is `Not found` rather than `Not visible` — retry does not help.
 
-## Seed cascade detection
+### Seed cascade detection
 
 The most common cascade failure mode in this suite: `seed-task.yaml` times out,
 `task_item_buy_milk` never appears, and 14 flows fail in the same CI run with
@@ -121,7 +125,7 @@ The most common cascade failure mode in this suite: `seed-task.yaml` times out,
 **Correct fix:** Increase the timeout in `seed-task.yaml` — do NOT add retry
 wrappers to each consumer flow.
 
-## CI vs local timing
+### CI vs local timing
 
 The CI emulator runs on a shared host where gradle daemons, sandbox processes,
 and the emulator itself compete for CPU. A flow that takes 8 s to seed a task

@@ -10,7 +10,7 @@ subdirectories (~39 flows total). Helpers live in `Maestro/helpers/`.
 
 Status (run 38223116125): classes A–D fixed (hardcoded swipe, missing nav menu
 openers, menu item scroll, animation timing). Class E diagnosed on `emulator-5554`
-— see the runbook in [`diagnosing-failures.md`](diagnosing-failures.md).
+— see the runbook: [`runbook.md`](runbook.md).
 All 4 Class E flows pass.
 
 ## Prerequisites: emulator first
@@ -131,7 +131,7 @@ selector to fall back on.
 **Seed, never type.** The walkthrough — why typing a fixture into the editor does
 not work, the `seed.yaml` query keys, `${RUN_ID}` prefixing, the runner's cleanup
 sweep — is in the runbook:
-[Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them).
+[Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them).
 
 ## Adaptive scrolling: `scrollUntilVisible` over hardcoded swipe
 
@@ -303,23 +303,23 @@ suite. See `singularity-todo-emulator-launch`.
 Start from `launch-clean`, then `seed.yaml` when the flow needs data. Make new
 flows self-seeding rather than inheriting state from an earlier flow. Note that
 `launch-clean` does not clear Room, so a fixture written by a previous run is
-still there — see [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them).
+still there — see [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them).
 
 ## The runbook
 
-The runbook sits beside this skill: the seeding walkthrough, the app's behaviour
-facts, the probe recipe and the failure tables. Read it when a flow needs data
-or misbehaves:
+The runbook sits beside this skill as [`runbook.md`](runbook.md): the seeding
+walkthrough, the app's behaviour facts, the probe recipe and the failure tables.
+Read it when a flow needs data or misbehaves:
 
-- [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them) —
+- [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them) —
   why typing a fixture into the editor does not work, the `seed.yaml` query keys,
   `${RUN_ID}` prefixing, the runner's cleanup sweep, and why `launch-clean` does
   not clear the database.
-- [App behaviour facts flows encode](diagnosing-failures.md#app-behaviour-facts-flows-encode) —
+- [App behaviour facts flows encode](runbook.md#app-behaviour-facts-flows-encode) —
   the behaviours a flow author would otherwise guess wrong.
-- [Recon before writing a flow — the probe trick](diagnosing-failures.md#recon-before-writing-a-flow--the-probe-trick) —
+- [Recon before writing a flow — the probe trick](runbook.md#recon-before-writing-a-flow--the-probe-trick) —
   the probe flow that dumps the view hierarchy of the screen you are about to drive.
-- [Diagnosing a Maestro flow failure](diagnosing-failures.md) — the failure-class
+- [Diagnosing a Maestro flow failure](runbook.md#diagnosing-a-maestro-flow-failure) — the failure-class
   table for the last CI run, the logcat/hierarchy triage steps, when a selector is
   unreachable because the element is laid out off-screen, the retry policy, and the
   CI-vs-local timeout multipliers.
@@ -364,6 +364,6 @@ split for flows — the split is `smoke` vs domain.
    flow thinks it is. The header is where the answer belongs: the file
    outlives the pull request. "нет" is an honest and useful answer — "да"
    without a date is not. A flow tagged `smoke` has to have run on a device.
-10. On failure, open [`diagnosing-failures.md`](diagnosing-failures.md).
+10. On failure, open the runbook: [`runbook.md`](runbook.md).
 
 Fuller guidance, including the tag table: `Maestro/README.md`.
