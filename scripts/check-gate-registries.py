@@ -17,7 +17,7 @@ succeeding, left ``load_gates()`` still returning all 39 entries, and left
 that case; this script is what notices before any gate runs.
 
 The other half is drift, and drift was real: the two files disagreed about
-nine names while every check agreed. Four shapes of it, each caught here:
+nine names while every check agreed. Five shapes of it, each caught here:
 
   - a gate line in the shell file with no registry entry — CI runs it,
     ``sgate <name>`` cannot dispatch it;
@@ -27,6 +27,10 @@ nine names while every check agreed. Four shapes of it, each caught here:
   - the same gate described with two different modes — one surface says it
     blocks the build, the other says it only warns, and which one a caller
     reads decides what a red gate means;
+  - the same gate spelled as two different commands — the shell file says
+    ``python3 scripts/check-x.py --strict`` and the registry builds
+    ``python3 scripts/check-x.py``, so the gate has two verdicts depending on
+    which surface ran it;
   - a name in ``NOT_RUN_IN_STATIC`` that is not a registered gate any more —
     a declaration that outlived its gate, and can hide one from the check
     above.
@@ -35,6 +39,12 @@ This was a warning for a while, because the drift predated the script and
 failing on it would have blocked every run on someone else's debt. It is a
 blocking gate now: the debt is paid, and a warning nobody reads is a check
 that reports nothing.
+
+The command drift is the newest shape, and its debt is not paid yet: the
+placements are still written by hand, and one of them — this gate's own line —
+says ``--strict`` where the registry says nothing. It is reported like any
+other drift, so the two surfaces cannot disagree about a command without
+anything saying so.
 
 CLI shape (R2/R3): Click, not argparse; ``--check`` reports without a
 non-zero exit; ``--json`` puts the verdict on stdout as machine-readable
@@ -218,19 +228,69 @@ def _cluster_problems(
     return problems
 
 
+def _registry_command(spec) -> str:
+    """The command the registry builds for a gate, in the shell registry's spelling.
+
+    ``_build_command`` starts the command with the interpreter that is running
+    it (``sys.executable``), while the shell registry spells the same
+    interpreter ``python3``. That is the same command written two ways, and it
+    is the only difference between the two spellings that is not a difference.
+    """
+    from sgate.gates import _build_command
+
+    command = " ".join(_build_command(spec).split())
+    if command == sys.executable or command.startswith(f"{sys.executable} "):
+        command = "python3" + command[len(sys.executable):]
+    return command
+
+
+def _same_command(shell_command: str, registry_command: str, spec) -> bool:
+    """Whether the shell registry and the Python registry run the same command.
+
+    Three things are one command written two ways, and reporting them would be
+    reporting a spelling:
+
+    - a shell line that says ``sgate <command>`` dispatches *through* the
+      registry, so the command it runs is the registry's own command;
+    - a bash gate: the shell line names the function the registry's ``bash -c``
+      calls;
+    - the interpreter: ``python3`` and the running ``sys.executable`` are the
+      same interpreter.
+
+    A member of a cluster is not compared at all: the shell line names the
+    wrapper that runs it, so the line is not a second declaration of this
+    gate's own command.
+    """
+    from sgate.commands._registry import CmdType
+    from sgate.gate_manifest import PLACEMENTS, PlacementKind
+
+    placement = PLACEMENTS.get(spec.name)
+    if placement is not None and placement.kind is PlacementKind.CLUSTER:
+        return True
+
+    line = " ".join(shell_command.split())
+    if line.startswith("sgate "):
+        return True
+    if line == registry_command:
+        return True
+    if spec.cmd_type is CmdType.BASH_C:
+        return line == spec.bash_func
+    return False
+
+
 def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
     """
     Return `(violations, warnings, summary)` for the two gate registries.
 
     A violation is something a caller must act on: an empty registry, or —
     under ``strict`` — the two registries naming different gates, describing
-    one gate with two different modes, or naming a gate that nothing runs.
+    one gate with two different modes, running two different commands for one
+    gate, or naming a gate that nothing runs.
     Drift without ``strict`` is a warning: it predates this script, and
     failing on it would block every run on someone else's debt.
     """
     try:
         from sgate.commands._registry import GATES, NOT_RUN_IN_STATIC
-        from sgate.gates import _build_command
         from sgate.commands.run_all import _load_static_gates
         from sgate.gates import load_gates
 
@@ -279,6 +339,7 @@ def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
         )
 
     for name in sorted(shell_names & registry_names):
+        spec = _REGISTRY_BY_NAME[name]
         shell_mode = shell_modes[name]
         registry_mode = registry_modes[name]
         if shell_mode != registry_mode:
@@ -291,18 +352,14 @@ def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
             )
 
         shell_command = shell_commands[name]
-        # A shell line that dispatches through the registry (`sgate <command>`)
-        # is the registry's own command by construction — never report it.
-        if shell_command.lstrip().startswith("sgate "):
-            continue
-        registry_command = _build_command(_REGISTRY_BY_NAME[name]).replace(
-            sys.executable, "python3"
-        )
-        if shell_command != registry_command:
+        registry_command = _registry_command(spec)
+        if not _same_command(shell_command, registry_command, spec):
             report(
                 f"'{name}' runs '{shell_command}' in scripts/ci/static-gates.sh and "
                 f"'{registry_command}' in _registry.GATES — the two registries disagree "
-                "about the command a gate runs."
+                "about the command a gate runs. One surface runs one command and the "
+                "other another, and which one a caller uses decides what the gate "
+                "measured."
             )
 
     for name in sorted(registry_names - shell_names - set(NOT_RUN_IN_STATIC)):
