@@ -125,15 +125,23 @@ val Selector.typeDescription: String
             }
 
             is Selector.TimeOfDay -> {
-                val startHour = minStartMinutes / 60
-                val startMin = minStartMinutes % 60
-                val endHour = maxEndMinutes / 60
-                val endMin = maxEndMinutes % 60
-                val start = "${formatPadded(startHour)}:${formatPadded(startMin)}"
-                val end = "${formatPadded(endHour)}:${formatPadded(endMin)}"
-                "Work block: $start–$end"
+                "Work block: ${minutesOfDay(minStartMinutes)}–${minutesOfDay(maxEndMinutes)}"
             }
         }
+
+/**
+ * Minutes from midnight as a clock: `540` → "09:00".
+ *
+ * The bounds are the user's own work-schedule minutes, and the agenda preset
+ * moves each end by a minute: with a lunch break at midnight the start
+ * becomes −1, and with a lunch break that ends at 23:59 the end becomes
+ * 1440. Neither is a time of day, so neither is printed as one — the label
+ * reads "00:00" and "24:00".
+ */
+private fun minutesOfDay(minutes: Int): String {
+    val clamped = minutes.coerceIn(0, 24 * 60)
+    return "${formatPadded(clamped / 60)}:${formatPadded(clamped % 60)}"
+}
 
 /** Name for [TaskStatus] display. */
 private val TaskStatus.statusName: String
