@@ -13,7 +13,10 @@ import kotlinx.datetime.LocalTime
 object LocalTimeFormats {
     /**
      * Parses `HH:mm` or `HH:mm:ss` into [LocalTime].
-     * Returns null if the string is malformed.
+     *
+     * Throws `IllegalArgumentException` when the string is malformed — it does
+     * not return `null`, and a caller that needs a nullable result has to
+     * catch it.
      */
     fun parse(value: String): LocalTime {
         val parts = value.split(":")
