@@ -25,12 +25,11 @@ class ImportOptionsBuilder {
     var sourcePath: String? = null
     var targetUserId: UserId? = null
     var ownerId: UserId? = null
-    var overwriteExisting: Boolean = true
 
     fun build(): ImportOptions {
         val s = sourcePath ?: error("sourcePath required")
         val u = targetUserId ?: error("targetUserId required")
-        return ImportOptions(s, u, ownerId, ownerId, overwriteExisting)
+        return ImportOptions(s, u, ownerId, ownerId)
     }
 }
 
@@ -55,7 +54,6 @@ data class ImportOptions(
     val targetUserId: UserId,
     val ownerId: UserId? = null,
     val ownerUserId: UserId? = null,
-    val overwriteExisting: Boolean = true,
     /**
      * The changes that follow the archive, in order.
      *

@@ -15,8 +15,8 @@ BackupImporter:  BackupCodec.import() → validate → migrate → DAOs upsert
 ```
 
 **Key files** (all under `shared/src/commonMain/kotlin/com/singularity/todo/`):
-- `core/backup/BackupFormat.kt` — constants (FORMAT_VERSION=1, SCHEMA_VERSION=5, entry names)
-- `core/backup/BackupManifest.kt` — `@Serializable` with computed `isCompatibleWith`
+- `core/backup/BackupFormat.kt` — constants (FORMAT_VERSION=1, SCHEMA_VERSION=7, entry names)
+- `core/backup/BackupManifest.kt` — `@Serializable`; compatibility is checked by `BackupDomain.validateManifest()`, not by the manifest itself
 - `core/backup/BackupPayload.kt` — `@Serializable` wrapper with schemaVersion + all DTO lists
 - `core/backup/BackupTaskDtos.kt` — the task rows and the rows that hang off a task; the other domains have a file each (`core/backup/BackupNoteDtos.kt`, `core/backup/BackupProjectDtos.kt`, `core/backup/BackupTagDtos.kt`, `core/backup/BackupAttachmentDtos.kt`, `core/backup/BackupSavedViewDtos.kt`, `core/backup/BackupProfileDtos.kt`). **Sync metadata stripped on toDto()**
 - `core/backup/BackupDomain.kt` — pure: `sha256Hex()`, `extractUserIdHash()`, `buildManifest()`, `validateManifest()`
@@ -179,5 +179,5 @@ both steps, and a caller cannot aim a download anywhere.
 ## Dual Versioning
 
 - `FORMAT_VERSION` — zip container format (currently 1)
-- `SCHEMA_VERSION` — payload schema (currently 5)
+- `SCHEMA_VERSION` — payload schema (currently 7)
 - `validateManifest()` checks: formatVersion ≤ current, schemaVersion ≤ current, payload checksum
