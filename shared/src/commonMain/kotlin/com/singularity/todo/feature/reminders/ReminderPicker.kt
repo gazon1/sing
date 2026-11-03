@@ -36,16 +36,16 @@ fun ReminderPicker(
         )
         ReminderOffset.entries.forEach { offset ->
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .touchTarget()
-                    .height(40.dp)
-                    .selectable(
-                        selected = selected == offset,
-                        onClick = { onSelect(offset) },
-                        role = Role.RadioButton,
-                    )
-                    .padding(horizontal = 8.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .touchTarget()
+                        .height(40.dp)
+                        .selectable(
+                            selected = selected == offset,
+                            onClick = { onSelect(offset) },
+                            role = Role.RadioButton,
+                        ).padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 RadioButton(

@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.singularity.todo.core.ui.touchTarget
-import com.singularity.todo.feature.tasks.presentation.theme.dividerColor
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
 import com.singularity.todo.feature.tasks.presentation.theme.dividerColor
 import kotlinx.collections.immutable.ImmutableList
@@ -148,12 +147,13 @@ private fun ActionMenuRow(
         }
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .touchTarget()
-            .height(36.dp)
-            .clickable(enabled = node.enabled, onClick = onClick)
-            .padding(horizontal = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .touchTarget()
+                .height(36.dp)
+                .clickable(enabled = node.enabled, onClick = onClick)
+                .padding(horizontal = 8.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         Row(
