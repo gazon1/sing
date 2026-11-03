@@ -36,8 +36,14 @@ tags:
 # A project is created elsewhere, and another one is renamed elsewhere: a seed
 # that names an id that is already there owns that row and gives it another
 # name.
-- openLink: "todo-debug://seed?project=Latecomer&id=latecomer"
-- openLink: "todo-debug://seed?project=Renamed&id=roadmap"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "project=Latecomer&id=latecomer"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "project=Renamed&id=roadmap"
 - runFlow: ../../helpers/open-app-menu.yaml
 # The creation is in the tree.
 - scrollUntilVisible:

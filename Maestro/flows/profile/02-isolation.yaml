@@ -21,8 +21,7 @@ tags:
     timeout: 10000
 
 # 2. Open the Profiles screen and create a second profile.
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 - extendedWaitUntil:
     visible:
       id: menu_settings
@@ -62,8 +61,7 @@ tags:
 # *current* profile and silently ignores `profile=Y` — the seed lands in
 # Personal, and the assertion below then fails for a reason that has nothing to
 # do with isolation.
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 - extendedWaitUntil:
     visible:
       id: menu_settings
@@ -85,11 +83,10 @@ tags:
     visible:
       id: nav_tab_today
     timeout: 30000
-- openLink: "todo-debug://seed?task=WorkTask"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=WorkTask"
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
@@ -98,8 +95,7 @@ tags:
     timeout: 8000
 
 # 4. Switch back to the Personal (default) profile.
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 - extendedWaitUntil:
     visible:
       id: menu_settings

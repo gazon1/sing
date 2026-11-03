@@ -17,11 +17,10 @@ tags:
 - setAirplaneMode: enabled
 # Create a task while offline via deep-link. The title is fixed and the seed
 # replaces, so the row this flow asserts on is the same row every run.
-- openLink: "todo-debug://seed?task=Offline%20task"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Offline%20task"
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
