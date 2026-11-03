@@ -21,7 +21,10 @@ BackupImporter:  BackupCodec.import() → validate → migrate → DAOs upsert
 - `core/backup/BackupTaskDtos.kt` — the task rows and the rows that hang off a task; the other domains have a file each (`core/backup/BackupNoteDtos.kt`, `core/backup/BackupProjectDtos.kt`, `core/backup/BackupTagDtos.kt`, `core/backup/BackupAttachmentDtos.kt`, `core/backup/BackupSavedViewDtos.kt`, `core/backup/BackupProfileDtos.kt`). **Sync metadata stripped on toDto()**
 - `core/backup/BackupDomain.kt` — pure: `sha256Hex()`, `extractUserIdHash()`, `buildManifest()`, `validateManifest()`
 - `core/backup/BackupMigrations.kt` — `Map<Int, (JsonObject) → JsonObject>` chain via `fold()`
-- `core/backup/BackupError.kt` — sealed class: UnsupportedFormatVersion, UnsupportedSchemaVersion, ChecksumMismatch, MalformedManifest, FileNotFound, CodecError
+- `core/backup/BackupError.kt` — sealed root of the failures; catching it catches every family
+- `core/backup/ArchiveEnvelopeError.kt` — the container: NotEncrypted, WrongPassword, UnsupportedArchiveVersion, Unusable, BrokenChain, MissingPassword, ChainTooLong
+- `core/backup/BackupPayloadError.kt` — the payload: UnsupportedFormatVersion, UnsupportedSchemaVersion, SchemaTooOld, ChecksumMismatch, MalformedManifest
+- `core/backup/BackupStorageError.kt` — the device's own files: FileNotFound, DeviceNotAuthorized
 - `core/backup/BackupCodec.kt` — interface with `export()` / `import()`, `CodecReadResult` data class
 - `core/backup/BackupOptions.kt` — `@DslMarker` + `ExportOptionsBuilder` / `ImportOptionsBuilder` with nullable `var userId: UserId?` (value classes can't be lateinit)
 - `core/backup/BackupRepository.kt` — interface, `backups: Flow<List<BackupMetadata>>` polls every 5s
@@ -60,22 +63,37 @@ fun exportOptions(block: ExportOptionsBuilder.() -> Unit): ExportOptions =
     ExportOptionsBuilder().apply(block).build()
 ```
 
-## Sealed Error Handling
+## Failure Families
+
+The failures are three families under one sealed root, `BackupError`:
+
+| Family | What it is about |
+|---|---|
+| `ArchiveEnvelopeError` | the container: the bytes, the version, the password, the chain |
+| `BackupPayloadError` | what the container carried: the manifest, the schema, the checksum |
+| `BackupStorageError` | the device's own files: a backup that is not there |
 
 ```kotlin
-// In UI (exhaustive when):
+import com.singularity.todo.core.backup.ArchiveEnvelopeError
+import com.singularity.todo.core.backup.BackupPayloadError
+import com.singularity.todo.core.backup.BackupStorageError
+
+// In UI (exhaustive over the backup's three families):
 when (val result = repository.import(opts)) {
     is Result.success -> showSuccess()
     is Result.failure -> when (val err = result.exceptionOrNull()) {
-        is BackupError.UnsupportedFormatVersion -> showFormatError(err.version)
-        is BackupError.UnsupportedSchemaVersion -> showSchemaError(err.version)
-        is BackupError.ChecksumMismatch -> showChecksumError()
-        is BackupError.MalformedManifest -> showMalformedError()
-        is BackupError.FileNotFound -> showFileNotFoundError()
-        is BackupError.CodecError -> showCodecError()
+        is ArchiveEnvelopeError -> showContainerError(err)  // the container: password, version, chain
+        is BackupPayloadError -> showPayloadError(err)      // what it carried: manifest, schema, checksum
+        is BackupStorageError -> showStorageError(err)      // the device's own files
+        else -> showUnexpectedError(err)
     }
 }
 ```
+
+Catching the root catches every family: `catch (error: BackupError)` is what
+most callers want, and what the remote backup service does. A caller that has to
+tell a container failure from a payload failure says which family it means, as
+above — and the case inside the family says what happened.
 
 ## Migration Chain
 
