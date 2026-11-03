@@ -39,7 +39,7 @@ sqlite = "2.7.0"
 sqliteJdbc = "3.47.0.0"
 
 # Networking / Ktor
-ktor = "3.6.0"
+ktor = "3.6.1"
 
 # DI / Koin
 koin = "4.2.2"
