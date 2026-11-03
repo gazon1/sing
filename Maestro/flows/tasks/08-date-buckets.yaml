@@ -33,19 +33,29 @@ tags:
 - tapOn:
     id: nav_tab_today
 
+# The seeded rows are waited for, not asserted bare: the seed helper waits for
+# the shell, not for the row it wrote, so a bare assert could run before the
+# row arrived.
+#
 # Overdue section should contain YesterdayTask.
 - extendedWaitUntil:
     visible:
       id: agenda_section_overdue
     timeout: 8000
-- assertVisible:
-    id: task_item_yesterdaytask
+- extendedWaitUntil:
+    visible:
+      id: task_item_yesterdaytask
+    timeout: 8000
 
 # Today section should contain TodayTask.
-- assertVisible:
-    id: agenda_section_today
-- assertVisible:
-    id: task_item_todaytask
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_today
+    timeout: 8000
+- extendedWaitUntil:
+    visible:
+      id: task_item_todaytask
+    timeout: 8000
 
 # Tomorrow section should contain TomorrowTask — in the Upcoming tab, which is
 # where what is coming lives.
@@ -55,5 +65,7 @@ tags:
     visible:
       id: agenda_section_tomorrow
     timeout: 8000
-- assertVisible:
-    id: task_item_tomorrowtask
+- extendedWaitUntil:
+    visible:
+      id: task_item_tomorrowtask
+    timeout: 8000

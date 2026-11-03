@@ -32,6 +32,9 @@ tags:
       id: task_editor_title_input
     timeout: 5000
 # The title proves the link led to *this* task and not merely that an editor
-# opened.
-- assertVisible:
-    text: "Deep link target"
+# opened. It is waited for rather than asserted bare: the title is the seeded
+# row's own title, and the seed helper waits for the shell, not for the row.
+- extendedWaitUntil:
+    visible:
+      text: "Deep link target"
+    timeout: 8000

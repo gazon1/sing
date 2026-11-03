@@ -227,6 +227,17 @@ the action `inputText` depends on and broke entry outright.
 seeds `task=Buy milk` with no `due` and then looks on Today finds nothing — tap
 `nav_tab_inbox`.
 
+**`seed.yaml` waits for the shell, not for the seeded row — the flow waits for
+the row.** The helper's own wait is on `nav_tab_today`, and in a flow that has
+already launched the app (every flow that starts with `launch-clean`) the
+shell is already up, so that wait says nothing about the seeded entity. The
+helper cannot wait for the row either — the contract and its edge cases are in
+`Maestro/helpers/seed.yaml`. So a flow that seeds a task, a note or a project
+waits for that entity itself before asserting on it — `extendedWaitUntil` when
+the row is on screen, `scrollUntilVisible` when it may be below the fold, never
+a bare `assertVisible`. A `session=anonymous` seed creates no entity, so there
+is nothing to wait for.
+
 **`seed.yaml` has no tab round-trip, and does not need one.** An inbox→today
 round-trip was added here on 2026-10-12 because a deep-link seed appeared not to
 reach an already-composed agenda. Once the runner began wiping the profile's

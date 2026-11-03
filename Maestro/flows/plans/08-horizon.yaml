@@ -29,8 +29,12 @@ tags:
     file: ../../helpers/plans-section.yaml
     env:
       PLANS_SECTION: ${output.PLANS_TOMORROW_SECTION}
-- assertVisible:
-    id: task_item_due_tomorrow
+# The seeded row is waited for, not asserted bare: the seed helper waits for
+# the shell, not for the row it wrote.
+- extendedWaitUntil:
+    visible:
+      id: task_item_due_tomorrow
+    timeout: 8000
 - assertNotVisible:
     id: task_item_due_in_45_days
 # The week horizon is twelve weeks, and forty-five days is inside it.

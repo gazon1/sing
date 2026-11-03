@@ -54,7 +54,13 @@ tags:
 - assertVisible:
     id: menu_project_node_latecomer
 # And the rename is too: the row is the same row, under another name.
+#
+# The wait is on the new name. The node's id is the id that row already had,
+# so the id alone says nothing about the rename having arrived — the name is
+# what the rename changed.
+- extendedWaitUntil:
+    visible:
+      text: "Renamed"
+    timeout: 8000
 - assertVisible:
     id: menu_project_node_roadmap
-- assertVisible:
-    text: "Renamed"

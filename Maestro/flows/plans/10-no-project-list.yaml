@@ -31,8 +31,12 @@ tags:
     file: ../../helpers/plans-section.yaml
     env:
       PLANS_SECTION: ${output.PLANS_TODAY_SECTION}
-- assertVisible:
-    id: task_item_due_today
+# The seeded row is waited for, not asserted bare: the seed helper waits for
+# the shell, not for the row it wrote.
+- extendedWaitUntil:
+    visible:
+      id: task_item_due_today
+    timeout: 8000
 # And no project list: the project is not on the tab any more.
 - assertNotVisible:
     id: project_card_roadmap

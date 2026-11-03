@@ -1,4 +1,4 @@
-# Seeds a task via the DebugSeedActivity deep-link.
+# Seeds a task, note or project via the DebugSeedActivity deep-link.
 #
 # Usage:
 #   env:
@@ -17,23 +17,63 @@
 #
 # This helper does NOT run launch-clean — the caller decides.
 #
-# Leaves the app on the Today tab with the seeded entity visible.
+# Leaves the app on the Today tab.
 #
-# There is deliberately no inbox→today tab round-trip here. One was added on
-# 2026-10-12 on the belief that a deep-link seed into an already-composed
-# MainActivity left the agenda reading pre-seed state (ADR 2026-10-12 §9). That
-# did not reproduce once the runner swept each run's fixtures on success: the
-# original observation was made while leftovers from earlier runs were still in
-# the list, so what looked like "the new row never arrived" was the new row
-# arriving below rows the previous runs had left behind.
+# ## The contract: this helper waits for the shell, not for the seeded entity
+#
+# The helper waits for the agenda shell (the bottom bar) and returns. It does
+# NOT wait for the row the seed wrote, and it cannot: a link seeds one kind of
+# entity, but not always one the helper can name — a note or a project is given
+# a generated id, a seed owns the row of its title (seeding the same title
+# again updates that row), and `session=anonymous` creates no entity at all.
+#
+# The shell wait is only meaningful when the link cold-starts the app. In a
+# flow that has already launched the app — every flow that starts with
+# `launch-clean` — the shell is already up, so the wait says nothing about the
+# seeded entity.
+#
+# So the caller waits. A flow that seeds a task, a note or a project MUST wait
+# for that entity before asserting on it — a wait, not a bare `assertVisible`:
+#
+#   - runFlow:
+#       file: ../../helpers/seed.yaml
+#       env:
+#         QUERY: "task=Buy%20milk&due=today"
+#   - tapOn:
+#       id: nav_tab_inbox
+#   # Wait for the seeded row: `extendedWaitUntil` when it is on screen,
+#   # `scrollUntilVisible` when it may be below the fold.
+#   - extendedWaitUntil:
+#       visible:
+#         id: task_item_buy_milk
+#       timeout: 8000
+#
+# A seed of `session=anonymous` creates no entity, so there is nothing to wait
+# for.
+#
+# ## Why there is deliberately no inbox→today tab round-trip here
+#
+# One was added on 2026-10-12 on the belief that a deep-link seed into an
+# already-composed MainActivity left the agenda reading pre-seed state (ADR
+# 2026-10-12 §9). That did not reproduce once the runner swept each run's
+# fixtures on success: the original observation was made while leftovers from
+# earlier runs were still in the list, so what looked like "the new row never
+# arrived" was the new row arriving below rows the previous runs had left
+# behind.
 #
 # Verified without the taps on `auth/01-first-run-anonymous`, `tasks/04-delete`
-# and `agenda/01-smart-lists`. Callers still `scrollUntilVisible` their own row,
-# which is what actually absorbs a slow arrival.
+# and `agenda/01-smart-lists`. The callers wait for their own row — that is
+# the contract above — and that wait is what absorbs a slow arrival.
 appId: com.singularity.todo
 name: seed
 ---
+# The deep link carries the seed: DebugSeedActivity writes the rows and brings
+# the agenda back up.
 - openLink: "todo-debug://seed?${QUERY}"
+# Wait for the agenda shell — the app to be up and interactive.
+#
+# This is NOT a wait for the seeded entity: see the contract in the header.
+# The caller waits for the row it seeded.
 - extendedWaitUntil:
     visible:
       id: nav_tab_today

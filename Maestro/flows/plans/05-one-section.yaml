@@ -25,8 +25,10 @@ tags:
     file: ../../helpers/plans-section.yaml
     env:
       PLANS_SECTION: ${output.PLANS_TODAY_SECTION}
-- assertVisible:
-    id: task_item_only_once
+- extendedWaitUntil:
+    visible:
+      id: task_item_only_once
+    timeout: 8000
 # The week section holds the same task, and the day section is gone: the task
 # moved sections, it did not appear twice.
 - tapOn:
@@ -35,8 +37,10 @@ tags:
     file: ../../helpers/plans-section.yaml
     env:
       PLANS_SECTION: ${output.PLANS_WEEK_SECTION}
-- assertVisible:
-    id: task_item_only_once
+- extendedWaitUntil:
+    visible:
+      id: task_item_only_once
+    timeout: 8000
 - runFlow:
     file: ../../helpers/plans-section-gone.yaml
     env:

@@ -91,7 +91,7 @@ their logic.
 | Helper | When to use |
 |---|---|
 | `launch-clean.yaml` | Any flow needing a fresh app state |
-| `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link |
+| `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link. It waits for the agenda shell only — the flow waits for the entity it seeded |
 | `seed-task.yaml` | Any flow needing one task titled "Buy milk" |
 | `relaunch.yaml` | Flows testing persistence (state survives process restart) |
 | `open-app-menu.yaml` | Flows opening the app menu (the bottom-bar Menu button) |
@@ -319,6 +319,14 @@ Every flow targeting the emulator should start with one of:
 
 The `launch-clean.yaml` helper launches the app, grants notifications, and
 disables airplane mode via `onFlowComplete`. Do not inline this logic.
+
+The `seed.yaml` helper waits for the agenda shell, not for the row it seeded —
+it cannot know what the seed produced (the helper's contract, with the edge
+cases, is in `Maestro/helpers/seed.yaml`). A flow that seeds a task, a note or
+a project therefore waits for that entity itself before asserting on it — a wait
+(`extendedWaitUntil`, or `scrollUntilVisible` when the row may be below the
+fold), never a bare `assertVisible`. A `session=anonymous` seed creates no
+entity, so there is nothing to wait for.
 
 The two flows that clear state to reach the server-configuration screen —
 `auth/08-signup-network-error.yaml` and `auth/09-signin-network-error.yaml` —
