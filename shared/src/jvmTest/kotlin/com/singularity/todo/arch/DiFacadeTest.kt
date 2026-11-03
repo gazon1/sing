@@ -51,6 +51,20 @@ class DiFacadeTest {
         private val BINDING_CALLS = setOf("single", "factory", "viewModel", "singleOf", "factoryOf", "viewModelOf")
 
         /**
+         * A function declaration, with the modifiers it may carry.
+         *
+         * `private fun`, `expect fun` and `internal inline fun` are all declarations of
+         * a function. The scan used to recognise only a line that starts with `fun `,
+         * so every other declaration was invisible to it: a binding inside
+         * `private fun helper()` was credited to the file body and reported as loose.
+         *
+         * The name is the first group: the modifiers, the type parameters and the
+         * receiver are not part of it.
+         */
+        private val FUNCTION_DECLARATION =
+            Regex("""^(?:\w+\s+)*fun\s+(?!interface\b)(?:<(?:[^<>]|<[^<>]*>)*>\s*)?(?:[\w.]+\.)?(\w+)""")
+
+        /**
          * Suffixes that mean an expression continues on the next line.
          *
          * The shape ktlint's multiline-expression-wrapping produces: a trailing
@@ -421,6 +435,69 @@ class DiFacadeTest {
         )
     }
 
+    /**
+     * Negative control: a binding inside a private function is not loose in the file body.
+     *
+     * The scan recognised only a line that starts with `fun `, so a binding inside
+     * `private fun helper()` was credited to the file body and reported as loose —
+     * the guard cried wolf on correct code, and the function that owns the binding
+     * was invisible to the scan.
+     */
+    @Test
+    fun aBindingInsideAPrivateFunctionIsNotLoose() {
+        val synthetic =
+            """
+            package com.example
+
+            private fun helper() {
+                single { SomethingElse(get()) }
+            }
+            """.trimIndent()
+
+        val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = emptySet())
+
+        kotlin.test.assertEquals(
+            1,
+            strayDeclarations.size,
+            "the binding is declared, and it belongs to the private function",
+        )
+        kotlin.test.assertTrue(
+            !strayDeclarations.single().endsWith("<file body>"),
+            "a binding inside a private function is not loose in the file body",
+        )
+    }
+
+    /**
+     * Negative control: an `expect` declaration has no body, so it encloses nothing.
+     *
+     * The platform actual of `expect fun aiToolsModule()` is where the bindings live.
+     * A binding written after the declaration in the common file is loose in the file
+     * body — and has to be reported.
+     */
+    @Test
+    fun aBindingAfterAnExpectDeclarationIsLoose() {
+        val synthetic =
+            """
+            package com.example
+
+            expect fun aiToolsModule(): Module
+
+            single { SomethingElse(get()) }
+            """.trimIndent()
+
+        val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("aiToolsModule"))
+
+        kotlin.test.assertEquals(
+            1,
+            strayDeclarations.size,
+            "an expect declaration has no body, so the binding after it is loose",
+        )
+        kotlin.test.assertTrue(
+            strayDeclarations.single().endsWith("<file body>"),
+            "the binding after an expect declaration is loose in the file body",
+        )
+    }
+
     @Test
     fun `Modules kt declares no binding outside a facade function`() {
         val stray = bindingDeclarationsIn(modulesFile.text, FACADE_FUNCTIONS)
@@ -511,26 +588,15 @@ class DiFacadeTest {
             if (line.isEmpty()) return@forEachIndexed
             val code = line
 
-            // A top-level `fun name(` opens a function body at depth 0.
-            if (depth == 0 && line.startsWith("fun ")) {
+            // A top-level function declaration opens a function body at depth 0. The
+            // declaration may carry modifiers — `private fun`, `expect fun` — and the
+            // scan used to see only the lines that start with `fun `.
+            val declaredFunction = if (depth == 0) declaredFunctionName(line) else null
+            if (declaredFunction != null) {
                 // The previous top-level function is over.
                 enclosingFns.clear()
-                enclosingFns.add(
-                    line
-                        .substringAfter("fun ")
-                        .substringBefore("(")
-                        .trim()
-                        .substringBefore(":")
-                        .trim(),
-                )
-                // The body opens on this line when the line carries the brace. When the
-                // signature ends with `=` — or with an expression that is still open —
-                // it opens BELOW: the shape ktlint's multiline-expression-wrapping
-                // produces. A body that is an expression without braces (`= compute()`)
-                // ends on the signature line itself.
-                bodyPending =
-                    !code.contains('{') &&
-                    (line.endsWith("=") || expressionContinuesOnNextLine(code))
+                enclosingFns.add(declaredFunction)
+                bodyPending = bodyOpensBelow(code)
             } else if (depth == 0 && bodyPending) {
                 // This line carries the body of the function whose name was read above.
                 // The body ends with this line unless it opens a brace — the depth
@@ -727,6 +793,22 @@ class DiFacadeTest {
         }
         return i
     }
+
+    /**
+     * The name of the function declared on [line], or null when it declares none.
+     */
+    private fun declaredFunctionName(line: String): String? = FUNCTION_DECLARATION.find(line)?.groupValues?.get(1)
+
+    /**
+     * Whether the body of the function declared on [line] opens BELOW the line.
+     *
+     * The body opens on the signature line when the line carries the brace. When the
+     * signature ends with `=` — or with an expression that is still open — it opens
+     * BELOW: the shape ktlint's multiline-expression-wrapping produces. A body that is
+     * an expression without braces (`= compute()`) ends on the signature line itself.
+     */
+    private fun bodyOpensBelow(line: String): Boolean =
+        !line.contains('{') && (line.endsWith("=") || expressionContinuesOnNextLine(line))
 
     /**
      * The binding call name at the start of [line].
