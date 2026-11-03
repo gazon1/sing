@@ -104,6 +104,9 @@ ALLOWED_DUPLICATES = {
     ".agents/skills/singularity-todo-quality-tools/SKILL.md": (
         "skill page: prose that tells the reader which versions CI installs"
     ),
+    ".agents/skills/singularity-todo-quality-tools/REFERENCE.md": (
+        "skill reference page: the prose that tells the reader which versions CI installs"
+    ),
     "docs/decisions/2026-10-19-doc-links-gate-lychee.md": (
         "ADR: the historical record of the decision to adopt lychee"
     ),
