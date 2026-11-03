@@ -4,7 +4,8 @@ The local loop is the sum of decisions nobody priced. This page publishes what i
 costs, so that the next decision is priced too.
 
 The numbers come from the runs that happened anyway: `sgate run-all` times every gate
-it runs, and `check.sh` times every Gradle step it runs. Nothing is executed twice to
+it runs, and `check.sh` times every step it runs — the Gradle ones and the ones
+that are not Gradle at all, like the formatting check. Nothing is executed twice to
 be measured, and the baseline in `config/docs/gate-benchmarks.json` records the
 machine the numbers came from — a duration measured on one machine says nothing about
 another, so the comparison refuses to conclude anything when the environment changed.
@@ -60,7 +61,7 @@ change that moves neither Kotlin nor rules, and four for a change in
 
 <!-- BEGIN GENERATED: sgate gate-costs -->
 
-Recorded on 2026-10-21T15:00:39Z — cpus=16, javaHome=/usr/lib/jvm/java-25-openjdk, os=Linux, python=3.12.15.
+Recorded on 2026-11-03T15:13:39Z — cpus=16, javaHome=/usr/lib/jvm/java-25-openjdk, os=Linux, python=3.12.15.
 
 | What | Median |
 |------|--------|
@@ -75,6 +76,7 @@ Recorded on 2026-10-21T15:00:39Z — cpus=16, javaHome=/usr/lib/jvm/java-25-open
 | Step: gate liveness | 1 min 10 s |
 | Step: gate script tests | 1 min 45 s |
 | Step: gate wiring | 2 min 27 s |
+| Step: ktlint (formatting) | 13.0 s |
 | Step: mcp-server:compileKotlin | 3.4 s |
 | Step: mcp-server:detekt | 969 ms |
 | Step: shared:jvmTest | 6 min 44 s |

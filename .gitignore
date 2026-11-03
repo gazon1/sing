@@ -165,3 +165,21 @@ keystore/
 # real project definition; the egg-info is regenerated on every install and must
 # never be reviewed as source.
 *.egg-info/
+
+# Machine-local state written by the tooling that runs inside the checkout.
+# The GitHub CLI keeps its own state under the XDG state directory. With no
+# HOME to resolve that directory against, it falls back to a path relative to
+# the working directory, so a `gh` call made from inside the checkout left
+# `.local/state/gh/device-id` behind — and `git add` of the agent's working
+# state carried it into a commit whose entire content was that one file.
+#
+# The pattern covers the class rather than the one name that reached git:
+# `.local/` holds whatever the tooling wrote for this machine, and the next
+# file under it is covered too. It is not anchored to the root, because the
+# state directory is written wherever the tool that wrote it was standing.
+#
+# A state file is per-machine runtime state: meaningful only while the tool
+# that wrote it is alive, and never an input to a build or a review. Nothing
+# the repository needs lives under it, so there is nothing to gain by
+# tracking it.
+.local/

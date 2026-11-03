@@ -1074,6 +1074,27 @@ _REGISTERED: tuple[GateSpec, ...] = (
             script=Path("scripts/check-tools-catalog.py"),
             script_args=("--check",),
         ),
+        # The catalogue of the skills, generated from the frontmatter of every
+        # SKILL.md. It is the index an agent chooses a skill from, so a stale
+        # row — a line count or a description that no longer matches the file —
+        # sends it to the wrong file, and the drift announces itself nowhere.
+        #
+        # The generator grew a `--check` mode for exactly this and nothing
+        # called it: the catalogue was committed stale on a clean tree (three
+        # skills recorded 20 to 22 lines below their real size after the
+        # quality-tools split) and the check mode would have failed on that
+        # tree. This gate is that call.
+        #
+        # A shell gate, because the generator is a shell script and the gate
+        # must not re-implement either the comparison or the refusal it prints
+        # when a skill body stops parsing.
+        GateSpec(
+            name="the skills catalogue is current",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.SHELL,
+            script=Path("scripts/regen-skills-catalog.sh"),
+            script_args=("--check",),
+        ),
         GateSpec(
             name="compose stability contract",
             # Blocking: the contract is the only thing that tells the Compose
@@ -1778,6 +1799,29 @@ GATE_CONTROLS: dict[str, Control] = {
             ),
             why=(
                 'a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there'
+            ),
+        ),
+        # The catalogue of the skills. The probe changes the generated file
+        # itself, so what the generator produces and what the tree carries stop
+        # agreeing — which is the whole failure this gate exists to catch.
+        #
+        # The command is `bash`, not the script alone: the harness joins a
+        # control to its gate by the script path in the command, and a command
+        # of one element would name no gate.
+        'skills-catalog': Control(
+            kind='sabotage',
+            proves='scripts/regen-skills-catalog.sh',
+            argv=('bash', 'scripts/regen-skills-catalog.sh', '--check'),
+            path='docs/SKILLS-CATALOG.md',
+            edit=Edit(
+                kind='replace',
+                old='# Skills Catalog',
+                new='# Skills Catalog (sabotage probe)',
+                count=1,
+            ),
+            why=(
+                'the catalogue is the index an agent chooses a skill from, and a stale '
+                'line count or a stale description sends it to the wrong file'
             ),
         ),
         # SC-011 promised an automated check that did not exist: the guarantee that the mobile build carries no external-agent code held only by nobody having moved a file yet
