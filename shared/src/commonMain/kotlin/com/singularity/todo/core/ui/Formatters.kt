@@ -31,8 +31,8 @@ import kotlin.time.Instant
  * is unavailable off the JVM — it is that `"%.1f".format(x)` with no `Locale`
  * argument formats in the *device's* locale, so a user whose separator is a comma
  * saw "2,0 GB" on an attachment while the same value read "2.0 GB" everywhere
- * else, and the file-size column became unparseable. The zero-padding helpers below
- * cannot have a locale, so the question does not arise.
+ * else, and the file-size column became unparseable. The zero-padding helper in
+ * `core/format` cannot have a locale, so the question does not arise.
  */
 
 /**

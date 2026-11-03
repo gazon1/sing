@@ -67,8 +67,8 @@ git worktree add /home/max/work/singularity-todo-<slug> -b <slug>/<что>
 
 `androidApp/` — Android shell. `desktopApp/` — Desktop Compose entry.
 `shared/src/commonMain/kotlin/com/singularity/todo/` — KMP library (commonMain + androidMain +
-jvmMain + tests): `core/` (auth, backup, coroutines, database, di, draft, error, files, ids, llm,
-log, notifications, observability, platform, reminders, security, serialization, settings, sync,
+jvmMain + tests): `core/` (auth, backup, coroutines, database, di, draft, error, files, format, ids,
+llm, log, notifications, observability, platform, reminders, security, serialization, settings, sync,
 tree, ui), `feature/` (agenda, ai, archive, attachments, auth, backup, calendar, checklist, genui,
 notes, pomodoro, profile, projects, reminders, search, settings, statistics, tags, tasks),
 `test/fakes/` (Fake-реализации, без моков). **iOS нет** — только Android + JVM.

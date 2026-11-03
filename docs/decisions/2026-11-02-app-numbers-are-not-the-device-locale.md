@@ -50,7 +50,7 @@ every caller write a fallback, and the fallbacks are where the raw ISO date kept
 - **A domain package may import a formatter from `core.format`.** The arch rule that keeps a
   feature's domain out of presentation and data layers is about `feature.*.presentation.*` and
   `feature.*.data.*`; `core.format` is neither, and `feature/agenda/domain` already imports
-  `core.ui.components`. The reverse is not true, and is not to become true: `core.database` does
+  it. The reverse is not true, and is not to become true: `core.database` does
   not import `core.ui`.
 - **A locale-sensitive number is a bug, not a localisation.** The app's date labels are Russian
   while the rest of the app is English (#1700) and the month names come from the device
