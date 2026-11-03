@@ -1,5 +1,6 @@
 package com.singularity.todo.core.database
 
+import com.singularity.todo.core.format.formatPadded
 import kotlinx.datetime.LocalTime
 
 /**
@@ -13,7 +14,10 @@ import kotlinx.datetime.LocalTime
 object LocalTimeFormats {
     /**
      * Parses `HH:mm` or `HH:mm:ss` into [LocalTime].
-     * Returns null if the string is malformed.
+     *
+     * Throws `IllegalArgumentException` when the string is malformed — it does
+     * not return `null`, and a caller that needs a nullable result has to
+     * catch it.
      */
     fun parse(value: String): LocalTime {
         val parts = value.split(":")
@@ -37,7 +41,5 @@ object LocalTimeFormats {
      * inputs all read it back.
      */
     fun format(time: LocalTime): String =
-        "${time.hour.paddedTime()}:${time.minute.paddedTime()}:${time.second.paddedTime()}"
+        "${formatPadded(time.hour)}:${formatPadded(time.minute)}:${formatPadded(time.second)}"
 }
-
-private fun Int.paddedTime(): String = toString().padStart(2, '0')

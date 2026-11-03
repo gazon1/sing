@@ -32,11 +32,15 @@ internal fun formatRussianDueDateOrNull(date: LocalDate?): String? = date?.let(:
  *
  * The editor used to print the raw ISO date ("2026-10-30") while the list showed
  * "Пт, 30 окт 2026" — one date, two shapes, on the same phone.
+ *
+ * The time is [LocalTime.toString], whole: "14:30" when there are no seconds,
+ * "14:30:05" when there are. Cutting the string at five characters used to
+ * drop the seconds of a time that carried them.
  */
 internal fun formatRussianDueDateWithTime(
     date: LocalDate,
     time: LocalTime?,
-): String = formatRussianDueDate(date) + (time?.let { " ${it.toString().take(5)}" } ?: "")
+): String = formatRussianDueDate(date) + (time?.let { " $it" } ?: "")
 
 /**
  * Says a number of dates the way a person says it: "1 date", "2 dates".

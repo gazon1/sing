@@ -37,19 +37,20 @@ every caller write a fallback, and the fallbacks are where the raw ISO date kept
 
 ## Decision
 
-- **Numbers are padded by hand.** `formatPadded(value: Int, digits: Int = 2)` in
-  `core/ui/Formatters.kt` is the one way to write a padded integer, and the call sites route
-  through it. `formatDecimal` already worked this way.
-- **The wire format keeps its own padding.** `core/database/LocalTimeFormats.kt` pads by hand
-  in place rather than importing `core.ui`: a data package does not take a dependency on a UI
-  package to write two digits. The duplication is deliberate and small.
+- **Numbers are padded by hand.** `formatPadded(value: Int, digits: Int = 2)` — and its `Long`
+  overload, for the elapsed clock, which counts in seconds — in `core/format/Padding.kt` is the
+  one way to write a padded integer, and the call sites route through it. `formatDecimal`
+  already worked this way.
+- **The padding helper lives below both layers.** `core/format` is a leaf package: the data
+  layer (`core/database/LocalTimeFormats.kt`) and the UI both use it, so neither depends on
+  the other and the wire format does not keep a second, private copy of the padding.
 - **`formatRussianDueDate` takes a non-null date** and returns a non-null label. A caller whose
   date really is optional asks for `formatRussianDueDateOrNull`. No caller may invent a
   fallback for a date it already knows is there.
-- **A domain package may import a formatter from `core.ui`.** The arch rule that keeps a
+- **A domain package may import a formatter from `core.format`.** The arch rule that keeps a
   feature's domain out of presentation and data layers is about `feature.*.presentation.*` and
-  `feature.*.data.*`; `core.ui` is neither, and `feature/agenda/domain` already imports
-  `core.ui.components`. The reverse is not true, and is not to become true: `core.database` does
+  `feature.*.data.*`; `core.format` is neither, and `feature/agenda/domain` already imports
+  it. The reverse is not true, and is not to become true: `core.database` does
   not import `core.ui`.
 - **A locale-sensitive number is a bug, not a localisation.** The app's date labels are Russian
   while the rest of the app is English (#1700) and the month names come from the device
@@ -81,6 +82,7 @@ raw ISO date.
 
 ## Links
 
+- `shared/src/commonMain/kotlin/com/singularity/todo/core/format/Padding.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/Formatters.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/RussianDateFormatter.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/database/LocalTimeFormats.kt`
