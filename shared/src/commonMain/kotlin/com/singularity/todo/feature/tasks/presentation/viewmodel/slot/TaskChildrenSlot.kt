@@ -215,11 +215,23 @@ class TaskChildrenSlot(
                 .onFailure { onError("Delete subtask failed") }
         }
 
-    /** Puts a soft-deleted subtask back under its parent. */
-    private fun restoreSubtask(taskId: TaskId) =
+    /**
+     * Puts a soft-deleted subtask back under its parent.
+     *
+     * Only a child of this task can be put back here: the undo belongs to the parent
+     * that lost it, and a task that is not this parent's child is not this screen's
+     * to bring back. The task is read before the write, because the write alone
+     * cannot tell whose child it is.
+     */
+    private fun restoreSubtask(subtaskId: TaskId) =
         scope.launch {
+            val subtask = core.taskRepo.get(subtaskId)
+            if (subtask == null || subtask.parentTaskId != taskId) {
+                onError("Restore failed")
+                return@launch
+            }
             core.taskRepo
-                .restore(taskId)
+                .restore(subtaskId)
                 .onSuccess { onSaved("Subtask restored") }
                 .onFailure { onError("Restore failed") }
         }

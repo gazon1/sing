@@ -690,7 +690,7 @@ class TaskRepositoryImpl(
             unitOfWork.write {
                 val ts = clock.now().toEpochMilliseconds()
                 val rows = taskDao.restoreForUser(id.value, ts, currentUser.scopedUserId.value.value)
-                require(rows > 0) { "Task $id not found or not owned by current user" }
+                require(rows > 0) { "Task $id not found, not owned by current user, or not archived" }
                 enqueueFresh(id)
             }
         }

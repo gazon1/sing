@@ -284,7 +284,17 @@ interface TaskDao {
         userId: String,
     ): Int
 
-    @Query("UPDATE tasks SET archived_at = NULL, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    /**
+     * Restores a soft-deleted task by clearing archivedAt. Returns row count.
+     *
+     * The task has to be archived to be restored: a task that is not in the trash
+     * is not something a restore puts back, and a write that claimed to restore it
+     * would say the trash was emptied when it was not.
+     */
+    @Query(
+        "UPDATE tasks SET archived_at = NULL, updated_at = :ts " +
+            "WHERE id = :id AND user_id = :userId AND archived_at IS NOT NULL",
+    )
     suspend fun restoreForUser(
         id: String,
         ts: Long,

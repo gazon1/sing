@@ -136,6 +136,19 @@ class TaskRepositorySyncPropagationTest {
         }
 
     @Test
+    fun `restore of a task that is not in the trash fails`() =
+        runTest {
+            repo.create(task())
+
+            val result = repo.restore(TaskId("t1"))
+
+            assertTrue(
+                result.isFailure,
+                "a task that was never deleted cannot be restored",
+            )
+        }
+
+    @Test
     fun `delete delegates to soft delete and still enqueues`() =
         runTest {
             repo.create(task())

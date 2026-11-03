@@ -158,7 +158,7 @@ class TaskChildrenSlotTest {
     fun `delete subtask soft-deletes it`() =
         runTest {
             val fakes = SlotFakes()
-            val child = task("c1", title = "Child")
+            val child = task("c1", title = "Child").copy(parentTaskId = TaskId("t1"))
             fakes.taskRepo.seed(task("t1"), child)
             val source = TaskSource(task("t1"))
             val slot = slot(fakes, source, backgroundScope)
@@ -234,7 +234,7 @@ class TaskChildrenSlotTest {
     fun `deleting a subtask offers an undo`() =
         runTest {
             val fakes = SlotFakes()
-            val child = task("c1", title = "Child")
+            val child = task("c1", title = "Child").copy(parentTaskId = TaskId("t1"))
             fakes.taskRepo.seed(task("t1"), child)
             val source = TaskSource(task("t1"))
             val undone = mutableListOf<Task>()
@@ -258,7 +258,7 @@ class TaskChildrenSlotTest {
     fun `the undo puts the subtask back`() =
         runTest {
             val fakes = SlotFakes()
-            val child = task("c1", title = "Child")
+            val child = task("c1", title = "Child").copy(parentTaskId = TaskId("t1"))
             fakes.taskRepo.seed(task("t1"), child)
             val source = TaskSource(task("t1"))
             val slot = slot(fakes, source, backgroundScope)
@@ -278,6 +278,81 @@ class TaskChildrenSlotTest {
                 fakes.taskRepo.tasks.value["c1"]
                     ?.archivedAt,
                 "the subtask must come back from the trash",
+            )
+        }
+
+    @Test
+    fun `the undo refuses a task that is not a child of this task`() =
+        runTest {
+            val fakes = SlotFakes()
+            // A subtask of another parent: this screen did not lose it, so it is
+            // not this screen's to bring back.
+            val other =
+                task("x1", title = "Somebody else's child").copy(
+                    parentTaskId = TaskId("t2"),
+                    archivedAt =
+                        kotlin.time.Clock.System
+                            .now(),
+                )
+            fakes.taskRepo.seed(task("t1"), other)
+            val errors = mutableListOf<String>()
+            val source = TaskSource(task("t1"))
+            val slot =
+                TaskChildrenSlot(
+                    taskId = TaskId("t1"),
+                    core = fakes.core(),
+                    children = fakes.children(),
+                    context = fakes.context(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                    allTasks = MutableStateFlow(emptyList()),
+                    onError = { errors += it },
+                    onSaved = {},
+                    onBlockedClose = {},
+                )
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.RestoreSubtask(TaskId("x1")))
+            runCurrent()
+
+            assertNotNull(
+                fakes.taskRepo.tasks.value["x1"]
+                    ?.archivedAt,
+                "a task of another parent must stay in the trash",
+            )
+            assertEquals(listOf("Restore failed"), errors)
+        }
+
+    @Test
+    fun `the undo refuses a task that is not in the trash`() =
+        runTest {
+            val fakes = SlotFakes()
+            val child = task("c1", title = "Child").copy(parentTaskId = TaskId("t1"))
+            fakes.taskRepo.seed(task("t1"), child)
+            val errors = mutableListOf<String>()
+            val source = TaskSource(task("t1"))
+            val slot =
+                TaskChildrenSlot(
+                    taskId = TaskId("t1"),
+                    core = fakes.core(),
+                    children = fakes.children(),
+                    context = fakes.context(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                    allTasks = MutableStateFlow(emptyList()),
+                    onError = { errors += it },
+                    onSaved = {},
+                    onBlockedClose = {},
+                )
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.RestoreSubtask(TaskId("c1")))
+            runCurrent()
+
+            assertEquals(
+                listOf("Restore failed"),
+                errors,
+                "a task that was never deleted cannot be restored",
             )
         }
 
