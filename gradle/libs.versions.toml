@@ -26,7 +26,7 @@ composeMultiplatform = "1.12.2"
 # 1.13.0-beta01 needs compileSdk 37.1, and this project compiles against 37.0
 # (no android-37.1 platform is installed), so the newer line does not build
 # here at all. The bump was merged with a red CI; this is the pin back.
-material3 = "1.12.0-alpha03"
+material3 = "1.13.0-beta01"
 
 # Coroutines / DateTime
 coroutines = "1.11.0"
