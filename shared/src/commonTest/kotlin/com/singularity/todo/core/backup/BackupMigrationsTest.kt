@@ -276,8 +276,7 @@ class BackupMigrationsTest {
         payload("""{"schemaVersion":$version,"tasks":[{"id":"t1","title":"A task","createdAt":1,"updatedAt":1}]}""")
 
     /** The payload written in [text]. */
-    private fun payload(text: String): JsonObject =
-        json.decodeFromString(JsonElement.serializer(), text) as JsonObject
+    private fun payload(text: String): JsonObject = json.decodeFromString(JsonElement.serializer(), text) as JsonObject
 
     /**
      * The value of a primitive field, or null when the payload does not carry
