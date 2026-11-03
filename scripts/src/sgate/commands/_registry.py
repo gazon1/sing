@@ -1062,6 +1062,27 @@ _REGISTERED: tuple[GateSpec, ...] = (
             script=Path("scripts/check-tools-catalog.py"),
             script_args=("--check",),
         ),
+        # The catalogue of the skills, generated from the frontmatter of every
+        # SKILL.md. It is the index an agent chooses a skill from, so a stale
+        # row — a line count or a description that no longer matches the file —
+        # sends it to the wrong file, and the drift announces itself nowhere.
+        #
+        # The generator grew a `--check` mode for exactly this and nothing
+        # called it: the catalogue was committed stale on a clean tree (three
+        # skills recorded 20 to 22 lines below their real size after the
+        # quality-tools split) and the check mode would have failed on that
+        # tree. This gate is that call.
+        #
+        # A shell gate, because the generator is a shell script and the gate
+        # must not re-implement either the comparison or the refusal it prints
+        # when a skill body stops parsing.
+        GateSpec(
+            name="the skills catalogue is current",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.SHELL,
+            script=Path("scripts/regen-skills-catalog.sh"),
+            script_args=("--check",),
+        ),
         GateSpec(
             name="compose stability contract",
             # Blocking: the contract is the only thing that tells the Compose
@@ -1768,6 +1789,29 @@ GATE_CONTROLS: dict[str, Control] = {
                 'a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there'
             ),
         ),
+        # The catalogue of the skills. The probe changes the generated file
+        # itself, so what the generator produces and what the tree carries stop
+        # agreeing — which is the whole failure this gate exists to catch.
+        #
+        # The command is `bash`, not the script alone: the harness joins a
+        # control to its gate by the script path in the command, and a command
+        # of one element would name no gate.
+        'skills-catalog': Control(
+            kind='sabotage',
+            proves='scripts/regen-skills-catalog.sh',
+            argv=('bash', 'scripts/regen-skills-catalog.sh', '--check'),
+            path='docs/SKILLS-CATALOG.md',
+            edit=Edit(
+                kind='replace',
+                old='# Skills Catalog',
+                new='# Skills Catalog (sabotage probe)',
+                count=1,
+            ),
+            why=(
+                'the catalogue is the index an agent chooses a skill from, and a stale '
+                'line count or a stale description sends it to the wrong file'
+            ),
+        ),
         # SC-011 promised an automated check that did not exist: the guarantee that the mobile build carries no external-agent code held only by nobody having moved a file yet
         'mobile-isolation': Control(
             kind='sabotage',
@@ -1985,7 +2029,6 @@ GATE_EXEMPTIONS: dict[str, Control] = {
     'scripts/gen-detekt-rule-table.py': Control(kind='exempt', proves='scripts/gen-detekt-rule-table.py', tracked_by='.agents/skills/singularity-todo-detekt-rules-authoring/RULES.md', reason='auto-generator: sabotage is deleting the generated table and asserting the gate fails; equivalent to `rm docs/detekt/rule_table.md && gate detekt-rule-inventory` — the output-diff is the control'),
     'scripts/check-detekt-registrations.sh': Control(kind='exempt', proves='scripts/check-detekt-registrations.sh', tracked_by='config/detekt/detekt.yml', reason='shell-gate: the sabotage is removing a rule from the registrations file and asserting the gate fails; equivalent to `rm config/detekt/rule_registrations.toml && gate detekt-rule-registry` — but Part J cross-check itself is what catches it when the control goes missing'),
     'scripts/ci/validate-maestro-selectors.py': Control(kind='exempt', proves='scripts/ci/validate-maestro-selectors.py', tracked_by='shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt', reason='CI-only gate: runs in the Maestro flow job, not locally; sabotage would be corrupting the selector files and asserting the gate fails; Part J cross-check itself is the backstop when the control goes missing'),
-    'scripts/regen-skills-catalog.sh': Control(kind='exempt', proves='scripts/regen-skills-catalog.sh', tracked_by='docs/SKILLS-CATALOG.md', reason='shell-gate auto-generator: sabotage is removing the generated catalog and asserting the gate fails; equivalent to `rm docs/SKILLS-CATALOG.md && gate skills-catalog` — the output-diff is the control'),
     'traceability': Control(
         kind='exempt',
         proves='scripts/tests/test_traceability.py',
