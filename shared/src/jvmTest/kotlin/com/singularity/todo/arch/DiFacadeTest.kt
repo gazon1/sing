@@ -83,12 +83,6 @@ class DiFacadeTest {
             }
             match.single()
         }
-
-        /** Strips KDoc and line comments so prose about DI is not read as a call. */
-        private fun KoFileDeclaration.codeOnly(): String =
-            text
-                .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
-                .replace(Regex("""//[^\n]*"""), "")
     }
 
     /**
@@ -388,9 +382,48 @@ class DiFacadeTest {
         )
     }
 
+    /**
+     * Positive control: a URL inside a string literal.
+     *
+     * The file-level cleanup used to cut `//` to the end of the line wherever it
+     * found one — including inside a literal. `Logger.withTag("http://example.com")`
+     * lost its closing quote and its closing brace, the facade never closed, and the
+     * binding after it was credited to the facade: the scan reported nothing.
+     *
+     * A URL in a log tag is the least exotic string a DI file can carry, so the
+     * cleanup has to read literals as literals.
+     */
+    @Test
+    fun aUrlInsideAStringDoesNotBreakTheScan() {
+        val synthetic =
+            """
+            package com.example
+
+            fun coreLoggingModule(): Module =
+                module {
+                    factory { Logger.withTag("http://example.com") }
+                }
+
+            single { SomethingElse(get()) }
+            """.trimIndent()
+
+        val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("coreLoggingModule"))
+
+        kotlin.test.assertEquals(
+            1,
+            strayDeclarations.size,
+            "a binding after a facade whose body carries a URL is loose — the cleanup " +
+                "must not cut the literal at its `//`",
+        )
+        kotlin.test.assertTrue(
+            strayDeclarations.single().endsWith("<file body>"),
+            "the binding after the facade is loose in the file body",
+        )
+    }
+
     @Test
     fun `Modules kt declares no binding outside a facade function`() {
-        val stray = bindingDeclarationsIn(modulesFile.codeOnly(), FACADE_FUNCTIONS)
+        val stray = bindingDeclarationsIn(modulesFile.text, FACADE_FUNCTIONS)
         if (stray.isNotEmpty()) {
             fail(
                 "core/di/Modules.kt declares Koin bindings outside a facade function. " +
@@ -417,7 +450,7 @@ class DiFacadeTest {
                 .filter { it.nameWithExtension.endsWith("DiModule.kt") }
                 .filter { it.packageName().startsWith("$PKG.core.di") }
                 .filter { file ->
-                    bindingDeclarationsIn(file.codeOnly(), facadeNames = emptySet())
+                    bindingDeclarationsIn(file.text, facadeNames = emptySet())
                         .any { it.endsWith("<file body>") }
                 }.map { it.path }
 
@@ -470,15 +503,13 @@ class DiFacadeTest {
         // facade and let through unreported.
         var bodyPending = false
 
-        source.lines().forEachIndexed { index, rawLine ->
+        // Comments and literals are not code: the scan reads the source with both
+        // removed, so a `(` inside a string never unbalances the counters and prose
+        // about DI never opens a body.
+        codeOnly(source).lines().forEachIndexed { index, rawLine ->
             val line = rawLine.trim()
-            // A comment carries no code: it must not open a body, count a brace, or
-            // end the body of a function that is waiting for one.
-            if (isComment(line)) return@forEachIndexed
-            // A string literal carries characters that are not code. A `(` or a `{`
-            // inside a literal would unbalance the counters and leave the facade open
-            // forever, so the counters read the line without the literal content.
-            val code = codeWithoutStrings(line)
+            if (line.isEmpty()) return@forEachIndexed
+            val code = line
 
             // A top-level `fun name(` opens a function body at depth 0.
             if (depth == 0 && line.startsWith("fun ")) {
@@ -548,6 +579,156 @@ class DiFacadeTest {
     }
 
     /**
+     * [source] with the comments removed and the CONTENT of every string literal blanked.
+     *
+     * Two things in a Kotlin file are not code, and the scan has to see neither:
+     *
+     *  - a comment: prose about DI is not a call, and it must not open a body, count
+     *    a brace, or end the body of a function that is waiting for one;
+     *  - the content of a literal: the `(` of `"App ("` is not a parenthesis, and
+     *    counting it leaves the facade open forever — the binding after it is then
+     *    credited to the facade and the guard misses exactly what it exists for.
+     *
+     * The content is blanked, not deleted: every line keeps its length, so a finding
+     * still points at the line the binding really is on, and a line that held nothing
+     * but a comment becomes empty and is skipped.
+     *
+     * The previous implementation cut `//` to the end of the line wherever it found
+     * one — including inside a literal. `Logger.withTag("http://example.com")` lost
+     * its closing quote and brace, the facade never closed, and the scan reported
+     * nothing at all.
+     */
+    private fun codeOnly(source: String): String {
+        val out = StringBuilder(source.length)
+        var i = 0
+        while (i < source.length) {
+            i =
+                when {
+                    source.startsWith("//", i) -> {
+                        blankLineComment(source, i, out)
+                    }
+
+                    source.startsWith("/*", i) -> {
+                        blankBlockComment(source, i, out)
+                    }
+
+                    source.startsWith("\"\"\"", i) -> {
+                        blankRawString(source, i, out)
+                    }
+
+                    source[i] == '"' -> {
+                        blankString(source, i, out)
+                    }
+
+                    else -> {
+                        out.append(source[i])
+                        i + 1
+                    }
+                }
+        }
+        return out.toString()
+    }
+
+    /** Blanks a line comment, keeping the line break. Returns the index after it. */
+    private fun blankLineComment(
+        source: String,
+        start: Int,
+        out: StringBuilder,
+    ): Int {
+        var i = start
+        while (i < source.length && source[i] != '\n') {
+            out.append(' ')
+            i++
+        }
+        return i
+    }
+
+    /**
+     * Blanks a block comment, keeping its line breaks. Returns the index after it.
+     *
+     * Kotlin block comments nest, so the depth is counted rather than assumed.
+     */
+    private fun blankBlockComment(
+        source: String,
+        start: Int,
+        out: StringBuilder,
+    ): Int {
+        var i = start
+        var depth = 0
+        while (i < source.length) {
+            when {
+                source.startsWith("/*", i) -> {
+                    depth++
+                    out.append("  ")
+                    i += 2
+                }
+
+                source.startsWith("*/", i) -> {
+                    depth--
+                    out.append("  ")
+                    i += 2
+                    if (depth == 0) return i
+                }
+
+                source[i] == '\n' -> {
+                    out.append('\n')
+                    i++
+                }
+
+                else -> {
+                    out.append(' ')
+                    i++
+                }
+            }
+        }
+        return i
+    }
+
+    /** Blanks a raw string, keeping its line breaks. Returns the index after it. */
+    private fun blankRawString(
+        source: String,
+        start: Int,
+        out: StringBuilder,
+    ): Int {
+        var i = start + 3
+        out.append("\"\"\"")
+        while (i < source.length && !source.startsWith("\"\"\"", i)) {
+            out.append(if (source[i] == '\n') '\n' else ' ')
+            i++
+        }
+        if (i < source.length) {
+            out.append("\"\"\"")
+            i += 3
+        }
+        return i
+    }
+
+    /** Blanks a string literal, keeping the quotes. Returns the index after it. */
+    private fun blankString(
+        source: String,
+        start: Int,
+        out: StringBuilder,
+    ): Int {
+        var i = start + 1
+        out.append('"')
+        while (i < source.length && source[i] != '"') {
+            if (source[i] == '\\' && i + 1 < source.length) {
+                out.append(' ')
+                out.append(if (source[i + 1] == '\n') '\n' else ' ')
+                i += 2
+            } else {
+                out.append(if (source[i] == '\n') '\n' else ' ')
+                i++
+            }
+        }
+        if (i < source.length) {
+            out.append('"')
+            i++
+        }
+        return i
+    }
+
+    /**
      * The binding call name at the start of [line].
      *
      * The call may carry an explicit type argument: `single<Repo> { }`. The call name
@@ -572,72 +753,5 @@ class DiFacadeTest {
             return true
         }
         return CONTINUATION_SUFFIXES.any { line.endsWith(it) }
-    }
-
-    /** True when [line] is a line comment or a piece of a KDoc block. */
-    private fun isComment(line: String): Boolean =
-        line.startsWith("//") ||
-            line.startsWith("/*") ||
-            line == "*/" ||
-            (line.startsWith("*") && (line.length == 1 || line[1].isWhitespace()))
-
-    /**
-     * [line] with the CONTENT of every string literal removed; the quotes stay.
-     *
-     * The scanner counts braces and parentheses to know where a body ends, and a
-     * literal carries characters that are not code: the `(` of `"App ("` would leave
-     * the facade open forever, and the next loose binding would be credited to it.
-     * Keeping the quotes preserves the shape of the line — a trailing comma outside
-     * a literal is still the last character.
-     */
-    private fun codeWithoutStrings(line: String): String {
-        val out = StringBuilder(line.length)
-        var i = 0
-        while (i < line.length) {
-            when {
-                line.startsWith("\"\"\"", i) -> {
-                    val end = line.indexOf("\"\"\"", i + 3)
-                    if (end < 0) {
-                        out.append(line, i, line.length)
-                        i = line.length
-                    } else {
-                        out.append("\"\"\"")
-                        i = end + 3
-                    }
-                }
-
-                line[i] == '"' -> {
-                    out.append('"')
-                    i++
-                    while (i < line.length && line[i] != '"') {
-                        if (line[i] == '\\') i++
-                        i++
-                    }
-                    if (i < line.length) {
-                        out.append('"')
-                        i++
-                    }
-                }
-
-                line[i] == '\'' -> {
-                    out.append('\'')
-                    i++
-                    while (i < line.length && line[i] != '\'') {
-                        if (line[i] == '\\') i++
-                        i++
-                    }
-                    if (i < line.length) {
-                        out.append('\'')
-                        i++
-                    }
-                }
-
-                else -> {
-                    out.append(line[i])
-                    i++
-                }
-            }
-        }
-        return out.toString()
     }
 }
