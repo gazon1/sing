@@ -3,6 +3,7 @@ package com.singularity.todo.arch
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -130,7 +131,7 @@ class DiFacadeTest {
                     "assertion in DiFacadeTest is vacuous",
             )
         }
-        kotlin.test.assertEquals(1, strayDeclarations.size, "expected the one stray binding")
+        assertEquals(1, strayDeclarations.size, "expected the one stray binding")
     }
 
     /**
@@ -167,7 +168,7 @@ class DiFacadeTest {
                     "binding is credited to the facade and the guard is dead",
             )
         }
-        kotlin.test.assertEquals(1, strayDeclarations.size, "expected the one stray binding")
+        assertEquals(1, strayDeclarations.size, "expected the one stray binding")
     }
 
     /**
@@ -203,7 +204,7 @@ class DiFacadeTest {
                     "and the guard is dead",
             )
         }
-        kotlin.test.assertEquals(1, strayDeclarations.size, "expected the one stray binding")
+        assertEquals(1, strayDeclarations.size, "expected the one stray binding")
         // The owner is part of the finding, not decoration: the per-domain half of the
         // guard reads exactly this owner to tell a file-level binding from one that
         // sits inside a module function.
@@ -244,7 +245,7 @@ class DiFacadeTest {
                     "is loose",
             )
         }
-        kotlin.test.assertEquals(1, strayDeclarations.size, "expected the one stray binding")
+        assertEquals(1, strayDeclarations.size, "expected the one stray binding")
     }
 
     /**
@@ -268,7 +269,7 @@ class DiFacadeTest {
 
         val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("coreLoggingModule"))
 
-        kotlin.test.assertEquals(
+        assertEquals(
             emptyList<String>(),
             strayDeclarations,
             "a binding declared inside a facade is not a stray binding",
@@ -298,7 +299,7 @@ class DiFacadeTest {
 
         val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("coreLoggingModule"))
 
-        kotlin.test.assertEquals(
+        assertEquals(
             emptyList<String>(),
             strayDeclarations,
             "bindings inside a facade's wrapped call belong to the facade",
@@ -326,7 +327,7 @@ class DiFacadeTest {
 
         val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("coreLoggingModule"))
 
-        kotlin.test.assertEquals(
+        assertEquals(
             emptyList<String>(),
             strayDeclarations,
             "a comment does not end the body of the facade it sits in",
@@ -357,7 +358,7 @@ class DiFacadeTest {
 
         val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("coreLoggingModule"))
 
-        kotlin.test.assertEquals(
+        assertEquals(
             1,
             strayDeclarations.size,
             "a binding after a facade whose body carries a string with braces is loose",
@@ -384,7 +385,7 @@ class DiFacadeTest {
 
         val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = emptySet())
 
-        kotlin.test.assertEquals(
+        assertEquals(
             1,
             strayDeclarations.size,
             "a binding declared with an explicit type argument is a binding, and it is " +
@@ -423,7 +424,7 @@ class DiFacadeTest {
 
         val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("coreLoggingModule"))
 
-        kotlin.test.assertEquals(
+        assertEquals(
             1,
             strayDeclarations.size,
             "a binding after a facade whose body carries a URL is loose — the cleanup " +
@@ -456,7 +457,7 @@ class DiFacadeTest {
 
         val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = emptySet())
 
-        kotlin.test.assertEquals(
+        assertEquals(
             1,
             strayDeclarations.size,
             "the binding is declared, and it belongs to the private function",
@@ -487,7 +488,7 @@ class DiFacadeTest {
 
         val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("aiToolsModule"))
 
-        kotlin.test.assertEquals(
+        assertEquals(
             1,
             strayDeclarations.size,
             "an expect declaration has no body, so the binding after it is loose",
