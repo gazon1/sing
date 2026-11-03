@@ -118,11 +118,11 @@ sealed interface TaskDetailIntent : MviIntent {
 
         data class SetTags(val tagIds: List<TagId>) :
             Domain,
-            TaskEntityIntent
+            TaskTagIntent
 
         data class RemoveTag(val tagId: TagId) :
             Domain,
-            TaskEntityIntent
+            TaskTagIntent
 
         /**
          * Puts a removed tag back on the task.
@@ -131,7 +131,7 @@ sealed interface TaskDetailIntent : MviIntent {
          */
         data class RestoreTag(val tagId: TagId) :
             Domain,
-            TaskEntityIntent
+            TaskTagIntent
 
         // ── Checklist ───────────────────────────────────────────────────────
 
