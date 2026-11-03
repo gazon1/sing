@@ -6,6 +6,10 @@ failure classes of the last CI run with the triage steps that go with them.
 Load it when a flow needs data or misbehaves. Authoring a flow — selectors,
 scrolling, syntax — lives in `SKILL.md`.
 
+The app's behaviour facts live here and only here; `SKILL.md` points at
+[App behaviour facts flows encode](#app-behaviour-facts-flows-encode) rather
+than restating them.
+
 ## Diagnosing a Maestro flow failure
 
 ### Root causes of known failures (CI run 38223116125)
@@ -252,7 +256,12 @@ set `MAESTRO_CLEANUP=0` to keep a run's fixtures for inspection.
 ## App behaviour facts flows encode
 
 These are behaviours a flow author would otherwise guess wrong; each was learned
-by a flow failing on it:
+from a flow failing on it, or from the code and the tests that pin it.
+
+**This section is the single home for them.** `SKILL.md` carries only what
+authoring a flow needs — selectors, scrolling, syntax, timing — and points here.
+A behaviour stated in both files is a behaviour that will drift: keep the
+statement in one place and make the other link to it.
 
 - **Long-press on an agenda row opens a context-menu bottom sheet**
   (`task_context_menu_sheet`), with rows tagged `sheet_item_<label>`: Open,
@@ -271,11 +280,27 @@ by a flow failing on it:
   back and the task reappears in Inbox.
 - The task detail keeps the shell FAB visible; detect a push by the editor
   appearing, not by the FAB disappearing.
+- **The task detail screen has no save button.** Edits autosave; the
+  `task_editor_save` tag exists only on the create screen (`TaskCreateScreen`).
+  A flow that expects a save button on the detail screen fails with a
+  confusing "not found".
+- **Leaving a dirty draft raises a guard.** The shared back arrow is tagged
+  `top_bar_back_button`; tapping it on a dirty editor opens a "Discard changes?"
+  dialog, confirmed with `text: "Discard"`.
+- **The saved-view editor's Save pops back to the list.** `SaveSuccess` maps to
+  `Notification.NavigateBack` (`SavedAgendaScreen`), so assert the pop — there
+  is no "Saved" snackbar to wait for.
+- **A feature can be modelled but unreachable.** Notes row actions (pin,
+  archive, delete, multi-select), the Calendar Today / prev / next /
+  mini-calendar controls, and the whole Sync configuration screen
+  (`SyncConfigScreen` + a complete `SyncViewModel`, composed by nothing) exist
+  with no control that dispatches them, and long-press on a *note* row does
+  nothing. Before writing a flow, check it is reachable.
 - **Notes: tapping a row opens the note's *preview*, not its editor.** The
   editor is reached from the preview's Edit action (`note_action_edit`). The
   one exception is the quick-add row: it creates the note and opens the
   editor directly (`NavigateToEditor`), so a flow that types a title into the
-  quick-add lands in the editor, not in the preview. The editor autosaves —
+  quick-add lands in the editor, never in the preview. The editor autosaves —
   saving does not pop it; `back` does.
 
 ## Recon before writing a flow — the probe trick
