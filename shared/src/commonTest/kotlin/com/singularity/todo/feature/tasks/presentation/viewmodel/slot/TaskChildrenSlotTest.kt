@@ -281,6 +281,38 @@ class TaskChildrenSlotTest {
             )
         }
 
+    @Test
+    fun `the undo puts the checklist item back with the row it had`() =
+        runTest {
+            val fakes = SlotFakes()
+            val item =
+                ChecklistItem(
+                    id =
+                        com.singularity.todo.feature.checklist.ChecklistItemId
+                            .generate(),
+                    taskId = "t1",
+                    title = "Buy milk",
+                    sortOrder = 2,
+                    createdAt = 1_700_000_000_000L,
+                    rowVersion = 3,
+                )
+            fakes.checklistRepo.seed(item)
+            val source = TaskSource(task("t1"))
+            val slot = slot(fakes, source, backgroundScope)
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.DeleteChecklistItem(item.id))
+            runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.RestoreChecklistItem(item))
+            runCurrent()
+
+            val restored = fakes.checklistRepo.items.value[item.id.value]
+            assertNotNull(restored)
+            assertEquals(1_700_000_000_000L, restored.createdAt)
+            assertEquals(3, restored.rowVersion)
+            assertEquals(2, restored.sortOrder)
+        }
+
     // ─── The blocked-completion guard ─────────────────────────────────────────
 
     @Test
