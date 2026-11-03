@@ -44,11 +44,12 @@ sealed class ThemeMode {
      * @param systemDark whether the operating system is in dark mode — read by
      *   the caller, and used only for [System].
      */
-    fun isDark(systemDark: Boolean): Boolean = when (this) {
-        System -> systemDark
-        Light -> false
-        Dark -> true
-    }
+    fun isDark(systemDark: Boolean): Boolean =
+        when (this) {
+            System -> systemDark
+            Light -> false
+            Dark -> true
+        }
 
     /**
      * Serialises to the storage string.

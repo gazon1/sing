@@ -16,7 +16,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ThemeModeTest {
-
     @Test
     fun `the system mode follows a dark system`() {
         assertTrue(ThemeMode.System.isDark(systemDark = true))

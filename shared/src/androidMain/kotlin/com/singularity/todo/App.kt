@@ -148,11 +148,12 @@ actual fun AppContent(
     val context = LocalContext.current
     LaunchedEffect(context, isDark) {
         val activity = context.findActivity() ?: return@LaunchedEffect
-        val style = if (isDark) {
-            SystemBarStyle.dark(Color.TRANSPARENT)
-        } else {
-            SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
-        }
+        val style =
+            if (isDark) {
+                SystemBarStyle.dark(Color.TRANSPARENT)
+            } else {
+                SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+            }
         activity.enableEdgeToEdge(
             statusBarStyle = style,
             navigationBarStyle = style,
@@ -204,8 +205,9 @@ actual fun PlatformShell(
  * a themed wrapper around it — so the chain is unwrapped rather than cast, and a
  * context that leads nowhere yields `null` rather than a crash.
  */
-private tailrec fun Context.findActivity(): ComponentActivity? = when (this) {
-    is ComponentActivity -> this
-    is ContextWrapper -> baseContext.findActivity()
-    else -> null
-}
+private tailrec fun Context.findActivity(): ComponentActivity? =
+    when (this) {
+        is ComponentActivity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
+    }
