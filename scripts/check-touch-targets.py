@@ -18,6 +18,11 @@ the visual size without touching the hit area.
 So the rule is one sentence: **a chain that fixes a size below 48 dp and
 carries an interactive modifier has to expand the target before that size.**
 
+The gate reads the three forms a chain fixes its size in: `.size(N.dp)` sets
+both dimensions, `.width(N.dp)` and `.height(N.dp)` set one of them each. Each
+of them caps the node, and a node capped below the minimum is a target a
+finger cannot hit.
+
 ## What the first version of this gate could not see
 
 The gate used to match `.size(...)` and `.clickable(` with two regular
@@ -38,6 +43,17 @@ contains all three. It was registered, blocking, and blind, and the only
 thing that could have said so was a control that plants a violation and
 watches the gate go red: `scripts/tests/test_check_touch_targets.py` is that
 control, one test per shape the gate claims to catch.
+
+## What the second version of this gate could not see
+
+The second version read the chain properly and still read only `.size(...)`.
+A chain that fixed its width or its height — `.width(24.dp)`,
+`.height(24.dp)` — was invisible to it, and the codebase writes those shapes: a
+control that fixes one dimension is as small as a control that fixes both. The
+gate reads all three now, and `scripts/tests/test_check_touch_targets.py`
+plants each of them: a width below the minimum and a height below the minimum
+are both reported, and the chain that expands the target before the size is
+not.
 
 ## What this gate reads
 
@@ -66,8 +82,12 @@ planted against is a filter that can rot unnoticed.
 * A size that is not a literal (`size(iconSize)`, `width(iconSize)`, a size
   carried by a constant). The gate reads literals; a computed size is a
   reviewer's job, not a regex's.
+* A size in a form the gate does not read (`requiredSize(40.dp)`,
+  `requiredWidth(24.dp)`). Those cap the node as hard as the three forms
+  above; the gate reads the three the codebase writes, and the rest is a
+  reviewer's job.
 * `IconButton` and the other Material controls, which enforce their own
-  minimum. A `.size()` on one of them constrains the icon, not the target.
+  minimum. A size on one of them constrains the icon, not the target.
 
 Usage: python3 scripts/check-touch-targets.py [--json] [--quiet] [--root DIR]
 
@@ -108,9 +128,11 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 MIN_DP = 48.0
 
 #: A fixed size, in every form the gate reads: `.size(N.dp)`, `.width(N.dp)`
-#: and `.height(N.dp)`. All three fix the hit area of the node.
+#: and `.height(N.dp)`. All three fix the hit area of the node. The modifier
+#: is captured as well as the value, so a finding can name the call that made
+#: the target too small.
 SIZE_RE = re.compile(
-    r"\.(?:size|width|height)\(\s*(\d+(?:\.\d+)?)\s*\.dp\s*\)"
+    r"\.(size|width|height)\(\s*(\d+(?:\.\d+)?)\s*\.dp\s*\)"
 )
 
 #: The interactive modifiers: a node with one of these is a target a finger
@@ -177,12 +199,13 @@ def _chains(lines: list[str]) -> list[tuple[int, str]]:
     return chains
 
 
-def _violations(chain: str) -> list[tuple[int, float]]:
+def _violations(chain: str) -> list[tuple[int, float, str]]:
     """The fixed sizes in a chain that make it a target below the minimum.
 
-    Each entry is (offset of the size in the chain, the size in dp). A size is
-    a violation when it is below the minimum, when the chain carries an
-    interactive modifier, and when nothing expanded the target before it.
+    Each entry is (offset of the size in the chain, the size in dp, the
+    modifier that fixed it). A size is a violation when it is below the
+    minimum, when the chain carries an interactive modifier, and when nothing
+    expanded the target before it.
     """
     sizes = list(SIZE_RE.finditer(chain))
     if not sizes:
@@ -191,16 +214,16 @@ def _violations(chain: str) -> list[tuple[int, float]]:
         # Nothing to hit: a fixed size on a decorative node is not a target.
         return []
     expansions = [match.start() for match in EXPANSION_RE.finditer(chain)]
-    found: list[tuple[int, float]] = []
+    found: list[tuple[int, float, str]] = []
     for match in sizes:
-        value = float(match.group(1))
+        value = float(match.group(2))
         if value >= MIN_DP:
             continue
         if any(offset < match.start() for offset in expansions):
             # The target was expanded before the size constrained it, so the
             # hit area is the minimum and the size only shapes the picture.
             continue
-        found.append((match.start(), value))
+        found.append((match.start(), value, match.group(1)))
     return found
 
 
@@ -218,7 +241,7 @@ def scan(root: pathlib.Path) -> list[dict[str, object]]:
         except (OSError, UnicodeDecodeError):
             continue
         for first_line, chain in _chains(text.splitlines()):
-            for offset, value in _violations(chain):
+            for offset, value, modifier in _violations(chain):
                 line = first_line + chain[:offset].count("\n")
                 findings.append(
                     {
@@ -226,9 +249,10 @@ def scan(root: pathlib.Path) -> list[dict[str, object]]:
                         "line": line,
                         "dp": value,
                         "detail": (
-                            f"{value:g}dp is below the {MIN_DP:g}dp minimum, and no "
-                            f"touchTarget()/minimumInteractiveComponentSize() comes "
-                            f"before it in the chain"
+                            f"{modifier}({value:g}dp) is below the {MIN_DP:g}dp "
+                            f"minimum, and no touchTarget()/"
+                            f"minimumInteractiveComponentSize() comes before it in "
+                            f"the chain"
                         ),
                     }
                 )
