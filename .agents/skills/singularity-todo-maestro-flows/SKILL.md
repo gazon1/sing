@@ -129,8 +129,8 @@ selector to fall back on.
 ## Seed fixtures, never type them
 
 **Seed, never type.** The walkthrough — why typing a fixture into the editor does
-not work, the `seed.yaml` query keys, `${RUN_ID}` prefixing, the runner's cleanup
-sweep — is in the runbook:
+not work, the `seed.yaml` query keys, the run id, the runner's cleanup wipe —
+is in the runbook:
 [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them).
 
 ## Adaptive scrolling: `scrollUntilVisible` over hardcoded swipe
@@ -306,8 +306,9 @@ suite. See `singularity-todo-emulator-launch`.
 
 Start from `launch-clean`, then `seed.yaml` when the flow needs data. Make new
 flows self-seeding rather than inheriting state from an earlier flow. Note that
-`launch-clean` does not clear Room, so a fixture written by a previous run is
-still there — see [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them).
+`launch-clean` does not clear Room — it is the runner's wipe of the active
+profile's content before each flow that keeps one flow's rows out of the next
+one's assertions. See [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them).
 
 ## The runbook
 
@@ -317,8 +318,8 @@ Read it when a flow needs data or misbehaves:
 
 - [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them) —
   why typing a fixture into the editor does not work, the `seed.yaml` query keys,
-  `${RUN_ID}` prefixing, the runner's cleanup sweep, and why `launch-clean` does
-  not clear the database.
+  the run id, the runner's cleanup wipe, and why `launch-clean` does not clear
+  the database.
 - [App behaviour facts flows encode](runbook.md#app-behaviour-facts-flows-encode) —
   the behaviours a flow author would otherwise guess wrong.
 - [Recon before writing a flow — the probe trick](runbook.md#recon-before-writing-a-flow--the-probe-trick) —

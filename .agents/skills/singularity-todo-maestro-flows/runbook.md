@@ -190,11 +190,11 @@ seeds `task=Buy milk` with no `due` and then looks on Today finds nothing — ta
 
 **`seed.yaml` has no tab round-trip, and does not need one.** An inbox→today
 round-trip was added here on 2026-10-12 because a deep-link seed appeared not to
-reach an already-composed agenda. Once the runner began sweeping each run's
-fixtures on success, that stopped reproducing: what looked like "the row never
-arrived" was the row arriving *below* rows earlier runs had left behind. So
-before blaming the agenda, check for leftovers — a stale fixture masquerades as a
-missing one.
+reach an already-composed agenda. Once the runner began wiping the profile's
+content before each flow, that stopped reproducing: what looked like "the row
+never arrived" was the row arriving *below* rows an earlier run had left
+behind. So before blaming the agenda, check for leftovers — a stale fixture
+masquerades as a missing one.
 
 ### `launch-clean` does not clear the database — on purpose
 
@@ -203,9 +203,9 @@ runs on the same emulator, so **fixtures accumulate**.
 
 Do not "fix" this with `clearState: true` or a blanket `pm clear`: both destroy
 the pre-authenticated session the emulator snapshot carries, so every flow would
-land on the auth screen. The accumulation is handled by the runner's selective
-success sweep instead (see below), which leaves session, profile and auth state
-alone and cannot touch another run's data.
+land on the auth screen. The accumulation is handled by the runner's wipe of the
+active profile's content before every flow (see below), which leaves the
+session, the profile and the auth state alone.
 
 `pm clear` remains available as a manual escape hatch when you want a genuinely
 virgin device state — it costs you the authenticated session:
@@ -216,8 +216,15 @@ adb -s "$(ensure-emulator)" shell pm clear com.singularity.todo
 
 Accumulation is harmless for a read-only fixture but corrupts a flow that *mutates*
 its fixture and then asserts the mutated-away state — the previous run's already-dated
-copy satisfies the selector. **Prefix the title with `${RUN_ID}`** and the runner
-sweeps it for you:
+copy satisfies the selector. The runner stops that by **wiping the active profile's
+content before every flow**: `todo-debug://seed?reset=content` deletes every task,
+note and project of the active profile, seeded and typed alike. The wipe reaches
+the profile's content and nothing else — the profile itself, the session and the
+auth state are left alone — and it is the default scope (`all`);
+`--maestro-cleanup off` sends nothing.
+
+`run-maestro` mints `RUN_ID` on **every attempt** and declares it to the flow, so
+a flow can name its attempt:
 
 ```yaml
 - runFlow:
@@ -229,25 +236,32 @@ sweeps it for you:
       id: "task_item_${RUN_ID}_my_fixture"     # slug of "<run id> My fixture"
 ```
 
-`run-maestro` mints `RUN_ID` on **every attempt** and, after a
-successful flow, deep-links `todo-debug://seed?cleanup=<RUN_ID>` to delete every
-task, note and project whose title starts with that prefix. A retry after a lost
-device gets a *new* id, so it cannot collide with the attempt it replaces.
+The run id is **not a cleanup key**: nothing sweeps the rows by that prefix. The
+wipe knows every row of the profile, so the id only names the attempt in the
+runner's log. And per
+`docs/decisions/2026-10-28-the-seed-replaces-the-task-it-names.md`, a seeded title
+carries no run id at all: the seed replaces the row it names, so the title a flow
+seeds is the title the flow can assert on, in every run.
 
-**Prefix, not substring** — cleanup matches `startsWith`, so a leaked fixture
-names the run that made it and real data is never caught by it.
+The app still answers `todo-debug://seed?cleanup=<prefix>`, but the runner does
+not send it — the wipe is the whole cleanup scope, and the narrow sweep by title
+is gone.
 
 `seed-task.yaml` deliberately keeps the **fixed** title "Buy milk": 17 flows
 address its row by the stable `task_item_buy_milk` id, so a per-run stamp would
-break every one of them. The runner sweeps it by its own literal prefix instead,
-so it cannot accumulate into an ambiguous `tapOn`.
+break every one of them. Nothing sweeps it by a literal prefix — the wipe before
+the flow takes the previous run's copy, so it cannot accumulate into an ambiguous
+`tapOn`.
 
-**Cleanup runs on success only** — a failed flow keeps its fixtures, because they
-are the evidence. Same reason failure screenshots exist.
+**The wipe runs before the flow, not after it** — a failed flow's rows are still
+there when its screenshot, screen tree and logcat are captured (they are the
+evidence, same reason the failure screenshots exist), and the next flow's wipe
+takes them away afterwards.
 
 **A manual `maestro test <flow>` has no runner**: `RUN_ID` falls back to `manual`
-from `Maestro/config.yaml` and nothing is swept. Debug from a `pm clear` slate;
-set `MAESTRO_CLEANUP=0` to keep a run's fixtures for inspection.
+from `Maestro/config.yaml`, and nothing wipes the profile before the flow, so
+the rows of the previous run are still there. Debug from a `pm clear` slate;
+`run-maestro --maestro-cleanup off` keeps a run's fixtures for inspection.
 
 ## App behaviour facts flows encode
 
