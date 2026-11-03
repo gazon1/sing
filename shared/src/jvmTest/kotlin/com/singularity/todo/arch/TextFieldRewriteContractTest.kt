@@ -45,7 +45,7 @@ import kotlin.test.assertTrue
  * ## What this test holds
  *
  * The contract is published in **one** place: the rewrite table in
- * `.agents/skills/singularity-todo-text-field-states/SKILL.md` — one row per bridged
+ * `.agents/skills/singularity-todo-text-field-states/FIELDS.md` — one row per bridged
  * field site, with the upstream, the kind of source the site is handed, and the
  * owner that builds it. This test *is* that table's reader; it holds no second
  * copy of it. A contract written twice is a contract that can disagree with
@@ -89,7 +89,7 @@ import kotlin.test.assertTrue
  * ## What it cannot check
  *
  * The scan is per file, not per field: a file with two bridged fields of different
- * upstreams is one row, and the per-field answer lives in the skill's table (the
+ * upstreams is one row, and the per-field answer lives in the published table (the
  * "Field" column). Whether a rewrite can land on a value the field produced is a
  * property of the *upstream*, not of the file, and the table states it rather than
  * deriving it.
@@ -110,7 +110,7 @@ class TextFieldRewriteContractTest {
         assertTrue(
             unclassified.isEmpty(),
             "These files own a bridged text field and have no rewrite contract in the " +
-                "rewrite table of .agents/skills/singularity-todo-text-field-states/:\n" +
+                "rewrite table of .agents/skills/singularity-todo-text-field-states/FIELDS.md:\n" +
                 unclassified.joinToString("\n") { "  - $it" } +
                 "\n\nAdd the file to the table with the upstream that may rewrite it, the " +
                 "kind of source it is handed, and the owner that builds it.",
@@ -132,7 +132,7 @@ class TextFieldRewriteContractTest {
                 stale.joinToString("\n") + "\n" +
                 "\n\nA row that no longer describes anything is a contract with nobody. " +
                 "Remove it from the rewrite table in " +
-                ".agents/skills/singularity-todo-text-field-states/SKILL.md.",
+                ".agents/skills/singularity-todo-text-field-states/FIELDS.md.",
         )
     }
 
@@ -171,7 +171,7 @@ class TextFieldRewriteContractTest {
             "These rows name a field the file does not have:\n" +
                 wrong.joinToString("\n") { "  - $it" } +
                 "\n\nThe Field column of the rewrite table in " +
-                ".agents/skills/singularity-todo-text-field-states/SKILL.md names the " +
+                ".agents/skills/singularity-todo-text-field-states/FIELDS.md names the " +
                 "field of that file the contract is about. Name the field the file has.",
         )
     }
@@ -263,7 +263,7 @@ class TextFieldRewriteContractTest {
                 missing.joinToString("\n") { "  - $it" } +
                 "\n\nName the file that declares the counter in the Counter column of " +
                 "the rewrite table in " +
-                ".agents/skills/singularity-todo-text-field-states/SKILL.md.",
+                ".agents/skills/singularity-todo-text-field-states/FIELDS.md.",
         )
     }
 
@@ -404,7 +404,7 @@ class TextFieldRewriteContractTest {
         )
     }
 
-    // ── the registry: the skill's rewrite table ─────────────────────────────────
+    // ── the registry: the published rewrite table ─────────────────────────────────
 
     /**
      * The kind of source a field site is handed.
@@ -443,8 +443,8 @@ class TextFieldRewriteContractTest {
     )
 
     /**
-     * The rewrite contract of every file that owns a bridged text field, as the skill
-     * publishes it.
+     * The rewrite contract of every file that owns a bridged text field, as the
+     * contract document publishes it.
      *
      * A file may have more than one row: the task title and the task description
      * are served by two upstreams — the create draft and the detail draft — and
@@ -472,13 +472,13 @@ class TextFieldRewriteContractTest {
             .keys
     }
 
-    // ── the skill's rewrite table ──────────────────────────────────────────────
+    // ── the published rewrite table ──────────────────────────────────────────────
 
     /**
-     * The rewrite table of the text-field skill, read row by row.
+     * The rewrite table of the text-field contract document, read row by row.
      *
      * The table is a Markdown table of
-     * `| File | Field | Upstream | Source | Owner | Counter | Advances |` rows; the
+     * `| File | Field | Source | Owner | Counter | Advances |` rows; the
      * file cell holds a backticked path, the source cell holds the kind of source the
      * code uses, the owner cell holds the file that builds the source, and the counter
      * and advances cells hold the files that declare and advance the revision (or `-`).
