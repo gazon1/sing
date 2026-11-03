@@ -1,7 +1,13 @@
 package com.singularity.todo
 
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -22,6 +28,7 @@ import com.singularity.todo.core.ui.text.LocalInternalLinkHandler
 import com.singularity.todo.core.ui.text.TextLink
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
+import com.singularity.todo.core.ui.theme.resolvedIsDark
 import com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen
 import com.singularity.todo.feature.nav.LocalAppNavigator
 import com.singularity.todo.feature.nav.Nav3State
@@ -128,6 +135,30 @@ actual fun AppContent(
             }
         }
 
+    // The system bars follow the app's theme, not the operating system's. The
+    // flag comes from the same resolution the palette is built from, so the bars
+    // and the painted palette cannot disagree: a user who forces light mode on a
+    // dark phone gets light bars, not dark ones over a light app.
+    //
+    // The activity is reached through the context rather than injected, because
+    // the edge-to-edge style is a property of the window the app is drawn in.
+    // The effect is keyed by the polarity, so the window is touched when the
+    // theme changes and not on every recomposition.
+    val isDark = themeMode.resolvedIsDark()
+    val context = LocalContext.current
+    LaunchedEffect(context, isDark) {
+        val activity = context.findActivity() ?: return@LaunchedEffect
+        val style = if (isDark) {
+            SystemBarStyle.dark(Color.TRANSPARENT)
+        } else {
+            SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+        }
+        activity.enableEdgeToEdge(
+            statusBarStyle = style,
+            navigationBarStyle = style,
+        )
+    }
+
     SingularityTheme(themeMode = themeMode, accent = accent, fontSizeScale = fontSizeScale) {
         CompositionLocalProvider(
             LocalAppNavigator provides navCallbacks,
@@ -164,4 +195,17 @@ actual fun PlatformShell(
             com.singularity.todo.core.platform
                 .todayAt(shellClock, shellZone.current()),
     )
+}
+
+/**
+ * Finds the activity the composition is hosted in.
+ *
+ * `LocalContext.current` is the activity itself in the common case, but it may be
+ * a themed wrapper around it — so the chain is unwrapped rather than cast, and a
+ * context that leads nowhere yields `null` rather than a crash.
+ */
+private tailrec fun Context.findActivity(): ComponentActivity? = when (this) {
+    is ComponentActivity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
