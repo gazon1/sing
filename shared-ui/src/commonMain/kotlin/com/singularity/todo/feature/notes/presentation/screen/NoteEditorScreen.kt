@@ -35,6 +35,7 @@ import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.DiscardChangesDialog
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.Notification
@@ -114,20 +115,33 @@ internal fun NoteEditorScreen(
     val proposalsState by proposalsViewModel.stateFlow.collectAsStateWithLifecycle()
 
     var showAiSheet by remember { mutableStateOf(false) }
+    // Leaving with text the editor has not stored yet asks first. The draft
+    // knows: `isDirty` stands until the autosave has written the text, and
+    // a back press inside that window would drop the last keystrokes.
+    var showDiscard by remember { mutableStateOf(false) }
     val onBack: () -> Unit = {
         viewModel.onIntent(NotesEditorIntent.Close)
         navigator.back()
     }
+    // The header's back button and the system back press mean the same thing —
+    // and both of them ask before they throw the text away.
+    val guardedBack: () -> Unit = {
+        if (editorState.draft.isDirty) {
+            showDiscard = true
+        } else {
+            onBack()
+        }
+    }
     // The system back press means what the header's back button means — and
     // with the keyboard open it means "close the keyboard" first.
-    ImeAwareBackHandler { onBack() }
+    ImeAwareBackHandler { guardedBack() }
     NoteEditorScreenContent(
         editorState = editorState,
         noteNotFound = viewModel.noteNotFound,
         onTitleChange = { title -> viewModel.onIntent(NotesEditorIntent.EditTitle(title)) },
         onBodyChange = { html -> viewModel.onIntent(NotesEditorIntent.EditBody(html)) },
         onSaveNow = { viewModel.onIntent(NotesEditorIntent.SaveNow) },
-        onBack = onBack,
+        onBack = guardedBack,
         onShowAiSheet = { showAiSheet = true },
         savedVisible = savedVisible,
         searchNotesForLink = viewModel::searchNotesForLink,
@@ -153,6 +167,19 @@ internal fun NoteEditorScreen(
         },
         proposalFailures = proposalsState.failures,
     )
+
+    // The question the back press asks when the editor still holds text the
+    // repository has not seen. "Discard" leaves and drops the text — the same
+    // thing `Close` has always done — but the user says so first.
+    if (showDiscard) {
+        DiscardChangesDialog(
+            onDiscard = {
+                showDiscard = false
+                onBack()
+            },
+            onKeepEditing = { showDiscard = false },
+        )
+    }
 
     // The proposals carry their own failures, on their own bus. They are merged into
     // the editor's notification stream rather than hosted separately: two hosts over
