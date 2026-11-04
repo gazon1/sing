@@ -57,8 +57,9 @@ fun ViewModeDropdown(
                 color = palette.textPrimary,
                 fontSize = 14.sp,
                 // The bar's other texts are held to one line; this label is the
-                // third one, and the one a longer mode name would grow into a
-                // stack of letters if the trigger ever lost its room.
+                // third one, and the trigger's room is finite — it is measured
+                // against the bar's own width, not against an unbounded scroll
+                // viewport — so a longer mode name would wrap here without it.
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 // The label is the app's own wording; the tag says which mode is
