@@ -60,16 +60,6 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * Room the shell leaves between the bottom of a screen and whatever is below it — the
- * navigation suite's bar on a phone, the window's own bottom edge on a wide window.
- *
- * It is a length rather than a window-inset value on purpose: the suite measures its
- * content above its navigation bar and consumes the insets that bar occupies, so a
- * bottom inset read from inside the shell resolves to zero (#1699).
- */
-private val SHELL_CONTENT_BOTTOM_PADDING = 16.dp
-
-/**
  * Navigation 3 Android shell — the actual implementation called by [PlatformShell].
  *
  * Uses the terrakok nav3-recipes multiplestacks pattern:
@@ -175,21 +165,31 @@ fun androidShellNav3Root(
                     modifier = Modifier.testTag(TestTags.TASKS_FAB),
                 )
             },
-            // Only the sides are taken here. The top inset is applied twice if this
-            // scaffold keeps it — the shell's own bar already pads for the status bar
-            // (#1566) — and the bottom needs no inset either: NavigationSuiteScaffold
-            // measures this content above its navigation bar and consumes the insets
-            // that bar occupies, so a bottom inset read here resolves to zero. What the
-            // suite does not do is leave the content any room above the bar: its area
-            // ends exactly at the bar's top edge, and the last row of every screen used
-            // to sit flush against it (#1699). That room is a length, applied below.
-            contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal),
+            // The horizontal sides are taken so a cutout or a wide window's side edge
+            // never reaches the content. The top side is deliberately left out:
+            // ShellTopBar already pads for the status bar, so keeping it here applies it
+            // twice (#1566).
+            //
+            // The bottom side is kept, and that is the fix for #1699. It is the
+            // navigation-bar inset — the room the last row of a screen needs so it sits
+            // above the bar instead of under it. It is read from the window because the
+            // navigation suite this project resolves exposes no padding of its own to
+            // read: on Android
+            // `org.jetbrains.compose.material3:material3-adaptive-navigation-suite:1.13.0-beta01`
+            // resolves to `androidx.compose.material3:material3-adaptive-navigation-suite:1.5.0-beta01`,
+            // and every `NavigationSuiteScaffold` overload in that artifact declares its
+            // content as `@Composable () -> Unit` — `Function2<Composer, Integer, Unit>`
+            // in the compiled class, with no `PaddingValues` parameter to forward. A
+            // literal length standing in for the inset would be wrong wherever the
+            // window's own inset differs: it is taller under 3-button navigation, and it
+            // is present beside a rail as well as under a bar.
+            contentWindowInsets = ScaffoldDefaults.contentWindowInsets
+                .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
         ) { padding ->
             Box(
                 Modifier
                     .fillMaxSize()
-                    .padding(padding)
-                    .padding(bottom = SHELL_CONTENT_BOTTOM_PADDING),
+                    .padding(padding),
             ) {
                 val appEntryProvider = createAppEntryProvider(navCallbacks, today)
 
