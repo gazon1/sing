@@ -10,9 +10,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.singularity.todo.core.platform.TimeConstants
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlin.time.Duration
 
@@ -30,12 +32,36 @@ import kotlin.time.Duration
  * launches an uncancelled coroutine *per pulse*. A second write 200 ms after the first
  * gets a second timer, and the first timer's deadline hides the pill in the middle of the
  * second write's window — the newest write's indicator flickers off before its window
- * ends. [pulse] cancels the running timer first, so the pill stays up for a full window
- * after the *last* write and no longer. That is also why there is one implementation: the
- * bug was written twice when the idiom was duplicated.
+ * ends. [pulse] restarts the running window instead, so the pill stays up for a full
+ * window after the *last* write and no longer. That is also why there is one
+ * implementation: the bug was written twice when the idiom was duplicated.
  *
- * @param scope owns the timer. It is the caller's scope, so pulses stop when the screen
- *        does; the holder never outlives it.
+ * ## Who writes [visible], and on which dispatcher
+ *
+ * `visible` is Compose snapshot state read from composition, so which thread writes it
+ * matters. [pulse] therefore never touches `visible` itself: it hands the event to a
+ * conflated channel, and the single collector started in `init` is the only writer,
+ * running on [scope]'s dispatcher. Two consequences, both wanted:
+ *
+ *  * [pulse] is callable from anywhere — an event collector, a UI handler, a background
+ *    thread — without the caller having to know which dispatcher it is on. That is the
+ *    guarantee the inline idiom above only appeared to offer.
+ *  * Every mutation of [visible] happens on one dispatcher, so a pulse can never
+ *    interleave with the timer it restarts.
+ *
+ * The flip side is that the caller supplies [scope], and *its* dispatcher is the one that
+ * ends up touching the state: pass a composition scope (as [rememberSavedPillState] does)
+ * and the writes land on the UI thread, which is what composition requires. Pass a
+ * background scope and the writes land there — the holder cannot fix that for the caller,
+ * so it says so here instead of promising otherwise.
+ *
+ * The raise is therefore one dispatch after the pulse rather than instantaneous. That is a
+ * frame in the UI and invisible to the user; a test that wants to observe it runs the
+ * dispatcher first.
+ *
+ * @param scope owns the timer and supplies the dispatcher the state is written on. It is
+ *        the caller's scope, so pulses stop when the screen does; the holder never
+ *        outlives it.
  * @param window how long the pill stays up. The autosave window by default: the pill is
  *        saying "the thing you were just typing is on disk", and a pause of that length
  *        is what produced the write.
@@ -49,22 +75,39 @@ class SavedPillState(
     var visible by mutableStateOf(false)
         private set
 
-    private var timer: Job? = null
+    /**
+     * Pulses waiting to become windows.
+     *
+     * A conflated channel rather than a `SharedFlow`: a pulse that arrives before the
+     * collector has been scheduled must still be honoured (a replayed-0 `SharedFlow` with
+     * no subscriber yet would drop it), and only the newest pulse matters because they all
+     * say the same thing.
+     */
+    private val pulses = Channel<Unit>(Channel.CONFLATED)
+
+    init {
+        scope.launch {
+            // collectLatest, not a plain receive loop: a pulse arriving mid-window cancels
+            // the window in flight and starts a fresh one, which is the whole point.
+            pulses
+                .receiveAsFlow()
+                .collectLatest {
+                    visible = true
+                    delay(window)
+                    visible = false
+                }
+        }
+    }
 
     /**
      * A write landed: raise the pill and restart its window.
      *
-     * Safe to call from an event collector or from a UI handler. Two pulses in quick
-     * succession leave one live timer, belonging to the later one.
+     * Safe to call from an event collector or from a UI handler, on any thread: this only
+     * offers to the channel. Two pulses in quick succession leave one live window,
+     * belonging to the later one.
      */
     fun pulse() {
-        timer?.cancel()
-        visible = true
-        timer =
-            scope.launch {
-                delay(window)
-                visible = false
-            }
+        pulses.trySend(Unit)
     }
 }
 
