@@ -224,34 +224,57 @@ class SequentialIdGenerator(private val prefix: String = "id") : IdGenerator {
  * In-memory [SyncDeadLetterDao].
  */
 class FakeSyncDeadLetterDao : SyncDeadLetterDao {
-    val rows = mutableListOf<SyncDeadLetterEntity>()
+    private val store = MutableStateFlow<List<SyncDeadLetterEntity>>(emptyList())
 
-    override fun watch(): Flow<List<SyncDeadLetterEntity>> = MutableStateFlow(snapshot())
+    /**
+     * The shelved rows, in the order they were shelved.
+     *
+     * A view of the shelf rather than the shelf itself: the shelf is a [MutableStateFlow]
+     * so that [watch] and [watchCount] can report a change, and a list the tests mutate
+     * behind the flow's back would leave the flow describing a shelf that no longer
+     * exists.
+     */
+    val rows: List<SyncDeadLetterEntity> get() = store.value
 
-    override fun watchCount(): Flow<Int> = MutableStateFlow(rows.size)
+    /**
+     * The shelf as Room reports it: a cold flow over the current contents, so a flow
+     * taken before a row was shelved reports that row once it is.
+     *
+     * The earlier version captured a snapshot when `watch()` was called and handed it
+     * back frozen. A test that took the flow first and shelved a patch afterwards saw
+     * an empty shelf forever — a fake that disagreed with the DAO it stands in for,
+     * and one that could not show the very thing the shelf exists to show.
+     */
+    override fun watch(): Flow<List<SyncDeadLetterEntity>> = store.map { snapshot(it) }
 
-    override suspend fun getAll(): List<SyncDeadLetterEntity> = snapshot()
+    override fun watchCount(): Flow<Int> = store.map { it.size }
+
+    override suspend fun getAll(): List<SyncDeadLetterEntity> = snapshot(store.value)
 
     override suspend fun insert(entity: SyncDeadLetterEntity) {
-        rows.removeAll { it.patchId == entity.patchId }
-        rows += entity
+        store.value = store.value.filterNot { it.patchId == entity.patchId } + entity
     }
 
-    override suspend fun delete(id: String): Int = if (rows.removeAll { it.patchId == id }) 1 else 0
+    override suspend fun delete(id: String): Int {
+        val present = store.value.any { it.patchId == id }
+        store.value = store.value.filterNot { it.patchId == id }
+        return if (present) 1 else 0
+    }
 
     override suspend fun deleteForOwner(ownerId: String): Int {
-        val doomed = rows.filter { it.ownerId == ownerId }
-        rows.removeAll { it.ownerId == ownerId }
+        val doomed = store.value.filter { it.ownerId == ownerId }
+        store.value = store.value.filterNot { it.ownerId == ownerId }
         return doomed.size
     }
 
-    override suspend fun countForOwner(ownerId: String): Int = rows.count { it.ownerId == ownerId }
+    override suspend fun countForOwner(ownerId: String): Int = store.value.count { it.ownerId == ownerId }
 
     override suspend fun clearAll() {
-        rows.clear()
+        store.value = emptyList()
     }
 
-    private fun snapshot(): List<SyncDeadLetterEntity> = rows.sortedByDescending { it.failedAt }
+    private fun snapshot(shelf: List<SyncDeadLetterEntity>): List<SyncDeadLetterEntity> =
+        shelf.sortedByDescending { it.failedAt }
 }
 
 /**
