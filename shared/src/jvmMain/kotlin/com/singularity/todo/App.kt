@@ -28,6 +28,7 @@ import com.singularity.todo.feature.nav.internalLinkDestination
 import com.singularity.todo.feature.nav.rememberNav3State
 import com.singularity.todo.feature.whatsnew.presentation.screen.WhatsNewScreen
 import com.singularity.todo.shell.DesktopShellNav3Root
+import com.singularity.todo.shell.LocalWindowCloseRequest
 import org.koin.compose.koinInject
 import java.awt.Desktop
 import java.net.URI
@@ -160,10 +161,15 @@ actual fun PlatformShell(
     // previewed, and this function already resolves two ports with `koinInject`.
     val shellClock: Clock = koinInject()
     val shellZone: TimeZoneProvider = koinInject()
+    // The window belongs to the entry point, so the shell asks for the close rather than
+    // owning it. Absent a provider the request is a no-op, which is what a shell mounted
+    // without a window (a test, a preview) wants.
+    val closeWindow = LocalWindowCloseRequest.current
     DesktopShellNav3Root(
         state = state,
         navigator = navigator,
         navCallbacks = navCallbacks,
         today = todayAt(shellClock, shellZone.current()),
+        onCloseRequest = closeWindow,
     )
 }

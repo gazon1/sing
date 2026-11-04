@@ -1,5 +1,7 @@
 package com.singularity.todo.test.helpers
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
@@ -8,6 +10,7 @@ import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.llm.TextGenPort
 import com.singularity.todo.feature.gate.gateModule
+import com.singularity.todo.shell.LocalWindowCloseRequest
 import com.singularity.todo.test.fakes.FakeTextGen
 import org.koin.compose.KoinIsolatedContext
 import org.koin.core.Koin
@@ -92,6 +95,25 @@ private fun currentTestClassSimpleName(): String {
 }
 
 /**
+ * Mounts the production [App] the way `main.kt` does, minus the window.
+ *
+ * The Koin graph is per-test, and the window-close request is whatever the test asked to
+ * observe — that is how a flow sees the shell's back-at-root (#1523) without a window to
+ * close. `App(deepLinkTarget)` stays null: no flow under test opens through a deeplink.
+ */
+@Composable
+private fun MountedApp(
+    app: KoinApplication,
+    onCloseRequest: () -> Unit,
+) {
+    KoinIsolatedContext(app) {
+        CompositionLocalProvider(LocalWindowCloseRequest provides onCloseRequest) {
+            App(null)
+        }
+    }
+}
+
+/**
  * Mounts the production [App] composable inside a headless
  * [runDesktopComposeUiTest] — the desktop mirror of a Maestro flow.
  *
@@ -133,6 +155,14 @@ fun runDesktopAppTest(
     clock: Clock? = null,
     overrides: Module = module {},
     checkA11y: Boolean = false,
+    /**
+     * What the shell's back-at-root does in this mount.
+     *
+     * The harness has no window, so nothing is closed for real — a flow that wants to
+     * observe the close (#1523) passes a lambda here and counts its calls. Defaults to a
+     * no-op, exactly like the production default, so every other flow is unaffected.
+     */
+    onCloseRequest: () -> Unit = {},
     test: suspend DesktopComposeUiTest.(koin: Koin) -> Unit,
 ) = runDesktopComposeUiTest {
     // Reset Kermit writer list and ring buffer before every test.
@@ -151,10 +181,9 @@ fun runDesktopAppTest(
     installRingBuffer(ringBuffer)
     initTestLogging()
 
-    // App(viewId, taskId, magicEmail, magicToken): no flow under test opens
-    // through a deeplink, so all four stay null — and the call stays on one
-    // line: runDesktopAppTest sits right under the LongMethod limit.
-    setContent { KoinIsolatedContext(app) { App(null) } }
+    // App(deepLinkTarget): no flow under test opens through a deeplink, so it stays null.
+    // The mount lives in [MountedApp] so this function stays under the LongMethod limit.
+    setContent { MountedApp(app, onCloseRequest) }
 
     val testClassName = currentTestClassSimpleName()
 
