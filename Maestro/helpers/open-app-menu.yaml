@@ -1,7 +1,24 @@
-# Opens the app menu (the bottom-bar "Menu" button).
+# Opens the app menu (the bottom-bar "Menu" button) and waits for the sheet.
 #
-# The Calendar and the projects are not tabs any more: they live in this menu.
-# A flow that needs one of them opens the menu first and then taps the entry.
+# The menu is where the destinations that are not tabs live: Plans, Pomodoro,
+# Notes, Statistics, AI chat, the archive, the profiles, Settings — and the
+# projects. The Calendar is NOT one of them any more: it was promoted back into
+# the bottom bar (`DestinationKind.tabs`, commit f73aca39c), so a flow that
+# wants the Calendar taps `nav_tab_calendar` and never comes here. (This comment
+# used to say the opposite, which is how a helper ends up documenting a bar the
+# app no longer draws.)
+#
+# What a caller may rely on, and why it matters: the sheet is open AND at the
+# top of its scroll, because it has just been summoned. That is what makes
+# `direction: DOWN` correct in a caller's own `scrollUntilVisible` — the search
+# starts above every row, not wherever an earlier scroll of a previously opened
+# sheet happened to stop.
+#
+# The wait is on `menu_sheet` and not on any row, so a caller that then cannot
+# find its entry fails on that entry's id (`menu_plans`, `menu_pomodoro`, …).
+# That message names the thing that is missing, which is the point of the repair
+# these helpers carry: a timeout on a bottom-bar id that was never drawn says
+# nothing about the destination the flow was written for.
 appId: com.singularity.todo
 ---
 - tapOn:

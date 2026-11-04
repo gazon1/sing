@@ -1,0 +1,86 @@
+# The bottom bar holds exactly the tabs the shell declares, and nothing else.
+#
+# The set is `DestinationKind.tabs`: Inbox, Today and Upcoming (the agenda's
+# three start routes) plus the Calendar. The bar's other entry is the Menu
+# *button*, which opens the app menu and is not a destination — so it is
+# asserted as a button and not counted as a tab.
+#
+# Plans and Pomodoro are menu destinations — a flow that looked for them in the
+# bar described a bar the app no longer draws.
+#
+# The Calendar is a tab again (`AppDestination.Calendar`, promoted from the menu
+# in commit f73aca39c) and is asserted here like the other three: this file is
+# the one place the tab-set contract is written down, so it asserts the bar the
+# app draws.
+#
+# The `scenario:NAV-01` tag this file inherited from 01-no-calendar-tab.yaml is
+# gone. That scenario still reads "the bar no longer holds a Calendar button";
+# the bar has held one since f73aca39c, so tagging these assertions NAV-01 would
+# point a reader — and any scenario-coverage lookup — at a contract that
+# contradicts the flow. NAV-01 needs its own rewrite; when it has one, the tag
+# comes back here.
+#
+# прогнан на устройстве: нет (no device behind this file — it is parsed and
+# selector-validated only; the floor file records the same for every flow this
+# change touched, and the commit that lowers `smoke` is the one that will carry
+# a device result for it).
+appId: com.singularity.todo
+name: nav-tab-set
+tags:
+  - smoke
+  - nav
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- assertVisible:
+    id: nav_tab_inbox
+- assertVisible:
+    id: nav_tab_today
+- assertVisible:
+    id: nav_tab_upcoming
+- assertVisible:
+    id: nav_tab_calendar
+- assertVisible:
+    id: nav_menu_button
+# The two destinations that moved behind the Menu button are not tabs. Their ids
+# are not in the bar, which is what makes the "open the menu first" step in the
+# plans and pomodoro flows necessary rather than stylistic.
+- assertNotVisible:
+    id: nav_tab_plans
+- assertNotVisible:
+    id: nav_tab_pomodoro
+
+# Absence on its own is not the contract, though: a bar that never had Plans
+# and a bar that moved Plans into the menu both pass `assertNotVisible`, so on
+# its own that assertion would still be green if the two destinations had been
+# deleted from the app instead of moved. The set the app really has is asserted
+# by finding both ids where they do live — the menu sheet — so this flow fails
+# if either is dropped, and the failure names the entry it could not find
+# (`menu_plans` / `menu_pomodoro`) rather than an id that was never drawn.
+#
+# Both searches go DOWN for two reasons, and neither is a guess about a
+# half-scrolled sheet. First, `open-app-menu.yaml` leaves a freshly opened sheet
+# at the top of its scroll, so every row is below the starting position. Second,
+# the relative order is pinned by `MaestroFlowNavigationTest`, which reads
+# `AppMenu.sheetDestinations`: Plans is drawn above Pomodoro, and that test fails
+# if a reorder puts either entry above the sheet's opening position or swaps the
+# two. Without that test this flow would be asserting an order nobody checks,
+# and a menu reorder would surface here as a scroll timeout.
+#
+# The `assertVisible` after each scroll is what catches an overshoot: a row the
+# scroll sailed past is not on screen, and Maestro reports a scrolled-past row
+# as not visible. The scroll finds the entry; the assertion says it stayed found.
+- runFlow: ../../helpers/open-app-menu.yaml
+- scrollUntilVisible:
+    element:
+      id: menu_plans
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    id: menu_plans
+- scrollUntilVisible:
+    element:
+      id: menu_pomodoro
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    id: menu_pomodoro

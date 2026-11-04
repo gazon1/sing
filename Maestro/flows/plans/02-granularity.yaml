@@ -11,8 +11,7 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Due%20today&due=today"
-- tapOn:
-    id: nav_tab_plans
+- runFlow: ../../helpers/open-plans.yaml
 - extendedWaitUntil:
     visible:
       id: plans_granularity_day

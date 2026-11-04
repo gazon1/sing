@@ -1,0 +1,30 @@
+# Opens Plans the way a person does: bottom-bar Menu button, then the entry.
+#
+# Plans is a destination of the app menu, not a tab. A flow that taps
+# `nav_tab_plans` is tapping an id the bar does not render, so it fails on an
+# element that cannot exist and the failure says nothing about Plans.
+#
+# The sheet is a scrollable column: the entry can be in the hierarchy and still
+# be below the fold, and a row that is drawn but off-screen is not a row the
+# user can reach. So the scroll is part of opening Plans, not a stylistic step.
+#
+# `direction: DOWN` is not a guess, and not a bet on a half-scrolled sheet
+# either: `open-app-menu.yaml` leaves a freshly opened sheet at the top of its
+# scroll, and `MaestroFlowNavigationTest` pins the drawn order of
+# `AppMenu.sheetDestinations` so that Plans cannot sink below Pomodoro, or below
+# the sheet's opening position, without a failing test naming the two entries.
+# Reorder the menu past either fact and that test goes red, instead of this flow
+# timing out on a device.
+#
+# On a timeout Maestro names the element it could not find (`menu_plans`), which
+# is the entry a reader has to go and check — not an invisible bottom-bar id.
+appId: com.singularity.todo
+---
+- runFlow: open-app-menu.yaml
+- scrollUntilVisible:
+    element:
+      id: menu_plans
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: menu_plans

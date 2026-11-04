@@ -1,7 +1,7 @@
 # Plans: the chosen granularity is restored the next time Plans is opened.
 #
 # The round trip is the point: a setting that resets every time the user leaves
-# the tab is a setting the user has to set again every time, which is a
+# the screen is a setting the user has to set again every time, which is a
 # different feature from the one that was asked for.
 #
 # The week section is addressed by its own id, which carries the date of the
@@ -19,8 +19,7 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Due%20today&due=today"
-- tapOn:
-    id: nav_tab_plans
+- runFlow: ../../helpers/open-plans.yaml
 - extendedWaitUntil:
     visible:
       id: plans_granularity_day
@@ -32,15 +31,23 @@ tags:
     file: ../../helpers/plans-section.yaml
     env:
       PLANS_SECTION: ${output.PLANS_WEEK_SECTION}
-# Leaving the tab and coming back: the choice is still in effect.
+# Leaving the screen and coming back: the choice is still in effect. What this
+# half proves is that the setting is not screen-local — the flow leaves through
+# a real tab (`nav_tab_today`, which the resolver gives an "Add task" FAB, so
+# the landing is asserted rather than assumed) and returns through the same
+# `helpers/open-plans.yaml` entry it arrived by. The entry step is a named
+# helper, so a failure here names `menu_plans` or the week section; it cannot be
+# a silent menu-scroll artefact, and if the granularity had reset on re-entry
+# the week section would be absent and the assertion below would fail.
 - tapOn:
     id: nav_tab_today
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
     timeout: 30000
-- tapOn:
-    id: nav_tab_plans
+- assertVisible:
+    id: tasks_fab
+- runFlow: ../../helpers/open-plans.yaml
 - runFlow:
     file: ../../helpers/plans-section.yaml
     env:

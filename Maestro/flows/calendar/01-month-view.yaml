@@ -13,10 +13,11 @@ tags:
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 - runScript: ../../helpers/scripts/date.js
-# The Calendar left the bottom bar; it is an entry of the app menu.
-- runFlow: ../../helpers/open-app-menu.yaml
+# The Calendar is one of the bottom-bar tabs, next to Inbox, Today and Upcoming:
+# `DestinationKind.tabs`. It stopped being an entry of the app menu when it was
+# promoted to a tab (commit f73aca39c), and `menu_calendar` is drawn by nothing.
 - tapOn:
-    id: menu_calendar
+    id: nav_tab_calendar
 # The grid is showing the current month: today's cell is one of its cells.
 - runFlow:
     file: ../../helpers/calendar-day-cell.yaml

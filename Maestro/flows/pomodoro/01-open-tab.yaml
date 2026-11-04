@@ -1,4 +1,4 @@
-# Pomodoro: the tab renders its timer and controls.
+# Pomodoro: the screen renders its timer and controls.
 #
 # The timer is the only Pomodoro surface — there is no history or stats screen.
 appId: com.singularity.todo
@@ -8,8 +8,7 @@ tags:
   - pomodoro
 ---
 - runFlow: ../../helpers/launch-clean.yaml
-- tapOn:
-    id: nav_tab_pomodoro
+- runFlow: ../../helpers/open-pomodoro.yaml
 - extendedWaitUntil:
     visible:
       id: pomodoro_phase_label
