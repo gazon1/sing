@@ -271,7 +271,10 @@ class PullEventHandlerTest {
             val writer = fakeSyncDocumentWriter(tasks = tasks)
 
             val before = tasks.observeAll().first()
-            val broken = kotlinx.serialization.json.JsonObject(mapOf("oops" to kotlinx.serialization.json.JsonPrimitive("bad")))
+            val broken =
+                kotlinx.serialization.json.JsonObject(
+                    mapOf("oops" to kotlinx.serialization.json.JsonPrimitive("bad")),
+                )
             try {
                 writer.upsert(DocType.Task, broken)
             } catch (_: Throwable) {
@@ -290,7 +293,10 @@ class PullEventHandlerTest {
 
             val before = tasks.observeAll().first()
 
-            val broken = kotlinx.serialization.json.JsonObject(mapOf("oops" to kotlinx.serialization.json.JsonPrimitive("bad")))
+            val broken =
+                kotlinx.serialization.json.JsonObject(
+                    mapOf("oops" to kotlinx.serialization.json.JsonPrimitive("bad")),
+                )
             try {
                 writer.upsert(DocType.Task, broken)
             } catch (_: Throwable) {
