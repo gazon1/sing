@@ -58,6 +58,12 @@ value class SpotlightAnchorId(val value: String) {
 
         /** Agenda top bar: save the current agenda view for later. */
         val SaveCurrent = SpotlightAnchorId("agenda.save_current")
+
+        /** Bottom navigation / navigation rail showing the five tabs. */
+        val BottomNav = SpotlightAnchorId("shell.bottom_nav")
+
+        /** Menu / overflow button hiding additional destinations. */
+        val Menu = SpotlightAnchorId("shell.menu")
     }
 }
 
@@ -72,18 +78,27 @@ value class SpotlightAnchorId(val value: String) {
  */
 object SpotlightContent {
     /** Bump whenever [STEPS] changes in a way worth showing again. */
-    const val VERSION: Int = 1
+    const val VERSION: Int = 2
 
     /**
      * The tour.
-     *
-     * Both steps point at top-bar actions on the agenda screen, because that is where
-     * the features are genuinely undiscoverable: there is no label, no menu, and no
-     * onboarding anywhere else that mentions them. Pointing the tour at something
-     * obvious instead would spend the one moment the user is most willing to listen.
      */
     val STEPS: ImmutableList<SpotlightStep> =
         persistentListOf(
+            SpotlightStep(
+                id = "shell.tabs.intro",
+                title = "Five tabs",
+                body = "Switch between Today, Upcoming, Plans, Pomodoro and Calendar from the bottom bar or navigation rail.",
+                anchor = SpotlightAnchorId.BottomNav,
+                shape = SpotlightShape.Rounded(),
+            ),
+            SpotlightStep(
+                id = "shell.menu.intro",
+                title = "More destinations",
+                body = "The Menu button hides Projects, Tags, Notes, Search, Archive, Settings and more.",
+                anchor = SpotlightAnchorId.Menu,
+                shape = SpotlightShape.Circle,
+            ),
             SpotlightStep(
                 id = "agenda.saved_views.intro",
                 title = "Saved views",

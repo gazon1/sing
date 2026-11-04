@@ -31,6 +31,8 @@ sealed interface SettingsSection {
         val themeMode: ThemeMode = ThemeMode.System,
         val accentColor: String = SettingsDefaults.Appearance.ACCENT_COLOR,
         val fontSizeScale: Float = SettingsDefaults.Appearance.FONT_SIZE_SCALE,
+        val animationsEnabled: Boolean = true,
+        val hapticsEnabled: Boolean = true,
     ) : SettingsSection
 
     // ── AI Provider ───────────────────────────────────────────────────────────
