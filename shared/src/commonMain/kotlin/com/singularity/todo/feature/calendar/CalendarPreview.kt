@@ -8,7 +8,7 @@ import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.components.calendar.groupedByDate
 import com.singularity.todo.feature.calendar.presentation.screen.CalendarContent
-import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
+import com.singularity.todo.feature.calendar.domain.state.CalendarUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap

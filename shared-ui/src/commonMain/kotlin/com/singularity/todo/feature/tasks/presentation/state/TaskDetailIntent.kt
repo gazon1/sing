@@ -1,0 +1,340 @@
+package com.singularity.todo.feature.tasks.domain.state
+
+import com.singularity.todo.core.ids.ProposalId
+import com.singularity.todo.core.ids.ProposalItemId
+import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.feature.checklist.ChecklistItem
+import com.singularity.todo.feature.checklist.ChecklistItemId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskKind
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
+import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
+
+/**
+ * Единая точка входа для [com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator].
+ *
+ * Все варианты обрабатываются VM через [Domain].
+ *
+ * Каждый вариант [Domain] дополнительно реализует маркер своего слота
+ * ([TaskEntityIntent], [TaskChildrenIntent], …). Слот принимает только свой маркер,
+ * поэтому передать чужой intent в слот — ошибка компиляции, а не молчаливо неверная
+ * ветка `when`. Координатор маршрутизирует варианты в слоты единственным
+ * исчерпывающим `when` по [Domain].
+ */
+sealed interface TaskDetailIntent : MviIntent {
+    // ── Domain: owned by ViewModel ─────────────────────────────────────────
+
+    sealed interface Domain : TaskDetailIntent {
+        // ── Hero ────────────────────────────────────────────────────────────
+
+        data object ToggleComplete : Domain, TaskCompletionIntent
+
+        /**
+         * The user confirmed closing a task whose prerequisites are still open.
+         *
+         * Nothing was written when the confirmation was raised — the close
+         * happens here, and only here.
+         *
+         * Implements both slot markers on purpose: the task being closed may be
+         * the task on this screen or one of its subtasks, and the two are
+         * written by two different slots. Each one acts only if the id is its
+         * own, so handing it to both is safe.
+         */
+        data class ConfirmBlockedClose(val taskId: TaskId) :
+            Domain,
+            TaskCompletionIntent,
+            TaskChildrenIntent
+
+        /**
+         * The user backed out of closing a task whose prerequisites are still open.
+         *
+         * Nothing was written, so this only closes the confirmation.
+         */
+        data object DismissBlockedClose : Domain
+
+        data class TitleChanged(val title: String) :
+            Domain,
+            TaskDraftIntent
+
+        data class DescriptionChanged(val description: String) :
+            Domain,
+            TaskDraftIntent
+
+        data object ToggleSomeday : Domain, TaskEntityIntent
+
+        data class SetKind(val kind: TaskKind) :
+            Domain,
+            TaskEntityIntent
+
+        // ── Meta fields ─────────────────────────────────────────────────────
+
+        data class SetDueDate(val date: LocalDate?) :
+            Domain,
+            TaskEntityIntent
+
+        data class SetDueTime(val time: LocalTime?) :
+            Domain,
+            TaskEntityIntent
+
+        data class SetStartDate(val date: LocalDate?) :
+            Domain,
+            TaskEntityIntent
+
+        data class SetStartTime(val time: LocalTime?) :
+            Domain,
+            TaskEntityIntent
+
+        data class SetPriority(val priority: TaskPriority) :
+            Domain,
+            TaskEntityIntent
+
+        /**
+         * Moves the task to another workflow state — `Open`, `NextUp` or
+         * `InProgress`.
+         *
+         * The state is the user's own claim about the work, so it is a shared
+         * field of a series: marking one occurrence "in progress" marks the work
+         * in progress, not one of its dates.
+         */
+        data class SetWorkflowState(val state: TaskWorkflowState) :
+            Domain,
+            TaskEntityIntent
+
+        data class SetProject(val projectId: ProjectId?) :
+            Domain,
+            TaskEntityIntent
+
+        // ── Tags ────────────────────────────────────────────────────────────
+
+        data class SetTags(val tagIds: List<TagId>) :
+            Domain,
+            TaskTagIntent
+
+        data class RemoveTag(val tagId: TagId) :
+            Domain,
+            TaskTagIntent
+
+        /**
+         * Puts a removed tag back on the task.
+         *
+         * The undo of [RemoveTag]: the tag is one of the task's tags again.
+         */
+        data class RestoreTag(val tagId: TagId) :
+            Domain,
+            TaskTagIntent
+
+        // ── Checklist ───────────────────────────────────────────────────────
+
+        data class ToggleChecklistItem(val item: ChecklistItem) :
+            Domain,
+            TaskChildrenIntent
+
+        data class DeleteChecklistItem(val id: ChecklistItemId) :
+            Domain,
+            TaskChildrenIntent
+
+        /**
+         * Puts a removed checklist item back.
+         *
+         * The undo of [DeleteChecklistItem]: the snapshot travels with the intent,
+         * because the row is gone from the database and the write has to be given
+         * the item it puts back.
+         */
+        data class RestoreChecklistItem(val item: ChecklistItem) :
+            Domain,
+            TaskChildrenIntent
+
+        data class AddChecklistItem(val title: String) :
+            Domain,
+            TaskChildrenIntent
+
+        // ── Subtasks ─────────────────────────────────────────────────────
+
+        data class ToggleSubtask(val task: Task) :
+            Domain,
+            TaskChildrenIntent
+
+        data class DeleteSubtask(val task: Task) :
+            Domain,
+            TaskChildrenIntent
+
+        /**
+         * Puts a removed subtask back.
+         *
+         * The undo of [DeleteSubtask]: the subtask was soft-deleted, so it comes
+         * back with a restore of its own id.
+         */
+        data class RestoreSubtask(val taskId: TaskId) :
+            Domain,
+            TaskChildrenIntent
+
+        data class AddSubtask(val title: String) :
+            Domain,
+            TaskChildrenIntent
+
+        // ── Reminders ─────────────────────────────────────────────────────
+
+        data class SetReminder(val offset: ReminderOffset) :
+            Domain,
+            TaskRemindersIntent
+
+        data object DeleteReminder : Domain, TaskRemindersIntent
+
+        // ── Lifecycle ─────────────────────────────────────────────────────
+
+        /** Soft-delete + show Undo snackbar. */
+        data object Delete : Domain, TaskLifecycleIntent
+
+        /** Soft-delete without Undo (archive). */
+        data object Archive : Domain, TaskLifecycleIntent
+
+        /** Restore the last soft-deleted task. */
+        data object Restore : Domain, TaskLifecycleIntent
+
+        /**
+         * Restore the currently open archived (trashed) task — clears [Task.archivedAt]
+         * so the task returns to the active lists. Distinct from [Restore]: that one
+         * replays a delete that just happened on this screen (undo), this one un-trashes
+         * a task opened from the Archive screen, where no delete happened here.
+         */
+        data object Unarchive : Domain, TaskLifecycleIntent
+
+        // ── Pin ─────────────────────────────────────────────────────────────
+
+        data object TogglePinned : Domain, TaskEntityIntent
+
+        // ── Dependencies ─────────────────────────────────────────────────────
+
+        data class SetDependencies(val blockedBy: Set<TaskId>) :
+            Domain,
+            TaskEntityIntent
+
+        /**
+         * The whole set of outgoing relations, each with the verb that says what it
+         * means.
+         *
+         * The picker edits one map — every selected task and how this task relates to
+         * it — so a write has to carry the same shape. [SetDependencies] says only
+         * "these block me" and must not be used for an edge that merely orders two
+         * pieces of work; this intent is what keeps the two verbs from overwriting
+         * each other.
+         */
+        data class SetDependencyRelations(val relations: Map<TaskId, DependencyVerb>) :
+            Domain,
+            TaskEntityIntent
+
+        // ── Recurrence ───────────────────────────────────────────────────────
+
+        data class SetRecurrence(val spec: RecurrenceSpec?) :
+            Domain,
+            TaskEntityIntent
+
+        // ── Estimate ────────────────────────────────────────────────────────
+
+        data class SetEstimate(val minutes: Int?) :
+            Domain,
+            TaskEntityIntent
+
+        // ── Series ──────────────────────────────────────────────────────────
+
+        /**
+         * Copies the time of day and the pin of this occurrence to every other
+         * member of the series.
+         *
+         * The shared fields are applied to the whole series on their own; these
+         * two are not, because "the same on every date" is a choice the user
+         * makes rather than a property of the work.
+         */
+        data object ApplyToAllOccurrences : Domain, TaskEntityIntent
+
+        /**
+         * Archives every member of the series.
+         *
+         * Distinct from [Delete], which archives only the occurrence on screen.
+         */
+        data object DeleteSeries : Domain, TaskLifecycleIntent
+
+        /**
+         * Put back the occurrences of a series that was just deleted.
+         *
+         * The ids travel with the intent: the undo has to restore exactly the
+         * occurrences that went away, and the series may have changed since.
+         */
+        data class RestoreSeries(val taskIds: List<TaskId>) :
+            Domain,
+            TaskLifecycleIntent
+
+        /**
+         * Takes the occurrence on screen out of its series.
+         *
+         * The occasion for it is a date that turned out to be a different job:
+         * the occurrence keeps its date and becomes a task that stands alone.
+         * When it was the second of two, the one that stays stands alone as well —
+         * a series of one is not a series.
+         */
+        data object DetachFromSeries : Domain, TaskEntityIntent
+
+        // ── AI ────────────────────────────────────────────────────────────────
+
+        /** Run an AI action (RefineTitle, GenerateDescription, etc.) and apply the result. */
+        data class RunAiAction(val action: TaskAiAction) :
+            Domain,
+            TaskAiIntent
+
+        // ── Proposals ────────────────────────────────────────────────────
+
+        /** Confirm one proposal item. */
+        data class ConfirmProposalItem(val itemId: ProposalItemId) : Domain
+
+        /** Reject one proposal item, optionally with a reason. */
+        data class RejectProposalItem(val itemId: ProposalItemId, val reason: String? = null) : Domain
+
+        /** Confirm all pending items across all proposals for this task. */
+        data class ConfirmAllProposalItems(val proposalId: ProposalId) : Domain
+
+        /** Dismiss (retract) a proposal and all its pending items. */
+        data class DismissProposal(val proposalId: ProposalId) : Domain
+
+        /** Change the value of one proposal, before it is applied. */
+        data class EditProposalItem(val itemId: ProposalItemId, val text: String) : Domain
+
+        // ── Time Tracking ─────────────────────────────────────────────────
+
+        /** Start the time tracker for this task. */
+        data object Start : Domain
+
+        /** Stop the running time tracker. */
+        data object Stop : Domain
+
+        /**
+         * Create a manual time entry.
+         * @param startedAtMs Start time in epoch milliseconds.
+         * @param endedAtMs End time in epoch milliseconds.
+         * @param kind Work or Recording.
+         * @param note Optional note.
+         */
+        data class CreateManual(
+            val startedAtMs: Long,
+            val endedAtMs: Long,
+            val kind: TimeEntryKind,
+            val note: String?,
+        ) : Domain
+
+        /**
+         * Update the displayed elapsed time (called by the UI ticker).
+         */
+        data class Tick(val elapsedMs: Long) :
+            Domain,
+            TaskTimeSlotIntent
+    }
+}
