@@ -17,9 +17,10 @@ tags:
     visible:
       id: plans_section_overdue
     timeout: 8000
-# The seeded entity's arrival signal is the container waited for
-# above: it renders only while a row falls in it, so waiting for it is
-# waiting for the row (`helpers/seed.yaml`, "What counts as the wait").
+# The container above (`plans_section_overdue`) proves the screen drew what can only
+# hold the seeded row; this waits for that row itself in place, without
+# scrolling, so the section the assertion below names stays on screen (`helpers/seed.yaml`,
+# "How to wait for the row itself").
 - extendedWaitUntil:
     visible:
       id: task_item_late_task

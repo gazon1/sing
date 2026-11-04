@@ -71,9 +71,10 @@ tags:
       id: task_editor_title_input
     timeout: 5000
 # The title proves the link led to *this* task and not merely that an editor
-# The seeded entity's arrival signal is the container waited for
-# above: it renders only while a row falls in it, so waiting for it is
-# waiting for the row (`helpers/seed.yaml`, "What counts as the wait").
+# The seeded row itself, waited for in place rather than scrolled to: the
+# container wait above precedes it and a later step still needs that
+# container, so a scroll here could carry it away (`helpers/seed.yaml`,
+# "How to wait for the row itself").
 - extendedWaitUntil:
     visible:
       text: "Buy milk"

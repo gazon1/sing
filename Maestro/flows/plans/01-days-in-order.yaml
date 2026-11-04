@@ -31,18 +31,17 @@ tags:
     file: ../../helpers/plans-section.yaml
     env:
       PLANS_SECTION: ${output.PLANS_TODAY_SECTION}
-# The row itself is in the scrolling timeline, so it is scrolled into view
-# rather than waited for where it sits: an `extendedWaitUntil` here would pass
-# only if the row happened to be inside the viewport, and the section above has
-# already proved the entity arrived.
-- scrollUntilVisible:
-    element:
+# The seeded row, waited for in place instead of scrolled to: a container wait
+# precedes it and a later step still needs the timeline's sections, so a scroll
+# here could carry the tomorrow section out of reach (`helpers/seed.yaml`,
+# "How to wait for the row itself").
+- extendedWaitUntil:
+    visible:
       id: task_item_due_today
-    direction: DOWN
     timeout: 8000
 # The tomorrow section: the same container rule, for the task seeded as due
-# tomorrow. It is waited for again because the scroll above may have moved the
-# viewport.
+# tomorrow. It is waited for after the row wait above, so the flow proves both
+# sections are reachable rather than assuming the first wait left them in place.
 - runFlow:
     file: ../../helpers/plans-section.yaml
     env:
