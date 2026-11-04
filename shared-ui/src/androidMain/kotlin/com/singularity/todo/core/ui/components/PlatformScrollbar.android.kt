@@ -13,6 +13,10 @@ import androidx.compose.ui.Modifier
  * out again afterwards. A bar that stays on screen would be a desktop
  * affordance on a device with no pointer, and would sit over the list's own
  * content for as long as the screen is open.
+ *
+ * This file is in `:shared-ui`'s own `androidMain`, next to the `expect` in
+ * `commonMain`. An `actual` has to live in the module that declares its
+ * `expect`; putting it in a dependency does not satisfy the compiler.
  */
 @Composable
 actual fun Modifier.platformVerticalScrollbar(state: LazyListState): Modifier = this

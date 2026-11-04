@@ -43,29 +43,24 @@ import androidx.compose.ui.Modifier
  *
  * ## Where the two `actual`s live, and why
  *
- * In `:shared`, under `src/androidMain` and `src/jvmMain` — not in this module.
- * That is this seam family's standing convention, not an oversight: `:shared-ui`
- * has no `androidMain` or `jvmMain` source set at all, and every other platform
- * seam declared here pairs the same way, with its actuals next to the platform
- * API it calls — `mapTestTagsAsResourceIds` (enforced by
- * `UiAutomationSelectorTest`), `PlatformBackHandler` and `onSecondaryClick` all
- * declare their `expect` in this file's module and their `actual` in
- * `:shared`'s platform source sets. `:shared-ui` carries an `api` dependency on
- * `:shared`, and the resulting pair is what every screen in this module
- * compiles and runs against. Moving these two files into `:shared-ui` would
- * break that convention and prove nothing about whether they work.
+ * In this module, under `src/androidMain` and `src/jvmMain`, beside the
+ * `expect`s above. `:shared` and `:shared-ui` are separate Gradle projects
+ * (`settings.gradle.kts`), so each is a separate module to the compiler; an
+ * `actual` in `:shared` would leave these `expect`s unsatisfied in `:shared-ui`
+ * and would itself be an `actual` with no `expect` in its own module.
  *
- * ## Why no test asserts on the bar
+ * ## How the pairing is kept honest
  *
- * A scrollbar is a draw-and-hit-test decoration: Compose's `verticalScrollbar`
- * contributes no semantics node, so `runDesktopAppTest` and
- * `runIsolatedComposeTest` cannot see it, and a flow over a long seeded list
- * would pass with the bar attached to the wrong state exactly as happily as
- * with the right one. The observable contract is therefore the source-level one
- * above — the modifier and the list share one state variable at every call site
- * — plus the manual check the change was written against: on desktop, a list
- * longer than the window draws a thumb that tracks the visible portion and
- * drags.
+ * The identity of the instance is a source-level contract, not something the
+ * type system can check: the modifier and the container must be handed the same
+ * variable. Compose's `verticalScrollbar` draws a layout node and publishes no
+ * semantics, so a flow test over a long list cannot yet tell a bar wired to the
+ * right state from one wired to a second `rememberLazyListState()`. Proving
+ * that at the RCA level — so a screen that drops the bar fails a test — is
+ * tracked separately (the desktop-scrollbar proof issue); until it lands, every
+ * call site is reviewed as a pair, and the two that hoist the state (the
+ * agenda's list and the saved-agenda list) take `listState: LazyListState` as a
+ * parameter and pass that one instance to both the list and the modifier.
  */
 @Composable
 expect fun Modifier.platformVerticalScrollbar(state: LazyListState): Modifier

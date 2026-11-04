@@ -17,6 +17,12 @@ import androidx.compose.ui.unit.dp
  *
  * The adapter is remembered against the state so a recomposition does not
  * restart a drag that is in progress.
+ *
+ * This file is in `:shared-ui`'s own `jvmMain`, next to the `expect` in
+ * `commonMain`. An `actual` has to live in the module that declares its
+ * `expect` — `:shared` does not declare this one, so an `actual` there would
+ * be a stray declaration with no `expect` to satisfy, and `:shared-ui` would
+ * report the `expect` with no `actual`.
  */
 @Composable
 actual fun Modifier.platformVerticalScrollbar(state: LazyListState): Modifier =
