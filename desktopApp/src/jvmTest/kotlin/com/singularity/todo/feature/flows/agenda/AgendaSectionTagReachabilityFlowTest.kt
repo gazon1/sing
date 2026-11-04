@@ -1,9 +1,11 @@
 package com.singularity.todo.feature.flows.agenda
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.assertTagInMergedTree
+import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
@@ -55,20 +57,24 @@ class AgendaSectionTagReachabilityFlowTest {
         }
 
     @Test
-    fun the_today_tab_exposes_the_blocked_section_in_the_merged_tree() =
+    fun the_blocked_health_drilldown_exposes_the_blocked_section_in_the_merged_tree() =
         runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
             val blocker = tasks(koin).given(title = "Blocker")
             tasks(koin).given(title = "Blocked task", dependsOn = setOf(blocker.id))
 
-            tapTab("Today")
+            tapTab("Statistics")
+            clickTag(TestTags.STATISTICS_TAB_HEALTH)
+            clickTag(TestTags.HEALTH_BUCKET_BLOCKED)
             assertTagInMergedTree(TestTags.agendaSection("Blocked"), "agenda")
         }
 
     @Test
-    fun the_today_tab_exposes_the_stagnant_section_in_the_merged_tree() =
+    fun the_stagnant_health_drilldown_exposes_the_stagnant_section_in_the_merged_tree() =
         runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
             tasks(koin).givenUndated(title = "Stale task")
-            tapTab("Today")
+            tapTab("Statistics")
+            clickTag(TestTags.STATISTICS_TAB_HEALTH)
+            clickTag(TestTags.HEALTH_BUCKET_STAGNANT)
             assertTagInMergedTree(TestTags.agendaSection("Not touched in a while"), "agenda")
         }
 
