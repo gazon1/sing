@@ -63,7 +63,8 @@ class SharedSyncServerMergeTest {
             val b = server.client(ACCOUNT)
 
             push(a, patch("p1", Hlc.of(2_000L, 0, "dev-a"), set("title", "Newer")))
-            val answer = push(b, patch("p2", Hlc.of(1_000L, 0, "dev-b"), set("description", "Older clock, untouched field")))
+            val answer =
+                push(b, patch("p2", Hlc.of(1_000L, 0, "dev-b"), set("description", "Older clock, untouched field")))
 
             assertTrue(answer.ok)
             assertFalse(answer.lost)
