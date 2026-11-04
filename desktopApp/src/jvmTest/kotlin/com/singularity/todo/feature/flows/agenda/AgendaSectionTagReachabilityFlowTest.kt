@@ -28,7 +28,7 @@ class AgendaSectionTagReachabilityFlowTest {
         runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
             tasks(koin).given(due = TODAY, title = "Buy milk")
 
-            assertTagInMergedTree(TestTags.agendaSection("Today"), "agenda")
+            assertTagInMergedTree(TestTags.agendaSection("today"), "agenda")
         }
 
     @Test
@@ -37,7 +37,7 @@ class AgendaSectionTagReachabilityFlowTest {
             tasks(koin).givenUndated("Call the dentist")
 
             tapTab("Inbox")
-            assertTagInMergedTree(TestTags.agendaSection("No Date"), "agenda")
+            assertTagInMergedTree(TestTags.agendaSection("no_date"), "agenda")
         }
 
     /**
@@ -51,7 +51,7 @@ class AgendaSectionTagReachabilityFlowTest {
             tasks(koin).given(due = yesterday, title = "Pay rent")
 
             tapTab("Today")
-            assertTagInMergedTree(TestTags.agendaSection("Overdue"), "agenda")
+            assertTagInMergedTree(TestTags.agendaSection("overdue"), "agenda")
         }
 
     private companion object {

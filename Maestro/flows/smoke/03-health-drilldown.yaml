@@ -91,10 +91,10 @@ tags:
     id: health_bucket_stagnant
 - extendedWaitUntil:
     visible:
-      id: agenda_section_not_touched_in_a_while
+      id: agenda_section_stagnant
     timeout: 8000
 - assertVisible:
-    id: agenda_section_not_touched_in_a_while
+    id: agenda_section_stagnant
 # Back to Statistics via system back (agenda screen has no in-app back button).
 - back
 - extendedWaitUntil:

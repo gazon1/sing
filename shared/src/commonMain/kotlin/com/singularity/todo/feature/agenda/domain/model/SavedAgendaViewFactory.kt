@@ -98,6 +98,10 @@ fun AgendaDefinition.toSectionsJson(): String = StableJson.encodeToString(Agenda
  * blank screen: the rest of the list stays usable, and the broken row does not
  * pretend to be an empty agenda. An absent blob is an empty section list — a view
  * that never had sections is still a view.
+ *
+ * The returned sections always carry ids unique within the view: a view saved
+ * before `Section.id` existed has none, and an older editor could mint the same
+ * id twice, so the list is normalised through [withUniqueIds] on the way out.
  */
 fun decodeSavedSections(json: String?): List<Section>? =
     if (json == null) {
@@ -105,5 +109,5 @@ fun decodeSavedSections(json: String?): List<Section>? =
     } else {
         runCatching {
             StableJson.decodeFromString<AgendaDefinition>(json).sections
-        }.getOrNull()
+        }.getOrNull()?.withUniqueIds()
     }

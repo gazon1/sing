@@ -483,7 +483,10 @@ private fun addSection(
     viewModel.onIntent(
         SavedAgendaIntent.SectionAdded(
             Section(
-                id = "section_$order",
+                // Derived from the sections that are there now, not from the count:
+                // removing a section shrinks the count, so "section_$order" could
+                // name a section that is still in the view.
+                id = Section.freshId(current.draft.sections),
                 name = selector.typeDescription,
                 order = order,
                 selector = selector,

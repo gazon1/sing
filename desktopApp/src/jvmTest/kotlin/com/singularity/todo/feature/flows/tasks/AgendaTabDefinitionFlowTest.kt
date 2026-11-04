@@ -59,7 +59,7 @@ class AgendaTabDefinitionFlowTest {
             tapTab("Inbox")
             assertCurrentTab("Inbox")
 
-            assertTagDisplayed(TestTags.agendaSection("No Date"))
+            assertTagDisplayed(TestTags.agendaSection("no_date"))
             assertTagDisplayed(TestTags.taskItem("Call the dentist"))
         }
 
@@ -74,7 +74,7 @@ class AgendaTabDefinitionFlowTest {
 
             tapTab("Upcoming")
 
-            assertTagDisplayed(TestTags.agendaSection("Tomorrow"))
+            assertTagDisplayed(TestTags.agendaSection("tomorrow"))
             assertTagDisplayed(TestTags.taskItem("Send the invoice"))
         }
 
@@ -96,7 +96,7 @@ class AgendaTabDefinitionFlowTest {
 
             assertEquals(
                 0,
-                countNodes(TestTags.agendaSection("Tomorrow")),
+                countNodes(TestTags.agendaSection("tomorrow")),
                 "the inbox tab holds the undated tasks — the dated ones are in the Today " +
                     "and Upcoming tabs",
             )
@@ -121,13 +121,13 @@ class AgendaTabDefinitionFlowTest {
             tapTab("Upcoming")
             assertCurrentTab("Upcoming")
 
-            assertTagDisplayed(TestTags.agendaSection("Tomorrow"))
+            assertTagDisplayed(TestTags.agendaSection("tomorrow"))
 
             // The undated task is simply not part of this agenda — it must be absent,
             // not relocated under a section name borrowed from the Inbox preset.
             assertEquals(
                 0,
-                countNodes(TestTags.agendaSection("No Date")),
+                countNodes(TestTags.agendaSection("no_date")),
                 "Upcoming must not render an Inbox 'No Date' section",
             )
         }

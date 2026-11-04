@@ -507,8 +507,16 @@ object TestTags {
     /** Dynamic tag of the form `saved_agenda_card_<slug>`. */
     fun savedAgendaCard(name: String) = "saved_agenda_card_${slug(name)}"
 
-    /** Agenda section header, e.g. "Today", "No Date". */
-    fun agendaSection(name: String) = "agenda_section_${slug(name)}"
+    /**
+     * Agenda section header, keyed by the section's id — e.g. `today`, `no_date`,
+     * `section_0`.
+     *
+     * Not by the display name: two sections of one saved view can share a name (a
+     * single-project selector and a tag selector both render as a name the other
+     * could carry), and a name-keyed tag then matches both headers, so no selector
+     * can address one of them (#2197). The section id is unique within a view.
+     */
+    fun agendaSection(sectionId: String) = "agenda_section_${slug(sectionId)}"
 
     // ─── Plans timeline ───────────────────────────────────────────────────
 

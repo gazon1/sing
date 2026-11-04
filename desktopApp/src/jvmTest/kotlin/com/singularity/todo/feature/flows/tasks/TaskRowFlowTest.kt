@@ -49,7 +49,7 @@ class TaskRowFlowTest {
                 .given(due = today, title = "Buy milk")
                 .assertInAgenda("Buy milk")
 
-            assertTagDisplayed(TestTags.agendaSection("Today"))
+            assertTagDisplayed(TestTags.agendaSection("today"))
         }
 
     /**

@@ -14,9 +14,9 @@ import org.koin.core.Koin
  * ```
  * runDesktopAppTest { koin ->
  *     agenda(koin)
- *         .assertSection("Today", contains = listOf("Today's task", "Pinned today"))
- *         .assertSection("Overdue", contains = listOf("Overdue task"))
- *         .assertSection("No Date", contains = listOf("No date", "Inbox task"))
+ *         .assertSection("today", contains = listOf("Today's task", "Pinned today"))
+ *         .assertSection("overdue", contains = listOf("Overdue task"))
+ *         .assertSection("no_date", contains = listOf("No date", "Inbox task"))
  * }
  * ```
  *
@@ -37,17 +37,22 @@ class AgendaRobot(private val test: DesktopComposeUiTest, private val koin: Koin
     // ─── Section assertions ──────────────────────────────────────────────────
 
     /**
-     * Asserts that the section with the given [sectionName] is visible and,
+     * Asserts that the section with the given [sectionId] is visible and,
      * optionally, that each [expectedTitles] appears inside it.
+     *
+     * [sectionId] is the section's **id**, not its display name: the header's tag
+     * is keyed by the id so two same-named sections stay separately addressable
+     * (#2197). For the built-in presets the id happens to be the name's slug —
+     * `today`, `no_date`, `overdue`, `tomorrow`, `in_progress`, `stagnant`.
      *
      * Waits for the section to render before checking.
      */
     fun assertSection(
-        sectionName: String,
+        sectionId: String,
         contains: List<String> = emptyList(),
     ): AgendaRobot =
         apply {
-            val sectionTag = TestTags.agendaSection(sectionName)
+            val sectionTag = TestTags.agendaSection(sectionId)
             test.assertTagDisplayed(sectionTag)
             contains.forEach { title ->
                 test.assertTagDisplayed(TestTags.taskItem(title))
@@ -55,11 +60,11 @@ class AgendaRobot(private val test: DesktopComposeUiTest, private val koin: Koin
         }
 
     /**
-     * Asserts that the section with [sectionName] is NOT visible.
+     * Asserts that the section with [sectionId] is NOT visible.
      */
-    fun assertSectionMissing(sectionName: String): AgendaRobot =
+    fun assertSectionMissing(sectionId: String): AgendaRobot =
         apply {
-            val sectionTag = TestTags.agendaSection(sectionName)
+            val sectionTag = TestTags.agendaSection(sectionId)
             test.awaitTagGone(sectionTag)
         }
 
@@ -98,10 +103,10 @@ class AgendaRobot(private val test: DesktopComposeUiTest, private val koin: Koin
         apply {
             // These use hardcoded IDs from AgendaSeed — if a bucket is empty but has
             // seed tasks, the evaluator or the seed installation failed.
-            assertSection("Today", contains = AgendaSeed.TODAY_IDS.map { it.removePrefix("task-") })
-            assertSection("Overdue", contains = AgendaSeed.OVERDUE_IDS.map { it.removePrefix("task-") })
-            assertSection("Tomorrow", contains = AgendaSeed.TOMORROW_IDS.map { it.removePrefix("task-") })
-            assertSection("No Date", contains = AgendaSeed.NO_DATE_IDS.map { it.removePrefix("task-") })
+            assertSection("today", contains = AgendaSeed.TODAY_IDS.map { it.removePrefix("task-") })
+            assertSection("overdue", contains = AgendaSeed.OVERDUE_IDS.map { it.removePrefix("task-") })
+            assertSection("tomorrow", contains = AgendaSeed.TOMORROW_IDS.map { it.removePrefix("task-") })
+            assertSection("no_date", contains = AgendaSeed.NO_DATE_IDS.map { it.removePrefix("task-") })
         }
 
     /** Asserts the seeded pinned task appears first in the Today section. */

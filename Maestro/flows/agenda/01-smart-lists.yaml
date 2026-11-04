@@ -4,7 +4,8 @@
 # The three agenda tabs are disjoint: the inbox holds the undated tasks, the Today
 # tab the overdue and today's ones, the Upcoming tab what is coming. So dating a
 # task moves it out of the inbox and into one of the other two.
-# Section headers render as "<Section>  ·  <count>".
+# A section header renders the section name and, beside it, its task count.
+# Its testTag is keyed by the section id: "No Date" -> agenda_section_no_date.
 appId: com.singularity.todo
 name: agenda-smart-lists
 tags:

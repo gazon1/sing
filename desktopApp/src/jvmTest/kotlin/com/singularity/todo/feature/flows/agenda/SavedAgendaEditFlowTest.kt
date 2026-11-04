@@ -94,7 +94,7 @@ class SavedAgendaEditFlowTest {
             awaitTag(TestTags.savedAgendaCard("my_view")).performClick()
             awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
             // Results shows the agenda section for the view
-            assertTagDisplayed(TestTags.agendaSection("No Date"))
+            assertTagDisplayed(TestTags.agendaSection("no_date"))
         }
 
     @Test
@@ -109,7 +109,7 @@ class SavedAgendaEditFlowTest {
 
             // Navigate to Results
             awaitTag(TestTags.savedAgendaCard("back_test_view")).performClick()
-            assertTagDisplayed(TestTags.agendaSection("No Date"))
+            assertTagDisplayed(TestTags.agendaSection("no_date"))
 
             // Go back — should return to list with card
             awaitTag(TestTags.TOP_BAR_BACK_BUTTON).performClick()

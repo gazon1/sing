@@ -20,6 +20,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
+import com.singularity.todo.feature.agenda.domain.model.resolvedSections
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.BlockedBulkCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
@@ -827,7 +828,12 @@ class AgendaViewModel(
 
     private suspend fun handleCreateInSection(sectionId: String) {
         // Find the section definition
-        val section = definition.sections.find { it.effectiveId == sectionId } ?: return
+        // The id came from a RenderedSection, which the evaluator assigned through
+        // `resolvedSections()` — unique even when two sections share a name or the
+        // section is legacy and has no id. Looking the section up any other way
+        // would miss the second of two same-named sections, and its '+' would do
+        // nothing.
+        val section = definition.resolvedSections().find { it.id == sectionId }?.section ?: return
         val sectionPrefill = section.prefill ?: return
 
         // A bucket resolves against *today*, not against the day the definition

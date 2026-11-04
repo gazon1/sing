@@ -74,7 +74,7 @@ class OpenSavedViewShowsMatchingTasksFlowTest {
             // ── 4. Tap the card → SavedAgendaResults screen (MR-11 new behaviour) ──
             // Inbox's "No Date" section matches the seeded "Buy milk" task.
             awaitTag(TestTags.savedAgendaCard("My Active Tasks")).performClick()
-            assertTagDisplayed(TestTags.agendaSection("No Date"))
+            assertTagDisplayed(TestTags.agendaSection("no_date"))
             assertTagDisplayed(TestTags.taskItem("Buy milk"))
         }
 }

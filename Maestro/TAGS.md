@@ -463,7 +463,7 @@ use the expanded string directly).
 | `noteFilterChip("pinned")` | `"pinned"` | `note_filter_chip_pinned` | Note list filter chips |
 | `noteItem("01BXFF...")` | `"01BXFF..."` | `note_item_01bxff` | Note cards (desktop unit tests) |
 | `noteItemByTitle("Meeting notes")` | `"Meeting notes"` | `note_item_by_title_meeting_notes` | Note cards (automation) |
-| `agendaSection("Today")` | `"Today"` | `agenda_section_today` | Agenda section headers |
+| `agendaSection("today")` | `"today"` | `agenda_section_today` | Agenda section headers, keyed by section id |
 | `agendaSectionTemplate("By tag")` | `"By tag"` | `agenda_section_template_by_tag` | Section *types* in the add-section sheet |
 | `agendaSelectorOption("work")` | `"work"` | `agenda_selector_option_work` | Values in the section parameter picker |
 | `savedAgendaCard("Work")` | `"Work"` | `saved_agenda_card_work` | Saved agenda cards |
