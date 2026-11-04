@@ -268,8 +268,9 @@ Debug from a `pm clear` slate.
 
 ## App behaviour facts flows encode
 
-These are behaviours a flow author would otherwise guess wrong; each was learned
-by a flow failing on it:
+These are behaviours a flow author would otherwise guess wrong. Most were
+learned by a flow failing on it; the back behaviour below was read off the
+screens and the navigation that runs them, which is why it is stated per screen:
 
 - **Long-press on an agenda row opens a context-menu bottom sheet**
   (`task_context_menu_sheet`), with rows tagged `sheet_item_<label>`: Open,
@@ -288,12 +289,67 @@ by a flow failing on it:
   back and the task reappears in Inbox.
 - The task detail keeps the shell FAB visible; detect a push by the editor
   appearing, not by the FAB disappearing.
+- **The task detail has no save button.** Edits autosave; `task_editor_save`
+  exists only on the create screen. A flow that expects it on the detail screen
+  fails with a confusing "not found".
 - **Notes: tapping a row opens the note's *preview*, not its editor.** The
   editor is reached from the preview's Edit action (`note_action_edit`). The
   one exception is the quick-add row: it creates the note and opens the
   editor directly (`NavigateToEditor`), so a flow that types a title into the
-  quick-add lands in the editor, not in the preview. The editor autosaves —
-  saving does not pop it; `back` does.
+  quick-add lands in the editor, not in the preview.
+- **Quick-add destinations are not stable.** The notes quick-add lands on the
+  note's preview or straight in the editor, run to run. Tap the transition
+  action with `optional: true` and then wait on the destination you actually
+  need.
+- **Some saves do not navigate.** The saved-view editor emits a "Saved"
+  snackbar and stays open; the flow must leave explicitly. The notes editor
+  shows a "Saved" pill on its autosave and does not pop either.
+- **Dismissing the keyboard commits the edit.** In this app `hideKeyboard`
+  triggers the editor's autosave-on-dismiss *and* closes the screen, which is
+  why a flow never places it before a save tap: by then the screen is gone.
+- **A feature can be modelled but unreachable.** Notes row actions (pin,
+  archive, delete, multi-select), the Calendar Today / prev / next /
+  mini-calendar controls, and the whole Sync configuration screen
+  (`SyncConfigScreen` + a complete `SyncViewModel`, composed by nothing) exist
+  with no control that dispatches them, and long-press on a note row does
+  nothing. Before writing a flow, check it is reachable.
+
+### What the system back key does, editor by editor
+
+Each screen decides back for itself, so the answer differs per screen and is
+stated one screen at a time below. Two rules hold everywhere:
+
+- **System back and the top-bar arrow mean the same thing** on a screen that
+  has both; a flow may use either.
+- **With the keyboard open, system back closes the keyboard first.** Only a
+  second press reaches the screen, so a flow leaving a screen it has just typed
+  into either closes the keyboard or presses back twice.
+
+The dirty-draft guard is shared (`DiscardChangesDialog`), and three screens host
+it: the task create screen, the project editor and the saved-view editor. A
+**dirty** draft raises the guard — a "Discard changes?" dialog confirmed with
+`text: "Discard"` (keep editing is the other button). A **pristine** draft raises
+nothing, and back pops straight away. The shared top bar's arrow is tagged
+`top_bar_back_button`, and it is the same `onBack` the system back key runs:
+one behaviour, two ways to reach it.
+
+- **Saved-view editor** (`SavedAgendaScreen`): back is the arrow's meaning, not
+  a save. A **pristine** draft pops back to the list at once. A **dirty** draft
+  opens the "Discard changes?" dialog and pops only once it is confirmed with
+  `text: "Discard"` — the view is *not* saved on the way out. `Save` is the
+  separate action, and it saves and pops; a `back` after a save therefore goes
+  one screen further than the flow wants.
+- **Task detail** (`TaskDetailScreen`): back pops the detail to the screen it
+  was opened from. The detail autosaves and has no draft, so there is no guard
+  and back never asks. A detail opened from a saved view or a reminder can sit
+  at the start of its graph, and there back leaves the graph and the shell
+  takes it — a flow that expects to stay on the detail asserts the detail's own
+  node after back instead of assuming it stayed.
+- **Notes editor** (`NoteEditorScreen`): back pops to whatever opened the
+  editor — the note's preview, or the notes list when the quick-add row created
+  the note. The editor autosaves and saving does not pop it, so back is the only
+  way out and the intended one: there is no save control to tap and nothing to
+  confirm.
 
 ## Recon before writing a flow — the probe trick
 

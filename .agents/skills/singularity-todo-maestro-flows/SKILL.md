@@ -240,26 +240,14 @@ step time, not at authoring time:
   there is no `content-desc` selector to fall back on. Select those with a regex
   over the same string, e.g. `text: ".* 1, 20[0-9][0-9]"` for the 1st of the
   month on screen — the year wildcard keeps the flow valid past the turn of the year.
-- **The task detail screen has no save button.** Edits autosave; `task_editor_save`
-  exists only on the create screen. A flow that expects it on the detail screen
-  fails with a confusing "not found".
 - **Pre-filled fields append.** `inputText` does not clear, so a field seeded
   with "Today" becomes "TodayFocus". `eraseText` first.
-- **Leaving a dirty draft raises a guard.** The shared top bar is tagged
-  `top_bar_back_button`; tapping it on a dirty editor opens a
-  "Discard changes?" dialog that must be confirmed with `text: "Discard"`.
-  System back does not pop the saved-view editor at all — use the top-bar arrow.
-- **Some saves do not navigate.** The saved-view editor emits a "Saved" snackbar
-  and stays open; the flow must leave explicitly.
-- **Quick-add destinations are not stable.** The notes quick-add lands on the
-  note's preview or straight in the editor, run to run. Tap the transition action
-  with `optional: true` and then wait on the destination you actually need.
-- **A feature can be modelled but unreachable.** Notes row actions (pin,
-  archive, delete, multi-select), the Calendar Today / prev / next /
-  mini-calendar controls, and the whole Sync configuration screen
-  (`SyncConfigScreen` + a complete `SyncViewModel`, composed by nothing) exist
-  with no control that dispatches them, and long-press on a note row does
-  nothing. Before writing a flow, check it is reachable.
+- **This list is syntax only.** What *the app itself* does — which editor
+  autosaves, what the system back key does on each screen, which screens are
+  reachable — is not here: it lives in the runbook's
+  [app behaviour facts](diagnosing-failures.md#app-behaviour-facts-flows-encode),
+  the single home for it. Read that one section before deciding between `back`
+  and a top-bar control, and add to it rather than to this list.
 - **Day cells in a calendar grid are `text:`-addressable** — the number is
   unique within one month, so a full-string match is unambiguous. The mode
   control is labelled with the current mode ("Day", "4 days", "Week", "Month")
@@ -276,11 +264,11 @@ step time, not at authoring time:
   UI state will flake on CI with 2 000 ms.
 - **Never sleep.** Use `extendedWaitUntil` with a bounded timeout. Cold start
   genuinely needs ~8s (Koin + Room + DataStore migrations + calendar sync).
-- **`hideKeyboard` is a commit, not a dismiss.** In this app it triggers the
-  editor's autosave-on-dismiss and closes the screen. Never place it before the
-  `task_editor_save` tap — it saves and navigates away, and the following step
-  fails on a screen that is already gone. Use it only when leaving an editor is
-  the intent, and assert on the destination.
+- **`hideKeyboard` is a commit, not a dismiss.** Never place it before the
+  `task_editor_save` tap — the following step fails on a screen that is already
+  gone. Use it only when leaving an editor is the intent, and assert on the
+  destination. Why it commits is app behaviour, kept in the runbook's
+  [app behaviour facts](diagnosing-failures.md#app-behaviour-facts-flows-encode).
 
 ## Test data: ASCII only
 
