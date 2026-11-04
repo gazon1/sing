@@ -1,11 +1,10 @@
 # Smoke: every bottom-bar tab is reachable, and each routes the FAB correctly.
 #
 # The FAB expectations encode the real contract from `FabActionResolver`:
-# Inbox/Today/Upcoming are `AgendaGraph` routes, but only Inbox and Today get
-# "Add task" — Upcoming deliberately has none. Plans gets "Add task" too: the
-# plan tab creates the work that is due, not a project.
-# Pomodoro is a non-agenda destination and gets nothing. The Calendar is not a
-# tab any more — it is an entry of the app menu, and it is checked there.
+# Inbox/Today/Upcoming are `AgendaGraph` routes, and all three get "Add task".
+# Plans gets "Add task" too: the plan tab creates the work that is due, not a
+# project. Pomodoro is a non-agenda destination and gets nothing. The Calendar is
+# not a tab any more — it is an entry of the app menu, and it is checked there.
 # Getting this wrong made this flow fail on Upcoming, so the assertions are
 # written to match the resolver rather than to match a guess.
 #
@@ -35,10 +34,10 @@ tags:
 - assertVisible:
     id: nav_tab_today
 
-# Upcoming — no FAB by design.
+# Upcoming — the FAB reads "Add task" as on Inbox and Today.
 - tapOn:
     id: nav_tab_upcoming
-- assertNotVisible:
+- assertVisible:
     id: tasks_fab
 - assertVisible:
     id: nav_tab_upcoming
