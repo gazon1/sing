@@ -34,9 +34,13 @@ interface SecureStoragePort {
     suspend fun delete(key: String)
 
     /**
-     * Returns `true` when secrets are stored in an OS credential store — Android
-     * Keystore, or the OS keyring a desktop host provides — and `false` when the
-     * derived-key fallback file is in use.
+     * Returns `true` when the platform offers an OS credential store to keep secrets in —
+     * Android Keystore, or the keyring a desktop host provides — and `false` when only the
+     * derived-key fallback file is available.
+     *
+     * It reports the backend, not where an individual secret went: nothing tracks the
+     * per-write outcome, so a keyring that refuses a write leaves that secret in the
+     * fallback file while this stays `true`.
      */
     fun isHardwareBacked(): Boolean
 }

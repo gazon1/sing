@@ -70,10 +70,10 @@ port. The authority on which binding is which is the seam registry
 `AttachmentStorage` is a **class** in `commonMain`, not an interface, so it is
 not a port — the row says `prose` and the gate leaves it alone.
 
-The mechanisms behind two of the rows: the JVM secure storage is `secret-tool`
-with AES-GCM, the Android one is `EncryptedSharedPreferences`; the JVM file
-opener is `java.awt.Desktop`, the Android one is `ACTION_VIEW` with a
-`FileProvider`. Those are prose — no gate checks them.
+The mechanisms behind two of the rows: the JVM secure storage is the java-keyring
+binding to the OS credential store with an AES-GCM file fallback, the Android one is
+`EncryptedSharedPreferences`; the JVM file opener is `java.awt.Desktop`, the Android
+one is `ACTION_VIEW` with a `FileProvider`. Those are prose — no gate checks them.
 
 `NotificationPort` is gone: the JVM half used `at(1)` and cancelled every `at`
 job on the host, jobs the user had queued outside the app. `Notifier` replaced

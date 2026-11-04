@@ -24,7 +24,7 @@ class JvmSecureStorageKeyringIntegrationTest {
     }
 
     @Test
-    fun `fallback round-trips a value through the real secret-tool`() =
+    fun `round-trips a value through the real keyring`() =
         runTest {
             storage =
                 object : JvmSecureStorage() {

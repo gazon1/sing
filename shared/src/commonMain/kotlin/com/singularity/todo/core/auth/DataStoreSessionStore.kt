@@ -31,7 +31,7 @@ import kotlin.uuid.Uuid
  * The other two writes — [getOrInitLocalOwnerId] and the local-session marker — are
  * **not** tokens and carry nothing secret. They are here for the same reason the device
  * id is: plain DataStore is where non-secret device state belongs, and the desktop
- * keychain pays a `secret-tool` subprocess per read to store something a preferences
+ * keychain pays a call to the OS credential store per read to store something a preferences
  * file holds just as well.
  *
  * Device ID is lazily initialized on first [getOrInitDeviceId] call by reading from DataStore.

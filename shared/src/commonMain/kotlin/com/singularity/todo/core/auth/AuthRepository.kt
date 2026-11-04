@@ -168,7 +168,7 @@ class SupabaseAuthRepository(
      * Where the local owner's id and the offline-mode marker live.
      *
      * Plain DataStore, not the credential store: neither value is a secret, and on the
-     * desktop every read through the keychain is a `secret-tool` subprocess.
+     * desktop every read through the keychain is a call into the OS credential store.
      */
     private val localOwnerStore: DataStoreSessionStore,
     private val scope: com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope,
