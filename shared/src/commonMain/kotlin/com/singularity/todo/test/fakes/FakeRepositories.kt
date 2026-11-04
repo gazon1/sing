@@ -125,9 +125,12 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -232,7 +235,11 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
     override val onboarding: OnboardingSettingsRepository =
         object : OnboardingSettingsRepository {
             private val seen = MutableStateFlow(0)
+            private val replayRequests =
+                MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
             override val seenSpotlightVersion: Flow<Int> = seen
+            override val spotlightReplayRequests: Flow<Unit> = replayRequests.asSharedFlow()
 
             override suspend fun markSpotlightSeen(version: Int) {
                 if (version > seen.value) seen.value = version
@@ -240,6 +247,7 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
 
             override suspend fun resetSpotlight() {
                 seen.value = 0
+                replayRequests.tryEmit(Unit)
             }
         }
 
