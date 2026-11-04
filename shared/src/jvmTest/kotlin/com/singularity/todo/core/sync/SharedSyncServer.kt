@@ -51,7 +51,16 @@ import kotlinx.serialization.json.JsonPrimitive
  *   operations that changed it, so the receiving device applies the merged
  *   state rather than replaying somebody else's diff. "The whole row" means
  *   every field the type has — null for the ones no patch ever wrote — not only
- *   the fields some patch happened to mention.
+ *   the fields some patch happened to mention. A device that pulls this feed
+ *   writes `data` as the row (see `PullEventHandler`): it is the row, not a
+ *   diff, so two devices that both pull converge on the same document.
+ * - **A write is a change, or it is not a write.** An operation whose clock wins
+ *   but whose effect on the document is nil — an `unset` of a field that was
+ *   never set, a `remove` of an element no list holds — leaves the row's version
+ *   and the field's clock exactly as they were, and the patch is answered with
+ *   `ok, lost` because the row kept what it had. Otherwise a patch that changed
+ *   nothing would move the version and put an event on the feed carrying a
+ *   document identical to the one already there.
  * - **A deletion that is part of the row.** A delete patch writes the server's
  *   own tombstone, the `deletedAt` document field, with the patch's clock. The
  *   deletion therefore takes part in the per-field comparison like any other
@@ -98,8 +107,13 @@ class SharedSyncServer {
     /** The event feed, one list per owner. The lsn counter is global. */
     private val events = mutableMapOf<String, MutableList<SyncEvent>>()
 
-    /** The answers already given, keyed by owner and patch id. */
-    private val answers = mutableMapOf<Pair<String, String>, PatchResult>()
+    /**
+     * The answers already given, keyed by owner, profile and patch id.
+     *
+     * Bounded: see [MAX_RETAINED_EVENTS] and [MAX_RETAINED_ANSWERS]. Insertion
+     * ordered so the oldest answer is the one evicted.
+     */
+    private val answers = LinkedHashMap<PatchKey, PatchResult>()
 
     private var lsn: Long = 0L
 
@@ -133,19 +147,27 @@ class SharedSyncServer {
 
     /**
      * Answers one patch, from the cache when the same patch id was already
-     * applied for this account.
+     * applied for this account, profile and entity.
      *
      * The cache is the server's idempotency table: a client that retries after
      * a timeout gets the original answer back instead of applying twice. A
      * refused patch is not remembered — the server refuses it again, and the
      * answer costs nothing to recompute.
+     *
+     * The key carries the profile because the row does: the same entity id in
+     * two profiles is two documents, so an answer given in one profile must not
+     * be replayed as the answer for the other — that would settle a patch
+     * against a row it never touched, silently. It carries the entity too, for
+     * the same reason one step further out: a patch id names one patch, and a
+     * patch names one entity.
      */
     private fun applyPatch(
         profileId: String,
         patch: DeltaPatch,
         account: String,
     ): PatchResult {
-        val cached = answers[account to patch.patchId]
+        val key = PatchKey(account, profileId, patch.entityType, patch.entityId, patch.patchId)
+        val cached = answers[key]
         if (cached != null) return cached.copy(cached = true)
         val answer =
             if (patch.isDelete) {
@@ -153,8 +175,27 @@ class SharedSyncServer {
             } else {
                 mergePatch(profileId, patch, account)
             }
-        if (answer.ok) answers[account to patch.patchId] = answer
+        if (answer.ok) remember(key, answer)
         return answer
+    }
+
+    /**
+     * Records one answer, evicting the oldest once [MAX_RETAINED_ANSWERS] are
+     * held.
+     *
+     * A remembered answer only matters for the retry window, so an answer older
+     * than the window is worthless; without the bound a fixture driven in a loop
+     * keeps one [PatchResult] per patch for the life of the JVM.
+     */
+    private fun remember(
+        key: PatchKey,
+        answer: PatchResult,
+    ) {
+        answers[key] = answer
+        while (answers.size > MAX_RETAINED_ANSWERS) {
+            val oldest = answers.keys.first()
+            answers.remove(oldest)
+        }
     }
 
     /**
@@ -184,7 +225,11 @@ class SharedSyncServer {
         val key = RowKey(account, profileId, patch.entityType, patch.entityId)
         val clock = patch.hlc
         val allowed = SyncContract.serverFieldsFor(patch.entityType)
-        val outsideTheAllowlist = patch.ops.any { it.field !in allowed }
+        // The tombstone is the server's own field: a merge patch may not write it,
+        // whatever a type's allowlist happens to list. A deletion is expressed as
+        // `isDelete`, and letting an ordinary `set` reach `deletedAt` would make a
+        // resurrection look like a field edit.
+        val outsideTheAllowlist = patch.ops.any { it.field !in allowed || it.field == DELETED_AT }
         if (clock == null || outsideTheAllowlist) {
             return PatchResult(
                 patchId = patch.patchId,
@@ -323,6 +368,15 @@ class SharedSyncServer {
                 protocolVersion = patch.protocolVersion,
                 profileId = profileId,
             )
+        // Retention, not loss: the oldest events go once the feed is longer than
+        // MAX_RETAINED_EVENTS, so a carrier test that pushes in a loop holds a
+        // bounded feed instead of every snapshot it ever emitted. A puller below
+        // the retained floor is answered with what is left, which is what a real
+        // server with a retention window does. Because an event carries the whole
+        // row rather than a diff, the retained tail is still enough to converge.
+        if (feed.size > MAX_RETAINED_EVENTS) {
+            feed.subList(0, feed.size - MAX_RETAINED_EVENTS).clear()
+        }
     }
 
     /**
@@ -338,11 +392,23 @@ class SharedSyncServer {
 
         /**
          * Writes one operation, when its clock beats the stored clock for that
-         * field, and lets the operation's kind decide what the document does.
+         * field **and** the operation changes the document.
          *
          * A field with no stored clock is written by any patch: there is nothing
          * to beat. A field whose stored clock is newer keeps both its value and
          * its clock, and the patch's answer says the field was lost.
+         *
+         * ## A clock that wins and changes nothing is not a write
+         *
+         * The clock moves only when the document moved. An operation that leaves
+         * the document exactly as it was — a `remove` of an element the list does
+         * not hold, an `unset` of a field that was never set, an `append` to a
+         * field the row holds as something other than a list — reports `false`,
+         * so it is not counted as applied: the patch changes nothing, the row's
+         * version does not move, and no event is emitted. Stamping the field's
+         * clock there would claim the field was written at a time nothing was
+         * written to it, and would give a patch that changed nothing a version of
+         * its own — the one thing the row's version must not do.
          */
         fun write(
             op: FieldChange,
@@ -350,12 +416,15 @@ class SharedSyncServer {
         ): Boolean {
             val stored = fieldVersions[op.field]
             if (stored != null && clock <= stored) return false
-            apply(op)
+            if (!apply(op)) return false
             fieldVersions[op.field] = clock
             return true
         }
 
         /**
+         * Applies the operation's kind to the document, and says whether the
+         * document changed.
+         *
          * `set` states the value, `unset` removes the key, `append` extends the
          * list already there and `remove` drops the named element — or empties
          * the list when it names none.
@@ -363,21 +432,50 @@ class SharedSyncServer {
          * An `unset` removes the key rather than storing a null: "this field is
          * clear" and "this field's value is null" are different claims about the
          * row, and the merge would take the second literally.
+         *
+         * Nothing here invents a value the patch did not state. An `append` with
+         * no value, and an `append` to a field held as a non-list, are no-ops
+         * rather than "the field becomes a list": replacing a scalar with a list
+         * the patch never named is a loss dressed up as a change.
          */
-        private fun apply(op: FieldChange) {
+        private fun apply(op: FieldChange): Boolean =
             when (op.op) {
-                FieldOp.SET -> doc[op.field] = op.value ?: JsonNull
-                FieldOp.UNSET -> doc.remove(op.field)
-                FieldOp.APPEND -> {
-                    val current = (doc[op.field] as? JsonArray)?.toList().orEmpty()
-                    doc[op.field] = JsonArray(op.value?.let { current + it } ?: current)
+                FieldOp.SET -> {
+                    val next = op.value ?: JsonNull
+                    if (doc[op.field] == next) {
+                        false
+                    } else {
+                        doc[op.field] = next
+                        true
+                    }
                 }
-                FieldOp.REMOVE -> {
-                    val current = (doc[op.field] as? JsonArray)?.toMutableList() ?: return
-                    if (op.value == null) current.clear() else current.removeAll { it == op.value }
-                    doc[op.field] = JsonArray(current)
-                }
+                FieldOp.UNSET -> doc.remove(op.field) != null
+                FieldOp.APPEND -> append(op)
+                FieldOp.REMOVE -> remove(op)
             }
+
+        /** `append` extends the list already there; it never turns a scalar into one. */
+        private fun append(op: FieldChange): Boolean {
+            val value = op.value ?: return false
+            val current = doc[op.field]
+            val list =
+                when (current) {
+                    null -> emptyList()
+                    is JsonArray -> current.toList()
+                    else -> return false
+                }
+            doc[op.field] = JsonArray(list + value)
+            return true
+        }
+
+        /** `remove` drops the named element, or empties the list when it names none. */
+        private fun remove(op: FieldChange): Boolean {
+            val current = doc[op.field] as? JsonArray ?: return false
+            val value = op.value
+            val kept = if (value == null) emptyList() else current.filterNot { it == value }
+            if (kept.size == current.size) return false
+            doc[op.field] = JsonArray(kept)
+            return true
         }
 
         /**
@@ -406,9 +504,36 @@ class SharedSyncServer {
         val entityId: String,
     )
 
+    /**
+     * The identity of an answer: the row's own dimensions plus the patch id.
+     *
+     * It is [RowKey] plus the patch id because an idempotency answer is an
+     * answer about a row. Keyed by account alone, the same patch id replayed in
+     * another profile of the same account would be answered from the cache and
+     * never applied to the row that profile names.
+     */
+    private data class PatchKey(
+        val account: String,
+        val profileId: String,
+        val entityType: DocType,
+        val entityId: String,
+        val patchId: String,
+    )
+
     private companion object {
         /** The document field the server expresses a deletion as. */
         const val DELETED_AT = "deletedAt"
+
+        /**
+         * How many events one account's feed keeps before the oldest are
+         * dropped. A fixture that is driven in a loop keeps its memory bounded;
+         * a puller below the floor is answered with what is retained, as it
+         * would be by a server with a retention window.
+         */
+        const val MAX_RETAINED_EVENTS = 4096
+
+        /** How many idempotency answers are remembered before the oldest go. */
+        const val MAX_RETAINED_ANSWERS = 4096
 
         /**
          * The node id the server's legacy path orders a clockless patch under.
