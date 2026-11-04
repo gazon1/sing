@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import com.singularity.todo.core.ui.TestTags
@@ -18,6 +19,7 @@ import com.singularity.todo.test.helpers.assertTagTextEquals
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
+import com.singularity.todo.test.helpers.clearTag
 import com.singularity.todo.test.helpers.clickContentDescription
 import com.singularity.todo.test.helpers.clickSheetClose
 import com.singularity.todo.test.helpers.clickTag
@@ -29,6 +31,7 @@ import com.singularity.todo.test.helpers.typeIntoTag
 import kotlinx.coroutines.flow.first
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 /**
  * Desktop mirror of `Maestro/flows/tasks/create-task.yaml`, covering the editor
@@ -85,6 +88,36 @@ class CreateTaskFlowTest {
             // missing row, which reads as a save-button bug rather than an input one.
             assertTagTextEquals(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
             assertTagEnabled(TestTags.TASK_EDITOR_SAVE)
+        }
+
+    /**
+     * The validation message belongs under the field, not in a snackbar.
+     *
+     * It used to be reachable only as a transient toast, gone before it can be
+     * read, and the empty title that produced it left the save button grey with
+     * nothing on screen saying why. The words now appear exactly once: a snackbar
+     * repeating them is the duplicate this pins out of existence.
+     */
+    @Test
+    fun clearing_the_title_shows_the_validation_message_under_the_field() =
+        runDesktopAppTest(checkA11y = true) {
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
+            typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
+            assertTagEnabled(TestTags.TASK_EDITOR_SAVE)
+
+            clearTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+
+            // The bridge is asynchronous — the ViewModel hears about the clear a
+            // beat after the keystroke — so wait for the message rather than
+            // reading the tree in the same frame.
+            awaitTag(TestTags.TASK_EDITOR_TITLE_ERROR)
+            assertTagTextEquals(TestTags.TASK_EDITOR_TITLE_ERROR, "Title is required")
+            assertTagNotEnabled(TestTags.TASK_EDITOR_SAVE)
+            assertEquals(
+                1,
+                onAllNodesWithText("Title is required").fetchSemanticsNodes().size,
+                "the message is under the field, not repeated in a snackbar",
+            )
         }
 
     @Test

@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 
 /**
@@ -49,11 +50,21 @@ fun TaskSaveBar(
                     .height(52.dp)
                     .testTag(TestTags.TASK_EDITOR_SAVE),
         ) {
-            Text(
-                text = "Сохранить",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
+            if (isLoading) {
+                // The label gives way to the spinner: a button that says
+                // "Сохранить" while it is busy says the save has not started.
+                // The caller keeps `enabled` false while saving, so the spinner
+                // cannot be tapped into a second save.
+                ButtonSpinner(
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_SAVING),
+                )
+            } else {
+                Text(
+                    text = "Сохранить",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
     }
 }

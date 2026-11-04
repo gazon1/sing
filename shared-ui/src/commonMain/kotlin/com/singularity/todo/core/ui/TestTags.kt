@@ -224,7 +224,21 @@ object TestTags {
 
     // ─── Task Editor ─────────────────────────────────────────────────────────
     const val TASK_EDITOR_TITLE_INPUT = "task_editor_title_input"
+
+    /**
+     * The validation message drawn under the title field.
+     *
+     * A tag rather than a text match: the same words appear in a snackbar when
+     * something fails to persist, and a flow that asserted on the words alone
+     * could not tell "the field is telling me what is missing" from "a toast
+     * just went past".
+     */
+    const val TASK_EDITOR_TITLE_ERROR = "task_editor_title_error"
+
     const val TASK_EDITOR_SAVE = "task_editor_save"
+
+    /** The in-button spinner the save bar shows while a save is in flight. */
+    const val TASK_EDITOR_SAVING = "task_editor_saving"
     const val TASK_EDITOR_MORE_MENU = "task_editor_more_menu"
     const val TASK_EDITOR_AI_BUTTON = "task_editor_ai_button"
 

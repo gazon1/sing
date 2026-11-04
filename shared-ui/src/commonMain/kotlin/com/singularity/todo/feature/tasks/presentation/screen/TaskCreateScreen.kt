@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.screen
 
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,6 +32,7 @@ import com.singularity.todo.feature.tasks.domain.state.DraftChecklistItem
 import com.singularity.todo.feature.tasks.domain.state.DueDateOption
 import com.singularity.todo.feature.tasks.domain.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
+import com.singularity.todo.feature.tasks.domain.state.TaskTitleValidation
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -80,8 +82,20 @@ fun TaskCreateScreen(
         }
     }
 
-    LaunchedEffect(state.error) {
-        state.error?.let { snackbarHostState.showSnackbar(it) }
+    // The title's validation message is drawn under the field, not shown as a
+    // snackbar: a toast is gone before it can be read, and this is the one
+    // message a person needs while they are typing.
+    //
+    // The rule is the ViewModel's — the same `validate` that disables the save
+    // button produced `state.error` — so the screen asks for the rule's answer
+    // instead of keeping a second copy of the wording. An error while the draft
+    // is valid cannot be a validation failure: `save()` validates before it
+    // persists, so it is a persistence failure and belongs in the snackbar.
+    val validationError = TaskTitleValidation.error(state.draft.title.text)
+    val titleError = state.error.takeIf { validationError != null }
+    LaunchedEffect(state.error, validationError) {
+        val error = state.error ?: return@LaunchedEffect
+        if (error != validationError) snackbarHostState.showSnackbar(error)
     }
 
     val guardedBack: () -> Unit = {
@@ -233,6 +247,12 @@ fun TaskCreateScreen(
         titleSource = state.draft.titleSource,
         descriptionSource = state.draft.descriptionSource,
         now = now,
+        // What the title row draws under the field, and the host that shows
+        // everything else. This screen is the whole of what the editor renders,
+        // so it owns the snackbar host: a persistence failure with no host was a
+        // failure nobody saw.
+        titleError = titleError,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         // The state the rows open their sheets through. The editor renders the sheets
         // from the same state, so the row that opens one and the host that shows it are
         // looking at one thing.

@@ -18,6 +18,7 @@ import com.singularity.todo.feature.tasks.domain.state.DueDateOption
 import com.singularity.todo.feature.tasks.domain.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskCreateUiEvent
 import com.singularity.todo.feature.tasks.domain.state.TaskDraft
+import com.singularity.todo.feature.tasks.domain.state.TaskTitleValidation
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
@@ -94,7 +95,7 @@ class TaskCreateViewModel(
                     ?: DueDateOption.None,
         )
 
-    override fun validate(draft: TaskDraft): String? = if (draft.title.text.isBlank()) "Title is required" else null
+    override fun validate(draft: TaskDraft): String? = TaskTitleValidation.error(draft.title.text)
 
     override suspend fun persist(draft: TaskDraft): Either<AppError, Unit> =
         when (val result = deps.createFromDraft(draft)) {

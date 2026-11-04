@@ -122,6 +122,7 @@ import kotlin.time.Instant
 private fun TaskEditorContent(
     taskId: String,
     titleState: TextFieldState,
+    titleError: String? = null,
     isCompleted: Boolean,
     onCheckToggle: (() -> Unit)?,
     descriptionState: TextFieldState,
@@ -162,6 +163,11 @@ private fun TaskEditorContent(
     menuItems: ImmutableList<TaskEditorMenuItem>,
     onBack: () -> Unit,
     onAiClick: (() -> Unit)? = null,
+    // Null means "this editor hosts no snackbar of its own" — the detail screen
+    // wraps the editor in a Scaffold that already carries one, and two hosts
+    // would race for the same message. The create screen has no other host, so
+    // a failure there had nowhere to go at all.
+    snackbarHost: (@Composable () -> Unit)? = null,
     sheets: DialogState<TaskEditorSheet>,
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -175,6 +181,7 @@ private fun TaskEditorContent(
             )
         },
         bottomBar = bottomBar ?: {},
+        snackbarHost = { snackbarHost?.invoke() },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
@@ -192,6 +199,7 @@ private fun TaskEditorContent(
                 titleState = titleState,
                 isCompleted = isCompleted,
                 onCheckToggle = onCheckToggle,
+                titleError = titleError,
             )
 
             // Description
@@ -463,6 +471,11 @@ private fun StartDateRow(
  *   open a sheet through this state, so the caller owns it and hands it over — there is no
  *   default, because a default is a second state, and two states are two states that will
  *   not agree.
+ * @param titleError the message drawn under the title field when the title cannot be saved,
+ *   or `null` when there is nothing to say. The caller decides it: the rule that produced it
+ *   belongs to the editor's owner, and the row only draws what it is handed.
+ * @param snackbarHost where transient failures land. `null` for an editor that sits inside a
+ *   surface which already hosts a snackbar — two hosts would race for the same message.
  */
 @Composable
 fun TaskEditorContent(
@@ -476,6 +489,8 @@ fun TaskEditorContent(
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
     showAttachmentsRow: Boolean = true,
+    titleError: String? = null,
+    snackbarHost: (@Composable () -> Unit)? = null,
 ) {
     TaskEditorScaffold(
         model = model,
@@ -486,6 +501,8 @@ fun TaskEditorContent(
         now = now,
         sheets = sheets,
         showAttachmentsRow = showAttachmentsRow,
+        titleError = titleError,
+        snackbarHost = snackbarHost,
     )
 }
 
@@ -506,6 +523,11 @@ fun TaskEditorContent(
  *   open a sheet through this state, so the caller owns it and hands it over — there is no
  *   default, because a default is a second state, and two states are two states that will
  *   not agree.
+ * @param titleError the message drawn under the title field when the title cannot be saved,
+ *   or `null` when there is nothing to say. The caller decides it: the rule that produced it
+ *   belongs to the editor's owner, and the row only draws what it is handed.
+ * @param snackbarHost where transient failures land. `null` for an editor that sits inside a
+ *   surface which already hosts a snackbar — two hosts would race for the same message.
  */
 @Composable
 fun TaskCreateEditorContent(
@@ -517,6 +539,8 @@ fun TaskCreateEditorContent(
     callbacks: TaskEditorCallbacks,
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
+    titleError: String? = null,
+    snackbarHost: (@Composable () -> Unit)? = null,
 ) {
     TaskEditorScaffold(
         model = model,
@@ -526,6 +550,8 @@ fun TaskCreateEditorContent(
         isCompleted = false,
         now = now,
         sheets = sheets,
+        titleError = titleError,
+        snackbarHost = snackbarHost,
     )
 }
 
@@ -556,10 +582,13 @@ private fun TaskEditorScaffold(
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
     showAttachmentsRow: Boolean = true,
+    titleError: String? = null,
+    snackbarHost: (@Composable () -> Unit)? = null,
 ) {
     TaskEditorContent(
         taskId = model.taskId?.value ?: "",
         titleState = titleState,
+        titleError = titleError,
         isCompleted = isCompleted,
         onCheckToggle = callbacks.onCheckToggle,
         descriptionState = descriptionState,
@@ -600,6 +629,7 @@ private fun TaskEditorScaffold(
         menuItems = callbacks.menuItems,
         onBack = callbacks.onBack,
         onAiClick = callbacks.onAiClick,
+        snackbarHost = snackbarHost,
         sheets = sheets,
     )
 
