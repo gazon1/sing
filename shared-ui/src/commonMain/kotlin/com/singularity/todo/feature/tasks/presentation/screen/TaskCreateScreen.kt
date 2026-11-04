@@ -3,10 +3,10 @@ package com.singularity.todo.feature.tasks.presentation.screen
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.CollectEvents
@@ -31,12 +31,14 @@ import com.singularity.todo.feature.tasks.domain.state.DraftAttachment
 import com.singularity.todo.feature.tasks.domain.state.DraftChecklistItem
 import com.singularity.todo.feature.tasks.domain.state.DueDateOption
 import com.singularity.todo.feature.tasks.domain.state.TaskCreateIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskCreateUiEvent
 import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.domain.state.TaskTitleValidation
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -75,56 +77,26 @@ fun TaskCreateScreen(
     var isNavigatingBack by remember { mutableStateOf(false) }
     val sheets = rememberDialogState<TaskEditorSheet>()
 
+    val snackbarScope = rememberCoroutineScope()
     CollectEvents(vm.events) { event ->
-        if (event is com.singularity.todo.feature.tasks.domain.state.TaskCreateUiEvent.Saved) {
-            isNavigatingBack = true
-            navigator.back()
+        when (event) {
+            is TaskCreateUiEvent.Saved -> {
+                isNavigatingBack = true
+                navigator.back()
+            }
+            // Persistence failures arrive typed. A refusal by the title rule never
+            // reaches the event bus, so the message under the field is not repeated.
+            is TaskCreateUiEvent.Error ->
+                snackbarScope.launch { snackbarHostState.showSnackbar(event.message) }
         }
     }
 
-    // The title's validation message is drawn under the field, not shown as a
-    // snackbar: a toast is gone before it can be read, and this is the one
-    // message a person needs while they are typing.
-    //
-    // Two questions, two sources, and both are the ViewModel's:
-    //
-    // *Which* message — always `validationError`, the answer of the one rule that
-    // disables the save button (`TaskTitleValidation`), never whatever string
-    // happens to sit in the error slot. Those are not the same string: with a
-    // blank title, setting a repeat rule and then picking several dates writes
-    // "Повтор отменён: выбрано несколько дат" into the slot, because that is the
-    // news about the dates. Drawing it here — in error colour, under the title —
-    // would point at the wrong control, and would do it while the snackbar said
-    // the same sentence.
-    //
-    // *Whether* any — whenever the rule says the title cannot be saved, from the
-    // first frame, with no "has the draft been edited?" gate on top. The gate
-    // this used to have (`state.error != null`, non-null only after an edit)
-    // left exactly the screen the report is about: a fresh create screen with a
-    // blank title drew a grey, disabled "Сохранить" and nothing else, so the one
-    // thing the person needed to be told was the one thing not on screen. A
-    // blank title is not an opinion about an edit in progress; it is a title
-    // that cannot be saved, and the field says so for as long as that is true.
-    // The message does not flicker on the first keystroke either — the rule is
-    // re-asked of the draft on every change, so it stays until the title is not
-    // blank and goes the moment it is not.
-    //
-    // And the save button is pressable with a blank title (`isEnabled` below):
-    // the batched brief's first acceptance criterion is about a save *attempt*
-    // with an empty title, and an attempt needs a button that accepts the press.
-    // The attempt runs the same rule, writes the same string into the error
-    // slot, and the snackbar below suppresses it because it is already under the
-    // field — so pressing Save on a blank title says the same thing twice in
-    // neither place. Disabling the button instead would have made the criterion
-    // untestable and the grey button unexplained.
-    val validationError = TaskTitleValidation.error(state.draft.title.text)
-    val titleError = validationError
-    LaunchedEffect(state.error, validationError) {
-        val error = state.error ?: return@LaunchedEffect
-        // A validation failure is already under the field, where it can be read
-        // while typing; the snackbar is for what the field cannot say.
-        if (error != validationError) snackbarHostState.showSnackbar(error)
-    }
+    // The title's message is drawn under the field, from the one rule that also
+    // disables the save button — not from whatever string sits in the error slot,
+    // which can be the news about the dates. It is shown whenever the rule refuses
+    // the draft, not only after an edit: a fresh create screen with a blank title
+    // has nothing else to say about why "Сохранить" will not go through.
+    val titleError = TaskTitleValidation.error(state.draft.title.text)
 
     val guardedBack: () -> Unit = {
         when {

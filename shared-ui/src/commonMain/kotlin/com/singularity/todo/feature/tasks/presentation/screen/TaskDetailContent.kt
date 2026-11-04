@@ -330,23 +330,9 @@ fun TaskDetailContent(
                                     attachments = remember(attachments) { attachments.toImmutableList() },
                                 ),
                             titleSource = ui.titleSource,
-                            // The message appears once the person has changed the
-                            // title — not on a task that merely arrived with a
-                            // blank one. `TaskCreateViewModel` can be made to
-                            // accept a blank title by a create path that does not
-                            // validate, and a stored blank is not an edit in
-                            // progress: opening such a task would otherwise paint
-                            // a red "Title is required" before anybody touched
-                            // anything, which is the create editor's rule broken
-                            // in the other mode (it draws nothing until the draft
-                            // has been edited). Comparing against the title the
-                            // task was opened with is the same "has this been
-                            // edited" question, answered from state that already
-                            // exists rather than from a second copy of the title.
-                            // Clearing the field to retype does show it, and that
-                            // is deliberate: while the field is empty the title
-                            // cannot be saved, and the create editor says the same
-                            // thing at the same moment.
+                            // Nothing under the field until the title has been edited: a
+                            // task that merely arrived with a blank one is not an edit in
+                            // progress, and opening it must not paint a red message.
                             titleError =
                                 TaskTitleValidation.error(ui.titleDraft.value)
                                     .takeIf { ui.titleDraft.value != ui.task.title },

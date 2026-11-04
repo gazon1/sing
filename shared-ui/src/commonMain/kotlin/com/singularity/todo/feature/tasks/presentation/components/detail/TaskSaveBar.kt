@@ -1,8 +1,10 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -50,42 +52,20 @@ fun TaskSaveBar(
                     .height(52.dp)
                     .testTag(TestTags.TASK_EDITOR_SAVE),
         ) {
+            // A save in flight keeps the label and puts the spinner before it: the
+            // button never loses its name, and the label is what a screen reader
+            // announces. `enabled` is false while saving, so the spinner cannot be
+            // tapped into a second save. TASK_EDITOR_SAVING is in the tree exactly
+            // while a save runs, which is what a test can wait on.
             if (isLoading) {
-                // `isLoading` is the caller's `isSaving`: TaskCreateScreen passes
-                // `isLoading = state.isSaving` here, so this branch is what a save
-                // in flight looks like on screen. The parameter was declared and
-                // ignored before — the caller handed over the flag and the button
-                // said "Сохранить" for the whole save, which reads as "nothing
-                // happened" on a save that is merely slow. TASK_EDITOR_SAVING is
-                // therefore in the tree exactly while a save is running, which is
-                // what a test can wait on.
-                //
-                // The label gives way to the spinner: a button that says
-                // "Сохранить" while it is busy says the save has not started.
-                // The caller keeps `enabled` false while a save is in flight, so
-                // the spinner cannot be tapped into a second save.
-                //
-                // The spinner carries its own `contentDescription`. It replaces
-                // the Button's only `Text`, and a Button whose children say
-                // nothing is announced by TalkBack as an unlabelled button for
-                // the length of every save — the moment a person most needs to
-                // be told that something is happening. The label is not kept
-                // beside it because the bar is 52dp and the two together do not
-                // fit at the largest font scale; the description says the same
-                // words to the only reader that needs them.
-                ButtonSpinner(
-                    modifier =
-                        Modifier
-                            .testTag(TestTags.TASK_EDITOR_SAVING)
-                            .semantics { contentDescription = "Сохранение" },
-                )
-            } else {
-                Text(
-                    text = "Сохранить",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
+                ButtonSpinner(modifier = Modifier.testTag(TestTags.TASK_EDITOR_SAVING))
+                Spacer(modifier = Modifier.width(8.dp))
             }
+            Text(
+                text = "Сохранить",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
         }
     }
 }

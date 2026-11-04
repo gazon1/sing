@@ -58,14 +58,9 @@ fun TaskTitleRow(
     modifier: Modifier = Modifier,
     titleError: String? = null,
 ) {
-    // The caller's modifier is the whole block's, not the row's. It has to be:
-    // the message is part of the title, so a caller's padding or width has to
-    // cover the row and the line under it, or the message hangs outside the
-    // column the caller laid out. Every caller in the tree passes no modifier
-    // at all (TaskEditorContent, and the two previews below), so nothing that
-    // positioned or constrained the bare Row changes meaning here — and nothing
-    // depended on the Row being the modified node, which is what the move would
-    // have broken.
+    // The caller's modifier is the whole block's: the message is part of the title,
+    // so the caller's padding or width has to cover the row and the line under it.
+    // No call site passes a modifier today (TaskEditorContent, and the previews below).
     Column(modifier = modifier) {
         TitleFieldRow(
             taskId = taskId,
