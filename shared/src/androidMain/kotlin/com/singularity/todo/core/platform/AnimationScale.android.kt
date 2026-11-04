@@ -39,6 +39,16 @@ actual fun systemAnimationDurationScale(): Float = animationDurationScaleFor(Val
  * that the developer option and the accessibility toggle both write — rather than
  * a per-frame poll. A poll would re-read a global every frame to learn something
  * that changes a handful of times in a device's life.
+ *
+ * ## One observer per call site, and why that is the shape for now
+ *
+ * Each composition that calls this installs its own [ContentObserver] and its own
+ * main-looper [Handler], because the value is returned rather than hoisted. That is
+ * correct — every reader gets the live answer and unregisters on dispose — but the fact
+ * being observed is process-wide, so the cheaper shape as call sites multiply is one
+ * observer at the shell feeding a single provided local. The count of directional
+ * consumers is currently the sync buttons in the top bars; when it grows past that, hoist
+ * the observer instead of adding another one.
  */
 @Composable
 actual fun rememberSystemAnimationDurationScale(): Float {

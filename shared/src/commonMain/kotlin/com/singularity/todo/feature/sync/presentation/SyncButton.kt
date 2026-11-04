@@ -46,6 +46,15 @@ import com.singularity.todo.core.ui.animationsEnabled
  * moves, because a spinner that rotates forever is the one thing a user who has
  * turned animations off does not want to watch.
  *
+ * ## What a reduced-motion user gives up
+ *
+ * The still icon is the whole progress signal for them: the enabled state and the
+ * "Syncing…" description are the only things that distinguish a sync that is running
+ * from one that has hung. That is the behaviour the requirement asks for, but it is not
+ * parity — a rotating spinner says "alive" without being read. A non-motion progress cue
+ * (an indeterminate bar, a last-synced timestamp) is a follow-up, not a regression this
+ * change introduced, and it is deliberately not invented here.
+ *
  * Tapping triggers [SyncIntent.SyncNow].
  */
 @Composable

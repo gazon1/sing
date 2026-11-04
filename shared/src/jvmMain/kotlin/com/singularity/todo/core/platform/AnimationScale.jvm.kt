@@ -19,6 +19,13 @@ import androidx.compose.runtime.remember
  * desktop's own accessibility switch governs what it governs" — a claim about a switch
  * this code never read. It does not any more.
  *
+ * ## What that means for #1669's acceptance
+ *
+ * #1669's clause "read the OS animation scale and stop the sync spinner when animations
+ * are off" is met on **Android only**. On desktop nothing reads the OS, and the switch
+ * honoured is the process knob below, which a user does not have. Do not read this file
+ * as evidence that the requirement holds on every platform; it is why #2175 is open.
+ *
  * ## The knob that does exist
  *
  * The answer can be forced off for a whole process, which is also how a repackaging
