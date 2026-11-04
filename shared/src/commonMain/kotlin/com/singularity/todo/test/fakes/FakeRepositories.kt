@@ -128,6 +128,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
@@ -950,6 +951,26 @@ open class FakeTaskRepository(
     var setDependenciesOverride: Result<Unit>? = null
 
     /**
+     * The failure the next subscription to [observeByFilter] fails with.
+     *
+     * Consumed by the subscription it breaks, so the retry after it can succeed:
+     * a failure that broke every subscription would prove nothing about the retry,
+     * only about the failure.
+     *
+     * Null by default, so an existing test changes nothing.
+     */
+    var nextObserveFilterFailure: Throwable? = null
+
+    /**
+     * How many times [observeByFilter] was asked for a list.
+     *
+     * A retry that re-observes shows up here as a second call; a retry that only
+     * re-reads what the repository already holds does not.
+     */
+    var observeByFilterCalls: Int = 0
+        private set
+
+    /**
      * Observers for `softDelete` / `restore`, for tests that must distinguish
      * "the write was never attempted" from "the write ran and was a no-op".
      *
@@ -1151,33 +1172,43 @@ open class FakeTaskRepository(
 
     // ── Domain-specific user-scoped observers ────────────────────────────────────
 
-    override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> =
-        currentUser.observeForCurrentUser { uid ->
-            store.state
-                .onStart { emit(store.state.value) }
-                .map { map ->
-                    map.values
-                        .filter { it.userId == uid }
-                        .filter {
-                            TaskDomain.matchesFilter(
-                                it,
-                                filter,
-                                kotlin.time.Instant
-                                    .fromEpochMilliseconds(
-                                        clock
-                                            .now()
-                                            .toEpochMilliseconds(),
-                                    ).toLocalDateTime(timeZone.current())
-                                    .date,
+    override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> {
+        observeByFilterCalls++
+        // The failure is taken when the list is asked for, not when it is collected:
+        // the caller asks for a list per attempt, so the failure belongs to the ask.
+        val failure = nextObserveFilterFailure
+        nextObserveFilterFailure = null
+        return currentUser.observeForCurrentUser { uid ->
+            if (failure != null) {
+                flow<List<Task>> { throw failure }
+            } else {
+                store.state
+                    .onStart { emit(store.state.value) }
+                    .map { map ->
+                        map.values
+                            .filter { it.userId == uid }
+                            .filter {
+                                TaskDomain.matchesFilter(
+                                    it,
+                                    filter,
+                                    kotlin.time.Instant
+                                        .fromEpochMilliseconds(
+                                            clock
+                                                .now()
+                                                .toEpochMilliseconds(),
+                                        ).toLocalDateTime(timeZone.current())
+                                        .date,
+                                )
+                            }.sortedWith(
+                                compareBy({
+                                    it.dueDate?.toString()
+                                        ?: "\uFFFF"
+                                }, { !it.isPinned }),
                             )
-                        }.sortedWith(
-                            compareBy({
-                                it.dueDate?.toString()
-                                    ?: "\uFFFF"
-                            }, { !it.isPinned }),
-                        )
-                }
+                    }
+            }
         }
+    }
 
     override fun observeByDate(date: kotlinx.datetime.LocalDate): Flow<List<Task>> =
         currentUser.observeForCurrentUser { uid ->
@@ -2210,40 +2241,64 @@ class FakeProjectsRepository(
 
     // ─── Domain methods ─────────────────────────────────────────────────────
 
-    override fun observeProjectsWithCounts(): Flow<List<ProjectWithCountRow>> =
-        currentUser.observeForCurrentUser { uid ->
-            store.state.map { list ->
-                list.values
-                    .filter { it.userId == uid && !it.isDeleted && it.closedAt == null }
-                    .map { p ->
-                        ProjectWithCountRow(
-                            project =
-                                ProjectEntity(
-                                    id = p.id.value,
-                                    userId = p.userId.value,
-                                    name = p.name,
-                                    color = p.color,
-                                    icon = p.icon,
-                                    description = p.description,
-                                    createdAt = p.createdAt.toEpochMilliseconds(),
-                                    updatedAt = p.updatedAt.toEpochMilliseconds(),
-                                    isDefault = p.isDefault,
-                                    dueDate = p.dueDate?.toString(),
-                                    team = p.team,
-                                    isDeleted = p.isDeleted,
-                                    deletedAt = p.deletedAt?.toEpochMilliseconds(),
-                                    parentId = p.parentId?.value,
-                                    sortOrder = p.sortOrder,
-                                    idempotencyKey = p.idempotencyKey,
-                                    externalId = p.externalId,
-                                    sync = SyncColumns(),
-                                ),
-                            totalCount = 0,
-                            completedCount = 0,
-                        )
-                    }
+    /**
+     * The failure the next subscription to [observeProjectsWithCounts] fails with.
+     *
+     * Consumed by the subscription it breaks, so the retry after it can succeed.
+     * Null by default, so an existing test changes nothing.
+     */
+    var nextObserveCountsFailure: Throwable? = null
+
+    /**
+     * How many times [observeProjectsWithCounts] was asked for the list.
+     *
+     * A retry that re-observes shows up here as a second call.
+     */
+    var observeProjectsWithCountsCalls: Int = 0
+        private set
+
+    override fun observeProjectsWithCounts(): Flow<List<ProjectWithCountRow>> {
+        observeProjectsWithCountsCalls++
+        val failure = nextObserveCountsFailure
+        nextObserveCountsFailure = null
+        return currentUser.observeForCurrentUser { uid ->
+            if (failure != null) {
+                flow<List<ProjectWithCountRow>> { throw failure }
+            } else {
+                store.state.map { list ->
+                    list.values
+                        .filter { it.userId == uid && !it.isDeleted && it.closedAt == null }
+                        .map { p ->
+                            ProjectWithCountRow(
+                                project =
+                                    ProjectEntity(
+                                        id = p.id.value,
+                                        userId = p.userId.value,
+                                        name = p.name,
+                                        color = p.color,
+                                        icon = p.icon,
+                                        description = p.description,
+                                        createdAt = p.createdAt.toEpochMilliseconds(),
+                                        updatedAt = p.updatedAt.toEpochMilliseconds(),
+                                        isDefault = p.isDefault,
+                                        dueDate = p.dueDate?.toString(),
+                                        team = p.team,
+                                        isDeleted = p.isDeleted,
+                                        deletedAt = p.deletedAt?.toEpochMilliseconds(),
+                                        parentId = p.parentId?.value,
+                                        sortOrder = p.sortOrder,
+                                        idempotencyKey = p.idempotencyKey,
+                                        externalId = p.externalId,
+                                        sync = SyncColumns(),
+                                    ),
+                                totalCount = 0,
+                                completedCount = 0,
+                            )
+                        }
+                }
             }
         }
+    }
 
     /** The closed projects, most recently closed first — the mirror of the project list. */
     override fun observeClosed(): Flow<List<Project>> =
