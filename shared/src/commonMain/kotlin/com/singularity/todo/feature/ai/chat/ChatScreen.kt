@@ -236,19 +236,31 @@ private fun ChatMessagesList(
 /**
  * Keeps the end of the conversation in view as a reply streams in.
  *
- * The reply arrives one token at a time, so the list is asked to move on every token. Three
- * things keep that from being a stream of jumps:
+ * The reply arrives one token at a time, so the end of the conversation moves on every token.
+ * Three things keep that from being a stream of jumps:
  *
- * - **Only when the tail is out of view.** A tail that is already on screen is where the
- *   reader is looking; re-aligning it per token is the stutter, not the cure.
- * - **Animated.** When there is something to move to, it slides instead of jumping.
+ * - **Only when the end is out of view.** The list is asked to move only when its own
+ *   `canScrollForward` says something is below the fold. Content that has grown *inside* the
+ *   viewport is already where the reader is looking, and the item the reader follows is the
+ *   last message rather than whatever trails it — the thinking indicator is a one-line
+ *   decoration, and asking whether *it* is visible says nothing about whether the newest token
+ *   is.
+ * - **One slide at a time.** The move is an animation, so the effect that runs it must outlive
+ *   the token that asked for it. A `LaunchedEffect` keyed on the tail's length is disposed by
+ *   the next token, which cancels the animation in flight and starts another from a standstill:
+ *   a chase that never lands, and one whose `movedOnce` bookkeeping is only ever reached by
+ *   luck, because a cancelled run never gets past the `finally`. The requests go through a
+ *   conflated channel into one long-lived mover instead, which serves them one after another
+ *   and measures the end of the conversation when it starts a move rather than when the request
+ *   was queued. A token that arrives mid-slide therefore retargets the next move rather than
+ *   killing this one.
  * - **Only while the reader is at the end.** Somebody who scrolled up to re-read an earlier
  *   answer is left where they are — a new token is not an argument for moving them — and the
- *   tail is picked up again when they scroll back down, or when they send a message of their
+ *   end is picked up again when they scroll back down, or when they send a message of their
  *   own, which is a request to see it.
  *
- * The first move is a jump rather than an animation: a conversation restored from the store
- * can be twenty messages long, and animating through all of them is a fairground ride.
+ * The first move is a jump rather than an animation: a conversation restored from the store can
+ * be twenty messages long, and animating through all of them is a fairground ride.
  */
 @Composable
 private fun FollowConversationEnd(
@@ -256,34 +268,101 @@ private fun FollowConversationEnd(
     messages: ImmutableList<ChatMessage>,
     isLoading: Boolean,
 ) {
-    val tail = messages.lastOrNull()
-    // Whether the reader is at the end of the conversation. Only a scroll the reader drove
-    // changes it: content growing makes the list scrollable without the reader having moved,
-    // and the scroll below must not read as the reader scrolling away.
-    var following by remember { mutableStateOf(true) }
-    var autoScrolling by remember { mutableStateOf(false) }
+    // Whether the reader is with the end of the conversation.
+    var following by remember(listState) { mutableStateOf(true) }
+
+    // Whether the motion in progress is this follower's rather than the reader's. Every move
+    // sets it before the list can report a scroll of its own and clears it only after the move
+    // has landed: the list sets and clears `isScrollInProgress` strictly between those two
+    // writes, and the two converge — one scroll at a time — so "a scroll is in progress and it
+    // is not ours" can only mean the reader, whatever order the two coroutines resume in. It is
+    // not the reader's turn to be moved; it is the *list's* answer that decides, which is why
+    // this is a registration around a move rather than a second guess at `canScrollForward`.
+    // A reader who takes the wheel cancels the move (a drag outranks it) and clears the flag
+    // while their own scroll runs, so the observation reads their position — the one that
+    // matters.
+    var moving by remember(listState) { mutableStateOf(false) }
+
+    // "The end of the conversation moved." Conflated on purpose: two tokens in one frame are one
+    // move, and the move that runs reads the newest end for itself.
+    val moves = remember(listState) { Channel<Unit>(Channel.CONFLATED) }
+
+    // How many questions the reader has typed, so that a new one can be told from every other
+    // change to the conversation.
+    var questions by remember(listState) { mutableIntStateOf(0) }
+
     LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress to listState.canScrollForward }
             .collect { (scrolling, canScrollForward) ->
-                if (scrolling && !autoScrolling) following = !canScrollForward
+                if (scrolling && !moving) following = !canScrollForward
             }
     }
 
-    // While a turn runs, the thinking indicator is the trailing item and the reply is not.
-    val tailIndex = messages.size - 1 + if (isLoading) 1 else 0
-    var movedOnce by remember { mutableStateOf(false) }
-    LaunchedEffect(messages.size, tail?.content?.length ?: 0, isLoading) {
-        if (tail?.role == ChatRole.User) following = true
-        if (messages.isEmpty() || !following) return@LaunchedEffect
-        // The tail is on screen: there is nothing below the fold to move to.
-        if (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index == tailIndex) return@LaunchedEffect
-        autoScrolling = true
-        try {
-            if (movedOnce) listState.animateScrollToItem(tailIndex) else listState.scrollToItem(tailIndex)
-        } finally {
-            autoScrolling = false
+    // A token, a new message, or the end of a turn: the end of the conversation may have moved.
+    val tailLength = messages.lastOrNull()?.content?.length ?: 0
+    LaunchedEffect(messages.size, tailLength, isLoading) {
+        // A question of the reader's own is a request to see the answer to it — they are not
+        // re-reading an older answer, they are waiting for a new one. It cannot be recognised by
+        // the tail's role: `ChatViewModel.turn` appends the question *and* an empty message for
+        // the answer in one state change, so the tail is already the assistant's placeholder by
+        // the time anything here can look at it. The questions are counted instead.
+        val asked = messages.count { it.role == ChatRole.User }
+        if (asked > questions) following = true
+        questions = asked
+        if (messages.isNotEmpty()) moves.trySend(Unit)
+    }
+
+    // One mover, for the life of the list. Nothing here is keyed on a token, so a slide that is
+    // running is never disposed by the next one: the token's request waits in the channel and is
+    // served when the slide lands.
+    LaunchedEffect(listState) {
+        var slid = false
+        moves.receiveAsFlow().collect {
+            if (!following || !listState.canScrollForward) return@collect
+            moving = true
+            try {
+                listState.slideToContentEnd(animate = slid)
+            } finally {
+                moving = false
+            }
+            slid = true
         }
-        movedOnce = true
+    }
+}
+
+/**
+ * Puts the end of the content at the bottom of the viewport, sliding or jumping.
+ *
+ * Not `animateScrollToItem(lastIndex)`, which aligns the last item's *start* with the top of the
+ * viewport: for the one item this screen follows — the answer being written, once it is taller
+ * than the viewport — that puts the first line on screen and every line after it, including the
+ * token that has just arrived, below the fold, with nowhere left to scroll. The end of the
+ * content is the position with nothing below the viewport.
+ */
+@Suppress("NoSwallowedCancellation", "SwallowedException") // the only cancellation swallowed is the reader's
+private suspend fun LazyListState.slideToContentEnd(animate: Boolean) {
+    try {
+        val lastIndex = layoutInfo.totalItemsCount - 1
+        if (lastIndex < 0) return
+        // The distance to the end is only knowable once the last item has been laid out: an item
+        // below the fold has no height to add up. Bring it in by index first — a target the list
+        // clamps to the end whenever the item fits — and measure again.
+        if (layoutInfo.visibleItemsInfo.lastOrNull()?.index != lastIndex) {
+            if (animate) animateScrollToItem(lastIndex) else scrollToItem(lastIndex)
+        }
+        // `viewportEndOffset` is the last pixel the reader can see, so the remainder is how far
+        // the end of the content sits below the fold. Erring high is safe — a scroll stops at the
+        // end of the content — so the trailing content padding is left in.
+        val tail = layoutInfo.visibleItemsInfo.lastOrNull() ?: return
+        val remaining = (tail.offset + tail.size - layoutInfo.viewportEndOffset).toFloat()
+        if (remaining <= 0f) return
+        if (animate) animateScrollBy(remaining) else scrollBy(remaining)
+    } catch (preempted: CancellationException) {
+        // A reader's drag outranks this move and cancels it. That ends the move, not the
+        // follower: the mover is still collecting, and the next token is served as usual. A
+        // cancellation of the follower itself — the screen leaving, the list going away — is
+        // rethrown by `ensureActive`, so nothing is swallowed but the preemption.
+        currentCoroutineContext().ensureActive()
     }
 }
 
