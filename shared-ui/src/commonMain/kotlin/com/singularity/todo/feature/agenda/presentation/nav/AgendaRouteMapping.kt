@@ -11,6 +11,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
+import com.singularity.todo.feature.agenda.domain.model.AgendaCreatePrefill
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.presentation.screen.AgendaScreen
@@ -49,17 +50,22 @@ fun AgendaNavContent(
         is AgendaStartRoute.Inbox -> {
             AgendaScreen(
                 definition = AgendaPresets.Inbox,
+                createPrefill = route.toCreatePrefill(),
                 contextMenuHost = contextMenuHost,
             )
         }
 
         is AgendaStartRoute.Today -> {
-            TodayAgendaContent(contextMenuHost = contextMenuHost)
+            TodayAgendaContent(
+                createPrefill = route.toCreatePrefill(),
+                contextMenuHost = contextMenuHost,
+            )
         }
 
         is AgendaStartRoute.Upcoming -> {
             AgendaScreen(
                 definition = AgendaPresets.Upcoming,
+                createPrefill = route.toCreatePrefill(),
                 contextMenuHost = contextMenuHost,
             )
         }
@@ -67,6 +73,7 @@ fun AgendaNavContent(
         is AgendaStartRoute.Project -> {
             AgendaScreen(
                 definition = AgendaPresets.byProject(route.projectId),
+                createPrefill = route.toCreatePrefill(),
                 contextMenuHost = contextMenuHost,
             )
         }
@@ -74,6 +81,7 @@ fun AgendaNavContent(
         is AgendaStartRoute.Tag -> {
             AgendaScreen(
                 definition = AgendaPresets.byTag(route.tagId),
+                createPrefill = route.toCreatePrefill(),
                 contextMenuHost = contextMenuHost,
             )
         }
@@ -81,6 +89,7 @@ fun AgendaNavContent(
         is AgendaStartRoute.Tags -> {
             AgendaScreen(
                 definition = AgendaPresets.byTags(route.tagIds),
+                createPrefill = route.toCreatePrefill(),
                 contextMenuHost = contextMenuHost,
             )
         }
@@ -113,6 +122,7 @@ fun AgendaNavContent(
         AgendaStartRoute.Blocked -> {
             AgendaScreen(
                 definition = AgendaPresets.byBlocked(),
+                createPrefill = route.toCreatePrefill(),
                 contextMenuHost = contextMenuHost,
             )
         }
@@ -120,6 +130,7 @@ fun AgendaNavContent(
         AgendaStartRoute.Stagnant -> {
             AgendaScreen(
                 definition = AgendaPresets.byStagnant(),
+                createPrefill = route.toCreatePrefill(),
                 contextMenuHost = contextMenuHost,
             )
         }
@@ -127,6 +138,7 @@ fun AgendaNavContent(
         AgendaStartRoute.Overdue -> {
             AgendaScreen(
                 definition = AgendaPresets.byOverdue(),
+                createPrefill = route.toCreatePrefill(),
                 contextMenuHost = contextMenuHost,
             )
         }
@@ -144,6 +156,7 @@ fun AgendaNavContent(
  */
 @Composable
 private fun TodayAgendaContent(
+    createPrefill: AgendaCreatePrefill? = null,
     contextMenuHost: @Composable (
         taskUi: TaskUi,
         offset: DpOffset,
@@ -208,6 +221,7 @@ private fun TodayAgendaContent(
     if (workDefinition != null) {
         AgendaScreen(
             definition = workDefinition!!,
+            createPrefill = createPrefill,
             contextMenuHost = contextMenuHost,
         )
     }

@@ -23,6 +23,7 @@ import com.singularity.todo.core.ui.components.sheet.MultiDatePickerSheet
 import com.singularity.todo.core.ui.onboarding.SpotlightContent
 import com.singularity.todo.core.ui.onboarding.SpotlightOverlay
 import com.singularity.todo.core.ui.onboarding.rememberSpotlightTour
+import com.singularity.todo.feature.agenda.domain.model.AgendaCreatePrefill
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
@@ -48,6 +49,11 @@ import org.koin.core.parameter.parametersOf
  * Navigation events are handled via [LocalAgendaNavigator] provided by the nav graph.
  *
  * @param definition The [AgendaDefinition] to evaluate and display.
+ * @param createPrefill What a task started from this list must carry to belong
+ *   to it — its project or tags, and the date bucket its rows live in. `null`
+ *   (the default) offers no "Create a task" button: the lists that can never
+ *   hold a task the editor could create (blocked, stagnant, overdue) say so by
+ *   passing nothing.
  * @param modifier Compose modifier for the screen container.
  * @param contextMenuHost Slot for the task context menu: JVM right-click popup or
  *        Android long-press bottom sheet. Provided by the platform-specific
@@ -57,6 +63,7 @@ import org.koin.core.parameter.parametersOf
 @Composable
 fun AgendaScreen(
     definition: AgendaDefinition,
+    createPrefill: AgendaCreatePrefill? = null,
     modifier: Modifier = Modifier,
     contextMenuHost: @Composable (
         taskUi: TaskUi,
@@ -125,6 +132,10 @@ fun AgendaScreen(
                     seedStore.setSeed(definition)
                     navigator.openSavedAgendaCreate(definition)
                 },
+                onCreateTask =
+                    createPrefill?.let { prefill ->
+                        { vm.onIntent(AgendaIntent.CreateFromEmptyState(prefill)) }
+                    },
                 contextMenuHost = contextMenuHost,
                 spotlightRegistry = tour.registry,
                 modifier = Modifier,
@@ -217,8 +228,8 @@ private fun handleAgendaEvent(
             navigator.openCreateInSection(event.sectionId)
         }
 
-        is AgendaUiEvent.OpenCreateWithDates -> {
-            navigator.openCreateWithDates(event.draftKey)
+        is AgendaUiEvent.OpenCreateWithDraft -> {
+            navigator.openCreateWithDraft(event.draftKey)
         }
 
         is AgendaUiEvent.ShowError -> {

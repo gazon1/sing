@@ -16,6 +16,7 @@ import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.components.CountdownStateMachine
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
+import com.singularity.todo.feature.agenda.domain.model.AgendaCreatePrefill
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
@@ -49,10 +50,10 @@ import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 
-// 18 functions: one handler per intent — the house shape of this screen. The
-// bulk-close path adds two of them (the question, and the confirmed close),
-// and a handler per intent is what keeps the intents from growing a private
-// helper each.
+// One handler per intent — the house shape of this screen. The bulk-close path
+// adds two of them (the question, and the confirmed close), and an empty list's
+// "Create a task" adds its own, because a handler per intent is what keeps the
+// intents from growing a private helper each.
 
 /**
  * ViewModel for the Agenda screen.
@@ -396,6 +397,12 @@ class AgendaViewModel(
             is AgendaIntent.CreateOnDates -> {
                 with(intent) {
                     scope.launch { handleCreateOnDates(intent.dates) }
+                }
+            }
+
+            is AgendaIntent.CreateFromEmptyState -> {
+                with(intent) {
+                    scope.launch { handleCreateFromEmptyState(intent.prefill) }
                 }
             }
 
@@ -881,7 +888,27 @@ class AgendaViewModel(
             )
         val key = TaskDraftKeys.AGENDA_MULTI_DATE
         deps.draftStore.save(key, draft, TaskDraft.serializer())
-        emit(AgendaUiEvent.OpenCreateWithDates(key))
+        emit(AgendaUiEvent.OpenCreateWithDraft(key))
+    }
+
+    /**
+     * Writes the list's prefill into a draft and asks for the editor.
+     *
+     * The prefill comes from the route, not from the rendered sections: an empty
+     * list has no section to ask, which is the whole reason this path exists.
+     * The draft is the channel, exactly as it is for a section's '+' and for the
+     * picked days — so the task is created by the same code as any other.
+     */
+    private suspend fun handleCreateFromEmptyState(prefill: AgendaCreatePrefill) {
+        val draft =
+            TaskDraft(
+                projectId = prefill.projectId?.value,
+                tagIds = prefill.tagIds.map { it.value },
+                dueDate = prefill.dueDate,
+            )
+        val key = TaskDraftKeys.AGENDA_EMPTY_STATE
+        deps.draftStore.save(key, draft, TaskDraft.serializer())
+        emit(AgendaUiEvent.OpenCreateWithDraft(key))
     }
 
     companion object {

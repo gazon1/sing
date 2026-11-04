@@ -41,7 +41,7 @@ sealed interface AgendaStartRoute : AppNavKey {
     @Serializable
     data class Tag(val tagId: TagId) : AgendaStartRoute
 
-    /** All tasks matching all of the given tags (matchAll). */
+    /** All tasks tagged with any of the given tags. */
     @Serializable
     data class Tags(val tagIds: Set<TagId>) : AgendaStartRoute
 

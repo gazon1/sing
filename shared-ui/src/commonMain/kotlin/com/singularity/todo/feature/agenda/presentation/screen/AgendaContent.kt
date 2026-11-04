@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.EmptyStateActions
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.menu.onSecondaryClick
 import com.singularity.todo.core.ui.onboarding.SpotlightAnchorId
@@ -87,6 +89,10 @@ import kotlinx.datetime.plus
  *   point, so the picker is not a preview that lies about being usable.
  * @param onSavedViewsClick Called when the user taps the saved views action.
  * @param onSaveCurrentClick Called when the user taps the save-current-agenda action.
+ * @param onCreateTask Called when the user taps the empty state's "Create a task"
+ *   button. `null` (the default) hides the button — the agenda shows the empty
+ *   state on lists that cannot hold a task the user could create, and a button
+ *   whose task the list would never show is worse than no button.
  * @param contextMenuHost Slot for the task context menu renderer.
  * @param modifier Compose modifier.
  */
@@ -100,6 +106,7 @@ fun AgendaContent(
     onSavedViewsClick: (() -> Unit)? = null,
     onMultiDateCreate: (() -> Unit)? = null,
     onSaveCurrentClick: (() -> Unit)? = null,
+    onCreateTask: (() -> Unit)? = null,
     spotlightRegistry: SpotlightAnchorRegistry? = null,
     contextMenuHost: @Composable (
         taskUi: TaskUi,
@@ -295,10 +302,29 @@ fun AgendaContent(
 
                 is AgendaUiState.Loaded -> {
                     if (state.sections.isEmpty()) {
+                        // The empty agenda offers the same way forward the
+                        // notes list offers: a button that starts the work the
+                        // list is about. An empty list with no way out of it is
+                        // a dead end on the screen the app opens on.
+                        val createTask = onCreateTask
+                        val emptyActions: EmptyStateActions? =
+                            if (createTask == null) {
+                                null
+                            } else {
+                                {
+                                    FilledTonalButton(
+                                        onClick = createTask,
+                                        modifier = Modifier.testTag(TestTags.AGENDA_EMPTY_CREATE_TASK),
+                                    ) {
+                                        Text("Create a task")
+                                    }
+                                }
+                            }
                         EmptyState(
                             title = "No tasks",
                             subtitle = "You're all caught up — nothing due in this agenda",
                             modifier = Modifier.padding(paddingValues),
+                            actions = emptyActions,
                         )
                     } else {
                         AgendaList(

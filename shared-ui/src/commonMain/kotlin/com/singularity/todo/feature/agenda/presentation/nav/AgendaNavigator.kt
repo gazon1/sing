@@ -70,12 +70,15 @@ open class AgendaNavigator(
     }
 
     /**
-     * Open the task create screen on the draft that holds the picked days.
+     * Open the task create screen on the draft named by [draftKey].
      *
-     * The days travel in the draft, not in the route: a list of dates does not
-     * belong in a back stack, and the draft survives the death of the process.
+     * The prefill travels in the draft, not in the route: a list of dates, a
+     * project or a set of tags does not belong in a back stack, and the draft
+     * survives the death of the process. Three callers write one — a section's
+     * '+', the date picker, and an empty list's "Create a task" — and all three
+     * point the editor at it the same way.
      */
-    open fun openCreateWithDates(draftKey: String) {
+    open fun openCreateWithDraft(draftKey: String) {
         onExitGraph(
             AppDestination.TasksGraph(
                 start = AppDestination.TasksStartRoute.Create(draftKey = draftKey),

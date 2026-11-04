@@ -8,12 +8,15 @@ import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
+import com.singularity.todo.feature.agenda.domain.model.AgendaCreatePrefill
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderScheduler
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
@@ -331,6 +334,77 @@ class AgendaViewModelTest {
                 listOf(LocalDate(2026, 10, 12), LocalDate(2026, 10, 19)),
                 draft.extraDueDates,
                 "the other days ride along as extra dates",
+            )
+        }
+
+    // ───────────────────── A task from an empty list ────────────────────────────
+    //
+    // An empty list has no section header to offer '+', so the list's own scope
+    // travels with the intent and into the draft. Without it the editor opens
+    // blank, and the task it creates is one the list that offered the button
+    // never shows — the defect the empty-state action must not have.
+
+    @Test
+    fun `create from an empty project list writes the project into the draft`() =
+        runTest {
+            val draftStore = FakeDraftStore()
+            val vm = createVm(draftStore = draftStore)
+            runCurrent()
+
+            val events = mutableListOf<AgendaUiEvent>()
+            val collector = launch { vm.events.collect { events += it } }
+            try {
+                vm.onIntent(
+                    AgendaIntent.CreateFromEmptyState(
+                        AgendaCreatePrefill(projectId = ProjectId("p1")),
+                    ),
+                )
+                runCurrent()
+
+                val draft = draftStore.load(TaskDraftKeys.AGENDA_EMPTY_STATE, TaskDraft.serializer())
+                assertNotNull(draft, "the list's scope must reach a draft")
+                assertEquals("p1", draft.projectId, "a task started from a project list belongs to that project")
+                assertEquals(DueDateOption.None, draft.dueDate, "a project list filters by project, not by date")
+                assertTrue(
+                    events.any {
+                        it is AgendaUiEvent.OpenCreateWithDraft &&
+                            it.draftKey == TaskDraftKeys.AGENDA_EMPTY_STATE
+                    },
+                    "the editor must be pointed at the draft that was written: $events",
+                )
+            } finally {
+                collector.cancel()
+            }
+        }
+
+    @Test
+    fun `create from an empty tag list writes the tags and the date bucket`() =
+        runTest {
+            val draftStore = FakeDraftStore()
+            val vm = createVm(draftStore = draftStore)
+            runCurrent()
+
+            vm.onIntent(
+                AgendaIntent.CreateFromEmptyState(
+                    AgendaCreatePrefill(
+                        tagIds = setOf(TagId("work"), TagId("home")),
+                        dueDate = DueDateOption.Tomorrow,
+                    ),
+                ),
+            )
+            runCurrent()
+
+            val draft = draftStore.load(TaskDraftKeys.AGENDA_EMPTY_STATE, TaskDraft.serializer())
+            assertNotNull(draft, "the list's scope must reach a draft")
+            assertEquals(
+                setOf("work", "home"),
+                draft.tagIds.toSet(),
+                "a task started from a tag list carries the tags that list filters by",
+            )
+            assertEquals(
+                DueDateOption.Tomorrow,
+                draft.dueDate,
+                "the tab's date bucket travels with the scope: an undated task would not appear here",
             )
         }
 
