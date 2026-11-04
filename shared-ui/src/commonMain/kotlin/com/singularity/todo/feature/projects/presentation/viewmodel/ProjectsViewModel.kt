@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.coroutines.ReloadTrigger
+import com.singularity.todo.core.coroutines.reloadOn
 import com.singularity.todo.core.database.toProject
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.llm.AI_NOT_CONFIGURED
@@ -26,7 +28,6 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -96,60 +97,20 @@ class ProjectsViewModel(
     private val _searchQuery = MutableStateFlow(FieldOwnedText.empty())
     private val _sortOrder = MutableStateFlow(ProjectSortOrder.Name)
 
-    init {
-        reload()
-    }
+    /**
+     * The request to observe the projects again after a failure.
+     *
+     * The failure handling lives inside the attempt it applies to — see
+     * [reloadOn] — so a failed load leaves the trigger armed and the Retry
+     * intent starts a fresh subscription instead of adding a second collector.
+     */
+    private val reloadTrigger = ReloadTrigger()
 
-    private fun reload() {
+    init {
         vmScope.launch {
-            combine(_searchQuery, _sortOrder) { query, sort -> query to sort }
-                .flatMapLatest { (query, sort) ->
-                    combine(
-                        projectRepo.observeProjectsWithCounts(),
-                        projectRepo.observeClosed(),
-                    ) { rows, closed -> rows to closed }
-                        .map { (rows, closed) ->
-                            val domainRows =
-                                rows.map { row ->
-                                    ProjectWithCounts(
-                                        project = row.project.toProject(),
-                                        totalCount = row.totalCount,
-                                        completedCount = row.completedCount,
-                                    )
-                                }
-                            val filtered =
-                                if (query.text.isBlank()) {
-                                    domainRows
-                                } else {
-                                    domainRows.filter { PROJECT_LIST_SEARCH_MODE.matches(it.project, query.text) }
-                                }
-                            val sorted =
-                                when (sort) {
-                                    ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
-                                    ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
-                                }
-                            if (sorted.isEmpty()) {
-                                // The query and the sort order travel with the empty state:
-                                // they describe the filter that produced it, and the screen
-                                // hands the query straight back to the search field. A state
-                                // that dropped the query would make the field look empty while
-                                // the ViewModel still filtered by the old one — and the list
-                                // could never come back.
-                                ProjectsUiState.Empty(
-                                    searchQuery = query,
-                                    sortOrder = sort,
-                                    closedProjects = closed.toImmutableList(),
-                                )
-                            } else {
-                                ProjectsUiState.Content(
-                                    projects = sorted.toImmutableList(),
-                                    searchQuery = query,
-                                    sortOrder = sort,
-                                    closedProjects = closed.toImmutableList(),
-                                )
-                            }
-                        }
-                }.catch { cause ->
+            reloadOn(
+                trigger = reloadTrigger,
+                onFailure = { cause ->
                     // The failure carries the query and the sort order: the screen still
                     // shows the search field and the sort control, and a state that
                     // reset them would clear what the user had typed. The closed
@@ -163,7 +124,57 @@ class ProjectsViewModel(
                             closedProjects = closedProjectsOnScreen().toImmutableList(),
                         ),
                     )
-                }.collect { setState(it) }
+                },
+            ) {
+                combine(_searchQuery, _sortOrder) { query, sort -> query to sort }
+                    .flatMapLatest { (query, sort) ->
+                        combine(
+                            projectRepo.observeProjectsWithCounts(),
+                            projectRepo.observeClosed(),
+                        ) { rows, closed -> rows to closed }
+                            .map { (rows, closed) ->
+                                val domainRows =
+                                    rows.map { row ->
+                                        ProjectWithCounts(
+                                            project = row.project.toProject(),
+                                            totalCount = row.totalCount,
+                                            completedCount = row.completedCount,
+                                        )
+                                    }
+                                val filtered =
+                                    if (query.text.isBlank()) {
+                                        domainRows
+                                    } else {
+                                        domainRows.filter { PROJECT_LIST_SEARCH_MODE.matches(it.project, query.text) }
+                                    }
+                                val sorted =
+                                    when (sort) {
+                                        ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
+                                        ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
+                                    }
+                                if (sorted.isEmpty()) {
+                                    // The query and the sort order travel with the empty state:
+                                    // they describe the filter that produced it, and the screen
+                                    // hands the query straight back to the search field. A state
+                                    // that dropped the query would make the field look empty while
+                                    // the ViewModel still filtered by the old one — and the list
+                                    // could never come back.
+                                    ProjectsUiState.Empty(
+                                        searchQuery = query,
+                                        sortOrder = sort,
+                                        closedProjects = closed.toImmutableList(),
+                                    )
+                                } else {
+                                    ProjectsUiState.Content(
+                                        projects = sorted.toImmutableList(),
+                                        searchQuery = query,
+                                        sortOrder = sort,
+                                        closedProjects = closed.toImmutableList(),
+                                    )
+                                }
+                            }
+                    }
+            }.collect { setState(it) }
         }
     }
 
@@ -187,7 +198,7 @@ class ProjectsViewModel(
             is ProjectsIntent.Delete -> delete(intent.id)
             is ProjectsIntent.Reopen -> reopen(intent.id)
             is ProjectsIntent.ReviewProject -> reviewProject(intent.project)
-            ProjectsIntent.Retry -> reload()
+            ProjectsIntent.Retry -> reloadTrigger.reload()
         }
     }
 
