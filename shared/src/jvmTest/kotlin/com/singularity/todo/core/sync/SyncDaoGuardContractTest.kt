@@ -145,7 +145,8 @@ abstract class SyncDaoGuardContractTest {
         )
         assertEquals("patch-new", unchanged.inFlightPatchId, "the queued patch keeps its marker")
 
-        val current = shadowDao.confirm(OWNER_A, PROFILE_ONE, TASK, "entity-1", "patch-new", """{"title":"confirmed"}""")
+        val current =
+            shadowDao.confirm(OWNER_A, PROFILE_ONE, TASK, "entity-1", "patch-new", """{"title":"confirmed"}""")
         assertEquals(1, current, "the patch that owns the marker is promoted")
 
         val promoted = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
@@ -178,6 +179,153 @@ abstract class SyncDaoGuardContractTest {
         val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
         assertEquals("""{"title":"pulled"}""", row.confirmedJson)
         assertEquals("patch-new", row.inFlightPatchId, "the pull must not clobber the queued patch's base")
+        assertEquals("""{"title":"new"}""", row.inFlightJson)
+    }
+
+    /**
+     * The shelf's reads are global, and that is a decision rather than a gap.
+     *
+     * Pinned here so that a change to either half — a read that stops being global,
+     * or an erase that stops being owner-scoped — has to be a deliberate one. The
+     * erase's half is asserted by the scenarios above; this is the read's.
+     */
+    @Test
+    fun `the shelf is read whole, across every account`() = runTest {
+        deadLetterDao.insert(shelfRow("patch-a", OWNER_A))
+        deadLetterDao.insert(shelfRow("patch-b", OWNER_B))
+
+        assertEquals(2, deadLetterDao.getAll().size, "the shelf hands over every account's shelved work")
+        assertEquals(2, deadLetterDao.watchCount().first())
+        assertEquals(2, deadLetterDao.watch().first().size)
+    }
+
+    /**
+     * The patch-id delete is the shelf's patch-id-keyed operation.
+     *
+     * It names one row, so it takes one row and leaves the rest — the account's
+     * other shelved work included.
+     */
+    @Test
+    fun `the shelf's patch-id delete takes that patch and nothing else`() = runTest {
+        deadLetterDao.insert(shelfRow("patch-a", OWNER_A))
+        deadLetterDao.insert(shelfRow("patch-b", OWNER_B))
+
+        assertEquals(1, deadLetterDao.delete("patch-a"))
+        assertEquals(0, deadLetterDao.countForOwner(OWNER_A))
+        assertEquals(1, deadLetterDao.countForOwner(OWNER_B), "another account's shelved work survives")
+    }
+
+    /**
+     * The global drain empties the shelf for every account.
+     *
+     * The counterpart of the owner-scoped erase, and a different operation: the
+     * first is a switch, this is a sign-out.
+     */
+    @Test
+    fun `the shelf's global drain empties every account`() = runTest {
+        deadLetterDao.insert(shelfRow("patch-a", OWNER_A))
+        deadLetterDao.insert(shelfRow("patch-b", OWNER_B))
+
+        deadLetterDao.clearAll()
+
+        assertEquals(0, deadLetterDao.countForOwner(OWNER_A))
+        assertEquals(0, deadLetterDao.countForOwner(OWNER_B))
+        assertTrue(deadLetterDao.getAll().isEmpty())
+    }
+
+    /**
+     * A shadow row belongs to one account's one profile.
+     *
+     * The composite key is the scope, so another account's read — and another
+     * profile's read — must not find it. A fake that keyed its rows by entity id
+     * alone would hand the row to both, and would let the rest of this file pass.
+     */
+    @Test
+    fun `the shadow's row belongs to one account's one profile`() = runTest {
+        shadowDao.upsert(shadowRow(OWNER_A, PROFILE_ONE, "entity-1"))
+
+        assertNull(
+            shadowDao.get(OWNER_B, PROFILE_ONE, TASK, "entity-1"),
+            "another account must not see the row",
+        )
+        assertNull(
+            shadowDao.get(OWNER_A, PROFILE_TWO, TASK, "entity-1"),
+            "another profile of the same account must not see it either",
+        )
+    }
+
+    /**
+     * A write for one account does not land on another's row.
+     *
+     * The confirmed-state update is the one that would silently corrupt a row: it
+     * reports 0 when there is no row to update, and a fake that reported 1 would
+     * hide the guard behind the return value.
+     */
+    @Test
+    fun `the shadow's confirmed update does not reach another account's row`() = runTest {
+        shadowDao.upsert(shadowRow(OWNER_A, PROFILE_ONE, "entity-1", confirmedJson = """{"title":"old"}"""))
+
+        val changed = shadowDao.updateConfirmed(OWNER_B, PROFILE_ONE, TASK, "entity-1", """{"title":"theirs"}""")
+
+        assertEquals(0, changed, "there is no row of that account to update")
+        val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
+        assertEquals("""{"title":"old"}""", row.confirmedJson, "the owner's row is untouched")
+    }
+
+    /**
+     * A promotion for one account does not promote another's row.
+     *
+     * The stale-response guard and the ownership guard are separate, and both have
+     * to hold: a response carrying the right patch id but the wrong owner still
+     * promotes nothing.
+     */
+    @Test
+    fun `the shadow's promotion does not reach another account's row`() = runTest {
+        shadowDao.upsert(
+            shadowRow(
+                OWNER_A,
+                PROFILE_ONE,
+                "entity-1",
+                confirmedJson = """{"title":"old"}""",
+                inFlightJson = """{"title":"new"}""",
+                inFlightPatchId = "patch-new",
+            ),
+        )
+
+        val promoted =
+            shadowDao.confirm(OWNER_B, PROFILE_ONE, TASK, "entity-1", "patch-new", """{"title":"theirs"}""")
+
+        assertEquals(0, promoted, "another account's response promotes nothing")
+        val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
+        assertEquals("""{"title":"old"}""", row.confirmedJson)
+        assertEquals("patch-new", row.inFlightPatchId, "the owner's queued patch keeps its marker")
+    }
+
+    /**
+     * A release for one account does not clear another's marker.
+     *
+     * The release is the mirror of the promotion: it drops the in-flight marker so
+     * the next edit re-diffs, and dropping another account's marker would lose the
+     * fields that account's queued patch carried.
+     */
+    @Test
+    fun `the shadow's release does not reach another account's row`() = runTest {
+        shadowDao.upsert(
+            shadowRow(
+                OWNER_A,
+                PROFILE_ONE,
+                "entity-1",
+                confirmedJson = """{"title":"old"}""",
+                inFlightJson = """{"title":"new"}""",
+                inFlightPatchId = "patch-new",
+            ),
+        )
+
+        val released = shadowDao.release(OWNER_B, PROFILE_ONE, TASK, "entity-1", "patch-new")
+
+        assertEquals(0, released)
+        val row = assertNotNull(shadowDao.get(OWNER_A, PROFILE_ONE, TASK, "entity-1"))
+        assertEquals("patch-new", row.inFlightPatchId)
         assertEquals("""{"title":"new"}""", row.inFlightJson)
     }
 

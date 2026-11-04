@@ -85,8 +85,14 @@ decision.
 - The shelf's global reads are a documented choice rather than a leftover. A future
   settings screen that shows shelved patches must scope them itself — the DAO hands
   over every account's work, and the shelf is a multi-account table by design.
-- The contract test is a `slow` class, because one of its three implementations is a
-  real database file. The two fake implementations run in the fast lane.
+- The contract test is one abstract class with three implementations, run against all
+  three: the Room one is `slow`, because it is a real database file, and the two fake
+  ones are `fast`.
+- A fake's guards are the query's guards. Every fake that stands in for the shadow or
+  the shelf reproduces the ownership filter it replaces — the composite key for the
+  shadow, the owner filter for the shelf's erase and count — and the contract is what
+  keeps the two in step. A fake that dropped a condition would let a test assert a
+  guard the fake never had.
 - The shelf still cannot be restored to the outbox profile-correctly. The
   `delete`-and-requeue path exists and the DAO's KDoc says a removed patch "can be
   put back on the outbox"; until the shelf carries a profile, that put-back has to
