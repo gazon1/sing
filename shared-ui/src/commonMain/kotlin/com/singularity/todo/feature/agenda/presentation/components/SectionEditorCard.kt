@@ -41,13 +41,14 @@ import com.singularity.todo.feature.agenda.domain.selector.typeDescription
  *
  * ## The buttons are drawn 40 dp and hit 48 dp
  *
- * Three controls of 48 dp do not fit a phone-width row, so the buttons are drawn
- * 40 dp wide — but a target a finger cannot hit is a control that does not exist
- * for the people who need it most. `Modifier.touchTarget()` expands the target to
- * 48 dp, and it has to come **before** the `size(40.dp)`: the expansion is the
- * outer modifier, so the size constrains the drawing without constraining the
- * target. See CODING_STANDARDS.md, "Touch targets meet the minimum and the order
- * is correct".
+ * Three painted 48 dp circles crowd a phone-width row, so each button's state layer
+ * is drawn 40 dp wide — but a target a finger cannot hit is a control that does not
+ * exist for the people who need it most. `Modifier.touchTarget()` expands the target
+ * to 48 dp, and it has to come **before** the `size(40.dp)`: the expansion is the
+ * outer modifier, so the size constrains the drawing without constraining the target.
+ * The row therefore reserves 48 dp per button, and the name column takes what is
+ * left. See CODING_STANDARDS.md, "Touch targets meet the minimum and the order is
+ * correct".
  *
  * @param section The section to display.
  * @param index The section's position in the list.
