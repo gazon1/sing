@@ -2,13 +2,23 @@
 
 This is the runbook for the `singularity-todo-maestro-flows` skill. It carries
 the seeding walkthrough, the app's behaviour facts, the probe recipe, and the
-failure classes of the last CI run with the triage steps that go with them.
+failure classes of one dated CI run — a snapshot, not a live classification of
+the suite — with the triage steps that go with them.
 Load it when a flow needs data or misbehaves. Authoring a flow — selectors,
 scrolling, syntax — lives in `SKILL.md`.
 
 ## Diagnosing a Maestro flow failure
 
-### Root causes of known failures (CI run 38223116125)
+### Root causes of known failures — CI run 38223116125, recorded 2026-10-12
+
+**This table is a snapshot of one CI run, not a live classification of the
+suite.** It describes what CI run 38223116125 failed on and the fix applied to
+each class; that run and its analysis are recorded in
+`docs/decisions/2026-10-12-maestro-e2e-fixes.md` — which groups the same
+failures under different class letters, so this table is the place to read the
+class names from. A later run can fail on classes this table does not list, and
+a fix listed here can since have been reverted — so read the table as history
+and triage the current run on its own failures.
 
 | Class | Root cause | Flows | Fix |
 |---|---|---|---|
@@ -19,10 +29,16 @@ scrolling, syntax — lives in `SKILL.md`.
 | E | Seed/state leakage, wrong testTag, agenda section timing | 4 flows | Fixed — see rows below |
 | F | Action row laid out past the screen edge | `agenda-smart-lists` | `SheetScaffold` column made scrollable |
 
+**Status of that run:** classes A–D fixed (hardcoded swipe, missing nav menu
+openers, menu item scroll, animation timing). Class E diagnosed — four flows,
+three separate defects (rows below); all four class E flows pass on
+`emulator-5554` with a `pm clear` slate. Class F fixed by making
+`SheetScaffold`'s column scrollable.
+
 #### Class E resolved — three separate defects
 
-Only one of the four flows was a test problem; the other two were real bugs. All
-four pass on `emulator-5554` with a `pm clear` slate.
+Two of the four flows were test problems; the other two were real bugs — one
+product, one harness. All four pass on `emulator-5554` with a `pm clear` slate.
 
 | Flow | Actual cause | Owner |
 |---|---|---|
@@ -30,6 +46,25 @@ four pass on `emulator-5554` with a `pm clear` slate.
 | `settings-cycle-tabs` | fixture typing + wrong testTag | test |
 | `agenda-smart-lists` | DatePicker actions off-screen | **product** |
 | `auth-first-run-anonymous` | seeded row invisible until re-query | harness |
+
+#### Refreshing this snapshot
+
+This section is the one place the run's status is recorded, so the table, the
+heading and the status line move together. When a later CI run fails:
+
+1. **Replace the table, do not append to it.** The table is one run's classes;
+   the next run's classes replace them, because two runs share no
+   classification.
+2. **Update the heading in the same commit** — the run id and the date the
+   snapshot was recorded. A table whose heading still names an older run is
+   worse than no table.
+3. **Update the "Status of that run" line in the same commit** — which classes
+   are fixed, diagnosed or still open. If the run's analysis lives in a
+   decision record, cite it as this section does.
+4. **Drop a class that no longer reproduces.** Keep its row only when the fix
+   was reverted, and say so in the row.
+5. **The old snapshot stays in git history.** Do not keep a second copy in the
+   file: one table, one run, one date.
 
 ### A selector that cannot be reached
 

@@ -8,10 +8,9 @@ description: Author and run Maestro UI flows for the Android app. Covers seeding
 Maestro drives the Android app end-to-end. Flows live in `Maestro/flows/` across 11
 subdirectories (~39 flows total). Helpers live in `Maestro/helpers/`.
 
-Status (run 38223116125): classes A–D fixed (hardcoded swipe, missing nav menu
-openers, menu item scroll, animation timing). Class E diagnosed on `emulator-5554`
-— see the runbook: [`runbook.md`](runbook.md).
-All 4 Class E flows pass.
+The failure classes of a CI run, and whether they are fixed, are recorded
+once — in the runbook's failure section:
+[Diagnosing a Maestro flow failure](runbook.md#diagnosing-a-maestro-flow-failure).
 
 ## Prerequisites: emulator first
 
@@ -313,7 +312,8 @@ one's assertions. See [Seed fixtures, never type them](runbook.md#seed-fixtures-
 ## The runbook
 
 The runbook sits beside this skill as [`runbook.md`](runbook.md): the seeding
-walkthrough, the app's behaviour facts, the probe recipe and the failure tables.
+walkthrough, the app's behaviour facts, the probe recipe and the dated failure
+snapshot.
 Read it when a flow needs data or misbehaves:
 
 - [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them) —
@@ -324,8 +324,9 @@ Read it when a flow needs data or misbehaves:
   the behaviours a flow author would otherwise guess wrong.
 - [Recon before writing a flow — the probe trick](runbook.md#recon-before-writing-a-flow--the-probe-trick) —
   the probe flow that dumps the view hierarchy of the screen you are about to drive.
-- [Diagnosing a Maestro flow failure](runbook.md#diagnosing-a-maestro-flow-failure) — the failure-class
-  table for the last CI run, the logcat/hierarchy triage steps, when a selector is
+- [Diagnosing a Maestro flow failure](runbook.md#diagnosing-a-maestro-flow-failure) — the
+  dated failure-class snapshot of one CI run (with the convention for refreshing
+  it), the logcat/hierarchy triage steps, when a selector is
   unreachable because the element is laid out off-screen, the retry policy, and the
   CI-vs-local timeout multipliers.
 
