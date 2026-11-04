@@ -36,6 +36,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LocalScreenActions
+import com.singularity.todo.core.ui.components.LocalScreenActionsRoute
 import com.singularity.todo.core.ui.components.ScreenActionsHolder
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
@@ -149,6 +150,7 @@ fun androidShellNav3Root(
                 ShellTopBar(
                     screenActions = screenActions,
                     destinationTitle = current.title,
+                    route = state.topLevelRoute,
                     isSearch = current == AppDestination.Search,
                     navigator = navigator,
                     onMenu = { menuVisible = true },
@@ -170,30 +172,25 @@ fun androidShellNav3Root(
 
                 // The blank-tree diagnostic (REQ-DN-004) is recorded by
                 // `toDecoratedEntries` itself, before its unresolvable-entry fallback.
-                // Drop the previous screen's transient slots — its buttons, its
-                // selection state — BEFORE the entries below compose (#1962).
                 //
-                // Only the slots. A published header belongs to the screen that
-                // published it: `title`, `navigationIcon` and the publisher's
-                // identity are taken down by that screen's own DisposableEffect
-                // when it leaves, and by nothing else (#2008). Clearing the
-                // header here — which is what a `LaunchedEffect`, running after
-                // the frame was applied, used to do — erased the header the
-                // arriving screen had just published and left the agenda
-                // without its title and greeting on a tab switch.
-                //
-                // `remember(route)` and not a MutableState holding the last
-                // route: writing that state after reading it in this same
-                // composition invalidated the scope that had just read it, and
-                // recomposed the whole NavDisplay subtree one extra time on
-                // every tab switch (#1962 review). The clear still happens in
-                // composition and ahead of the entries, which is the part that
-                // matters: composition order, not effect order, is the
-                // contract.
-                remember(state.topLevelRoute) { screenActions.onTopLevelRouteChanged() }
+                // There is deliberately no "clear the previous screen's slots"
+                // call here, in composition or in an effect (#1962 review).
+                // Every bar tags the slots it publishes with the top-level route
+                // it was composed on — see [LocalScreenActionsRoute] — and the
+                // bar above asks for the slots of the route it is drawing
+                // ([ScreenActionsHolder.actionsFor]). The previous screen's
+                // buttons therefore stop being drawn in the same composition
+                // that swaps the route, and a bar that outlives the navigation
+                // cannot put them back. A clear would have to be ordered against
+                // the arriving screen's publication to be correct; a read scoped
+                // to the route cannot be ordered wrongly.
                 val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
 
-                CompositionLocalProvider(LocalNav3State provides state, LocalScreenActions provides screenActions) {
+                CompositionLocalProvider(
+                    LocalNav3State provides state,
+                    LocalScreenActions provides screenActions,
+                    LocalScreenActionsRoute provides state.topLevelRoute,
+                ) {
                     NavDisplay(
                         entries = navDisplayEntries,
                         onBack = {
@@ -247,6 +244,7 @@ fun androidShellNav3Root(
 private fun ShellTopBar(
     screenActions: ScreenActionsHolder,
     destinationTitle: String,
+    route: Any?,
     isSearch: Boolean,
     navigator: Navigator,
     onMenu: () -> Unit,
@@ -254,11 +252,16 @@ private fun ShellTopBar(
     TopAppBar(
         title = { ShellBarTitle(screenActions = screenActions, destinationTitle = destinationTitle) },
         navigationIcon = {
-            ShellNavigationIcon(screenActions = screenActions, navigator = navigator, onMenu = onMenu)
+            ShellNavigationIcon(
+                screenActions = screenActions,
+                route = route,
+                navigator = navigator,
+                onMenu = onMenu,
+            )
         },
         actions = {
-            screenActions.actions?.invoke(this)
-            if (screenActions.selectionTitle == null && !isSearch) {
+            screenActions.actionsFor(route)?.invoke(this)
+            if (screenActions.selectionTitleFor(route) == null && !isSearch) {
                 ShellSearchButton(navigator = navigator)
             }
         },

@@ -1,11 +1,6 @@
 package com.singularity.todo.core.ui.components
 
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.TopAppBarColors
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
@@ -14,6 +9,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TopAppBarColors
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 
 /**
  * Platform-aware TopAppBar: no-op on Android (shell owns the only bar),
@@ -44,10 +44,21 @@ fun TopAppBar(
     if (holder != null) {
         val barOwner = remember { Any() }
         SideEffect {
-            holder.actions = actions
-            holder.selectionTitle = selectionTitle
-            holder.onExitSelection = onExitSelection
+            holder.publishSlots(
+                owner = barOwner,
+                actions = actions,
+                selectionTitle = selectionTitle,
+                onExitSelection = onExitSelection,
+            )
         }
+        // The route this bar belongs to, captured as the composition enters.
+        // A bar that is leaving still recomposes while the transition plays, and
+        // `remember` without keys keeps the route it entered with: the slots it
+        // publishes late stay tagged with the screen they were made for, and the
+        // shell — which is already asking for the arriving route's slots — does
+        // not draw them (#1962 review).
+        val route = LocalScreenActionsRoute.current
+        val entryRoute = remember { route }
         // The publication below happens once, when this composition enters.
         // Its content is read through these, so the bar still shows what the
         // screen says now without the screen publishing again.
@@ -60,7 +71,7 @@ fun TopAppBar(
             // let it take the bar back from the screen that had just published.
             // One claim (and at most one header publication) per composition is
             // what makes the owner checks in [ScreenActionsHolder] sound.
-            holder.claimActions(barOwner)
+            holder.claimActions(owner = barOwner, route = entryRoute)
             if (overrideShell) {
                 holder.publishBar(
                     owner = barOwner,

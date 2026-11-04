@@ -30,19 +30,34 @@ typealias PublishedNavigationIcon = @Composable () -> (@Composable () -> Unit)?
  * the published header from here and renders them in its single bar. On desktop
  * the holder is absent and every screen draws its own bar.
  *
- * Every publication carries the identity of the composable that made it, so
- * "take MY header down" and "take MY slots down" are both expressible, and a
- * bar leaving during a navigation cannot take down what the arriving screen
- * has already published ([retractBar], [claimActions], [clearActions]).
+ * The header and the slots have deliberately different lifetimes:
+ *
+ * - **The header** ([publishBar], [retractBar]) belongs to the *screen* that
+ *   published it and to nothing else. Only that screen takes it down, from its
+ *   own `DisposableEffect`, and only its own: the publication carries the
+ *   identity of the composable that made it, so a screen leaving during a
+ *   navigation cannot erase the header the arriving screen has already
+ *   published (#2008).
+ * - **The action slots** ([publishSlots], [claimActions], [clearActions])
+ *   belong to the *top-level route* the bar was composed for. A bar tags its
+ *   slots with the route it entered on, and the shell asks for the slots **of
+ *   the route it is drawing** ([actionsFor]). The previous screen's buttons
+ *   therefore stop being drawn in the same composition that swaps the route,
+ *   without anyone writing state during composition and without a clear whose
+ *   correctness depends on whether it ran before or after the arriving screen
+ *   published (#1962 review).
  */
 class ScreenActionsHolder {
-    /** The action buttons of the screen on top; the shell draws them. */
+    /** The action buttons of the bar that holds the claim; read through [actionsFor]. */
     var actions: (@Composable RowScope.() -> Unit)? by mutableStateOf(null)
+        private set
 
     // Selection-mode state for the Android shell bar: when set, the shell shows
     // "N selected" with an exit-selection back button instead of the normal bar.
     var selectionTitle: String? by mutableStateOf(null)
+        private set
     var onExitSelection: (() -> Unit)? by mutableStateOf(null)
+        private set
 
     // The header a screen owns. On Android the shell owns the ONLY bar, so a
     // screen that draws its own header (the calendar's month, the agenda's
@@ -77,8 +92,42 @@ class ScreenActionsHolder {
     /** The screen whose header the bar draws; see [retractBar]. */
     private var barOwner: Any? = null
 
-    /** The screen whose action slots the bar draws; see [claimActions]. */
+    /** The bar that filled the slots; see [claimActions]. */
     private var slotsOwner: Any? = null
+
+    /**
+     * The top-level route the slot-holding bar was composed for.
+     *
+     * Kept beside [slotsOwner] and not derived from the shell's current route,
+     * because it is the *publisher's* route that decides whether the slots may
+     * still be drawn: a bar that outlives a navigation keeps publishing from
+     * its own `SideEffect`, and what it publishes belongs to the screen it was
+     * made for, not to the screen the shell has moved to.
+     */
+    private var slotsRoute: Any? = null
+
+    /**
+     * The action slots of the bar that belongs to [route], or `null` when the
+     * slots on record were published by a screen the shell has already left.
+     *
+     * This is the whole of "the shell drops the previous screen's buttons on a
+     * navigation". It is a **read**, not a write: the shell asks for the route
+     * it is drawing, so the answer is already right in the composition that
+     * swaps the route. There is no clear that can run too late, and no state
+     * write during composition to invalidate the scope that had just read it
+     * (#1962 review).
+     */
+    fun actionsFor(route: Any?): (@Composable RowScope.() -> Unit)? =
+        if (isOnRoute(route)) actions else null
+
+    /** The selection title of the bar that belongs to [route]; see [actionsFor]. */
+    fun selectionTitleFor(route: Any?): String? = if (isOnRoute(route)) selectionTitle else null
+
+    /** The exit-selection callback of the bar that belongs to [route]; see [actionsFor]. */
+    fun onExitSelectionFor(route: Any?): (() -> Unit)? =
+        if (isOnRoute(route)) onExitSelection else null
+
+    private fun isOnRoute(route: Any?): Boolean = slotsOwner != null && slotsRoute === route
 
     /**
      * Publishes a screen's own header: the title, its navigation icon, and the
@@ -131,21 +180,52 @@ class ScreenActionsHolder {
     }
 
     /**
-     * Claims the action slots for the bar that is about to fill them.
+     * Claims the action slots for the bar that is about to fill them, on the
+     * top-level [route] that bar was composed for.
      *
      * A bar claims once, from its `DisposableEffect` as its composition enters
      * — the same point at which it publishes its header, and for the same
-     * reason. [clearActions] is the matching release and is keyed on this
-     * claim: without it, a bar leaving during a transition emptied the slots
-     * the arriving screen had already filled (#1962 review).
+     * reason: a bar that is *leaving* still recomposes while the transition
+     * plays, and claiming again there would let it take the slots back from the
+     * screen that had just claimed them.
+     *
+     * The claim empties the slots it takes over, so the shell never draws a
+     * previous bar's buttons between this claim and the claimer's first
+     * [publishSlots]: the two happen in the same frame, effects before side
+     * effects.
      *
      * A screen that publishes a header only (the calendar, through
-     * [ShellOverride]) does not claim the slots: it has no buttons of its own,
-     * and the previous bar's claim must stay valid so that bar's leave can
-     * still empty them.
+     * [ShellOverride]) does not claim the slots: it has no buttons of its own.
      */
-    fun claimActions(owner: Any) {
+    fun claimActions(owner: Any, route: Any?) {
         slotsOwner = owner
+        slotsRoute = route
+        actions = null
+        selectionTitle = null
+        onExitSelection = null
+    }
+
+    /**
+     * Publishes the bar's action slots — but only for the bar that claimed
+     * them.
+     *
+     * The owner check is what stops a bar that is leaving during a transition
+     * from writing its actions over the arriving bar's: both send a
+     * `SideEffect` in the same frame and only the claim holder's is accepted
+     * (#1962 review). A stale write that *is* accepted — the leaving bar before
+     * the arriving one claims — is still invisible, because it carries the
+     * leaving route and the shell is asking for another one ([actionsFor]).
+     */
+    fun publishSlots(
+        owner: Any,
+        actions: (@Composable RowScope.() -> Unit)?,
+        selectionTitle: String?,
+        onExitSelection: (() -> Unit)?,
+    ) {
+        if (slotsOwner !== owner) return
+        this.actions = actions
+        this.selectionTitle = selectionTitle
+        this.onExitSelection = onExitSelection
     }
 
     /**
@@ -153,9 +233,7 @@ class ScreenActionsHolder {
      *
      * A screen calls this as it leaves the composition. A bar leaving *after*
      * the arriving screen has claimed the slots must leave them alone: the
-     * arriving screen filled them and does not republish until it recomposes
-     * for some other reason, so an unconditional clear left the shell bar with
-     * the arriving screen's title and none of its buttons (#1962 review).
+     * arriving
      */
     fun clearActions(owner: Any) {
         if (slotsOwner !== owner) return
@@ -163,33 +241,21 @@ class ScreenActionsHolder {
         selectionTitle = null
         onExitSelection = null
         slotsOwner = null
-    }
-
-    /**
-     * Called by the shell when the top-level route changes — **inside the
-     * composition that draws the new route, before the arriving screen
-     * composes** (see `androidShellNav3Root`).
-     *
-     * Only the transient slots are cleared. A screen without a bar of its own
-     * never publishes actions, so the previous screen's buttons would otherwise
-     * stay in the shell bar; those slots are the shell's to empty.
-     *
-     * A published **header is not cleared here**. `title`, `navigationIcon` and
-     * the identity of the publisher belong to the screen that published them,
-     * and only that screen takes them down, in its own `DisposableEffect`
-     * ([retractBar]) — "nothing else takes it down for it" is one of the
-     * acceptance criteria #2008 is settled by. Cleared here — after the
-     * arriving screen had published, as the old `LaunchedEffect` did — the
-     * agenda lost its title and its greeting on a tab switch, because the
-     * screen on top has no way of knowing the shell erased it and does not
-     * publish again until it recomposes for some other reason (#1962).
-     */
-    fun onTopLevelRouteChanged() {
-        actions = null
-        selectionTitle = null
-        onExitSelection = null
-        slotsOwner = null
+        slotsRoute = null
     }
 }
 
+/**
+ * The top-level route the shell is drawing, published to the bars composed
+ * under it.
+ *
+ * A bar cannot know which route it belongs to — it is composed by a screen that
+ * knows nothing about navigation — so the shell says so once, and each bar tags
+ * the slots it publishes with the route it entered on. See
+ * [ScreenActionsHolder.actionsFor] for why that tag, and not a clear on the
+ * route change, is what keeps a leaving screen's buttons out of the bar.
+ */
+val LocalScreenActionsRoute = compositionLocalOf<Any?> { null }
+
+/** The holder the shell publishes into, or `null` on a platform that draws its own bar. */
 val LocalScreenActions = compositionLocalOf<ScreenActionsHolder?> { null }
