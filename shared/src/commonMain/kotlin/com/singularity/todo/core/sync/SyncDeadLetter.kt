@@ -147,6 +147,14 @@ data class SyncDeadLetterEntity(
  * somebody diagnosing the device actually wants — and says, in the log and in the
  * count, that older ones were dropped. The rows are pure evidence: nothing retries
  * them, so a dropped one costs a record, not a change that could have been delivered.
+ *
+ * The cap is **per account**, not across the table. The shelf keeps rows across a
+ * sign-out, so one account's feed being corrupt wholesale must not evict another
+ * account's evidence as a side effect of how much the first one pulled.
+ *
+ * The cap is enforced by [SyncDeadLetterDao.pruneInboundTo]. The pull phase calls it
+ * once per pulled page, not once per shelved event: a page that is corrupt wholesale
+ * then costs one delete rather than one per event.
  */
 const val PULL_SHELF_MAX_ROWS: Int = 200
 
@@ -174,6 +182,90 @@ interface SyncDeadLetterDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: SyncDeadLetterEntity)
+
+    /**
+     * Puts an unreadable inbound event on the shelf, unless it is already there.
+     *
+     * ## Why this is not [insert]
+     *
+     * [insert] replaces, which on a redelivery would rewrite the row and move its
+     * `created_at` / `failed_at` to this cycle. Those two columns are what the cap
+     * orders by, so a recurring corrupt event would sit at the newest end of the list
+     * for ever — never ageing out, and never the row [pruneInboundTo] drops. Keeping
+     * the first sighting is not a nicety: it is what makes the cap converge.
+     * `IGNORE` keeps it structurally, in the conflict resolution, rather than by
+     * reading the old row and copying its timestamps back.
+     *
+     * A first sighting is written with `attempts = 1`; an ignored insert is what tells
+     * the caller this was a redelivery, which [bumpInboundDelivery] then counts. The
+     * two are told apart by the insert's own outcome, in one statement, instead of by
+     * reading the row first and writing it back — a read-then-write lets two pulls both
+     * see "no row" and both write the same count.
+     *
+     * @return the new row's id, or `-1` when the row was already there and nothing was
+     *   written — Room's return for an insert ignored under
+     *   [OnConflictStrategy.IGNORE].
+     */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertInboundIfAbsent(entity: SyncDeadLetterEntity): Long
+
+    /**
+     * Counts another delivery of an inbound event that is already on the shelf.
+     *
+     * `attempts = attempts + 1` is evaluated by SQLite inside the statement, so two
+     * deliveries landing at once cannot both read the same count and write the same
+     * result. Nothing here reads a row into Kotlin and writes it back.
+     *
+     * Owner-scoped as well as keyed: the key already carries the owner, and the
+     * predicate says so, so this statement cannot count a row that belongs to another
+     * account even if a key were ever reused across accounts.
+     *
+     * @return how many rows were counted: 1 normally, 0 when there is no such row.
+     */
+    @Query(
+        """
+        UPDATE sync_dead_letter SET attempts = attempts + 1
+        WHERE patch_id = :id AND owner_id = :ownerId AND patch_id LIKE 'pull:%'
+        """,
+    )
+    suspend fun bumpInboundDelivery(
+        id: String,
+        ownerId: String,
+    ): Int
+
+    /**
+     * Trims [ownerId]'s inbound rows to the newest [maxRows].
+     *
+     * Per account, not across the table. The shelf keeps rows across a sign-out, so a
+     * global cap would let one account's feed being corrupt wholesale evict another
+     * account's evidence — silently, as a side effect of how much the first one pulled.
+     *
+     * Called once per pulled page, not once per shelved event: a page that is corrupt
+     * wholesale costs one delete, rather than one delete (each its own transaction on
+     * the pull loop) per corrupt event.
+     *
+     * Outbound patches are never touched: the predicate is the inbound key prefix, and
+     * an outbound row is bounded by its own retry budget, not by this one.
+     *
+     * @return how many rows were dropped, so the trim can be logged rather than silent.
+     */
+    @Query(
+        """
+        DELETE FROM sync_dead_letter
+        WHERE owner_id = :ownerId
+          AND patch_id LIKE 'pull:%'
+          AND patch_id NOT IN (
+            SELECT patch_id FROM sync_dead_letter
+            WHERE owner_id = :ownerId AND patch_id LIKE 'pull:%'
+            ORDER BY failed_at DESC, patch_id DESC
+            LIMIT :maxRows
+          )
+        """,
+    )
+    suspend fun pruneInboundTo(
+        ownerId: String,
+        maxRows: Int,
+    ): Int
 
     /**
      * Removes an outbound patch row, so the patch can go back on the outbox and be
@@ -245,6 +337,34 @@ internal object NoDeadLetterShelf : SyncDeadLetterDao {
                 "was NOT recorded (${entity.lastError})"
         }
     }
+
+    /**
+     * Logged at error level and reported as "handled" (`0`, not [INSERT_IGNORED]).
+     *
+     * The stand-in holds no rows, so there is nothing for a bump to count: returning
+     * the ignored-insert marker would send the caller on to bump a row that does not
+     * exist and log a second, misleading line for one event.
+     */
+    override suspend fun insertInboundIfAbsent(entity: SyncDeadLetterEntity): Long {
+        log.e {
+            "No dead-letter shelf is wired into the pull phase: ${entity.patchId} " +
+                "was NOT recorded (${entity.lastError})"
+        }
+        return 0L
+    }
+
+    override suspend fun bumpInboundDelivery(
+        id: String,
+        ownerId: String,
+    ): Int {
+        log.e { "No dead-letter shelf is wired into the pull phase: $id was NOT counted" }
+        return 0
+    }
+
+    override suspend fun pruneInboundTo(
+        ownerId: String,
+        maxRows: Int,
+    ): Int = 0
 
     override suspend fun delete(id: String): Int = 0
 

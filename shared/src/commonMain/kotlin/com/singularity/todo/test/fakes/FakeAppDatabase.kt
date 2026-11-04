@@ -1838,6 +1838,40 @@ private class FakeSyncDeadLetterDao(private val store: MutableStateFlow<Map<Stri
         store.update { it + (entity.patchId to entity) }
     }
 
+    /** `@Insert(onConflict = IGNORE)`: `-1` means the row was already there. */
+    override suspend fun insertInboundIfAbsent(entity: SyncDeadLetterEntity): Long {
+        if (store.value.containsKey(entity.patchId)) return -1L
+        store.update { it + (entity.patchId to entity) }
+        return store.value.size.toLong()
+    }
+
+    /** `UPDATE ... SET attempts = attempts + 1 WHERE patch_id = :id AND owner_id = :ownerId`. */
+    override suspend fun bumpInboundDelivery(
+        id: String,
+        ownerId: String,
+    ): Int {
+        val row = store.value[id] ?: return 0
+        if (row.ownerId != ownerId) return 0
+        store.update { it + (id to row.copy(attempts = row.attempts + 1)) }
+        return 1
+    }
+
+    /** `DELETE` of this owner's inbound rows beyond the newest `:maxRows`. */
+    override suspend fun pruneInboundTo(
+        ownerId: String,
+        maxRows: Int,
+    ): Int {
+        val doomed =
+            store.value.values
+                .filter { it.ownerId == ownerId && it.isInboundEvent }
+                .sortedByDescending { it.failedAt }
+                .drop(maxRows)
+                .map { it.patchId }
+                .toSet()
+        store.update { current -> current - doomed }
+        return doomed.size
+    }
+
     override suspend fun delete(id: String): Int {
         val present = store.value.containsKey(id)
         store.update { it - id }

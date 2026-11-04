@@ -176,7 +176,12 @@ class PullPhaseTest {
             assertEquals("task", row.entityType)
             assertTrue(row.payload.contains("42"), row.payload)
             assertTrue(row.lastError.orEmpty().contains("decode failed"), row.lastError)
-            assertEquals(0, row.attempts)
+            assertEquals(
+                1,
+                row.attempts,
+                "one delivery seen: `attempts` counts how many times this device was " +
+                    "handed something it could not read, not a retry budget",
+            )
         }
 
     @Test

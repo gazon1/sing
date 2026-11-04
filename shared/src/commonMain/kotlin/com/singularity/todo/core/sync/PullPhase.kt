@@ -85,8 +85,16 @@ internal class PullPhase(
         data class AppliedButUnusable(val reason: String) : PullStep
 
         /**
-         * The payload was there and could not be read: it is not a document, or it does
-         * not decode into one.
+         * The payload was **present and unreadable**: it did not cast to a document, or
+         * it did not decode into one.
+         *
+         * Both halves of that sentence matter, and the first one is narrower than it
+         * looks. "Present" excludes the event the server sent with no document at all:
+         * that one is [AppliedButUnusable], because nothing arrived that could have been
+         * misread — there is nothing to record and nothing to point at (see
+         * [PullEventHandler] and the `an event with no document is not shelved` test).
+         * "Did not cast to a document" means exactly one thing here: the payload was
+         * there and was not a `JsonObject`.
          *
          * The cursor advances, for the same reason as [AppliedButUnusable] — the server
          * sends the same bytes on every delivery — and the event is recorded in the
@@ -94,10 +102,11 @@ internal class PullPhase(
          * remote change this device dropped, and a dropped remote change is a
          * divergence between the server's state and this device's.
          *
-         * The recording is capped at [PULL_SHELF_MAX_ROWS] rows. Unlike the push-side
-         * shelf, this producer is driven by the server: a feed that is corrupt wholesale
-         * would otherwise write the whole feed's payloads into SQLite, one row per LSN,
-         * and the settings count and list would grow without bound on a phone.
+         * The recording is capped at [PULL_SHELF_MAX_ROWS] rows per account, and the
+         * trim runs once per page rather than once per corrupt event. Unlike the
+         * push-side shelf, this producer is driven by the server: a feed that is corrupt
+         * wholesale would otherwise write the whole feed's payloads into SQLite, one row
+         * per LSN, and the settings count and list would grow without bound on a phone.
          */
         data class Corrupt(val reason: String) : PullStep
 
@@ -330,6 +339,7 @@ internal class PullPhase(
     ): PageOutcome {
         var applied = 0
         var dropped = 0
+        var shelved = 0
         var maxLsn = 0L
         var stalled: String? = null
 
@@ -356,6 +366,7 @@ internal class PullPhase(
 
                 is PullStep.Corrupt -> {
                     dropped++
+                    shelved++
                     maxLsn = maxOf(maxLsn, event.serverLsn)
                     recordCorruptEvent(event, scope, step.reason)
                     log.w {
@@ -375,6 +386,11 @@ internal class PullPhase(
                 }
             }
         }
+        // Once per page, not once per corrupt event. A page that is corrupt wholesale
+        // shelves every one of its events, and a trim per shelved event would put
+        // PULL_PAGE_SIZE DELETE-and-count round trips — each its own transaction — on
+        // the pull loop to arrive at the same cap one delete reaches at the end.
+        if (shelved > 0) trimInboundShelf(scope)
         return PageOutcome(applied, dropped, maxLsn, stalled)
     }
 
@@ -388,15 +404,21 @@ internal class PullPhase(
      * ## Ageing, not jumping to the top
      *
      * The server sends the same bytes on every delivery, so a redelivery is the same
-     * row, not a new one. Its `createdAt` and `failedAt` are kept from the first
-     * sighting: rewriting them to `now` on every delivery would let a recurring corrupt
-     * event sit at the newest end of `ORDER BY failed_at DESC` forever, never ageing out
-     * of the list and never being the row the cap drops.
+     * row, not a new one, and its `createdAt` and `failedAt` stay at the first sighting.
+     * Rewriting them to `now` on every delivery would let a recurring corrupt event sit
+     * at the newest end of `ORDER BY failed_at DESC` for ever, never ageing out of the
+     * list and never being the row the cap drops. That is held structurally by
+     * [SyncDeadLetterDao.insertInboundIfAbsent] — an insert that is ignored on conflict
+     * keeps the row that is already there — rather than by reading the old row and
+     * copying its timestamps back into a replace.
      *
      * `attempts` is the number of deliveries seen, not a retry count. Nothing retries an
      * inbound event — the bytes are identical every time — so this column says "how many
      * times this device was handed something it could not read", which is the useful
-     * number, rather than `0`, which reads as a patch that never failed.
+     * number, rather than `0`, which reads as a patch that never failed. The increment
+     * is done by SQLite inside [SyncDeadLetterDao.bumpInboundDelivery], so it cannot be
+     * lost to two pulls reading the same count and writing the same result — which is
+     * exactly what a get-then-insert does under concurrency.
      *
      * A failure to write the row does not fail the pull. The event is lost either way,
      * and a storage error must not wedge the account's sync over one unreadable row —
@@ -411,38 +433,66 @@ internal class PullPhase(
         val key = SyncDeadLetterEntity.corruptEventId(ownerId = scope.ownerId, event = event)
         val payload =
             event.data?.let { StableJson.encodeToString(JsonElement.serializer(), it) } ?: ""
-        runCatchingCancellable {
-            val previous = deadLetterDao.get(key)
-            deadLetterDao.insert(
-                SyncDeadLetterEntity(
-                    patchId = key,
-                    ownerId = scope.ownerId,
-                    entityId = event.entityId,
-                    entityType = event.entityType.key,
-                    payload = payload,
-                    createdAt = previous?.createdAt ?: now,
-                    failedAt = previous?.failedAt ?: now,
-                    attempts = (previous?.attempts ?: 0) + 1,
-                    lastError = reason,
-                ),
+        val row =
+            SyncDeadLetterEntity(
+                patchId = key,
+                ownerId = scope.ownerId,
+                entityId = event.entityId,
+                entityType = event.entityType.key,
+                payload = payload,
+                createdAt = now,
+                failedAt = now,
+                // A first sighting is one delivery. An ignored insert means the row is
+                // already there, and the bump below counts this one on top of it.
+                attempts = 1,
+                lastError = reason,
             )
-            // Trim in the same breath as the insert, so a page that is corrupt
-            // wholesale cannot leave the shelf over its cap between a read and a
-            // write. A cap, not a TTL: these rows are evidence nothing retries, so
-            // keeping the newest N and dropping the rest costs a record, never a
-            // change that could have been delivered.
-            val pruned = deadLetterDao.pruneInboundTo(PULL_SHELF_MAX_ROWS)
+        runCatchingCancellable {
+            val inserted = deadLetterDao.insertInboundIfAbsent(row)
+            if (inserted == INSERT_IGNORED) deadLetterDao.bumpInboundDelivery(key, scope.ownerId)
+        }.onFailure { e ->
+            log.w(e) { "the undecodable event was not shelved: lsn=${event.serverLsn}" }
+        }
+    }
+
+    /**
+     * Drops this account's oldest unreadable events once they exceed
+     * [PULL_SHELF_MAX_ROWS].
+     *
+     * Called once per page, after the events are dealt with, rather than from
+     * [recordCorruptEvent]: a page that is corrupt wholesale shelves every one of its
+     * events, and trimming after each of them would put one delete — each its own
+     * transaction — per event on the pull loop to reach the same cap one delete reaches
+     * at the end of the page.
+     *
+     * Per account, so one account's flood cannot evict another's evidence. A failure to
+     * trim is logged and swallowed for the same reason a failure to shelve is: the shelf
+     * is evidence, and a full shelf must not stop the account synchronising.
+     */
+    private suspend fun trimInboundShelf(scope: SyncScope) {
+        runCatchingCancellable {
+            val pruned = deadLetterDao.pruneInboundTo(scope.ownerId, PULL_SHELF_MAX_ROWS)
             if (pruned > 0) {
                 log.w {
-                    "the inbound shelf was over $PULL_SHELF_MAX_ROWS rows; " +
-                        "$pruned oldest unreadable event(s) were dropped"
+                    "the inbound shelf held more than $PULL_SHELF_MAX_ROWS unreadable " +
+                        "event(s) for this account; $pruned of the oldest were dropped"
                 }
             }
         }.onFailure { e ->
-            log.w(e) { "the undecodable event was not shelved: lsn=${event.serverLsn}" }
+            log.w(e) { "the inbound shelf was not trimmed" }
         }
     }
 
     /** What one page of the feed cost, and whether it stopped early. */
     private data class PageOutcome(val applied: Int, val dropped: Int, val maxLsn: Long, val stalled: String?)
 }
+
+/**
+ * What Room returns from an `@Insert` that its conflict strategy ignored: the row was
+ * already there, so nothing was written.
+ *
+ * It is what lets [PullPhase.recordCorruptEvent] tell a redelivery from a first
+ * sighting from the insert's own outcome — one statement, no read first — instead of
+ * reading the row and writing it back, which two pulls can interleave into a lost count.
+ */
+private const val INSERT_IGNORED: Long = -1L
