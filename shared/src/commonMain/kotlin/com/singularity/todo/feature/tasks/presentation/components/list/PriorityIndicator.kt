@@ -46,7 +46,7 @@ fun PriorityIndicator(
  * The list's priority tint, shared by the row, the checkbox and the star so a
  * task's priority reads the same wherever it appears on the screen.
  */
-fun priorityColor(priority: TaskPriority): Color = priorityMeta(priority, PriorityPalette.TaskList).color
+fun priorityColor(priority: TaskPriority): Color = priorityMeta(priority).color
 
 private fun priorityContentDescription(priority: TaskPriority): String =
     when (priority) {
