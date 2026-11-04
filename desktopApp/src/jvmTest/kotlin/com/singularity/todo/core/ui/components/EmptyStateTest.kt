@@ -4,7 +4,6 @@ package com.singularity.todo.core.ui.components
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
@@ -19,7 +18,13 @@ import kotlin.test.Test
  * what the screen is for. The icon is optional, so the text-only form must
  * still render unchanged.
  */
-@Tag("fast")
+// A Compose UI harness counts as slow by the tag convention: it crosses the
+// process boundary of a real window and can block. Every sibling desktop
+// compose test (e.g. NotesFlowTest) carries @Tag("slow") + @Tag("slow:compose"),
+// and this one drives runIsolatedComposeTest the same way — tagging it "fast"
+// would admit it to the per-PR population it does not belong to.
+@Tag("slow")
+@Tag("slow:compose")
 class EmptyStateTest {
     @Test
     fun `an icon is drawn when one is given`() =
