@@ -2,9 +2,7 @@ package com.singularity.todo
 
 import android.app.Activity
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.calculateBottomPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -34,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.ui.NavDisplay
@@ -59,6 +58,16 @@ import com.singularity.todo.shell.ShellSearchButton
 import com.singularity.todo.shell.fabActionForNav3
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+
+/**
+ * Room the shell leaves between the bottom of a screen and whatever is below it — the
+ * navigation suite's bar on a phone, the window's own bottom edge on a wide window.
+ *
+ * It is a length rather than a window-inset value on purpose: the suite measures its
+ * content above its navigation bar and consumes the insets that bar occupies, so a
+ * bottom inset read from inside the shell resolves to zero (#1699).
+ */
+private val SHELL_CONTENT_BOTTOM_PADDING = 16.dp
 
 /**
  * Navigation 3 Android shell — the actual implementation called by [PlatformShell].
@@ -146,7 +155,7 @@ fun androidShellNav3Root(
                 modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
             )
         },
-    ) { innerPadding ->
+    ) {
         Scaffold(
             topBar = {
                 ShellTopBar(
@@ -166,16 +175,22 @@ fun androidShellNav3Root(
                     modifier = Modifier.testTag(TestTags.TASKS_FAB),
                 )
             },
-            // The suite tells the content how much room to leave at the bottom for
-            // its navigation bar and the system bars. The shell used to drop that
-            // value and strip the bottom window inset here as well, so the last
-            // row of every screen was drawn behind the navigation bar. Only the
-            // bottom edge is taken: the top of the suite's padding is the status
-            // bar, and the top bar of this scaffold already handles it (#1566).
-            contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal) +
-                WindowInsets(bottom = innerPadding.calculateBottomPadding()),
+            // Only the sides are taken here. The top inset is applied twice if this
+            // scaffold keeps it — the shell's own bar already pads for the status bar
+            // (#1566) — and the bottom needs no inset either: NavigationSuiteScaffold
+            // measures this content above its navigation bar and consumes the insets
+            // that bar occupies, so a bottom inset read here resolves to zero. What the
+            // suite does not do is leave the content any room above the bar: its area
+            // ends exactly at the bar's top edge, and the last row of every screen used
+            // to sit flush against it (#1699). That room is a length, applied below.
+            contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal),
         ) { padding ->
-            Box(Modifier.fillMaxSize().padding(padding)) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(bottom = SHELL_CONTENT_BOTTOM_PADDING),
+            ) {
                 val appEntryProvider = createAppEntryProvider(navCallbacks, today)
 
                 // #445 blank-screen diagnostic — TEMPORARY: to be replaced with proper CI alerting.
