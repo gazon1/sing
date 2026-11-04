@@ -1,4 +1,36 @@
-# DEPRECATED — delete after verifying no callers remain.
-# Was: open a menu sheet item by testTag id.
-# Was used by: (none — 0 callers found in Maestro/flows/)
-# Replace with: inline Maestro commands in the flow if needed.
+# Opens a destination that lives in the app menu, the way a person reaches it.
+#
+# Usage:
+#   - runFlow:
+#       file: ../../helpers/open-menu-item.yaml
+#       env:
+#         ENTRY_ID: menu_plans
+#         DEST_ID: plans_screen
+#
+# The destination is not in the bottom bar: it sits behind the "Menu" button,
+# in a sheet that scrolls. An entry can be in the tree and still be below the
+# fold, so the sheet is scrolled until the entry is on screen before it is
+# tapped — a bare `tapOn` would fail on where the entry is drawn rather than on
+# whether it exists, and a failure that names a position says nothing about the
+# menu.
+#
+# The sheet's own screen cannot say which entry was missed, so the wait is on
+# the entry: a destination that left the menu fails here with `${ENTRY_ID}` in
+# the message. The wait at the end is on the destination's own id, not on the
+# sheet's dismissal — a tap that silently no-ops leaves the sheet up, and a
+# step that did not wait for the screen would call that a pass.
+appId: com.singularity.todo
+name: open-menu-item
+---
+- runFlow: open-app-menu.yaml
+- scrollUntilVisible:
+    element:
+      id: "${ENTRY_ID}"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "${ENTRY_ID}"
+- extendedWaitUntil:
+    visible:
+      id: "${DEST_ID}"
+    timeout: 8000

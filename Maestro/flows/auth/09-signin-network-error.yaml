@@ -19,6 +19,8 @@
 # (`manual` says the same thing).
 appId: com.singularity.todo
 name: auth-signin-network-error
+onFlowComplete:
+  - setAirplaneMode: disabled
 tags:
   - auth-live
   - scenario:AUTH-FAIL-02

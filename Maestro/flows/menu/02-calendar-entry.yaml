@@ -1,4 +1,10 @@
-# The Calendar left the bottom bar and is an entry of the menu.
+# The Calendar is a tab of the bottom bar, and the menu does not offer it.
+#
+# It used to live behind the Menu button. The bar carries it now, so this flow
+# asserts both halves: the tab reaches the calendar, and the sheet no longer
+# lists the entry. An entry that quietly stayed behind would put one
+# destination on two surfaces, and the sheet's is the one a person would stop
+# finding in the bar.
 appId: com.singularity.todo
 name: menu-calendar-entry
 tags:
@@ -6,10 +12,15 @@ tags:
   - scenario:MENU-04
 ---
 - runFlow: ../../helpers/launch-clean.yaml
-- runFlow: ../../helpers/open-app-menu.yaml
+# The bar's Calendar tab opens the calendar.
+- tapOn:
+    id: nav_tab_calendar
 - extendedWaitUntil:
     visible:
-      id: menu_calendar
-    timeout: 5000
-- tapOn:
+      id: calendar_month_title
+    timeout: 8000
+# And the menu, opened over it, carries no Calendar entry: `menu_calendar` is
+# drawn nowhere, so a regression that puts it back names itself here.
+- runFlow: ../../helpers/open-app-menu.yaml
+- assertNotVisible:
     id: menu_calendar

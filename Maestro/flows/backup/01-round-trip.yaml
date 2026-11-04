@@ -5,6 +5,7 @@
 #
 # Backup/restore in this app is a local file round-trip; the test proves the task
 # survives a full data wipe and restore without corruption.
+# прогнан на устройстве: нет (2026-11-04) — прогон на устройстве не выполнялся
 appId: com.singularity.todo
 name: backup-round-trip
 tags:
@@ -17,17 +18,16 @@ tags:
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=${RUN_ID}_BackupRoundTripTask"
+      QUERY: "task=BackupRoundTripTask"
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_backuproundtriptask
+      id: task_item_backuproundtriptask
     timeout: 8000
 
 # 2. Open Settings and navigate to Backup.
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 # The menu sheet opens with Settings already on screen. Scrolling it with
 # scrollUntilVisible pushed the entry down into the system navigation bar,
 # where the tap lands on the system HOME button instead of the entry.
@@ -66,7 +66,7 @@ tags:
 # (SAF), so clearState would no longer delete it; we still delete the task by
 # hand to keep the round trip focused on restore.
 - tapOn:
-    id: task_item_${RUN_ID}_backuproundtriptask
+    id: task_item_backuproundtriptask
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
@@ -88,12 +88,11 @@ tags:
 # 5. The task must be gone.
 - extendedWaitUntil:
     notVisible:
-      id: task_item_${RUN_ID}_backuproundtriptask
+      id: task_item_backuproundtriptask
     timeout: 8000
 
 # 6. Restore from backup.
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 # The menu sheet opens with Settings already on screen. Scrolling it with
 # scrollUntilVisible pushed the entry down into the system navigation bar,
 # where the tap lands on the system HOME button instead of the entry.
@@ -145,5 +144,5 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_backuproundtriptask
+      id: task_item_backuproundtriptask
     timeout: 8000

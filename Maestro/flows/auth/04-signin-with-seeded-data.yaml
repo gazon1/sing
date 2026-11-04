@@ -37,19 +37,17 @@ tags:
 
 # The local session: the app is usable without an account, and the data the
 # flow seeds belongs to that profile.
-- openLink: "todo-debug://seed?session=anonymous"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "session=anonymous"
 
 # Seed a task while on the local session. The seed deep-link creates data
 # directly in Room, bypassing auth.
-- openLink: "todo-debug://seed?task=Seed%20task"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Seed%20task"
 
 # Navigate to Inbox to confirm the task was created.
 - tapOn:
@@ -75,11 +73,10 @@ tags:
 # anonymous-task would be orphaned (not associated with the signed-in user),
 # but the local-first DB still contains it and it is still visible.
 # The intent of the spec is that sign-in does NOT wipe local data.
-- openLink: "todo-debug://seed?session=anonymous"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "session=anonymous"
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:

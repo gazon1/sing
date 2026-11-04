@@ -4,6 +4,7 @@ package com.singularity.todo.feature.genui
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
@@ -184,6 +185,70 @@ class GenuiCatalogRenderTest {
             assertEquals(JsonPrimitive("carried"), presses.single().data?.get("kind"))
         }
 
+    /**
+     * A modal draws nothing while its path is closed.
+     *
+     * The catalogue tells the model that a modal shows while its path is true, and the renderer
+     * used to draw the child inline whatever the path held — so the content of a modal the model
+     * had not opened was pasted into the surface, and a dialog that opened later would cover a
+     * copy of what it was about to show.
+     */
+    @Test
+    fun aModalDrawsNothingWhileItsPathIsClosed() =
+        runGenuiRenderTest(MODAL) {
+            node("text_Are_you_sure?").assertDoesNotExist()
+        }
+
+    /**
+     * A modal whose path is true is a dialog, and its content is in it.
+     *
+     * The close control is the proof that a dialog was drawn: it exists only inside one, so a
+     * renderer that pasted the content into the surface would show the content and fail here.
+     */
+    @Test
+    fun aModalShowsItsContentWhenItsPathIsTrue() =
+        runGenuiRenderTest(MODAL_OPEN) {
+            node("text_Are_you_sure?").assertExists()
+            node("modal_close").assertExists()
+        }
+
+    /**
+     * Closing the dialog writes `false` to the path it was opened by.
+     *
+     * The write is the whole of the closing: the renderer keeps no state of its own, so the value
+     * in the data model is the only thing that says whether the dialog is open. A dialog that
+     * closed without writing would stay open for the next recomposition, and a model could never
+     * reopen it.
+     */
+    @Test
+    fun closingAModalWritesFalseToItsPath() =
+        runGenuiRenderTest(MODAL_OPEN) {
+            node("modal_close").performClick()
+            settle()
+
+            assertEquals(JsonPrimitive(false), valueAt("/dialog/open"), "The dialog closed itself")
+            node("text_Are_you_sure?").assertDoesNotExist()
+        }
+
+    /**
+     * The path is the whole of the dialog's state, so the model can open it again.
+     *
+     * This is what makes the flag worth keeping in the data model rather than in the renderer:
+     * a message that writes `true` to the path opens the dialog again, and nothing else has to
+     * know that a dismissal happened.
+     */
+    @Test
+    fun aModalOpensAgainWhenItsPathIsTrueAgain() =
+        runGenuiRenderTest(MODAL_OPEN) {
+            node("modal_close").performClick()
+            settle()
+
+            serverWrites("/dialog/open", JsonPrimitive(true))
+            settle()
+
+            node("text_Are_you_sure?").assertExists()
+        }
+
     private companion object {
         /** The tag a task card carries for [title]; the renderer builds it from the title it drew. */
         fun cardTag(title: String): String = TestTags.genUi("task_card_$title")
@@ -229,6 +294,25 @@ class GenuiCatalogRenderTest {
                     """{"id":"fixed","kind":"button","label":"Fixed","action":"noop",""" +
                     """"data":{"kind":"carried"}}]}}""",
             )
+
+        /**
+         * A surface with a modal whose path nothing ever writes.
+         *
+         * The path is the only thing that opens the dialog, and an unwritten path is not true, so
+         * this is the closed modal.
+         */
+        val MODAL: List<String> =
+            listOf(
+                """{"createSurface":{"surfaceId":"modal","rootId":"root","components":[""" +
+                    """{"id":"root","kind":"column","children":["m"]},""" +
+                    """{"id":"m","kind":"modal","child":"body","openPath":"/dialog/open"},""" +
+                    """{"id":"body","kind":"text","value":"Are you sure?"}]}}""",
+            )
+
+        /** The same surface, with the modal's path written true: the dialog is open. */
+        val MODAL_OPEN: List<String> =
+            MODAL +
+                """{"updateData":{"surfaceId":"modal","path":"/dialog/open","value":true}}"""
 
         val SURFACE_ID: SurfaceId = GenuiSurfaceId
     }

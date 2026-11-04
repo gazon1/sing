@@ -47,8 +47,7 @@ tags:
 # Navigate: hamburger menu → Settings → Account tab. The settings navigation
 # is a scrollable column and the Account tab is the last of its rows, so it
 # has to be scrolled into view before it can be tapped.
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 - waitForAnimationToEnd
 - scrollUntilVisible:
     element:
@@ -79,11 +78,10 @@ tags:
     timeout: 5000
 
 # The data outlived the sign-out: the task seeded before it is still there.
-- openLink: "todo-debug://seed?session=anonymous"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "session=anonymous"
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:

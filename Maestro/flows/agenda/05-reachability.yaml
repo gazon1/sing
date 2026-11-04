@@ -2,8 +2,9 @@
 # reachable from every agenda-carrying bottom tab (Inbox, Today, Upcoming).
 #
 # Complements the desktop AgendaReachabilityFlowTest: on Android the shell is a
-# bottom bar with nav_tab_* tags, and Plans/Pomodoro/Calendar are non-agenda
-# destinations, so only the three agenda tabs are exercised here.
+# bottom bar with nav_tab_* tags, and Plans and Pomodoro are menu destinations
+# while the Calendar is a tab but not an agenda, so only the three agenda tabs
+# are exercised here.
 appId: com.singularity.todo
 name: agenda-reachability
 tags:

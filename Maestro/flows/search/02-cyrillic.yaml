@@ -15,15 +15,13 @@ tags:
 # `due=today`: a task without a due date lands in the "No Date" bucket,
 # which the Today tab does not show — the flow would assert against a task
 # it had seeded and could not see.
-- openLink: "todo-debug://seed?task=%D0%9F%D0%BE%D0%BA%D1%83%D0%BF%D0%BA%D0%B8&due=today"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=%D0%9F%D0%BE%D0%BA%D1%83%D0%BF%D0%BA%D0%B8&due=today"
 
 # Open quick search from menu.
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 - extendedWaitUntil:
     visible:
       id: menu_settings

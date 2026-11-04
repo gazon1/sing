@@ -1,0 +1,51 @@
+name: Prune stale branches
+
+# Deletes remote branches that have had no commit for 7 days, have no open
+# pull request, and are not protected. Runs weekly; can be triggered manually.
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  prune:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Delete stale remote branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          cutoff=$(date -d '7 days ago' +%s)
+          protected='^(main|master|develop|release/.*)$'
+          git fetch --prune origin
+
+          for ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin); do
+            branch="${ref#origin/}"
+            [ "$branch" = "HEAD" ] && continue
+            echo "$branch" | grep -Eq "$protected" && continue
+
+            # skip branches with an open pull request
+            open=$(gh pr list --repo "$GH_REPO" --state open --head "$branch" --json number --jq 'length')
+            [ "$open" != "0" ] && { echo "skip $branch (open PR)"; continue; }
+
+            tip=$(git rev-parse "$ref")
+            committed=$(git show -s --format=%ct "$tip")
+            if [ "$committed" -lt "$cutoff" ]; then
+              echo "deleting stale branch: $branch (last commit $(date -d "@$committed" +%F))"
+              git push origin --delete "$branch" || echo "could not delete $branch"
+            else
+              echo "keep $branch (recent activity)"
+            fi
+          done

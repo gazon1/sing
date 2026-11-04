@@ -6,9 +6,14 @@ import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.test.fakes.MapFileSystem
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
@@ -81,16 +86,28 @@ class BackupCodecContractTest {
     @Test
     fun `import fails with MalformedManifest when manifest entry is missing`() =
         runTest {
-            // Corrupt the zip by overwriting with invalid data
-            // The codec validates manifest entry presence on import
-            val manifest = """{"v":1}""".toByteArray()
-            val payload = """{}""".toByteArray()
+            // An archive whose manifest entry was lost: there is nothing in it
+            // that says what the payload contains, so the import must refuse it.
+            fs.writeBytes(backupPath, zipOf(BackupFormat.ENTRY_PAYLOAD to """{"tasks":[]}""".toByteArray()))
 
-            sut.export(manifest, payload, emptyList(), backupPath, fs)
-
-            // Direct import of a valid zip succeeds (manifest was present)
             val result = sut.import(backupPath, fs)
-            assertTrue(result.isSuccess) // valid export-import round-trip
+
+            assertTrue(result.isFailure)
+            val error = assertIs<BackupPayloadError.MalformedManifest>(result.exceptionOrNull())
+            assertContains(error.message.orEmpty(), "missing manifest.json")
+            fs.delete(backupPath)
+        }
+
+    @Test
+    fun `import fails with MalformedManifest when payload entry is missing`() =
+        runTest {
+            fs.writeBytes(backupPath, zipOf(BackupFormat.ENTRY_MANIFEST to """{"v":1}""".toByteArray()))
+
+            val result = sut.import(backupPath, fs)
+
+            assertTrue(result.isFailure)
+            val error = assertIs<BackupPayloadError.MalformedManifest>(result.exceptionOrNull())
+            assertContains(error.message.orEmpty(), "missing payload.json")
             fs.delete(backupPath)
         }
 
@@ -108,4 +125,23 @@ class BackupCodecContractTest {
             assertContentEquals(payload, result.getOrThrow().payloadBytes)
             fs.delete(backupPath)
         }
+
+    /**
+     * A zip holding exactly the given entries.
+     *
+     * The codec refuses an archive whose manifest or payload entry is missing,
+     * and the exporter never writes such an archive — so the broken archive has
+     * to be built here, by hand, for the refusal to be observable.
+     */
+    private fun zipOf(vararg entries: Pair<String, ByteArray>): ByteArray {
+        val bytes = ByteArrayOutputStream()
+        ZipOutputStream(bytes).use { zos ->
+            for ((name, content) in entries) {
+                zos.putNextEntry(ZipEntry(name))
+                zos.write(content)
+                zos.closeEntry()
+            }
+        }
+        return bytes.toByteArray()
+    }
 }

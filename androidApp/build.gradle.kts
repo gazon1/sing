@@ -33,6 +33,7 @@ kotlin {
 
 dependencies {
     implementation(project(":shared"))
+            implementation(project(":shared-ui"))
 
     // The custom rule sets (via :detekt-rules plugin / ServiceLoader). Without this, no
     // project rule applies to androidApp at all.

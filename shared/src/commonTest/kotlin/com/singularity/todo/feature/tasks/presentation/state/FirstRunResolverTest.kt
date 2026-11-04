@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.tasks.presentation.state
+package com.singularity.todo.feature.tasks.domain.state
 
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test

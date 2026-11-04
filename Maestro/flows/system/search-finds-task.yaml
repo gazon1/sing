@@ -14,15 +14,13 @@ tags:
 ---
 # Seed a task with a unique searchable title. The title is fixed and the seed
 # replaces, so the row this flow searches for is the same row every run.
-- openLink: "todo-debug://seed?task=UniqueSearchableTask2026"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=UniqueSearchableTask2026"
 
 # Open the quick-search from the menu sheet.
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 - scrollUntilVisible:
     element:
       id: menu_quick_search

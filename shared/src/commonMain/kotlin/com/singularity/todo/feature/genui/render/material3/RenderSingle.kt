@@ -10,11 +10,11 @@ import com.singularity.todo.feature.genui.render.DataContext
 
 /**
  * Recursive dispatch helper used by container renderers (Column, Row, Card, ListView, Modal,
- * Tabs). Looks the child up through [DataContext.component] and asks the registry to render it.
+ * Tabs). Looks the child up in the surface's component store and asks the registry to render it.
  *
- * The subscription is to the child, not to the surface. This helper used to collect the whole
- * surface map, which meant every node in the tree was a subscriber to every change anywhere in it
- * — a surface of a hundred nodes re-composed a hundred times for one edited field.
+ * What is derived is the child, not the surface. This helper used to collect the whole surface
+ * map, which meant every node in the tree was a subscriber to every change anywhere in it — a
+ * surface of a hundred nodes re-composed a hundred times for one edited field.
  *
  * A missing child renders nothing: a container routinely names components that a later message
  * will define, and that is a wait, not an error.

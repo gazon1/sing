@@ -6,7 +6,7 @@ import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runCurrent

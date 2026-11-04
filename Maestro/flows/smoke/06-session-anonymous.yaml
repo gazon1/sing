@@ -23,18 +23,15 @@ tags:
 - runFlow: ../../helpers/launch-clean.yaml
 
 # Put the app into a local session. The link brings the app up with the new
-# session already in place, so the agenda is what waits afterwards.
-- openLink: "todo-debug://seed?session=anonymous"
-
-# A local session is not blocked: the agenda is up.
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+# session already in place, so the agenda is what waits afterwards. A local
+# session is not blocked: the agenda is up.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "session=anonymous"
 
 # Open menu -> Settings.
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 - extendedWaitUntil:
     visible:
       id: menu_settings

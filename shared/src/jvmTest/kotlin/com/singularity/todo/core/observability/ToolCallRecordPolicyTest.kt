@@ -22,6 +22,12 @@ import kotlin.test.assertTrue
  *
  * So the policy is the declaration, the Kotlin enums are checked against it, and the
  * Python reader reads the same file. One fact, two readers, and a test that says so.
+ *
+ * The retention window is the same kind of fact and it now lives in one place:
+ * [ToolCallRecordPolicy.RETENTION_DAYS] is the constant both writers delete on, so
+ * this one assertion covers the JVM writer and the Android one. The Android writer
+ * used to have its own copy of this check, in a second tier, asserting its own copy
+ * of the same constant.
  */
 @Tag("fast")
 class ToolCallRecordPolicyTest {
@@ -80,8 +86,8 @@ class ToolCallRecordPolicyTest {
 
         assertEquals(
             declared,
-            JvmFileToolCallLog.RETENTION_DAYS,
-            "the writer deletes records on a different schedule than the policy says, " +
+            ToolCallRecordPolicy.RETENTION_DAYS,
+            "the writers delete records on a different schedule than the policy says, " +
                 "so the window the report reports over is not the window the data lives in",
         )
     }

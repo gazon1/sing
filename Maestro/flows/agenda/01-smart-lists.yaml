@@ -1,9 +1,9 @@
-# Agenda: Inbox buckets tasks by date — an undated task sits in "No Date",
-# dating it moves it to the matching date bucket and removes it from "No Date".
+# Agenda: the inbox holds the tasks that are not dated yet — an undated task sits
+# in "No Date", and dating it takes it out of the inbox.
 #
-# Inbox is a full agenda (Today, Yesterday, …, No Date); a dated task stays
-# in Inbox under its date section. The test verifies that dating removes the
-# task from "No Date" and places it in its date section.
+# The three agenda tabs are disjoint: the inbox holds the undated tasks, the Today
+# tab the overdue and today's ones, the Upcoming tab what is coming. So dating a
+# task moves it out of the inbox and into one of the other two.
 # Section headers render as "<Section>  ·  <count>".
 appId: com.singularity.todo
 name: agenda-smart-lists
@@ -134,31 +134,24 @@ tags:
 - back
 - waitForAnimationToEnd
 
-# Back on Inbox. The task is now dated, so it moved out of "No Date".
+# Back on the Inbox tab. The task is now dated, so it moved out of "No Date" —
+# and out of the inbox altogether: the inbox holds the undated tasks, the dated
+# ones belong to the Today or the Upcoming tab.
 - extendedWaitUntil:
     visible:
       id: nav_tab_inbox
     timeout: 10000
 
-# Inbox renders every bucket on one scrolling list, so "Today" and "No Date" can
-# be on screen together. A bare assertNotVisible would therefore fail against the
-# task's new home, not its old one. Scope the assertion to the section it must
-# have left: it may no longer appear below the "No Date" header, and must now
-# appear below the "Today" header.
 - assertNotVisible:
     id: "task_item_sdnodate"
-    below:
-      id: agenda_section_no_date
-# ... and now sits under "Today", which is above the current scroll position —
-# bring that section into view before asserting against it.
-- scrollUntilVisible:
-    element:
-      id: agenda_section_today
-    direction: UP
-    timeout: 8000
+
+# The dated task is not lost — it is in the Today tab now (the Upcoming tab would
+# hold it if it were dated later than today). The Today tab shows the work-day
+# blocks on a working day, and those hold the timed tasks only, so the row is
+# looked for without pinning it to a section header.
+- tapOn:
+    id: nav_tab_today
 - extendedWaitUntil:
     visible:
       id: "task_item_sdnodate"
-      below:
-        id: agenda_section_today
     timeout: 8000

@@ -1,13 +1,16 @@
 # Smoke: every bottom-bar tab is reachable, and each routes the FAB correctly.
 #
 # The FAB expectations encode the real contract from `FabActionResolver`:
-# Inbox/Today/Upcoming are `AgendaGraph` routes, but only Inbox and Today get
-# "Add task" — Upcoming deliberately has none. Plans gets "Add task" too: the
-# plan tab creates the work that is due, not a project.
-# Pomodoro is a non-agenda destination and gets nothing. The Calendar is not a
-# tab any more — it is an entry of the app menu, and it is checked there.
-# Getting this wrong made this flow fail on Upcoming, so the assertions are
-# written to match the resolver rather than to match a guess.
+# Inbox/Today/Upcoming are `AgendaGraph` routes, and all three get "Add task".
+# The Calendar is a `Calendar` destination, not a task list, and gets nothing.
+#
+# Plans and Pomodoro are **menu** destinations, not tabs: they left the tab bar
+# and live behind the "Menu" button (see `DestinationKind`), so the flow reaches
+# them through the menu sheet. Plans still gets "Add task" — the timeline
+# creates the work that is due, not a project. Pomodoro gets nothing. Waiting
+# for a bottom-bar tag the screen does not contain can only end in a timeout,
+# and it says nothing about the FAB — the failure would name a wait, not a
+# behaviour.
 #
 # `selected: true` is not usable here: the accessibility layer does not expose
 # the selection state on the same node that carries the test tag.
@@ -35,38 +38,43 @@ tags:
 - assertVisible:
     id: nav_tab_today
 
-# Upcoming — no FAB by design.
+# Upcoming — the FAB reads "Add task" as on Inbox and Today.
 - tapOn:
     id: nav_tab_upcoming
-- assertNotVisible:
+- assertVisible:
     id: tasks_fab
 - assertVisible:
     id: nav_tab_upcoming
 
-# Back to an agenda tab before leaving for the other destinations, so the
-# next assertion starts from a known FAB state.
+# Calendar — a tab, and no shell FAB: a calendar is not a list of tasks. The
+# month grid is waited for before the FAB is judged, because the FAB of the
+# screen underneath is still in the tree while the tab switch animates.
 - tapOn:
-    id: nav_tab_today
+    id: nav_tab_calendar
+- extendedWaitUntil:
+    visible:
+      id: calendar_month_title
+    timeout: 8000
 - assertVisible:
-    id: tasks_fab
-
-# Plans — the FAB stays "Add task": the plan tab creates the work that is due.
-- tapOn:
-    id: nav_tab_plans
-- assertVisible:
-    id: tasks_fab
-- assertVisible:
-    id: nav_tab_plans
-
-# Pomodoro — no shell FAB.
-- tapOn:
-    id: nav_tab_pomodoro
+    id: nav_tab_calendar
 - assertNotVisible:
     id: tasks_fab
-- assertVisible:
-    id: nav_tab_pomodoro
 
-# Calendar — it left the bottom bar and is an entry of the app menu.
-- runFlow: ../../helpers/open-app-menu.yaml
+# Plans — a menu entry, and it does show the "Add task" FAB.
+- runFlow:
+    file: ../../helpers/open-menu-item.yaml
+    env:
+      ENTRY_ID: menu_plans
+      DEST_ID: plans_screen
 - assertVisible:
-    id: menu_calendar
+    id: tasks_fab
+
+# Pomodoro — a menu entry, and it has no shell FAB. The helper waits for the
+# timer, so the FAB here is the Pomodoro screen's and not the Plans screen's.
+- runFlow:
+    file: ../../helpers/open-menu-item.yaml
+    env:
+      ENTRY_ID: menu_pomodoro
+      DEST_ID: pomodoro_phase_label
+- assertNotVisible:
+    id: tasks_fab

@@ -23,19 +23,16 @@ tags:
 - runFlow: ../../helpers/launch-clean.yaml
 
 # Enter a local session: the attach affordance exists only for
-# `Session.Anonymous`, and the E2E build starts `SignedIn`.
-- openLink: "todo-debug://seed?session=anonymous"
-
-# Wait for the agenda tabs to appear — the Anonymous session is not blocked
-# by the auth screen.
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+# `Session.Anonymous`, and the E2E build starts `SignedIn`. The agenda tabs
+# appear afterwards — the Anonymous session is not blocked by the auth
+# screen, and the helper waits for the shell before it returns.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "session=anonymous"
 
 # Navigate to Settings via the menu.
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 - extendedWaitUntil:
     visible:
       id: menu_settings

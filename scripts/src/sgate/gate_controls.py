@@ -802,6 +802,18 @@ SCRIPT_GATES = [
                 'a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there'
             ),
         ),
+        # The catalogue of the skills, generated from the frontmatter of every
+        # SKILL.md. The command is `bash` because the generator is a shell
+        # script — and it must run with `--check`, or the probe would rewrite
+        # the catalogue instead of failing on it.
+        ScriptGate(
+            name="skills-catalog",
+            cmd=["bash", "scripts/regen-skills-catalog.sh", "--check"],
+            why=(
+                'the catalogue is the index an agent chooses a skill from, and a stale '
+                'line count or a stale description sends it to the wrong file'
+            ),
+        ),
         # The three controls below are declared in the registry (`_registry.GATE_CONTROLS`)
         # and the twins that ran them were never written: the gate was registered, the
         # probe was declared, and nothing ever broke the file the gate reads. The

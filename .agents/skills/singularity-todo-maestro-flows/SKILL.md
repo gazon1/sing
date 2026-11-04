@@ -128,9 +128,14 @@ selector to fall back on.
 
 ## Seed fixtures, never type them
 
-**Seed, never type.** The walkthrough — why typing a fixture into the editor does
-not work, the `seed.yaml` query keys, `${RUN_ID}` prefixing, the runner's cleanup
-sweep — is in the runbook:
+**Seed, never type.** A seeded fixture gets a title of its own: the seed replaces
+the row it names, so the title is the same in every run and the flow asserts on
+it (`task_item_<slug>`). A per-run value belongs to a title the flow *types*
+itself, not to a seeded one.
+
+The walkthrough — why typing a fixture into the editor does not work, the
+`seed.yaml` query keys, the seed replacing the row it names, the run id and the
+runner's cleanup wipe — is in the runbook:
 [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them).
 
 ## Adaptive scrolling: `scrollUntilVisible` over hardcoded swipe
@@ -302,8 +307,9 @@ suite. See `singularity-todo-emulator-launch`.
 
 Start from `launch-clean`, then `seed.yaml` when the flow needs data. Make new
 flows self-seeding rather than inheriting state from an earlier flow. Note that
-`launch-clean` does not clear Room, so a fixture written by a previous run is
-still there — see [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them).
+`launch-clean` does not clear Room, so a fixture written by a previous *manual*
+run is still there — the runner wipes the profile before each flow instead —
+see [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them).
 
 ## The runbook
 
@@ -313,8 +319,8 @@ or misbehaves:
 
 - [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them) —
   why typing a fixture into the editor does not work, the `seed.yaml` query keys,
-  `${RUN_ID}` prefixing, the runner's cleanup sweep, and why `launch-clean` does
-  not clear the database.
+  the seed replacing the row it names, the run id and the runner's cleanup wipe,
+  and why `launch-clean` does not clear the database.
 - [App behaviour facts flows encode](diagnosing-failures.md#app-behaviour-facts-flows-encode) —
   the behaviours a flow author would otherwise guess wrong.
 - [Recon before writing a flow — the probe trick](diagnosing-failures.md#recon-before-writing-a-flow--the-probe-trick) —
@@ -352,8 +358,12 @@ split for flows — the split is `smoke` vs domain.
    `tapOn id: <target>`.
 5. Assert on `id:` selectors from `TestTags`; add a constant if one is missing
    (then the rebuild loop).
-6. Stamp the fixture title with `${output.stamp}` if the flow mutates it, unless
-   it consumes `seed-task.yaml`'s fixed title.
+6. Give a seeded fixture a title of its own: the seed replaces the row it names,
+   so the title is stable across runs and the flow asserts on `task_item_<slug>`.
+   A per-run value comes from `${RUN_ID}` — minted by `run-maestro` on every
+   attempt, declared in `Maestro/config.yaml` — and belongs only in a title the
+   flow types into the editor itself. The old `${output.stamp}` form is gone: it
+   is a flow's own computed value, so a selector holding it can never resolve.
 7. Tag it with `smoke` only if it must always pass; otherwise use a domain tag.
 8. `just tm flow=Maestro/flows/<sub>/<file>.yaml`.
 9. **State whether the flow ran on a device**, in the header of the flow and

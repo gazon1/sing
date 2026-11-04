@@ -480,6 +480,22 @@ gate blocking "review verdicts cover every change" python3 scripts/check-review-
 # (`-PupdateGoldens=true`), and the gate names that command when it finds a
 # difference.
 gate blocking "the tag catalogue matches the tags" sgate the_tag_catalogue_matches_the_tags
+# The catalogue of the skills, generated from the skills' own frontmatter.
+#
+# `docs/SKILLS-CATALOG.md` is what an agent reads to choose a skill, so a stale
+# line count or a stale description sends it to the wrong file. The catalogue was
+# committed stale on a clean tree and nobody noticed: "do not edit by hand"
+# discourages the wrong edit, and it does not catch the edit nobody made.
+#
+# The generator had a `--check` mode for exactly that, and nothing ran it. This
+# gate is that mode — the generator compares the committed catalogue with a
+# fresh generation and exits non-zero when they differ, so a pull request that
+# edits a skill without regenerating the catalogue fails instead of landing one.
+#
+# The script is invoked directly rather than through `sgate`: a gate dispatched
+# through `sgate` is asked for `--json` and held to the JSON contract, and this
+# one prints a sentence.
+gate blocking "skills catalogue is current" bash scripts/regen-skills-catalog.sh --check
 #
 # Workflow + YAML lint, two real tools over the corpus the gates above only
 # parse. actionlint checks GitHub Actions *semantics* — expressions, action
@@ -875,6 +891,25 @@ gate blocking "maestro flows do not name a pixel" python3 scripts/check-maestro-
 gate blocking "the link grammar has one home" sgate the_link_grammar_has_one_home
 # The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.
 gate blocking "the tool catalogue is current" sgate the_tool_catalogue_is_current
+# The catalogue of the skills, generated from the frontmatter of every
+# SKILL.md. It is the index an agent chooses a skill from, so a stale row — a
+# line count or a description that no longer matches the file — sends it to the
+# wrong file, and the drift announces itself nowhere.
+#
+# The generator already knows how to compare: `--check` fails when the
+# committed catalogue is not what it would write, and it refuses outright when a
+# skill body stops parsing, because a catalogue that silently omits a skill is
+# worse than no catalogue. Nothing called that mode, so the catalogue was
+# committed stale on a clean tree — three skills recorded 20 to 22 lines below
+# their real size — and the check mode would have failed on that tree. This gate
+# is that call.
+#
+# The command runs the script directly rather than through `sgate`: `sgate
+# run-all` asks every sgate-dispatched gate for `--json`, and that wrapper
+# keeps only the child's stdout, while the generator's message — the fix to
+# run, or the refusal — is on stderr. Run directly, the failure says what to
+# do.
+gate blocking "the skills catalogue is current" bash scripts/regen-skills-catalog.sh --check
 # The external-agent feature is desktop-only — the protocol library needs JDK 21, and this project keeps the Android target at JVM_11 bytecode.
 gate blocking "the mobile build carries no external-agent code" sgate the_mobile_build_carries_no_external_agent_code
 # The gate reads the spec-kit feature specifications and checks that every requirement is traced and every promised check is a file in the tree.

@@ -13,12 +13,14 @@ tags:
 # `due=today`: a task without a due date lands in the "No Date" bucket,
 # which the Today tab does not show — the flow would assert against a task
 # it had seeded and could not see.
-- openLink: "todo-debug://seed?task=PinnedTask2026&due=today"
-- openLink: "todo-debug://seed?task=UnpinnedTask2026&due=today"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=PinnedTask2026&due=today"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=UnpinnedTask2026&due=today"
 
 # Pin the first task via detail view.
 #
@@ -48,8 +50,7 @@ tags:
 - back
 
 # Open quick search.
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 - extendedWaitUntil:
     visible:
       id: menu_settings

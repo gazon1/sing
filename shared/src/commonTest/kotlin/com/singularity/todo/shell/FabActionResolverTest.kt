@@ -55,9 +55,14 @@ class FabActionResolverTest {
     }
 
     @Test
-    fun agendaGraph_upcoming_returnsNull() {
+    fun agendaGraph_upcoming_returnsAddTask() {
         val result = fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.Upcoming), today, navigate)
-        assertNull(result)
+        assertEquals("Add task", result.label())
+        result.click()
+        val nav = navigatedTo as? AppDestination.TasksGraph
+        assertIs<AppDestination.TasksGraph>(nav)
+        assertEquals(AppDestination.TasksStartRoute.Create(), nav.start)
+        assertNull(nav.initialDueDate, "Upcoming FAB should not prefill due date")
     }
 
     @Test

@@ -13,6 +13,7 @@
 #   note=<title>              — create a note
 #   project=<name>           — create a project
 #   profile=<name>           — create and switch to a profile
+#   session=anonymous        — put the app into a local (offline) session
 #
 # This helper does NOT run launch-clean — the caller decides.
 #
