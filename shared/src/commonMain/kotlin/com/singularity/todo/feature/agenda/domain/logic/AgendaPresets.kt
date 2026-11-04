@@ -394,6 +394,12 @@ object AgendaPresets {
     /**
      * Work-day agenda split into morning work, lunch, and afternoon work blocks.
      *
+     * The definition is titled [Today]'s title. This preset is what the Today
+     * destination evaluates on a working day, so its header has to name that
+     * destination, not the preset: a title of its own ("Work Day") would make
+     * the header change its name at the weekend and disagree with the tab
+     * underneath.
+     *
      * Each block is a [Selector.TimeOfDay] that matches tasks with `dueTime` within
      * the corresponding window. Tasks with no `dueTime` are excluded from all three
      * blocks and must be handled by a separate section in the definition.
@@ -413,7 +419,7 @@ object AgendaPresets {
         lunchStartMinutes: Int,
         lunchEndMinutes: Int,
     ): AgendaDefinition =
-        agenda("Work Day") {
+        agenda(Today.title) {
             section(
                 "work_morning",
                 "Work",

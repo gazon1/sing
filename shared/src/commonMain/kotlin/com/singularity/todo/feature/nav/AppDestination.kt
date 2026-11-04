@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
+import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -361,7 +362,10 @@ sealed interface AppDestination : AppNavKey {
         override val title: String =
             when (start) {
                 AgendaStartRoute.Inbox -> "Inbox"
-                AgendaStartRoute.Today -> "Today"
+                // The Today destination's name lives with its definition: the tab
+                // label and the header title are the same string, so they cannot
+                // drift apart. The other branches are their own labels already.
+                AgendaStartRoute.Today -> AgendaPresets.Today.title
                 AgendaStartRoute.Upcoming -> "Upcoming"
                 is AgendaStartRoute.Project -> "Project"
                 is AgendaStartRoute.Tag -> "Tag"
