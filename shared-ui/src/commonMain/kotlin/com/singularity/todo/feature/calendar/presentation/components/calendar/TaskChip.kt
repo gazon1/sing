@@ -19,13 +19,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.components.SeriesMarker
+import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskStatus
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
@@ -68,7 +68,7 @@ fun TaskChip(
 
     val textColor =
         when {
-            isSelected -> Color.White
+            isSelected -> background.contrastingForeground()
             task.status == CalendarTaskStatus.DONE -> palette.textMuted
             task.isLink -> palette.link
             else -> palette.textPrimary

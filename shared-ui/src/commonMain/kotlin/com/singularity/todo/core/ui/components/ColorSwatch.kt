@@ -21,14 +21,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.core.ui.touchTarget
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 
 /**
- * A round colour button.
+ * A round colour chip.
  *
- * Its content is drawn in [contentColor], which by default is the foreground that
- * stays readable on [color]. A caller that draws a check inside the swatch
- * therefore does not have to name a tint of its own.
+ * The chip's foreground is derived from its own background: [contentColor] defaults to the
+ * colour that stays readable on [color], and it is published as the local content colour,
+ * so content that follows the theme — an icon without an explicit tint — is readable on
+ * the chip without the caller having to name the tint.
  */
 @Composable
 fun ColorSwatch(
@@ -44,7 +44,7 @@ fun ColorSwatch(
     Box(
         modifier =
             modifier
-                .touchTarget(TaskListSizes.MinTouchTarget)
+                .touchTarget()
                 .size(size)
                 .clip(CircleShape)
                 .background(color)

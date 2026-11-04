@@ -27,13 +27,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.feature.calendar.domain.logic.YearMonth
 import com.singularity.todo.feature.calendar.domain.logic.isoLocalDate
 import com.singularity.todo.feature.calendar.domain.logic.monthGridDates
@@ -274,7 +274,7 @@ private fun MonthDayCell(
                     ) {
                         Text(
                             text = "${date.day}",
-                            color = Color.White,
+                            color = palette.todayBadge.contrastingForeground(),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                         )
@@ -298,7 +298,7 @@ private fun MonthDayCell(
                     ) {
                         Text(
                             text = tasks.size.toString(),
-                            color = Color.White,
+                            color = palette.accent.contrastingForeground(),
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                         )
