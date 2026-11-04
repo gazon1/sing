@@ -301,12 +301,29 @@ fun deltaPatchSet(
 
 /**
  * Builds a delete DeltaPatch.
+ *
+ * ## The clock is the caller's to supply
+ *
+ * A deletion is merged like any other write — the server records it as the
+ * `deletedAt` field and compares it per field — so it needs a clock to be
+ * ordered by. This helper therefore takes one, and a delete built without it is
+ * a patch the server cannot place in the merge.
+ *
+ * It used to take neither a clock nor a timestamp, and every deletion built
+ * here reached the server with `hlc == null, timestampMs == null`: the tombstone
+ * was stored as `deletedAt: 0` and ordered under the legacy node at time zero,
+ * so the first real deletion of a row lost to a clock of one, and later
+ * snapshots carried `deletedAt: 0` as though a device had pushed it.
+ * [timestampMs] defaults to the clock's physical time, which is the value the
+ * legacy path orders and records.
  */
 fun deltaPatchDelete(
     patchId: String,
     entityId: String,
     entityType: DocType,
     baseVersion: Long,
+    hlc: Hlc? = null,
+    timestampMs: Long? = hlc?.physical,
 ): DeltaPatch =
     DeltaPatch(
         patchId = patchId,
@@ -314,4 +331,6 @@ fun deltaPatchDelete(
         entityType = entityType,
         baseVersion = baseVersion,
         isDelete = true,
+        hlc = hlc,
+        timestampMs = timestampMs,
     )
