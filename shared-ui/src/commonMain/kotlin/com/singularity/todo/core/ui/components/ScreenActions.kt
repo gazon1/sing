@@ -35,6 +35,45 @@ class ScreenActionsHolder {
     // "N selected" with an exit-selection back button instead of the normal bar.
     var selectionTitle: String? by mutableStateOf(null)
     var onExitSelection: (() -> Unit)? by mutableStateOf(null)
+
+    /**
+     * Clears every published field — the state in which no screen has published
+     * anything and the shell draws its own bar.
+     *
+     * The shell calls this when the screen that published a bar is gone. It lives
+     * here so that the class that declares the fields is also the only place they
+     * are cleared wholesale; a shell or a screen writing them one by one is a
+     * second way into the bar, and `ScreenActionsPublishersTest` fails on it.
+     */
+    fun clear() {
+        actions = null
+        selectionTitle = null
+        onExitSelection = null
+        title = null
+        navigationIcon = null
+        override = false
+    }
+
+    companion object {
+        /**
+         * The fields a screen publishes through, read by
+         * `ScreenActionsPublishersTest`: a write to any of them outside [TopAppBar]
+         * and [ShellOverride] is a second way to drive the shell bar.
+         *
+         * The list lives beside the properties so that a field cannot be added to
+         * this class without the gate being told about it — the test compares the
+         * two and names whichever one is missing.
+         */
+        val publishedFields: List<String> =
+            listOf(
+                "actions",
+                "title",
+                "navigationIcon",
+                "override",
+                "selectionTitle",
+                "onExitSelection",
+            )
+    }
 }
 
 val LocalScreenActions = compositionLocalOf<ScreenActionsHolder?> { null }
