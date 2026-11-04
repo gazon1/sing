@@ -5,8 +5,11 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.toAppError
+import com.singularity.todo.core.serialization.StableJson
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.JsonElement
 import kotlin.time.Clock
 
 /**
@@ -41,6 +44,18 @@ internal class PullPhase(
      * snapshot. Nullable so callers that do not need the shadow (tests) can omit it.
      */
     private val shadowDao: SyncShadowDao? = null,
+    /**
+     * The shelf of things that gave up.
+     *
+     * Used by the pull path for one case only: an event whose payload is present but
+     * cannot be read. The cursor advances past it — the server sends the same bytes on
+     * every delivery — and the event is recorded here, so a remote change this device
+     * dropped is a row somebody can find rather than a log line nobody reads.
+     *
+     * Nullable so callers that do not need the shelf (tests) can omit it, the same
+     * way the shadow is optional here.
+     */
+    private val deadLetterDao: SyncDeadLetterDao? = null,
 ) {
     private val log = Logger.withTag("PullPhase")
 
@@ -61,6 +76,18 @@ internal class PullPhase(
          * counted as dropped and the reason is logged.
          */
         data class AppliedButUnusable(val reason: String) : PullStep
+
+        /**
+         * The payload was there and could not be read: it is not a document, or it does
+         * not decode into one.
+         *
+         * The cursor advances, for the same reason as [AppliedButUnusable] — the server
+         * sends the same bytes on every delivery — and the event is recorded in the
+         * dead-letter store. The recording is the difference: a corrupt payload is a
+         * remote change this device dropped, and a dropped remote change is a
+         * divergence between the server's state and this device's.
+         */
+        data class Corrupt(val reason: String) : PullStep
 
         /**
          * Not applied, and a later attempt might succeed. The cursor stays here, so the
@@ -95,7 +122,11 @@ internal class PullPhase(
             }
 
             is ApplyOutcome.Skipped -> {
-                PullStep.AppliedButUnusable(outcome.reason)
+                if (outcome.corrupt) {
+                    PullStep.Corrupt(outcome.reason)
+                } else {
+                    PullStep.AppliedButUnusable(outcome.reason)
+                }
             }
 
             is ApplyOutcome.Failed -> {
@@ -311,6 +342,16 @@ internal class PullPhase(
                     }
                 }
 
+                is PullStep.Corrupt -> {
+                    dropped++
+                    maxLsn = maxOf(maxLsn, event.serverLsn)
+                    recordCorruptEvent(event, scope, step.reason)
+                    log.w {
+                        "Skipping an undecodable event at lsn=${event.serverLsn}: ${step.reason}; " +
+                            "cursor advances, the change is not applied, the event is shelved"
+                    }
+                }
+
                 PullStep.Unappliable -> {
                     dropped++
                     stalled = "an event this client cannot apply is at lsn=${event.serverLsn}"
@@ -323,6 +364,45 @@ internal class PullPhase(
             }
         }
         return PageOutcome(applied, dropped, maxLsn, stalled)
+    }
+
+    /**
+     * Shelves an event this device could not read.
+     *
+     * The row carries the payload as it arrived — the bytes that could not be decoded
+     * are the evidence — together with the reason the decode failed, and it belongs to
+     * the account that received the event.
+     *
+     * A failure to write the row does not fail the pull. The event is lost either way,
+     * and a storage error must not wedge the account's sync over one unreadable row —
+     * the same reasoning that keeps a failed delete from being reported as applied.
+     */
+    private suspend fun recordCorruptEvent(
+        event: SyncEvent,
+        scope: SyncScope,
+        reason: String,
+    ) {
+        val dao = deadLetterDao ?: return
+        val now = clock.now().toEpochMilliseconds()
+        val payload =
+            event.data?.let { StableJson.encodeToString(JsonElement.serializer(), it) } ?: ""
+        runCatchingCancellable {
+            dao.insert(
+                SyncDeadLetterEntity(
+                    patchId = SyncDeadLetterEntity.corruptEventId(event),
+                    ownerId = scope.ownerId,
+                    entityId = event.entityId,
+                    entityType = event.entityType.key,
+                    payload = payload,
+                    createdAt = now,
+                    failedAt = now,
+                    attempts = 0,
+                    lastError = reason,
+                ),
+            )
+        }.onFailure { e ->
+            log.w(e) { "the undecodable event was not shelved: lsn=${event.serverLsn}" }
+        }
     }
 
     /** What one page of the feed cost, and whether it stopped early. */

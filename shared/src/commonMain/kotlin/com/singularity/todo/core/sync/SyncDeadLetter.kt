@@ -21,6 +21,21 @@ import kotlinx.coroutines.flow.Flow
  * queries on the outbox. A queue of things waiting to be sent and a shelf of things
  * that gave up are different things with different owners, and merging them means
  * every push query has to remember to exclude the shelf.
+ *
+ * ## Two kinds of row
+ *
+ * The shelf holds two things, and the key says which is which:
+ *
+ * - an **outbound patch** this device could not deliver — the key is the patch id, and
+ *   the row can be put back on the outbox and sent again;
+ * - an **inbound event** this device could not read — the key is [corruptEventId], and
+ *   the row cannot be retried, because the server sends the same bytes on every
+ *   delivery.
+ *
+ * Both are "something gave up", and both belong to the account that owns the work, so
+ * they share a table and one owner-scoped erase. A reader that means to retry a row
+ * has to ask which kind it is: re-queueing an inbound event would send this device's
+ * own copy of somebody else's change.
  */
 @Entity(tableName = "sync_dead_letter")
 data class SyncDeadLetterEntity(
@@ -42,7 +57,21 @@ data class SyncDeadLetterEntity(
     @ColumnInfo("failed_at") val failedAt: Long,
     val attempts: Int,
     @ColumnInfo("last_error") val lastError: String? = null,
-)
+) {
+    companion object {
+        /**
+         * The key of a shelved inbound event that could not be read.
+         *
+         * The prefix is what tells the two kinds of row apart — see the entity's own
+         * KDoc — and the rest is the event's own identity: the profile it belonged to,
+         * the server position it arrived at, and the document it names. A redelivery of
+         * the same event is the same row, so the insert replaces it rather than
+         * accumulating a copy per cycle.
+         */
+        fun corruptEventId(event: SyncEvent): String =
+            "pull:${event.profileId}:${event.serverLsn}:${event.entityType.key}:${event.entityId}"
+    }
+}
 
 /**
  * DAO for patches that exhausted their retries.
@@ -63,7 +92,11 @@ interface SyncDeadLetterDao {
     suspend fun insert(entity: SyncDeadLetterEntity)
 
     /**
-     * Removes a dead-lettered patch so it can be put back on the outbox.
+     * Removes a dead-lettered row.
+     *
+     * For an outbound patch this is how it is put back on the outbox and sent again.
+     * For an inbound event there is nothing to put back — the server sends the same
+     * bytes on every delivery — so removing the row only discards the record.
      *
      * @return how many rows were removed, so a caller can tell "restored" from
      *   "there was nothing there". An explicit retry of a patch that is not on the

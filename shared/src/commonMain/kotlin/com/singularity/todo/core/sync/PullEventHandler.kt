@@ -20,8 +20,9 @@ import kotlinx.serialization.SerializationException
  * - Payload validation (null check, JsonObject cast)
  * - Dispatch to the provided [applyRemote] for CREATED / UPDATED / RESTORED
  * - [SyncDocumentWriter.delete] for DELETED
- * - [SerializationException] → [ApplyOutcome.Skipped] (cursor advances; same bytes
- *   on every delivery cannot be fixed by retry)
+ * - [SerializationException] → [ApplyOutcome.Skipped] with `corrupt = true`
+ *   (cursor advances; same bytes on every delivery cannot be fixed by retry, and the
+ *   event is shelved in the dead-letter store so the dropped change is a record)
  * - Other throws → [ApplyOutcome.Failed] (cursor stays; retry may help)
  *
  * ## What stays in [SyncBootstrapper]
@@ -102,7 +103,12 @@ internal class PullEventHandler(
                             log.w {
                                 "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: data is not JsonObject, skipping"
                             }
-                            return ApplyOutcome.Skipped("the event payload is not a document")
+                            // The bytes are there and they are not a document: the event
+                            // is corrupt, not merely empty. It is skipped and shelved.
+                            return ApplyOutcome.Skipped(
+                                "the event payload is not a document",
+                                corrupt = true,
+                            )
                         }
                 applyRemote(obj)
                 log.d { "Pull event [${event.eventType}][lsn=${event.serverLsn}]: applied" }
@@ -184,6 +190,10 @@ internal class PullEventHandler(
             //
             // Holding the cursor here instead would wedge the account on one
             // undecodable row, forever, over a change that can never apply anyway.
+            //
+            // It is also corrupt, and that is said out loud: the payload was there and
+            // could not be read. The event is shelved in the dead-letter store, so the
+            // remote change this device dropped is a record rather than a silence.
             log.w {
                 "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: " +
                     "payload does not decode, skipping"
@@ -191,6 +201,7 @@ internal class PullEventHandler(
             return ApplyOutcome.Skipped(
                 "the event payload does not decode: " +
                     (e.message ?: e::class.simpleName.orEmpty()),
+                corrupt = true,
             )
         }
         // Anything else that escapes the apply is a write that did not happen: a full

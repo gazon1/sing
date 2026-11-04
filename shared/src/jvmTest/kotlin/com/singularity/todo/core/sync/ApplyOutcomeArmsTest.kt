@@ -159,4 +159,24 @@ class ApplyOutcomeArmsTest {
                 "thrown away. That is the whole question it has to answer.",
         )
     }
+
+    @Test
+    fun `the skipped arm says whether the payload was corrupt`() {
+        val skippedProperties =
+            Regex("""val\s+(\w+)\s*:""")
+                .findAll(parametersOf("data class Skipped("))
+                .map { it.groupValues[1] }
+                .toList()
+                .sorted()
+
+        assertEquals(
+            listOf("corrupt", "reason"),
+            skippedProperties,
+            "Skipped says what happened and whether the payload was corrupt. The flag is " +
+                "what the pull phase reads to decide whether the event is shelved in the " +
+                "dead-letter store, so it has to be a name somebody can branch on — a " +
+                "reason string nobody can read mechanically is a reason string nobody " +
+                "can branch on.",
+        )
+    }
 }

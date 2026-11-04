@@ -19,6 +19,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.serializer
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -63,6 +64,7 @@ class PullPhaseTest {
         scopeProvider: FakeSyncScopeProvider = FakeSyncScopeProvider(testScopeObj),
         taskRepo: FakeTaskRepository = FakeTaskRepository(),
         shadow: FakeSyncShadowDao? = null,
+        deadLetter: FakeSyncDeadLetterDao? = null,
     ): Pair<PullPhase, AutoCloseableCoroutineScope> {
         val writer = fakeSyncDocumentWriter(tasks = taskRepo)
         val state = SyncEngineState(log, NoOpCrashReportingPort())
@@ -77,7 +79,10 @@ class PullPhaseTest {
                             try {
                                 StableJson.decodeFromString(serializer<Task>(), data.toString())
                             } catch (e: Exception) {
-                                return@EntityApply ApplyOutcome.Skipped("decode failed: ${e.message}")
+                                return@EntityApply ApplyOutcome.Skipped(
+                                    "decode failed: ${e.message}",
+                                    corrupt = true,
+                                )
                             }
                         writer.upsert(
                             DocType.Task,
@@ -100,6 +105,7 @@ class PullPhaseTest {
                 scope = phaseScope,
                 hlcFactory = FakeHlcFactory(),
                 shadowDao = shadow,
+                deadLetterDao = deadLetter,
             )
         return p to phaseScope
     }
@@ -120,6 +126,135 @@ class PullPhaseTest {
                 testTask(id = TaskId.fromString(entityId)),
             )
     }
+
+    // ─── A corrupt payload is skipped and shelved ───────────────────────────
+
+    /**
+     * An event whose payload is there and cannot be read.
+     *
+     * The id is a number where a task id belongs, and the rest of the document is
+     * missing — either is enough to stop the payload decoding into a task, and both
+     * are true here.
+     */
+    private fun corruptEvent(
+        lsn: Long = 10,
+        entityId: String = "task-corrupt",
+    ) = syncEvent {
+        serverLsn = lsn
+        this.entityId = entityId
+        entityType = DocType.Task
+        eventType = SyncEventType.CREATED
+        profileId = "profile-1"
+        data = JsonObject(mapOf("id" to JsonPrimitive(42)))
+    }
+
+    @Test
+    fun `an undecodable event is shelved and the cursor still advances`() =
+        runTest {
+            val deadLetter = FakeSyncDeadLetterDao()
+            val stateRepo = FakeSyncStateRepository()
+            val api = FakeSyncApiClient(pullEvents = listOf(corruptEvent()))
+            val (p, phaseScope) = phase(api = api, stateRepo = stateRepo, deadLetter = deadLetter)
+
+            val result = p.pull(testScopeObj, sinceLsn = 0)
+            advanceUntilIdle()
+            phaseScope.close()
+
+            val ok = assertIs<PhaseResult.Ok<PullSummary>>(result)
+            assertEquals(0, ok.value.applied)
+            assertEquals(1, ok.value.dropped)
+
+            // The cursor advances: the same bytes arrive on every delivery, so holding
+            // the cursor here would wedge the account over one unreadable row.
+            assertEquals(10L, stateRepo.get(testScopeObj).lastLsn)
+
+            // And the event is a row rather than a silence: the payload is kept as the
+            // evidence, and the row belongs to the account that received it.
+            val row = assertNotNull(deadLetter.rows.singleOrNull())
+            assertEquals("owner-pull", row.ownerId)
+            assertEquals("task-corrupt", row.entityId)
+            assertEquals("task", row.entityType)
+            assertTrue(row.payload.contains("42"), row.payload)
+            assertTrue(row.lastError.orEmpty().contains("decode failed"), row.lastError)
+            assertEquals(0, row.attempts)
+        }
+
+    @Test
+    fun `the same corrupt event delivered again is one row, not two`() =
+        runTest {
+            val deadLetter = FakeSyncDeadLetterDao()
+            val api = FakeSyncApiClient(pullEvents = listOf(corruptEvent()))
+            val (p, phaseScope) = phase(api = api, deadLetter = deadLetter)
+
+            p.pull(testScopeObj, sinceLsn = 0)
+            advanceUntilIdle()
+            p.pull(testScopeObj, sinceLsn = 0)
+            advanceUntilIdle()
+            phaseScope.close()
+
+            assertEquals(
+                1,
+                deadLetter.rows.size,
+                "the same event is the same row: a redelivery must not accumulate a copy " +
+                    "per cycle",
+            )
+        }
+
+    @Test
+    fun `an event with no document is not shelved`() =
+        runTest {
+            val deadLetter = FakeSyncDeadLetterDao()
+            val api =
+                FakeSyncApiClient(
+                    pullEvents =
+                        listOf(
+                            syncEvent {
+                                serverLsn = 11
+                                entityId = "task-empty"
+                                entityType = DocType.Task
+                                eventType = SyncEventType.CREATED
+                                profileId = "profile-1"
+                            },
+                        ),
+                )
+            val (p, phaseScope) = phase(api = api, deadLetter = deadLetter)
+
+            val result = p.pull(testScopeObj, sinceLsn = 0)
+            advanceUntilIdle()
+            phaseScope.close()
+
+            val ok = assertIs<PhaseResult.Ok<PullSummary>>(result)
+            assertEquals(1, ok.value.dropped)
+            assertEquals(
+                0,
+                deadLetter.rows.size,
+                "a payload the server never sent was not misread, so it is not corruption " +
+                    "and there is nothing to point at",
+            )
+        }
+
+    @Test
+    fun `a shelf that cannot be written does not fail the pull`() =
+        runTest {
+            val deadLetter = FakeSyncDeadLetterDao(failOnInsert = true)
+            val stateRepo = FakeSyncStateRepository()
+            val api = FakeSyncApiClient(pullEvents = listOf(corruptEvent()))
+            val (p, phaseScope) = phase(api = api, stateRepo = stateRepo, deadLetter = deadLetter)
+
+            val result = p.pull(testScopeObj, sinceLsn = 0)
+            advanceUntilIdle()
+            phaseScope.close()
+
+            val ok = assertIs<PhaseResult.Ok<PullSummary>>(result)
+            assertEquals(1, ok.value.dropped)
+            assertEquals(
+                10L,
+                stateRepo.get(testScopeObj).lastLsn,
+                "the event is lost either way, and a storage error must not wedge the " +
+                    "account's sync over one unreadable row",
+            )
+            assertEquals(0, deadLetter.rows.size)
+        }
 
     // ─── Not signed in ─────────────────────────────────────────────────────
 

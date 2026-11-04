@@ -219,8 +219,13 @@ class SequentialIdGenerator(private val prefix: String = "id") : IdGenerator {
 
 /**
  * In-memory [SyncDeadLetterDao].
+ *
+ * [failOnInsert] makes the shelf refuse every row, which is how a test proves that a
+ * record that cannot be written does not fail the pull around it.
  */
-class FakeSyncDeadLetterDao : SyncDeadLetterDao {
+class FakeSyncDeadLetterDao(
+    private val failOnInsert: Boolean = false,
+) : SyncDeadLetterDao {
     val rows = mutableListOf<SyncDeadLetterEntity>()
 
     override fun watch(): Flow<List<SyncDeadLetterEntity>> = MutableStateFlow(snapshot())
@@ -230,6 +235,7 @@ class FakeSyncDeadLetterDao : SyncDeadLetterDao {
     override suspend fun getAll(): List<SyncDeadLetterEntity> = snapshot()
 
     override suspend fun insert(entity: SyncDeadLetterEntity) {
+        if (failOnInsert) throw IllegalStateException("the shelf is not writable")
         rows.removeAll { it.patchId == entity.patchId }
         rows += entity
     }
