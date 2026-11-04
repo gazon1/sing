@@ -20,6 +20,17 @@ import kotlin.time.Clock
 private const val RELEASES_URL = "https://github.com/singularity-todo/singularity/releases"
 
 /**
+ * The test window's default size, in pixels.
+ *
+ * These are `runDesktopComposeUiTest`'s own defaults, written down here because
+ * the window is now an input a test can choose: a wide window and a narrow one
+ * show different layouts, so a test that does not say which it means is reading
+ * the framework's default rather than stating its own.
+ */
+private const val DESKTOP_TEST_WIDTH = 1024
+private const val DESKTOP_TEST_HEIGHT = 768
+
+/**
  * The AI layer's model, replaced by a fake.
  *
  * The real binding needs a configured provider and leaves a call in flight, so a desktop
@@ -133,8 +144,15 @@ fun runDesktopAppTest(
     clock: Clock? = null,
     overrides: Module = module {},
     checkA11y: Boolean = false,
+    /**
+     * The test window, in pixels. A screen's layout depends on it: below 840 dp
+     * the notes screen is a single pane, at or above it the list and the detail
+     * sit side by side. A test that does not name a size takes the default.
+     */
+    width: Int = DESKTOP_TEST_WIDTH,
+    height: Int = DESKTOP_TEST_HEIGHT,
     test: suspend DesktopComposeUiTest.(koin: Koin) -> Unit,
-) = runDesktopComposeUiTest {
+) = runDesktopComposeUiTest(width = width, height = height) {
     // Reset Kermit writer list and ring buffer before every test.
     // With same_thread mode on both axes (class + method), tests run sequentially
     // in one JVM. resetKermitWriters() is called unconditionally so the code is

@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -50,6 +51,7 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -57,6 +59,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,6 +73,7 @@ import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.isWideLayout
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.EmptyState
@@ -156,16 +160,67 @@ fun NotesListScreen(
         }
     }
 
+    // A note chosen in the wide layout's detail pane has no route of its own, so the
+    // selection belongs to the screen: the list keeps its place, and clearing the
+    // selection is what "back" means inside the pane.
+    var selectedNoteId by rememberSaveable { mutableStateOf<String?>(null) }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->
-        NotesScreenContent(
-            state = state,
-            navigator = navigator,
-            onCreateNote = { title -> actions.onCreateNote(title) },
-            actions = actions,
-            modifier = Modifier.padding(paddingValues),
-        )
+        BoxWithConstraints(
+            modifier =
+                Modifier
+                    .padding(paddingValues)
+                    .fillMaxSize(),
+        ) {
+            val isWide = isWideLayout(maxWidth)
+
+            // Narrowing below the breakpoint drops a selection the narrow layout has
+            // nowhere to show. Kept, it would be invisible until the window widened
+            // again, and then a note nobody opened would be on screen.
+            LaunchedEffect(isWide) {
+                if (!isWide) selectedNoteId = null
+            }
+
+            val openNote: (NoteId) -> Unit =
+                if (isWide) {
+                    { noteId -> selectedNoteId = noteId.value }
+                } else {
+                    { noteId -> navigator.openPreview(noteId) }
+                }
+
+            if (isWide) {
+                Row(modifier = Modifier.fillMaxSize()) {
+                    NotesScreenContent(
+                        state = state,
+                        navigator = navigator,
+                        onCreateNote = { title -> actions.onCreateNote(title) },
+                        onOpenNote = openNote,
+                        actions = actions,
+                        modifier = Modifier.weight(1f),
+                    )
+                    VerticalDivider()
+                    NotesDetailPane(
+                        noteId = selectedNoteId?.let(NoteId::fromString),
+                        onClose = { selectedNoteId = null },
+                        onEdit = { noteId -> navigator.openEditor(noteId) },
+                        onSelect = { noteId -> selectedNoteId = noteId.value },
+                        onNavigateToTask = { taskId -> navigator.openTask(taskId) },
+                        modifier = Modifier.weight(1.15f),
+                    )
+                }
+            } else {
+                NotesScreenContent(
+                    state = state,
+                    navigator = navigator,
+                    onCreateNote = { title -> actions.onCreateNote(title) },
+                    onOpenNote = openNote,
+                    actions = actions,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
     }
 }
 
@@ -181,6 +236,11 @@ fun NotesScreenContent(
     onCreateNote: (title: String) -> Unit,
     modifier: Modifier = Modifier,
     actions: NotesActions = NotesActions.Empty,
+    /**
+     * What a note row does. The default is the single-pane behaviour — open the
+     * preview as a route; the wide layout passes "select it for the pane".
+     */
+    onOpenNote: (NoteId) -> Unit = { navigator.openPreview(it) },
 ) {
     var sortMenuExpanded by remember { mutableStateOf(false) }
     val listState = (state as? NotesUiState.Content)?.list
@@ -290,6 +350,7 @@ fun NotesScreenContent(
                         navigator = navigator,
                         actions = actions,
                         currentFilter = state.filter,
+                        onOpenNote = onOpenNote,
                         modifier = contentModifier,
                     )
                 }
@@ -458,6 +519,7 @@ private fun NoteList(
     isSelectionMode: Boolean,
     selectedIds: ImmutableSet<NoteId>,
     navigator: NotesNavigator,
+    onOpenNote: (NoteId) -> Unit,
     actions: NotesActions,
     currentFilter: NoteFilter,
     modifier: Modifier = Modifier,
@@ -488,6 +550,7 @@ private fun NoteList(
                     isSelectionMode = isSelectionMode,
                     navigator = navigator,
                     onLongClick = { actions.onEnterSelection(note.id) },
+                    onOpenNote = onOpenNote,
                     onDelete = { actions.onDelete(note.id) },
                     onTogglePin = { actions.onTogglePin(note.id) },
                     onToggleSelection = { actions.onToggleSelection(note.id) },
@@ -513,6 +576,7 @@ private fun NoteList(
                     isSelectionMode = isSelectionMode,
                     navigator = navigator,
                     onLongClick = { actions.onEnterSelection(note.id) },
+                    onOpenNote = onOpenNote,
                     onDelete = { actions.onDelete(note.id) },
                     onTogglePin = { actions.onTogglePin(note.id) },
                     onToggleSelection = { actions.onToggleSelection(note.id) },
@@ -538,6 +602,7 @@ private fun NoteList(
                     isSelectionMode = isSelectionMode,
                     navigator = navigator,
                     onLongClick = { actions.onEnterSelection(note.id) },
+                    onOpenNote = onOpenNote,
                     onDelete = { actions.onDelete(note.id) },
                     onTogglePin = { actions.onTogglePin(note.id) },
                     onToggleSelection = { actions.onToggleSelection(note.id) },
@@ -564,6 +629,7 @@ private fun NoteList(
                 isSelected = note.id in selectedIds,
                 isSelectionMode = isSelectionMode,
                 navigator = navigator,
+                onOpenNote = onOpenNote,
                 onLongClick = { actions.onEnterSelection(note.id) },
                 onDelete = { actions.onDelete(note.id) },
                 onTogglePin = { actions.onTogglePin(note.id) },
@@ -590,6 +656,12 @@ fun SwipeableNoteCard(
     onToggleSelection: () -> Unit,
     isArchived: Boolean = false,
     onUnarchive: () -> Unit = {},
+    /**
+     * What tapping the card does. The default is the single-pane behaviour —
+     * open the preview as a route; the wide layout passes "select it for the
+     * detail pane", so the list keeps its place.
+     */
+    onOpenNote: (NoteId) -> Unit = { navigator.openPreview(it) },
     modifier: Modifier = Modifier,
 ) {
     val dismissState = rememberSwipeToDismissBoxState()
@@ -637,7 +709,7 @@ fun SwipeableNoteCard(
                         if (isSelectionMode) {
                             onToggleSelection()
                         } else {
-                            navigator.openPreview(note.id)
+                            onOpenNote(note.id)
                         }
                     },
                     onLongClick = onLongClick,

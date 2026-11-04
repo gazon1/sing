@@ -98,29 +98,65 @@ private sealed interface NotePreviewSheet {
 
 // ─── Screen entry ──────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotePreviewScreen(
     route: NotesRoute.Preview,
     viewModel: NotePreview = koinViewModel(),
 ) {
     val navigator = LocalNotesNavigator.current
+
+    NotePreviewHost(
+        noteId = route.noteId,
+        onBack = { navigator.back() },
+        onEdit = { navigator.openEditor(route.noteId) },
+        onNavigateToNote = { navigator.openPreview(it) },
+        onNavigateToTask = { navigator.openTask(it) },
+        viewModel = viewModel,
+    )
+}
+
+/**
+ * One note's preview, hosted by whatever owns it.
+ *
+ * The route-based screen and the wide window's detail pane are the same
+ * preview, so everything that is not about navigation — loading the note, the
+ * delete confirmation, the backlinks sheet — lives here once. What differs is
+ * where "back" goes: the route pops the back stack, the pane clears the
+ * selection. That is why the host takes [onBack] rather than reaching for a
+ * navigator of its own.
+ *
+ * @param noteId the note to show. A change of id reloads, which is how one host
+ *   serves every note a pane selects.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NotePreviewHost(
+    noteId: NoteId,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+    onNavigateToNote: (NoteId) -> Unit,
+    onNavigateToTask: (TaskId) -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: NotePreview = koinViewModel(),
+) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val sheets = rememberOverlayState<NotePreviewSheet>()
 
-    LaunchedEffect(route.noteId) {
-        viewModel.onIntent(NotePreviewIntent.Load(route.noteId.value))
+    LaunchedEffect(noteId) {
+        viewModel.onIntent(NotePreviewIntent.Load(noteId.value))
     }
 
-    NotePreviewScreenContent(
-        state = state,
-        onBack = { navigator.back() },
-        onEdit = { navigator.openEditor(route.noteId) },
-        onDelete = { sheets.show(NotePreviewSheet.DeleteConfirm) },
-        onBacklinksClick = { sheets.show(NotePreviewSheet.Backlinks) },
-        onNavigateToNote = { navigator.openPreview(it) },
-        onNavigateToTask = { navigator.openTask(it) },
-    )
+    Box(modifier) {
+        NotePreviewScreenContent(
+            state = state,
+            onBack = onBack,
+            onEdit = onEdit,
+            onDelete = { sheets.show(NotePreviewSheet.DeleteConfirm) },
+            onBacklinksClick = { sheets.show(NotePreviewSheet.Backlinks) },
+            onNavigateToNote = onNavigateToNote,
+            onNavigateToTask = onNavigateToTask,
+        )
+    }
 
     // Delete confirmation sheet
     if (sheets.sheet == NotePreviewSheet.DeleteConfirm) {
@@ -132,7 +168,9 @@ fun NotePreviewScreen(
             onConfirm = {
                 viewModel.onIntent(NotePreviewIntent.Delete)
                 sheets.dismissSheet()
-                navigator.back()
+                // A deleted note cannot stay on screen in either layout: the route
+                // pops, the pane clears.
+                onBack()
             },
             onDismiss = { sheets.dismissSheet() },
         )
@@ -145,7 +183,7 @@ fun NotePreviewScreen(
             backlinks = loadedState.backlinks,
             onNoteSelected = {
                 sheets.dismissSheet()
-                navigator.openPreview(it)
+                onNavigateToNote(it)
             },
             onDismiss = { sheets.dismissSheet() },
         )
