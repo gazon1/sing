@@ -21,13 +21,26 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
- * `AndroidNotifier.isSupported` measures the permission instead of asserting the presence of
- * a system service.
+ * `AndroidNotifier` against the framework — the two facts only the platform can give.
  *
- * ## What this is the only local test for
+ * ## What this owns, and what it used to own
  *
- * This class is in `androidMain`, and `androidMain` had no way to be tested: the
- * `androidHostTest` source set existed but was empty and declared no Android stack, so a test
+ * This class used to carry the whole permission matrix: denied means unsupported,
+ * granted means supported, below API 33 the permission does not exist, the grant is
+ * read per call, and a denied permission enqueues nothing. Four of those five are
+ * about the *rule*, not about Android: which cells hold is the same on every device,
+ * so the rule now lives in common code ([NotificationSupport]) and every cell of it is
+ * asserted once, in `NotificationSupportTest` on the JVM.
+ *
+ * What is left here is the port: that the platform reads the grant **per call**
+ * rather than capturing it, and that a denied permission enqueues nothing in the
+ * framework's notification manager. Neither is reachable from the JVM — one needs a
+ * `Context` whose permission answers change between two reads, the other needs the
+ * framework's own shadow.
+ *
+ * ## Why this class is in `androidMain`, and `androidMain` had no way to be tested
+ *
+ * The `androidHostTest` source set existed but was empty and declared no Android stack, so a test
  * written there would have compiled nowhere and run nowhere. `isSupported` was
  * `override val isSupported: Boolean = true` with the comment "the only question is the user's
  * grant" — and it answered `true` without asking. On API 33+ with `POST_NOTIFICATIONS` denied,
@@ -86,41 +99,11 @@ class AndroidNotifierTest {
 
     @Test
     @Config(sdk = [Build.VERSION_CODES.TIRAMISU])
-    fun `denied notifications permission is reported as unsupported`() {
-        shadowOf(context).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
-
-        assertFalse(
-            "With POST_NOTIFICATIONS denied the flag must say so. Reporting true is the defect " +
-                "this class exists to prevent: post() returns early and the caller is told the " +
-                "notification was delivered.",
-            notifier().isSupported,
-        )
-    }
-
-    @Test
-    @Config(sdk = [Build.VERSION_CODES.TIRAMISU])
-    fun `granted notifications permission is reported as supported`() {
-        shadowOf(context).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
-
-        assertTrue(notifier().isSupported)
-    }
-
-    @Test
-    @Config(sdk = [Build.VERSION_CODES.S])
-    fun `below API 33 the permission does not exist and the flag is true`() {
-        // TIRAMISU is where POST_NOTIFICATIONS was introduced. Below it there is nothing to
-        // check, so the flag has to be true unconditionally — otherwise reminders would
-        // stop firing on every device below 33 and nothing would explain why.
-        assertTrue(notifier().isSupported)
-    }
-
-    @Test
-    @Config(sdk = [Build.VERSION_CODES.TIRAMISU])
     fun `the grant is read per call, not captured when the notifier was built`() {
         // A `val` initialised at construction answers with the permission the app *started*
         // with. The user can revoke it from settings while the app runs, and Android can
         // deliver the app back after a permission change — which is exactly the moment a
-        // cached value is wrong and the user is trying to fix something.
+        // cached value is wrong and the user is trying to fix it.
         shadowOf(context).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         val notifier = notifier()
         assertTrue("precondition: granted at construction", notifier.isSupported)

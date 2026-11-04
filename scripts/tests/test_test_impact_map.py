@@ -317,8 +317,8 @@ class SourceSetTaskTest(unittest.TestCase):
     def test_an_android_host_class_is_run_by_the_android_host_task(self):
         """The command of an android host class names the task that runs it."""
         host = test_class(
-            'com.singularity.todo.core.observability.AndroidRecordRetentionTest',
-            'core.observability',
+            'com.singularity.todo.core.notifications.AndroidNotifierTest',
+            'core.notifications',
             task=':shared:testAndroidHostTest',
         )
         commands = impact.gradle_commands([host], 'fast')
@@ -335,8 +335,8 @@ class SourceSetTaskTest(unittest.TestCase):
         tests = [
             test_class('com.singularity.todo.feature.tasks.TaskTest', 'feature.tasks'),
             test_class(
-                'com.singularity.todo.core.observability.AndroidRecordRetentionTest',
-                'core.observability',
+                'com.singularity.todo.core.notifications.AndroidNotifierTest',
+                'core.notifications',
                 task=':shared:testAndroidHostTest',
             ),
         ]
