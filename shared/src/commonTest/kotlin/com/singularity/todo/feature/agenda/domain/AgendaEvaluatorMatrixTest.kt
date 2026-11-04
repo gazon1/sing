@@ -680,7 +680,7 @@ class AgendaEvaluatorMatrixTest {
                 )
             }
 
-        val result = AgendaEvaluator.evaluate(tasks, AgendaPresets.Inbox, todayRef, instant0)
+        val result = AgendaEvaluator.evaluate(tasks, AgendaPresets.All, todayRef, instant0)
 
         val sectionNames = result.map { it.name }
         assertTrue("Overdue" in sectionNames, "Overdue section expected")
