@@ -17,9 +17,11 @@ import javax.crypto.spec.SecretKeySpec
  * JVM implementation of [SecureStoragePort].
  *
  * Strategy:
- *  1. On Linux: try `secret-tool` (libsecret/GNOME Keyring) first.
- *  2. On all JVM platforms: fall back to an AES-GCM encrypted file
- *     at `~/.config/singularity/secure.bin`.
+ *  1. Try the OS credential store through the java-keyring binding first, on every
+ *     JVM platform this build targets — libsecret on Linux, the Keychain on macOS,
+ *     the Credential Manager on Windows.
+ *  2. Fall back to an AES-GCM encrypted file at `~/.config/singularity/secure.bin`
+ *     on a host with no keyring backend, and for any call the keyring refuses.
  *
  * The AES-GCM fallback derives a key from `user.home` via PBKDF2 — no external deps.
  */
@@ -43,7 +45,7 @@ open class JvmSecureStorage : SecureStoragePort {
 
     override suspend fun read(key: String): String? =
         withContext(Dispatchers.IO) {
-            secretToolRead(key) ?: fallbackReadWithRecovery(key)
+            keyringRead(key) ?: fallbackReadWithRecovery(key)
         }
 
     /**
@@ -61,7 +63,7 @@ open class JvmSecureStorage : SecureStoragePort {
         key: String,
         value: String,
     ) = withContext(Dispatchers.IO) {
-        if (secretToolWrite(key, value)) {
+        if (keyringWrite(key, value)) {
             // The file's copy of the key is dropped, best effort: the write that
             // reached the keyring stands either way, and a file that cannot be
             // parsed is left exactly as it is — it holds nothing this key could
@@ -75,21 +77,41 @@ open class JvmSecureStorage : SecureStoragePort {
 
     override suspend fun delete(key: String) =
         withContext(Dispatchers.IO) {
-            secretToolDelete(key)
+            keyringDelete(key)
             fallbackDelete(key)
         }
 
-    override fun isHardwareBacked(): Boolean = IS_LINUX && secretToolAvailable()
+    /**
+     * Whether a keyring backend exists on this host — not where any given secret went.
+     *
+     * The answer follows the backend, not the platform: the java-keyring binding works on
+     * every OS this build targets, so a host whose binding can be constructed is reported
+     * keyring-backed wherever it runs, and a host with none is reported `false` and is
+     * served by `secure.bin`, which is obfuscation and not protection
+     * (ADR 2026-10-27-jvm-secure-storage-fallback-is-not-a-secret-store).
+     *
+     * It says nothing about an individual [write]: nothing tracks the per-write outcome, and
+     * [write] still falls through to the file when the keyring refuses a value (locked or
+     * denied). On such a host every secret can sit in `secure.bin` while this reports `true`.
+     * Nor is it a cheap getter — the first call initialises the binding, which may make a
+     * native/DBus call, so do not call it from a UI thread. It must not be loosened to `true`
+     * to make a badge look better.
+     */
+    override fun isHardwareBacked(): Boolean = keyringAvailable()
 
-    // ─── libsecret via secret-tool CLI ───────────────────────────────────────
+    // ─── OS keyring via java-keyring ─────────────────────────────────────────
     //
-    // Every call goes through `Subprocess`, which drains the child's output before
-    // waiting. Two of these methods used to `waitFor()` with no drain at all, which
-    // deadlocks as soon as the child writes more than a pipe buffer — a hang that would
-    // only appear on a machine where `secret-tool` was unusually chatty, and so would be
-    // very hard to reproduce.
+    // These are binding calls, not subprocesses: java-keyring talks to libsecret on
+    // Linux, the Keychain on macOS and the Credential Manager on Windows. There is no
+    // child process to drain and no `secret-tool` binary to look for, so "is a backend
+    // there" is decided by whether `Keyring.create()` succeeded — never by the OS name.
+    // Gating on the platform is what made a macOS host with a keyring report itself
+    // fallback-backed.
 
-    /** Open so test subclasses can force the fallback path. */
+    /**
+     * Lazily. A host with no keyring pays one failed lookup here, at the first
+     * operation — `read`, `write`, `delete` or the flag — and not before.
+     */
     private val keyring: com.github.javakeyring.Keyring? by lazy {
         try {
             com.github.javakeyring.Keyring
@@ -99,9 +121,9 @@ open class JvmSecureStorage : SecureStoragePort {
         }
     }
 
-    protected open fun secretToolAvailable(): Boolean = keyring != null
+    protected open fun keyringAvailable(): Boolean = keyring != null
 
-    protected open fun secretToolRead(key: String): String? {
+    protected open fun keyringRead(key: String): String? {
         val kr = keyring ?: return null
         return try {
             // The value the keyring holds, as it is. It used to be trimmed and
@@ -117,7 +139,7 @@ open class JvmSecureStorage : SecureStoragePort {
         }
     }
 
-    protected open fun secretToolWrite(
+    protected open fun keyringWrite(
         key: String,
         value: String,
     ): Boolean {
@@ -130,7 +152,7 @@ open class JvmSecureStorage : SecureStoragePort {
         }
     }
 
-    protected open fun secretToolDelete(key: String) {
+    protected open fun keyringDelete(key: String) {
         val kr = keyring ?: return
         try {
             kr.deletePassword(SERVICE_NAME, key)
@@ -149,7 +171,7 @@ open class JvmSecureStorage : SecureStoragePort {
     protected open val fallbackKeyName: String = "__singularity_fallback_aes_key__"
 
     private fun deriveKey(): SecretKeySpec {
-        if (!secretToolAvailable()) {
+        if (!keyringAvailable()) {
             // Last resort: no keyring. Weak derivation retained for hosts/tests
             // without a keyring; data loss acceptable on rotation.
             return legacyDerivedKey()
@@ -157,7 +179,7 @@ open class JvmSecureStorage : SecureStoragePort {
         synchronized(keyLock) {
             // The key is base64, so it is never blank: a blank value is not a
             // key, it is an absent one.
-            val stored = secretToolRead(fallbackKeyName)?.takeIf { it.isNotBlank() }
+            val stored = keyringRead(fallbackKeyName)?.takeIf { it.isNotBlank() }
             if (stored != null) {
                 return try {
                     // The MIME decoder skips the whitespace a keyring may have
@@ -198,7 +220,7 @@ open class JvmSecureStorage : SecureStoragePort {
             java.util.Base64
                 .getEncoder()
                 .encodeToString(bytes)
-        if (!secretToolWrite(fallbackKeyName, encoded)) {
+        if (!keyringWrite(fallbackKeyName, encoded)) {
             throw IllegalStateException("could not persist fallback AES key")
         }
         return SecretKeySpec(bytes, "AES")
@@ -206,7 +228,7 @@ open class JvmSecureStorage : SecureStoragePort {
 
     /** Invalidates the fallback key and its file; next use regenerates. */
     fun rotateFallbackKey() {
-        secretToolDelete(fallbackKeyName)
+        keyringDelete(fallbackKeyName)
         Files.deleteIfExists(fallbackFile)
     }
 
@@ -400,11 +422,6 @@ open class JvmSecureStorage : SecureStoragePort {
         private const val SERVICE_NAME = "singularity"
         private const val MAGIC = 0x53494E47 // "SING"
         private const val FORMAT_VERSION = 1
-        private val IS_LINUX =
-            System
-                .getProperty("os.name", "")
-                .lowercase()
-                .contains("linux")
         private const val AES_TRANSFORM = "AES/GCM/NoPadding"
         private const val TAG_BITS = 128
 

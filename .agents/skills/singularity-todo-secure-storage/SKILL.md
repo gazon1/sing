@@ -1,11 +1,11 @@
 ---
 name: singularity-todo-secure-storage
-description: Secure storage port pattern for KMP using expect/actual with libsecret shell-out on JVM, AES-GCM encrypted file fallback, and EncryptedSharedPreferences on Android. Use when building cross-platform secure credential storage.
+description: Secure storage port pattern for KMP using expect/actual with the java-keyring OS keyring binding on JVM, an AES-GCM encrypted file fallback, and EncryptedSharedPreferences on Android. Use when building cross-platform secure credential storage.
 ---
 
 # Singularity TODO — Secure Storage Port Pattern
 
-This skill documents the secure storage architecture in the Singularity TODO KMP app: a `SecureStoragePort` interface implemented via `secret-tool` shell-out on Linux/JVM, AES-GCM encrypted file fallback, and `EncryptedSharedPreferences` on Android.
+This skill documents the secure storage architecture in the Singularity TODO KMP app: a `SecureStoragePort` interface implemented via the java-keyring OS keyring binding on the JVM, an AES-GCM encrypted file fallback, and `EncryptedSharedPreferences` on Android.
 
 ## Architecture
 
@@ -13,8 +13,8 @@ This skill documents the secure storage architecture in the Singularity TODO KMP
 SecureStoragePort (interface — commonMain)
     │
     ├── JvmSecureStorage (jvmMain)
-    │       ├── Linux: secret-tool CLI (libsecret)
-    │       └── Any JVM: AES-GCM encrypted file fallback
+    │       ├── OS keyring via java-keyring (libsecret / macOS Keychain / Windows Credential Manager)
+    │       └── AES-GCM encrypted file fallback when no keyring backend exists
     │
     ├── AndroidSecureStorage (androidMain)
     │       └── EncryptedSharedPreferences (security-crypto)
@@ -36,40 +36,47 @@ interface SecureStoragePort {
 }
 ```
 
-All operations are suspending (they may do I/O). `isHardwareBacked()` returns `true` on Android (Keystore) and Linux with libsecret, `false` for the AES-GCM file fallback.
+All operations are suspending (they may do I/O). `isHardwareBacked()` returns `true` on Android (Keystore) and on a JVM host where a keyring backend exists — on any OS, not only Linux — and `false` on a JVM host served by the AES-GCM file fallback.
+
+It reports whether a keyring backend *exists*, not where an individual secret went: nothing tracks the per-write outcome, so a keyring that refuses a write (locked, denied) leaves that secret in `secure.bin` while the flag still says `true`. It must not be loosened to `true` to make a badge look better (ADR 2026-10-27-jvm-secure-storage-fallback-is-not-a-secret-store).
 
 ## JVM Implementation — JvmSecureStorage
 
-**Linux path** (primary):
+**OS keyring path** (primary):
 ```kotlin
-fun write(key: String, value: String) {
-    val process = ProcessBuilder("secret-tool", "store",
-        "--label=$key", "key=$key")
-        .redirectErrorStream(true)
-        .start()
-    process.outputStream.bufferedWriter().use { it.write(value) }
-    process.outputStream.close()
-    val exit = process.waitFor()
-    if (exit != 0) error("secret-tool exit $exit")
+private val keyring: Keyring? by lazy {
+    try {
+        com.github.javakeyring.Keyring.create()
+    } catch (_: com.github.javakeyring.BackendNotSupportedException) {
+        null
+    }
 }
+
+protected open fun keyringAvailable(): Boolean = keyring != null
 ```
 
-`secret-tool` stores in the user's GNOME keyring (or compatible D-Bus secret service). Requires `libsecret-1-dev` on the system.
+`com.github.javakeyring:java-keyring` talks to the platform's credential store: libsecret on
+Linux, the Keychain on macOS, the Credential Manager on Windows. There is no `secret-tool`
+binary and no subprocess. "A backend exists" is decided by whether `Keyring.create()`
+succeeded — **never** by `System.getProperty("os.name")`. A platform gate is what once made a
+macOS host with a keyring report itself fallback-backed.
 
-**All JVM fallback** (when `secret-tool` is absent or fails):
+**A write the keyring refuses** (locked or denied keyring):
+- `keyringWrite` returns `false`, and `write()` falls through to the encrypted file.
+- Nothing tracks that per-write outcome, so `isHardwareBacked()` can be `true` on a host where
+  every secret sits in `secure.bin`.
+
+**JVM fallback** (when no keyring backend exists, or the keyring refuses):
 - Encrypted file at `~/.config/singularity/secure.bin`
-- Key derived via **PBKDF2WithHmacSHA256**: 100k iterations, 16-byte random salt stored in the file header
+- The file's AES key is a random 32-byte key kept in the OS keyring under
+  `__singularity_fallback_aes_key__`, so a host with a keyring does not depend on
+  anything derivable to protect the file
+- On a host with no keyring at all, the key is derived from `user.home` with
+  **PBKDF2WithHmacSHA256**, 100k iterations and the **fixed** salt `singularity-v1`.
+  That is obfuscation, not protection — `user.home` is not a secret. The parameters are
+  frozen: a different derivation re-derives a different key, every GCM tag fails, the
+  file is erased as corrupt, and `backup.device_key_block` is lost
 - AES-GCM (256-bit key) — authenticated encryption, no padding concerns
-
-```kotlin
-private fun deriveKey(salt: ByteArray): SecretKey {
-    val spec = PBEKeySpec(
-        System.getProperty("user.home")!!.toCharArray(), // user.home as salt source
-        salt, ITERATIONS, KEY_BITS
-    )
-    return SecretKeySpec(factory.generateSecret(spec).encoded, "AES/GCM/NoPadding")
-}
-```
 
 **Key derivation note**: Use `toCharArray()` not `toByteArray()` — `PBEKeySpec` expects `char[]`.
 
@@ -151,8 +158,8 @@ No mocks — `FakeSecureStorage` is the test double.
 
 ## Error Handling
 
-- `secret-tool` not found → fall back to AES-GCM file (graceful degradation)
-- `secret-tool` fails with non-zero exit → throw `error("secret-tool exit $exit")`
+- No keyring backend (`BackendNotSupportedException`) → fall back to the AES-GCM file
+- Keyring refuses a call (`PasswordAccessException`, locked or denied) → `read` reports the key absent, `write` falls back to the file, `delete` still clears the file
 - AES-GCM decryption failure → `IOException` propagates (file corrupted or tampered)
 - Android `EncryptedSharedPreferences` → delegates to Keystore, failures propagate
 
@@ -168,7 +175,7 @@ No mocks — `FakeSecureStorage` is the test double.
 | File | Purpose |
 |---|---|
 | `shared/src/commonMain/.../core/security/SecureStoragePort.kt` | Interface |
-| `shared/src/jvmMain/.../core/security/JvmSecureStorage.kt` | secret-tool + AES-GCM fallback |
+| `shared/src/jvmMain/.../core/security/JvmSecureStorage.kt` | java-keyring backend + AES-GCM fallback |
 | `shared/src/androidMain/.../core/security/AndroidSecureStorage.kt` | EncryptedSharedPreferences |
 | `shared/src/commonMain/.../test/fakes/FakeSecureStorage.kt` | In-memory test double |
 | `shared/src/commonMain/.../feature/settings/SettingsViewModel.kt` | Calls `secureStorage.write/delete` for AI keys |

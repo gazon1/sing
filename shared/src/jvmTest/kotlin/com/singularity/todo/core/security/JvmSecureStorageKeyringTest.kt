@@ -3,10 +3,13 @@ package com.singularity.todo.core.security
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * The keyring and the fallback file are one store, not two.
@@ -31,27 +34,52 @@ class JvmSecureStorageKeyringTest {
 
     private val secureBin: Path get() = tempDir.resolve("secure.bin")
 
+    /**
+     * The one place a test store is built.
+     *
+     * Every test in this class used to declare its own anonymous `JvmSecureStorage`,
+     * overriding the fallback path and some combination of availability, read and write.
+     * The class carried eight of those blocks, and a case's subject was buried in four
+     * overrides a reader had to diff against the block before it.
+     *
+     * The defaults describe the ordinary case — a keyring that is there and behaves like a
+     * map — so a test states only what it varies. The fallback path is overridden here and
+     * nowhere else.
+     *
+     * Availability gates both directions on purpose: a keyring that is not there refuses the
+     * write *and* answers nothing on read, which is what sends `read` through to the file.
+     * Without the read gate a keyring that had gone away would keep answering from the map
+     * the test still holds, and the fallback cases would be asserting against the backend
+     * they exist to avoid.
+     */
+    private fun storage(
+        keyringUp: () -> Boolean = { true },
+        secrets: MutableMap<String, String> = mutableMapOf(),
+        readValue: (String) -> String? = { secrets[it] },
+        writeValue: (String, String) -> Boolean = { key, value ->
+            secrets[key] = value
+            true
+        },
+    ) = object : JvmSecureStorage() {
+        override val fallbackFile: Path = this@JvmSecureStorageKeyringTest.secureBin
+
+        override fun keyringAvailable(): Boolean = keyringUp()
+
+        override fun keyringRead(key: String): String? = if (keyringUp()) readValue(key) else null
+
+        override fun keyringWrite(
+            key: String,
+            value: String,
+        ): Boolean = keyringUp() && writeValue(key, value)
+    }
+
     @Test
     fun `fallback round-trips a value when a keyring is available`() =
         runTest {
             val keyring = mutableMapOf<String, String>()
 
-            fun make() =
-                object : JvmSecureStorage() {
-                    override val fallbackFile: Path = this@JvmSecureStorageKeyringTest.secureBin
+            fun make() = storage(secrets = keyring)
 
-                    override fun secretToolAvailable() = true
-
-                    override fun secretToolRead(key: String): String? = keyring[key]
-
-                    override fun secretToolWrite(
-                        key: String,
-                        value: String,
-                    ): Boolean {
-                        keyring[key] = value
-                        return true
-                    }
-                }
             val first = make()
             first.write("key", "secret value")
             // A second instance sharing the same keyring must decrypt the file.
@@ -69,22 +97,7 @@ class JvmSecureStorageKeyringTest {
     fun `a secret with whitespace reads back as it was written`() =
         runTest {
             val keyring = mutableMapOf<String, String>()
-            val storage =
-                object : JvmSecureStorage() {
-                    override val fallbackFile: Path = this@JvmSecureStorageKeyringTest.secureBin
-
-                    override fun secretToolAvailable() = true
-
-                    override fun secretToolRead(key: String): String? = keyring[key]
-
-                    override fun secretToolWrite(
-                        key: String,
-                        value: String,
-                    ): Boolean {
-                        keyring[key] = value
-                        return true
-                    }
-                }
+            val storage = storage(secrets = keyring)
 
             storage.write("key", "  secret value  ")
 
@@ -102,22 +115,7 @@ class JvmSecureStorageKeyringTest {
     fun `an empty secret reads back as an empty value`() =
         runTest {
             val keyring = mutableMapOf<String, String>()
-            val storage =
-                object : JvmSecureStorage() {
-                    override val fallbackFile: Path = this@JvmSecureStorageKeyringTest.secureBin
-
-                    override fun secretToolAvailable() = true
-
-                    override fun secretToolRead(key: String): String? = keyring[key]
-
-                    override fun secretToolWrite(
-                        key: String,
-                        value: String,
-                    ): Boolean {
-                        keyring[key] = value
-                        return true
-                    }
-                }
+            val storage = storage(secrets = keyring)
 
             storage.write("key", "")
 
@@ -147,23 +145,7 @@ class JvmSecureStorageKeyringTest {
             val keyring = mutableMapOf<String, String>()
             var keyringUp = false
 
-            fun make() =
-                object : JvmSecureStorage() {
-                    override val fallbackFile: Path = this@JvmSecureStorageKeyringTest.secureBin
-
-                    override fun secretToolAvailable() = keyringUp
-
-                    override fun secretToolRead(key: String): String? = if (keyringUp) keyring[key] else null
-
-                    override fun secretToolWrite(
-                        key: String,
-                        value: String,
-                    ): Boolean {
-                        if (!keyringUp) return false
-                        keyring[key] = value
-                        return true
-                    }
-                }
+            fun make() = storage(keyringUp = { keyringUp }, secrets = keyring)
 
             // 1. The keyring is unavailable: the credential goes to the file.
             keyringUp = false
@@ -196,23 +178,7 @@ class JvmSecureStorageKeyringTest {
             val keyring = mutableMapOf<String, String>()
             var keyringUp = false
 
-            fun make() =
-                object : JvmSecureStorage() {
-                    override val fallbackFile: Path = this@JvmSecureStorageKeyringTest.secureBin
-
-                    override fun secretToolAvailable() = keyringUp
-
-                    override fun secretToolRead(key: String): String? = if (keyringUp) keyring[key] else null
-
-                    override fun secretToolWrite(
-                        key: String,
-                        value: String,
-                    ): Boolean {
-                        if (!keyringUp) return false
-                        keyring[key] = value
-                        return true
-                    }
-                }
+            fun make() = storage(keyringUp = { keyringUp }, secrets = keyring)
 
             keyringUp = false
             make().write("other", "other credential")
@@ -230,13 +196,44 @@ class JvmSecureStorageKeyringTest {
     @Test
     fun `a key that was never written is absent`() =
         runTest {
-            val storage =
-                object : JvmSecureStorage() {
-                    override val fallbackFile: Path = this@JvmSecureStorageKeyringTest.secureBin
-
-                    override fun secretToolAvailable() = false
-                }
+            val storage = storage(keyringUp = { false })
 
             assertNull(storage.read("never-written"))
+        }
+
+    /**
+     * The flag is on when a keyring backend exists, and the secret really lands there.
+     *
+     * Asserting the flag alone would be satisfied by a constant. This writes through the
+     * same seam and checks both where the value went and what the flag says.
+     */
+    @Test
+    fun `an available keyring makes the store hardware-backed`() =
+        runTest {
+            val keyring = mutableMapOf<String, String>()
+            val storage = storage(secrets = keyring)
+
+            storage.write("key", "keyring credential")
+
+            assertEquals("keyring credential", keyring["key"])
+            assertFalse(Files.exists(secureBin), "the value should not have reached the file")
+            assertTrue(storage.isHardwareBacked())
+        }
+
+    /**
+     * The encrypted-file fallback is not hardware-backed, and says so.
+     *
+     * The flag is the only signal a caller gets that the store is not protected. Reporting
+     * `true` here would make a badge look better while telling the user nothing true.
+     */
+    @Test
+    fun `the file fallback is not hardware-backed`() =
+        runTest {
+            val storage = storage(keyringUp = { false })
+
+            storage.write("key", "file credential")
+
+            assertTrue(Files.exists(secureBin), "the value should have reached the file")
+            assertFalse(storage.isHardwareBacked())
         }
 }

@@ -42,7 +42,7 @@ class JvmSecureStorageRecoveryTest {
         object : JvmSecureStorage() {
             override val fallbackFile: Path = this@JvmSecureStorageRecoveryTest.secureBin
 
-            override fun secretToolAvailable() = false
+            override fun keyringAvailable() = false
         }
 
     @Test
