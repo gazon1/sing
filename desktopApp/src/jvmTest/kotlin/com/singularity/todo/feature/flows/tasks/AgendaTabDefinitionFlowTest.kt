@@ -30,16 +30,17 @@ import kotlin.time.Instant
  * sections. The user saw Today's list on Inbox, and Upcoming's definition was never
  * consulted at all.
  *
- * The discriminators below are deliberate. Every preset defines a "Today" section, so
- * anything dated today passes whether or not the ViewModel is correct — that is how
- * the bug survived a suite that only ever asserted on dated, due-today fixtures. Two
- * fixtures are needed instead:
+ * The discriminators below are deliberate. A task dated today passes in every preset
+ * that has a "Today" section, so anything dated today would prove nothing about
+ * whether the ViewModel is correct — that is how the bug survived a suite that only
+ * ever asserted on dated, due-today fixtures. Two fixtures are needed instead:
  *
- * - an **undated** task, which only Inbox's "No Date" section matches;
- * - a **tomorrow** task, which Inbox matches under "Tomorrow" and Today does not
- *   define at all. (Yesterday would be the obvious third choice, but Inbox lists
- *   "Overdue" at order −1 with `discard = true`, so a yesterday-due task is consumed
- *   there before "Yesterday" ever sees it — it renders under "Overdue", correctly.)
+ * - an **undated** task, which only the Inbox preset's "No Date" section matches;
+ * - a **tomorrow** task, which the Upcoming preset matches under "Tomorrow" and the
+ *   Inbox preset does not define at all. (Yesterday would be the obvious third
+ *   choice, but the All preset's "Overdue" section has `discard = true`, so a
+ *   yesterday-due task is consumed there before "Yesterday" ever sees it — it renders
+ *   under "Overdue", correctly.)
  *
  * @see Nav3State.toDecoratedEntries
  */
@@ -63,7 +64,26 @@ class AgendaTabDefinitionFlowTest {
         }
 
     @Test
-    fun inbox_evaluates_tomorrow_which_the_today_preset_does_not_define() =
+    fun upcoming_evaluates_tomorrow_which_the_inbox_preset_does_not_define() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            checkA11y = true,
+        ) { koin ->
+            val tomorrow = today.plus(1, DateTimeUnit.DAY)
+            tasks(koin).given(due = tomorrow, title = "Send the invoice")
+
+            tapTab("Upcoming")
+
+            assertTagDisplayed(TestTags.agendaSection("Tomorrow"))
+            assertTagDisplayed(TestTags.taskItem("Send the invoice"))
+        }
+
+    /**
+     * The other direction of the same contract: the Inbox preset holds the undated
+     * tasks and nothing else, so a dated task is not in it.
+     */
+    @Test
+    fun inbox_does_not_render_the_upcoming_tab_sections() =
         runDesktopAppTest(
             clock = CLOCK,
             checkA11y = true,
@@ -72,9 +92,14 @@ class AgendaTabDefinitionFlowTest {
             tasks(koin).given(due = tomorrow, title = "Send the invoice")
 
             tapTab("Inbox")
+            assertCurrentTab("Inbox")
 
-            assertTagDisplayed(TestTags.agendaSection("Tomorrow"))
-            assertTagDisplayed(TestTags.taskItem("Send the invoice"))
+            assertEquals(
+                0,
+                countNodes(TestTags.agendaSection("Tomorrow")),
+                "the inbox tab holds the undated tasks — the dated ones are in the Today " +
+                    "and Upcoming tabs",
+            )
         }
 
     /**
