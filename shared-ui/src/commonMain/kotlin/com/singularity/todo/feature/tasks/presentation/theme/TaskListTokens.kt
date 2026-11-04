@@ -14,7 +14,10 @@ import com.singularity.todo.core.ui.TouchTarget
  * `MaterialTheme.spacing`, and corner radii come from `MaterialTheme.shapes`.
  *
  * What remains is genuinely per-widget: a checkbox is 22 dp wherever it is
- * drawn, and that number is not a step on anybody's grid. The two elevation
+ * drawn, and that number is not a step on anybody's grid. [Icon] and [IconLarge]
+ * are the two icon sizes `TaskSpacing.iconSize` / `iconSizeLarge` used to carry —
+ * they are widget geometry, not gaps, so they landed here rather than on the
+ * spacing scale, and every former reader now names them. The two elevation
  * tokens this object also carried were read by nothing and are gone; elevation
  * is `MaterialTheme.elevation` now.
  */

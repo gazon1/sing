@@ -14,14 +14,20 @@ import androidx.compose.ui.unit.dp
  * There used to be two, both in the task feature: `TaskSpacing` (8 / 12 / 16 / 24)
  * and `TaskListSpacing` (2 / 4 / 8 / 12 / 16 / 20 / 24). The same name therefore
  * meant two different gaps depending on which file a composable lived in — `xl`
- * was 24 dp in the editor and 20 dp in the list — and the 20 dp step had no
- * reader at all. A name that does not answer one question is not a token.
+ * was 24 dp in the editor and 20 dp in the list.
+ *
+ * [xl] keeps the editor's 24 dp. The list's 20 dp is not a step here, and saying
+ * which 20 dp this drops matters: no call site read `TaskListSpacing.Xl`. The
+ * one place in the app that wants a 20 dp inset is the onboarding spotlight card,
+ * and that was a bare literal, not a token — this change writes it as [lg] + [xs]
+ * rather than promoting it to a name. A name no call site reads is not a token.
  *
  * The steps are the 4 dp grid the code already used (91 % of the app's `.dp`
  * literals sit on it), plus [xxs] = 2 dp for the hairline between a control and
- * its label. A gap that is not a step — 14 dp, 6 dp — is written by composing
- * two steps (`md + xs`, `xs + xxs`) rather than by minting a third name for it,
- * so the scale stays a scale and the layout keeps the pixels it had.
+ * its label. A gap that is not a step — 14 dp, 6 dp, 20 dp — is written by
+ * composing two steps (`md + xs`, `xs + xxs`, `lg + xs`) rather than by minting
+ * a third name for it, so the scale stays a scale and the layout keeps the
+ * pixels it had.
  *
  * Read it through [MaterialTheme.spacing], which [SingularityTheme] provides.
  */

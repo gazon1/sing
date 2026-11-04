@@ -92,8 +92,10 @@ private fun BacklinkSection(
             modifier =
                 Modifier
                     .padding(
+                        // 14 dp vertical, as before: md + xs is how this scale writes an
+                        // off-grid gap. `lg` here would be 16 and grow the card by 4 dp.
                         horizontal = MaterialTheme.spacing.lg,
-                        vertical = MaterialTheme.spacing.lg,
+                        vertical = MaterialTheme.spacing.md + MaterialTheme.spacing.xs,
                     ).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
