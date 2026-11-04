@@ -97,7 +97,7 @@ their logic.
 | `open-app-menu.yaml` | Flows opening the app menu (the bottom-bar Menu button) |
 | `session-signedin.yaml` | Flows needing a signed-in session persisted on the device |
 | `session-signedout.yaml` | Flows needing a signed-out app — the auth screen |
-| `settings-account-tab.yaml` | Flows needing the Account tab in Settings (it is the last of twelve rows and starts below the fold) |
+| `settings-tab.yaml` | Flows opening a settings tab by name (`SETTINGS_TAB: settings_tab_account`); it opens the narrow settings sheet, scrolls the row into view and taps it |
 | `calendar-day-cell.yaml` | Flows waiting for a calendar day cell by its date tag |
 | `calendar-tap-day-cell.yaml` | Flows opening a calendar day by its date tag |
 | `plans-section.yaml` | Flows waiting for a timeline section by its date tag |

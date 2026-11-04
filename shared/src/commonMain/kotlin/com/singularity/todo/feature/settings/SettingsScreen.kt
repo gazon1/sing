@@ -523,15 +523,16 @@ private fun SettingsTabSheet(
     }
 
     if (showSheet) {
-        // The sheet opens to show what it holds: eighteen rows do not fit a
-        // phone's popup, and a half-open sheet would clip the last group
-        // again. See docs/decisions/2026-10-22-a-sheet-opens-to-what-it-holds.md.
+        // The sheet starts expanded: the visible state is the one it is shown
+        // in, so it composes showing what it holds instead of animating from
+        // hidden on every open. Partial expansion is disabled, so the sheet is
+        // either fully open or gone. See
+        // docs/decisions/2026-10-22-a-sheet-opens-to-what-it-holds.md.
         val sheetState =
             rememberBottomSheetState(
-                initialValue = SheetValue.Hidden,
+                initialValue = SheetValue.Expanded,
                 enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
             )
-        LaunchedEffect(Unit) { sheetState.show() }
         // The canonical sheet host, not a bare ModalBottomSheet: it applies the
         // window insets and asserts the testTag→resource-id mapping on the
         // sheet's own window.
@@ -572,13 +573,12 @@ private fun SettingsTabSheet(
                                 showSheet = false
                             },
                             icon = { Icon(tab.icon, contentDescription = null) },
-                            // NavigationDrawerItem may establish its own
-                            // semantics scope, so the mapping is applied to the
-                            // item as well as to the column above it.
+                            // The mapping lives on the sheet's column, once.
+                            // Mapping the item as well mapped the same tag tree
+                            // twice, which was a guess rather than a constraint.
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .mapTestTagsAsResourceIds()
                                     .testTag(TestTags.settingsTab(tab.name)),
                         )
                     }

@@ -61,8 +61,8 @@ IO_ERROR = 2
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 #: The whole Maestro tree: the flows and the helpers they run. A helper is
-#: a flow — `settings-account-tab.yaml` swiped the settings rail by pixel,
-#: and a gate that only looked at `Maestro/flows` would not have seen it.
+#: a flow — the settings tab helper scrolls the narrow settings sheet by
+#: gesture, and a gate that only looked at `Maestro/flows` would not have seen it.
 DEFAULT_FLOWS_DIR = ROOT / "Maestro"
 
 #: The exceptions registry: the flows that may name a pixel, and why.

@@ -17,14 +17,10 @@ tags:
     visible:
       id: settings_tab_dropdown
     timeout: 10000
-- tapOn:
-    id: settings_tab_dropdown
-- extendedWaitUntil:
-    visible:
-      id: settings_tab_notifications
-    timeout: 10000
-- tapOn:
-    id: settings_tab_notifications
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_notifications
 - extendedWaitUntil:
     visible:
       id: settings_notifications_enabled_switch

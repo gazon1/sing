@@ -18,6 +18,7 @@
 # Sorted by id, one mapping per line, no blank lines.
 ${DAY_CELL} item
 ${PLANS_SECTION} item
+${SETTINGS_TAB} tab
 agenda_save_current_button button
 agenda_saved_views_button button
 agenda_section_blocked item

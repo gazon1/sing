@@ -445,7 +445,7 @@ use the expanded string directly).
 | `Settings.themeModeButton("Dark")` | `"Dark"` | `settings_theme_mode_dark` | Theme-mode radio buttons |
 | `Settings.workingDaySwitch("MONDAY")` | `"MONDAY"` | `settings_working_day_monday` | Working-day toggles in the work schedule section |
 | `settingsGroup("Appearance")` | `"Appearance"` | `settings_group_appearance` | Settings section headings |
-| `settingsTab("Interface")` | `"Interface"` | `settings_tab_interface` | Settings nav rail tabs |
+| `settingsTab("Interface")` | `"Interface"` | `settings_tab_interface` | Settings rows in the rail and the narrow sheet |
 | `menuProjectExpander("p1")` | `"p1"` | `menu_project_expander_p1` | The expander of a project in the menu's tree |
 | `menuProjectNode("p1")` | `"p1"` | `menu_project_node_p1` | A project in the menu's project tree |
 | `checklistItem("Item")` | `"Item"` | `checklist_item_item` | Checklist item rows |

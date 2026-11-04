@@ -1,6 +1,6 @@
-# Smoke: open Settings from the menu and cycle through all 11 tabs without crash.
+# Smoke: open Settings from the menu and cycle through all 13 tabs without crash.
 #
-# Covers: menu sheet -> Settings entry -> SettingsNavRail (12 tabs).
+# Covers: menu sheet -> Settings entry -> the narrow settings sheet (13 tabs).
 #
 # This flow is the regression guard for a crash that shipped: the screen used to
 # die with `subclassesOfSealed only supports automatic adding of subclasses of
@@ -35,53 +35,58 @@ tags:
       id: settings_tab_dropdown
     timeout: 10000
 
-# Cycle all 13 tabs via the narrow-screen dropdown. A crash or hang on any tab
+# Cycle all 13 tabs through the narrow settings sheet. The helper opens the
+# sheet, scrolls the row into view and taps it; a crash or hang on any tab
 # fails the flow.
-- tapOn:
-    id: settings_tab_dropdown
-- tapOn:
-    id: settings_tab_interface
-- tapOn:
-    id: settings_tab_dropdown
-- tapOn:
-    id: settings_tab_agenda
-- tapOn:
-    id: settings_tab_dropdown
-- tapOn:
-    id: settings_tab_notifications
-- tapOn:
-    id: settings_tab_dropdown
-- tapOn:
-    id: settings_tab_aiprovider
-- tapOn:
-    id: settings_tab_dropdown
-- tapOn:
-    id: settings_tab_workschedule
-- tapOn:
-    id: settings_tab_dropdown
-- tapOn:
-    id: settings_tab_calendar
-- tapOn:
-    id: settings_tab_dropdown
-- tapOn:
-    id: settings_tab_sync
-- tapOn:
-    id: settings_tab_dropdown
-- tapOn:
-    id: settings_tab_tags
-- tapOn:
-    id: settings_tab_dropdown
-- tapOn:
-    id: settings_tab_taggroups
-- tapOn:
-    id: settings_tab_dropdown
-- tapOn:
-    id: settings_tab_files
-- tapOn:
-    id: settings_tab_dropdown
-- tapOn:
-    id: settings_tab_backup
-- tapOn:
-    id: settings_tab_dropdown
-- tapOn:
-    id: settings_tab_account
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_interface
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_agenda
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_notifications
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_aiprovider
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_workschedule
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_calendar
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_sync
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_tags
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_taggroups
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_tasks
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_files
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_backup
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_account

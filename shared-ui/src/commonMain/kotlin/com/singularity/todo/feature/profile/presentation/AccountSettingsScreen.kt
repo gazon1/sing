@@ -1,14 +1,11 @@
 package com.singularity.todo.feature.profile.presentation
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -26,7 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -81,7 +77,7 @@ fun AccountSettingsScreen(
         ProfileSwitcherSection(onSwitchProfile = { settingsNavigator.openProfileSwitcher() })
 
         // Attach account — only shown for anonymous sessions.
-        if (authVm.session.value is Session.Anonymous) {
+        if (session is Session.Anonymous) {
             AttachAccountSection(onAttachAccount = { settingsNavigator.openAttachAccount() })
         }
 
@@ -221,26 +217,10 @@ private fun ActiveProfileSection(profile: Profile) {
  */
 @Composable
 private fun ProfileAvatar(profile: Profile) {
-    Box(
-        modifier =
-            Modifier
-                .size(40.dp)
-                .clip(CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (profile.emoji.isBlank()) {
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            Text(
-                text = profile.emoji,
-                style = MaterialTheme.typography.headlineSmall,
-            )
-        }
-    }
+    // The emoji-or-person fallback lives in the shared-ui avatar, so this
+    // screen and the profile switcher cannot disagree about what a profile
+    // with no emoji looks like.
+    ProfileAvatar(emoji = profile.emoji)
 }
 
 /**
@@ -255,7 +235,7 @@ private fun ProfileAvatar(profile: Profile) {
 private fun AccountStatusSection(session: Session) {
     when (session) {
         is Session.SignedIn ->
-            SettingsSection(title = "Account") {
+            SettingsSection(title = "Signed in") {
                 Text(
                     text = "Signed in as",
                     style = MaterialTheme.typography.bodySmall,
@@ -269,7 +249,7 @@ private fun AccountStatusSection(session: Session) {
             }
 
         is Session.Anonymous ->
-            SettingsSection(title = "Account") {
+            SettingsSection(title = "Not signed in") {
                 Text(
                     text = "Not signed in",
                     style = MaterialTheme.typography.bodyLarge,

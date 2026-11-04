@@ -95,10 +95,23 @@ internal val SETTINGS_GROUPS: List<SettingsGroup> =
     )
 
 /**
+ * Tab → group, built once at load.
+ *
+ * The previous form scanned the group list on every access — and
+ * [SettingsTab.groupedLabel], which calls this, is read on every recomposition
+ * of the narrow trigger — and it threw [NoSuchElementException] for a tab that
+ * no group listed, turning a forgotten group entry into a crash on the settings
+ * screen. This map is O(1); `SettingsNavigationTest` proves it covers every
+ * [SettingsTab], so a new tab cannot be added without a group.
+ */
+private val SETTINGS_GROUP_BY_TAB: Map<SettingsTab, SettingsGroup> =
+    SETTINGS_GROUPS.flatMap { group -> group.tabs.map { tab -> tab to group } }.toMap()
+
+/**
  * The group a tab lives in.
  */
 internal val SettingsTab.group: SettingsGroup
-    get() = SETTINGS_GROUPS.first { it.tabs.contains(this) }
+    get() = SETTINGS_GROUP_BY_TAB.getValue(this)
 
 /**
  * "AI & Account › Account".

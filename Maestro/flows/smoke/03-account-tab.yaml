@@ -1,9 +1,9 @@
-# Smoke: the Account tab opens from the settings nav rail.
+# Smoke: the Account tab opens from the narrow settings menu.
 #
-# The rail is a scrollable column of twelve ~76dp rows, so the trailing tabs
-# (Files, Backup, Account) are below the fold on a phone viewport — the screen
-# looks complete, but the tab is not on it. This flow walks the rail the way a
-# user does and lands on Account.
+# The menu is a bottom sheet holding five headings and thirteen rows, so the
+# trailing tabs (Files, Backup, Account) are below the fold on a phone viewport
+# — the screen looks complete, but the row is not on it. This flow opens the
+# menu the way a user does and lands on Account.
 #
 # What is asserted is what the E2E build can actually show. The "Attach
 # account" button is rendered only for `Session.Anonymous`, and the E2E build
@@ -40,15 +40,11 @@ tags:
 - tapOn:
     id: menu_settings
 
-# Switch to Account tab via the narrow-screen dropdown.
-- tapOn:
-    id: settings_tab_dropdown
-- extendedWaitUntil:
-    visible:
-      id: settings_tab_account
-    timeout: 10000
-- tapOn:
-    id: settings_tab_account
+# Switch to the Account tab through the narrow settings sheet.
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      SETTINGS_TAB: settings_tab_account
 
 # The Account tab is open: its account section is on the screen.
 - extendedWaitUntil:
