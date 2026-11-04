@@ -317,6 +317,11 @@ private fun TaskEditorContent(
 
             // Dependencies card
             //
+            // Its place is with the attribute rows, after the pin row: a card that
+            // led the group pushed the due date and the priority one row further
+            // down on a task that had relations, so a task's attributes sat lower
+            // because of something else on the task.
+            //
             // Shown when there is something to pick from, not when something is
             // already picked: a card that appears only after the first relation is
             // added has no first click. The label says which edge means what, because
