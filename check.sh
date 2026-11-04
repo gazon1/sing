@@ -189,7 +189,7 @@ run_format_check() {
 # read exactly the same. The line a reader trusts has to name the tests that
 # ran.
 run_affected_tests() {
-    local selection cmd classes ran
+    local selection cmd classes ran device_classes
     selection="$(python3 scripts/test-impact-map.py --command --population fast --gradle ./gw)" || {
         echo -e "${RED}the affected test selection could not be computed — see the message above${NC}"
         return 1
@@ -203,8 +203,20 @@ run_affected_tests() {
         return 0
     fi
     ran=0
+    device_classes=0
     while IFS= read -r cmd; do
         [ -n "$cmd" ] || continue
+        # The instrumented tier is run by the repository's own runner, and it
+        # needs a device this lane does not own. The command is NAMED here and
+        # run by the job that has an emulator: appending `--rerun` or the
+        # coverage property to it would be arguments the script does not know,
+        # and starting an AVD inside the fast lane is not what the lane is for.
+        if [[ "$cmd" == "python3 scripts/run-android-ui-tests.py "* ]]; then
+            classes="$(grep -o -- '--class [^ ]*' <<<"$cmd" | sed 's/.*--class //' | tr ',' '\n' | grep -c . || true)"
+            device_classes=$(( device_classes + ${classes:-0} ))
+            echo -e "${YELLOW}on a device: ${cmd}${NC}"
+            continue
+        fi
         classes="$(grep -o -- '--tests ' <<<"$cmd" | wc -l)"
         ran=$(( ran + classes ))
         # `--rerun`: a task whose inputs did not change is UP-TO-DATE, and an
@@ -218,7 +230,11 @@ run_affected_tests() {
             return 1
         }
     done <<<"$selection"
-    echo -e "${GREEN}the affected lane: $ran test class(es) ran${NC}"
+    if [ "$device_classes" -gt 0 ]; then
+        echo -e "${YELLOW}the affected lane: $ran test class(es) ran; $device_classes name(s) a device run, and this lane does not have one${NC}"
+    else
+        echo -e "${GREEN}the affected lane: $ran test class(es) ran${NC}"
+    fi
 }
 
 # ── The fast lane ─────────────────────────────────────────────────────────────
