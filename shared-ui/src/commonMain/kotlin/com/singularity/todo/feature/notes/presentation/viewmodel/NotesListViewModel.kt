@@ -32,7 +32,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.minus
@@ -50,7 +49,7 @@ import kotlinx.datetime.plus
  * @see NotesUiState
  */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
-@Suppress("TooManyFunctions") // 17 functions: undo path adds 4 internal helpers
+@Suppress("TooManyFunctions") // 20 functions: the observation pipeline adds 3, the undo path 4
 class NotesListViewModel(
     private val repo: NotesRepository,
     // `todayFlow` requires both now (#91). Defaulted rather than required: daily
@@ -121,6 +120,12 @@ class NotesListViewModel(
      * the field's own text coming back.
      */
     private val searchQueryFlow = MutableStateFlow(FieldOwnedText.empty())
+
+    /**
+     * Bumped by [NotesIntent.Retry]. It is one of the inputs that re-arm the
+     * observation, so a retry starts a fresh attempt the same way a change to the
+     * filter, the sort order or the query does — none of them is the only way back.
+     */
     private val retryTrigger = MutableStateFlow(0)
 
     /**
@@ -150,72 +155,100 @@ class NotesListViewModel(
 
     init {
         scope.launch {
-            // Combine five flows: notes + templates + daily notes + sort order + search.
-            val templatesFlow = repo.watchTemplates()
-            val dailyNotesFlow =
-                todayFlow(clock, timeZone.current()).flatMapLatest { today ->
-                    val from = today.minus(7, DateTimeUnit.DAY).toString()
-                    val to = today.plus(30, DateTimeUnit.DAY).toString()
-                    repo.watchDailyNotesInRange(from, to)
+            // Every input that decides *what* the list shows re-arms the observation,
+            // not only the retry trigger. A failure ends one attempt, and the next
+            // attempt is whatever the user changes next.
+            //
+            // Collecting the inputs outside the attempt is what keeps the filter
+            // chips, the sort menu and the search field live while the error state is
+            // on screen: before, the failure ended the only collector there was, and
+            // the screen sat in the error state until Retry was pressed — the
+            // controls looked live and did nothing.
+            observations()
+                .flatMapLatest { observation ->
+                    // The failure is caught *inside* the attempt, so it takes the
+                    // attempt down and nothing else. `catch` here, on the collected
+                    // flow, would end the collection of [observations] too.
+                    observe(observation).catch { cause -> emit(failure(cause, observation)) }
                 }
-            val notesFlow =
-                combine(filterFlow, debouncedQueryFlow, retryTrigger) { f, query, _ -> f to query }
-                    .flatMapLatest { (f, query) ->
-                        val flow =
-                            when {
-                                query.text.isNotBlank() -> repo.search(query.text, NOTE_SEARCH_MODE)
-                                f == NoteFilter.All -> repo.observeAll()
-                                f == NoteFilter.Pinned -> repo.watchPinned()
-                                else -> repo.watchArchived()
-                            }
-                        flow.map { notes -> Triple(f, query, notes) }
-                    }
-            // Typed as [NotesUiState]: the error path below emits an `Error`, and an
-            // inferred type of `Content` would make that emission a type error.
-            val listStateFlow: Flow<NotesUiState> =
-                combine(notesFlow, templatesFlow, dailyNotesFlow, sortOrderFlow) {
-                    (filter, query, allNotes),
-                    templates,
-                    dailyNotes,
-                    sortOrder,
-                    ->
-                    val sorted = sortNotes(allNotes, sortOrder)
-                    val pinned = sorted.filter { it.isPinned }
-                    val unpinned = sorted.filter { !it.isPinned }
-                    NotesUiState.Content(
-                        list =
-                            NotesListState(
-                                pinned = pinned.toImmutableList(),
-                                unpinned = unpinned.toImmutableList(),
-                                templates = templates.toImmutableList(),
-                                dailyNotes = dailyNotes.toImmutableList(),
-                                selectedIds = _selectedIds.value.toImmutableSet(),
-                                isSelectionMode = _isSelectionMode.value,
-                            ),
-                        filter = filter,
-                        sortOrder = sortOrder,
-                        searchQuery = query,
-                    )
-                }
-            listStateFlow
-                .catch { cause ->
-                    // The failure carries the query, the filter and the sort order.
-                    // The screen keeps showing the search field and the filter chips
-                    // while it reports the error, and a state that reset them would
-                    // clear what the user had chosen — the query in particular, since
-                    // the field is bound to it and hands an empty string back as if
-                    // the user had cleared it.
-                    emit(
-                        NotesUiState.Error(
-                            message = cause.toMessage("Could not load notes"),
-                            filter = filterFlow.value,
-                            sortOrder = sortOrderFlow.value,
-                            searchQuery = searchQueryFlow.value,
-                        ),
-                    )
-                }.collect { state -> setState(state) }
+                .collect { state -> setState(state) }
         }
     }
+
+    /** The inputs that decide what the list shows, as one value. */
+    private data class Observation(
+        val filter: NoteFilter,
+        val query: FieldOwnedText,
+        val sortOrder: NoteSortOrder,
+    )
+
+    private fun observations(): Flow<Observation> =
+        combine(filterFlow, debouncedQueryFlow, sortOrderFlow, retryTrigger) { filter, query, sortOrder, _ ->
+            Observation(filter = filter, query = query, sortOrder = sortOrder)
+        }
+
+    /**
+     * One attempt at loading the list.
+     *
+     * Not the collection: when this flow fails, [observations] is still collecting,
+     * so the next change to what is observed starts another attempt.
+     */
+    private fun observe(observation: Observation): Flow<NotesUiState> {
+        val notesFlow =
+            when {
+                observation.query.text.isNotBlank() -> repo.search(observation.query.text, NOTE_SEARCH_MODE)
+                observation.filter == NoteFilter.All -> repo.observeAll()
+                observation.filter == NoteFilter.Pinned -> repo.watchPinned()
+                else -> repo.watchArchived()
+            }
+        val templatesFlow = repo.watchTemplates()
+        val dailyNotesFlow =
+            todayFlow(clock, timeZone.current()).flatMapLatest { today ->
+                val from = today.minus(7, DateTimeUnit.DAY).toString()
+                val to = today.plus(30, DateTimeUnit.DAY).toString()
+                repo.watchDailyNotesInRange(from, to)
+            }
+        return combine(notesFlow, templatesFlow, dailyNotesFlow) { allNotes, templates, dailyNotes ->
+            val sorted = sortNotes(allNotes, observation.sortOrder)
+            val pinned = sorted.filter { it.isPinned }
+            val unpinned = sorted.filter { !it.isPinned }
+            NotesUiState.Content(
+                list =
+                    NotesListState(
+                        pinned = pinned.toImmutableList(),
+                        unpinned = unpinned.toImmutableList(),
+                        templates = templates.toImmutableList(),
+                        dailyNotes = dailyNotes.toImmutableList(),
+                        selectedIds = _selectedIds.value.toImmutableSet(),
+                        isSelectionMode = _isSelectionMode.value,
+                    ),
+                filter = observation.filter,
+                sortOrder = observation.sortOrder,
+                searchQuery = observation.query,
+            )
+        }
+    }
+
+    /**
+     * The state a failed attempt reports.
+     *
+     * The failure carries the query, the filter and the sort order. The screen keeps
+     * showing the search field, the filter chips and the sort menu while it reports
+     * the error, and a state that reset them would clear what the user had chosen —
+     * the query in particular, since the field is bound to it and hands an empty
+     * string back as if the user had cleared it.
+     */
+    private fun failure(
+        cause: Throwable,
+        observation: Observation,
+    ) = NotesUiState.Error(
+        message = cause.toMessage("Could not load notes"),
+        filter = observation.filter,
+        sortOrder = observation.sortOrder,
+        // The raw keystrokes, not the applied query: what the user still sees in the
+        // field is what the state has to hand back.
+        searchQuery = searchQueryFlow.value,
+    )
 
     private fun sortNotes(
         notes: List<Note>,
