@@ -23,7 +23,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -171,26 +170,27 @@ fun androidShellNav3Root(
 
                 // The blank-tree diagnostic (REQ-DN-004) is recorded by
                 // `toDecoratedEntries` itself, before its unresolvable-entry fallback.
-                // Drop what the screen we are leaving told the bar, BEFORE the entries
-                // below compose (#2008, #1962).
+                // Drop the previous screen's transient slots — its buttons, its
+                // selection state — BEFORE the entries below compose (#1962).
                 //
-                // The order is the whole fix. Cleared from a LaunchedEffect — which runs
-                // once the frame is applied, after every screen's publication — the clear
-                // erased the header the arriving screen had just published, and the agenda
-                // lost its title and greeting on a tab switch. Done here, in composition
-                // and ahead of the entries, the arriving screen publishes last: a screen
-                // that owns its bar has it drawn, and a screen that publishes nothing
-                // leaves the shell's own destination title in place instead of inheriting
-                // the previous screen's header.
+                // Only the slots. A published header belongs to the screen that
+                // published it: `title`, `navigationIcon` and the publisher's
+                // identity are taken down by that screen's own DisposableEffect
+                // when it leaves, and by nothing else (#2008). Clearing the
+                // header here — which is what a `LaunchedEffect`, running after
+                // the frame was applied, used to do — erased the header the
+                // arriving screen had just published and left the agenda
+                // without its title and greeting on a tab switch.
                 //
-                // This is also why the clear cannot live in a DisposableEffect on the
-                // route: effect order is not the contract, composition order is.
-                val route = state.topLevelRoute
-                val lastRoute = remember { mutableStateOf(route) }
-                if (lastRoute.value != route) {
-                    lastRoute.value = route
-                    screenActions.onTopLevelRouteChanged()
-                }
+                // `remember(route)` and not a MutableState holding the last
+                // route: writing that state after reading it in this same
+                // composition invalidated the scope that had just read it, and
+                // recomposed the whole NavDisplay subtree one extra time on
+                // every tab switch (#1962 review). The clear still happens in
+                // composition and ahead of the entries, which is the part that
+                // matters: composition order, not effect order, is the
+                // contract.
+                remember(state.topLevelRoute) { screenActions.onTopLevelRouteChanged() }
                 val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
 
                 CompositionLocalProvider(LocalNav3State provides state, LocalScreenActions provides screenActions) {
@@ -305,7 +305,11 @@ private fun ShellNavigationIcon(
 ) {
     val context = LocalContext.current
     val exitSelection = screenActions.onExitSelection
-    val publishedIcon = if (screenActions.override) screenActions.navigationIcon else null
+    // Asked every time the bar is drawn, not captured once when the screen
+    // published: a screen can start or stop supplying its own navigation icon
+    // while it stays on screen (#1962 review).
+    val publishedIcon: (@Composable () -> Unit)? =
+        if (screenActions.override) screenActions.navigationIcon?.invoke() else null
     when {
         exitSelection != null -> {
             IconButton(

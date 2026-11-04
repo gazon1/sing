@@ -20,8 +20,11 @@ title and navigation icon in place of its own. On desktop the same composable
 draws the real bar, so what the user reads is the same on both clients.
 
 `title`, `navigationIcon` and `override` are one publication, written by
-`ScreenActionsHolder.publishBar` and taken back by `retractBar`; a screen cannot
-set one of them without the others.
+`ScreenActionsHolder.publishBar` and taken back by `retractBar`; `override` is
+derived from `title`, and a screen cannot set one of them without the others.
+The navigation icon is published as a question the shell asks when it draws the
+bar, so a screen that starts or stops supplying one — the calendar gaining a
+back button — does not keep the answer it gave when it entered.
 
 ## Which title a screen's bar carries
 
@@ -45,10 +48,19 @@ Android bar with it and leaves with it.
 
 `ScreenActionsHolder.onTopLevelRouteChanged()` clears the transient slots
 (`actions`, `selectionTitle`, `onExitSelection`) because a screen without a bar
-of its own never publishes them.
+of its own never publishes them; the previous screen's buttons would otherwise
+stay in the bar. The shell calls it in composition, ahead of the entries it
+draws, so the arriving screen's own publication has the last word of the frame.
 
-It does **not** clear `title`/`navigationIcon`/`override`. The screen that
-published the header takes it down in its own `DisposableEffect` when it leaves
-the composition — and only its own: the publication carries the identity of the
-screen that made it, so a screen leaving during a navigation cannot erase the
-header the arriving screen has already published (#2008).
+It does **not** clear `title`/`navigationIcon`/`override`. Those belong to the
+screen that published them, and only that screen takes them down, in its own
+`DisposableEffect` when it leaves the composition — and only its own: the
+publication carries the identity of the screen that made it, so a screen leaving
+during a navigation cannot erase the header the arriving screen has already
+published (#2008).
+
+The action slots are claimed and released under the same rule: a bar claims them
+as its composition enters (`claimActions`) and releases them as it leaves
+(`clearActions`). A bar leaving during a transition therefore does not empty the
+slots of the bar arriving, and a screen that publishes a header only — the
+calendar — claims no slots, so the previous bar's leave still empties its own.

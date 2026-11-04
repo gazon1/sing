@@ -16,7 +16,9 @@ import androidx.compose.runtime.rememberUpdatedState
  *
  * The actions are NOT touched: a screen that has a bar of its own publishes
  * them through [TopAppBar], and a bar that clears what another bar published
- * takes away the actions of the screen it is standing next to.
+ * takes away the actions of the screen it is standing next to. This composable
+ * therefore claims no slots either — a screen that publishes a header only
+ * still leaves the previous bar's slots to be cleared by that bar.
  *
  * The header is published from a [DisposableEffect] — once, as the composition
  * enters — and not from a `SideEffect`, which would republish on every
@@ -25,6 +27,10 @@ import androidx.compose.runtime.rememberUpdatedState
  * arriving screen had published, so that its own retraction erased the arriving
  * screen's header (#1962 review). The published content stays current through
  * [rememberUpdatedState] instead.
+ *
+ * The navigation icon is published as a *question* — [PublishedNavigationIcon]
+ * — and answered when the shell draws the bar, so a screen that supplies or
+ * drops an icon after it entered does not keep the entry-time answer.
  *
  * The header is published under this composition's own identity, so the bar it
  * takes down when it leaves is its own and not whatever the next screen has
@@ -39,10 +45,12 @@ fun ShellOverride(
     val owner = remember { Any() }
     val publishedTitle by rememberUpdatedState(title)
     val publishedIcon by rememberUpdatedState(navigationIcon)
-    val icon: (@Composable () -> Unit)? =
-        if (navigationIcon == null) null else { publishedIcon?.invoke() }
     DisposableEffect(holder, owner) {
-        holder.publishBar(owner = owner, title = { publishedTitle() }, navigationIcon = icon)
+        holder.publishBar(
+            owner = owner,
+            title = { publishedTitle() },
+            navigationIcon = { publishedIcon },
+        )
         onDispose { holder.retractBar(owner) }
     }
 }

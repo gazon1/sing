@@ -53,27 +53,33 @@ fun TopAppBar(
         // screen says now without the screen publishing again.
         val publishedTitle by rememberUpdatedState(title)
         val publishedIcon by rememberUpdatedState(navigationIcon)
-        val icon: (@Composable () -> Unit)? =
-            if (navigationIcon == null) null else { publishedIcon?.invoke() }
         DisposableEffect(holder, overrideShell, barOwner) {
-            // Published here and retracted below — deliberately NOT from the
-            // SideEffect above, which runs on every recomposition. A screen on
-            // its way out still recomposes while the navigation transition
-            // plays; republishing let it take the bar back from the screen that
-            // had just published, and its own retraction then erased that
-            // screen's header. One publication per composition is what makes
-            // [ScreenActionsHolder.retractBar]'s owner check sound.
+            // The slots are claimed here and not from the SideEffect above,
+            // which runs on every recomposition: a screen on its way out still
+            // recomposes while the navigation transition plays, and republishing
+            // let it take the bar back from the screen that had just published.
+            // One claim (and at most one header publication) per composition is
+            // what makes the owner checks in [ScreenActionsHolder] sound.
+            holder.claimActions(barOwner)
             if (overrideShell) {
-                holder.publishBar(owner = barOwner, title = { publishedTitle() }, navigationIcon = icon)
+                holder.publishBar(
+                    owner = barOwner,
+                    title = { publishedTitle() },
+                    // Asked when the shell draws the bar, not now: a screen can
+                    // start or stop supplying a navigation icon while it stays
+                    // on screen (#1962 review).
+                    navigationIcon = { publishedIcon },
+                )
             }
             onDispose {
-                holder.actions = null
-                holder.selectionTitle = null
-                holder.onExitSelection = null
+                // Only the bar the shell is still drawing may empty the shared
+                // slots: a bar leaving during a transition must not take the
+                // arriving screen's actions with it (#1962 review).
+                holder.clearActions(barOwner)
                 // Only the bar that published the override takes it back down,
-                // and only while it is still the bar the shell shows: a screen
-                // that has BOTH this bar and a [ShellOverride] must not have
-                // the second one's override cleared by the first one's
+                // and only while it is still the header the shell shows: a
+                // screen that has BOTH this bar and a [ShellOverride] must not
+                // have the second one's override cleared by the first one's
                 // disposal, and a screen leaving during a navigation must not
                 // erase the header the arriving screen has already published.
                 if (overrideShell) {

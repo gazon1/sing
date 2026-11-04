@@ -43,13 +43,18 @@ tags:
 - assertVisible: "Good (morning|afternoon|evening)"
 
 # A destination that publishes a bar of its own (the calendar's month), then
-# back: the calendar's header must be replaced by the agenda's, not erase it
-# and leave the shell's destination title (#2008).
+# back: the calendar's header must replace the agenda's, not erase it and leave
+# the shell's destination title (#2008).
 - tapOn:
     id: nav_tab_calendar
+# Wait for the agenda's bar to be gone. `nav_tab_calendar` would return
+# immediately — the tab bar already shows that item before the tap — and the
+# switch back would then test the agenda's header replacing the agenda's
+# header, not one published header replacing another (#1962 review). The
+# greeting is in the bar before this tap, so waiting for it to disappear is
+# waiting for the calendar's publication to take the bar.
 - extendedWaitUntil:
-    visible:
-      id: nav_tab_calendar
+    notVisible: "Good (morning|afternoon|evening)"
     timeout: 8000
 - tapOn:
     id: nav_tab_today
