@@ -900,11 +900,18 @@ _REGISTERED: tuple[GateSpec, ...] = (
     # The gate that checks the two registries against each other. It is a script
     # gate, so the registry entry names the script; the comparison itself reads
     # both registries, and its verdict is what keeps the gap from being invisible.
+    #
+    # `--strict` is part of the command, not an option of the dispatch: the
+    # shell registry's line for this gate is `python3 scripts/check-gate-registries.py
+    # --strict`, and the registry has to build the same command. Without the flag
+    # the two surfaces ran two different commands on one tree — the shell one
+    # failed on drift, this one passed — and the gate had two verdicts.
     GateSpec(
         name="gate registries agree",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-gate-registries.py"),
+        script_args=("--strict",),
     ),
     # The generated catalogue of this registry: which gates exist, and whether
     # each one blocks. `docs/scripts/gate-registry.md` is derived from GATES, so
