@@ -24,6 +24,9 @@ data class FabAction(val label: String, val onClick: () -> Unit)
  *
  * Every agenda tab that lists tasks offers an "Add task" action: **Today**,
  * **Inbox** and **Upcoming**, plus the Blocked, Stagnant and Overdue views.
+ * `DestinationKind.tabs` is the source of truth for which destinations are tabs,
+ * and `FabActionResolverTest` walks it, so a new agenda tab that resolves to no
+ * action fails the suite instead of shipping without a button (#1959).
  *
  * When navigating from the **Today** tab, the task creation screen is pre-filled with
  * `dueDate = Today` so the user can change it without having to set it from scratch.
@@ -68,9 +71,26 @@ internal fun fabActionForNav3(
                     )
                 }
 
-                else -> {
-                    null
-                }
+                // Every route the agenda graph can start on is named here rather
+                // than folded into a catch-all, so a new [AgendaStartRoute] makes
+                // this `when` non-exhaustive: the compiler refuses the build until
+                // the route is classified, and a task-listing route can no longer
+                // fall through to `null` silently — the shape the Upcoming tab
+                // shipped in (#1959).
+                //
+                // Task lists that are not bottom-bar tabs: their create action
+                // belongs to the drill-down work, out of scope here.
+                is AgendaStartRoute.Project,
+                is AgendaStartRoute.Tag,
+                is AgendaStartRoute.Tags,
+                -> null
+
+                // Screens that edit a saved view, not a task.
+                AgendaStartRoute.SavedAgendaList,
+                is AgendaStartRoute.SavedAgendaResults,
+                is AgendaStartRoute.SavedAgendaEdit,
+                AgendaStartRoute.SavedAgendaCreate,
+                -> null
             }
         }
 
