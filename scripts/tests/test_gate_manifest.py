@@ -10,6 +10,8 @@ tests pin what the rendering must satisfy:
 
 - every registered gate is placed, and every placement names a real gate;
 - the rendered region is exactly what the shell file holds;
+- a `sgate <command>` gate line resolves through the registry to that gate's
+  script, so the line is not a second spelling of the command;
 - the cluster membership is declared, so a member cannot fall out of the
   covered set because a line inside a wrapper was renamed.
 """
@@ -241,6 +243,49 @@ class TestTheClusterMembership(unittest.TestCase):
                     covered,
                     f"'{member}' is a declared member of '{cluster}' but is not covered",
                 )
+
+
+class TestACommandLineResolvesThroughTheRegistry(unittest.TestCase):
+    """A `sgate <command>` line is one declaration, not a second spelling.
+
+    The placement table is keyed by display name and the gate line names the
+    command, so the two are joined by the registry's own naming rule. A gate
+    whose display name is several words is the case that join exists for: a
+    name lookup alone misses it.
+    """
+
+    def test_the_line_covers_the_script_of_the_gate_its_command_names(self):
+        from sgate.commands import _registry
+        from sgate.gate_reachability import covered_scripts
+
+        by_name = {spec.name: spec for spec in GATES}
+        spec = by_name["room schema integrity"]
+        command = _registry._module_name(spec.name)
+        self.assertNotEqual(
+            command, spec.name, "the gate must be one the display name does not spell"
+        )
+
+        covered = covered_scripts(
+            _ROOT, [("blocking", spec.name, f"sgate {command}")], by_name
+        )
+        self.assertIn(
+            str(spec.script),
+            covered,
+            f"'sgate {command}' names '{spec.name}' but its script is not covered",
+        )
+
+    def test_a_line_naming_another_command_does_not_cover_this_gate(self):
+        """The join is by the command, not by the line's gate name."""
+        from sgate.commands import _registry
+        from sgate.gate_reachability import covered_scripts
+
+        by_name = {spec.name: spec for spec in GATES}
+        spec = by_name["room schema integrity"]
+        other = _registry._module_name("provenance")
+        covered = covered_scripts(
+            _ROOT, [("blocking", spec.name, f"sgate {other}")], by_name
+        )
+        self.assertNotIn(str(spec.script), covered)
 
 
 if __name__ == "__main__":

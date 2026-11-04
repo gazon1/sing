@@ -819,7 +819,7 @@ gate blocking "adr references are valid" sgate adr_references_are_valid
 # It was advisory for as long as it was red on a clean tree, and a control
 # cannot tell "caught the mutation" from "still failing the known violations".
 # That is the whole reason it had no positive control; it has one now.
-gate blocking "script conventions" sgate conventions
+gate blocking "script conventions" sgate script_conventions
 #
 # The Compose stability contract — `config/compose/stability_config.conf` — is
 # the only thing that tells the Compose compiler which types are stable. It is

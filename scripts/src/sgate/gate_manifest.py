@@ -826,7 +826,7 @@ deleted decision leaves a dangling claim nothing else sees.""",
     ),
     "script conventions": Placement(
         kind=PlacementKind.STATIC,
-        command='sgate conventions',
+        command='sgate script_conventions',
         note="""
 ─── Deliberately NOT here ─────────────────────────────────────────────────────
 

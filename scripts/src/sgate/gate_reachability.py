@@ -166,26 +166,20 @@ def reachable_gate_scripts(
     return follow_delegation(root, invoked), unresolved
 
 
-def command_name(display_name: str) -> str:
-    """The CLI command for a gate, derived from its display name.
-
-    The registry stores ``room schema integrity``; the CLI calls it
-    ``sgate room_schema_integrity``. A gate line in the tool's shape names the
-    command, not the display name, so a lookup by display name misses it.
-    """
-    slug = re.sub(r"[^a-z0-9]+", "_", display_name.lower())
-    return re.sub(r"_+", "_", slug).strip("_")
-
-
 def _spec_for_command(registry_by_name: dict[str, object], command: str) -> object | None:
     """The registry entry a ``sgate <command>`` line dispatches to.
 
-    The registry is keyed by display name and the line names the command, so
-    the two are joined by the command the display name gives.
+    The registry is keyed by display name and the line names the command, so the
+    two are joined by the command the display name gives. The rule that gives it
+    lives in the registry, which is what names the CLI command — a copy here
+    would be the second spelling of one command that the placement table has
+    just stopped carrying.
     """
+    from sgate.commands import _registry
+
     for spec in registry_by_name.values():
         name = getattr(spec, "name", None)
-        if name and command_name(str(name)) == command:
+        if name and _registry._module_name(str(name)) == command:
             return spec
     return None
 
@@ -198,8 +192,8 @@ def covered_scripts(
     """The scripts the gate lines of the shell registry run.
 
     Three steps, in order: a script named in a gate command is run by that
-    gate; `sgate <name>` runs whatever the registry says that name is, so the
-    command resolves through the registry to a script; and the members of a
+    gate; `sgate <command>` runs whatever the registry says that command is, so
+    the command resolves through the registry to a script; and the members of a
     cluster are run by the cluster, so a member is covered when its cluster is.
 
     The cluster membership is *declared* — `sgate.gate_manifest.CLUSTERS` — and
