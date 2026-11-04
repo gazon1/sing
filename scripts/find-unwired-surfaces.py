@@ -606,8 +606,9 @@ def _check_dead_symbol(
     return findings
 
 
-def _load_baseline() -> dict[str, str]:
-    """Symbol name → reason, from the exemption file.
+@dataclass(frozen=True)
+class Baseline:
+    """The exemption file, keyed by *where* the exemption was granted.
 
     ## Why a row here is an exemption and not only a label
 
@@ -622,22 +623,49 @@ def _load_baseline() -> dict[str, str]:
     from the exit code. That is what makes the other gate load-bearing — it is the thing
     that stops "add a row" from becoming the answer to every finding.
 
-    Exemption is keyed by symbol name, not by file, because a screen or a class has one
-    home; a same-named symbol elsewhere would be exempt too, which is why the file's own
-    second column records where the exemption was granted.
+    ## Why the file is part of the key
+
+    This map used to be `symbol → reason` with no file qualifier, on the reasoning that
+    "a screen or a class has one home". That held while the file held two rows and one
+    detector consulted it. `unread-public` broke it: its rows name *properties*, and a
+    property called `FooCard` or `AutoSync` collides by name with a composable or a
+    top-level declaration in a different file and a different detector. Each row added
+    widened the collision surface by one, and a collision is not a cosmetic problem — it
+    silently converts another detector's finding to `exempt`, i.e. to a finding that does
+    not fail the build.
+
+    So the second column of the row — which the format always carried and the loader
+    always discarded — is now half the key. `reason_for` requires the symbol *and* the
+    declaring file to match, and the detectors pass the path they are reporting, which is
+    the declaration site. A row can only ever exempt the declaration it names.
+
+    The residual collision a file+symbol key cannot separate is two detectors reporting
+    the same name in the same file (`val FooRow` and `fun FooRow()` can coexist). That is
+    one file's worth of ambiguity rather than the whole tree's, and the detectors report
+    different names for it in practice.
     """
+
+    rows: dict[tuple[str, str], str] = field(default_factory=dict)
+
+    def reason_for(self, symbol: str, path: pathlib.Path) -> str | None:
+        """The exemption granted to `symbol` as declared in `path`, if any."""
+        return self.rows.get((symbol, rel(path)))
+
+
+def _load_baseline() -> Baseline:
+    """Read the exemption file into a ``(symbol, file) → reason`` map."""
     path = ROOT / "scripts" / "find-unwired-surfaces-baseline.txt"
     if not path.exists():
-        return {}
-    result: dict[str, str] = {}
+        return Baseline()
+    rows: dict[tuple[str, str], str] = {}
     for line in path.read_text().splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        parts = line.split("|")
+        parts = [part.strip() for part in line.split("|")]
         if len(parts) >= 3:
-            result[parts[0].strip()] = parts[2].strip()
-    return result
+            rows[(parts[0], parts[1])] = parts[2]
+    return Baseline(rows)
 
 
 # ── Detector 6 — orphan Koin binding (no get/inject/viewModel call) ──────────
