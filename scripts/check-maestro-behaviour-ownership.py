@@ -42,6 +42,13 @@ backticked word that is prose rather than a code name — `back` — is not a cl
 about the product, and is skipped: only a span that contains `_` or starts with a
 capital is read as a declaration.
 
+The same rule applies to the two markers whose vocabulary is ordinary English in
+the authoring rules. "The quick-add field is a `BasicTextField`, seed it" and
+"`render-compose-preview` renders the screen" name the quick-add field and a
+preview without claiming where either of them *lands*; both stay in the skill.
+Only a destination claim — a landing verb beside the word, or the
+preview-versus-editor comparison — belongs to the runbook.
+
 A tag can be parameterised, and then the family is what the source declares:
 `note_action_edit` is `note_action_` plus a slug. The gate accepts the literal or
 its family prefix, and `task_item_<slug>` is read as the family `task_item_`.
@@ -104,6 +111,20 @@ class Marker:
     why: str
 
 
+#: The verb a navigation claim is built from — what a tap *does* with a screen.
+#: A marker needs one of these beside its vocabulary word: the words themselves
+#: ("quick-add", "preview") are ordinary English in the authoring rules, and only
+#: the destination they are paired with is the runbook's to state.
+DESTINATION = (
+    r"(?:lands?|landed|landing|opens?|opened|opening|goes|going|"
+    r"navigates?|navigating|takes?|taking|arrives?|arriving|leads?)"
+)
+
+#: A sentence, near enough: punctuation ends the claim, so "the quick-add field
+#: is a `BasicTextField`. Preview it here." is two statements and neither is a
+#: destination claim.
+WITHIN_A_CLAIM = r"[^.;\n]*"
+
 #: The markers. Data, so that a behaviour this pair learns to own is a line
 #: here and not a second rule in the program.
 MARKERS: tuple[Marker, ...] = (
@@ -114,12 +135,23 @@ MARKERS: tuple[Marker, ...] = (
     ),
     Marker(
         "quick-add-destination",
-        re.compile(r"\bquick-add\b", re.IGNORECASE),
+        re.compile(
+            r"\bquick-add\b" + WITHIN_A_CLAIM + r"\b" + DESTINATION
+            + r"\b|\b" + DESTINATION + r"\b" + WITHIN_A_CLAIM + r"\bquick-add\b",
+            re.IGNORECASE,
+        ),
         "where the quick-add lands is the behaviour that drifted, and it is stated once",
     ),
     Marker(
         "preview-versus-editor",
-        re.compile(r"\bpreview\b", re.IGNORECASE),
+        re.compile(
+            # "a tap opens the note's preview", "the preview is where you land"
+            r"\b" + DESTINATION + r"\b" + WITHIN_A_CLAIM + r"\bpreview\b"
+            # "... the preview, not the editor"
+            r"|\bpreview\b" + WITHIN_A_CLAIM
+            + r"\b(?:not|or|versus|vs\.?|instead of)\b" + WITHIN_A_CLAIM + r"\beditor\b",
+            re.IGNORECASE,
+        ),
         "which screen a tap opens is a behaviour, and two statements of it drift",
     ),
     Marker(
@@ -212,27 +244,115 @@ def is_code_name(identifier: str) -> bool:
     return "_" in identifier or identifier[0].isupper()
 
 
+def without_comments(text: str) -> str:
+    """A Kotlin file with its comments removed and its literals kept.
+
+    A tag is *declared* as a string literal, so the literal is the declaration.
+    A name that survives only in a `//` note or a KDoc beside the code is not
+    declared anywhere: leaving comments in the index let a renamed tag pass
+    because the old name was still quoted in the prose next to it.
+
+    Block comments nest in Kotlin, so this counts depth rather than looking for
+    the first `*/`; string and character literals are copied through untouched,
+    so a `//` inside a URL is not read as a comment.
+    """
+    out: list[str] = []
+    index = 0
+    length = len(text)
+    while index < length:
+        if text.startswith("//", index):
+            end = text.find("\n", index)
+            index = length if end < 0 else end
+        elif text.startswith("/*", index):
+            depth = 0
+            while index < length:
+                if text.startswith("/*", index):
+                    depth += 1
+                    index += 2
+                elif text.startswith("*/", index):
+                    depth -= 1
+                    index += 2
+                    if depth == 0:
+                        break
+                else:
+                    index += 1
+        elif text.startswith('"""', index):
+            end = text.find('"""', index + 3)
+            end = length if end < 0 else end + 3
+            out.append(text[index:end])
+            index = end
+        elif text[index] == '"' or (
+            text[index] == "'" and text.find("'", index + 1, index + 4) > 0
+        ):
+            quote = text[index]
+            cursor = index + 1
+            while cursor < length:
+                if text[cursor] == "\\":
+                    cursor += 2
+                    continue
+                if text[cursor] == quote or text[cursor] == "\n":
+                    break
+                cursor += 1
+            out.append(text[index : min(cursor + 1, length)])
+            index = cursor + 1
+        else:
+            out.append(text[index])
+            index += 1
+    return "".join(out)
+
+
 def product_source(root: Path) -> str:
-    """Every Kotlin file of the product, as one text.
+    """Every Kotlin file of the product, as one text, minus the comments.
 
     Tags, events and classes are all declared in Kotlin, so one index answers
-    both "does this tag exist" and "does this type exist".
+    both "does this tag exist" and "does this type exist". It is built once per
+    run: the section names a few dozen spans and every one of them is looked up
+    in the same text.
     """
     chunks: list[str] = []
     for name in PRODUCT_SOURCES:
         for path in sorted((root / name).rglob("*.kt")):
-            chunks.append(path.read_text(encoding="utf-8", errors="replace"))
+            chunks.append(
+                without_comments(path.read_text(encoding="utf-8", errors="replace"))
+            )
     return "\n".join(chunks)
+
+
+def declares(identifier: str, source: str) -> bool:
+    """Whether a token in the source *is* the name, not merely contains it.
+
+    The name has to stand alone: `bar_back_button` is not declared by
+    `top_bar_back_button`, and a token survives only if a non-name character —
+    or the edge of the text — sits on both sides. Without that, a renamed tag
+    whose old name was a tail of a live one passed the check silently.
+    """
+    return (
+        re.search(r"(?<![A-Za-z0-9_])" + re.escape(identifier) + r"(?![A-Za-z0-9_])", source)
+        is not None
+    )
+
+
+def declares_family(family: str, source: str) -> bool:
+    """Whether the source declares a name that starts with `family_`.
+
+    The start is anchored the same way, so `bar_` is not found inside
+    `top_bar_back_button` — the widening the identifier cheat came from.
+    """
+    return re.search(r"(?<![A-Za-z0-9_])" + re.escape(family + "_"), source) is not None
 
 
 def declared(identifier: str, source: str) -> bool:
     """Whether the product declares the identifier or the family it belongs to."""
-    if identifier in source:
-        return True
     if identifier.endswith("_"):
-        return False
+        # A placeholder's prefix, or a slug's family: what follows belongs to the
+        # flow, and the source is where the prefix itself is written.
+        return re.search(
+            r"(?<![A-Za-z0-9_])" + re.escape(identifier), source
+        ) is not None
+    if declares(identifier, source):
+        return True
     family, _, _ = identifier.rpartition("_")
-    return bool(family) and family + "_" in source
+    return bool(family) and declares_family(family, source)
 
 
 def stale_identifiers(root: Path) -> list[Finding]:

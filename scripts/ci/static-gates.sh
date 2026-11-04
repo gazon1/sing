@@ -221,11 +221,6 @@ if ! python3 scripts/check-gate-tooling-origin.py; then
     return 1
 fi
 # >>> BEGIN GENERATED: sgate render-static-gates — do not edit by hand >>>
-# The Maestro document pair: the skill body keeps the authoring rules, the
-# runbook owns the app-behaviour facts, and an identifier the runbook names has to
-# exist in the source. Two behaviours were restated in the skill body and went
-# false, and the section carried a tag and a screen that no longer existed.
-gate blocking "the Maestro runbook owns the app behaviour facts" sgate the_maestro_runbook_owns_the_app_behaviour_facts
 # The two gate registries against each other, first: everything below is
 # dispatched through one of them, and a gate that exists in one and not the
 # other is a gate that runs on no one — or one that runs without a name.
@@ -233,6 +228,11 @@ gate blocking "the Maestro runbook owns the app behaviour facts" sgate the_maest
 # This was a warning until 2026-10-20, because the drift predated it. The
 # drift is paid: the shell file and _registry.py now carry the same names.
 gate blocking "gate registries agree" python3 scripts/check-gate-registries.py --strict
+# The Maestro document pair: the skill body keeps the authoring rules, the
+# runbook owns the app-behaviour facts, and an identifier the runbook names has to
+# exist in the source. Two behaviours were restated in the skill body and went
+# false, and the section carried a tag and a screen that no longer existed.
+gate blocking "the Maestro runbook owns the app behaviour facts" sgate the_maestro_runbook_owns_the_app_behaviour_facts
 # Build hygiene
 gate blocking "version catalog has no literals" sgate version_catalog_has_no_literals
 # The shape of the CI workflow's Gradle block: one gate for three checks.
