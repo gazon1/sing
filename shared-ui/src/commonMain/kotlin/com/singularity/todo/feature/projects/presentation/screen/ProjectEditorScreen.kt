@@ -46,6 +46,7 @@ import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.components.OverlayState
 import com.singularity.todo.core.ui.components.ResultDialog
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
@@ -135,48 +136,55 @@ fun ProjectEditorContent(
         return
     }
 
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            EditorTopBar(
-                isEditMode = state.isEditMode,
-                canSave = state.name.text.isNotBlank() && !state.saving,
-                onBack = onBack,
-                onSave = { viewModel.onIntent(ProjectEditorIntent.Save) },
-            )
-        },
-    ) { padding ->
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            // ── Identity: name + description ──────────────────────────────
-            IdentitySection(
-                nameSource = state.nameSource,
-                descriptionSource = state.descriptionSource,
-                errorMessage = state.errorMessage,
-                onNameChanged = { viewModel.onIntent(ProjectEditorIntent.NameChanged(it)) },
-                onDescriptionChanged = { viewModel.onIntent(ProjectEditorIntent.DescriptionChanged(it)) },
-            )
+    ProjectEditorSheets(
+        overlay = overlay,
+        currentIcon = state.icon,
+        onPickIcon = { viewModel.onIntent(ProjectEditorIntent.IconChanged(it)) },
+        onPickParent = { viewModel.onIntent(ProjectEditorIntent.ParentChanged(it)) },
+    ) { openIconPicker, openParentPicker ->
+        Scaffold(
+            modifier = modifier,
+            topBar = {
+                EditorTopBar(
+                    isEditMode = state.isEditMode,
+                    canSave = state.name.text.isNotBlank() && !state.saving,
+                    onBack = onBack,
+                    onSave = { viewModel.onIntent(ProjectEditorIntent.Save) },
+                )
+            },
+        ) { padding ->
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                // ── Identity: name + description ──────────────────────────────
+                IdentitySection(
+                    nameSource = state.nameSource,
+                    descriptionSource = state.descriptionSource,
+                    errorMessage = state.errorMessage,
+                    onNameChanged = { viewModel.onIntent(ProjectEditorIntent.NameChanged(it)) },
+                    onDescriptionChanged = { viewModel.onIntent(ProjectEditorIntent.DescriptionChanged(it)) },
+                )
 
-            // ── Appearance: icon + color ─────────────────────────────────
-            AppearanceSection(
-                selectedColor = state.color,
-                selectedIcon = state.icon,
-                onColorSelected = { viewModel.onIntent(ProjectEditorIntent.ColorChanged(it)) },
-                onIconPickerRequested = { overlay.show(EditorSheet.Icon) },
-            )
+                // ── Appearance: icon + color ─────────────────────────────────
+                AppearanceSection(
+                    selectedColor = state.color,
+                    selectedIcon = state.icon,
+                    onColorSelected = { viewModel.onIntent(ProjectEditorIntent.ColorChanged(it)) },
+                    onIconPickerRequested = openIconPicker,
+                )
 
-            // ── Organization: parent project ────────────────────────────
-            OrganizationSection(
-                hasParent = state.parentId != null,
-                onParentPickerRequested = { overlay.show(EditorSheet.Parent) },
-            )
+                // ── Organization: parent project ────────────────────────────
+                OrganizationSection(
+                    hasParent = state.parentId != null,
+                    onParentPickerRequested = openParentPicker,
+                )
+            }
         }
     }
 
@@ -186,14 +194,43 @@ fun ProjectEditorContent(
             onDismiss = { viewModel.onIntent(ProjectEditorIntent.ErrorShown) },
         )
     }
+}
 
-    when (val sheet = overlay.sheet) {
+/**
+ * The editor's two picker sheets, plus the two requests that open them.
+ *
+ * This exists as its own composable so the sheet wiring — the part #2133 asked
+ * to cover — can be driven from a desktop test without Koin: the caller owns an
+ * [OverlayState] and passes [content], which receives the *production* open
+ * lambdas. A test therefore presses an affordance whose click is the same
+ * `overlay.show(...)` the Appearance and Organization chips perform, and a chip
+ * whose request stops showing `EditorSheet.Icon`/`EditorSheet.Parent` fails the
+ * test instead of passing it.
+ *
+ * [content] receives `(openIconPicker, openParentPicker)` so the editor keeps
+ * laying out its own sections; this function owns only "which sheet is shown".
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProjectEditorSheets(
+    overlay: OverlayState<EditorSheet>,
+    currentIcon: String?,
+    onPickIcon: (String?) -> Unit,
+    onPickParent: (ProjectId?) -> Unit,
+    content: @Composable (openIconPicker: () -> Unit, openParentPicker: () -> Unit) -> Unit,
+) {
+    content(
+        { overlay.show(EditorSheet.Icon) },
+        { overlay.show(EditorSheet.Parent) },
+    )
+
+    when (overlay.sheet) {
         is EditorSheet.Icon -> {
             IconPickerSheetHost(
                 visible = true,
-                currentIcon = state.icon,
+                currentIcon = currentIcon,
                 onPick = { icon ->
-                    viewModel.onIntent(ProjectEditorIntent.IconChanged(icon))
+                    onPickIcon(icon)
                     overlay.dismissSheet()
                 },
                 onDismiss = { overlay.dismissSheet() },
@@ -204,7 +241,7 @@ fun ProjectEditorContent(
             ParentPickerSheetHost(
                 visible = true,
                 onPick = {
-                    viewModel.onIntent(ProjectEditorIntent.ParentChanged(it))
+                    onPickParent(it)
                     overlay.dismissSheet()
                 },
                 onDismiss = { overlay.dismissSheet() },
@@ -217,7 +254,11 @@ fun ProjectEditorContent(
     }
 }
 
-private sealed interface EditorSheet {
+/**
+ * Which picker sheet the project editor currently shows. Public so a test can
+ * put the editor's host into a known state; nothing outside this file sets it.
+ */
+sealed interface EditorSheet {
     data object Icon : EditorSheet
 
     data object Parent : EditorSheet

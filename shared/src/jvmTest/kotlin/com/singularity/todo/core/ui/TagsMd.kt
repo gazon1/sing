@@ -386,7 +386,7 @@ object TagsMd {
             }
 
             "savedSearchChip" -> {
-                DynamicMeta(fnName, "Search", "Work tasks", "Saved-search chips in the search row")
+                DynamicMeta(fnName, "Search", "ss-home", "Saved-search chips, addressed by saved-search id")
             }
 
             "tagOpen" -> {

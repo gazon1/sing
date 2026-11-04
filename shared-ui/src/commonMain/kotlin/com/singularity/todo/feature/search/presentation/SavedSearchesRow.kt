@@ -134,7 +134,7 @@ private fun SavedSearchChipWithMenu(
             },
             modifier =
                 Modifier
-                    .testTag(TestTags.SavedSearches.savedSearchChip(saved.name))
+                    .testTag(TestTags.SavedSearches.savedSearchChip(saved.id.raw))
                     .combinedClickable(
                         onClick = onClick,
                         onLongClick = { showMenu = true },

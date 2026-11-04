@@ -809,14 +809,19 @@ object TestTags {
         const val SEARCH_MENU_RENAME_CONFIRM = "search_menu_rename_confirm"
 
         /**
-         * The chip of one saved search, addressed by the name it displays.
+         * The chip of one saved search, addressed by the saved search's id.
          *
          * A saved-search chip had no stable selector: a test could only find it by
          * its visible label, and the long press that opens the rename/delete menu
-         * could not be aimed at a particular chip when the row held several. The
-         * saved-view card is addressed by name the same way.
+         * could not be aimed at a particular chip when the row held several.
+         *
+         * Keyed by id, not by name: two saved searches may share a name — nothing
+         * in the row enforces uniqueness — and a name-keyed tag would then match two
+         * chips, where `onNodeWithTag` throws on the ambiguity or acts on whichever
+         * happened to be first. The id is what the row's `LazyRow` already uses as
+         * its `key`, so it is unique by construction.
          */
-        fun savedSearchChip(name: String) = "search_saved_search_chip_${slug(name)}"
+        fun savedSearchChip(savedSearchId: String) = "search_saved_search_chip_$savedSearchId"
     }
 
     // ─── Calendar sync ───────────────────────────────────────────────────────
