@@ -42,18 +42,24 @@ import com.singularity.todo.feature.agenda.domain.selector.typeDescription
  * ## The state layer is drawn 40 dp
  *
  * Three 40 dp state layers in one row already crowd a phone's width, so each button
- * keeps the 40 dp painted size it had — but the *modifier order* is what decides
- * whether the button is still a thumb-sized target. `Modifier.minimumInteractiveComponentSize()`
+ * keeps the 40 dp painted size it had, and the *modifier order* decides how much
+ * layout space the row sets aside for it. `Modifier.minimumInteractiveComponentSize()`
  * comes first and `size(40.dp)` second: the minimum sits outside the size, so it can
  * reserve Material's 48 dp while the size still constrains what is drawn, and the row
- * therefore gives each button 48 dp and leaves the rest to the name column. Reversed,
+ * therefore reserves 48 dp per button and leaves the rest to the name column. Reversed,
  * the size would cap the minimum back to 40 dp — the arrangement this screen shipped
  * with, where the button was drawn 40 dp and its target was 40 dp too.
  *
- * `minimumInteractiveComponentSize()` is Material's own mechanism for exactly this,
- * so this screen no longer leans on the project's `Modifier.touchTarget()` helper
- * (#2173 questions whether that helper's extra layout space becomes hit area; the
- * Material modifier is the sanctioned form of the same idea).
+ * **What that does not buy: a 48 dp target.** The reserved box is laid out larger and
+ * the button is centred inside it, but hit testing descends into the button at its own
+ * offset, so a tap 2 dp inside the reserved box and 2 dp outside the painted 40 dp
+ * circle lands on a negative coordinate in the button and misses. The target stays
+ * 40 dp; 48 dp is the space the row sets aside. That is not specific to this screen or
+ * to this modifier: Material's `minimumInteractiveComponentSize()` and the project's
+ * `Modifier.touchTarget()` helper — which this screen used to call — are the same
+ * mechanism. #2173 tracks whether either should be trusted as a hit area; until it is
+ * answered, read both as a layout reservation and nothing more. A control that needs a
+ * genuinely 48 dp target has to be laid out at 48 dp.
  *
  * @param section The section to display.
  * @param index The section's position in the list.
