@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
@@ -261,14 +262,15 @@ fun NotesScreenContent(
             if (state is NotesUiState.Content && state.list.isEmpty) {
                 EmptyState(
                     title = "No notes yet",
-                    subtitle = "Create your first note to get started",
+                    subtitle = "Notes keep your ideas, lists and plans in one place",
+                    icon = Icons.Filled.Description,
                     testTag = TestTags.NOTES_LIST_EMPTY,
                     modifier = Modifier.padding(padding),
                     actions = {
                         FilledTonalButton(onClick = { onCreateNote("") }) {
                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.size(6.dp))
-                            Text("Create your first note")
+                            Text("Create note")
                         }
                     },
                 )

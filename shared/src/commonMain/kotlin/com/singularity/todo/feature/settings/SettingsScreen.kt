@@ -32,7 +32,6 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SmartToy
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenu
@@ -42,6 +41,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -550,6 +550,21 @@ private fun SettingsNavRail(
     }
 }
 
+/**
+ * The narrow-window settings switcher: a dropdown that stands in for the tab
+ * rail.
+ *
+ * The fill is dropped on purpose. As a full-width filled [Button] this control
+ * was a dark band above every piece of content — louder than the "Theme",
+ * "Accent Color" and "Font Size" cards below it — for what is a navigation
+ * element, not the primary action.
+ *
+ * This is the whole of the narrow layout: [SettingsContent] renders this
+ * dropdown only when the window is under 600dp wide, and the wide layout
+ * renders [SettingsNavRail] — a column of tabs, which carries no fill to keep.
+ * There is therefore no wide-layout filled button that could lose its fill; the
+ * filled form existed only here, on the narrow window the audit was about.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsTabDropdown(
@@ -562,7 +577,7 @@ private fun SettingsTabDropdown(
         onExpandedChange = { expanded = it },
         modifier = Modifier.fillMaxWidth().padding(8.dp),
     ) {
-        Button(
+        OutlinedButton(
             onClick = { expanded = !expanded },
             modifier =
                 Modifier
