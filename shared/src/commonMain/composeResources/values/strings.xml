@@ -22,7 +22,7 @@
     <string name="priority_low">Low priority</string>
     <string name="priority_medium">Medium priority</string>
     <string name="priority_high">High priority</string>
-    <string name="priority_urgent">Urgent</string>
+    <string name="priority_urgent">Urgent priority</string>
     <string name="series_apply_to_all">Apply to all</string>
     <string name="series_keep_separate">Keep separate</string>
     <string name="series_delete">Delete series</string>
@@ -37,6 +37,27 @@
     <string name="menu_restore">Restore</string>
     <string name="menu_archive">Archive</string>
     <string name="menu_delete">Delete</string>
+    <!-- Date parts for the task editor's due-date row. Short names: the row is a
+         list line, not a title, and "Wednesday" would not fit next to the time. -->
+    <string name="weekday_short_mon">Mon</string>
+    <string name="weekday_short_tue">Tue</string>
+    <string name="weekday_short_wed">Wed</string>
+    <string name="weekday_short_thu">Thu</string>
+    <string name="weekday_short_fri">Fri</string>
+    <string name="weekday_short_sat">Sat</string>
+    <string name="weekday_short_sun">Sun</string>
+    <string name="month_short_jan">Jan</string>
+    <string name="month_short_feb">Feb</string>
+    <string name="month_short_mar">Mar</string>
+    <string name="month_short_apr">Apr</string>
+    <string name="month_short_may">May</string>
+    <string name="month_short_jun">Jun</string>
+    <string name="month_short_jul">Jul</string>
+    <string name="month_short_aug">Aug</string>
+    <string name="month_short_sep">Sep</string>
+    <string name="month_short_oct">Oct</string>
+    <string name="month_short_nov">Nov</string>
+    <string name="month_short_dec">Dec</string>
     <plurals name="date_count">
         <item quantity="one">%d date</item>
         <item quantity="other">%d dates</item>
