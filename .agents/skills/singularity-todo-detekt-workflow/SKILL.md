@@ -101,8 +101,21 @@ manual-fix pass to freeze accepted debt.
    file to create, and `check-doc-dead-refs.py --skill-symbols` will say so.
 2. **Add the provider to `detekt-rules/src/main/resources/META-INF/services/dev.detekt.api.RuleSetProvider`.** A rule missing from this file never loads.
 3. Add the `xxx:` block to `config/detekt/detekt.yml` with `active: true`.
+3b. **Check the rule can run at all.** If its class implements `dev.detekt.api.RequiresAnalysisApi`,
+   the aggregate detekt task drops it before reading a file and the rule is inert no matter how
+   many findings you expect. Check one name with:
+
+   ```bash
+   jars=$(find ~/.gradle/caches/modules-2/files-2.1/dev.detekt -name 'detekt-rules-*-2.0.0-alpha.6.jar' | grep -v sources)
+   javap -classpath "$jars" dev.detekt.rules.style.YourRule | head -2
+   ```
+
+   `implements dev.detekt.api.RequiresAnalysisApi` → do not ship it as a guard; the ground it
+   covers is owned by no gate (ADR `2026-11-04-detekt-runs-without-type-resolution`,
+   follow-up `detekt-classpath`).
 4. Run `./gw :shared:detekt` and read the finding count.
-   - **0 findings** → done, the rule is live and enforcing.
+   - **0 findings** → only meaningful once step 3b passed; an inert rule also reports 0. Then the
+     rule is live and enforcing.
    - **> 0** → either fix them, or accept them into the baseline (`just detekt-baseline`)
      and treat the rule as advisory until the tree is clean.
 
@@ -127,9 +140,16 @@ Ktlint is a **standalone CLI** — its rules live in `.editorconfig` under the
   `.editorconfig` enables it by name
 - the aggregate `detekt` task runs with `--analysis-mode light`: it is registered without a
   classpath, so detekt drops every rule implementing `RequiresAnalysisApi` before reading a
-  file. `UnusedImport`, `UnusedPrivateFunction`, `UnusedPrivateProperty`, `UnusedVariable`,
-  `Deprecation` and the rest have never run — on main sources either, not only on tests.
-  Do not expect a finding from them; ADR `2026-11-04-detekt-runs-without-type-resolution`
+  file. Those rules have never run — on main sources either, not only on tests. Confirmed
+  with `javap` at the pinned 2.0.0-alpha.6, each declaring
+  `implements dev.detekt.api.RequiresAnalysisApi`:
+  `dev.detekt.rules.style.UnusedImport`, `…style.UnusedPrivateFunction`,
+  `…style.UnusedPrivateProperty`, `…style.UnusedVariable`,
+  `…potentialbugs.Deprecation`.
+  Their PSI-only siblings `…style.UnusedParameter` and `…style.UnusedPrivateClass` do **not**
+  implement it and do run, so "unused" in a rule's name tells you nothing — check the
+  interface. The full list of inert rules and the one command that checks any name live in
+  ADR `2026-11-04-detekt-runs-without-type-resolution`.
 
 ## See also
 

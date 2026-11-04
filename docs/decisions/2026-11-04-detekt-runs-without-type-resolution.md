@@ -24,7 +24,30 @@ It is not what happened. The gap is wider and simpler.
 
 ## What the tool actually does
 
-Reading the pinned `dev.detekt` 2.0.0-alpha.6 sources, in order:
+Two parts: what was measured, and what was read from the pinned sources.
+
+**Measured against the artifacts this build resolves** (`dev.detekt:*:2.0.0-alpha.6`, the jars
+Gradle already has under `~/.gradle/caches/modules-2/…`):
+
+- **Nothing sets a classpath.** No module's `detekt { }` block — `build.gradle.kts`,
+  `desktopApp/build.gradle.kts`, `shared/build.gradle.kts` — and not the root `detektChanged`
+  task sets `classpath`. The aggregate task runs with no types to resolve against.
+- **The rules that need types declare it.** `javap` on `detekt-rules-style-2.0.0-alpha.6.jar`
+  shows `dev.detekt.rules.style.UnusedImport`, `…style.UnusedPrivateFunction`,
+  `…style.UnusedPrivateProperty` and `…style.UnusedVariable` each declaring
+  `implements dev.detekt.api.RequiresAnalysisApi`. `Deprecation` lives in
+  `detekt-rules-potential-bugs` as `dev.detekt.rules.potentialbugs.Deprecation` — not in
+  `style`, despite the rule's historical home.
+- **Their PSI-only siblings do not.** `javap` shows `…style.UnusedParameter` and
+  `…style.UnusedPrivateClass` declaring no `Requires*` interface, so those two run. "Unused" in
+  the name predicts nothing; the interface does.
+- **The repository's own rules are PSI-only.** No file under `detekt-rules/src/main/kotlin/`
+  mentions `RequiresAnalysisApi`; the custom rules implement plain `Rule`. The ones that exist to
+  police test code therefore *do* run over the test sources.
+
+**Read from the plugin sources at the pin**, in order (these symbol names are as written at
+2.0.0-alpha.6; if one does not resolve, the conclusion still stands on the two observables
+above and on the notice in the last bullet):
 
 1. The aggregate `detekt` task is registered by `DetektPlain.registerDetektTask`. It sets
    `baseline`, `source`, `includes` and `excludes` — and **no `classpath`**.
@@ -34,7 +57,9 @@ Reading the pinned `dev.detekt` 2.0.0-alpha.6 sources, in order:
 4. `detekt-core`'s `RuleDescriptorKt.getRules(analysisMode, …)` drops every rule that implements
    `RequiresAnalysisApi` when the mode is not `full`, logging
    "… requires type resolution but it was run without it."
-5. In this version `dev.detekt.rules.style.UnusedImport` implements `RequiresAnalysisApi`.
+5. In this version the style `Unused*` rules listed above implement `RequiresAnalysisApi`, and so
+   does `dev.detekt.rules.potentialbugs.Deprecation`; `UnusedParameter` and `UnusedPrivateClass`
+   do not.
 
 The repository runs the **aggregate** task — `./gw :shared:detekt :desktopApp:detekt …`, and
 `just lint` is the same list — and the scoped `detektChanged` task registered in the root build
@@ -68,16 +93,29 @@ They are not what this repository invokes.
 ## Decision
 
 The aggregate `detekt` task stays analysis-free for now, and the repository records that fact
-instead of implying otherwise. The ground these rules would cover is owned by **no gate today**:
+instead of implying otherwise. The deferral has a home: it is tracked as **`detekt-classpath`**,
+recorded in this file's "Follow-up" section and in step 3b of
+`.agents/skills/singularity-todo-detekt-workflow` ("Adding a new rule"). That is where the ground
+gets assigned, and it is the thing to reopen when the analysis rules are wanted — this paragraph is
+the decision, not a dead end. The ground these rules would cover is owned by **no gate today**:
 detekt's real coverage is its syntax-only rules plus ktlint's layout rules, and that is the claim
 the documentation now makes. Turning analysis on wakes every rule in the pinned detekt that
 implements `RequiresAnalysisApi`, across five modules at once, with an unknown finding count and
 no baseline for any of them; that is a change of its own, not the answer to "why was one rule
-silent". Ten of those rules are explicitly `active: true` in `config/detekt/detekt.yml` —
+silent".
+
+**How this list was produced.** Take every rule entry carrying `active: true` in
+`config/detekt/detekt.yml`, find the class that implements it in the pinned
+`dev.detekt:detekt-rules-*:2.0.0-alpha.6` jars, and check whether that class declares
+`dev.detekt.api.RequiresAnalysisApi`. The command is under "Consequences" and works for one name
+at a time, which is the point: every name below is checkable, and a name that cannot be checked
+does not belong here. Ten explicitly-active rules come out inert —
 `ArrayPrimitive`, `CastNullableToNonNullableType`, `Deprecation`, `ElseCaseInsteadOfExhaustiveWhen`,
 `LongParameterList`, `SpreadOperator`, `UnsafeCallOnNullableType`, `UnsafeCast`,
-`UseAnyOrNoneInsteadOfFind` and `UseIsNullOrEmpty` — and the rules that are active by detekt's
-default config, in the modules that build upon it, are dropped the same way.
+`UseAnyOrNoneInsteadOfFind`, `UseIsNullOrEmpty` — and so do the four style `Unused*` rules named
+above. The same pass puts `UnusedParameter` and `UnusedPrivateClass` on the *other* side: they are
+explicitly active and they run. The rules that are active by detekt's default config, in the
+modules that build upon it, are dropped the same way.
 
 Unused imports stay with ktlint. Nothing about the ownership decision changes; what changes is
 the reason recorded for it: detekt was not a second, weaker verdict that disagreed with ktlint.
@@ -105,14 +143,43 @@ run with analysis, a count per rule, and a decision per finding.
   source set — including the test sources the desktop app lists. `UnusedImport` was one of them.
 - ktlint's `standard:no-unused-imports` is the only rule catching an unused import, and it catches
   them. The 21 it found are gone.
-- A reader can check the claim without trusting this note: set `UnusedImport: active: true` in
-  `config/detekt/detekt.yml` and run `./gw :desktopApp:detekt --rerun-tasks`. Detekt prints its
-  "requires type resolution but it was run without it" notice for the rule and reports nothing —
-  which is the observable that gave the original silence away. Reading `CliArgument.kt` and
-  `DetektPlain.kt` at the pinned version is the shorter route to the same answer.
+- A reader can check the claim without trusting this note, in two ways.
+  **The class**, one command per rule name:
+
+  ```bash
+  jars=$(find ~/.gradle/caches/modules-2/files-2.1/dev.detekt -name 'detekt-rules-*-2.0.0-alpha.6.jar' | grep -v sources)
+  javap -classpath "$jars" dev.detekt.rules.style.UnusedImport | head -2
+  # → ... extends dev.detekt.api.Rule implements dev.detekt.api.RequiresAnalysisApi
+  ```
+
+  Run against `dev.detekt.rules.style.UnusedParameter` the same command shows no `Requires*`
+  interface, which is why that rule is not in the list above.
+  **The behaviour**: set `UnusedImport: active: true` in `config/detekt/detekt.yml` and run
+  `./gw :desktopApp:detekt --rerun-tasks`. Detekt prints its "requires type resolution but it was
+  run without it" notice for the rule and reports nothing — the observable that gave the original
+  silence away.
 - A future rule that needs types will be just as silent. When one is added, the choice is to
   attach a classpath to the task that runs it, or to say in the rule's own comment that it does
   not.
+
+## Follow-up
+
+The deferral above is tracked as **`detekt-classpath`**, and this section is its record until a
+tracker item references this file:
+
+- **What it is:** attach a classpath to the aggregate `detekt` task (or move the gate to the
+  per-compilation tasks the plugin already registers with one), so the rules in the list above
+  start running.
+- **What it needs:** a full analysis run, a finding count per rule, and a decision per finding
+  bucket — the measurement this change deliberately did not take.
+- **When it must be looked at:** whenever a rule is added to `config/detekt/detekt.yml`. Step 3b
+  of `.agents/skills/singularity-todo-detekt-workflow` ("Adding a new rule") says so, and is the
+  only place the repository checks. Without that step a new analysis-dependent rule is inert and
+  green, which is the exact failure this ADR was written about.
+
+There is no automated gate for "a rule that cannot run was configured". Detecting that would need
+the config-to-class mapping this ADR describes, run as a check; it is deliberately not added here
+because it is the same change as attaching the classpath, seen from the other side.
 
 ## Links
 
