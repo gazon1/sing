@@ -128,7 +128,13 @@ fun ChecklistItemRow(
             modifier =
                 Modifier
                     .weight(1f)
-                    .clickable { (onOpen ?: onToggle)() }
+                    .let { base ->
+                        if (onOpen != null) {
+                            base.clickable { onOpen() }
+                        } else {
+                            base
+                        }
+                    }
                     .testTag(tags.item),
         )
 
