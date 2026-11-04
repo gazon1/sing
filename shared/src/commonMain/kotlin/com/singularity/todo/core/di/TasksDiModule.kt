@@ -15,6 +15,7 @@ import com.singularity.todo.feature.checklist.data.ChecklistRepositoryImpl
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
 import com.singularity.todo.feature.search.data.SavedSearchRepositoryImpl
@@ -27,6 +28,7 @@ import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.TagLookup
 import com.singularity.todo.feature.statistics.StatisticsDeps
 import com.singularity.todo.feature.statistics.StatisticsViewModel
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.data.AttachmentSaverImpl
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
@@ -249,7 +251,25 @@ fun tasksModule(): org.koin.core.module.Module =
             )
         }
 
-        viewModel { (initialDueDate: kotlinx.datetime.LocalDate?, draftKey: String?) ->
+        // These four parameters are supplied *positionally* by
+        // `TaskCreateScreen`'s `parametersOf(initialDueDate, draftKey,
+        // initialProjectId, initialTagIds)`. Koin matches them by order and
+        // type, not by name, so this destructuring and that call site are one
+        // contract written in two files: reordering either side does not fail
+        // the build. `TaskCreateViewModelTest` exercises the constructor side,
+        // `NavStackSeedTest` the route side; a change here belongs with a change
+        // there.
+        //
+        // The last two are the agenda drill-down seed (#1952/#1958): a task
+        // created from a project's or a tag's task list belongs to that list,
+        // rather than arriving unseeded as it did from the Inbox branch.
+        viewModel {
+            (
+                initialDueDate: kotlinx.datetime.LocalDate?,
+                draftKey: String?,
+                initialProjectId: ProjectId?,
+                initialTagIds: Set<TagId>,
+            ) ->
             TaskCreateViewModel(
                 deps =
                     TaskCreateDeps(
@@ -259,6 +279,8 @@ fun tasksModule(): org.koin.core.module.Module =
                     ),
                 initialDueDate = initialDueDate,
                 draftKey = draftKey,
+                initialProjectId = initialProjectId,
+                initialTagIds = initialTagIds,
                 crashReporter = get(),
             )
         }

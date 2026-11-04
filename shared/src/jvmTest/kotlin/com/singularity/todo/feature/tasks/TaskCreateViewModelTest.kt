@@ -8,6 +8,8 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
@@ -77,7 +79,11 @@ class TaskCreateViewModelTest {
     private val fakeChecklistRepository = FakeChecklistRepository()
     private val fakeAttachmentRepository = FakeAttachmentRepository()
 
-    private fun createVm(scope: CoroutineScope): TaskCreateViewModel {
+    private fun createVm(
+        scope: CoroutineScope,
+        initialProjectId: ProjectId? = null,
+        initialTagIds: Set<TagId> = emptySet(),
+    ): TaskCreateViewModel {
         val deps =
             TaskCreateDeps(
                 createFromDraft =
@@ -98,9 +104,32 @@ class TaskCreateViewModelTest {
             deps = deps,
             initialDueDate = null,
             draftKey = null,
+            initialProjectId = initialProjectId,
+            initialTagIds = initialTagIds,
             scope = AutoCloseableCoroutineScope(scope.coroutineContext),
         )
     }
+
+    @Test
+    fun `a scoped list seeds the new task's project and tags`() =
+        runTest {
+            val project = ProjectId("project-1")
+            val tags = setOf(TagId("tag-1"), TagId("tag-2"))
+
+            val vm = createVm(backgroundScope, initialProjectId = project, initialTagIds = tags)
+            runCurrent()
+
+            assertEquals(
+                project.value,
+                vm.state.value.draft.projectId,
+                "a task created from a project's agenda belongs to that project",
+            )
+            assertEquals(
+                tags.map { it.value },
+                vm.state.value.draft.tagIds,
+                "a task created from a tag's agenda carries that tag",
+            )
+        }
 
     // FakeDraftStore stores bare keys (no user prefix), matching TaskCreateViewModel's bare key usage.
     private val draftKey get() = TaskCreateDeps.DRAFT_KEY

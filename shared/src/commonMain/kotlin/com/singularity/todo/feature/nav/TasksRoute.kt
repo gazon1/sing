@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.nav
 
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
@@ -42,7 +44,16 @@ sealed interface TasksRoute : AppNavKey {
      * @param draftKey The key of the draft the editor restores from. The *full*
      *   key, not an id: the editor does not know where a draft came from, and a
      *   key it has to rebuild is a key that can be rebuilt wrongly.
+     * @param projectId The project of the list the screen was opened from, so the
+     *   task the editor creates belongs to that list.
+     * @param tagIds The tags of the list the screen was opened from, so the task
+     *   the editor creates belongs to that list.
      */
     @Serializable
-    data class Create(val initialDueDate: LocalDate? = null, val draftKey: String? = null) : TasksRoute
+    data class Create(
+        val initialDueDate: LocalDate? = null,
+        val draftKey: String? = null,
+        val projectId: ProjectId? = null,
+        val tagIds: Set<TagId> = emptySet(),
+    ) : TasksRoute
 }

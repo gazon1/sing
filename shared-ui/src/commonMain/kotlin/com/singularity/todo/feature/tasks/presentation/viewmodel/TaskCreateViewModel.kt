@@ -10,6 +10,8 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.DraftMviViewModel
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.domain.state.DraftAttachment
@@ -63,15 +65,12 @@ class TaskCreateViewModel(
     private val deps: TaskCreateDeps,
     initialDueDate: kotlinx.datetime.LocalDate?,
     private val draftKey: String?,
+    initialProjectId: ProjectId? = null,
+    initialTagIds: Set<TagId> = emptySet(),
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : DraftMviViewModel<TaskDraft, TaskCreateIntent, TaskCreateUiEvent>(
-        initialDraft =
-            TaskDraft(
-                dueDate =
-                    initialDueDate?.let { DueDateOption.Custom(it, it.toString()) }
-                        ?: DueDateOption.None,
-            ),
+        initialDraft = taskDraftSeed(initialDueDate, initialProjectId, initialTagIds),
         autosave = { draft ->
             // Always save to the generic draft key — section prefill is restored once on entry.
             deps.draftStore.save(TaskCreateDeps.DRAFT_KEY, draft, TaskDraft.serializer())
@@ -87,13 +86,6 @@ class TaskCreateViewModel(
         logger = deps.logger,
         scope = scope,
     ) {
-    private val initial: TaskDraft =
-        TaskDraft(
-            dueDate =
-                initialDueDate?.let { DueDateOption.Custom(it, it.toString()) }
-                    ?: DueDateOption.None,
-        )
-
     override fun validate(draft: TaskDraft): String? = if (draft.title.text.isBlank()) "Title is required" else null
 
     override suspend fun persist(draft: TaskDraft): Either<AppError, Unit> =
@@ -297,3 +289,22 @@ class TaskCreateViewModel(
         const val RECURRENCE_DROPPED_MESSAGE = "Повтор отменён: выбрано несколько дат"
     }
 }
+
+/**
+ * The draft a fresh create editor starts from.
+ *
+ * The due date is the prefill the tab that opened the screen asked for; the
+ * project and tags are the scope of the list it was opened from. All three are
+ * seeds: a restored draft wins over this one, because it carries what the person
+ * was already writing.
+ */
+private fun taskDraftSeed(
+    initialDueDate: LocalDate?,
+    initialProjectId: ProjectId?,
+    initialTagIds: Set<TagId>,
+): TaskDraft =
+    TaskDraft(
+        dueDate = initialDueDate?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None,
+        projectId = initialProjectId?.value,
+        tagIds = initialTagIds.map { it.value },
+    )
