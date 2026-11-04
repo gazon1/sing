@@ -680,6 +680,19 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
             .dir("src/commonMain/kotlin")
             .asFile.absolutePath,
     )
+    // Absolute path to :shared-ui's sources for `ScreenActionsPublishersTest`, which
+    // answers "does anything publish into the shell bar outside the shared
+    // publishers?" — and the holder, the two publishers and most of the screens live
+    // in `:shared-ui`. `:shared` compiles against that module, but its sources are
+    // not a compile input of this module's tests, so the root is declared here and
+    // as an input on `archTest` (see the `archTask` block below). Without both, the
+    // gate keeps re-reporting the verdict of a tree it never re-read.
+    systemProperty(
+        "sharedUiSources.root",
+        layout.projectDirectory
+            .dir("../shared-ui/src")
+            .asFile.absolutePath,
+    )
     // Absolute paths to :shared's own test sources and resources, for the tests that
     // read files rather than calling code.
     //
@@ -767,6 +780,15 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
         inputs
             .dir(layout.projectDirectory.dir("../mcp-server/src/test"))
             .withPropertyName("mcpServerTestSources")
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+        // `ScreenActionsPublishersTest` reads :shared-ui's production sources — the
+        // holder, the two publishers and the screens that call them. They are not a
+        // compile input of this module's tests, so editing a publisher would leave
+        // `archTest` UP-TO-DATE and re-report a verdict about a tree it had not
+        // re-read. The root property is declared above.
+        inputs
+            .dir(layout.projectDirectory.dir("../shared-ui/src"))
+            .withPropertyName("sharedUiSources")
             .withPathSensitivity(PathSensitivity.RELATIVE)
     }
     // The build files themselves, for `DetektSourceSetsAreAllScannedTest`, which reads
