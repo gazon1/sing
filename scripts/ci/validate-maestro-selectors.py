@@ -254,6 +254,8 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "agenda_section_no_date",
     "agenda_section_overdue",
     "agenda_section_upcoming",
+    # "Tomorrow" — the Upcoming tab's first bucket
+    "agenda_section_tomorrow",
     # byBlocked() — Statistics health drill-down
     "agenda_section_blocked",
     # byStagnant() — Statistics health drill-down

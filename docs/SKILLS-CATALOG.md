@@ -18,14 +18,14 @@ state *which tasks need the skill*, not summarise its contents.
 |---|---:|---|
 | `singularity-todo-adb-screen-unlock` | 97 | How to wake and unlock a physical Android device connected via adb before UI verification. |
 | `singularity-todo-adb-workflow` | 175 | Full adb workflow for UI verification on a physical Android device connected via USB. |
-| `singularity-todo-agenda-section-design` | 77 | Agenda section design — bucket selectors, discard semantics, and LazyColumn key safety. |
+| `singularity-todo-agenda-section-design` | 124 | Agenda section design — bucket selectors, discard semantics, and LazyColumn key safety. |
 | `singularity-todo-ai-action-registry-pattern` | 308 | AI action slot-API pattern for Singularity Todo. |
 | `singularity-todo-ai-tool` | 433 | Koog AI tool creation pattern for the Singularity Todo KMP app. |
 | `singularity-todo-android-cli` | 180 | Use when working with Android CLI commands, Android Studio integration, or Journeys for Android app development. |
 | `singularity-todo-android-release-workflow` | 224 | Android release build workflow for Singularity Todo — signing configuration, version injection, R8/ProGuard minification (not yet enabled), iterative rule fixing, APK verification, and the release checklist. |
 | `singularity-todo-attachments` | 406 | Attachment feature pattern for the Singularity Todo KMP app. |
 | `singularity-todo-auth-seam` | 115 | The auth seam of this KMP app: the AuthGateway port the domain speaks, the Supabase (KMPAuth) binding behind it, the SecureSessionManager that is the one session store, the provider session observation, and the E2E stub that replaces the whole seam in the debug build. |
-| `singularity-todo-backup` | 182 | Backup/restore pattern for the Singularity Todo KMP app. |
+| `singularity-todo-backup` | 237 | Backup/restore pattern for the Singularity Todo KMP app. |
 | `singularity-todo-build-and-gates` | 192 | How to build, test and lint the Singularity Todo KMP project, and how to run its gate suite. |
 | `singularity-todo-ci-cd` | 153 | How the gate suite, the CI workflows and the review verdicts fit together in the Singularity Todo repository. |
 | `singularity-todo-clean-architecture-audit` | 213 | Audit tool to verify that a feature follows clean architecture: presentation depends only on domain (via interfaces), data depends only on domain, no cross-layer imports. |

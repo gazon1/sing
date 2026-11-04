@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-maestro-flows
-description: Author and run Maestro UI flows for the Android app. Covers seeding fixtures through the DebugSeedActivity deep-link instead of typing into the editor, why Compose's controlled BasicTextField cannot be filled by Maestro, selector conventions (TestTags over text), adaptive scrolling (scrollUntilVisible instead of hardcoded swipe), Maestro 2.10 syntax quirks, the edit-build-install-run loop, phone-viewport constraints, diagnosing an element that exists in code but is unreachable on screen, menu navigation patterns, animation timing, and app behaviour facts flows encode. Use when writing, fixing, or debugging Maestro YAML under Maestro/, when asked to "add a UI test", or when a flow fails on device.
+description: Author and run Maestro UI flows for the Android app. Covers seeding fixtures through the DebugSeedActivity deep-link instead of typing into the editor, why Compose's controlled BasicTextField cannot be filled by Maestro, selector conventions (TestTags over text), adaptive scrolling (scrollUntilVisible instead of hardcoded swipe), Maestro 2.10 syntax quirks, the edit-build-install-run loop, phone-viewport constraints, diagnosing an element that exists in code but is unreachable on screen, menu navigation patterns, animation timing, and where the app behaviour facts flows encode live — the runbook, not this skill body. Use when writing, fixing, or debugging Maestro YAML under Maestro/, when asked to "add a UI test", or when a flow fails on device.
 ---
 
 # Maestro UI Flows
@@ -8,10 +8,9 @@ description: Author and run Maestro UI flows for the Android app. Covers seeding
 Maestro drives the Android app end-to-end. Flows live in `Maestro/flows/` across 11
 subdirectories (~39 flows total). Helpers live in `Maestro/helpers/`.
 
-Status (run 38223116125): classes A–D fixed (hardcoded swipe, missing nav menu
-openers, menu item scroll, animation timing). Class E diagnosed on `emulator-5554`
-— see the runbook: [`runbook.md`](runbook.md).
-All 4 Class E flows pass.
+The failure classes of a CI run, and whether they are fixed, are recorded
+once — in the runbook's failure section:
+[Diagnosing a Maestro flow failure](runbook.md#diagnosing-a-maestro-flow-failure).
 
 ## Prerequisites: emulator first
 
@@ -228,26 +227,8 @@ step time, not at authoring time:
   there is no `content-desc` selector to fall back on. Select those with a regex
   over the same string, e.g. `text: ".* 1, 20[0-9][0-9]"` for the 1st of the
   month on screen — the year wildcard keeps the flow valid past the turn of the year.
-- **The task detail screen has no save button.** Edits autosave; `task_editor_save`
-  exists only on the create screen. A flow that expects it on the detail screen
-  fails with a confusing "not found".
 - **Pre-filled fields append.** `inputText` does not clear, so a field seeded
   with "Today" becomes "TodayFocus". `eraseText` first.
-- **Leaving a dirty draft raises a guard.** The shared top bar is tagged
-  `top_bar_back_button`; tapping it on a dirty editor opens a
-  "Discard changes?" dialog that must be confirmed with `text: "Discard"`.
-  System back does not pop the saved-view editor at all — use the top-bar arrow.
-- **Some saves do not navigate.** The saved-view editor emits a "Saved" snackbar
-  and stays open; the flow must leave explicitly.
-- **Quick-add destinations are not stable.** The notes quick-add lands on the
-  note's preview or straight in the editor, run to run. Tap the transition action
-  with `optional: true` and then wait on the destination you actually need.
-- **A feature can be modelled but unreachable.** Notes row actions (pin,
-  archive, delete, multi-select), the Calendar Today / prev / next /
-  mini-calendar controls, and the whole Sync configuration screen
-  (`SyncConfigScreen` + a complete `SyncViewModel`, composed by nothing) exist
-  with no control that dispatches them, and long-press on a note row does
-  nothing. Before writing a flow, check it is reachable.
 - **Day cells in a calendar grid are `text:`-addressable** — the number is
   unique within one month, so a full-string match is unambiguous. The mode
   control is labelled with the current mode ("Day", "4 days", "Week", "Month")
@@ -255,6 +236,13 @@ step time, not at authoring time:
 - **A failing batch run right after the first flow usually means the device died.**
   Check `adb devices` before debugging selectors; the emulator on this host dies
   after a few minutes of use and every later flow then fails in ~10 ms.
+
+**App behaviour is not a syntax quirk.** What a screen *does* — which
+destination a tap opens, whether a screen has a save button, what is modelled
+but unreachable — is app behaviour, and it lives in one place:
+[App behaviour facts flows encode](runbook.md#app-behaviour-facts-flows-encode).
+This file carries only what authoring a flow needs: selectors, scrolling,
+syntax, timing. When the two disagree, the runbook is the reference.
 
 ## Animation and timing
 
@@ -305,19 +293,21 @@ still there.
 ## The runbook
 
 The runbook sits beside this skill as [`runbook.md`](runbook.md): the seeding
-walkthrough, the app's behaviour facts, the probe recipe and the failure tables.
+walkthrough, the app's behaviour facts, the probe recipe and the dated failure
+snapshot.
 Read it when a flow needs data or misbehaves:
 
 - [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them) —
   why typing a fixture into the editor does not work, the `seed.yaml` query keys,
-  `${RUN_ID}` prefixing, the runner's cleanup sweep, and why `launch-clean` does
-  not clear the database.
+  the run id, the runner's cleanup wipe, and why `launch-clean` does not clear
+  the database.
 - [App behaviour facts flows encode](runbook.md#app-behaviour-facts-flows-encode) —
   the behaviours a flow author would otherwise guess wrong.
 - [Recon before writing a flow — the probe trick](runbook.md#recon-before-writing-a-flow--the-probe-trick) —
   the probe flow that dumps the view hierarchy of the screen you are about to drive.
-- [Diagnosing a Maestro flow failure](runbook.md#diagnosing-a-maestro-flow-failure) — the failure-class
-  table for the last CI run, the logcat/hierarchy triage steps, when a selector is
+- [Diagnosing a Maestro flow failure](runbook.md#diagnosing-a-maestro-flow-failure) — the
+  dated failure-class snapshot of one CI run (with the convention for refreshing
+  it), the logcat/hierarchy triage steps, when a selector is
   unreachable because the element is laid out off-screen, the retry policy, and the
   CI-vs-local timeout multipliers.
 

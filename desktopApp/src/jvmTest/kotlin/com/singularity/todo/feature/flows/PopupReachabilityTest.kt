@@ -165,7 +165,7 @@ class PopupReachabilityTest {
         name: String,
     ) {
         val repo = koin.get<SavedAgendaViewsRepository>()
-        val definition = AgendaDefinition(name, AgendaPresets.Inbox.sections)
+        val definition = AgendaDefinition(name, AgendaPresets.All.sections)
         repo.upsert(
             SavedAgendaViewFactory.create(
                 userId = UserId.anonymous,
