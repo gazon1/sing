@@ -1,17 +1,11 @@
 @file:Suppress("MemberVisibilityCanBePrivate")
 
-package com.singularity.todo.core.ui.preview
+package com.singularity.todo.preview
 
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.attachments.AttachmentType
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.settings.ThemeMode
-import com.singularity.todo.core.ui.theme.SingularityAccents
-import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.checklist.ChecklistItem
@@ -36,37 +30,6 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.LocalDate
 import kotlin.time.Instant
 
-// ===== Preview theme wrapper =====
-
-/**
- * Wraps a preview content in [SingularityTheme] with optional dark/light mode
- * and accent color override.
- *
- * @param darkTheme  If true, uses the dark color scheme; otherwise light.
- * @param accent     Accent color used by [SingularityAccents].
- * @param useSurface If true, wraps content in a [Surface] with the background color.
- *                   Pass false when the preview root already contains a Scaffold
- *                   (which provides its own background via MaterialTheme.colorScheme.background).
- */
-@Composable
-internal fun PreviewThemed(
-    darkTheme: Boolean = false,
-    accent: SingularityAccents = SingularityAccents.Blue,
-    useSurface: Boolean = true,
-    content: @Composable () -> Unit,
-) {
-    SingularityTheme(themeMode = if (darkTheme) ThemeMode.Dark else ThemeMode.Light, accent = accent) {
-        if (useSurface) {
-            Surface(color = MaterialTheme.colorScheme.background) { content() }
-        } else {
-            content()
-        }
-    }
-}
-
-/** No-op click handler for @Preview composables. Use instead of `onClick = {}`. */
-internal val noopClick: () -> Unit = {}
-
 // ===== Shared sample data builders =====
 
 /**
@@ -76,6 +39,10 @@ internal val noopClick: () -> Unit = {}
  *
  * All [Instant] fields use the same "now" timestamp so previews are
  * consistent within a single render pass.
+ *
+ * The fixtures live outside `core.ui` because they name feature domain types:
+ * a component library must be able to move without them. The theme wrapper the
+ * previews need stays in `core.ui.preview`.
  */
 internal object PreviewSamples {
     /**

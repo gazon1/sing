@@ -35,10 +35,10 @@ import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationId
 import com.singularity.todo.core.attachments.annotation.TextRange
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.IntentActions
-import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
+import com.singularity.todo.preview.PreviewSamples
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 

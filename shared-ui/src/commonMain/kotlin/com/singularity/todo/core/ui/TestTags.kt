@@ -1047,8 +1047,7 @@ object TestTags {
     // ─── Time tracking ─────────────────────────────────────────────────────
 
     /**
-     * Start/stop chip of [com.singularity.todo.feature.timetracking.presentation
-     * .components.TimeTrackingSection] on the task detail screen.
+     * Start/stop chip of the time-tracking section on the task detail screen.
      *
      * These two were added, removed and are now back, and the round trip is the
      * point worth keeping in mind. They were added for a desktop carrier that a
