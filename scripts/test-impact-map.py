@@ -59,6 +59,19 @@ named it. What narrows it is the map's own `--tests` filter, which Gradle
 applies to the task: the command runs exactly the class it names. The
 population selects the candidate set; the filter runs it.
 
+The instrumentation tier is a third shape. Its classes are not run by Gradle's
+`--tests` — they are run by the Android instrumentation runner, and the class
+is named by the RUNNER ARGUMENT the plugin forwards to it
+(`-Pandroid.testInstrumentationRunnerArguments.class=…`), the same spelling the
+device smoke already uses (`.github/workflows/android-device-tests.yml`). The
+runner's `class` argument takes a comma-separated list, so one invocation
+names every class of the task. The runner does not read the tag filter
+either, so the POPULATION does not narrow that task: a class the population
+excludes would still run if the map named it. What narrows it is the runner
+argument. The command that runs them needs a DEVICE attached — the tier's
+runbook (`docs/testing/android-instrumentation-runbook.md`) says which one and
+how the auth bypass reaches the build.
+
 Usage:
     python3 scripts/test-impact-map.py                  # the test classes, one per line
     python3 scripts/test-impact-map.py --explain        # the same, with the reasons
@@ -235,7 +248,18 @@ TEST_SOURCE_DIRS: dict[str, str] = {
     'shared/src/androidHostTest': 'shared',
     'desktopApp/src/jvmTest': 'desktopApp',
     'mcp-server/src/test': 'mcp-server',
+    'androidApp/src/androidTest': 'androidApp',
 }
+
+#: The source set that holds the INSTRUMENTATION tests.
+#:
+#: The tier is the only one that sees the real Android runtime, and it is the
+#: only one whose classes are not run by Gradle: they are run by the Android
+#: instrumentation runner, on a device. Two of the map's rules are therefore
+#: different for it, and both are stated where they are applied — the class
+#: filter is a RUNNER ARGUMENT and not `--tests` (`RUNNER_ARGUMENT_FILTERS`),
+#: and the POPULATION does not narrow it (`POPULATION_EXEMPT_TASKS`).
+INSTRUMENTATION_SOURCE_DIR = 'androidApp/src/androidTest'
 
 #: The source sets that hold production code.
 PRODUCTION_SOURCE_DIRS: tuple[str, ...] = (
@@ -278,7 +302,43 @@ SOURCE_SET_TASKS: dict[str, str] = {
     'shared/src/androidHostTest': ':shared:testAndroidHostTest',
     'desktopApp/src/jvmTest': ':desktopApp:test',
     'mcp-server/src/test': ':mcp-server:test',
+    'androidApp/src/androidTest': ':androidApp:connectedDebugAndroidTest',
 }
+
+#: The class filter of a task that does not take `--tests`.
+#:
+#: An instrumentation task does not run its classes through Gradle's test
+#: filter: the classes are named by the RUNNER ARGUMENT that the Android
+#: plugin forwards to the instrumentation runner, and the runner's `class`
+#: argument takes a comma-separated list — so one invocation names every class
+#: of the task, the way one `--tests` filter names every class of a JVM task.
+#:
+#: The spelling is the one the device smoke already uses
+#: (`.github/workflows/android-device-tests.yml`), so the map and the CI name
+#: the same class the same way.
+RUNNER_ARGUMENT_FILTERS: dict[str, str] = {
+    ':androidApp:connectedDebugAndroidTest': (
+        '-Pandroid.testInstrumentationRunnerArguments.class='
+    ),
+}
+
+#: The tasks the POPULATION does not narrow.
+#:
+#: A population is a list of JUnit tags, and the tag filter belongs to the
+#: TASK: `:shared:jvmTest` turns `-Ptest.tags` into `includeTags(...)`, and a
+#: class the population excludes is dropped from the command — because it
+#: would not have run.
+#:
+#: The instrumentation task has no such filter: the runner takes a list of
+#: classes and runs what it is given. A population therefore cannot narrow it,
+#: and dropping an untagged instrumentation class because no population
+#: selects it would drop a class the runner WOULD run — and the tier's classes
+#: are untagged by design (they are JUnit4 classes on the Vintage engine,
+#: where a Jupiter `@Tag` is not a filter at all — the same reason
+#: `shared/src/androidHostTest` is exempt in `shared/build.gradle.kts`).
+POPULATION_EXEMPT_TASKS: frozenset[str] = frozenset({
+    ':androidApp:connectedDebugAndroidTest',
+})
 
 #: The task the architecture gates run in.
 #:
@@ -628,6 +688,25 @@ def _class_blocks(text: str) -> list[tuple[str, str]]:
     return blocks
 
 
+def _is_test_class(name: str, body: str, source_dir: str) -> bool:
+    """Is this class one the map may name?
+
+    The rule everywhere: a class whose NAME says it is a test, or that
+    declares a test member.
+
+    The instrumentation tier is stricter. The runner runs the class it is
+    given, and a class with no runnable method is an INITIALIZATION ERROR in
+    JUnit4 — so naming the tier's base class (`InstrumentedTestBase`) in the
+    runner argument does not run a test, it fails the run. A class of that
+    tier is therefore named only when it declares a test member.
+    """
+    if 'Test' not in name and not TEST_MEMBER.search(body):
+        return False
+    if source_dir == INSTRUMENTATION_SOURCE_DIR:
+        return bool(TEST_MEMBER.search(body))
+    return True
+
+
 def test_classes() -> list[TestClass]:
     """Every test class of the repository, with its module, its task and its scope."""
     found: list[TestClass] = []
@@ -641,7 +720,7 @@ def test_classes() -> list[TestClass]:
             package = package_match.group(1) if package_match else ''
             scope = _scope_from_tail(path.relative_to(ROOT / source_dir).as_posix())
             for name, body in _class_blocks(text):
-                if 'Test' not in name and not TEST_MEMBER.search(body):
+                if not _is_test_class(name, body, source_dir):
                     continue
                 qualified = f'{package}.{name}' if package else name
                 found.append(
@@ -708,6 +787,22 @@ def map_tests(paths: list[str], tests: list[TestClass]) -> tuple[list[str], list
             for test in tests:
                 if _relative(test.path) == path:
                     selected.setdefault(test.qualified_name, f'{path} — the test itself changed')
+            # The instrumentation tier's HARNESS is not a test: its base class
+            # carries no test method, so it is not a class the runner can be
+            # given. The classes that extend it are the tests that have to
+            # run — a change to the harness changes what every one of them
+            # asserts. This tier is the only one where a changed test file is
+            # not itself a test.
+            if _test_source_of(path) == INSTRUMENTATION_SOURCE_DIR:
+                names = _declared_names(path)
+                for test in tests:
+                    if _relative(test.path) == path:
+                        continue
+                    if any(name in test.body for name in names):
+                        selected.setdefault(
+                            test.qualified_name,
+                            f'{path} — the test uses it',
+                        )
             # And it can break a gate that reads the whole test tree — a gate
             # that asserts every test class carries a @Tag is broken by a test
             # class that does not, and the class that broke it is the one that
@@ -781,11 +876,20 @@ def select_for_population(
     population excludes is dropped from the command and NAMED in the report:
     a `--tests` filter that names a class the population excludes runs
     nothing, and a run that ran nothing reports green.
+
+    A task the POPULATION does not narrow is the exception, and it is not an
+    exception to the QUESTION — it is an exception to the build's filter: the
+    instrumentation runner takes a list of classes and runs what it is given
+    (`POPULATION_EXEMPT_TASKS`). Its classes are kept, because naming one
+    would run it.
     """
     selected = set(tags)
     kept: list[TestClass] = []
     dropped: list[str] = []
     for test in tests:
+        if test.task in POPULATION_EXEMPT_TASKS:
+            kept.append(test)
+            continue
         simple = test.qualified_name.rsplit('.', 1)[-1]
         tag = scanning.read_tag(test.source, simple)
         if tag in selected:
@@ -816,6 +920,10 @@ def gradle_commands(
     spelling of a thing the repository already declares in one place, and the
     two spellings drift: the map used to answer a different question than the
     one asked, selecting the fast and slow half together.
+
+    A task that does not read the tag filter does not get a population named
+    on its command: the property would be read by nothing, and naming it
+    would say the population narrows the task when it does not.
     """
     by_task: dict[str, list[str]] = {}
     for test in tests:
@@ -823,9 +931,18 @@ def gradle_commands(
 
     commands: list[list[str]] = []
     for task in sorted(by_task):
-        command = [gradle, task, f'-Ptest.population={population}']
-        for name in sorted(by_task[task]):
-            command += ['--tests', name]
+        command = [gradle, task]
+        if task not in POPULATION_EXEMPT_TASKS:
+            command.append(f'-Ptest.population={population}')
+        names = sorted(by_task[task])
+        runner_filter = RUNNER_ARGUMENT_FILTERS.get(task)
+        if runner_filter is not None:
+            # One invocation, every class of the task: the runner's `class`
+            # argument takes a comma-separated list.
+            command.append(runner_filter + ','.join(names))
+        else:
+            for name in names:
+                command += ['--tests', name]
         commands.append(command)
     return commands
 
