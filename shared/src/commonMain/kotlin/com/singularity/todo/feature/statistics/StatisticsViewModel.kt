@@ -85,29 +85,34 @@ class StatisticsViewModel(
     init {
         addCloseable(scope)
 
-        // ── Task statistics ────────────────────────────────────────────────
+        // ── Task statistics (recomputed when rangeDays changes) ─────────────
+        // The chart draws one bar per day of the selected range, so the
+        // snapshot has to follow the range too: a snapshot fixed at seven days
+        // put a seven-bar chart under a "Last 30 days" title.
         scope.launch {
-            deps.taskRepository
-                .observeByFilter(TaskFilter.All)
-                .map { tasks ->
-                    val nowMs = deps.clock.now().toEpochMilliseconds()
-                    // The statistics measure works, and a series is one work
-                    // scheduled on several dates: the copies count once. The
-                    // grouping happens here, before the buckets are counted, so
-                    // no bucket can see two copies of the same work.
-                    val rows =
-                        tasks.map { task ->
-                            StatisticsWorkRow(
-                                id = task.id.value,
-                                seriesId = task.seriesId?.value,
-                                completedAt = task.completedAt?.toEpochMilliseconds(),
-                                dueAt = task.dueDate?.let { it.toEpochDays() * TimeConstants.MILLIS_PER_DAY },
-                            )
+            state
+                .map { it.rangeDays }
+                .flatMapLatest { rangeDays ->
+                    deps.taskRepository
+                        .observeByFilter(TaskFilter.All)
+                        .map { tasks ->
+                            val nowMs = deps.clock.now().toEpochMilliseconds()
+                            // The statistics measure works, and a series is one work
+                            // scheduled on several dates: the copies count once. The
+                            // grouping happens here, before the buckets are counted, so
+                            // no bucket can see two copies of the same work.
+                            val rows =
+                                tasks.map { task ->
+                                    StatisticsWorkRow(
+                                        id = task.id.value,
+                                        seriesId = task.seriesId?.value,
+                                        completedAt = task.completedAt?.toEpochMilliseconds(),
+                                        dueAt = task.dueDate?.let { it.toEpochDays() * TimeConstants.MILLIS_PER_DAY },
+                                    )
+                                }
+                            val (completed, overdue) = groupIntoWorks(rows)
+                            computeStatistics(completed, overdue, nowMs, rangeDays)
                         }
-                    val (completed, overdue) = groupIntoWorks(rows)
-                    // Snapshot is always computed at 7-day range here; range is tracked
-                    // in state and used by the insights side.
-                    computeStatistics(completed, overdue, nowMs, 7)
                 }.catch { error ->
                     crashReporter.report(error, TASK_STATISTICS_FAILED)
                     emit(StatisticsSnapshot(persistentListOf(), 0, 0, 0.0, 0))
@@ -147,17 +152,23 @@ class StatisticsViewModel(
                         // 0 means "use default" — pass null so Selector.Stagnant uses its own 21.days.
                         null
                     }
-                summarizeTaskHealthFromSelectors(
-                    allTasks = tasks,
-                    today = today,
-                    now = now,
-                    stagnationWindow = stagnationWindow,
-                    lastActivityOf = lastTouched,
-                )
+                // Typed nullable on purpose: the catch below emits null, and a
+                // non-null zero summary is what made the screen's "Task health
+                // unavailable" branch unreachable.
+                val summary: TaskHealthSummary? =
+                    summarizeTaskHealthFromSelectors(
+                        allTasks = tasks,
+                        today = today,
+                        now = now,
+                        stagnationWindow = stagnationWindow,
+                        lastActivityOf = lastTouched,
+                    )
+                summary
             }.catch { error ->
                 crashReporter.report(error, TASK_HEALTH_FAILED)
-                // Pure function — no exception expected, but report and fall back gracefully.
-                emit(TaskHealthSummary(emptyMap(), 0, null, null))
+                // A null summary is the error state: the screen renders "Task
+                // health unavailable" instead of a healthy-looking zero.
+                emit(null)
             }.collect { summary -> updateState { it.copy(health = summary) } }
         }
 
