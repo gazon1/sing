@@ -141,8 +141,9 @@ class SharedSyncServer {
      * Merges one patch into the row it names, field by field.
      *
      * The merge is the server's own: a field is written when the patch's clock
-     * beats the clock stored for that field, and the clocks and the values are
-     * read and written from the same row — there is no window between them.
+     * beats the clock stored for that field, the operation's kind decides what
+     * the write does to the document, and the clocks and the values are read and
+     * written from the same row — there is no window between them.
      */
     private fun mergePatch(
         profileId: String,
