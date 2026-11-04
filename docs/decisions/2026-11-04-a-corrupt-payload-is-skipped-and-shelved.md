@@ -115,6 +115,9 @@ before, so the profile is carried in the key instead.
   the shelving of a corrupt event, and the cursor that still advances
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncDeadLetter.kt` —
   the two kinds of row and the key that tells them apart
+- `shared/src/commonMain/kotlin/com/singularity/todo/core/di/SyncDiModule.kt` —
+  the production pull phase, which has to be handed the shelf: the engine's own default
+  is bypassed there, so a dependency left out of that construction is not a compile error
 - Tests: `PullEventHandlerTest`, `PullPhaseTest`, `ApplyOutcomeArmsTest`
 - Related decisions: `2026-10-06-a-transient-failure-is-not-a-permanent-one.md`,
   `2026-10-19-retriable-push-failure-defers-the-patch.md`

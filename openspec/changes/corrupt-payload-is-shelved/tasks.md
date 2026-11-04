@@ -24,6 +24,13 @@ Spec: `offline-sync` REQ-OS-032. Issue: #1422.
 - [x] `shared/` Keep the download position advancing past a corrupt event, and keep a
       failure to write the row from failing the pull. **Test:** `PullPhaseTest` — the
       position advances, and the event is counted as dropped.
+- [x] `shared/` Hand the shelf to the pull phase the application assembles. The engine's
+      own default phase carries `deadLetterDao`; the DI module builds its phase by hand
+      and did not, so the record happened in every test and nowhere in the app.
+      **Test:** none — the phase's dependency is private and the seam is a construction,
+      so the construction site carries the comment that names the rule. The behaviour it
+      enables is covered by `PullPhaseTest`; what is unproven is that the app builds that
+      phase, which nothing in the tree checks.
 
 ## The record of the decision
 
@@ -34,6 +41,8 @@ Spec: `offline-sync` REQ-OS-032. Issue: #1422.
 
 ## Verification
 
-- [ ] `shared/` `./gw :shared:jvmTest`
-- [ ] `shared/` `./gw detekt`
-- [ ] `openspec validate --all --strict`
+- [ ] `shared/` `./gw :shared:jvmTest` — not run: this run's sandbox refuses Gradle
+      ("this run does not compile"), so CI carries it.
+- [ ] `shared/` `./gw detekt` — not run, same reason.
+- [x] `openspec validate --all --json --strict` — ran, exit 0: 54 changes and 39 specs
+      valid, none failed.
