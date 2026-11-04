@@ -109,6 +109,12 @@ interface SyncDeadLetterDao {
      * A sign-out drains the shelf as it drains the outbox: work kept across a
      * sign-out belongs to the account that is leaving, and a shelf that outlived it
      * would hold patches no account can send.
+     *
+     * The global drain, and not a substitute for [deleteForOwner]: the account
+     * switch erases one account's shelf and leaves the rest, while this empties
+     * every account's. The two are different operations with different callers, and
+     * a sign-out is the only thing that wants the second one — REQ-UA-017's switch
+     * must not take another account's shelved work with it.
      */
     @Query("DELETE FROM sync_dead_letter")
     suspend fun clearAll()

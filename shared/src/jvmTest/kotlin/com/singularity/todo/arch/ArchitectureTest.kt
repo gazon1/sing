@@ -743,6 +743,45 @@ class ArchitectureTest {
         ) { it }
     }
 
+    /**
+     * The sync queues share one owner-scoped erase and count.
+     *
+     * The outbox is the reference: it carries an owner-scoped erase and the count
+     * that precedes it, so a switch takes one account's work and leaves the rest.
+     * The shadow and the dead-letter shelf sit beside it and must carry the same
+     * pair — a shelf whose erase was global would take another account's shelved
+     * work with it, and a shadow whose count was global would report rows the
+     * erase is about to destroy.
+     *
+     * The rest of the set — the global reads, the patch-id-keyed deletes, the
+     * global drain on sign-out — is deliberate and is recorded in
+     * `GLOBAL_DAO_MUTATION_ALLOWLIST` and in
+     * `docs/decisions/2026-11-05-the-sync-queues-share-one-guard-set.md`. This test
+     * pins the half that is not a choice: the erase and the count.
+     */
+    @Test
+    fun `the sync queues share one owner-scoped erase and count`() {
+        val syncDaos = setOf("SyncShadowDao", "SyncDeadLetterDao")
+        val ownerScopedMethods = listOf("deleteForOwner", "countForOwner")
+        val scoped =
+            scope.files
+                .flatMap { file -> queryFunctions(file) }
+                .filter { (dao, method, _) -> dao in syncDaos && method in ownerScopedMethods }
+                .filter { (_, _, sql) -> SCOPING_COLUMNS.any { it in sql } }
+                .map { (dao, method, _) -> "$dao.$method" }
+                .toSet()
+        val missing =
+            syncDaos
+                .flatMap { dao -> ownerScopedMethods.map { "$dao.$it" } }
+                .filterNot { it in scoped }
+        assertNoOffenders(
+            missing,
+            "the shadow and the dead-letter shelf must each carry an owner-scoped erase and " +
+                "count, as the outbox does — see " +
+                "docs/decisions/2026-11-05-the-sync-queues-share-one-guard-set.md",
+        ) { it }
+    }
+
     @Test
     fun `core layer reaches DAO mutations only through a repository`() {
         val offenders =
