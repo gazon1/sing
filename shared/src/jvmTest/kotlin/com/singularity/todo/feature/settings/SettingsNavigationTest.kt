@@ -2,6 +2,7 @@ package com.singularity.todo.feature.settings
 
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /**
@@ -38,25 +39,27 @@ class SettingsNavigationTest {
     }
 
     @Test
-    fun `the group order is pinned`() {
-        // The rail and the narrow sheet both render SETTINGS_GROUPS in list
-        // order; this pins that order so a layout cannot sort or regroup it.
-        // It does not prove either layout renders the list — see the layout
-        // parity test for that.
-        assertEquals(
-            listOf("Appearance", "Productivity", "Notifications", "Data", "AI & Account"),
-            SETTINGS_GROUPS.map { it.title },
-        )
-    }
+    fun `the narrow trigger names the group and the tab`() {
+        // The narrow screen's trigger renders `selectedTab.groupedLabel` and
+        // nothing else, so this is the text a person on a phone reads. It is
+        // asserted against the issue's own example rather than against a list
+        // of headings: a mapping that dropped the group would read "Account",
+        // and one that reordered the heading would read "Account › AI & Account".
+        assertEquals("AI & Account › Account", SettingsTab.Account.groupedLabel)
 
-    @Test
-    fun `the narrow trigger can label every tab`() {
+        // And for every tab, so a tab added later cannot quietly fall back to
+        // a bare label on the trigger.
         SettingsTab.entries.forEach { tab ->
-            assertTrue(
-                tab.groupedLabel.startsWith(tab.group.title),
+            assertEquals(
+                "${tab.group.title} › ${tab.label}",
+                tab.groupedLabel,
                 "'${tab.name}' is labelled outside its group",
             )
-            assertTrue(tab.groupedLabel.endsWith(tab.label))
+            assertNotEquals(
+                tab.label,
+                tab.groupedLabel,
+                "'${tab.name}' does not name its group on the narrow trigger",
+            )
         }
     }
 }

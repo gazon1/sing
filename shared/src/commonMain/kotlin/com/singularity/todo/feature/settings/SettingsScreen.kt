@@ -433,58 +433,66 @@ private fun SettingsNavRail(
                 .padding(vertical = 8.dp)
                 .testTag(TestTags.Settings.NAV_RAIL_SCROLL),
     ) {
-        SETTINGS_GROUPS.forEach { group ->
-            Text(
-                text = group.title,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier =
-                    Modifier
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                        .testTag(TestTags.settingsGroup(group.title)),
-            )
-            group.tabs.forEach { tab ->
-                val isSelected = tab == selectedTab
-                Column(
-                    modifier =
-                        Modifier
-                            .clickable(role = Role.Tab) { onSelect(tab) }
-                            .semantics { selected = isSelected }
-                            .padding(vertical = 12.dp, horizontal = 8.dp)
-                            .testTag(TestTags.settingsTab(tab.name)),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Box(
+        // The same rows the narrow sheet renders — [SETTINGS_MENU_ROWS] is the
+        // one flattening of [SETTINGS_GROUPS], so the two layouts cannot show
+        // different sections, or the same sections in a different order.
+        SETTINGS_MENU_ROWS.forEach { row ->
+            when (row) {
+                is SettingsMenuRow.Group ->
+                    Text(
+                        text = row.group.title,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier =
                             Modifier
-                                .size(48.dp)
-                                .background(
-                                    shape = CircleShape,
-                                    color =
-                                        if (isSelected) {
-                                            MaterialTheme.colorScheme.primaryContainer
-                                        } else {
-                                            MaterialTheme.colorScheme.surface
-                                        },
-                                ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(tab.icon, contentDescription = tab.label)
-                        if (tab == SettingsTab.AIProvider) {
-                            AiStatusBadge(
-                                aiTestResult = aiTestResult,
-                                modifier =
-                                    Modifier
-                                        .align(Alignment.TopEnd)
-                                        .offset(x = 2.dp, y = (-2).dp),
-                            )
-                        }
-                    }
-                    Text(
-                        tab.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(top = 4.dp),
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .testTag(TestTags.settingsGroup(row.group.title)),
                     )
+
+                is SettingsMenuRow.Tab -> {
+                    val tab = row.tab
+                    val isSelected = tab == selectedTab
+                    Column(
+                        modifier =
+                            Modifier
+                                .clickable(role = Role.Tab) { onSelect(tab) }
+                                .semantics { selected = isSelected }
+                                .padding(vertical = 12.dp, horizontal = 8.dp)
+                                .testTag(TestTags.settingsTab(tab.name)),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(48.dp)
+                                    .background(
+                                        shape = CircleShape,
+                                        color =
+                                            if (isSelected) {
+                                                MaterialTheme.colorScheme.primaryContainer
+                                            } else {
+                                                MaterialTheme.colorScheme.surface
+                                            },
+                                    ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(tab.icon, contentDescription = tab.label)
+                            if (tab == SettingsTab.AIProvider) {
+                                AiStatusBadge(
+                                    aiTestResult = aiTestResult,
+                                    modifier =
+                                        Modifier
+                                            .align(Alignment.TopEnd)
+                                            .offset(x = 2.dp, y = (-2).dp),
+                                )
+                            }
+                        }
+                        Text(
+                            tab.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                 }
             }
         }
@@ -546,6 +554,14 @@ private fun SettingsTabSheet(
                 //
                 // The column scrolls: eighteen rows do not fit a phone, and the
                 // rows of the last group have to be reachable, not clipped.
+                //
+                // This is the sheet's *only* scroller, and it holds
+                // [SETTINGS_MENU_ROWS] — every heading and every tab — so "a tab
+                // can be scrolled to" is "the tab is a row of that list".
+                // `verticalScroll` composes every row (nothing here is lazy), so
+                // a row that exists in the list exists in the tree; the only way
+                // to lose one is to drop it from the list, which
+                // `SettingsMenuTest` fails on.
                 modifier =
                     Modifier
                         .mapTestTagsAsResourceIds()
@@ -554,33 +570,39 @@ private fun SettingsTabSheet(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                SETTINGS_GROUPS.forEach { group ->
-                    Text(
-                        text = group.title,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier =
-                            Modifier
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                .testTag(TestTags.settingsGroup(group.title)),
-                    )
-                    group.tabs.forEach { tab ->
-                        NavigationDrawerItem(
-                            label = { Text(tab.label) },
-                            selected = tab == selectedTab,
-                            onClick = {
-                                onSelect(tab)
-                                showSheet = false
-                            },
-                            icon = { Icon(tab.icon, contentDescription = null) },
-                            // The mapping lives on the sheet's column, once.
-                            // Mapping the item as well mapped the same tag tree
-                            // twice, which was a guess rather than a constraint.
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .testTag(TestTags.settingsTab(tab.name)),
-                        )
+                // The same rows the wide nav rail renders, from the same list:
+                // the phone offers the rail's five headings with the rail's tabs
+                // under them, in the rail's order.
+                SETTINGS_MENU_ROWS.forEach { row ->
+                    when (row) {
+                        is SettingsMenuRow.Group ->
+                            Text(
+                                text = row.group.title,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier =
+                                    Modifier
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        .testTag(TestTags.settingsGroup(row.group.title)),
+                            )
+
+                        is SettingsMenuRow.Tab ->
+                            NavigationDrawerItem(
+                                label = { Text(row.tab.label) },
+                                selected = row.tab == selectedTab,
+                                onClick = {
+                                    onSelect(row.tab)
+                                    showSheet = false
+                                },
+                                icon = { Icon(row.tab.icon, contentDescription = null) },
+                                // The mapping lives on the sheet's column, once.
+                                // Mapping the item as well mapped the same tag tree
+                                // twice, which was a guess rather than a constraint.
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .testTag(TestTags.settingsTab(row.tab.name)),
+                            )
                     }
                 }
             }

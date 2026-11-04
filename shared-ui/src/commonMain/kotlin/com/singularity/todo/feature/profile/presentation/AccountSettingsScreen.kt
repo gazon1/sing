@@ -367,9 +367,12 @@ private fun SignOutSection(
  * no account to be signed out of.
  *
  * The card used to read the same in both states, so a signed-in session and a
- * signed-out one looked alike.
+ * signed-out one looked alike. It is public rather than private because it is
+ * the whole of the two-state distinction on this screen: `SignOutExplanationTest`
+ * (desktopApp) asserts that the signed-in sentence and the anonymous one differ,
+ * and a private function could only be checked by reading it.
  */
-private fun signOutExplanation(session: Session): String =
+fun signOutExplanation(session: Session): String =
     when (session) {
         is Session.SignedIn ->
             "You will be signed out of this account on this device. " +

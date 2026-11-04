@@ -25,27 +25,27 @@ import androidx.compose.ui.unit.dp
  * profile switcher disagreed about what to draw. Both now call this one
  * composable, so the fallback cannot drift or be forgotten on one of them.
  *
- * The caller supplies the identity colour as [backgroundColor], because the
- * two screens draw the circle on different surfaces.
+ * The caller may override the identity colour as [backgroundColor], because the
+ * two screens draw the circle on different surfaces — but it is *not* optional
+ * to have a circle. It used to default to null, which meant a caller that said
+ * nothing got an unbacked icon on the card's own surface: the fallback was
+ * drawn, and it was the one avatar in the list without the shape the others
+ * had. The default is now the same container colour the surrounding rows use,
+ * so "the fallback occupies the same circle the emoji does" holds for every
+ * caller, including one that passes no colour at all.
  */
 @Composable
 fun ProfileAvatar(
     emoji: String,
     modifier: Modifier = Modifier,
-    backgroundColor: Color? = null,
+    backgroundColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
 ) {
     Box(
         modifier =
             modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .then(
-                    if (backgroundColor != null) {
-                        Modifier.background(backgroundColor)
-                    } else {
-                        Modifier
-                    },
-                ),
+                .background(backgroundColor),
         contentAlignment = Alignment.Center,
     ) {
         if (emoji.isBlank()) {
