@@ -2,6 +2,8 @@ package com.singularity.todo.feature.nav
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
@@ -147,6 +149,11 @@ class Nav3State internal constructor(
      * Converts all active back stacks into a flat list of [NavEntry] objects,
      * decorated with the provided [entryDecorators] for state preservation and ViewModel scoping.
      *
+     * The result is never empty: a route whose back stack is empty renders its own key for
+     * that pass (see [renderableKeysFor]), because `NavDisplay` rejects an empty entry
+     * list. The stack itself is reseeded after composition, so the next pass reads real
+     * state.
+     *
      * [rememberViewModelStoreNavEntryDecorator] is always applied, before any caller-supplied
      * decorators. Without it every entry resolves the *same* `LocalViewModelStoreOwner` — the
      * window/activity — so `koinViewModel` hands the first-created instance to every subsequent
@@ -164,7 +171,7 @@ class Nav3State internal constructor(
     ): List<NavEntry<NavKey>> {
         val viewModelStoreDecorator = rememberViewModelStoreNavEntryDecorator<NavKey>()
         val decoratedEntries =
-            backStacks.mapValues { (_, stack) ->
+            backStacks.mapValues { (route, stack) ->
                 val decorators =
                     buildList {
                         add(viewModelStoreDecorator)
@@ -174,7 +181,9 @@ class Nav3State internal constructor(
                         add(rememberSaveableStateHolderNavEntryDecorator())
                     }
                 rememberDecoratedNavEntries(
-                    backStack = stack,
+                    // Never hand NavDisplay an empty stack: it produces no entries, and
+                    // NavDisplay rejects an empty entry list (see the class KDoc).
+                    backStack = remember(route, stack.isEmpty()) { renderableKeysFor(route) },
                     entryDecorators = decorators,
                     entryProvider = { key: NavKey ->
                         @Suppress("UNCHECKED_CAST")
@@ -182,28 +191,47 @@ class Nav3State internal constructor(
                     },
                 )
             }
-        val result =
-            getTopLevelRoutesInUse().flatMap {
-                decoratedEntries[it]
-                    ?: emptyList()
-            }
-        // Fallback: never yield an empty entry list, which would render a blank
-        // shell. If every resolved stack is empty, reseed the start stack and
-        // return its entries.
-        return if (result.isEmpty()) {
-            val startStack = backStackFor(startRoute)
-            if (startStack != null && startStack.isEmpty()) {
-                startStack.add(startRoute)
-            }
-            decoratedEntries[startRoute] ?: emptyList()
-        } else {
-            result
+        val routesInUse = getTopLevelRoutesInUse()
+        // Reseed an empty stack after composition, never during it: a snapshot write in
+        // composition returns a stale entry list for the frame that needed the rescue.
+        // The entries above already render the route's own key for this pass, so the
+        // shell shows something either way, and the next pass reads a seeded stack.
+        SideEffect { reseedEmptyStacks() }
+        return routesInUse.flatMap { decoratedEntries.getValue(it) }
+    }
+
+    /**
+     * The keys this composition renders for [route].
+     *
+     * A back stack can be empty — restored blank, or emptied by a path that is not
+     * [Navigator.goBack] (which reseeds). An empty stack yields no entries, so the route's
+     * own key stands in for it: the shell then shows the tab the user is on, rather than a
+     * blank screen or another tab's screen.
+     *
+     * Total by design: a route with no back stack at all renders itself too. The
+     * constructor rejects that state for [startRoute], so this is a property of the
+     * rendering rule, not a defensive branch for a reachable state.
+     */
+    internal fun renderableKeysFor(route: NavKey): List<NavKey> =
+        backStackFor(route)?.takeIf { it.isNotEmpty() } ?: listOf(route)
+
+    /**
+     * Reseeds every in-use back stack that is empty with its own route, so the next
+     * composition reads a seeded stack instead of [renderableKeysFor]'s stand-in.
+     *
+     * Runs from a [SideEffect] — mutating snapshot state during composition is what made
+     * the old fallback return a stale entry list for the very frame that needed it.
+     */
+    internal fun reseedEmptyStacks() {
+        getTopLevelRoutesInUse().forEach { route ->
+            val stack = backStackFor(route) ?: return@forEach
+            if (stack.isEmpty()) stack.add(route)
         }
     }
 
-    // Targeted, not "all non-empty stacks": every back stack is seeded with its key at
-    // composition, so an isNotEmpty filter would always include every top-level route and
-    // NavDisplay would render the last one (Settings) instead of the current tab.
+    // Targeted, not "all non-empty stacks": every back stack is seeded with its key, so
+    // an isNotEmpty filter would always include every top-level route and NavDisplay
+    // would render the last one (Settings) instead of the current tab.
     private fun getTopLevelRoutesInUse(): List<NavKey> =
         if (topLevelRoute == startRoute) {
             listOf(startRoute)
