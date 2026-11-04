@@ -52,10 +52,17 @@ internal class PullPhase(
      * every delivery — and the event is recorded here, so a remote change this device
      * dropped is a row somebody can find rather than a log line nobody reads.
      *
-     * Nullable so callers that do not need the shelf (tests) can omit it, the same
-     * way the shadow is optional here.
+     * Not nullable, and the default is [NoDeadLetterShelf] rather than `null`: a null
+     * default made the omission silent, so the recording half of this feature could be
+     * compiled away at a call site and a corrupt payload would leave no trace but a log
+     * line. The stand-in logs an error, by name, for every write it is asked for.
+     *
+     * A default rather than a required argument because the pull loop is exercised on
+     * its own, with no database behind it. The production wiring does not rely on it:
+     * [SyncEngine] takes the shelf as a required constructor argument and passes it on,
+     * so the engine cannot be built without one.
      */
-    private val deadLetterDao: SyncDeadLetterDao? = null,
+    private val deadLetterDao: SyncDeadLetterDao = NoDeadLetterShelf,
 ) {
     private val log = Logger.withTag("PullPhase")
 
@@ -86,6 +93,11 @@ internal class PullPhase(
          * dead-letter store. The recording is the difference: a corrupt payload is a
          * remote change this device dropped, and a dropped remote change is a
          * divergence between the server's state and this device's.
+         *
+         * The recording is capped at [PULL_SHELF_MAX_ROWS] rows. Unlike the push-side
+         * shelf, this producer is driven by the server: a feed that is corrupt wholesale
+         * would otherwise write the whole feed's payloads into SQLite, one row per LSN,
+         * and the settings count and list would grow without bound on a phone.
          */
         data class Corrupt(val reason: String) : PullStep
 
@@ -373,6 +385,19 @@ internal class PullPhase(
      * are the evidence — together with the reason the decode failed, and it belongs to
      * the account that received the event.
      *
+     * ## Ageing, not jumping to the top
+     *
+     * The server sends the same bytes on every delivery, so a redelivery is the same
+     * row, not a new one. Its `createdAt` and `failedAt` are kept from the first
+     * sighting: rewriting them to `now` on every delivery would let a recurring corrupt
+     * event sit at the newest end of `ORDER BY failed_at DESC` forever, never ageing out
+     * of the list and never being the row the cap drops.
+     *
+     * `attempts` is the number of deliveries seen, not a retry count. Nothing retries an
+     * inbound event — the bytes are identical every time — so this column says "how many
+     * times this device was handed something it could not read", which is the useful
+     * number, rather than `0`, which reads as a patch that never failed.
+     *
      * A failure to write the row does not fail the pull. The event is lost either way,
      * and a storage error must not wedge the account's sync over one unreadable row —
      * the same reasoning that keeps a failed delete from being reported as applied.
@@ -382,24 +407,37 @@ internal class PullPhase(
         scope: SyncScope,
         reason: String,
     ) {
-        val dao = deadLetterDao ?: return
         val now = clock.now().toEpochMilliseconds()
+        val key = SyncDeadLetterEntity.corruptEventId(ownerId = scope.ownerId, event = event)
         val payload =
             event.data?.let { StableJson.encodeToString(JsonElement.serializer(), it) } ?: ""
         runCatchingCancellable {
-            dao.insert(
+            val previous = deadLetterDao.get(key)
+            deadLetterDao.insert(
                 SyncDeadLetterEntity(
-                    patchId = SyncDeadLetterEntity.corruptEventId(event),
+                    patchId = key,
                     ownerId = scope.ownerId,
                     entityId = event.entityId,
                     entityType = event.entityType.key,
                     payload = payload,
-                    createdAt = now,
-                    failedAt = now,
-                    attempts = 0,
+                    createdAt = previous?.createdAt ?: now,
+                    failedAt = previous?.failedAt ?: now,
+                    attempts = (previous?.attempts ?: 0) + 1,
                     lastError = reason,
                 ),
             )
+            // Trim in the same breath as the insert, so a page that is corrupt
+            // wholesale cannot leave the shelf over its cap between a read and a
+            // write. A cap, not a TTL: these rows are evidence nothing retries, so
+            // keeping the newest N and dropping the rest costs a record, never a
+            // change that could have been delivered.
+            val pruned = deadLetterDao.pruneInboundTo(PULL_SHELF_MAX_ROWS)
+            if (pruned > 0) {
+                log.w {
+                    "the inbound shelf was over $PULL_SHELF_MAX_ROWS rows; " +
+                        "$pruned oldest unreadable event(s) were dropped"
+                }
+            }
         }.onFailure { e ->
             log.w(e) { "the undecodable event was not shelved: lsn=${event.serverLsn}" }
         }
