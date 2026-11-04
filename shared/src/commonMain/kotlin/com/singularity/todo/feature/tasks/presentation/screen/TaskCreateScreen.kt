@@ -53,6 +53,14 @@ fun TaskCreateScreen(
     initialProjectId: ProjectId? = null,
     initialTagIds: Set<TagId> = emptySet(),
 ) {
+    // Positional, and matched by position in both places: the four parameters
+    // here are destructured, in this order, by the `viewModel {
+    // (initialDueDate, draftKey, initialProjectId, initialTagIds) }` factory in
+    // `TasksDiModule`. Koin resolves them by order and by type, so reordering
+    // or dropping one here does not fail the build — it fails at runtime, or
+    // worse, binds a `Set<TagId>` to a `String?`-shaped slot. Change the two
+    // together. `initialProjectId`/`initialTagIds` are the seed the agenda FAB
+    // passes so a task created from a project's or tag's list belongs to it.
     val vm: TaskCreateViewModel =
         koinViewModel { parametersOf(initialDueDate, draftKey, initialProjectId, initialTagIds) }
     val clock: Clock = koinInject()

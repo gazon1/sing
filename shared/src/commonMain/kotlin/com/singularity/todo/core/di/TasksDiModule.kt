@@ -251,6 +251,18 @@ fun tasksModule(): org.koin.core.module.Module =
             )
         }
 
+        // These four parameters are supplied *positionally* by
+        // `TaskCreateScreen`'s `parametersOf(initialDueDate, draftKey,
+        // initialProjectId, initialTagIds)`. Koin matches them by order and
+        // type, not by name, so this destructuring and that call site are one
+        // contract written in two files: reordering either side does not fail
+        // the build. `TaskCreateViewModelTest` exercises the constructor side,
+        // `NavStackSeedTest` the route side; a change here belongs with a change
+        // there.
+        //
+        // The last two are the agenda drill-down seed (#1952/#1958): a task
+        // created from a project's or a tag's task list belongs to that list,
+        // rather than arriving unseeded as it did from the Inbox branch.
         viewModel {
             (
                 initialDueDate: kotlinx.datetime.LocalDate?,
