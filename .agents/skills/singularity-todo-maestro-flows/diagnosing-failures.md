@@ -52,7 +52,7 @@ before rewriting the selector.
 ### Check the runner's verdict against Maestro's own
 
 **A flow can pass in Maestro and still be reported failed by
-`run-maestro`.** Both happened here, and both made the suite's exit code
+`./rm`.** Both happened here, and both made the suite's exit code
 lie about reality:
 
 - Maestro's report write (`--format=JUNIT --output`) threw *after* the flow
@@ -85,7 +85,7 @@ separates them.
    flow; go back to step 1.
 4. **The Maestro XML has no per-step detail.** `maestro-failures-*/maestro.log`
    shows only Maestro's own polling output; the Compose state needs logcat. Use
-   `run-maestro`, which writes a raw framebuffer screenshot and a
+   `./rm`, which writes a raw framebuffer screenshot and a
    logcat dump per failed flow into `build/maestro-results/<flow>/`.
 
 ## Retry strategy: when to fix vs when to retry
@@ -94,8 +94,8 @@ separates them.
 was not visible after 5 s is telling you the element needs 5+ s on that device
 — the retry just delays that signal.
 
-The only retry mechanism is script-level: `MAX_RETRIES=2` in `run-maestro`,
-which covers device disconnects. Retry a flow only when the element has genuine
+The only retry mechanism is script-level: `MAX_RETRIES=2` in the runner behind
+`./rm`, which covers device disconnects. Retry a flow only when the element has genuine
 timing variance (cold start), and a `known-bug` tag marks the flow while a real fix
 is tracked.
 
@@ -212,7 +212,7 @@ being destroyed. `--maestro-cleanup off` turns the wipe off.
 virgin device state — it costs you the authenticated session:
 
 ```bash
-adb -s "$(ensure-emulator)" shell pm clear com.singularity.todo
+adb -s "$(./rm emulator)" shell pm clear com.singularity.todo
 ```
 
 **The seed replaces the row it names, so a seeded fixture needs no per-run
@@ -241,7 +241,7 @@ then a different row the flow cannot see, which is exactly the "exactly one row"
 assumption the replacing seed was written to make true. See
 `docs/decisions/2026-10-28-the-seed-replaces-the-task-it-names.md`.
 
-**The run id is a value, not a cleanup key.** `run-maestro` mints a fresh
+**The run id is a value, not a cleanup key.** `./rm` mints a fresh
 `${RUN_ID}` on **every attempt** and passes it to the flow; `Maestro/config.yaml`
 declares it (`manual` for a hand-run `maestro test`). A title the flow *types*
 into the editor is the flow's own row, not the seed's, so it may carry the id

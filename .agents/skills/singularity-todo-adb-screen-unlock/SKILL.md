@@ -38,13 +38,12 @@ adb devices -l
 
 Pick the *physical* serial — skip `emulator-*` lines, or you will unlock an AVD
 instead of the phone. Emulator targets do not use this skill at all; they go
-through `ensure-emulator`, the repo's single device-recovery
+through `./rm emulator`, the repo's single device-recovery
 primitive.
 
-`ensure-emulator` is a console script of this repository's package, so it lives
-in the gate tooling venv of this checkout (`~/.venvs/singularity-todo-<checkout>/bin`)
-— that directory has to be on PATH before it resolves. See
-`singularity-todo-emulator-launch` for the one-liner.
+`./rm emulator` binds this checkout's packages itself, so it needs no PATH entry
+and cannot answer from another checkout. See `singularity-todo-emulator-launch`
+for where it lives and why.
 
 If `state=unauthorized`: the device shows "Allow USB debugging?" on its screen — the human must tap "Allow" and "Always allow from this computer".
 
@@ -85,7 +84,7 @@ This skill replaces `mcp__android_emulator__android_start_emulator` when the tar
 > `eglMakeCurrent failed`, drop the stale snapshot
 > (`rm -rf ~/.android/avd/<AVD>/snapshots/*`) and cold-boot. See
 > `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md`. To get a
-> device for the emulator case, run `ensure-emulator` — it launches
+> device for the emulator case, run `./rm emulator` — it launches
 > with `-no-snapshot-load` and clears stale AVD locks itself, so no hand-editing
 > of `~/.android/avd` is needed on the scripted path.
 

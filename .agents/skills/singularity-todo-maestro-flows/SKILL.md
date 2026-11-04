@@ -15,24 +15,20 @@ All 4 Class E flows pass.
 
 ## Prerequisites: emulator first
 
-Flows need a booted emulator. `ensure-emulator` is the one way to get
+Flows need a booted emulator. `./rm emulator` is the one way to get
 one — it prints a ready serial, or starts the AVD and waits for boot. Getting one up
 on this host has host-specific traps (GPU dead ends, camera-thread crash,
 process-verification gotchas) — delegate to `singularity-todo-emulator-launch`.
 Device prep (wake, unlock, IME workaround, install, logcat) is
-`singularity-todo-adb-workflow` / `run-maestro`.
+`singularity-todo-adb-workflow` / `./rm`.
 
-**`ensure-emulator` and `run-maestro` have to be on PATH.** Both are console
-scripts of this repository's package, installed into the gate tooling venv of
-the checkout that installed them (`~/.venvs/singularity-todo-<checkout>/bin`):
-
-```bash
-export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
-```
-
-`bash scripts/ci/setup-local-tools.sh` creates that venv. `just ui-maestro` and
-`just gate-maestro` call `run-maestro` by name, so the same PATH applies to
-them.
+**Run the device command and the flow runner through `./rm`.** It binds this
+checkout's packages before running and refuses, naming the package, when they
+resolve to another checkout — so no PATH entry is needed. The console scripts still exist in the gate tooling venv
+(`~/.venvs/singularity-todo-<checkout>/bin`, created by
+`bash scripts/ci/setup-local-tools.sh`), and an editable install answers from
+whichever checkout installed it last; that is the accident the wrapper removes.
+`just ui-maestro` and `just gate-maestro` already call `./rm`.
 
 ## Running
 
@@ -43,7 +39,7 @@ just tm flow=Maestro/flows/tasks
 RUN_MAESTRO=1 ./check.sh       # opt-in, from the local check pipeline
 ```
 
-`just tm` forwards to `run-maestro`, which picks or relaunches the
+`just tm` forwards to `./rm`, which picks or relaunches the
 device, installs the APK, runs one flow per Maestro invocation, and fails on any
 `FATAL EXCEPTION` in logcat even when Maestro exits 0.
 
@@ -63,7 +59,7 @@ Maestro never rebuilds anything. After touching any composable or `TestTags.kt`:
 
 ```bash
 ./gradlew :androidApp:assembleDebug
-SERIAL=$(ensure-emulator)
+SERIAL=$(./rm emulator)
 adb -s "$SERIAL" install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
 maestro test Maestro/flows/<sub>/<file>.yaml
 ```
@@ -301,7 +297,7 @@ copy — "Удалить", "Архивировать" — are fine; only typed i
 
 A flow failing right after the previous one has usually lost the *device*, not
 its selectors — `adb devices` is the check. When running flows by hand, prefer
-`run-maestro`: it runs one flow per invocation and relaunches the
+`./rm`: it runs one flow per invocation and relaunches the
 emulator when the device dies, so a single crash costs one flow instead of the
 suite. See `singularity-todo-emulator-launch`.
 
@@ -360,7 +356,7 @@ split for flows — the split is `smoke` vs domain.
    (then the rebuild loop).
 6. Give a seeded fixture a title of its own: the seed replaces the row it names,
    so the title is stable across runs and the flow asserts on `task_item_<slug>`.
-   A per-run value comes from `${RUN_ID}` — minted by `run-maestro` on every
+   A per-run value comes from `${RUN_ID}` — minted by `./rm` on every
    attempt, declared in `Maestro/config.yaml` — and belongs only in a title the
    flow types into the editor itself. The old `${output.stamp}` form is gone: it
    is a flow's own computed value, so a selector holding it can never resolve.
