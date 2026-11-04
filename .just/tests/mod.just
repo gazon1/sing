@@ -445,11 +445,17 @@ coverage-markdown:
 # ---------------------------------------------------------------------------
 [group('tests')]
 [doc('Run Maestro UI flows: just ui-maestro [flow] [tags] (SERIAL=<id> picks the device)')]
+[working-directory(justfile_directory())]
 ui-maestro flow="Maestro/flows" tags="":
     #!/usr/bin/env bash
     set -euo pipefail
+    # `./rm`, not `run-maestro`: the console script is an editable install, and
+    # it belongs to whichever checkout was installed last. The runner resolves
+    # its root from the installed package's file, so the bare command reads
+    # another checkout's flows and installs another checkout's APK — and reports
+    # the result against this one.
     SERIAL="${SERIAL:-}" FLOW="{{ flow }}" TAGS="{{ tags }}" \
-        run-maestro
+        ./rm
 
 [group('tests')]
 [doc('Maestro gate: run every flow carrying a tag (positional args!)')]
@@ -462,6 +468,11 @@ gate-maestro tags="agenda" serial="":
     # needs. Installing here as well bought a second build — `SKIP_INSTALL=1`
     # was never read by the runner (it knows the `--skip-install` flag), so
     # every run paid for two installs and measured the second one.
+    #
+    # `./rm` and not `run-maestro`: the console script is an editable install
+    # that belongs to whichever checkout was installed last, and the runner
+    # resolves its root from the installed package's file — so the bare command
+    # runs another checkout's flows against this checkout's report.
     SERIAL="{{serial}}" TAGS="{{tags}}" \
-        run-maestro
+        ./rm
 
