@@ -50,6 +50,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.text.highlightedText
@@ -386,6 +387,7 @@ private fun SimpleResultCard(
                     color = MaterialTheme.colorScheme.primary,
                     shape = MaterialTheme.shapes.medium,
                 ).clickable(interactionSource = interactionSource, onClick = onClick)
+                .pointerCursorHand()
                 .focusable(interactionSource = interactionSource),
     ) {
         SelectableText(

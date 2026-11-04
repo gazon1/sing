@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.ui.formatFileSize
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 
@@ -49,7 +50,7 @@ fun AttachmentTile(
                 .fillMaxWidth()
                 .then(
                     if (onOpen != null) {
-                        Modifier.clickable(onClick = onOpen)
+                        Modifier.clickable(onClick = onOpen).pointerCursorHand()
                     } else {
                         Modifier
                     },

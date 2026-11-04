@@ -42,6 +42,7 @@ import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.rememberOverlayState
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.feature.tags.components.AddTagDialog
 import kotlinx.collections.immutable.ImmutableList
 
@@ -191,6 +192,7 @@ fun TagCard(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onOpen)
+                .pointerCursorHand()
                 .testTag(TestTags.tagOpen(tag.name)),
         colors =
             androidx.compose.material3.CardDefaults.cardColors(

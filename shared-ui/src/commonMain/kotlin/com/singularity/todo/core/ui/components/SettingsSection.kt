@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 
@@ -105,7 +106,9 @@ fun SettingsRow(
                 .fillMaxWidth()
                 .then(
                     if (onClick != null) {
-                        Modifier.clickable(role = Role.Button, onClick = onClick)
+                        Modifier
+                            .clickable(role = Role.Button, onClick = onClick)
+                            .pointerCursorHand()
                     } else {
                         Modifier
                     },

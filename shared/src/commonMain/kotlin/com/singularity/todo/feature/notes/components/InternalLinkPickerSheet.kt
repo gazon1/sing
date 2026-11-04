@@ -40,6 +40,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.search.SearchMode
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.feature.nav.Search
@@ -227,6 +228,7 @@ private fun LinkResultItem(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
+                .pointerCursorHand()
                 .padding(horizontal = 16.dp, vertical = 4.dp),
     )
 }

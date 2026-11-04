@@ -37,6 +37,7 @@ import com.singularity.todo.core.ui.components.formatRussianMonthYear
 import com.singularity.todo.core.ui.components.isoLocalDate
 import com.singularity.todo.core.ui.components.russianWeekdayHeaders
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
+import com.singularity.todo.core.ui.pointerCursorHand
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableSet
@@ -300,6 +301,7 @@ private fun MultiDateCell(
                         else -> Color.Transparent
                     },
                 ).clickable(enabled = !isDisabled, onClick = onClick)
+                .pointerCursorHand(!isDisabled)
                 .testTag(TestTags.MultiDatePicker.day(isoLocalDate(date)))
                 .mapTestTagsAsResourceIds(),
         contentAlignment = Alignment.Center,

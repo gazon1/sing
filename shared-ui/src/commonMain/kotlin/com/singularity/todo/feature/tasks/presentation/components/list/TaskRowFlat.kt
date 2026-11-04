@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
@@ -91,7 +92,8 @@ fun TaskRowFlat(
                         indication = null,
                         onClick = onClick,
                         onLongClick = onLongClick,
-                    ).then(secondaryClickModifier)
+                    ).pointerCursorHand()
+                    .then(secondaryClickModifier)
                     .padding(vertical = TaskListSpacing.Md + TaskListSpacing.Xs, horizontal = TaskListSpacing.Lg),
         )
 

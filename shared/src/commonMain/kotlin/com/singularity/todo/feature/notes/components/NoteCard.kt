@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.extractPreviewText
 
@@ -147,7 +148,8 @@ fun NoteCard(
             modifier
                 .fillMaxWidth()
                 .testTag(TestTags.noteItem(note.id.value))
-                .clickable(onClick = onClick),
+                .clickable(onClick = onClick)
+                .pointerCursorHand(),
         colors =
             CardDefaults.cardColors(
                 containerColor =

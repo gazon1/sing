@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.feature.calendar.domain.logic.YearMonth
 import com.singularity.todo.feature.calendar.domain.logic.isoLocalDate
 import com.singularity.todo.feature.calendar.domain.logic.monthGridDates
@@ -255,7 +256,7 @@ private fun MonthDayCell(
                         scope.launch { haptic.perform() }
                         if (hasNoTasks) onEmptyCellLongPress(date) else onDayLongPress(date)
                     },
-                ).padding(6.dp),
+                ).pointerCursorHand().padding(6.dp),
     ) {
         Column {
             Row(
