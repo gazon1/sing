@@ -55,6 +55,7 @@ import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTree
 import com.singularity.todo.shell.MenuBottomSheet
 import com.singularity.todo.shell.ShellSearchButton
 import com.singularity.todo.shell.fabActionForNav3
+import com.singularity.todo.shell.shellContentWindowInsets
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -144,7 +145,7 @@ fun androidShellNav3Root(
                 modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
             )
         },
-    ) {
+    ) { navigationPadding ->
         Scaffold(
             topBar = {
                 ShellTopBar(
@@ -164,7 +165,12 @@ fun androidShellNav3Root(
                     modifier = Modifier.testTag(TestTags.TASKS_FAB),
                 )
             },
-            contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal),
+            contentWindowInsets =
+                shellContentWindowInsets(
+                    horizontalInsets =
+                        ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal),
+                    navigationPadding = navigationPadding,
+                ),
         ) { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
                 val appEntryProvider = createAppEntryProvider(navCallbacks, today)
