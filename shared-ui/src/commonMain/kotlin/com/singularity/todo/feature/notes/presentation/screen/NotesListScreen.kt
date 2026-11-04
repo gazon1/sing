@@ -179,16 +179,28 @@ fun NotesListScreen(
             // Every note the list is showing right now, across all of its sections, or
             // `null` while it has not loaded. `null` and "empty" are different answers:
             // a list that has not arrived is no evidence that the selected note is gone.
-            // `remember` keyed on the state: the set is only an effect key, but computing
-            // it inline rebuilt a set of every note across four sections on every
-            // recomposition — a per-frame allocation on a large library, for a value that
-            // changes only when the list does. Structural equality of the key keeps an
-            // equal re-emission of the same state from paying for it again.
+            //
+            // The key is the four section lists, not [state]: `NotesUiState.Content` also
+            // carries query text, filter and sort, so keying on the state rebuilt this set
+            // on every keystroke in the search field and every selection-mode toggle — a
+            // per-frame allocation on a large library for a value that only changes when
+            // the list does. `buildSet` fills one set directly instead of materialising an
+            // intermediate `List` from four concatenations on each rebuild.
+            val contentList = (state as? NotesUiState.Content)?.list
             val shownNoteIds: Set<NoteId>? =
-                remember(state) {
-                    (state as? NotesUiState.Content)?.list?.let { list ->
-                        (list.dailyNotes + list.templates + list.pinned + list.unpinned)
-                            .mapTo(mutableSetOf()) { it.id }
+                remember(
+                    contentList?.dailyNotes,
+                    contentList?.templates,
+                    contentList?.pinned,
+                    contentList?.unpinned,
+                ) {
+                    contentList?.let { list ->
+                        buildSet {
+                            list.dailyNotes.mapTo(this) { it.id }
+                            list.templates.mapTo(this) { it.id }
+                            list.pinned.mapTo(this) { it.id }
+                            list.unpinned.mapTo(this) { it.id }
+                        }
                     }
                 }
 

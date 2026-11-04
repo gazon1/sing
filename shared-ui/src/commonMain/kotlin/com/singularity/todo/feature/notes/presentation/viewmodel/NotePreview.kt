@@ -82,11 +82,16 @@ class NotePreview(
     private fun delete() {
         val current = currentState as? NotePreviewState.Loaded ?: return
         emitError("Delete failed", { msg -> NotesUiEvent.Error("Delete failed: $msg") }) {
-            repo.delete(current.note.id)
-            // The note is gone, so nothing is left to show. Saying so in the state is
-            // what lets a host tell a delete that landed from one that failed: it leaves
-            // on NotFound, not on the tap that asked for the delete.
-            updateState { NotePreviewState.NotFound }
+            // The repository reports a failed delete by *returning* a failed `Result`, not
+            // by throwing, and `emitError` routes that same `Result`'s failure to the error
+            // event. So `NotFound` is set from the success branch only: a delete that did
+            // not land leaves the note `Loaded` and the surface where it is. Setting it
+            // unconditionally (or after an ignored `delete(...)`) would drive a host that
+            // leaves on `NotFound` to close the pane/pop the route while the note is still
+            // in the list — the exact regression the state change exists to prevent.
+            repo.delete(current.note.id).onSuccess {
+                updateState { NotePreviewState.NotFound }
+            }
         }
     }
 }
