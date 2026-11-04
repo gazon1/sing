@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.platformVerticalScrollbar
 import com.singularity.todo.core.ui.formatDecimal
 import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -172,11 +173,13 @@ fun StatisticsScreen(
 
 @Composable
 private fun TasksTabContent(state: StatisticsUiState) {
+    val scrollState = rememberScrollState()
     Column(
         modifier =
             Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(scrollState)
+                .platformVerticalScrollbar(scrollState),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         if (state.loading) {
@@ -300,11 +303,13 @@ private fun InsightsTabContent(
         return
     }
 
+    val scrollState = rememberScrollState()
     Column(
         modifier =
             Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(scrollState)
+                .platformVerticalScrollbar(scrollState),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // Total time header + range selector
@@ -557,11 +562,13 @@ private fun HealthTabContent(
         return
     }
 
+    val scrollState = rememberScrollState()
     Column(
         modifier =
             Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(scrollState)
+                .platformVerticalScrollbar(scrollState),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         StatCard("Open tasks", health.totalOpen.toString(), Modifier.fillMaxWidth())

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -38,6 +39,7 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.OverlayState
 import com.singularity.todo.core.ui.components.TopAppBar
+import com.singularity.todo.core.ui.components.platformVerticalScrollbar
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.components.sheet.ListPickerItem
 import com.singularity.todo.core.ui.components.sheet.ListPickerSheet
@@ -257,8 +259,10 @@ fun SavedAgendaListContent(
                     testTag = TestTags.SAVED_AGENDA_EMPTY_TITLE,
                 )
             } else {
+                val listState = rememberLazyListState()
                 LazyColumn(
-                    modifier = modifier.fillMaxSize(),
+                    state = listState,
+                    modifier = modifier.fillMaxSize().platformVerticalScrollbar(listState),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {

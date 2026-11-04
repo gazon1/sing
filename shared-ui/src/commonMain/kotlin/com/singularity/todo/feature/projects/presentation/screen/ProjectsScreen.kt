@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material.icons.Icons
@@ -48,6 +49,7 @@ import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ReopenActionButton
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.components.TopAppBar
+import com.singularity.todo.core.ui.components.platformVerticalScrollbar
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
@@ -318,8 +320,10 @@ private fun ProjectList(
     onReviewClick: (Project) -> Unit,
     onReopen: (ProjectId) -> Unit,
 ) {
+    val listState = rememberLazyListState()
     LazyColumn(
-        modifier = modifier.widthIn(max = 640.dp),
+        state = listState,
+        modifier = modifier.widthIn(max = 640.dp).platformVerticalScrollbar(listState),
         contentPadding = PaddingValues(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),

@@ -44,6 +44,7 @@ import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.TopAppBar
+import com.singularity.todo.core.ui.components.platformVerticalScrollbar
 import com.singularity.todo.core.ui.menu.onSecondaryClick
 import com.singularity.todo.core.ui.onboarding.SpotlightAnchorId
 import com.singularity.todo.core.ui.onboarding.SpotlightAnchorRegistry
@@ -340,6 +341,7 @@ private fun AgendaList(
         modifier =
             modifier
                 .fillMaxSize()
+                .platformVerticalScrollbar(listState)
                 .widthIn(max = 640.dp),
         contentPadding = PaddingValues(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp),
