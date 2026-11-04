@@ -27,17 +27,40 @@ import kotlin.time.Duration
  * The names are also the wire format. The serial names are lower case, because they
  * travel to a model that reads English, and a value the model has to guess at is a value
  * it will get wrong.
+ *
+ * ## Why [ACTIVE_NOT_DEFERRED] carries the qualifier and [ACTIVE] does not
+ *
+ * The two overlap: both mean "not finished", and they differ in one respect — the
+ * deferred (`someday`) tasks. A name pair where the *narrower* set sounds broader
+ * (`open` beside `active`) makes a model guess which of the two it wants; so the
+ * narrower set states the exclusion in its name, and [ACTIVE] is the one that says
+ * nothing extra because nothing is excluded. Read the pair as a whole and a qualifier:
+ * [ACTIVE], every unfinished task; [ACTIVE_NOT_DEFERRED], the unfinished tasks that are
+ * not deferred.
  */
 @Serializable
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 enum class TaskSelection {
     /**
      * Every unfinished task that is not deferred — dated or undated.
      *
-     * This is not the agenda's Inbox tab, which holds the undated tasks only.
-     * The name says the question the selection answers.
+     * This is not the agenda's Inbox tab, which holds the undated tasks only, and it is
+     * narrower than [ACTIVE], which keeps the deferred tasks. The name carries both
+     * clauses so that the two are not a guess.
+     *
+     * ## The old name, `inbox`
+     *
+     * The selection used to be `inbox`, which named it after the agenda tab it is *not*.
+     * The name is still decoded, so a saved prompt or a caller that sends it keeps
+     * working, and it resolves to this selection rather than to an error; the alias is
+     * read-only — the enum encodes as `active_not_deferred`, so the old name drains out
+     * of the wire one caller at a time. A test pins both directions
+     * (`TaskReadSurfaceTest`), because an alias nobody checks is an alias that stops
+     * working silently.
      */
-    @SerialName("open")
-    OPEN,
+    @SerialName("active_not_deferred")
+    @JsonNames("inbox")
+    ACTIVE_NOT_DEFERRED,
 
     /** Due today. */
     @SerialName("today")
