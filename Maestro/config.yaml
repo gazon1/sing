@@ -27,6 +27,7 @@
 #   archive      — archive feature area
 #   profile      — profile feature area
 #   projects     — projects feature area
+#   whatsnew     — the release-notes sheet
 appId: com.singularity.todo
 name: Singularity Todo
 

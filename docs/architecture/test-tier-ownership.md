@@ -44,8 +44,8 @@ classes deliver 13 again — the number `config/docs/test-runs-baseline.txt` rec
 |---|---|---|
 | AI chat | a flow exists — `Maestro/flows/menu/07-ai-chat-entry.yaml` — and its device verification is tracked by #1902 | the entry from the menu is the part a user touches; the chat screen itself is covered by the desktop compose tests |
 | Proposals | a flow exists — `Maestro/flows/menu/08-proposals-entry.yaml` — and its device verification is tracked by #1903 | as above |
-| WhatsNew | no flow; the gap is tracked by #1904 | the surface only appears when the server ships a payload, which a seeded device run does not produce |
-| Alarms | no flow, deliberately | the alarms feature has no user-facing surface — a reminder is scheduled by a task and what the user sees is a notification, which the notifier's own tests cover |
+| WhatsNew | a flow exists — `Maestro/flows/whatsnew/01-show-and-dismiss.yaml`, `02-dismissed-payload-stays-hidden.yaml` and `03-new-payload-shows-again.yaml`; their device run is not recorded in the headers yet | the payload arrives through remote config, which the E2E build has no server for. The debug seed link (`todo-debug://seed?whatsnew=…`) now delivers one, so the sheet, its dismissal and the rule that a dismissed payload does not reappear are all reachable from a flow |
+| Alarms | no flow, deliberately | the alarms feature has no user-facing surface — a reminder is scheduled by a task and what the user sees is a notification. The unit tier covers the reminder pipeline (`AlarmHandlerTest`, `ReminderFireLogicTest`, `ReminderDeliveryTest` under `shared/src/commonTest`), and `AlarmContract` — the tag format, the intent extras, the phase strings — is the shape that pipeline hands between its parts; no screen exists for a flow to drive |
 
 ## Where to look next
 

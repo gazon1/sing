@@ -108,6 +108,14 @@ open class SingularityApp : Application() {
             return listOf(
                 com.singularity.todo.test.stubs
                     .testAuthModule(),
+                // WhatsNew renders a remote-config payload, and the E2E build has no config
+                // server to fetch one from — which is why the sheet could not be reached from
+                // any flow. This override lets the debug seed link deliver a payload instead.
+                // The real port is resolved here, before the override is loaded: a `get()`
+                // inside the module would resolve the override itself and recurse.
+                com.singularity.todo.test.stubs.testRemoteConfigModule(
+                    delegate = getKoin().get<com.singularity.todo.core.config.RemoteConfigPort>(),
+                ),
             )
         }
         return emptyList()

@@ -14,6 +14,10 @@
 #   project=<name>           — create a project
 #   profile=<name>           — create and switch to a profile
 #   session=anonymous        — put the app into a local (offline) session
+#   whatsnew=<text>          — arm the WhatsNew sheet with a release-notes payload;
+#                              forgets the recorded dismissal, so the sheet shows
+#   whatsnew-seen=<text>     — the same payload, as one the user may already have
+#                              dismissed: the sheet shows only if <text> was never dismissed
 #
 # This helper does NOT run launch-clean — the caller decides.
 #

@@ -28,6 +28,7 @@ import com.singularity.todo.feature.genui.parser.A2uiParser
 import com.singularity.todo.feature.genui.render.ComponentRegistry
 import com.singularity.todo.feature.genui.render.GenuiSurface
 import com.singularity.todo.feature.genui.render.LocalGenuiOnAction
+import com.singularity.todo.feature.genui.render.genuiTag
 import com.singularity.todo.feature.genui.render.rememberDataContext
 import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.surface.SurfaceId
@@ -100,6 +101,13 @@ fun WhatsNewScreen(
         scope.launch {
             snapshot.whatsNewPayload?.let { prefs.markShown(it) }
         }
+        // Clearing the surface is what actually removes the sheet. `onDismiss` is the caller's
+        // hook and both callers pass a no-op, so without this a payload's own "close" action
+        // would record the dismissal and leave the sheet on screen — a dismissal that does not
+        // dismiss. The `LaunchedEffect` above does not re-arm it: it re-runs on the payload, and
+        // the payload has not changed.
+        surfaceId = null
+        droppedLines = 0
         onDismiss()
     }
 
@@ -118,7 +126,11 @@ fun WhatsNewScreen(
     ModalBottomSheet(
         onDismissRequest = handleDismiss,
         sheetState = sheetState,
-        modifier = modifier,
+        // The sheet's own node, because a Surface merges its descendants and a tag placed below
+        // it lives only in the unmerged tree — where neither accessibility nor Maestro looks.
+        // The id is the catalogue's existing `genUi("whatsnew")` entry, which was declared and
+        // never rendered: the surface had no tag, so a flow had nothing to wait for.
+        modifier = modifier.genuiTag("whatsnew", "Release notes"),
     ) {
         Column(
             modifier =
