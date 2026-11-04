@@ -1,5 +1,6 @@
 package com.singularity.todo.test.helpers
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -10,10 +11,18 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
+import com.singularity.todo.core.ui.DesktopShellLabels
 import com.singularity.todo.core.ui.TestTags
+import kotlin.test.assertTrue
 
 /**
- * Content descriptions of the desktop shell's own controls.
+ * Content descriptions the desktop flow helpers select on.
+ *
+ * [HAMBURGER] is the shell's own drawer trigger — one control, always a hamburger,
+ * whatever screen is open. [BACK] belongs to the screen, not the shell: the editor and
+ * detail screens draw their own back arrows, and the shell no longer turns its lead
+ * control into one (#1943 — the trigger has to stay the way into the drawer).
  *
  * The drawer items and the FAB carry **no** `testTag`, unlike their Android
  * counterparts (`TestTags.navTab(...)` on the bottom bar, `TestTags.TASKS_FAB` on
@@ -23,7 +32,14 @@ import com.singularity.todo.core.ui.TestTags
  * matching.
  */
 object DesktopShell {
-    const val HAMBURGER = "Menu"
+    /**
+     * The drawer trigger's content description.
+     *
+     * Not a literal: it is [DesktopShellLabels.DRAWER_TRIGGER], the same constant the
+     * shell draws the control with, so a rename in production moves this selector with
+     * it instead of leaving the suite red and the value duplicated.
+     */
+    const val HAMBURGER = DesktopShellLabels.DRAWER_TRIGGER
     const val BACK = "Back"
     const val FAB_ADD_TASK = "Add task"
     const val FAB_ADD_PROJECT = "Add project"
@@ -90,9 +106,10 @@ fun DesktopComposeUiTest.openDrawer() =
         // throws if the node is not composed *yet*; the hamburger is the first thing
         // the shell draws, so under load it has sometimes not drawn when this runs.
         // The failure reads as "Failed to inject mouse input ... could not find any
-        // node that satisfies ContentDescription = 'Menu'", which blames the input
-        // injection and the drawer and never mentions timing — measured on
-        // `AuthFirstRunScenarioTest` in a 12-minute run, passing in isolation.
+        // node that satisfies ContentDescription = '${DesktopShell.HAMBURGER}'", which
+        // blames the input injection and the drawer and never mentions timing —
+        // measured on `AuthFirstRunScenarioTest` in a 12-minute run, passing in
+        // isolation.
         awaitContentDescription(DesktopShell.HAMBURGER).performClick()
         waitUntil(
             conditionDescription = "drawer entry '${DesktopShell.TABS.first()}' slides into view",
@@ -118,13 +135,12 @@ fun DesktopComposeUiTest.assertCurrentTab(label: String) =
     }
 
 /**
- * Pops the shell's navigation stack by clicking its back button.
+ * Pops the current screen by clicking the back arrow the screen itself draws.
  *
- * The shell's leading top-bar control is a hamburger or a back arrow depending on
- * `canGoBack` — its contentDescription is [DesktopShell.HAMBURGER] or
- * [DesktopShell.BACK] respectively. So after pushing a screen (a task editor, a
- * project detail) the drawer cannot be opened from that control until the push is
- * popped, and [openDrawer] would fail to find the hamburger.
+ * The shell's leading control is the drawer trigger on every screen, so [DesktopShell.BACK]
+ * is a screen's own arrow, not the shell's. Every screen a flow leaves this way — the note
+ * editor, the task editor, the task detail — draws one, and it pops the screen the flow is
+ * on.
  *
  * Saving a task or a note does **not** pop: the editor stays open with its save
  * button still on screen, so a flow has to leave explicitly before it can change
@@ -133,14 +149,23 @@ fun DesktopComposeUiTest.assertCurrentTab(label: String) =
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.goBack() =
     step("goBack") {
-        onNodeWithContentDescription(DesktopShell.BACK).performClick()
+        // The wait is on the *identity* of the arrow just clicked, not on a
+        // description reappearing. Descriptions prove nothing here: the screen the pop
+        // reveals may draw a "Back" arrow of its own, and the wait this replaces asked
+        // for the drawer trigger — which the shell draws on every screen since #1943,
+        // so it was already on screen before the click and the wait could not fail.
+        // The popped screen owns the arrow that was clicked, so that node leaving the
+        // tree is the pop.
+        val arrow = onNodeWithContentDescription(DesktopShell.BACK)
+        val popped = arrow.fetchSemanticsNode()
+        arrow.performClick()
         waitUntil(
-            conditionDescription = "shell returns to a drawer-openable tab",
+            conditionDescription = "the screen that drew the clicked Back arrow is popped",
             timeoutMillis = TIMEOUT_MS,
         ) {
-            onAllNodes(hasContentDescription(DesktopShell.HAMBURGER))
+            onAllNodes(hasContentDescription(DesktopShell.BACK))
                 .fetchSemanticsNodes()
-                .isNotEmpty()
+                .none { it.id == popped.id }
         }
         waitForIdle()
     }

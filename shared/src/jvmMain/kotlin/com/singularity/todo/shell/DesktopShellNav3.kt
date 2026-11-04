@@ -14,6 +14,7 @@ import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.ui.NavDisplay
+import com.singularity.todo.core.ui.DesktopShellLabels
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.menu.ComposeTopMenuBar
 import com.singularity.todo.core.ui.menu.MenuNode
@@ -355,7 +357,22 @@ fun DesktopShellNav3Root(
                 },
                 floatingActionButtonPosition = FabPosition.End,
                 topBar = {
-                    ComposeTopMenuBar(entries = menuEntries)
+                    ComposeTopMenuBar(
+                        entries = menuEntries,
+                        leading = {
+                            DrawerTrigger(
+                                onClick = {
+                                    scope.launch {
+                                        if (drawerState.isClosed) {
+                                            drawerState.open()
+                                        } else {
+                                            drawerState.close()
+                                        }
+                                    }
+                                },
+                            )
+                        },
+                    )
                 },
             ) { padding ->
                 CompositionLocalProvider(LocalNav3State provides state) {
@@ -371,6 +388,31 @@ fun DesktopShellNav3Root(
 
     if (showAbout) {
         AboutDialog(onDismiss = { showAbout = false })
+    }
+}
+
+/**
+ * The desktop shell's drawer trigger.
+ *
+ * The window's application menu lists the same destinations, but its entries can only
+ * open the screen they name — this is the one control that opens the drawer holding
+ * them, and the drawer had no way in at all after #1562 dropped the bar it sat in.
+ *
+ * It stays a drawer trigger on every screen rather than turning into a back arrow: the
+ * navigation policy treats a drawer entry as a switch of top-level destination, so a
+ * "can go back" reading is true on every tab but the first, and a control that became a
+ * back arrow there would take the drawer away again. Back is each screen's own arrow,
+ * and the window's back request.
+ *
+ * Its content description is [DesktopShellLabels.DRAWER_TRIGGER], and it is read from
+ * there rather than written here: that constant is part of the desktop flow suite's
+ * contract — the helpers bind `DesktopShell.HAMBURGER` to the same value — and a name
+ * only one of the two sides reads is a name the other side silently stops matching.
+ */
+@Composable
+private fun DrawerTrigger(onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Icon(Icons.Default.Menu, contentDescription = DesktopShellLabels.DRAWER_TRIGGER)
     }
 }
 

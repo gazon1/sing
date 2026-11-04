@@ -108,6 +108,27 @@ class NavigationFlowTest {
         }
 
     /**
+     * The two screens the shell could not reach: the notes list and the search screen.
+     *
+     * They live behind the drawer, and the drawer's trigger went missing with the
+     * duplicate desktop bar (#1562) — so a flow could only ever see the screen the
+     * app opened on. Both arrivals are asserted on content the destination itself
+     * renders, never on the drawer entry, which slides off-screen as it is tapped.
+     */
+    @Test
+    fun notes_and_search_are_reachable_from_the_drawer() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) {
+            tapTab("Notes")
+            assertTagDisplayed(TestTags.NOTES_QUICK_ADD_INPUT)
+
+            // From the notes list, not from the tab the app opened on: the trigger has
+            // to survive a destination change, which is the half that a drawer opened
+            // only on the first screen would fail.
+            tapTab("Search")
+            assertTagDisplayed(TestTags.SEARCH_INPUT)
+        }
+
+    /**
      * The project list is no longer a tab: it is a screen the menu opens. The
      * round trip it used to make — a tab holding the list, a tab switch, and
      * back — is now a round trip through the menu.

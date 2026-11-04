@@ -47,10 +47,15 @@ import kotlinx.collections.immutable.ImmutableList
  * IMPORTANT: each interactive element uses its OWN [MutableInteractionSource].
  * Sharing one between hoverable and clickable on the same modifier chain can
  * suppress click events on Compose 1.12.
+ *
+ * @param leading drawn before the entries, outside their horizontal scroll. The place
+ * for the window's own navigation control: the entries scroll on a narrow window, and a
+ * control that scrolls away with them is a control the user cannot reach.
  */
 @Composable
 fun ComposeTopMenuBar(
     entries: ImmutableList<MenuNode>,
+    leading: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var openMenuId by remember { mutableStateOf<String?>(null) }
@@ -64,29 +69,36 @@ fun ComposeTopMenuBar(
         tonalElevation = 1.dp,
     ) {
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 4.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            entries.forEach { node ->
-                when (node) {
-                    is MenuNode.SubMenu -> {
-                        TopMenuBarItem(
-                            node = node,
-                            isOpen = openMenuId == node.id,
-                            onOpenChange = { open -> openMenuId = if (open) node.id else null },
-                            onDismiss = { openMenuId = null },
-                        )
-                    }
+            leading()
 
-                    is MenuNode.Action -> {
-                        TopMenuBarAction(node)
-                    }
+            Row(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                entries.forEach { node ->
+                    when (node) {
+                        is MenuNode.SubMenu -> {
+                            TopMenuBarItem(
+                                node = node,
+                                isOpen = openMenuId == node.id,
+                                onOpenChange = { open -> openMenuId = if (open) node.id else null },
+                                onDismiss = { openMenuId = null },
+                            )
+                        }
 
-                    MenuNode.Divider -> { /* skip dividers at top level */ }
+                        is MenuNode.Action -> {
+                            TopMenuBarAction(node)
+                        }
+
+                        MenuNode.Divider -> { /* skip dividers at top level */ }
+                    }
                 }
             }
         }
