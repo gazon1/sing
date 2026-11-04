@@ -3,9 +3,10 @@
 # Two notes, neither pinned or archived, so Pinned and Archived must come up
 # empty while All shows both.
 #
-# Both titles carry ${RUN_ID} so the runner's per-attempt sweep can find
-# exactly this run's rows and remove them — and so the title-based tags the
-# flow addresses carry the same prefix.
+# Both titles carry ${RUN_ID} so the rows the flow addresses are unique to
+# this attempt, and so the title-based tags carry the same prefix. Nothing
+# sweeps by the id: the runner wipes the profile's content before the next
+# flow, and that is what removes the rows.
 appId: com.singularity.todo
 name: notes-filter-chips
 tags:

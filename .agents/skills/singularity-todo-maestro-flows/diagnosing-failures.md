@@ -248,10 +248,10 @@ into the editor is the flow's own row, not the seed's, so it may carry the id
 when a flow needs a value unique to the attempt. A retry after a lost device
 gets a *new* id, so it cannot collide with the attempt it replaces. Nothing
 sweeps by that id: the runner's cleanup is the profile wipe it does before each
-flow, which takes every row with it, and the sweep by title prefix is gone from
-the runner (the `cleanup=` deep link still exists in the app, but the runner
-does not send it — its boundary was a hand-written list of titles that was
-already behind the suite).
+flow, which takes every row with it. The sweep by title prefix is gone, and so
+is the app's half of it: the seed deep link no longer answers a `cleanup=`
+parameter at all — its boundary was a hand-written list of titles that was
+already behind the suite.
 
 `seed-task.yaml` deliberately keeps the **fixed** title "Buy milk": 17 flows
 address its row by the stable `task_item_buy_milk` id, and the seed replaces that
