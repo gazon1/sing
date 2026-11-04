@@ -18,8 +18,8 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ChevronRight
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
@@ -136,7 +136,7 @@ fun ProjectBodySection(
                     modifier = Modifier.padding(horizontal = 16.dp),
                 ) {
                     Text("See all ${ui.totalCount} tasks")
-                    Icon(Icons.Filled.ChevronRight, contentDescription = null)
+                    Icon(Icons.AutoMirrored.Filled.ChevronRight, contentDescription = null)
                 }
             }
         }
