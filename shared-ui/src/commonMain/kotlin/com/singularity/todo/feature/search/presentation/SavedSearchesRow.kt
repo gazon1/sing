@@ -133,10 +133,12 @@ private fun SavedSearchChipWithMenu(
                 )
             },
             modifier =
-                Modifier.combinedClickable(
-                    onClick = onClick,
-                    onLongClick = { showMenu = true },
-                ),
+                Modifier
+                    .testTag(TestTags.SavedSearches.chip(saved.name))
+                    .combinedClickable(
+                        onClick = onClick,
+                        onLongClick = { showMenu = true },
+                    ),
         )
 
         DropdownMenu(
@@ -146,9 +148,9 @@ private fun SavedSearchChipWithMenu(
             // so Maestro id: selectors can find items inside the menu.
             modifier = Modifier.mapTestTagsAsResourceIds(),
         ) {
-            // Rename row with inline text field.
-            // Desktop gap: DropdownMenu renders in a separate layer that the desktop
-            // Compose test API cannot reach. These tags are for Android/Maestro.
+            // Rename row with inline text field. The menu is a popup, so the
+            // desktop harness presses these through `clickTagFirst` — a popup is
+            // composed in two windows while it animates.
             DropdownMenuItem(
                 text = {
                     Column(
@@ -171,7 +173,10 @@ private fun SavedSearchChipWithMenu(
                                 }
                                 showMenu = false
                             },
-                            modifier = Modifier.align(androidx.compose.ui.Alignment.End),
+                            modifier =
+                                Modifier
+                                    .align(androidx.compose.ui.Alignment.End)
+                                    .testTag(TestTags.SavedSearches.SEARCH_MENU_RENAME_BUTTON),
                         ) {
                             Text("Rename")
                         }
