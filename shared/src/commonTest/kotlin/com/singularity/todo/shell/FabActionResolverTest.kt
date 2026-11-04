@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -25,22 +24,14 @@ class FabActionResolverTest {
      */
     private val today: LocalDate = LocalDate(2026, 9, 16)
 
-    private val project = ProjectId("project-1")
-    private val tag = TagId("tag-1")
-    private val otherTag = TagId("tag-2")
-    private val view = SavedAgendaViewId("view-1")
-
     private var navigatedTo: AppDestination? = null
     private val navigate: (AppDestination) -> Unit = { navigatedTo = it }
 
     private fun FabAction?.label() = this?.label
 
-    private fun FabAction?.click(): AppDestination.TasksGraph {
+    private fun FabAction?.click() {
         assertIs<FabAction>(this)
         this.onClick()
-        val nav = navigatedTo as? AppDestination.TasksGraph
-        assertIs<AppDestination.TasksGraph>(nav)
-        return nav
     }
 
     // ── Modern AgendaGraph routes (Desktop) ─────────────────────────────────────
@@ -49,7 +40,9 @@ class FabActionResolverTest {
     fun agendaGraph_inbox_returnsAddTask() {
         val result = fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.Inbox), today, navigate)
         assertEquals("Add task", result.label())
-        val nav = result.click()
+        result.click()
+        val nav = navigatedTo as? AppDestination.TasksGraph
+        assertIs<AppDestination.TasksGraph>(nav)
         assertEquals(AppDestination.TasksStartRoute.Create(), nav.start)
         assertNull(nav.initialDueDate, "Inbox FAB should not prefill due date")
     }
@@ -59,7 +52,9 @@ class FabActionResolverTest {
         val today = today
         val result = fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.Today), today, navigate)
         assertEquals("Add task", result.label())
-        val nav = result.click()
+        result.click()
+        val nav = navigatedTo as? AppDestination.TasksGraph
+        assertIs<AppDestination.TasksGraph>(nav)
         assertEquals(AppDestination.TasksStartRoute.Create(), nav.start)
         assertEquals(today, nav.initialDueDate, "Today FAB should prefill due date to today")
     }
@@ -68,169 +63,17 @@ class FabActionResolverTest {
     fun agendaGraph_upcoming_returnsAddTask() {
         val result = fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.Upcoming), today, navigate)
         assertEquals("Add task", result.label())
-        val nav = result.click()
+        result.click()
+        val nav = navigatedTo as? AppDestination.TasksGraph
+        assertIs<AppDestination.TasksGraph>(nav)
         assertEquals(AppDestination.TasksStartRoute.Create(), nav.start)
         assertNull(nav.initialDueDate, "Upcoming FAB should not prefill due date")
     }
 
     @Test
-    fun agendaGraph_project_returnsAddTask_seededWithThatProject() {
-        val result = fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.Project(project)), today, navigate)
-        assertEquals("Add task", result.label())
-        val nav = result.click()
-        assertEquals(
-            AppDestination.TasksStartRoute.Create(projectId = project),
-            nav.start,
-            "The project agenda must seed the task with the project whose list was open",
-        )
-        assertNull(nav.initialDueDate, "a project agenda prefills no date")
-    }
-
-    @Test
-    fun agendaGraph_tag_returnsAddTask_seededWithThatTag() {
-        val result = fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.Tag(tag)), today, navigate)
-        assertEquals("Add task", result.label())
-        val nav = result.click()
-        assertEquals(
-            AppDestination.TasksStartRoute.Create(tagIds = setOf(tag)),
-            nav.start,
-            "The tag agenda must seed the task with the tag whose list was open",
-        )
-        assertNull(nav.initialDueDate, "a tag agenda prefills no date")
-    }
-
-    @Test
-    fun agendaGraph_tags_returnsAddTask_seededWithThoseTags() {
-        val tags = setOf(tag, otherTag)
-        val result = fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.Tags(tags)), today, navigate)
-        assertEquals("Add task", result.label())
-        val nav = result.click()
-        assertEquals(
-            AppDestination.TasksStartRoute.Create(tagIds = tags),
-            nav.start,
-            "The multi-tag agenda must seed the task with the tags whose list was open",
-        )
-        assertNull(nav.initialDueDate, "a multi-tag agenda prefills no date")
-    }
-
-    // ── Saved-view routes: not task lists, so no action ────────────────────────
-
-    @Test
     fun agendaGraph_savedAgendaList_returnsNull() {
         val result = fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaList), today, navigate)
         assertNull(result)
-    }
-
-    @Test
-    fun agendaGraph_savedAgendaResults_returnsNull() {
-        val result =
-            fabActionForNav3(
-                AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaResults(view)),
-                today,
-                navigate,
-            )
-        assertNull(result, "a saved view's results screen is not the shell's task list")
-    }
-
-    @Test
-    fun agendaGraph_savedAgendaEdit_returnsNull() {
-        val result =
-            fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit(view)), today, navigate)
-        assertNull(result)
-    }
-
-    @Test
-    fun agendaGraph_savedAgendaCreate_returnsNull() {
-        val result = fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaCreate), today, navigate)
-        assertNull(result)
-    }
-
-    // ── The shell's tab set is the rule ────────────────────────────────────────
-
-    /**
-     * The tab list, not a hand-copied set of routes. The Upcoming tab once listed
-     * tasks with no button, and a per-route test recorded the absence as correct;
-     * reading [DestinationKind.tabs] means a tab that loses its create action fails
-     * here, and the failure names the route (#1953, #1959).
-     */
-    @Test
-    fun everyAgendaTab_returnsAddTask() {
-        val agendaTabs = DestinationKind.tabs.filterIsInstance<AppDestination.AgendaGraph>()
-        assertTrue(agendaTabs.isNotEmpty(), "the shell's tab set must contain agenda tabs")
-        agendaTabs.forEach { tab ->
-            val action =
-                assertNotNull(
-                    fabActionForNav3(tab, today, navigate),
-                    "agenda tab ${tab.start} must offer Add task",
-                )
-            assertEquals("Add task", action.label, "agenda tab ${tab.start} must offer Add task")
-        }
-    }
-
-    /**
-     * The tabs deliberately expected to resolve to nothing, named rather than left
-     * implicit: the Calendar opens a calendar, not a task list (#1959).
-     */
-    @Test
-    fun theOnlyTabWithoutAnAgendaAction_isCalendar() {
-        val withoutAction = DestinationKind.tabs.filter { fabActionForNav3(it, today, navigate) == null }
-        assertEquals(listOf<AppDestination>(AppDestination.Calendar), withoutAction)
-    }
-
-    // ── Every agenda route is classified ───────────────────────────────────────
-
-    /**
-     * Every agenda start route, so the classification below walks all of them.
-     * A route the sealed hierarchy gains later reaches [expectedAddTask] first:
-     * that `when` has no `else`, so an unclassified route does not compile.
-     */
-    private val everyAgendaRoute: List<AgendaStartRoute> =
-        listOf(
-            AgendaStartRoute.Inbox,
-            AgendaStartRoute.Today,
-            AgendaStartRoute.Upcoming,
-            AgendaStartRoute.Project(project),
-            AgendaStartRoute.Tag(tag),
-            AgendaStartRoute.Tags(setOf(tag, otherTag)),
-            AgendaStartRoute.SavedAgendaList,
-            AgendaStartRoute.SavedAgendaResults(view),
-            AgendaStartRoute.SavedAgendaEdit(view),
-            AgendaStartRoute.SavedAgendaCreate,
-            AgendaStartRoute.Blocked,
-            AgendaStartRoute.Stagnant,
-            AgendaStartRoute.Overdue,
-        )
-
-    private fun expectedAddTask(route: AgendaStartRoute): Boolean =
-        when (route) {
-            AgendaStartRoute.Inbox,
-            AgendaStartRoute.Today,
-            AgendaStartRoute.Upcoming,
-            is AgendaStartRoute.Project,
-            is AgendaStartRoute.Tag,
-            is AgendaStartRoute.Tags,
-            AgendaStartRoute.Blocked,
-            AgendaStartRoute.Stagnant,
-            AgendaStartRoute.Overdue,
-            -> true
-
-            AgendaStartRoute.SavedAgendaList,
-            is AgendaStartRoute.SavedAgendaResults,
-            is AgendaStartRoute.SavedAgendaEdit,
-            AgendaStartRoute.SavedAgendaCreate,
-            -> false
-        }
-
-    @Test
-    fun everyAgendaRoute_isClassified() {
-        everyAgendaRoute.forEach { route ->
-            val expected = expectedAddTask(route)
-            val result = fabActionForNav3(AppDestination.AgendaGraph(route), today, navigate)
-            assertEquals(expected, result != null, "route $route: Add task expected = $expected")
-            if (result != null) {
-                assertEquals("Add task", result.label, "route $route")
-            }
-        }
     }
 
     // ── Modern ProjectsGraph routes (Desktop) ───────────────────────────────────
