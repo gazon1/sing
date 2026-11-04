@@ -147,7 +147,8 @@ data class TaskEditorCallbacks(
     val onTimeEntrySave: ((startedAtMs: Long, endedAtMs: Long, kind: TimeEntryKind, note: String?) -> Unit)?,
     /**
      * Sections the editor does not know about — the checklist, the tags, the proposals,
-     * the logbook — rendered under the fields. Null means the editor shows nothing else.
+     * the logbook — rendered after the rows, so the rows a person fills in stay above
+     * them. Null means the editor shows nothing else.
      */
     val extraSections: (@Composable () -> Unit)? = null,
     /** Bottom bar content — null means no bottom bar */
