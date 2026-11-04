@@ -86,9 +86,8 @@ class CreateTaskFlowTest {
             clickContentDescription(DesktopShell.FAB_ADD_TASK)
             typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
 
-            // Pushing the editor turns the shell's hamburger into a back arrow, so
-            // the drawer is unreachable until the push is popped. This is desktop
-            // behaviour with no Android counterpart, since the bottom bar stays put.
+            // The editor draws its own back arrow; the shell's drawer trigger is not a
+            // back control, so the editor is left through its own.
             assertContentDescriptionDisplayed(DesktopShell.BACK)
             clickContentDescription(DesktopShell.BACK)
 

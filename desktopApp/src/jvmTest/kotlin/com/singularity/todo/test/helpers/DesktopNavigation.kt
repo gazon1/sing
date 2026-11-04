@@ -13,7 +13,12 @@ import androidx.compose.ui.test.performScrollTo
 import com.singularity.todo.core.ui.TestTags
 
 /**
- * Content descriptions of the desktop shell's own controls.
+ * Content descriptions the desktop flow helpers select on.
+ *
+ * [HAMBURGER] is the shell's own drawer trigger — one control, always a hamburger,
+ * whatever screen is open. [BACK] belongs to the screen, not the shell: the editor and
+ * detail screens draw their own back arrows, and the shell no longer turns its lead
+ * control into one (#1943 — the trigger has to stay the way into the drawer).
  *
  * The drawer items and the FAB carry **no** `testTag`, unlike their Android
  * counterparts (`TestTags.navTab(...)` on the bottom bar, `TestTags.TASKS_FAB` on
@@ -118,13 +123,12 @@ fun DesktopComposeUiTest.assertCurrentTab(label: String) =
     }
 
 /**
- * Pops the shell's navigation stack by clicking its back button.
+ * Pops the current screen by clicking the back arrow the screen itself draws.
  *
- * The shell's leading top-bar control is a hamburger or a back arrow depending on
- * `canGoBack` — its contentDescription is [DesktopShell.HAMBURGER] or
- * [DesktopShell.BACK] respectively. So after pushing a screen (a task editor, a
- * project detail) the drawer cannot be opened from that control until the push is
- * popped, and [openDrawer] would fail to find the hamburger.
+ * The shell's leading control is the drawer trigger on every screen, so [DesktopShell.BACK]
+ * is a screen's own arrow, not the shell's. Every screen a flow leaves this way — the note
+ * editor, the task editor, the task detail — draws one, and it pops the screen the flow is
+ * on.
  *
  * Saving a task or a note does **not** pop: the editor stays open with its save
  * button still on screen, so a flow has to leave explicitly before it can change
