@@ -91,6 +91,30 @@ class DestinationIconsTest {
         )
     }
 
+    /**
+     * The agenda's project drill-down keeps the folder the projects list carries.
+     *
+     * That is the one glyph two destinations share, and it is legal only under
+     * the second half of the rule: "or is explicitly documented as sharing one
+     * with a route that is never drawn beside it". So the allowance is checked
+     * rather than assumed — the projects list has to stay a sub-route, off the
+     * tab bar and off the menu, because those are the lists that get drawn. The
+     * day it joins one of them, this fails and says why, instead of leaving two
+     * folders in one sheet for a reader to notice.
+     */
+    @Test
+    fun theAgendaProjectSharesItsFolderOnlyWithAScreenNoListDraws() {
+        val agendaProject = AppDestination.AgendaGraph(AgendaStartRoute.Project(ProjectId("p1")))
+        val projectsList = AppDestination.ProjectsGraph()
+        if (agendaProject.icon.glyphName() != projectsList.icon.glyphName()) return
+        assertTrue(
+            DestinationKind.isSubRoute(projectsList),
+            "The agenda's project route and the projects list both draw the folder glyph, " +
+                "and the projects list has joined a list that is drawn beside the agenda tabs. " +
+                "Give one of them a glyph of its own.",
+        )
+    }
+
     @Test
     fun noDestinationIsDrawnWithTheDoneTick() {
         val drawn =
