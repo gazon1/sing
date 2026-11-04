@@ -227,7 +227,7 @@ fi
 #
 # This was a warning until 2026-10-20, because the drift predated it. The
 # drift is paid: the shell file and _registry.py now carry the same names.
-gate blocking "gate registries agree" python3 scripts/check-gate-registries.py --strict
+gate blocking "gate registries agree" sgate gate_registries_agree
 # Build hygiene
 gate blocking "version catalog has no literals" sgate version_catalog_has_no_literals
 # The shape of the CI workflow's Gradle block: one gate for three checks.
@@ -245,7 +245,7 @@ gate blocking "version catalog has no literals" sgate version_catalog_has_no_lit
 # One file, three properties, one CI row. Each check keeps its own script, unit
 # tests and positive control; the wrapper runs all three and reports every
 # failure, not the first.
-gate blocking "ci workflow shape is declared" python3 scripts/check-ci-workflow-shape.py
+gate blocking "ci workflow shape is declared" sgate ci_workflow_shape_is_declared
 # A waiver whose premise is prose rots silently. The one control waived from the
 # clean-run guard promises that both surfaces run `:detekt-rules:koverVerify` a
 # step later; rename the CI step or drop the task from it and the promise is
@@ -264,7 +264,7 @@ gate blocking "declared dependencies are used" sgate declared_dependencies_are_u
 # and names the document, the line and both numbers when they differ. It reads a
 # fixed list of documents — a number published anywhere else is a claim this gate
 # does not check, and that limit is written down in the gate's own docstring.
-gate blocking "published measurements match the record" python3 scripts/check-published-measurements.py
+gate blocking "published measurements match the record" sgate published_measurements_match_the_record
 # The published page prices the CI loop from one run, and the criterion that
 # retires that record is the workflow's jobs changing. Nothing checked it: the suite job
 # was renamed from `JVM tests, detekt, coverage` to `JVM tests`, and the page kept
@@ -289,7 +289,7 @@ gate blocking "published measurements match the record" python3 scripts/check-pu
 # identifies no job at all — the gate exits with a configuration error instead of
 # calling everything unproven. The limit is written down in the gate's own
 # docstring.
-gate blocking "the recorded CI jobs are still jobs" python3 scripts/check-recorded-ci-jobs.py
+gate blocking "the recorded CI jobs are still jobs" sgate the_recorded_ci_jobs_are_still_jobs
 # The heap of a test fork was a literal string in five build scripts, and the
 # heap of the Gradle daemon was a literal string in `gradle.properties`. The
 # measurement behind them lived in an ADR that no build read and no gate held.
@@ -298,10 +298,10 @@ gate blocking "the recorded CI jobs are still jobs" python3 scripts/check-record
 # the place Kover reads it: a number that nobody can check is a number nobody
 # enforces. The record is a file, the build reads it, and this compares every
 # test task in the tree with it.
-gate blocking "the memory budget is one record" python3 scripts/check-memory-budget.py
+gate blocking "the memory budget is one record" sgate the_memory_budget_is_one_record
 gate blocking "room schema integrity" sgate room_schema_integrity
-gate blocking "tag entity constructions include nameNormalized" python3 scripts/ci/check-tag-entity-normalized.py
-gate blocking "migration index names follow convention" python3 scripts/ci/check-migration-naming.py
+gate blocking "tag entity constructions include nameNormalized" sgate tag_entity_constructions_include_namenormalized
+gate blocking "migration index names follow convention" sgate migration_index_names_follow_convention
 # The skill that tells an agent which transformation to use for which text
 # field carries a table of the transformations and the rule each one applies.
 # Nothing held it to the code: a transformation could be added, renamed, or
@@ -314,7 +314,7 @@ gate blocking "migration index names follow convention" python3 scripts/ci/check
 # compared with what the row says. The rule sentence is checked as far as a
 # sentence can be: it has to mention the fact, so a sentence that stops saying
 # what the code does fails too.
-gate blocking "the text-field transformation table is true" python3 scripts/check-text-field-transformations-table.py
+gate blocking "the text-field transformation table is true" sgate the_text_field_transformation_table_is_true
 # The platform reference is the inventory of the seam: which port is bound to
 # which implementation on which platform. It said so itself — "nothing here is
 # generated … no gate will notice" — and it had rotted: it still named a port
@@ -325,7 +325,7 @@ gate blocking "the text-field transformation table is true" python3 scripts/chec
 # not bind fails; and an implementation a row attributes to a platform has to
 # exist in that platform's source set. The table's fourth column says which of
 # its rows the gate checks, so a row that cannot be checked says so.
-gate blocking "the platform reference ports are true" python3 scripts/check-platform-reference-ports.py
+gate blocking "the platform reference ports are true" sgate the_platform_reference_ports_are_true
 # The E2E suite isolates one flow from the next by wiping the app's content
 # between flows, and the list of tables that wipe reaches is a list of
 # exceptions. Exceptions rot silently: a table added to the Room schema is not a
@@ -337,7 +337,7 @@ gate blocking "the platform reference ports are true" python3 scripts/check-plat
 # each other. A table nobody decided about fails; a table the document names and
 # the schema no longer has fails; a table the code wipes and the document calls
 # "not profile content" fails.
-gate blocking "profile reset inventory is true" python3 scripts/ci/check-profile-reset-inventory.py
+gate blocking "profile reset inventory is true" sgate profile_reset_inventory_is_true
 # A gate that dies instead of reporting is indistinguishable from a gate that
 # passes, for every consumer that reads only the exit code. This found a real
 # one on its first run: check-kiwi-inventory-ratchet.py crashed with
@@ -436,7 +436,7 @@ gate blocking "selectable text coverage" sgate selectable_text_coverage
 # direction that can still go wrong for work happening now: a change with no
 # record, a record that names a different change, and two changes claiming one
 # slug.
-gate blocking "issue registry covers every change" python3 scripts/check-issue-registry.py --quiet
+gate blocking "issue registry covers every change" sgate issue_registry_covers_every_change
 # A pointer that does not resolve is a stop that costs exactly what the note
 # it came from was written to remove.
 #
@@ -449,7 +449,7 @@ gate blocking "issue registry covers every change" python3 scripts/check-issue-r
 # repository, with `{a,b}` and `...` resolved. A path that is relative to prose
 # around it is not checked, because where it is relative to is not written down
 # and the gate would be guessing.
-gate blocking "AGENTS.md pointers resolve" python3 scripts/check-agents-pointers.py --quiet
+gate blocking "AGENTS.md pointers resolve" sgate agents_md_pointers_resolve
 # The review of a change has to be somewhere the next session can read.
 #
 # `AGENTS.md` says a change gets a review by a separate agent before the PR is
@@ -467,7 +467,7 @@ gate blocking "AGENTS.md pointers resolve" python3 scripts/check-agents-pointers
 # `config/docs/review-verdicts-baseline.txt`,
 # and that list only shrinks — accepting a new exception is an edit a reviewer
 # can see, not a side effect of a maintenance command.
-gate blocking "review verdicts cover every change" python3 scripts/check-review-verdicts.py --quiet
+gate blocking "review verdicts cover every change" sgate review_verdicts_cover_every_change
 # The catalogue of the ids a Maestro flow may address.
 #
 # `Maestro/TAGS.md` is a golden file, and its reader is a JVM test — so a tag
@@ -592,7 +592,7 @@ gate blocking "DI fixture matches the definitions" sgate di_fixture_matches_the_
 # "drift" — a warning under the default flags, a failure under `--strict`.
 # `--strict` is the flag CI uses: drift is a reference pointing at the wrong
 # place, and a warning does not stop anything.
-gate blocking "doc dead refs" python3 scripts/check-doc-dead-refs.py --strict
+gate blocking "doc dead refs" sgate doc_dead_refs
 #
 # The generated gate catalogue: which gates exist, and whether each one blocks.
 #
@@ -623,7 +623,7 @@ gate blocking "the shell registry is current" sgate render-static-gates --check
 # that needed more room moved to docs/architecture/, and this gate keeps the
 # file from growing back — a change that needs more room needs a document and
 # a pointer, not a longer cheat sheet.
-gate blocking "the cheat sheet stays a cheat sheet" python3 scripts/check-agents-size.py
+gate blocking "the cheat sheet stays a cheat sheet" sgate the_cheat_sheet_stays_a_cheat_sheet
 # Git exports GIT_DIR (and GIT_WORK_TREE, GIT_INDEX_FILE,
 # GIT_COMMON_DIR) to every hook it runs, and those variables override the
 # directory a git command was pointed at. A digest computed that way is a
@@ -633,7 +633,7 @@ gate blocking "the cheat sheet stays a cheat sheet" python3 scripts/check-agents
 #
 # A script that reads a tree that is not its own checkout's root must remove
 # those variables from the environment the command inherits.
-gate blocking "a git command that reads a tree controls its environment" python3 scripts/check-git-environment.py
+gate blocking "a git command that reads a tree controls its environment" sgate a_git_command_that_reads_a_tree_controls_its_environment
 # The checkout has to be able to commit, to run its hooks, and to
 # keep the SSH connection alive through a long pre-push hook. A bare checkout
 # refuses every command, a hooks path that leads nowhere runs no hooks at all,
@@ -641,7 +641,7 @@ gate blocking "a git command that reads a tree controls its environment" python3
 #
 # The expected values are written down in config/checkout-invariants.json, and
 # scripts/doctor.sh reads the same file to diagnose a checkout that drifted.
-gate blocking "the checkout can work" python3 scripts/check-checkout-invariants.py
+gate blocking "the checkout can work" sgate the_checkout_can_work
 #
 # What the verification loop costs.
 #
@@ -668,7 +668,7 @@ gate blocking "the published gate costs are current" sgate gate-costs --check
 # claimants for one channel; and four adapters rebuilt a verdict from prose
 # instead of reading the verdict their producer already emitted. Both were
 # found by reading the code, and both were found late.
-gate blocking "gates speak the JSON contract" python3 scripts/check-gate-json-contract.py
+gate blocking "gates speak the JSON contract" sgate gates_speak_the_json_contract
 #
 # NOT HERE: scripts/check-gate-wiring.py
 # See the ADR for this gate and the note in scripts/check-rebase-compiles.py.
@@ -697,7 +697,7 @@ gate blocking "gates speak the JSON contract" python3 scripts/check-gate-json-co
 # own unit tests and its own positive control — a control proves that a check
 # can fail, and one control for six checks would prove only that something in
 # them can fail.
-gate blocking "detekt governance is consistent" python3 scripts/check-detekt-governance.py
+gate blocking "detekt governance is consistent" sgate detekt_governance_is_consistent
 # detekt-rules branch coverage floor: 60% (below 2026-10-15 measured 65.6%, 725/1105).
 # This gate runs in ci.yml's `tests` job (where Gradle is available), not here:
 # it is the Gradle task `:detekt-rules:koverVerify`, named by ci.yml's
@@ -739,7 +739,7 @@ gate blocking "ui wait budgets are consistent" sgate ui_wait_budgets_are_consist
 # executed: a gate that runs on no one reports success forever. Part H of
 # check-gate-wiring.py is what finally said so, once it stopped resolving
 # `run-all` against the Python mirror instead of this registry.
-gate blocking "the toolbox surface is declared once" python3 scripts/check-skill-drift.py
+gate blocking "the toolbox surface is declared once" sgate the_toolbox_surface_is_declared_once
 #
 # Workflow semantics. actionlint reads a workflow as YAML plus GitHub's expression
 # language; neither knows that in POSIX a pipeline's status is the *last* command's.
@@ -763,12 +763,12 @@ gate blocking "releases describe themselves" sgate releases_describe_themselves
 # control and a sabotage that can fail, and neither had a line here — so `run-all`,
 # which reads this file, never ran them. A control for a gate that never executes
 # proves nothing about the gate.
-gate blocking "pro licence boundary" python3 scripts/check-pro-licence-boundary.py
-gate blocking "provenance" python3 scripts/check-provenance.py
+gate blocking "pro licence boundary" sgate pro_licence_boundary
+gate blocking "provenance" sgate provenance
 #
 # ADR references: a prose mention of a dated-ADR slug carries no path, so a moved or
 # deleted decision leaves a dangling claim nothing else sees.
-gate blocking "adr references are valid" python3 scripts/check-adr-references.py
+gate blocking "adr references are valid" sgate adr_references_are_valid
 #
 # ─── Deliberately NOT here ─────────────────────────────────────────────────────
 #
@@ -819,7 +819,7 @@ gate blocking "adr references are valid" python3 scripts/check-adr-references.py
 # It was advisory for as long as it was red on a clean tree, and a control
 # cannot tell "caught the mutation" from "still failing the known violations".
 # That is the whole reason it had no positive control; it has one now.
-gate blocking "script conventions" sgate conventions
+gate blocking "script conventions" sgate script_conventions
 #
 # The Compose stability contract — `config/compose/stability_config.conf` — is
 # the only thing that tells the Compose compiler which types are stable. It is
@@ -836,7 +836,7 @@ gate blocking "script conventions" sgate conventions
 # run the compiler and does not read the compiler's stability report: that
 # report is a build artifact, and a gate that depends on build output is the
 # fragility this repository already has a gate for.
-gate blocking "compose stability contract" python3 scripts/check-compose-stability-config.py
+gate blocking "compose stability contract" sgate compose_stability_contract
 #
 # The screen states — `config/compose/screen_state_collection_debt.conf` — name
 # the states that still hold a raw collection.
@@ -852,7 +852,7 @@ gate blocking "compose stability contract" python3 scripts/check-compose-stabili
 # recorded. The gate reads the register from both sides — a raw collection the
 # register does not name is a new debt, and a registered entry the code no
 # longer has is a debt that was paid and whose record did not move with it.
-gate blocking "screen state collections" python3 scripts/check-screen-state-collections.py
+gate blocking "screen state collections" sgate screen_state_collections
 # The server half of the Google OAuth exchange, under test.
 #
 # The function holds a client secret, redeems a one-time code and stores a
@@ -874,7 +874,7 @@ gate blocking "the edge functions' own tests" deno test supabase/functions/googl
 #
 # So a `hideKeyboard` follows a text input, one per text input, and never
 # follows anything else.
-gate blocking "maestro keyboard commands have something to hide" python3 scripts/check-maestro-keyboard-commands.py
+gate blocking "maestro keyboard commands have something to hide" sgate maestro_keyboard_commands_have_something_to_hide
 #
 # A flow that names a pixel is a claim about one display.
 #
@@ -886,7 +886,7 @@ gate blocking "maestro keyboard commands have something to hide" python3 scripts
 #
 # A swipe may be a share of the screen, or the element that scrolls. Both mean
 # the same gesture on every display.
-gate blocking "maestro flows do not name a pixel" python3 scripts/check-maestro-screen-geometry.py
+gate blocking "maestro flows do not name a pixel" sgate maestro_flows_do_not_name_a_pixel
 # The grammar of a link has a home: TaskLinkSpec for a deep link, core/links/InternalLinks.kt for an internal one. A second copy of it is a link that opens nothing.
 gate blocking "the link grammar has one home" sgate the_link_grammar_has_one_home
 # The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.
@@ -919,7 +919,7 @@ gate blocking "hideKeyboard follows an input" sgate hidekeyboard_follows_an_inpu
 # The conventions carry the number; this gate holds it to the tag, and holds a smoke shard to costing no more than a full-suite shard.
 gate blocking "maestro smoke suite matches the doc" sgate maestro_smoke_suite_matches_the_doc
 # A touch target is 48 dp, and the order of the modifier chain decides whether a fixed size caps the hit area or only shapes the picture: the expansion has to come before the size.
-gate blocking "touch targets meet minimum" python3 scripts/check-touch-targets.py
+gate blocking "touch targets meet minimum" sgate touch_targets_meet_minimum
 # <<< END GENERATED: sgate render-static-gates >>>
 
 # ─── Collect all results and report ─────────────────────────────────────────
