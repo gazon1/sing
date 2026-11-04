@@ -2,7 +2,9 @@ package com.singularity.todo
 
 import android.app.Activity
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.calculateBottomPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -144,7 +146,7 @@ fun androidShellNav3Root(
                 modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
             )
         },
-    ) {
+    ) { innerPadding ->
         Scaffold(
             topBar = {
                 ShellTopBar(
@@ -164,7 +166,14 @@ fun androidShellNav3Root(
                     modifier = Modifier.testTag(TestTags.TASKS_FAB),
                 )
             },
-            contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal),
+            // The suite tells the content how much room to leave at the bottom for
+            // its navigation bar and the system bars. The shell used to drop that
+            // value and strip the bottom window inset here as well, so the last
+            // row of every screen was drawn behind the navigation bar. Only the
+            // bottom edge is taken: the top of the suite's padding is the status
+            // bar, and the top bar of this scaffold already handles it (#1566).
+            contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal) +
+                WindowInsets(bottom = innerPadding.calculateBottomPadding()),
         ) { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
                 val appEntryProvider = createAppEntryProvider(navCallbacks, today)
