@@ -432,6 +432,20 @@ more, and the gate says so. The changes that predate the rule are in
 `config/docs/review-verdicts-baseline.txt`,
 and that list only shrinks — accepting a new exception is an edit a reviewer
 can see, not a side effect of a maintenance command."""),
+    "architecture rules have controls": Placement(
+        kind=PlacementKind.STATIC,
+        command='sgate architecture_rules_have_controls',
+        note="""A rule asserts that a scan found no offenders. A scan that has stopped
+scanning finds no offenders too, so the rule passes for the same reason a clean tree
+does — `repository read methods are user-scoped` read `@Query` annotations out of
+files that held none, and stayed green for its whole life (#788).
+
+The inventory is derived from the rule sources, not listed, and every derived rule
+needs a control that proves it can fail: a fixture that still contains the hunted
+shape, a synthetic source that asserts a finding, or a row recording the debt. The
+debt is counted against a ceiling that may only fall, so a new rule cannot arrive
+with a promise instead of a control.""",
+    ),
     "the tag catalogue matches the tags": Placement(
         kind=PlacementKind.STATIC,
         command='sgate the_tag_catalogue_matches_the_tags',
