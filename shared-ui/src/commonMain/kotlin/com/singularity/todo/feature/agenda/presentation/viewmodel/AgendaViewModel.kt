@@ -158,24 +158,6 @@ class AgendaViewModel(
     private val deleteSequence = AtomicInt(0)
 
     /**
-     * Drives the greeting the agenda draws.
-     *
-     * Starts empty rather than with a placeholder: a greeting is a claim about the
-     * hour, and a default is a claim that is wrong until the first read lands. Empty
-     * is the documented "no greeting" — the screen draws nothing.
-     *
-     * Private, and deliberately not exposed as a second public carrier: the value the
-     * screen reads is `AgendaUiState.Loaded.greeting`, so a reader of a separate flow
-     * would bypass the state and not re-render. This flow is the seed a *new* `Loaded`
-     * is built with, written by the collector in [init] rather than by the agenda's task
-     * collector, so a list emission never overwrites a greeting that has already caught
-     * up with the clock.
-     *
-     * @see <docs/decisions/2026-11-05-the-greeting-follows-the-clock-and-the-settings.md>
-     */
-    private val _greeting = MutableStateFlow("")
-
-    /**
      * The greeting as the clock and the configured hours define it, right now.
      *
      * Three inputs, because the value depends on all three: the hour boundary the
@@ -185,9 +167,19 @@ class AgendaViewModel(
      * re-emit on a change made in Settings, so the user does not have to leave the
      * agenda to see their own configuration.
      *
-     * A failed read ends the observation with the empty greeting. That is the promise
-     * the one-shot computation made, kept: no greeting, never a stale one, and never
-     * an exception escaping a collector nobody is watching.
+     * ## One writer, and it is the state builder
+     * This flow is an *input* of the `combine` that produces every
+     * [AgendaUiState.Loaded], so the greeting travels inside the emission that carries
+     * it. It deliberately does not publish into the state on a path of its own: two
+     * writers — one for the greeting, one for the task list — race across
+     * `flatMapLatest`'s channel hop, and a list emission built from an earlier greeting
+     * can land *after* the greeting did and revert the screen to the hour before the
+     * boundary. Nothing repairs that until the next hour or the next settings change,
+     * which is the defect this whole change exists to remove, made intermittent.
+     *
+     * A failed read degrades to the empty greeting. That is the promise the one-shot
+     * computation made, kept: no greeting, never a stale one, and never an exception
+     * escaping a collector nobody is watching.
      */
     private val greetingFlow: Flow<String> =
         combine(
@@ -200,7 +192,15 @@ class AgendaViewModel(
                 hour < afternoonEnd -> "Good afternoon"
                 else -> "Good evening"
             }
-        }.catch { emit("") }
+        }.catch {
+            // A failed read degrades to the empty greeting and ends the observation, as
+            // the one-shot computation did: no greeting, never a stale one, never an
+            // exception escaping a collector nobody is watching. Ending the flow is safe
+            // here because it is an *input* of the combine that builds every `Loaded`:
+            // `combine` keeps the last value of an input that has completed, so the
+            // agenda's list keeps updating with "no greeting" attached.
+            emit("")
+        }
 
     /**
      * The task list the current evaluation was made against.
@@ -223,20 +223,6 @@ class AgendaViewModel(
     private val reloadTrigger = ReloadTrigger()
 
     init {
-        // The greeting follows the clock and the configured hours, and is written into
-        // the *live* state so a screen already on display re-renders: a `Loaded` carries
-        // the greeting, so updating only the private flow would leave the bar showing the
-        // value it was built with. The copy touches the greeting and nothing else — the
-        // sections and the selection are the same instances before and after.
-        scope.launch {
-            greetingFlow.collect { greeting ->
-                _greeting.value = greeting
-                updateState { current ->
-                    if (current is AgendaUiState.Loaded) current.copy(greeting = greeting) else current
-                }
-            }
-        }
-
         scope.launch {
             // The failure handling sits INSIDE the trigger's branch, and that is the
             // whole difference between a retry that works and one that does not.
@@ -284,9 +270,19 @@ class AgendaViewModel(
                                             .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
                                             .toImmutableList(),
                                     today = today,
-                                    greeting = _greeting.value,
+                                    // Empty until the greeting is attached below, in the
+                                    // same emission. See the note on `greetingFlow`: one
+                                    // writer, so a stale greeting cannot be re-introduced
+                                    // by a list emission that read an older value.
+                                    greeting = "",
                                 )
                             }
+                            // The greeting joins *after* the evaluation, so an hour
+                            // boundary or a settings change re-labels the state without
+                            // re-running the evaluator: the list is not rebuilt by a
+                            // greeting change. This is the single point where
+                            // `Loaded.greeting` is written.
+                            .combine(greetingFlow) { loaded, greeting -> loaded.copy(greeting = greeting) }
                     }
             }.collect { fresh ->
                     // Reconciliation goes through `updateState`, which is CAS-backed,
