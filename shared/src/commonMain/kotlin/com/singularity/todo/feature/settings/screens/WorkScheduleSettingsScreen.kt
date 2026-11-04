@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.format.formatPadded
 import com.singularity.todo.core.schedule.WorkingDays
@@ -55,13 +56,13 @@ fun WorkScheduleSettingsScreen(
                 label = "Start",
                 value = state.workSchedule.dayStartMinutes,
                 onValueChange = { onIntent(SettingsIntent.WorkSchedule.UpdateWorkDayStart(it)) },
-                formatter = ::formatMinutes,
+                unit = TimeSliderUnit.Minutes,
             )
             TimeSlider(
                 label = "End",
                 value = state.workSchedule.dayEndMinutes,
                 onValueChange = { onIntent(SettingsIntent.WorkSchedule.UpdateWorkDayEnd(it)) },
-                formatter = ::formatMinutes,
+                unit = TimeSliderUnit.Minutes,
             )
         }
 
@@ -70,13 +71,13 @@ fun WorkScheduleSettingsScreen(
                 label = "Start",
                 value = state.workSchedule.lunchStartMinutes,
                 onValueChange = { onIntent(SettingsIntent.WorkSchedule.UpdateWorkLunchStart(it)) },
-                formatter = ::formatMinutes,
+                unit = TimeSliderUnit.Minutes,
             )
             TimeSlider(
                 label = "End",
                 value = state.workSchedule.lunchEndMinutes,
                 onValueChange = { onIntent(SettingsIntent.WorkSchedule.UpdateWorkLunchEnd(it)) },
-                formatter = ::formatMinutes,
+                unit = TimeSliderUnit.Minutes,
             )
         }
 
@@ -108,32 +109,43 @@ fun WorkScheduleSettingsScreen(
             TimeSlider(
                 label = "Morning ends at",
                 value = state.greeting.morningEndHour,
+                unit = TimeSliderUnit.Hours,
                 onValueChange = { onIntent(SettingsIntent.Greeting.UpdateMorningEnd(it)) },
-                formatter = { formatHour(it) },
+                sliderTag = TestTags.Settings.greetingSlider("morning"),
             )
             TimeSlider(
                 label = "Afternoon ends at",
                 value = state.greeting.afternoonEndHour,
+                unit = TimeSliderUnit.Hours,
                 onValueChange = { onIntent(SettingsIntent.Greeting.UpdateAfternoonEnd(it)) },
-                formatter = { formatHour(it) },
+                sliderTag = TestTags.Settings.greetingSlider("afternoon"),
             )
         }
     }
 }
 
+/**
+ * One time-of-day row: a read-only field that opens a picker, and a slider.
+ *
+ * [unit] is the row's single statement of what [value] counts. The slider, the
+ * field and the picker all take their range and their conversions from it, so a
+ * row cannot end up with an hour-valued state on a minutes-valued slider. That
+ * is what the greeting rows did: the first notch turned a stored `12` into `15`,
+ * and the picker wrote back `hour * 60 + minute`, so two taps produced `735`.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TimeSlider(
     label: String,
     value: Int,
+    unit: TimeSliderUnit,
     onValueChange: (Int) -> Unit,
-    formatter: (Int) -> String,
+    sliderTag: String? = null,
 ) {
     var showDialog by remember { mutableStateOf(false) }
-    val hour = value / 60
-    val minute = value % 60
+    val (pickerHour, pickerMinute) = unit.pickerSeed(value)
     // Read-only display of the formatted time; the picker and the slider change it.
-    val timeState = rememberAnchoredTextFieldState(formatter(value))
+    val timeState = rememberAnchoredTextFieldState(unit.format(value))
 
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         Row(
@@ -151,28 +163,30 @@ private fun TimeSlider(
                     .clickable { showDialog = true },
             trailingIcon = {
                 Text(
-                    text = formatter(value),
+                    text = unit.format(value),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(end = 8.dp),
                 )
             },
             label = { Text(label) },
         )
-        // Slider as fallback — step 15 minutes
         Slider(
             value = value.toFloat(),
             onValueChange = { onValueChange(it.toInt()) },
-            valueRange = 0f..1439f,
-            steps = (1439 / 15) - 1,
-            modifier = Modifier.fillMaxWidth(),
+            valueRange = 0f..unit.sliderMax,
+            steps = unit.sliderSteps,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .then(if (sliderTag == null) Modifier else Modifier.testTag(sliderTag)),
         )
     }
 
     if (showDialog) {
         val timePickerState =
             rememberTimePickerState(
-                initialHour = hour,
-                initialMinute = minute,
+                initialHour = pickerHour,
+                initialMinute = pickerMinute,
                 is24Hour = true,
             )
         AlertDialog(
@@ -180,7 +194,7 @@ private fun TimeSlider(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onValueChange(timePickerState.hour * 60 + timePickerState.minute)
+                        onValueChange(unit.pickerValue(timePickerState.hour, timePickerState.minute))
                         showDialog = false
                     },
                 ) {
@@ -205,7 +219,70 @@ private fun formatMinutes(minutes: Int): String {
     return "${formatPadded(h)}:${formatPadded(m)}"
 }
 
-private fun formatHour(hour: Int): String = "$hour:00"
+/**
+ * What a [TimeSlider]'s stored value counts.
+ *
+ * The greeting rows store an hour and the work-day rows store minutes, and both
+ * renditions used to go through one minutes-only slider without saying which
+ * they were. Naming the unit makes the slider, the field and the picker agree
+ * by construction instead of by every call site remembering to pass a matching
+ * formatter.
+ */
+internal enum class TimeSliderUnit {
+    Minutes,
+    Hours,
+    ;
+
+    /** The largest value the slider holds, in this unit. */
+    val sliderMax: Float
+        get() =
+            when (this) {
+                Minutes -> 1439f
+                Hours -> 23f
+            }
+
+    /**
+     * Discrete values between the slider's ends.
+     *
+     * Minutes keep the 15-minute grid the work-day rows have always had: it does
+     * not divide 1439 evenly — the last interval is 14 minutes — and that is left
+     * as it was. Hours are one step per hour, so one notch is one hour and the
+     * thumb sits where the hour it shows says.
+     */
+    val sliderSteps: Int
+        get() =
+            when (this) {
+                Minutes -> (1439 / 15) - 1
+                Hours -> 22
+            }
+
+    /** The text the row's field shows for [value]. */
+    fun format(value: Int): String =
+        when (this) {
+            Minutes -> formatMinutes(value)
+            Hours -> "$value:00"
+        }
+
+    /** The picker's (hour, minute) for a stored [value]. */
+    fun pickerSeed(value: Int): Pair<Int, Int> =
+        when (this) {
+            Minutes -> value / 60 to value % 60
+            Hours -> value to 0
+        }
+
+    /**
+     * The stored value a picker's (hour, minute) means.
+     *
+     * An hour setting has no minute component, so the picker's minutes are
+     * dropped; the field then shows the hour it snapped to, which is the
+     * feedback that the minutes went nowhere.
+     */
+    fun pickerValue(hour: Int, minute: Int): Int =
+        when (this) {
+            Minutes -> hour * 60 + minute
+            Hours -> hour
+        }
+}
 
 // ===== Preview =====
 
