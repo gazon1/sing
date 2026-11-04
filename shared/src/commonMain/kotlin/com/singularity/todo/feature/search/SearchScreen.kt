@@ -72,6 +72,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.serialization.Serializable
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Clock
 
@@ -81,14 +82,14 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val navigator = LocalSearchNavigator.current
     val snackbarHostState = remember { SnackbarHostState() }
-    val overlay = rememberOverlayState<SearchDialog>()
+    val overlay = rememberOverlayState(SearchDialog.serializer())
 
     SearchEventsHandler(viewModel = viewModel, snackbarHostState = snackbarHostState)
 
     SearchSheetHosts(
         showFilterSheet = overlay.sheet is SearchDialog.Filter,
         showSaveDialog = overlay.sheet is SearchDialog.Save,
-        searchToRename = (overlay.sheet as? SearchDialog.Rename)?.pair,
+        searchToRename = (overlay.sheet as? SearchDialog.Rename)?.let { it.searchId to it.name },
         activeFilter = state.activeFilter,
         query = state.query.text,
         onDismissFilterSheet = { overlay.dismissSheet() },
@@ -141,7 +142,7 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
                         activeSavedSearchId = state.activeSavedSearchId,
                         onLoadSearch = { id -> viewModel.onIntent(SearchIntent.OnLoadSavedSearch(id)) },
                         onSaveClick = { overlay.show(SearchDialog.Save) },
-                        onRename = { id, newName -> overlay.show(SearchDialog.Rename(id to newName)) },
+                        onRename = { id, newName -> overlay.show(SearchDialog.Rename(searchId = id, name = newName)) },
                         onDelete = { id -> viewModel.onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
                     )
                 }
@@ -406,12 +407,16 @@ private fun SavedSearchesRowPreview() =
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
+@Serializable
 private sealed interface SearchDialog {
+    @Serializable
     data object Filter : SearchDialog
 
+    @Serializable
     data object Save : SearchDialog
 
-    data class Rename(val pair: Pair<SavedSearchId, String>) : SearchDialog
+    @Serializable
+    data class Rename(val searchId: SavedSearchId, val name: String) : SearchDialog
 }
 
 @Composable

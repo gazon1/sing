@@ -61,6 +61,7 @@ import com.singularity.todo.feature.projects.domain.state.ProjectEditorUiEvent
 import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
+import kotlinx.serialization.Serializable
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -120,7 +121,7 @@ fun ProjectEditorContent(
     onBack: () -> Unit,
 ) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
-    val overlay = rememberOverlayState<EditorSheet>()
+    val overlay = rememberOverlayState(EditorSheet.serializer())
 
     NotificationHost(
         events = viewModel.events,
@@ -216,9 +217,12 @@ fun ProjectEditorContent(
     }
 }
 
+@Serializable
 private sealed interface EditorSheet {
+    @Serializable
     data object Icon : EditorSheet
 
+    @Serializable
     data object Parent : EditorSheet
 }
 

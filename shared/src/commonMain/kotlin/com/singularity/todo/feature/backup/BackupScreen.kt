@@ -67,6 +67,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.datetime.TimeZone
+import kotlinx.serialization.Serializable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,7 +133,7 @@ fun BackupScreen(
     onAuthorizeScheduledBackup: (CharArray) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-    val overlay = rememberOverlayState<BackupDialog>()
+    val overlay = rememberOverlayState(BackupDialog.serializer())
 
     // The screen owns the single collection of the event bus. The bus is a
     // channel, and a channel has one consumer: a second collector on `events`
@@ -645,11 +646,15 @@ private fun BackupPasswordDialog(
     )
 }
 
+@Serializable
 private sealed interface BackupDialog {
+    @Serializable
     data class Push(val backupId: BackupId) : BackupDialog
 
+    @Serializable
     data class CloudRestore(val remote: RemoteBackup) : BackupDialog
 
+    @Serializable
     data object Authorize : BackupDialog
 }
 

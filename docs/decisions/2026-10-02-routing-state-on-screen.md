@@ -2,9 +2,15 @@
 title: Routing state lives on the screen, not in the ViewModel
 date: 2026-10-02
 adr-number: 2026-10-02-routing-state-on-screen
-status: accepted
+status: superseded
+superseded-by: 2026-11-04-the-overlay-survives-a-rotation
 tags: [architecture, ui, android, desktop]
 ---
+
+> **Superseded in part (2026-11-04):** routing state still lives on the screen, but it is
+> no longer lost on a rotation. `rememberOverlayState` is `rememberSaveable`-backed, so the
+> "Closes on rotation/back" row in the table below is no longer true; the other rows stand.
+> See [2026-11-04-the-overlay-survives-a-rotation.md](2026-11-04-the-overlay-survives-a-rotation.md).
 
 # Routing state lives on the screen, not in the ViewModel
 

@@ -83,6 +83,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
+import kotlinx.serialization.Serializable
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
@@ -90,9 +91,12 @@ import kotlin.time.Instant
 
 // ─── Overlay state ──────────────────────────────────────────────────────────────
 
+@Serializable
 private sealed interface NotePreviewSheet {
+    @Serializable
     data object DeleteConfirm : NotePreviewSheet
 
+    @Serializable
     data object Backlinks : NotePreviewSheet
 }
 
@@ -106,7 +110,7 @@ fun NotePreviewScreen(
 ) {
     val navigator = LocalNotesNavigator.current
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
-    val sheets = rememberOverlayState<NotePreviewSheet>()
+    val sheets = rememberOverlayState(NotePreviewSheet.serializer())
 
     LaunchedEffect(route.noteId) {
         viewModel.onIntent(NotePreviewIntent.Load(route.noteId.value))

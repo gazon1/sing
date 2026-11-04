@@ -1,5 +1,7 @@
 package com.singularity.todo.core.backup
 
+import kotlinx.serialization.Serializable
+
 /**
  * An archive in the cloud, as the list of them reports it.
  *
@@ -16,6 +18,7 @@ package com.singularity.todo.core.backup
  * 1970 or a size of "0 B" is a fact the bucket never stated, and a person who
  * reads one of them believes it.
  */
+@Serializable
 data class RemoteBackup(
     val ref: String,
     val name: String,
