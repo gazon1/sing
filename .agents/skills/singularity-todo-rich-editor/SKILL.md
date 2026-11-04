@@ -135,8 +135,12 @@ sealed interface EditorAction {
     data object InternalLink : EditorAction // opens InternalLinkPickerSheet
 
     companion object {
-        val primary = listOf(Bold, Italic, Underline, Strike, H1, Bullet, Ordered)
-        val overflow = listOf(H2, H3, Code, Quote, AlignLeft, AlignCenter, AlignRight, ExternalLink, InternalLink)
+        // Three on the bar itself: with Undo, Redo, the overflow trigger and AI
+        // the row is seven 48 dp targets — 336 dp, the width of a 360 dp phone.
+        val primary = listOf(Bold, Italic, Underline)
+        // Headings first, so H1/H2/H3 sit together under their own glyphs.
+        // Quote is not offered: the library has no blockquote toggle.
+        val overflow = listOf(H1, H2, H3, Strike, Code, Bullet, Ordered, AlignLeft, AlignCenter, AlignRight, ExternalLink, InternalLink)
     }
 }
 ```
