@@ -28,10 +28,16 @@ import kotlinx.serialization.json.JsonPrimitive
  *   time, then counter, then node id. Two devices that edit different fields
  *   both keep their edit; two devices that edit the same field keep the later
  *   one, and the loser is told so (`lost`) rather than being told it landed.
- * - **A version that counts what landed.** The row's version moves only when a
- *   patch changed something, and the push answer carries it as the new version.
- * - **A refusal.** A patch whose every operation names a field the server does
- *   not accept is refused with `field_not_writable` and writes nothing.
+ * - **A version in every answer.** The row's version moves only when a patch
+ *   changed something, and the answer carries the row's version as it stands
+ *   afterwards. It is the row's number, not the patch's, so the same field is
+ *   filled whether the patch won, lost, or was refused: the losing device is
+ *   still told where the row stands, which is what its next diff needs.
+ * - **A refusal.** A patch that names a field the server does not accept is
+ *   refused whole with `field_not_writable` and writes nothing. Whole, not in
+ *   part: applying the operations the allowlist accepts and dropping the rest
+ *   would answer `ok` for a patch the server half threw away, and the device
+ *   would settle the outbox row that carried the dropped operation.
  * - **Idempotency.** A patch id already applied for that account is answered
  *   from the cache and is not applied twice.
  * - **Scoping.** The account is the owner: another account's rows and events
@@ -51,6 +57,12 @@ import kotlinx.serialization.json.JsonPrimitive
  *   deletion therefore takes part in the per-field comparison like any other
  *   write: a later edit to another field changes that field but cannot bring
  *   the row back, and a deletion whose clock is older than the stored one loses.
+ * - **A deletion that is delivered even for a row the server never held.** A
+ *   delete creates the row it names when the server has none, writes the
+ *   tombstone into it and puts it on the feed. The deleting device holds a copy
+ *   of that row, which is proof the row exists on some device — answering `ok`
+ *   with no event would leave every other device's copy alive and settle the
+ *   sender's outbox row, so nothing would ever retry it.
  *
  * ## What it deliberately does not do
  *
@@ -60,7 +72,15 @@ import kotlinx.serialization.json.JsonPrimitive
  *   `newVersion` with the number of operations that were applied, which the
  *   schema file itself records as a defect (#207). This fixture answers with
  *   the row's version, because the client records that number as the row's
- *   version and would otherwise be told a fiction.
+ *   version and would otherwise be told a fiction. The number is the row's in
+ *   every answer, refused and lost included, so a device is never told that a
+ *   patch which changed nothing produced a version of its own.
+ * - **It does not reproduce the server's silent half-apply.** The SQL filters
+ *   out the operations the allowlist refuses and answers `ok` for the rest, so
+ *   the dropped operation is settled along with the outbox row that carried it.
+ *   This fixture refuses the patch instead, and the difference is the one a
+ *   carrier test can see: a device that names a field the server will not take
+ *   is told so, rather than being told that its patch landed.
  *
  * ## Why it is not a replacement for Supabase
  *
@@ -144,40 +164,52 @@ class SharedSyncServer {
      * beats the clock stored for that field, the operation's kind decides what
      * the write does to the document, and the clocks and the values are read and
      * written from the same row — there is no window between them.
+     *
+     * The allowlist is applied to the patch as a whole, before any field is
+     * written, so a patch the server cannot take in full writes nothing. A patch
+     * that names no clock is refused for the same reason: it is the legacy shape,
+     * whose absent document the server expands into zero operations.
+     *
+     * A patch that carries a clock and no operations is *not* a refusal. Nothing
+     * changed, so there is nothing to refuse, and the answer is the one a patch
+     * whose every field lost gets: `ok`, `lost`, and the row's version. Refusing
+     * it would land in [SyncProtocol.TERMINAL_ERRORS] and dead-letter a patch
+     * that says only "nothing happened".
      */
     private fun mergePatch(
         profileId: String,
         patch: DeltaPatch,
         account: String,
     ): PatchResult {
+        val key = RowKey(account, profileId, patch.entityType, patch.entityId)
         val clock = patch.hlc
-        val writable = patch.ops.filter { it.field in SyncContract.serverFieldsFor(patch.entityType) }
-        if (clock == null || writable.isEmpty()) {
-            // A patch with no clock is the legacy shape: the server expands the
-            // absent document into zero operations and refuses it. A patch whose
-            // operations all name a field the server does not accept is refused
-            // the same way.
+        val allowed = SyncContract.serverFieldsFor(patch.entityType)
+        val outsideTheAllowlist = patch.ops.any { it.field !in allowed }
+        if (clock == null || outsideTheAllowlist) {
             return PatchResult(
                 patchId = patch.patchId,
                 ok = false,
                 error = SyncProtocol.FIELD_NOT_WRITABLE,
+                newVersion = rows[key]?.serverVersion,
             )
         }
-        val key = RowKey(account, profileId, patch.entityType, patch.entityId)
-        val row = rows[key] ?: ServerRow(patch.entityType)
+        val existing = rows[key]
+        val row = existing ?: ServerRow(patch.entityType)
         var applied = 0
-        writable.forEach { op ->
+        patch.ops.forEach { op ->
             if (row.write(op, clock)) applied += 1
         }
         if (applied == 0) {
-            // Every field this patch carried is already held in a newer version.
-            // The server took the patch, understood it, and kept what it had —
-            // which is what `lost` says, and it is why the answer is still ok.
+            // Nothing this patch carried beat what the row already held — or it
+            // carried nothing at all. The server took the patch, understood it,
+            // and kept what it had — which is what `lost` says, and it is why the
+            // answer is still ok. A row that does not exist has no version to
+            // report, so a no-op against one answers null rather than a zero.
             return PatchResult(
                 patchId = patch.patchId,
                 ok = true,
                 lost = true,
-                newVersion = row.serverVersion,
+                newVersion = existing?.serverVersion,
             )
         }
         row.serverVersion += 1
@@ -204,23 +236,35 @@ class SharedSyncServer {
      * operation, so the field allowlist does not govern it; the tombstone is the
      * server's own record that the row is gone.
      *
-     * A row the server never held is not created by a deletion: there would be
-     * nothing to restore, and a row that exists only to be deleted is a row the
-     * feed carries forever. The answer still says ok — there was nothing to do —
-     * but no tombstone and no event are produced.
+     * The row is created when the server has none. The deleting device holds a
+     * copy of it, so other devices of the account hold one too, and a deletion
+     * that produced no event would leave those copies alive while settling the
+     * sender's outbox row — nothing would ever retry it.
+     *
+     * The clock is the patch's own. A delete that carries none is ordered by its
+     * timestamp under the server's legacy node, and the tombstone records that
+     * same timestamp — never a zero, because `deletedAt: 0` is a value no real
+     * push produces and later snapshots would carry it as if it were one. A
+     * delete that carries neither a clock nor a timestamp cannot be ordered at
+     * all and is refused rather than given an invented place in the merge.
      */
     private fun deleteRow(
         profileId: String,
         patch: DeltaPatch,
         account: String,
     ): PatchResult {
-        // A delete patch need not carry a clock — the protocol's own
-        // `deltaPatchDelete` does not — so order it the way the server's legacy
-        // path does: by the patch's timestamp, under the node id `legacy`.
-        val clock = patch.hlc ?: Hlc.of(patch.timestampMs ?: 0L, 0, "legacy")
         val key = RowKey(account, profileId, patch.entityType, patch.entityId)
-        val row = rows[key]
-            ?: return PatchResult(patchId = patch.patchId, ok = true, newVersion = null)
+        val clock = patch.hlc ?: patch.timestampMs?.let { Hlc.of(it, 0, LEGACY_NODE) }
+        if (clock == null) {
+            return PatchResult(
+                patchId = patch.patchId,
+                ok = false,
+                error = SyncProtocol.FIELD_NOT_WRITABLE,
+                newVersion = rows[key]?.serverVersion,
+            )
+        }
+        val existing = rows[key]
+        val row = existing ?: ServerRow(patch.entityType)
         val tombstone =
             FieldChange(
                 field = DELETED_AT,
@@ -233,7 +277,7 @@ class SharedSyncServer {
                 patchId = patch.patchId,
                 ok = true,
                 lost = true,
-                newVersion = row.serverVersion,
+                newVersion = existing?.serverVersion,
             )
         }
         row.serverVersion += 1
@@ -365,6 +409,16 @@ class SharedSyncServer {
     private companion object {
         /** The document field the server expresses a deletion as. */
         const val DELETED_AT = "deletedAt"
+
+        /**
+         * The node id the server's legacy path orders a clockless patch under.
+         *
+         * A patch that carries no clock is not ordered by a node, so the server
+         * uses this one name for all of them — which is why two clockless
+         * deletions that carry the same timestamp compare equal, and the second
+         * loses.
+         */
+        const val LEGACY_NODE = "legacy"
     }
 }
 
