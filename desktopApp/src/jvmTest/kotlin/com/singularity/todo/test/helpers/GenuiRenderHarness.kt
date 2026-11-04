@@ -162,11 +162,29 @@ class GenuiRenderScope(
         path: String,
         value: String,
     ) {
+        serverWrites(path, JsonPrimitive(value))
+    }
+
+    /**
+     * The **server** writes a value into the surface's data model.
+     *
+     * The server's write, not the field's: it is the path the count of the
+     * server's rewrites moves along. A field that cannot tell a server write from its
+     * own drops a rewrite that lands on a value it had already sent — the value looks
+     * like an echo of the field's own last push, and the echo guard does its job.
+     *
+     * The value is a JSON element rather than a string, because a flag the surface reads
+     * is a boolean and not the word "true".
+     */
+    fun serverWrites(
+        path: String,
+        value: JsonElement,
+    ) {
         controller.apply(
             UiEvent.UpdateData(
                 surfaceId = GenuiSurfaceId,
                 path = UiPath.parse(path),
-                value = JsonPrimitive(value),
+                value = value,
             ),
         )
     }

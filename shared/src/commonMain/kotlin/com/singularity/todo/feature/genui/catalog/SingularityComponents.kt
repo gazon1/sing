@@ -247,11 +247,11 @@ private fun tabsSchema(): A2uiComponentSchema =
 private fun modalSchema(): A2uiComponentSchema =
     A2uiComponentSchema(
         name = "modal",
-        description = "An inline panel shown while a data-model path is true.",
+        description = "A dialog shown while a data-model path is true.",
         properties =
             listOf(
                 A2uiProperty("child", A2uiType.NODE_REF, true, "Id of the component to show."),
-                A2uiProperty("openPath", A2uiType.PATH, true, "Data-model path; the panel shows while it is true."),
+                A2uiProperty("openPath", A2uiType.PATH, true, "Data-model path; the dialog is shown while it is true."),
             ),
         childSlot = ChildSlot.ExactlyOne,
         allowedParents = setOf("column", "row", "card"),

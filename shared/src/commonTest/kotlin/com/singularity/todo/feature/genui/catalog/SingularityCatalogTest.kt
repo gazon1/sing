@@ -183,6 +183,20 @@ class CatalogPromptTest {
         assertTrue("only inside: card, column, row" in CatalogPrompt.render(catalog))
     }
 
+    /**
+     * The modal is described as a dialog, and not as a panel drawn in the surface.
+     *
+     * The description *is* the prompt — it is what the model reads before it decides what to
+     * send — so a description that calls the modal an inline panel tells the model to expect
+     * its content pasted into the surface, which is not what the client draws.
+     */
+    @Test
+    fun promptDescribesTheModalAsADialog() {
+        val prompt: String = CatalogPrompt.render(catalog)
+        assertTrue("A dialog shown while a data-model path is true." in prompt, "The modal's description:\n$prompt")
+        assertFalse("An inline panel" in prompt, "The modal is a dialog now:\n$prompt")
+    }
+
     @Test
     fun promptStatesTheWireFormat() {
         val prompt: String = CatalogPrompt.render(catalog)
