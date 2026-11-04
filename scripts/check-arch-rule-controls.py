@@ -514,7 +514,7 @@ def findings(root: Path) -> list[str]:
     registry = root / CONTROLS
     if not registry.is_file():
         raise Unreadable(f"the registry is missing: {registry}")
-    rows, ceiling = parse_registry(registry.read_text(encoding="utf-8"))
+    rows, grandfathered = parse_registry(registry.read_text(encoding="utf-8"))
     methods = _all_test_methods(root)
 
     seen: dict[str, Row] = {}
@@ -543,6 +543,11 @@ def findings(root: Path) -> list[str]:
                 "and the row now protects nothing"
             )
 
+    # The ratchet is per rule, not per count. A count is satisfied by one debt
+    # replacing another — delete rule A's control, add a new rule B with `none`,
+    # and the number never moves — so a count would let a new rule in on a
+    # promise. Pinned by id, that swap fails on B, and the one edit that can add
+    # debt is a `# grandfathered:` line a reviewer sees.
     uncontrolled: list[str] = []
     for row in rows:
         if row.kind == "fixture":
@@ -551,26 +556,36 @@ def findings(root: Path) -> list[str]:
             _check_synthetic(row, methods, problems)
         else:
             uncontrolled.append(row.rule_id)
+            if row.rule_id not in grandfathered:
+                problems.append(
+                    f"{CONTROLS}:{row.line}: {row.rule_id} has a `none` row but no "
+                    f"`# grandfathered: {row.rule_id}` line. A `none` row is legal "
+                    "only when the debt is declared by rule id: add a fixture or a "
+                    "synthetic source, or add the line in a commit that says why the "
+                    "rule cannot have one yet"
+                )
             if not (root / row.ref).is_file():
                 problems.append(
                     f"{row.rule_id}: the debt record {row.ref} does not exist"
                 )
 
-    if len(uncontrolled) > ceiling:
-        added = sorted(set(uncontrolled))
-        problems.append(
-            f"{len(uncontrolled)} rule(s) have no control, but the ceiling is "
-            f"{ceiling}. A rule arrives with a control, not with a promise: add a "
-            f"fixture or a synthetic source for {', '.join(added)} — or, if the rule "
-            "genuinely cannot have one yet, raise `# ceiling:` in a commit that says "
-            "why"
-        )
-    elif len(uncontrolled) < ceiling:
-        problems.append(
-            f"only {len(uncontrolled)} rule(s) have no control, but the ceiling is "
-            f"still {ceiling}. Lower it to {len(uncontrolled)} — a ratchet that is "
-            "allowed to stay loose is not a ratchet"
-        )
+    owed = set(uncontrolled)
+    for rule_id in sorted(set(grandfathered) - owed):
+        line = grandfathered[rule_id]
+        if rule_id in seen and seen[rule_id].kind != "none":
+            problems.append(
+                f"{CONTROLS}:{line}: `# grandfathered: {rule_id}` is stale — that "
+                f"rule's row on line {seen[rule_id].line} is a `{seen[rule_id].kind}` "
+                "control, so the debt was paid and the line has to go. A declaration "
+                "that outlives its debt makes the next `none` row read as already "
+                "declared"
+            )
+        else:
+            problems.append(
+                f"{CONTROLS}:{line}: `# grandfathered: {rule_id}` names no `none` row "
+                "— the rule was renamed, removed, or the row was deleted, and the "
+                "line now declares debt nothing owes"
+            )
 
     return problems
 

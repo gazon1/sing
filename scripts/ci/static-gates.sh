@@ -475,8 +475,9 @@ gate blocking "review verdicts cover every change" python3 scripts/check-review-
 #
 # The inventory is derived from the rule sources, not listed, and every derived rule
 # needs a control that proves it can fail: a fixture that still contains the hunted
-# shape, a synthetic source that asserts a finding, or a row recording the debt. The
-# debt is counted against a ceiling that may only fall, so a new rule cannot arrive
+# shape, a synthetic source that asserts a finding, or a `none` row recording the
+# debt. The debt is pinned per rule by a `# grandfathered:` line — not counted, because
+# a count is satisfied by one debt replacing another and would let a new rule arrive
 # with a promise instead of a control.
 gate blocking "architecture rules have controls" sgate architecture_rules_have_controls
 # The catalogue of the ids a Maestro flow may address.

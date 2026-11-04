@@ -9,6 +9,11 @@ still *sees*: a planted rule with no row must be named, a rule the derivation no
 longer finds must be named, and a control that has stopped proving anything must
 be named.
 
+The ratchet is the other thing that has to be pinned here, because it is the one
+place the gate can be softened without touching a rule: the debt is declared per
+rule (`# grandfathered: <rule_id>`), never counted, so a `none` row that arrives
+without its line must fail and a line whose debt was paid must fail too.
+
 The last test is the one that matters most: it runs the real derivation over
 this checkout's rule sources and the real registry, so the registry cannot drift
 from the sources without a test failing first.
@@ -78,7 +83,10 @@ SECOND_RULE = "SampleArchTest.a second rule with no control"
 class Tree:
     """A throwaway tree the gate can measure: sources, debt record, registry."""
 
-    def __init__(self, ceiling: int = 0, source: str = SOURCE) -> None:
+    def __init__(self, *grandfathered: str, source: str = SOURCE) -> None:
+        # The debt is declared per rule, so the tree takes rule ids rather than
+        # a count: a count cannot say *which* rule is owed, and the gate's whole
+        # ratchet is that it can.
         self._tmp = tempfile.TemporaryDirectory()
         self.root = pathlib.Path(self._tmp.name)
         sources = self.root / ARCH_DIR
@@ -89,10 +97,15 @@ class Tree:
         backlog.parent.mkdir(parents=True, exist_ok=True)
         backlog.write_text("# Rule control audit\n", encoding="utf-8")
         self.rows: list[tuple[str, str, str, str]] = []
-        self.ceiling = ceiling
+        self.grandfathered: list[str] = list(grandfathered)
 
     def row(self, rule_id: str, kind: str, ref: str, expects: str = "") -> "Tree":
         self.rows.append((rule_id, kind, ref, expects))
+        return self
+
+    def declare(self, *rule_ids: str) -> "Tree":
+        """Add `# grandfathered:` lines naming rules whose control is still owed."""
+        self.grandfathered.extend(rule_ids)
         return self
 
     def file(self, relative: str, content: str) -> "Tree":
@@ -106,9 +119,7 @@ class Tree:
         return arch.findings(self.root)
 
     def write_registry(self) -> pathlib.Path:
-        lines = []
-        if self.ceiling is not None:
-            lines.append(f"# ceiling: {self.ceiling}")
+        lines = [f"# grandfathered: {rule_id}" for rule_id in self.grandfathered]
         lines.extend("\t".join(row) for row in self.rows)
         path = self.root / arch.CONTROLS
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -175,7 +186,7 @@ class RegistryTest(unittest.TestCase):
     def test_a_clean_registry_passes(self):
         self.tree.row(RULE, "synthetic", "SampleArchTest.controlThatFindsSomething")
         self.tree.row(SECOND_RULE, "none", BACKLOG)
-        self.tree.ceiling = 1
+        self.tree.declare(SECOND_RULE)
         self.assertEqual([], self.tree.findings())
 
     def test_a_rule_with_no_row_is_named(self):
@@ -190,7 +201,7 @@ class RegistryTest(unittest.TestCase):
         self.tree.row(RULE, "synthetic", "SampleArchTest.controlThatFindsSomething")
         self.tree.row(SECOND_RULE, "none", BACKLOG)
         self.tree.row("SampleArchTest.a rule that was deleted", "none", BACKLOG)
-        self.tree.ceiling = 2
+        self.tree.declare(SECOND_RULE, "SampleArchTest.a rule that was deleted")
         problems = self.tree.findings()
         self.assertTrue(
             any("a rule that was deleted" in problem for problem in problems), problems
@@ -200,41 +211,41 @@ class RegistryTest(unittest.TestCase):
         self.tree.row(RULE, "synthetic", "SampleArchTest.controlThatFindsSomething")
         self.tree.row(RULE, "none", BACKLOG)
         self.tree.row(SECOND_RULE, "none", BACKLOG)
-        self.tree.ceiling = 2
+        self.tree.declare(RULE, SECOND_RULE)
         problems = self.tree.findings()
         self.assertTrue(any("already has a row" in problem for problem in problems), problems)
 
     def test_a_synthetic_control_that_does_not_exist_is_rejected(self):
         self.tree.row(RULE, "synthetic", "SampleArchTest.noSuchControl")
         self.tree.row(SECOND_RULE, "none", BACKLOG)
-        self.tree.ceiling = 1
+        self.tree.declare(SECOND_RULE)
         problems = self.tree.findings()
         self.assertTrue(any("is not a @Test method" in problem for problem in problems), problems)
 
     def test_a_synthetic_control_that_only_asserts_emptiness_is_rejected(self):
         self.tree.row(RULE, "synthetic", "SampleArchTest.controlThatAssertsOnlyEmptiness")
         self.tree.row(SECOND_RULE, "none", BACKLOG)
-        self.tree.ceiling = 1
+        self.tree.declare(SECOND_RULE)
         problems = self.tree.findings()
         self.assertTrue(any("asserts no finding" in problem for problem in problems), problems)
 
     def test_a_synthetic_control_that_finds_something_is_accepted(self):
-        self.tree.ceiling = 1
         self.tree.row(RULE, "synthetic", "SampleArchTest.controlThatFindsSomething")
         self.tree.row(SECOND_RULE, "none", BACKLOG)
+        self.tree.declare(SECOND_RULE)
         self.assertEqual([], self.tree.findings())
 
     def test_a_synthetic_ref_without_a_method_is_rejected(self):
         self.tree.row(RULE, "synthetic", "SampleArchTest")
         self.tree.row(SECOND_RULE, "none", BACKLOG)
-        self.tree.ceiling = 1
+        self.tree.declare(SECOND_RULE)
         problems = self.tree.findings()
         self.assertTrue(any("<TestClass>.<method>" in problem for problem in problems), problems)
 
     def test_a_fixture_that_does_not_exist_is_rejected(self):
         self.tree.row(RULE, "fixture", "fixtures/arch/Missing.kt", "java.io.File")
         self.tree.row(SECOND_RULE, "none", BACKLOG)
-        self.tree.ceiling = 1
+        self.tree.declare(SECOND_RULE)
         problems = self.tree.findings()
         self.assertTrue(any("does not exist" in problem for problem in problems), problems)
 
@@ -242,7 +253,7 @@ class RegistryTest(unittest.TestCase):
         self.tree.file("fixtures/arch/Sample.kt", "import java.io.File\n")
         self.tree.row(RULE, "fixture", "fixtures/arch/Sample.kt")
         self.tree.row(SECOND_RULE, "none", BACKLOG)
-        self.tree.ceiling = 1
+        self.tree.declare(SECOND_RULE)
         problems = self.tree.findings()
         self.assertTrue(any("names no `expects` shape" in problem for problem in problems), problems)
 
@@ -250,7 +261,7 @@ class RegistryTest(unittest.TestCase):
         self.tree.file("fixtures/arch/Sample.kt", "// the import went away while fixing it\n")
         self.tree.row(RULE, "fixture", "fixtures/arch/Sample.kt", "java.io.File")
         self.tree.row(SECOND_RULE, "none", BACKLOG)
-        self.tree.ceiling = 1
+        self.tree.declare(SECOND_RULE)
         problems = self.tree.findings()
         self.assertTrue(any("no longer contains" in problem for problem in problems), problems)
 
@@ -258,27 +269,44 @@ class RegistryTest(unittest.TestCase):
         self.tree.file("fixtures/arch/Sample.kt", "import java.io.File\n")
         self.tree.row(RULE, "fixture", "fixtures/arch/Sample.kt", "java.io.File")
         self.tree.row(SECOND_RULE, "none", BACKLOG)
-        self.tree.ceiling = 1
+        self.tree.declare(SECOND_RULE)
         self.assertEqual([], self.tree.findings())
 
-    def test_a_new_uncontrolled_rule_over_the_ceiling_is_rejected(self):
+    def test_a_none_row_without_a_grandfathered_line_is_rejected(self):
+        """A rule arrives with a control, not with a promise."""
         self.tree.row(RULE, "none", BACKLOG)
         self.tree.row(SECOND_RULE, "none", BACKLOG)
-        self.tree.ceiling = 1
+        self.tree.declare(RULE)
         problems = self.tree.findings()
-        self.assertTrue(any("ceiling is 1" in problem for problem in problems), problems)
+        self.assertTrue(
+            any(
+                SECOND_RULE in problem and "grandfathered" in problem for problem in problems
+            ),
+            problems,
+        )
 
-    def test_a_ceiling_that_is_no_longer_reached_is_rejected(self):
+    def test_a_grandfathered_line_whose_debt_was_paid_is_rejected(self):
+        """A line that outlives its `none` row makes the next debt read as declared."""
         self.tree.row(RULE, "synthetic", "SampleArchTest.controlThatFindsSomething")
         self.tree.row(SECOND_RULE, "none", BACKLOG)
-        self.tree.ceiling = 5
+        self.tree.declare(SECOND_RULE, RULE)
         problems = self.tree.findings()
-        self.assertTrue(any("Lower it to 1" in problem for problem in problems), problems)
+        self.assertTrue(any(RULE in problem and "stale" in problem for problem in problems), problems)
+
+    def test_a_grandfathered_line_with_no_row_at_all_is_rejected(self):
+        self.tree.row(RULE, "synthetic", "SampleArchTest.controlThatFindsSomething")
+        self.tree.row(SECOND_RULE, "none", BACKLOG)
+        self.tree.declare(SECOND_RULE, "SampleArchTest.a rule that was deleted")
+        problems = self.tree.findings()
+        self.assertTrue(
+            any("a rule that was deleted" in problem and "grandfathered" in problem for problem in problems),
+            problems,
+        )
 
     def test_a_debt_row_pointing_at_a_missing_document_is_rejected(self):
         self.tree.row(RULE, "synthetic", "SampleArchTest.controlThatFindsSomething")
         self.tree.row(SECOND_RULE, "none", "docs/does-not-exist.md")
-        self.tree.ceiling = 1
+        self.tree.declare(SECOND_RULE)
         problems = self.tree.findings()
         self.assertTrue(any("debt record" in problem for problem in problems), problems)
 
@@ -288,23 +316,42 @@ class RegistrySyntaxTest(unittest.TestCase):
 
     def test_a_row_with_the_wrong_number_of_fields_is_unreadable(self):
         with self.assertRaises(arch.Unreadable):
-            arch.parse_registry("# ceiling: 0\nSampleArchTest.a rule\tsynthetic\n")
+            arch.parse_registry("SampleArchTest.a rule\tsynthetic\n")
 
     def test_an_unknown_control_kind_is_unreadable(self):
         with self.assertRaises(arch.Unreadable):
-            arch.parse_registry("# ceiling: 0\nSampleArchTest.a rule\texempt\tref\t\n")
+            arch.parse_registry("SampleArchTest.a rule\texempt\tref\t\n")
 
-    def test_a_registry_without_a_ceiling_is_unreadable(self):
-        with self.assertRaises(arch.Unreadable):
-            arch.parse_registry(
-                "SampleArchTest.a rule\tsynthetic\tSampleArchTest.controlThatFindsSomething\t\n"
-            )
+    def test_a_count_ceiling_is_unreadable(self):
+        """The count design is gone, and the gate says so instead of ignoring it.
+
+        A count is satisfied by one debt replacing another: delete rule A's
+        control, add a new rule B with `none`, and the number never moves. So
+        the line is refused rather than read as an ordinary comment.
+        """
+        with self.assertRaises(arch.Unreadable) as raised:
+            arch.parse_registry("# ceiling: 0\nSampleArchTest.a rule\tsynthetic\tref\t\n")
+        self.assertIn("grandfathered", str(raised.exception))
+
+    def test_a_registry_without_a_ceiling_parses(self):
+        rows, grandfathered = arch.parse_registry(
+            "SampleArchTest.a rule\tsynthetic\tSampleArchTest.controlThatFindsSomething\t\n"
+        )
+        self.assertEqual((1, {}), (len(rows), grandfathered))
+
+    def test_a_grandfathered_line_is_collected_with_its_line_number(self):
+        _, grandfathered = arch.parse_registry(
+            "# the debt\n"
+            "# grandfathered: SampleArchTest.a rule\n"
+            "SampleArchTest.a rule\tnone\tdocs/architecture/rule-control-audit.md\t\n"
+        )
+        self.assertEqual({"SampleArchTest.a rule": 3}, grandfathered)
 
     def test_an_empty_fourth_field_survives_the_parse(self):
-        rows, ceiling = arch.parse_registry(
-            "# ceiling: 0\nSampleArchTest.a rule\tsynthetic\tSampleArchTest.controlThatFindsSomething\t\n"
+        rows, grandfathered = arch.parse_registry(
+            "SampleArchTest.a rule\tsynthetic\tSampleArchTest.controlThatFindsSomething\t\n"
         )
-        self.assertEqual((0, ""), (ceiling, rows[0].expects))
+        self.assertEqual(("", {}), (rows[0].expects, grandfathered))
 
 
 class CommandTest(unittest.TestCase):
@@ -319,7 +366,7 @@ class CommandTest(unittest.TestCase):
         return CliRunner().invoke(arch.cli, list(args))
 
     def test_a_clean_tree_exits_zero(self):
-        tree = Tree(ceiling=1)
+        tree = Tree(SECOND_RULE)
         self.addCleanup(tree.close)
         tree.row(RULE, "synthetic", "SampleArchTest.controlThatFindsSomething")
         tree.row(SECOND_RULE, "none", BACKLOG)
@@ -328,7 +375,7 @@ class CommandTest(unittest.TestCase):
         self.assertEqual(0, result.exit_code, result.output)
 
     def test_a_missing_row_exits_one_and_names_the_rule(self):
-        tree = Tree(ceiling=0)
+        tree = Tree()
         self.addCleanup(tree.close)
         tree.row(RULE, "synthetic", "SampleArchTest.controlThatFindsSomething")
         tree.write_registry()
@@ -336,8 +383,18 @@ class CommandTest(unittest.TestCase):
         self.assertEqual(1, result.exit_code)
         self.assertIn(SECOND_RULE, result.output)
 
+    def test_an_unreadable_registry_exits_two(self):
+        """The count ceiling is a registry the gate cannot read, not a finding."""
+        tree = Tree(SECOND_RULE)
+        self.addCleanup(tree.close)
+        tree.row(RULE, "synthetic", "SampleArchTest.controlThatFindsSomething")
+        path = tree.write_registry()
+        path.write_text("# ceiling: 1\n" + path.read_text(encoding="utf-8"), encoding="utf-8")
+        result = self.run_gate("--check", "--root", str(tree.root))
+        self.assertEqual(2, result.exit_code, result.output)
+
     def test_json_is_one_object_and_nothing_else(self):
-        tree = Tree(ceiling=1)
+        tree = Tree(SECOND_RULE)
         self.addCleanup(tree.close)
         tree.row(RULE, "synthetic", "SampleArchTest.controlThatFindsSomething")
         tree.row(SECOND_RULE, "none", BACKLOG)
