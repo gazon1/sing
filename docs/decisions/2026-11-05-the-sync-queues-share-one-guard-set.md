@@ -48,6 +48,13 @@ need one, and each table's part of it.
   patch-id-keyed deletes, and a wholesale drain no production path calls — on all
   three tables. `SyncDeadLetterDao`'s unscoped `watch`, `getAll` and `watchCount` are
   therefore deliberate, and the DAO says so next to the query.
+- **The global reads are the set's weak half, and the outbox does not excuse them.**
+  "The outbox reads globally too" is a shared weakness, not a reason: `watchPending`
+  hands a caller every account's queued work, and the shelf's `watch` therefore hands a
+  settings screen every account's dead-lettered `payload` — the full JSON body. Kept for
+  consistency with the reference and recorded here as an open defect rather than settled
+  design. The fix is a scoped read (`watchForOwner`) on all three tables at once, and it
+  is not part of this audit.
 - **The guards are pinned by one contract, run against all three implementations.**
   The Room DAOs, the shared fakes in the fake database, and the fakes beside the
   sync-engine tests answer the same scenarios the same way. A fake that cannot
@@ -86,9 +93,11 @@ decision.
 
 ## Consequences
 
-- The shelf's global reads are a documented choice rather than a leftover. A future
-  settings screen that shows shelved patches must scope them itself — the DAO hands
-  over every account's work, and the shelf is a multi-account table by design.
+- The shelf's global reads are a documented shared weakness, not a settled choice. A
+  future settings screen that shows shelved patches must scope them itself — the DAO
+  hands over every account's `payload`, and the same is true of the outbox's
+  `watchPending` and the shadow's `getAll`-shaped reads. The scoped read is the fix, on
+  all three tables at once, and it is outstanding.
 - The contract test is one abstract class with three implementations, run against all
   three: the Room one is `slow`, because it is a real database file, and the two fake
   ones are `fast`.

@@ -237,7 +237,11 @@ class SequentialIdGenerator(private val prefix: String = "id") : IdGenerator {
  *   would take another account's shelved work with it, and the count that precedes
  *   it would report rows the erase is about to destroy.
  * - **patch-id-keyed** — [delete], which names one row by its patch id.
- * - **global drain** — [clearAll], the one a sign-out performs.
+ * - **global drain** — [clearAll], for a reset with no owner to name. No production
+ *   path calls it: a sign-out keeps local data (REQ-UA-006, `SignOutKeepsLocalDataTest`),
+ *   so it reaches no sync table, and the account switch erases one owner through
+ *   [deleteForOwner] (`OwnerScopedEraserTest`). It is the counterpart of the outbox's
+ *   own `clearAll`, not a substitute for the scoped erase.
  *
  * [SyncDaoGuardContractTest] runs the same scenarios against this fake, against the
  * fake inside `FakeAppDatabase` and against Room, so a fake that loses a guard fails
@@ -303,7 +307,16 @@ class FakeSyncDeadLetterDao : SyncDeadLetterDao {
     /** `SELECT COUNT(*) ... WHERE owner_id = :ownerId` — the owner's rows only. */
     override suspend fun countForOwner(ownerId: String): Int = store.value.count { it.ownerId == ownerId }
 
-    /** `DELETE FROM sync_dead_letter` — the global drain a sign-out performs. */
+    /**
+     * `DELETE FROM sync_dead_letter` — the wholesale drain, for a reset with no owner
+     * to name.
+     *
+     * No production path calls it. A sign-out keeps local data (REQ-UA-006,
+     * `SignOutKeepsLocalDataTest`) and so reaches no sync table; the account switch
+     * erases one owner through [deleteForOwner], which is what `OwnerScopedEraserTest`
+     * pins. A switch that reached for this instead would take the incoming account's
+     * shelved work with the outgoing one's.
+     */
     override suspend fun clearAll() {
         store.value = emptyList()
     }
@@ -435,8 +448,10 @@ class ThrowingSyncScopeProvider(private val cause: Throwable = IllegalStateExcep
  *   in-flight marker, so a response for a superseded patch promotes nothing.
  * - [deleteForOwner] and [countForOwner] are scoped by the owner alone: a switch
  *   must take every profile the account has, not the one that happens to be active.
- * - [clearScope] is scoped by owner *and* profile; [clearAll] is the global drain
- *   a sign-out performs.
+ * - [clearScope] is scoped by owner *and* profile; [clearAll] is the wholesale drain,
+ *   for a reset with no owner to name. No production path calls [clearAll]: a sign-out
+ *   keeps local data (REQ-UA-006), and the account switch erases one owner through
+ *   [deleteForOwner] (`OwnerScopedEraserTest`).
  *
  * [SyncDaoGuardContractTest] runs the same scenarios against this fake, against the
  * fake inside `FakeAppDatabase` and against Room, so a fake that loses a guard fails
@@ -535,7 +550,14 @@ class FakeSyncShadowDao : SyncShadowDao {
         rows.keys.filter { it.ownerId == ownerId && it.profileId == profileId }.forEach(rows::remove)
     }
 
-    /** `DELETE FROM sync_shadow` — the global drain a sign-out performs. */
+    /**
+     * `DELETE FROM sync_shadow` — the wholesale drain, for a reset with no owner to
+     * name.
+     *
+     * No production path calls it, for the same reason as the shelf's: a sign-out keeps
+     * local data (REQ-UA-006) and the account switch erases through [deleteForOwner].
+     */
+
     override suspend fun clearAll() {
         rows.clear()
     }
