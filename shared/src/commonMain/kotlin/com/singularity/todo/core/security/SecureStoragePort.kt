@@ -3,12 +3,12 @@ package com.singularity.todo.core.security
 /**
  * Platform-agnostic port for secure credential storage.
  * Abstracts platform-specific backends:
- *   - Android: EncryptedSharedPreferences (androidx.security)
- *   - JVM/Linux: libsecret via `secret-tool` CLI, or AES-GCM encrypted file fallback
+ *   - Android: EncryptedSharedPreferences (androidx.security), under the Android Keystore
+ *   - JVM: the OS credential store via java-keyring, or an AES-GCM encrypted file fallback
  *
  * All operations are suspending to allow I/O without blocking.
- * The [isHardwareBacked] flag tells callers whether secrets live on a hardware
- * keychain (e.g. Android Keystore, Linux libsecret) or a derived-file fallback.
+ * The [usesPlatformKeyStore] flag tells callers which store holds the secrets:
+ * the platform's own secure store, or the derived-file fallback.
  */
 interface SecureStoragePort {
     /**
@@ -19,8 +19,8 @@ interface SecureStoragePort {
 
     /**
      * Persists [value] under [key].
-     * On platforms with a keyring (Android Keystore, Linux libsecret), the value
-     * is stored in hardware-backed secure storage.
+     * When the platform's own secure store holds the secret — the Android Keystore,
+     * an OS credential store — the value is stored there and not in the fallback file.
      */
     suspend fun write(
         key: String,
@@ -34,9 +34,17 @@ interface SecureStoragePort {
     suspend fun delete(key: String)
 
     /**
-     * Returns `true` when secrets are stored in hardware-backed secure storage
-     * (Android Keystore, Linux libsecret/GNOME Keyring), `false` when the
-     * fallback encrypted-file backend is in use.
+     * Returns `true` when the platform's own secure store holds the secrets — the
+     * Android Keystore, or an OS credential store (Secret Service, macOS Keychain,
+     * Windows Credential Manager) on the desktop — and `false` when the derived-file
+     * fallback is in use.
+     *
+     * The flag names the store, not the strength of the hardware behind it: a
+     * credential store may itself be software-backed, so this is not a claim that
+     * the secret sits in a secure element. What it does say is which store the
+     * caller is dealing with — and `false` means the fallback, which is
+     * obfuscation rather than protection; see the decision record
+     * `2026-10-27-jvm-secure-storage-fallback-is-not-a-secret-store`.
      */
-    fun isHardwareBacked(): Boolean
+    fun usesPlatformKeyStore(): Boolean
 }

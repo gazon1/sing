@@ -17,7 +17,9 @@ import javax.crypto.spec.SecretKeySpec
  * JVM implementation of [SecureStoragePort].
  *
  * Strategy:
- *  1. On Linux: try `secret-tool` (libsecret/GNOME Keyring) first.
+ *  1. Use the platform's own credential store — java-keyring, which speaks to the
+ *     Secret Service, the macOS Keychain and the Windows Credential Manager —
+ *     when the host has one.
  *  2. On all JVM platforms: fall back to an AES-GCM encrypted file
  *     at `~/.config/singularity/secure.bin`.
  *
@@ -79,15 +81,31 @@ open class JvmSecureStorage : SecureStoragePort {
             fallbackDelete(key)
         }
 
-    override fun isHardwareBacked(): Boolean = IS_LINUX && secretToolAvailable()
+    /**
+     * Whether the OS credential store holds the secrets, or the fallback file does.
+     *
+     * The answer used to be `IS_LINUX && secretToolAvailable()`, which was wrong
+     * twice over: it called the store hardware-backed when all it knew was that a
+     * keyring was there, and it gated the answer on the host's name, so a macOS or
+     * a Windows host that *had* a keyring answered `false` and looked like the
+     * fallback. The stores java-keyring speaks to — the Secret Service, the macOS
+     * Keychain, the Windows Credential Manager — have nothing to do with the
+     * operating system's name.
+     *
+     * The decision record
+     * `2026-11-04-the-secure-storage-flag-names-the-store-not-the-hardware` says
+     * why the flag is named this way.
+     */
+    override fun usesPlatformKeyStore(): Boolean = secretToolAvailable()
 
-    // ─── libsecret via secret-tool CLI ───────────────────────────────────────
+    // ─── the OS credential store, via java-keyring ───────────────────────────
     //
-    // Every call goes through `Subprocess`, which drains the child's output before
-    // waiting. Two of these methods used to `waitFor()` with no drain at all, which
-    // deadlocks as soon as the child writes more than a pipe buffer — a hang that would
-    // only appear on a machine where `secret-tool` was unusually chatty, and so would be
-    // very hard to reproduce.
+    // The keyring is reached in process: java-keyring talks to the platform's own
+    // secret service — the Secret Service, the macOS Keychain, the Windows
+    // Credential Manager — over its own API, so there is no child process to drain
+    // and no shell to quote. The `secretTool*` names below are older than the
+    // backend they call: the code has not shelled out to the `secret-tool` CLI
+    // since the migration.
 
     /** Open so test subclasses can force the fallback path. */
     private val keyring: com.github.javakeyring.Keyring? by lazy {
@@ -400,11 +418,6 @@ open class JvmSecureStorage : SecureStoragePort {
         private const val SERVICE_NAME = "singularity"
         private const val MAGIC = 0x53494E47 // "SING"
         private const val FORMAT_VERSION = 1
-        private val IS_LINUX =
-            System
-                .getProperty("os.name", "")
-                .lowercase()
-                .contains("linux")
         private const val AES_TRANSFORM = "AES/GCM/NoPadding"
         private const val TAG_BITS = 128
 

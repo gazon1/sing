@@ -84,7 +84,8 @@ class AndroidSecureStorage(context: Context) : SecureStoragePort {
             prefs.edit { remove(key) }
         }
 
-    override fun isHardwareBacked(): Boolean = true
+    /** The Android Keystore holds the secrets, so the platform's own store is in use. */
+    override fun usesPlatformKeyStore(): Boolean = true
 
     companion object {
         private const val PREFS_NAME = "singularity_secure_prefs"

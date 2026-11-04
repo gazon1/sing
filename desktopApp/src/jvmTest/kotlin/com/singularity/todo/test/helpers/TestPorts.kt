@@ -76,7 +76,7 @@ class InMemorySecureStorage : SecureStoragePort {
         values.remove(key)
     }
 
-    override fun isHardwareBacked(): Boolean = false
+    override fun usesPlatformKeyStore(): Boolean = false
 }
 
 /** In-memory [FileSystem]; nothing reaches the real filesystem. */
