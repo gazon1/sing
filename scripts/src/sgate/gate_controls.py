@@ -244,6 +244,17 @@ class ScriptGate:
 
 SCRIPT_GATES = [
     ScriptGate(
+        name="console-script-wrappers",
+        cmd=[sys.executable, "scripts/check-console-script-wrappers.py"],
+        why=(
+            "the install declares its console scripts once, and an editable install "
+            "answers with whichever checkout installed it last — so a script with no "
+            "binding wrapper runs another tree and reports green about it. The "
+            "declaration is the list, and a script added to it without a wrapper is "
+            "the finding, not a surprise in a worktree"
+        ),
+    ),
+    ScriptGate(
         name="text-field-transformations-table",
         cmd=[sys.executable, "scripts/check-text-field-transformations-table.py"],
         why=(

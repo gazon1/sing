@@ -563,6 +563,13 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-hook-gates.py"),
     ),
     GateSpec(
+        name="console-script wrappers",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-console-script-wrappers.py"),
+        script_args=("--quiet",),
+    ),
+    GateSpec(
         name="unwired surfaces",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -1616,6 +1623,14 @@ GATE_CONTROLS: dict[str, Control] = {
     'test-runs': Control(kind='sabotage', proves='scripts/check-test-runs.py', argv=('{python}', 'scripts/check-test-runs.py', '--require', 'shared:jvmTest,desktopApp:test', '--max-age', '86400'), path='config/docs/test-runs-baseline.txt', edit=Edit(kind='regex', pattern='^(shared:jvmTest )\\d+( \\d+)$', repl='\\g<1>99999\\g<2>', flags='MULTILINE'), why='a test source set that ran fewer tests than its recorded floor means coverage was lost', needs_clean_run=False, until='2026-12-31', tracked_by='.github/workflows/ci.yml#Executed test counts'),
     'instrumented-test-floor': Control(kind='sabotage', proves='scripts/check-instrumented-test-floor.py', argv=('{python}', 'scripts/check-instrumented-test-floor.py', '--report-dir', 'scripts/tests/fixtures/instrumented-report'), path='config/docs/instrumented-test-floor.txt', edit=Edit(kind='regex', pattern='^tests \\d+$', repl='tests 99999', flags='MULTILINE'), why='the instrumented tier runs on a schedule, on pushes to main and on demand — and a suite that runs on a schedule is a suite whose size nobody watches. A deleted test class leaves the run green, because the report lists the tests that are left. The floor is the record of what the tier used to be, and the control moves it to a number no run can reach'),
     'adr-references': Control(kind='sabotage', proves='scripts/check-adr-references.py', argv=('{python}', 'scripts/check-adr-references.py'), path='README.md', edit=Edit(kind='append', new='\nSee `docs/decisions/2026-10-05-nonexistent-adr.md` for details.\n'), why='a prose reference to a dated-ADR slug carries no path, so a moved or deleted ADR leaves a dangling claim nothing else sees'),
+    'console-script-wrappers': Control(
+        kind='sabotage',
+        proves='scripts/check-console-script-wrappers.py',
+        argv=('{python}', 'scripts/check-console-script-wrappers.py'),
+        path='rm',
+        edit=Edit(kind='replace', old='binding.bind_local_package(root)', new='', count=1),
+        why='the install declares three console scripts and ./rm is what binds two of them to the checkout it is invoked from. Remove the binding call and the wrapper still reaches both entry points and still passes every other check — it answers with whichever checkout the environment installed last. The gate has to name the two scripts; a green run here would be a control that read the file it was sabotaged in',
+    ),
     'openspec-stale': Control(kind='sabotage', proves='scripts/check-openspec-stale.py', argv=('{python}', 'scripts/check-openspec-stale.py'), path='openspec/changes/detekt-rule-has-positive-control', edit=Edit(kind='age_dir', days=30), why='an active change nobody has returned to in three weeks is a decision deferred past the point of usefulness'),
     'rule-intent': Control(kind='sabotage', proves='scripts/check-rule-intent.py', argv=('{python}', 'scripts/check-rule-intent.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>TotallyMadeUpRule:Probe.kt:1</ID>\n  </CurrentIssues>', count=1), why='a rule producing findings that nobody declared means it is running on detekt\'s defaults, unchosen. The edit is the one the twin in check-gate-wiring.py applies: the two copies of a control are the same control until one of them is edited, and the copy that rotted here named a detekt.yml pattern that has not been in the file since the rules were reorganised — so the registry described a sabotage that would have raised "matched nothing" if it had ever been the copy that ran'),
     'suppression-intent': Control(kind='sabotage', proves='scripts/check-suppression-intent.py', argv=('{python}', 'scripts/check-suppression-intent.py'), path='shared/src/jvmMain/kotlin/com/singularity/todo/feature/pomodoro/JvmPomodoroTimer.kt', edit=Edit(kind='strip_suppression_reason'), why='a file-level suppression with no recorded reason switches a rule off for every future call in that file'),
