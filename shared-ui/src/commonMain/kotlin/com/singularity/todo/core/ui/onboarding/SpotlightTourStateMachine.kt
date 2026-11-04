@@ -44,10 +44,17 @@ class SpotlightTourStateMachine(private val steps: List<SpotlightStep>) {
         index = nextPlayableFrom(0, anchors)
     }
 
-    /** Advances to the next step that has a target, or finishes if there is none. */
-    fun advance(anchors: Map<SpotlightAnchorId, Rect?>) {
-        val current = index ?: return
+    /**
+     * Advances to the next step that has a target, or finishes if there is none.
+     *
+     * @return true only when this call ended the tour, so the caller can record it as
+     *         seen without asking the machine a second question. Advancing while the
+     *         tour is not running is not an ending.
+     */
+    fun advance(anchors: Map<SpotlightAnchorId, Rect?>): Boolean {
+        val current = index ?: return false
         index = nextPlayableFrom(current + 1, anchors)
+        return index == null
     }
 
     /** Ends the tour early, recording it as seen. */
