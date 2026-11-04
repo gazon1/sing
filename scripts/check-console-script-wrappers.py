@@ -45,12 +45,38 @@ can live — never in prose:
     from a variable derived from its own location (``BASH_SOURCE`` in bash,
     ``__file__`` in Python). A fixed ``/other-clone/scripts/package-binding.py``
     binds that tree, however correctly it binds it — the exact failure above;
-  - coverage is per *script*: two entry points that share a module are two
-    claims, and a wrapper that reaches ``main`` has not reached ``other``.
+  - coverage is per *script*, not per entry point. Two console scripts that
+    name the same ``module:attribute`` are two names on ``PATH`` and two ways
+    for the environment to answer; a wrapper satisfied by one says nothing
+    about the other. Since nothing in a wrapper's shape names *which* script it
+    is, and the two scripts would be indistinguishable to any reader of the
+    file, two scripts sharing one entry point are rejected outright rather than
+    guessed at — see :func:`scan`.
 
 A wrapper that imports the entry point first and binds afterwards is not
 accepted either — by then the package has already answered from wherever the
 environment points.
+
+### What this gate does not prove
+
+It reads statements, not control flow, and it knows one loader by name. Both
+are deliberate narrowings, stated here so a green run is not read as more than
+it is:
+
+  - **Ordering is statement position, not execution.** A ``bind_local_package``
+    call inside a function nobody calls, or inside an ``if False:``, sits above
+    the entry-point import and satisfies the ordering test while binding
+    nothing at run time. Recognising that would mean evaluating the wrapper,
+    and a gate that ran the code it audits could bind a foreign checkout or run
+    another tree's suites while answering "covered". The gate therefore proves
+    the *shape* a working wrapper has, and the wrapper's own run-time refusal
+    (``./rm`` checks ``foreign_packages``) is what proves the behaviour;
+  - **The loader is one API, by name.** ``spec_from_file_location`` and
+    ``runpy.run_path`` are recognised; a wrapper that loads the binding through
+    some third mechanism is reported as uncovered. That is a false positive in
+    the safe direction — a finding to read, not a green to trust — and it is
+    the one place a name appears. Widening it is a matter of adding to
+    :data:`LOAD_CALLS`.
 
 An install that declares no console scripts is a finding too: a check that
 reads an empty declaration is green about nothing.
