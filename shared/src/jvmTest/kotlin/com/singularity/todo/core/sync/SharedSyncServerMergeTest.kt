@@ -339,7 +339,24 @@ class SharedSyncServerMergeTest {
             val doc = a.getEventsSince(0L).single().mergedDocument()
             assertTrue(doc.containsKey("description"))
             assertEquals(JsonNull, doc["description"])
-            assertEquals(JsonNull, doc["deletedAt"])
+            assertTrue(doc.containsKey("projectId"))
+            assertEquals(JsonNull, doc["projectId"])
+        }
+
+    @Test
+    fun `a delete patch with no clock is ordered by its timestamp`() =
+        runTest {
+            val server = SharedSyncServer()
+            val a = server.client(ACCOUNT)
+
+            push(a, patch("p1", Hlc.of(1_000L, 0, "dev-a"), set("title", "Buy milk")))
+            val answer = push(a, clocklessDeletePatch("p2", timestampMs = 2_000L))
+
+            assertTrue(answer.ok)
+            assertEquals(
+                JsonPrimitive(2_000L),
+                a.getEventsSince(0L).last().mergedDocument()["deletedAt"],
+            )
         }
 
     private fun push(
@@ -397,6 +414,19 @@ class SharedSyncServerMergeTest {
             baseVersion = 0L,
             isDelete = true,
             hlc = clock,
+        )
+
+    private fun clocklessDeletePatch(
+        patchId: String,
+        timestampMs: Long,
+    ): DeltaPatch =
+        DeltaPatch(
+            patchId = patchId,
+            entityId = ENTITY,
+            entityType = DocType.Task,
+            baseVersion = 0L,
+            isDelete = true,
+            timestampMs = timestampMs,
         )
 
     private companion object {

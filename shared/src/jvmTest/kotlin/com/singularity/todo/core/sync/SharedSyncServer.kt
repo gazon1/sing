@@ -199,6 +199,10 @@ class SharedSyncServer {
      * makes a deletion subject to the same per-field comparison as any other
      * write: a deletion whose clock is older than the stored one loses.
      *
+     * The tombstone is written whichever type it is. A delete is not a patch
+     * operation, so the field allowlist does not govern it; the tombstone is the
+     * server's own record that the row is gone.
+     *
      * A row the server never held is not created by a deletion: there would be
      * nothing to restore, and a row that exists only to be deleted is a row the
      * feed carries forever. The answer still says ok — there was nothing to do —
@@ -209,17 +213,10 @@ class SharedSyncServer {
         patch: DeltaPatch,
         account: String,
     ): PatchResult {
-        val clock = patch.hlc
-        if (clock == null || DELETED_AT !in SyncContract.serverFieldsFor(patch.entityType)) {
-            // A deletion is a write of `deletedAt`; a type that cannot carry that
-            // field, or a patch with no clock to order it, is refused exactly as a
-            // write to an unwritable field is.
-            return PatchResult(
-                patchId = patch.patchId,
-                ok = false,
-                error = SyncProtocol.FIELD_NOT_WRITABLE,
-            )
-        }
+        // A delete patch need not carry a clock — the protocol's own
+        // `deltaPatchDelete` does not — so order it the way the server's legacy
+        // path does: by the patch's timestamp, under the node id `legacy`.
+        val clock = patch.hlc ?: Hlc.of(patch.timestampMs ?: 0L, 0, "legacy")
         val key = RowKey(account, profileId, patch.entityType, patch.entityId)
         val row = rows[key]
             ?: return PatchResult(patchId = patch.patchId, ok = true, newVersion = null)
@@ -345,13 +342,15 @@ class SharedSyncServer {
          * set it — because the receiving device applies the event as a whole
          * row. A sparse document would read as "the server says nothing about
          * the other fields", which is not what a server row means.
+         *
+         * The document's own keys are included too. The type's field list does
+         * not mention `deletedAt` for every type, and a tombstone must not be
+         * dropped from the event that carries it.
          */
-        fun snapshot(): JsonObject =
-            JsonObject(
-                SyncContract.serverFieldsFor(entityType).associateWith { field ->
-                    doc[field] ?: JsonNull
-                },
-            )
+        fun snapshot(): JsonObject {
+            val fields = (SyncContract.serverFieldsFor(entityType) + doc.keys).toSet()
+            return JsonObject(fields.associateWith { field -> doc[field] ?: JsonNull })
+        }
     }
 
     /** The identity of a row: the owner, the profile, the type and the entity. */
