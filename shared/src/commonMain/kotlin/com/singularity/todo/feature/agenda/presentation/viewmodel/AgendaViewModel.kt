@@ -184,7 +184,12 @@ class AgendaViewModel(
      */
     private val latestTasks = MutableStateFlow<List<Task>>(emptyList())
 
-    /** Increments to re-run the collection in [init] after a failure or a retry. */
+    /**
+     * Increments to re-run the collection in [init] after a failure or a retry.
+     *
+     * The collection this triggers has to outlive a failure, or the retry has
+     * nothing to restart — see where the catch sits in [init].
+     */
     private val _reloadTrigger = MutableStateFlow(0)
 
     init {

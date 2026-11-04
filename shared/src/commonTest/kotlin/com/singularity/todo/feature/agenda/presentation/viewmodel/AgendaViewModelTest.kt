@@ -36,6 +36,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -88,7 +89,14 @@ class AgendaViewModelTest {
      */
     private val now: Instant = Instant.parse("2026-09-16T09:00:00Z")
 
-    private val fakeRepo = FakeTaskRepository()
+    /**
+     * The tasks the agenda reads.
+     *
+     * The failing variant of the fake, because the agenda's read is the one that
+     * can fail and leave the screen on an error — and the retry that has to get
+     * the agenda back is only reachable through that failure.
+     */
+    private val fakeRepo = FailingObserveTaskRepository()
     private val fakeSettings = FakeSettingsRepository()
     private val fakeCurrentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()
     private val fakeTaskMutations = FakeTaskMutationsUseCase(fakeRepo)

@@ -65,6 +65,26 @@ fun exportOptions(block: ExportOptionsBuilder.() -> Unit): ExportOptions =
     ExportOptionsBuilder().apply(block).build()
 ```
 
+## Where an export lands
+
+`destPath` takes one of two kinds of value, and the shape of the value says
+which:
+
+- a **file name** (`backup.zip`) — the repository joins it to the backup
+  directory it owns, so the archive lands beside the app's other backups;
+- a **destination the person chose** — an absolute path, or a `content://` URI
+  from the system save dialog — used verbatim, with nothing joined to it.
+
+A value carrying a scheme (`://`), a `content:` prefix, or a path separator is
+the second kind; a value carrying none of them is the first.
+
+What differs downstream: a `content://` document is written straight into (no
+sibling to write next to it, no rename to make), while an absolute path is a
+file and gets the temporary-sibling-then-move treatment every file gets. The
+change that follows the snapshot — the chain — is written only for a
+destination inside the backup directory, and an archive saved elsewhere is not
+one of the backups `observeAll` lists: that list is the backup directory.
+
 ## Failure Families
 
 The failures are three families under one sealed root, `BackupError`:
@@ -236,7 +256,8 @@ interface BackupRepository {
 
 There is **no `pull`**: a download that is not imported is a file nobody asked
 for, and the repository owns the backup directory — so `restoreFromCloud` does
-both steps, and a caller cannot aim a download anywhere.
+both steps, and a caller cannot aim a download anywhere. An *export* is the
+other way round: it may be aimed at a destination the person chose.
 
 `push` and `restoreFromCloud` **consume** the password: the array is wiped
 before they return, so a failure does not leave the secret lying in memory for
