@@ -21,7 +21,7 @@ others. The config is `config/detekt/detekt.yml`; the reasons live in comments
 | `ReturnCount` | 4 | 2 | |
 | `max_line_length` | 120 | 120 | ktlint owns it, through `.editorconfig`; detekt's own `MaxLineLength` is off. |
 | `WildcardImport` | off | on | ktlint owns it: `standard:no-wildcard-imports`. |
-| `UnusedImport` | off | off | ktlint owns it: `standard:no-unused-imports` — experimental, so `.editorconfig` enables it by name. Detekt's rule was on here and reported none of the imports ktlint found. |
+| `UnusedImport` | off | off | ktlint owns it: `standard:no-unused-imports` — experimental, so `.editorconfig` enables it by name. Detekt's rule was on here and never ran: it needs type resolution, and this repository's aggregate `detekt` task supplies no classpath. ADR `2026-11-04-detekt-runs-without-type-resolution`. |
 | `TrailingWhitespace` | off | off | ktlint owns it: `standard:no-trailing-spaces`. Detekt's rule was on here too — the ktlint takeover left it on, and it was switched off with the other two. |
 
 `config/detekt/baseline-*.xml` holds what is already known. **The baseline only ever
@@ -66,6 +66,24 @@ formatter and a gate end up arguing.
 `standard:no-unused-imports` is an experimental ktlint rule, so `.editorconfig` enables
 it by name (`ktlint_standard_no-unused-imports = enabled`) — without that line, an
 unused import would be caught by nothing.
+
+`UnusedImport` was not catching anything before the handover either. It implements
+detekt's `RequiresAnalysisApi`, and the aggregate `detekt` task this repository runs has
+no classpath — so the plugin passes `--analysis-mode light` and detekt drops every
+analysis-dependent rule before reading a file. That covered main sources as well as test
+sources; the testing classpath was never the cause. ADR
+`2026-11-04-detekt-runs-without-type-resolution` has the chain and how to check it.
+
+### The rules detekt does not analyse
+
+Every rule implementing `RequiresAnalysisApi` is inert in this repository, in every
+module, because every module's gate runs the aggregate `detekt` task. Ten of them are
+explicitly `active: true` in `config/detekt/detekt.yml` — `ArrayPrimitive`,
+`CastNullableToNonNullableType`, `Deprecation`, `ElseCaseInsteadOfExhaustiveWhen`,
+`LongParameterList`, `SpreadOperator`, `UnsafeCallOnNullableType`, `UnsafeCast`,
+`UseAnyOrNoneInsteadOfFind`, `UseIsNullOrEmpty` — and the ones active by detekt's default
+config are dropped the same way. A rule added later that needs types will be silent too
+unless the task that runs it is given a classpath.
 
 ## The two tools
 

@@ -125,6 +125,11 @@ Ktlint is a **standalone CLI** — its rules live in `.editorconfig` under the
   owns them (`standard:no-wildcard-imports`, `standard:no-unused-imports`,
   `standard:no-trailing-spaces`). `standard:no-unused-imports` is experimental, so
   `.editorconfig` enables it by name
+- the aggregate `detekt` task runs with `--analysis-mode light`: it is registered without a
+  classpath, so detekt drops every rule implementing `RequiresAnalysisApi` before reading a
+  file. `UnusedImport`, `UnusedPrivateFunction`, `UnusedPrivateProperty`, `UnusedVariable`,
+  `Deprecation` and the rest have never run — on main sources either, not only on tests.
+  Do not expect a finding from them; ADR `2026-11-04-detekt-runs-without-type-resolution`
 
 ## See also
 
