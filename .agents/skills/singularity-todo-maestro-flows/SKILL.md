@@ -135,8 +135,8 @@ itself, not to a seeded one.
 
 The walkthrough — why typing a fixture into the editor does not work, the
 `seed.yaml` query keys, the seed replacing the row it names, the run id and the
-runner's cleanup wipe — is in the runbook:
-[Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them).
+runner's cleanup wipe — is in the runbook's `Seed fixtures, never type them`
+section, listed under `The runbook` below.
 
 ## Adaptive scrolling: `scrollUntilVisible` over hardcoded swipe
 
@@ -308,8 +308,8 @@ suite. See `singularity-todo-emulator-launch`.
 Start from `launch-clean`, then `seed.yaml` when the flow needs data. Make new
 flows self-seeding rather than inheriting state from an earlier flow. Note that
 `launch-clean` does not clear Room, so a fixture written by a previous *manual*
-run is still there — the runner wipes the profile before each flow instead —
-see [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them).
+run is still there — the runner wipes the profile before each flow instead.
+The seeding walkthrough is in the runbook, listed under `The runbook` below.
 
 ## The runbook
 

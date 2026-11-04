@@ -920,6 +920,8 @@ gate blocking "hideKeyboard follows an input" sgate hidekeyboard_follows_an_inpu
 gate blocking "maestro smoke suite matches the doc" sgate maestro_smoke_suite_matches_the_doc
 # A touch target is 48 dp, and the order of the modifier chain decides whether a fixed size caps the hit area or only shapes the picture: the expansion has to come before the size.
 gate blocking "touch targets meet minimum" python3 scripts/check-touch-targets.py
+# What a skill does to a reader is send them somewhere, and the shape of that pointer went unchecked: the Maestro skill reached the runbook's seeding section three times, once under a heading that repeated the section's own title. A pointer that resolves is still a pointer in the wrong shape.
+gate blocking "skill pointers reach one section once" sgate skill_pointers_reach_one_section_once
 # <<< END GENERATED: sgate render-static-gates >>>
 
 # ─── Collect all results and report ─────────────────────────────────────────

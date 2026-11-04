@@ -973,6 +973,19 @@ SCRIPT_GATES = [
             "caps the hit area and the target stays small however the chain is read"
         ),
     ),
+    # A skill points at sibling-document sections; the same section reached
+    # twice, and a heading that repeats the title it points at, both read as
+    # more places to go than there are.
+    ScriptGate(
+        name="skill-pointers",
+        cmd=[sys.executable, "scripts/check-skill-pointers.py", "--check"],
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a skill body that reaches one runbook section more than once makes one "
+            "section read as several, and the pointer list already carries it: the "
+            "second route is a detour the reader pays for"
+        ),
+    ),
 ]
 
 @dataclass(frozen=True)

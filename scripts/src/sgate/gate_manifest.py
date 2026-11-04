@@ -1159,6 +1159,17 @@ do.""",
                 'the expansion has to come before the size.'
             ),
         ),
+        'skill pointers reach one section once': Placement(
+            kind=PlacementKind.STATIC,
+            command="sgate skill_pointers_reach_one_section_once",
+            note=(
+                'What a skill does to a reader is send them somewhere, and the shape of '
+                'that pointer went unchecked: the Maestro skill reached the runbook\'s '
+                'seeding section three times, once under a heading that repeated the '
+                "section's own title. A pointer that resolves is still a pointer in the "
+                'wrong shape.'
+            ),
+        ),
 }
 
 #: The gates that are deliberately NOT a line in ``scripts/ci/static-gates.sh``.

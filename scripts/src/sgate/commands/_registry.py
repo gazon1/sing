@@ -1174,6 +1174,17 @@ _REGISTERED: tuple[GateSpec, ...] = (
             cmd_type=CmdType.PYTHON3,
             script=Path("scripts/check-touch-targets.py"),
         ),
+        # What a skill does to a reader is send them somewhere. Nothing checked the
+        # shape of that: the Maestro skill reached the runbook's seeding section
+        # three times, once under a heading that repeated the section's own title.
+        # A pointer that resolves is still a pointer in the wrong shape.
+        GateSpec(
+            name="skill pointers reach one section once",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-skill-pointers.py"),
+            script_args=("--quiet", "--check"),
+        ),
 )
 
 
@@ -1983,6 +1994,28 @@ GATE_CONTROLS: dict[str, Control] = {
                 'modifier chain is read'
             ),
         ),
+    # a skill body that reaches the same runbook section three times makes one
+    # section look like three, and the reader pays for the detour
+    'skill-pointers': Control(
+        kind='sabotage',
+        proves='scripts/check-skill-pointers.py',
+        argv=('{python}', 'scripts/check-skill-pointers.py', '--check'),
+        path='.agents/skills/singularity-todo-maestro-flows/SKILL.md',
+        edit=Edit(
+            kind='replace',
+            old='- [App behaviour facts flows encode](diagnosing-failures.md#app-behaviour-facts-flows-encode) —',
+            new=(
+                '- [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them) —\n'
+                '- [App behaviour facts flows encode](diagnosing-failures.md#app-behaviour-facts-flows-encode) —'
+            ),
+            count=1,
+        ),
+        why=(
+            'a skill body that reaches one runbook section more than once makes one '
+            'section read as several, and the pointer list already carries it: the '
+            'second route is a detour the reader pays for'
+        ),
+    ),
 }
 
 
