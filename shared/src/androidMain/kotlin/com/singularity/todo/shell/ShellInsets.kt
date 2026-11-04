@@ -31,13 +31,21 @@ import androidx.compose.foundation.layout.union
  * helper stays out of it.
  *
  * The remaining edges are combined with `union` — the maximum per side, not a sum — because
- * the suite's padding describes a rectangle the content must stay out of, and the system
- * bars describe another. Where they cover the same ground (the suite's bar is drawn over
- * the system navigation bar and its height includes that inset — measured, see
- * `docs/device-checks/android-shell-insets-360dp.md`), the maximum is the truth and a sum
- * would leave a gap the height of the system bar. The rail case on a wide window is carried
- * by the same arithmetic: the suite reports its room on `start`/`end`, the window reports
- * the sides, and the larger side wins.
+ * the suite's padding describes a rectangle the content must stay out of, the system bars
+ * describe another, and they cover the same ground: the suite draws a navigation bar over
+ * the system navigation bar's area, so the bar's height is the room the content has to
+ * clear. Taking the maximum is the truth there; a sum would leave a gap the height of the
+ * system bar between the last row and the bar.
+ *
+ * That reading is an **assumption about the pinned library**, not an observation. Nothing in
+ * this source can show whether the height the suite reports includes the system inset, and
+ * `docs/device-checks/android-shell-insets-360dp.md` records that no device run has confirmed
+ * it. If the suite ever reported a height that excludes the inset, `union` would degenerate
+ * to the system inset alone and the content would be short by the app's bar — which is why
+ * the shell's debug-only `SHELL-INSETS` line reports `suiteBottomPx < systemBottomPx` as an
+ * error, so that the day the library changes its answer is a log line rather than a silently
+ * clipped row. The rail case on a wide window is carried by the same arithmetic: the suite
+ * reports its room on `start`/`end`, the window reports the sides, and the larger side wins.
  *
  * @param windowInsets every window inset the content could be padded by — the full set, not
  *   a horizontal slice; the top edge is discarded here.

@@ -1,8 +1,13 @@
 package com.singularity.todo
 
 import android.app.Activity
+import android.content.pm.ApplicationInfo
+import android.util.Log
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -31,6 +36,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
@@ -79,6 +85,118 @@ import org.koin.compose.viewmodel.koinViewModel
  *   from the Koin graph (#91). Required for the same reason as the desktop shell: a
  *   date the shell computes for itself is a date a test's fixed `Clock` cannot reach.
  */
+/** The logcat tag the shell's inset diagnostic writes under. */
+private const val SHELL_INSETS_TAG = "SHELL-INSETS"
+
+/**
+ * Reports what the shell's insets arithmetic was handed, once per changed inset.
+ *
+ * This is a report, not a measurement. The question it prints the inputs to — whether the
+ * navigation suite's bar height *contains* the system navigation bar's inset or sits above
+ * it — is a property of the pinned library, and
+ * `docs/device-checks/android-shell-insets-360dp.md` records that no device observation has
+ * been made. The first run of a debug build on a device answers it in one line named below;
+ * a library upgrade that changes the answer announces itself here instead of silently
+ * eating the last row.
+ *
+ * Outside the composition body on purpose: the shell recomposes on every navigation, every
+ * theme change and every inset change, and a diagnostic that writes two lines per
+ * recomposition is noise in the log its reader is trying to read. Debug builds only, for the
+ * same reason — a release build has no reader for it.
+ */
+@Composable
+private fun ShellInsetsDiagnostic(navigationPadding: PaddingValues) {
+    val debugBuild =
+        (LocalContext.current.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    if (!debugBuild) return
+
+    val density = LocalDensity.current
+    val systemBottomPx = WindowInsets.systemBars.getBottom(density)
+    val suiteBottomPx = with(density) { navigationPadding.calculateBottomPadding().roundToPx() }
+
+    // Keyed on the numbers, not the padding object: one line per distinct reading is the
+    // whole point, and `PaddingValues` is an unstable instance that changes identity freely.
+    LaunchedEffect(systemBottomPx, suiteBottomPx) {
+        val contentBottomPx =
+            shellContentWindowInsets(
+                windowInsets = ScaffoldDefaults.contentWindowInsets,
+                navigationPadding = navigationPadding,
+            ).getBottom(density)
+        Log.i(
+            SHELL_INSETS_TAG,
+            "systemBottomPx=$systemBottomPx suiteBottomPx=$suiteBottomPx " +
+                "contentBottomPx=$contentBottomPx density=${density.density}",
+        )
+        if (suiteBottomPx < systemBottomPx) {
+            // The suite took less room than the system bar: its height cannot contain the
+            // inset, so the union is short by the difference and the last row would be drawn
+            // under the system bar. Loud, because the fix is arithmetic, not taste.
+            Log.e(
+                SHELL_INSETS_TAG,
+                "the navigation suite took ${suiteBottomPx}px but the system navigation bar " +
+                    "is ${systemBottomPx}px: the suite's bar does not contain the system " +
+                    "inset, so shellContentWindowInsets must add it instead of taking the union",
+            )
+        }
+    }
+}
+
+/** The logcat tag the shell's inset diagnostic writes under. */
+private const val SHELL_INSETS_TAG = "SHELL-INSETS"
+
+/**
+ * Reports what the shell's insets arithmetic was handed, once per changed inset.
+ *
+ * This is a report, not a measurement. The question it prints the inputs to — whether the
+ * navigation suite's bar height *contains* the system navigation bar's inset or sits above
+ * it — is a property of the pinned library, and
+ * `docs/device-checks/android-shell-insets-360dp.md` records that no device observation has
+ * been made. The first run of a debug build on a device answers it in one line; a library
+ * upgrade that changes the answer announces itself here instead of silently eating the last
+ * row.
+ *
+ * Outside the composition body on purpose: the shell recomposes on every navigation, every
+ * theme change and every inset change, and a diagnostic that writes two lines per
+ * recomposition is noise in the log its reader is trying to read. Debug builds only, for the
+ * same reason — a release build has no reader for it.
+ */
+@Composable
+private fun ShellInsetsDiagnostic(navigationPadding: PaddingValues) {
+    val debugBuild =
+        (LocalContext.current.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    if (!debugBuild) return
+
+    val density = LocalDensity.current
+    val systemBottomPx = WindowInsets.systemBars.getBottom(density)
+    val suiteBottomPx = with(density) { navigationPadding.calculateBottomPadding().roundToPx() }
+
+    // Keyed on the numbers, not on the padding object: one line per distinct reading is the
+    // whole point, and `PaddingValues` is an instance whose identity changes freely.
+    LaunchedEffect(systemBottomPx, suiteBottomPx) {
+        val contentBottomPx =
+            shellContentWindowInsets(
+                windowInsets = ScaffoldDefaults.contentWindowInsets,
+                navigationPadding = navigationPadding,
+            ).getBottom(density)
+        Log.i(
+            SHELL_INSETS_TAG,
+            "systemBottomPx=$systemBottomPx suiteBottomPx=$suiteBottomPx " +
+                "contentBottomPx=$contentBottomPx density=${density.density}",
+        )
+        if (suiteBottomPx < systemBottomPx) {
+            // The suite took less room than the system bar: its height cannot contain the
+            // inset, so the union is short by the difference and the last row would be drawn
+            // under the system bar. Loud, because the fix is arithmetic, not taste.
+            Log.e(
+                SHELL_INSETS_TAG,
+                "the navigation suite took ${suiteBottomPx}px but the system navigation bar " +
+                    "is ${systemBottomPx}px: the suite's bar does not contain the system " +
+                    "inset, so shellContentWindowInsets must add it instead of taking the union",
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("LongMethod")
 @Composable
@@ -146,40 +264,7 @@ fun androidShellNav3Root(
             )
         },
     ) { navigationPadding ->
-        // The suite's `PaddingValues` cannot say whether its bar height *contains* the system
-        // navigation bar's inset or sits above it; the arithmetic below is right only for the
-        // first reading (a union of overlapping rectangles), and a sum is right only for the
-        // second. Rather than assume, the shell measures both and says so in the log, so the
-        // first run of a debug build on a device answers the question the source cannot — and
-        // a library upgrade that changes the answer announces itself instead of silently
-        // eating the last row. See docs/device-checks/android-shell-insets-360dp.md.
-        run {
-            val d = androidx.compose.ui.platform.LocalDensity.current
-            val systemBottomPx = androidx.compose.foundation.layout.WindowInsets.systemBars.getBottom(d)
-            val suiteBottomPx = with(d) { navigationPadding.calculateBottomPadding().roundToPx() }
-            val contentBottomPx = with(d) {
-                shellContentWindowInsets(
-                    windowInsets = ScaffoldDefaults.contentWindowInsets,
-                    navigationPadding = navigationPadding,
-                ).getBottom(d)
-            }
-            android.util.Log.i(
-                "SHELL-INSETS",
-                "systemBottomPx=$systemBottomPx suiteBottomPx=$suiteBottomPx " +
-                    "contentBottomPx=$contentBottomPx density=${d.density}",
-            )
-            if (suiteBottomPx < systemBottomPx) {
-                // The suite took less room than the system bar: its height does not contain
-                // the inset, the union is short by the difference, and the last row would be
-                // drawn under the system bar. Loud, because the fix is arithmetic, not taste.
-                android.util.Log.e(
-                    "SHELL-INSETS",
-                    "the navigation suite took ${suiteBottomPx}px but the system navigation bar " +
-                        "is ${systemBottomPx}px: the suite's bar does not contain the system " +
-                        "inset, so shellContentWindowInsets must add it instead of taking the union",
-                )
-            }
-        }
+        ShellInsetsDiagnostic(navigationPadding)
 
         Scaffold(
             topBar = {

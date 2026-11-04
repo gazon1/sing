@@ -120,12 +120,20 @@ class NoDroppedNavigationPaddingRule(config: Config) : Rule(config, "", null) {
             return it as? KtLambdaExpression
         }
 
-        val positional = valueArguments.lastOrNull()
-        return if (positional != null && positional.getArgumentName() == null) {
-            positional.getArgumentExpression() as? KtLambdaExpression
-        } else {
-            null
-        }
+        // The last *unnamed* argument that is a lambda. Kotlin puts every positional argument
+        // before the named ones, so a content lambda written positionally is among the last
+        // unnamed arguments — but it need not be the very last argument in the call, and a
+        // call that spells something after it (`… , { p -> … }, state = s)`) is still a call
+        // whose content lambda the rule can read. Reading `valueArguments.lastOrNull()` made
+        // the rule go blind on exactly that spelling and report INVISIBLE_CONTENT_MESSAGE
+        // against a call site that was already correct; a guard that reports working code is
+        // worse than no guard, because it teaches the author to rewrite a correct call.
+        return valueArguments
+            .asReversed()
+            .firstOrNull {
+                it.getArgumentName() == null && it.getArgumentExpression is KtLambdaExpression
+            }
+            ?.getArgumentExpression() as? KtLambdaExpression
     }
 
     /**
