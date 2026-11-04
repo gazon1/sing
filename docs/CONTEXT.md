@@ -53,9 +53,10 @@ not scheduled yet". It is `AgendaPresets.Inbox`, whose one section is called "No
 
 **Not the filter.** The wider code-level set is `TaskFilter.NotDeferred`: every task
 that is not in the trash and not deferred, dated or undated, and not filtered by
-completion. The pomodoro picker and the AI tool's `open` selection read that set. The
-two used to share the name `Inbox`, which is why older notes call the filter "the inbox
-filter".
+completion. The pomodoro picker reads `TaskFilter.All` — the same set the picker read
+before the rename, since the old filter's query was `watchActive` — and the AI tool's
+`active_not_deferred` selection reads the narrower one. The two used to share the name
+`Inbox`, which is why older notes call the filter "the inbox filter".
 
 **Used in:** `AgendaPresets.Inbox`, `AgendaEvaluator`, `TaskFilter.NotDeferred`, `TaskRepository.observeByFilter`
 

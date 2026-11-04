@@ -31,10 +31,11 @@ import kotlin.time.Duration
  * ## Why [ACTIVE_NOT_DEFERRED] carries the qualifier and [ACTIVE] does not
  *
  * The two overlap: both mean "not finished", and they differ in one respect — the
- * deferred (`someday`) tasks. A name pair where the *narrower* set sounds broader
- * (`active_not_deferred` beside `active`) makes a model guess which of the two it wants; so the
- * narrower set states the exclusion in its name, and [ACTIVE] is the one that says
- * nothing extra because nothing is excluded. Read the pair as a whole and a qualifier:
+ * deferred (`someday`) tasks. A name for the narrower set that sounded *broader* — a
+ * bare "open", which is how the app already talks about a task that is not finished —
+ * would make a model guess which of the two it wants; so the narrower set states the
+ * exclusion in its name, and [ACTIVE] is the one that says nothing extra because
+ * nothing is excluded from it. Read the pair as a whole and a qualifier:
  * [ACTIVE], every unfinished task; [ACTIVE_NOT_DEFERRED], the unfinished tasks that are
  * not deferred.
  */
@@ -68,16 +69,6 @@ enum class TaskSelection {
      * for. That is fail-closed on purpose — the caller restarts the page and loses
      * nothing but the offset. "A saved prompt keeps working" is a claim about the
      * selection, not about cursors minted before the rename.
-     *
-     * ## What the rename does *not* keep working: cursors
-     *
-     * A page cursor carries [`TaskSelectionRequest.fingerprint`], and the fingerprint
-     * is built from the enum constant's name. A cursor minted before the rename
-     * therefore says `INBOX` where this build expects `ACTIVE_NOT_DEFERRED`, and the
-     * tool refuses it as belonging to a different selection rather than continuing a
-     * list it cannot vouch for. That is fail-closed on purpose: the caller restarts the
-     * page and loses nothing but a request. "A saved prompt keeps working" is about the
-     * *selection*, not about cursors minted before the rename.
      */
     @SerialName("active_not_deferred")
     @JsonNames("inbox")
@@ -127,10 +118,10 @@ enum class TaskSelection {
 /**
  * A selection, narrowed.
  *
- * The narrowing is always *and*: a request for the open tasks within a project, tagged
- * "home", with high priority, is the intersection of the three. That is the direction
- * people read narrowing in — each word removes something — and the other direction
- * ("any of these tags") is a different question that the search tool answers.
+ * The narrowing is always *and*: a request for the unfinished tasks within a project,
+ * tagged "home", with high priority, is the intersection of the three. That is the
+ * direction people read narrowing in — each word removes something — and the other
+ * direction ("any of these tags") is a different question that the search tool answers.
  */
 @Serializable
 data class TaskSelectionRequest(

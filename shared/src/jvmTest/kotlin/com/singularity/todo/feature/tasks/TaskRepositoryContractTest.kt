@@ -88,6 +88,31 @@ abstract class TaskRepositoryContractTest {
                     .now(),
         )
 
+    /**
+     * Asserts that the seeded rows landed the way the tests that use them name them.
+     *
+     * A test that seeds a finished row and a deferred row without checking them pins
+     * nothing: if `create` normalised either — dropped the completion time, cleared the
+     * `someday` flag — the selection assertions would still pass while describing a
+     * different set than the one the test names. So the seeds are checked first, and
+     * the check reads the rows back rather than trusting what `create` returned.
+     */
+    private suspend fun assertSeededRowsLanded(repo: TaskRepository) {
+        val stored = repo.observeByFilter(TaskFilter.All).first().associateBy { it.id.value }
+        assertNotNull(
+            stored.getValue("finished").completedAt,
+            "the finished row was seeded with a completion time and must have kept it",
+        )
+        assertTrue(
+            stored.getValue("someday").someday,
+            "the deferred row was seeded as deferred and must have kept the someday flag",
+        )
+        assertNull(
+            stored.getValue("undated").completedAt,
+            "the undated row was seeded open and must not have gained a completion time",
+        )
+    }
+
     // ─── Creation ───────────────────────────────────────────────────────────────
 
     @Test
@@ -122,6 +147,16 @@ abstract class TaskRepositoryContractTest {
      * trashed out. If the read ever falls back to `watchActive`, or the query loses its
      * `someday` condition, this fails rather than the filter quietly answering a
      * different question than its name.
+     *
+     * ## Where the answer comes from
+     *
+     * The two implementations answer this question in different ways, and both are held
+     * to the same set. The in-memory fake filters the rows in memory through the
+     * domain's predicate (`TaskDomain.matchesFilter`), and the Room implementation
+     * answers from the SQL of `watchNotDeferred` (`archived_at IS NULL AND someday = 0`).
+     * The SQL is therefore exercised by the Room half of this suite, and the two halves
+     * answering the same set is what keeps the name, the query and the domain rule from
+     * drifting apart.
      */
     @Test
     fun `observeByFilter NotDeferred returns the live tasks that are not deferred`() =
@@ -135,6 +170,8 @@ abstract class TaskRepositoryContractTest {
             advanceUntilIdle()
             repo.softDelete(TaskId("trashed"))
             advanceUntilIdle()
+
+            assertSeededRowsLanded(repo)
 
             val selected = repo.observeByFilter(TaskFilter.NotDeferred).first().map { it.id.value }.toSet()
 
@@ -150,6 +187,10 @@ abstract class TaskRepositoryContractTest {
      * back into one question: `All` is everything not in the trash, which is what its
      * read (`watchActive`) does, and it is the deferred tasks that tell it apart from
      * `NotDeferred`.
+     *
+     * The SQL is exercised by the Room half of this suite and the domain's predicate by
+     * the in-memory half; both are held to the same set, so the two answers cannot
+     * drift apart.
      */
     @Test
     fun `observeByFilter All returns every live task, the deferred ones included`() =
@@ -163,6 +204,8 @@ abstract class TaskRepositoryContractTest {
             advanceUntilIdle()
             repo.softDelete(TaskId("trashed"))
             advanceUntilIdle()
+
+            assertSeededRowsLanded(repo)
 
             val selected = repo.observeByFilter(TaskFilter.All).first().map { it.id.value }.toSet()
 

@@ -61,7 +61,7 @@ sealed interface TaskFilter {
      * This is not a completion filter: a finished task still matches, because
      * completing a task marks it and only archiving takes it away. A caller that
      * wants the unfinished ones narrows this filter with [TaskStatus.Active], as
-     * the AI tool's `open` selection does.
+     * the AI tool's `active_not_deferred` selection does.
      *
      * [All] is the wider question — the deferred tasks included — so the two names
      * answer two questions and the two reads are two queries.
