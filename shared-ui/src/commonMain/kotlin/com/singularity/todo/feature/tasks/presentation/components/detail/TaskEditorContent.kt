@@ -65,7 +65,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
@@ -338,7 +337,7 @@ private fun TaskEditorContent(
                                     onClick = cb.onClear,
                                     modifier =
                                         Modifier
-                                            .touchTarget(TaskListSizes.MinTouchTarget)
+                                            .touchTarget()
                                             .size(24.dp),
                                 ) {
                                     Icon(
