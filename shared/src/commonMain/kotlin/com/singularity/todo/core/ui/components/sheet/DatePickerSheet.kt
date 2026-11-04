@@ -11,8 +11,8 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -20,13 +20,13 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
-import kotlin.time.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
-import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,7 +58,11 @@ fun DatePickerSheet(
                     ?.toEpochMilliseconds(),
             selectableDates = selectableDates,
         )
-    val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+    val today =
+        Clock.System
+            .now()
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+            .date
     BottomSheetHost(onDismiss = onDismiss) {
         SheetScaffold(
             actions =
