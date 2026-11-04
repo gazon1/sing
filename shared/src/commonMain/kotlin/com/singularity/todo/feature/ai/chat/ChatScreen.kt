@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -23,6 +24,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -204,10 +209,7 @@ private fun ChatMessagesList(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
-    val lastContentLength = messages.lastOrNull()?.content?.length ?: 0
-    LaunchedEffect(messages.size, lastContentLength, isLoading) {
-        if (messages.isNotEmpty()) listState.scrollToItem(messages.lastIndex)
-    }
+    FollowConversationEnd(listState = listState, messages = messages, isLoading = isLoading)
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         state = listState,
@@ -228,6 +230,60 @@ private fun ChatMessagesList(
             msg.surfaceId?.let { surfaceId: SurfaceId -> GenuiMessageSurface(surfaceId, onSurfaceAction) }
         }
         if (isLoading) item { ThinkingIndicator() }
+    }
+}
+
+/**
+ * Keeps the end of the conversation in view as a reply streams in.
+ *
+ * The reply arrives one token at a time, so the list is asked to move on every token. Three
+ * things keep that from being a stream of jumps:
+ *
+ * - **Only when the tail is out of view.** A tail that is already on screen is where the
+ *   reader is looking; re-aligning it per token is the stutter, not the cure.
+ * - **Animated.** When there is something to move to, it slides instead of jumping.
+ * - **Only while the reader is at the end.** Somebody who scrolled up to re-read an earlier
+ *   answer is left where they are — a new token is not an argument for moving them — and the
+ *   tail is picked up again when they scroll back down, or when they send a message of their
+ *   own, which is a request to see it.
+ *
+ * The first move is a jump rather than an animation: a conversation restored from the store
+ * can be twenty messages long, and animating through all of them is a fairground ride.
+ */
+@Composable
+private fun FollowConversationEnd(
+    listState: LazyListState,
+    messages: ImmutableList<ChatMessage>,
+    isLoading: Boolean,
+) {
+    val tail = messages.lastOrNull()
+    // Whether the reader is at the end of the conversation. Only a scroll the reader drove
+    // changes it: content growing makes the list scrollable without the reader having moved,
+    // and the scroll below must not read as the reader scrolling away.
+    var following by remember { mutableStateOf(true) }
+    var autoScrolling by remember { mutableStateOf(false) }
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress to listState.canScrollForward }
+            .collect { (scrolling, canScrollForward) ->
+                if (scrolling && !autoScrolling) following = !canScrollForward
+            }
+    }
+
+    // While a turn runs, the thinking indicator is the trailing item and the reply is not.
+    val tailIndex = messages.size - 1 + if (isLoading) 1 else 0
+    var movedOnce by remember { mutableStateOf(false) }
+    LaunchedEffect(messages.size, tail?.content?.length ?: 0, isLoading) {
+        if (tail?.role == ChatRole.User) following = true
+        if (messages.isEmpty() || !following) return@LaunchedEffect
+        // The tail is on screen: there is nothing below the fold to move to.
+        if (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index == tailIndex) return@LaunchedEffect
+        autoScrolling = true
+        try {
+            if (movedOnce) listState.animateScrollToItem(tailIndex) else listState.scrollToItem(tailIndex)
+        } finally {
+            autoScrolling = false
+        }
+        movedOnce = true
     }
 }
 
