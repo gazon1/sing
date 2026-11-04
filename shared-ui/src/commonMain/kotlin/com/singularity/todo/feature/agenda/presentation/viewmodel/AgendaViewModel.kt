@@ -38,9 +38,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -156,22 +156,18 @@ class AgendaViewModel(
      */
     private val deleteSequence = AtomicInt(0)
 
-    // Non-null default breaks the tie before computeGreeting() finishes.
-    // "Good evening" is the most common outcome; the computed value replaces it within
-    // the same runCurrent() window in tests, so there is no flash of the wrong greeting.
-
     /**
-     * Drives the greeting computation.
+     * The greeting the agenda shows, kept in step with the configured hours.
      *
      * Uses [MutableStateFlow] so the value is observable from tests without a Compose
-     * runtime. Initialized in [init] rather than inside the `collect` block so tests
-     * can drain it with a bounded number of [runCurrent] calls — no `advanceUntilIdle`
-     * (which hangs on the infinite [todayFlow] loop) and no `runBlocking` (forbidden
-     * by [NoRunBlockingRule]).
+     * runtime, and so the list builder can read the current value when it publishes a
+     * [AgendaUiState.Loaded]. It starts *empty* rather than with a guess: an hour
+     * threshold that cannot be read yet must degrade to no greeting, and a placeholder
+     * that is never replaced would be a wrong one.
      *
      * @see <docs/decisions/2026-10-18-greeting-init-no-runblocking.md>
      */
-    private val _greeting = MutableStateFlow("Good evening")
+    private val _greeting = MutableStateFlow("")
     val greeting: StateFlow<String> = _greeting.asStateFlow()
 
     /**
@@ -195,14 +191,36 @@ class AgendaViewModel(
     private val reloadTrigger = ReloadTrigger()
 
     init {
-        // Greeting is computed once at load from greetingSettings and the current clock hour.
-        // It does not change during the lifetime of this ViewModel instance.
-        // Launched here (not inside the collector) so tests can drain it with runCurrent:
-        // the collect chain and the greeting computation are independent coroutines on the
-        // same scope, and runCurrent advances one pending task per call, so the greeting
-        // computation completes in 3-4 calls before the collect callback reads _greeting.value.
+        // The greeting is *observed*, not computed once: the thresholds live in a
+        // settings repository the settings screen can change while this screen is open,
+        // and the agenda has to follow it. The collector writes the new value into
+        // [_greeting] — which the list builder reads when it publishes a Loaded state —
+        // and into an already-published Loaded state as a copy of just the greeting, so
+        // a greeting change cannot disturb the sections, the selection or an open
+        // blocked-close question.
+        //
+        // A settings flow that fails emits one empty greeting and ends: "no greeting"
+        // is the documented degradation, and a wrong greeting is worse than none. It is
+        // not a reason to take the ViewModel's scope down, so the failure is caught
+        // here rather than reaching the scope's failure handler. Cancellation is not
+        // caught — [catch] rethrows the coroutine's own cancellation.
         scope.launch {
-            _greeting.value = computeGreeting()
+            combine(
+                deps.greetingSettings.morningEndHour,
+                deps.greetingSettings.afternoonEndHour,
+            ) { morningEnd, afternoonEnd -> morningEnd to afternoonEnd }
+                .map { (morningEnd, afternoonEnd) -> computeGreeting(morningEnd, afternoonEnd) }
+                .catch { emit("") }
+                .collect { greeting ->
+                    // Written before the state update on purpose: a Loaded state built
+                    // after this point reads the new value, and the CAS update below
+                    // re-reads the current state, so the two writers cannot leave the
+                    // screen holding a greeting neither of them computed last.
+                    _greeting.value = greeting
+                    updateState { current ->
+                        if (current is AgendaUiState.Loaded) current.copy(greeting = greeting) else current
+                    }
+                }
         }
 
         scope.launch {
@@ -277,11 +295,18 @@ class AgendaViewModel(
         }
     }
 
-    /** Computes the time-of-day greeting from [greetingSettings] and the current clock hour. */
-    private suspend fun computeGreeting(): String =
+    /**
+     * The time-of-day greeting for [morningEnd] and [afternoonEnd], against the clock
+     * hour *now*.
+     *
+     * Degrades to no greeting (`""`) when it cannot be computed: an unknown hour must
+     * not produce a confidently wrong "Good morning".
+     */
+    private suspend fun computeGreeting(
+        morningEnd: Int,
+        afternoonEnd: Int,
+    ): String =
         runCatchingCancellable {
-            val morningEnd = deps.greetingSettings.morningEndHour.first()
-            val afternoonEnd = deps.greetingSettings.afternoonEndHour.first()
             // localTimeAt(Clock, TimeZone) hides the kotlinx-datetime bridge internally.
             val hour = localTimeAt(deps.clock, deps.timeZone.current()).hour
             when {
