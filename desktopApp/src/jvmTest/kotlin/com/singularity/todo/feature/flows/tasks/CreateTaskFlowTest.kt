@@ -6,9 +6,15 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
+import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.state.TaskDraft
+import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraft
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
@@ -16,8 +22,11 @@ import com.singularity.todo.test.helpers.assertTagEnabled
 import com.singularity.todo.test.helpers.assertTagNotEnabled
 import com.singularity.todo.test.helpers.assertTagTextEquals
 import com.singularity.todo.test.helpers.assertTextDisplayed
+import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
+import com.singularity.todo.test.helpers.awaitText
+import com.singularity.todo.test.helpers.clearTag
 import com.singularity.todo.test.helpers.clickContentDescription
 import com.singularity.todo.test.helpers.clickSheetClose
 import com.singularity.todo.test.helpers.clickTag
@@ -28,7 +37,9 @@ import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.typeIntoTag
 import kotlinx.coroutines.flow.first
 import org.junit.jupiter.api.Tag
+import org.koin.dsl.module
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 /**
  * Desktop mirror of `Maestro/flows/tasks/create-task.yaml`, covering the editor
@@ -73,6 +84,30 @@ class CreateTaskFlowTest {
             assertTagNotEnabled(TestTags.TASK_EDITOR_SAVE)
         }
 
+    /**
+     * The message reaches the first frame.
+     *
+     * The editor is opened with nothing in it, which is the moment the person most
+     * needs to know what is missing. The message is derived from the draft's
+     * validity, not from the last validation result the base class withholds on its
+     * first pass, so it is on screen before the first keystroke — and the disabled
+     * button and the message tell one story rather than two.
+     */
+    @Test
+    fun a_freshly_opened_editor_says_the_title_is_required() =
+        runDesktopAppTest(checkA11y = true) {
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
+
+            assertTagDisplayed(TestTags.TASK_EDITOR_TITLE_ERROR)
+            assertTagTextEquals(TestTags.TASK_EDITOR_TITLE_ERROR, "Title is required")
+            assertTagNotEnabled(TestTags.TASK_EDITOR_SAVE)
+            assertEquals(
+                1,
+                onAllNodesWithText("Title is required").fetchSemanticsNodes().size,
+                "the message is under the field, not repeated in a snackbar",
+            )
+        }
+
     @Test
     fun typing_a_title_enables_save() =
         runDesktopAppTest(checkA11y = true) {
@@ -85,6 +120,36 @@ class CreateTaskFlowTest {
             // missing row, which reads as a save-button bug rather than an input one.
             assertTagTextEquals(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
             assertTagEnabled(TestTags.TASK_EDITOR_SAVE)
+        }
+
+    /**
+     * The validation message belongs under the field, not in a snackbar.
+     *
+     * It used to be reachable only as a transient toast, gone before it can be
+     * read, and the empty title that produced it left the save button grey with
+     * nothing on screen saying why. The words now appear exactly once: a snackbar
+     * repeating them is the duplicate this pins out of existence.
+     */
+    @Test
+    fun clearing_the_title_shows_the_validation_message_under_the_field() =
+        runDesktopAppTest(checkA11y = true) {
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
+            typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
+            assertTagEnabled(TestTags.TASK_EDITOR_SAVE)
+
+            clearTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+
+            // The bridge is asynchronous — the ViewModel hears about the clear a
+            // beat after the keystroke — so wait for the message rather than
+            // reading the tree in the same frame.
+            awaitTag(TestTags.TASK_EDITOR_TITLE_ERROR)
+            assertTagTextEquals(TestTags.TASK_EDITOR_TITLE_ERROR, "Title is required")
+            assertTagNotEnabled(TestTags.TASK_EDITOR_SAVE)
+            assertEquals(
+                1,
+                onAllNodesWithText("Title is required").fetchSemanticsNodes().size,
+                "the message is under the field, not repeated in a snackbar",
+            )
         }
 
     @Test
@@ -248,5 +313,44 @@ class CreateTaskFlowTest {
         assert(message.contains("Nearby tags:") || message.contains("All available tags")) {
             "Error message should list nearby or available tags, got: $message"
         }
+    }
+
+    /**
+     * A create-mode failure that is not a validation failure reaches the snackbar.
+     *
+     * The title rule's message belongs under the field; a persistence failure has no
+     * field to sit under, so it is the one thing the snackbar is for. The fake is bound
+     * in place of the real use case through `TaskCreateDeps`' `createFromDraft` seam —
+     * the only place a create can be made to fail for a reason the title rule did not
+     * produce. No sleep: [awaitText] settles the composition until the host shows it.
+     */
+    @Test
+    fun a_persistence_failure_reaches_the_snackbar() =
+        runDesktopAppTest(
+            checkA11y = true,
+            overrides =
+                module {
+                    factory<CreateTaskFromDraft> { FailingCreateTaskFromDraft() }
+                },
+        ) {
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
+            typeIntoTag(TestTags.TASK_EDITOR_TITLE_INPUT, "Buy milk")
+            assertTagEnabled(TestTags.TASK_EDITOR_SAVE)
+            clickTag(TestTags.TASK_EDITOR_SAVE)
+
+            awaitText(FAILURE_MESSAGE)
+            // The title is valid, so the only message on screen is the failure: the
+            // inline slot must not borrow the persistence message.
+            assertTextNotExists("Title is required")
+        }
+
+    /** Fails every create for a reason the title rule cannot produce. */
+    private class FailingCreateTaskFromDraft : CreateTaskFromDraft {
+        override suspend fun invoke(draft: TaskDraft): Either<AppError, TaskId> =
+            Either.Left(AppError.Persistence(FAILURE_MESSAGE))
+    }
+
+    private companion object {
+        const val FAILURE_MESSAGE = "Could not save the task"
     }
 }

@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.screen
 
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,7 +31,9 @@ import com.singularity.todo.feature.tasks.domain.state.DraftAttachment
 import com.singularity.todo.feature.tasks.domain.state.DraftChecklistItem
 import com.singularity.todo.feature.tasks.domain.state.DueDateOption
 import com.singularity.todo.feature.tasks.domain.state.TaskCreateIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskCreateUiEvent
 import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
+import com.singularity.todo.feature.tasks.domain.state.TaskTitleValidation
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -74,14 +77,33 @@ fun TaskCreateScreen(
     val sheets = rememberDialogState<TaskEditorSheet>()
 
     CollectEvents(vm.events) { event ->
-        if (event is com.singularity.todo.feature.tasks.domain.state.TaskCreateUiEvent.Saved) {
+        if (event is TaskCreateUiEvent.Saved) {
             isNavigatingBack = true
             navigator.back()
         }
     }
 
+    // The title's message is drawn under the field, from the same rule that disables
+    // the save button, and it is derived from the draft's validity rather than from
+    // the base class's last validation result. That is what makes it reach the first
+    // frame: an editor opened with no title says what is missing before the first
+    // keystroke, while DraftUiState keeps validation out of its own first pass. The
+    // button and the message tell one story — the draft is not saveable, and this is why.
+    val titleError = TaskTitleValidation.error(state.draft.title.text)
+
+    // Persistence failures are the state slot's news, and the snackbar is their
+    // one surfacing point. Keying the effect on the value means a repeated failure
+    // replaces the message instead of queueing behind it.
+    //
+    // The gate is the draft's *validity*, not the message's wording. Comparing the
+    // error string with the title rule's message would swallow a persistence
+    // failure that happened to carry the same text — a store that echoes an
+    // upstream validation message would surface nothing at all. A blank title is
+    // the only thing the inline line speaks for, so any error raised while the
+    // title is sound came from the store and belongs in the snackbar.
     LaunchedEffect(state.error) {
-        state.error?.let { snackbarHostState.showSnackbar(it) }
+        val message = state.error ?: return@LaunchedEffect
+        if (titleError == null) snackbarHostState.showSnackbar(message)
     }
 
     val guardedBack: () -> Unit = {
@@ -223,7 +245,12 @@ fun TaskCreateScreen(
                 dependencies = null,
                 bottomBar = {
                     TaskSaveBar(
-                        isEnabled = state.isSaveEnabled,
+                        // Disabled while the draft is invalid — including a blank
+                        // title — and while a save is in flight. The field above
+                        // says which rule is refusing the draft, so the button
+                        // never stands grey with no next step and never answers a
+                        // press that cannot succeed.
+                        isEnabled = !state.isSaving && state.isSaveEnabled,
                         isLoading = state.isSaving,
                         onSaveClick = { vm.onIntent(TaskCreateIntent.SaveClicked) },
                     )
@@ -233,6 +260,12 @@ fun TaskCreateScreen(
         titleSource = state.draft.titleSource,
         descriptionSource = state.draft.descriptionSource,
         now = now,
+        // What the title row draws under the field, and the host that shows
+        // everything else. This screen is the whole of what the editor renders,
+        // so it owns the snackbar host: a persistence failure with no host was a
+        // failure nobody saw.
+        titleError = titleError,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         // The state the rows open their sheets through. The editor renders the sheets
         // from the same state, so the row that opens one and the host that shows it are
         // looking at one thing.
