@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.calendar.domain.logic.displayName
 import com.singularity.todo.feature.calendar.domain.logic.monthGridDates
@@ -162,7 +163,7 @@ private fun MiniDateCell(
                 text = "${date.day}",
                 color =
                     when {
-                        isSelected -> Color.White
+                        isSelected -> palette.accent.contrastingForeground()
                         !isCurrentMonth -> palette.textMuted
                         else -> palette.textPrimary
                     },

@@ -19,13 +19,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.components.SeriesMarker
+import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskStatus
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
@@ -43,7 +43,9 @@ fun TaskChip(
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalCalendarPalette.current
-    val background =
+    // The chip's own fill — the value handed to `.background` below, not a border or a
+    // container, so the selected chip's text is contrasted against the surface it sits on.
+    val chipBackground =
         when {
             isSelected -> palette.taskSelected
             task.status == CalendarTaskStatus.DONE -> palette.taskDone
@@ -59,7 +61,7 @@ fun TaskChip(
                 modifier
                     .touchTarget()
                     .size(8.dp)
-                    .background(background, CircleShape)
+                    .background(chipBackground, CircleShape)
                     .clickable { onClick() },
         )
         return
@@ -67,7 +69,7 @@ fun TaskChip(
 
     val textColor =
         when {
-            isSelected -> Color.White
+            isSelected -> chipBackground.contrastingForeground()
             task.status == CalendarTaskStatus.DONE -> palette.textMuted
             task.isLink -> palette.link
             else -> palette.textPrimary
@@ -77,7 +79,7 @@ fun TaskChip(
         modifier =
             modifier
                 .fillMaxWidth()
-                .background(background, RoundedCornerShape(4.dp))
+                .background(chipBackground, RoundedCornerShape(4.dp))
                 .clickable { onClick() }
                 .padding(horizontal = 6.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
