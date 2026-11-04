@@ -28,11 +28,30 @@ data class SyncDeadLetterEntity(
     /**
      * The account this patch belongs to.
      *
-     * Required and without a default, so every construction site has to state who the
-     * work is for. It was optional for the life of this table, and the queue was
+     * Required, and without a *Kotlin* default, so every construction site has to state
+     * who the work is for. It was optional for the life of this table, and the queue was
      * therefore unattributable: a switch could not deliver one account's set-aside work
      * without risking another's, and an owner-scoped erase had nothing to scope to —
      * it would have taken the incoming account's work with the outgoing one's. #209.
+     *
+     * ## The two kinds of default, and why only one of them is absent
+     *
+     * `defaultValue = "''"` above is a *SQL* default, and it is deliberate: SQLite will
+     * not `ALTER TABLE ... ADD COLUMN` a `NOT NULL` column without one, and Room
+     * validates the migrated schema against the entity, so a mismatch between the
+     * migration and this declaration is a crash on upgrade rather than a warning.
+     *
+     * It is not a backfill, and it cannot leave an unattributable row behind. Migration
+     * 37→38 supplies the same `DEFAULT ''` for the `ALTER` and then runs
+     * `DELETE FROM sync_dead_letter` immediately after it, in the same migration
+     * (`Migration37To38`), so the default is never the value of a live row: pre-existing
+     * patches are *cleared* rather than attributed to a guess. There is consequently no
+     * `owner_id = ''` row for `deleteForOwner` or `countForOwner` to miss — which is why
+     * the guard set below holds without a special case for it.
+     *
+     * `sync_outbox.owner_id` carries the identical pair — no Kotlin default, the same
+     * `defaultValue = "''"` — for the same reason (`SyncOutboxEntity`). The two columns
+     * are not different in this respect, and neither is the weaker of the two.
      */
     @ColumnInfo("owner_id", defaultValue = "''") val ownerId: String,
     @ColumnInfo("entity_id") val entityId: String,
@@ -54,17 +73,31 @@ data class SyncDeadLetterEntity(
  * - **global reads** — `watch`, `getAll`, `watchCount`. The shelf holds several
  *   accounts' work at once (REQ-UA-006 keeps work across a sign-out), and a read
  *   that is not scoped to an account is the outbox's `watchPending` under another
- *   name. The outbox's *sending* path is owner-scoped, and so is nothing here that
- *   moves a patch: the shelf's job is to hold work, not to deliver it.
+ *   name — that is `SyncOutboxDao.watchPending`, whose query is
+ *   `SELECT * FROM sync_outbox ORDER BY created_at ASC` with no owner in it, and not
+ *   `getPending`, the sending path, which filters on `owner_id` *and* `profile_id`.
+ *   Nothing here moves a patch: the shelf's job is to hold work, not to deliver it.
  * - **owner-scoped erase and count** — `deleteForOwner`, `countForOwner`. REQ-UA-017's
  *   erase, and the preview that precedes it.
  * - **patch-id-keyed** — `delete`. A patch id is a UUID, so it names one row; the
  *   outbox's `delete` is keyed the same way.
  * - **global** — `clearAll`, the wholesale drain. No production path calls it: a
  *   sign-out keeps local data (REQ-UA-006, `SignOutKeepsLocalDataTest`), and the
- *   account switch erases one owner through `deleteForOwner`. It is the counterpart
+ *   account switch erases one owner through `deleteForOwner` — a path
+ *   `OwnerScopedEraserTest` pins to the owner-scoped delete. It is the counterpart
  *   of the outbox's own `clearAll` — a reset with no owner to name — and not a
  *   substitute for the scoped erase.
+ *
+ * ## No unattributable rows, so no guard has to special-case one
+ *
+ * Every row states its owner at construction (see `SyncDeadLetterEntity.ownerId`), and
+ * the one empty-string owner the schema can produce — the SQL default that
+ * `Migration37To38` needs to make its `ALTER` legal — is never the owner of a live row:
+ * that migration deletes the table's contents in the same migration, before the default
+ * can address anything. So `deleteForOwner` and `countForOwner` scope every row that
+ * exists, and a switch cannot leave a row behind that neither would see. `sync_outbox`
+ * is identical on both counts, which is what makes this the same guard set rather than
+ * a simulation of it.
  *
  * ## What the shelf does not carry
  *

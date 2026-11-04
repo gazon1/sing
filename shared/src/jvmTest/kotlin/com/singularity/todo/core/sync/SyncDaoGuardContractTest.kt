@@ -42,16 +42,55 @@ import kotlin.test.fail
  * A fake that quietly drops a condition is the other half of the same failure: it
  * lets a test assert the guard works while the fake never had it.
  *
- * So the scenarios run against all three implementations of the same two DAOs — the
- * Room ones, the shared fakes, and the sync-engine test fakes — and the contract is
- * that they answer alike.
+ * ## Which members are pinned, and by what
+ *
+ * No member of either DAO is left to inspection. The scenarios below are the whole
+ * set, and each one names what it holds:
+ *
+ * | member | pinned by |
+ * | --- | --- |
+ * | shelf `deleteForOwner` | `the shelf's owner erase takes only that owner's rows` |
+ * | shelf `countForOwner` | `the shelf's count is the owner's own` |
+ * | shelf `delete` | `the shelf's patch-id delete takes that patch and nothing else` (returns 1, takes one row, and returns 0 for a patch not on the shelf) |
+ * | shelf `clearAll` | `the shelf's global drain empties every account` |
+ * | shelf `watch` / `getAll` / `watchCount` | `the shelf is read whole, across every account` and `the shelf reports a patch shelved after the flow was taken` |
+ * | shadow `deleteForOwner` / `countForOwner` | `the shadow's owner erase takes every profile of that owner` |
+ * | shadow `clearScope` | `the shadow's scope clear leaves the owner's other profiles alone` |
+ * | shadow `get` / `upsert` | `the shadow's row belongs to one account's one profile` |
+ * | shadow `confirm` | `the shadow promotes only the patch that still owns the marker` and `the shadow's promotion does not reach another account's row` |
+ * | shadow `release` | `the shadow's release does not reach another account's row` |
+ * | shadow `updateConfirmed` | `updating the confirmed state leaves the queued patch's marker alone` and `the shadow's confirmed update does not reach another account's row` |
+ *
+ * ## Why this class is abstract, and what actually runs it
+ *
+ * Every scenario here is a JUnit `@Test` on an abstract class, so this file on its own
+ * executes nothing — by design, since the point is one contract over three
+ * implementations. What runs is the three concrete subclasses at the bottom of this
+ * file, one per implementation, and the contract is only as good as their being
+ * registered as tests by the build:
+ *
+ * - `RoomSyncDaoGuardContractTest` — the real DAO. `@Tag("slow")`, because it is a
+ *   real database file and the guards live in the SQL.
+ * - `SharedFakeSyncDaoGuardContractTest` — the fakes inside `FakeAppDatabase`.
+ * - `JvmFakeSyncDaoGuardContractTest` — the fakes in `SyncEngineFakes`, the copy most
+ *   sync-engine tests use.
+ *
+ * A fourth implementation, or a fake that drifts from the query it stands in for, is
+ * added by subclassing rather than by copying a scenario.
  *
  * ## What is deliberately not asserted here
  *
  * That the shelf's *reads* are owner-scoped. They are not, and that is the outbox's
- * shape too: a transport queue is read globally and erased per owner. What the
- * contract pins is the pair — the global read and the owner-scoped erase — so a
- * change to either half has to be a deliberate one.
+ * shape too — `watchPending` is unscoped, `getPending` is owner-and-profile scoped —
+ * so a transport queue is read globally and erased per owner. What the contract pins
+ * is the pair — the global read and the owner-scoped erase — so a change to either
+ * half has to be a deliberate one.
+ *
+ * Also not asserted: that an `owner_id = ''` row is visible to `deleteForOwner`. It is
+ * not, and it must not be, because no live row can carry one: the empty string is the
+ * SQL default `Migration37To38` needs for its `ALTER`, and that migration clears both
+ * tables before the default can address a row. The shelf's `insert` requires an owner
+ * in Kotlin, exactly as the outbox's does.
  */
 abstract class SyncDaoGuardContractTest {
     /** The shelf under test. */
