@@ -32,16 +32,23 @@ import kotlin.test.assertTrue
  *
  * The failure has to arrive *after* the list has loaded: a repository that failed
  * from the very first emission would never have had a query, a filter or a sort
- * order to lose. [failOnNextEmission] arms the failure, and the next change to the
- * store makes the flow throw.
+ * order to lose. [failOnNextEmission] arms the failure, and the next emission of the
+ * template flow throws.
+ *
+ * It disarms itself when it throws, so a later observation — however it is started —
+ * can succeed. Without that, "the list comes back once the repository works again"
+ * would be untestable: the flow would fail again on every emission.
  */
 private class FailingTemplatesRepository : FakeNotesRepository() {
-    /** Arms the failure: the next emission of the template flow throws. */
+    /** Arms the failure: the next emission of the template flow throws, and disarms. */
     var failOnNextEmission = false
 
     override fun watchTemplates(): Flow<List<Note>> =
         super.watchTemplates().map { templates ->
-            if (failOnNextEmission) throw IllegalStateException("templates unavailable")
+            if (failOnNextEmission) {
+                failOnNextEmission = false
+                throw IllegalStateException("templates unavailable")
+            }
             templates
         }
 }
@@ -306,6 +313,130 @@ class NotesListViewModelTest {
             assertEquals("groceries", failed.searchQuery.text, "a failure must not clear the query")
             assertEquals(NoteFilter.Pinned, failed.filter, "a failure must not reset the filter chip")
             assertEquals(NoteSortOrder.TitleAsc, failed.sortOrder, "a failure must not reset the sort order")
+        }
+
+    // ── Failure recovery ───────────────────────────────────────────────
+    //
+    // A failed observation must not take the controls that decide *what* is observed
+    // with it. The filter chips, the sort menu and the search field stay on screen
+    // while the error is shown, so using one has to start a new observation — the
+    // retry button must not be the only way back.
+
+    /**
+     * Drives the one failure every recovery test starts from.
+     *
+     * The list loads, a repository call fails, and the screen reports it. The failing
+     * repository disarms itself, so whatever starts the next observation can succeed.
+     */
+    private suspend fun TestScope.vmInErrorState(repo: FailingTemplatesRepository): NotesListViewModel {
+        val vm = NotesListViewModel(repo = repo, scope = testScope(backgroundScope))
+        advanceUntilIdle()
+        runCurrent()
+        assertIs<NotesUiState.Content>(vm.stateFlow.value, "the list must load before a failure can take anything away")
+
+        repo.failOnNextEmission = true
+        repo.createWithContent(NoteId("n-trigger"), "Trigger", "", "").getOrThrow()
+        advanceUntilIdle()
+        runCurrent()
+        assertIs<NotesUiState.Error>(vm.stateFlow.value)
+        return vm
+    }
+
+    @Test
+    fun `a filter change after a failure re-observes the list`() =
+        runTest {
+            val repo = FailingTemplatesRepository()
+            val vm = vmInErrorState(repo)
+
+            vm.onIntent(NotesIntent.SetFilter(NoteFilter.Pinned))
+            advanceUntilIdle()
+            runCurrent()
+
+            val recovered =
+                assertIs<NotesUiState.Content>(
+                    vm.stateFlow.value,
+                    "a filter change must start a new observation, not leave the screen in the error state",
+                )
+            assertEquals(NoteFilter.Pinned, recovered.filter, "the new observation is filtered by what the user chose")
+        }
+
+    @Test
+    fun `a sort order change after a failure re-observes the list`() =
+        runTest {
+            val repo = FailingTemplatesRepository()
+            val vm = vmInErrorState(repo)
+
+            vm.onIntent(NotesIntent.SetSortOrder(NoteSortOrder.TitleAsc))
+            advanceUntilIdle()
+            runCurrent()
+
+            val recovered =
+                assertIs<NotesUiState.Content>(
+                    vm.stateFlow.value,
+                    "a sort order change must start a new observation, not leave the screen in the error state",
+                )
+            assertEquals(NoteSortOrder.TitleAsc, recovered.sortOrder)
+        }
+
+    @Test
+    fun `a search query change after a failure re-observes the list`() =
+        runTest {
+            val repo = FailingTemplatesRepository()
+            val vm = vmInErrorState(repo)
+
+            vm.onIntent(NotesIntent.SearchQueryChanged("Trigger"))
+            advanceTimeBy(searchDebounceMs + 1)
+            advanceUntilIdle()
+            runCurrent()
+
+            val recovered =
+                assertIs<NotesUiState.Content>(
+                    vm.stateFlow.value,
+                    "a search query change must start a new observation, not leave the screen in the error state",
+                )
+            assertEquals("Trigger", recovered.searchQuery.text)
+            assertEquals(
+                listOf("Trigger"),
+                recovered.list.unpinned.map { it.title },
+                "the new observation is filtered by the query the user typed",
+            )
+        }
+
+    @Test
+    fun `a change that fails again lands in the error state carrying the new filter`() =
+        runTest {
+            val repo = FailingTemplatesRepository()
+            val vm = vmInErrorState(repo)
+
+            repo.failOnNextEmission = true
+            vm.onIntent(NotesIntent.SetFilter(NoteFilter.Archived))
+            advanceUntilIdle()
+            runCurrent()
+
+            val failed =
+                assertIs<NotesUiState.Error>(
+                    vm.stateFlow.value,
+                    "a re-observation that fails again is an error state, not a stale list",
+                )
+            assertEquals(NoteFilter.Archived, failed.filter, "the error carries the filter the user chose")
+        }
+
+    @Test
+    fun `retry after a failure re-observes the list`() =
+        runTest {
+            val repo = FailingTemplatesRepository()
+            val vm = vmInErrorState(repo)
+
+            vm.onIntent(NotesIntent.Retry)
+            advanceUntilIdle()
+            runCurrent()
+
+            val recovered =
+                assertIs<NotesUiState.Content>(
+                    vm.stateFlow.value,
+                    "a retry must start a new observation and bring the list back",
+                )
+            assertEquals(listOf("Trigger"), recovered.list.unpinned.map { it.title })
         }
 
     // ── Delete / Undo ──────────────────────────────────────────────────

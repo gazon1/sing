@@ -1,6 +1,7 @@
 package com.singularity.todo.core.ui.components
 
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.feature.calendar.domain.state.CalendarUiState
 import com.singularity.todo.feature.notes.NotesUiState
 import com.singularity.todo.feature.tags.TagsUiState
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState
@@ -27,6 +28,21 @@ import kotlinx.collections.immutable.toImmutableList
  * ```
  */
 object ContentStateMapper {
+    /**
+     * The calendar has no empty and no error variant: the grid always has dates to
+     * draw, so a month that has not arrived yet is the only thing it can show.
+     */
+    fun calendar(state: CalendarUiState): ContentState<CalendarUiState.Loaded> =
+        when (state) {
+            is CalendarUiState.Loading -> {
+                ContentState.Loading
+            }
+
+            is CalendarUiState.Loaded -> {
+                ContentState.Ready(state)
+            }
+        }
+
     fun notes(state: NotesUiState): ContentState<ImmutableList<com.singularity.todo.feature.notes.Note>> =
         when (state) {
             is NotesUiState.Loading -> {

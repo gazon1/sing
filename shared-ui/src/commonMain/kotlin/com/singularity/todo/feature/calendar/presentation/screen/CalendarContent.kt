@@ -14,6 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.feature.calendar.domain.logic.YearMonth
 import com.singularity.todo.feature.calendar.domain.logic.headerLabel
@@ -28,6 +29,8 @@ import com.singularity.todo.feature.calendar.presentation.components.calendar.Ti
 import com.singularity.todo.feature.calendar.domain.state.CalendarIntent
 import com.singularity.todo.feature.calendar.domain.state.CalendarUiState
 import kotlinx.datetime.LocalDate
+
+private fun CalendarUiState.toContentState() = ContentStateMapper.calendar(this)
 
 /**
  * Slot-API content composable for the Calendar screen.
@@ -59,17 +62,7 @@ fun CalendarContent(
 ) {
     Surface(modifier = modifier.fillMaxSize()) {
         StatefulContent(
-            state =
-                when (state) {
-                    is CalendarUiState.Loaded -> {
-                        com.singularity.todo.core.ui.components.ContentState
-                            .Ready(state)
-                    }
-
-                    else -> {
-                        com.singularity.todo.core.ui.components.ContentState.Loading
-                    }
-                },
+            state = state.toContentState(),
             emptyTitle = "Calendar",
             modifier = Modifier.fillMaxSize(),
         ) { loadedState, contentModifier ->
