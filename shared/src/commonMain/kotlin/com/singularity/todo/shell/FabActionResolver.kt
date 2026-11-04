@@ -22,13 +22,19 @@ data class FabAction(val label: String, val onClick: () -> Unit)
  *
  * ## FAB prefill behaviour
  *
- * Every agenda tab that lists tasks offers an "Add task" action: **Today**,
- * **Inbox** and **Upcoming**, plus the Blocked, Stagnant and Overdue views.
+ * Every agenda screen that lists tasks offers an "Add task" action: **Today**,
+ * **Inbox**, **Upcoming**, the Blocked, Stagnant and Overdue views, and the
+ * project and tag drill-downs.
  *
  * When navigating from the **Today** tab, the task creation screen is pre-filled with
  * `dueDate = Today` so the user can change it without having to set it from scratch.
  * When navigating from **Inbox** or **Upcoming**, no due date is pre-filled: a task
  * dated today belongs to the Today tab, and one dated tomorrow is the user's call.
+ *
+ * The project drill-down seeds the new task with that project, and the single-tag
+ * and multi-tag drill-downs with that tag or tags, so the created task belongs to
+ * the list it was created from. The saved-view screens are not task lists — the
+ * list, the results, the editor and the creator all resolve to no action.
  *
  * @param today the date to pre-fill, supplied by the caller. Required rather than
  *   read here (#91): the shell knows the date it is rendering, and a resolver that
@@ -44,7 +50,11 @@ internal fun fabActionForNav3(
     when (current) {
         // ── Modern routes (Desktop / future Android) ───────────────────────────
         is AppDestination.AgendaGraph -> {
-            when (current.start) {
+            // Every member is classified: no `else`, so a route added to the
+            // hierarchy does not compile until someone decides whether the
+            // screen it opens lists tasks (#1959).
+            val start = current.start
+            when (start) {
                 AgendaStartRoute.Today -> {
                     FabAction(
                         label = "Add task",
@@ -68,7 +78,52 @@ internal fun fabActionForNav3(
                     )
                 }
 
-                else -> {
+                is AgendaStartRoute.Project -> {
+                    FabAction(
+                        label = "Add task",
+                        onClick = {
+                            navigate(
+                                AppDestination.TasksGraph(
+                                    AppDestination.TasksStartRoute.Create(projectId = start.projectId),
+                                ),
+                            )
+                        },
+                    )
+                }
+
+                is AgendaStartRoute.Tag -> {
+                    FabAction(
+                        label = "Add task",
+                        onClick = {
+                            navigate(
+                                AppDestination.TasksGraph(
+                                    AppDestination.TasksStartRoute.Create(tagIds = setOf(start.tagId)),
+                                ),
+                            )
+                        },
+                    )
+                }
+
+                is AgendaStartRoute.Tags -> {
+                    FabAction(
+                        label = "Add task",
+                        onClick = {
+                            navigate(
+                                AppDestination.TasksGraph(
+                                    AppDestination.TasksStartRoute.Create(tagIds = start.tagIds),
+                                ),
+                            )
+                        },
+                    )
+                }
+
+                // Saved-view management is not a task list: listing views,
+                // viewing, editing and creating a view all keep no button.
+                AgendaStartRoute.SavedAgendaList,
+                is AgendaStartRoute.SavedAgendaResults,
+                is AgendaStartRoute.SavedAgendaEdit,
+                AgendaStartRoute.SavedAgendaCreate,
+                -> {
                     null
                 }
             }

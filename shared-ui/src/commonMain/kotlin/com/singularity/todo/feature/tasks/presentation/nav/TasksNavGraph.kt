@@ -86,6 +86,6 @@ internal fun tasksScreenEntryProvider() =
     entryProvider {
         entry<TasksRoute.Detail>(clazzContentKey = { it.stableContentKey() }) { route -> TaskDetailScreen(route) }
         entry<TasksRoute.Create>(clazzContentKey = { it.stableContentKey() }) { route ->
-            TaskCreateScreen(route.initialDueDate, route.draftKey)
+            TaskCreateScreen(route.initialDueDate, route.draftKey, route.projectId, route.tagIds)
         }
     }

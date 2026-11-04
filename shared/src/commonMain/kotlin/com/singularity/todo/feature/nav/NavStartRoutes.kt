@@ -23,7 +23,7 @@ import kotlinx.datetime.LocalDate
 /** Converts [AppDestination.TasksStartRoute] to the inner [TasksRoute]. */
 internal fun AppDestination.TasksStartRoute.toTasksRoute(initialDueDate: LocalDate?): TasksRoute =
     when (this) {
-        is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate, draftKey)
+        is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate, draftKey, projectId, tagIds)
         is AppDestination.TasksStartRoute.Detail -> TasksRoute.Detail(taskId, sourceViewId)
     }
 

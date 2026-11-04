@@ -55,8 +55,11 @@ import kotlin.time.Instant
 fun TaskCreateScreen(
     initialDueDate: LocalDate?,
     draftKey: String? = null,
+    initialProjectId: ProjectId? = null,
+    initialTagIds: Set<TagId> = emptySet(),
 ) {
-    val vm: TaskCreateViewModel = koinViewModel { parametersOf(initialDueDate, draftKey) }
+    val vm: TaskCreateViewModel =
+        koinViewModel { parametersOf(initialDueDate, draftKey, initialProjectId, initialTagIds) }
     // The injected clock, not the system one. This screen hands `now` down to the
     // editor and stamps draft attachments with it, so a test that pins a clock in
     // Koin controls both. `koinInject` rather than a parameter: this is a nav

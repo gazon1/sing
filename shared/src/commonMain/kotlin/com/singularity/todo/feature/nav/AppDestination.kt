@@ -23,6 +23,7 @@ import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
@@ -207,9 +208,19 @@ sealed interface AppDestination : AppNavKey {
          *
          * The key is complete: whoever writes the draft builds the key with
          * [com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys].
+         *
+         * [projectId] and [tagIds] are the scope of the list the screen was opened
+         * from, when it had one: a create action on a project's or a tag's task
+         * agenda seeds the new task with that scope, so the task it creates is a
+         * member of the list that asked for it. Both are null/empty elsewhere —
+         * the tab actions create an unscoped task.
          */
         @Serializable
-        data class Create(val draftKey: String? = null) : TasksStartRoute
+        data class Create(
+            val draftKey: String? = null,
+            val projectId: ProjectId? = null,
+            val tagIds: Set<TagId> = emptySet(),
+        ) : TasksStartRoute
 
         /**
          * A task the person opened.
