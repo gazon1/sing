@@ -14,6 +14,8 @@ import unittest
 import unittest.mock
 import os
 
+from loguru import logger as _loguru
+
 import emulator.maestro
 import emulator.maestro._artifacts as _artifacts
 import emulator.maestro._cli as _cli
@@ -208,11 +210,16 @@ def _make_deps(
     serial: str = "emulator-5554",
     maestro_result_sha: str = "abc123def456",
     device_alive: bool = True,
+    maestro_argv: list[list[str]] | None = None,
 ) -> DeviceDeps:
     """Build a test DeviceDeps bundle wrapping FakeMaestro.
 
     No module globals are modified — all fakes are enclosed in the returned
     struct and passed directly to ``run_one_flow(deps=...)``.
+
+    ``maestro_argv``, when given, collects the argv of every Maestro
+    invocation, so a test can assert what the flow was told — its run id, the
+    bridge URL — without reaching into ``FakeMaestro``.
     """
     alive = [device_alive]
     #: (serial, args) for every device-scoped adb call, in order.
@@ -220,6 +227,8 @@ def _make_deps(
 
     def fake_try_run(cmd, **kwargs):
         if cmd and cmd[0] == "maestro":
+            if maestro_argv is not None:
+                maestro_argv.append(list(cmd))
             return fake_maestro.test(pathlib.Path(cmd[2]))
         cp = unittest.mock.Mock()
         cp.returncode = 0
@@ -264,7 +273,7 @@ def _make_deps(
     def fake_wait_for_app_resumed(s, timeout=20):
         return True
 
-    def fake_cleanup_run_fixtures(serial, run_id, mode, deps):
+    def fake_cleanup_run_fixtures(serial, mode, deps):
         pass
 
     def fake_capture_artifacts(serial, flow_name, artifact_dir, deps):
@@ -508,7 +517,7 @@ class RunMaestroIntegrationTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
@@ -591,7 +600,7 @@ class AcquireDeviceRegressionTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
@@ -709,7 +718,7 @@ class UnreportedFlowTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
@@ -755,8 +764,6 @@ class FixtureCleanupTest(unittest.TestCase):
     tests assert what each surviving scope sends.
     """
 
-    RUN_ID = "r4797858390"
-
     def test_the_all_mode_sweeps_everything_instead(self):
         calls: list[str] = []
         deps = DeviceDeps(
@@ -771,12 +778,12 @@ class FixtureCleanupTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
         with unittest.mock.patch.object(_fixtures.time, "sleep", lambda _s: None):
-            _fixtures.cleanup_run_fixtures("emulator-5554", self.RUN_ID, "all", deps)
+            _fixtures.cleanup_run_fixtures("emulator-5554", "all", deps)
         self.assertIn("todo-debug://seed?reset=content", calls[0])
 
     def test_the_off_mode_sends_nothing(self):
@@ -793,13 +800,75 @@ class FixtureCleanupTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
         with unittest.mock.patch.object(_fixtures.time, "sleep", lambda _s: None):
-            _fixtures.cleanup_run_fixtures("emulator-5554", self.RUN_ID, "off", deps)
+            _fixtures.cleanup_run_fixtures("emulator-5554", "off", deps)
         self.assertEqual(calls, [])
+
+
+class RunIdTest(unittest.TestCase):
+    """The run id is a value, not a cleanup key.
+
+    The cleanup no longer takes one: the wipe knows every row of the active
+    profile, and the scope that sends nothing has no rows to name, so there is
+    nothing for an id to address. What the id still does is say which attempt
+    wrote the rows a flow is looking at — it is minted per attempt, declared
+    to the flow, and logged.
+    """
+
+    def test_each_attempt_declares_its_own_run_id_to_the_flow(self):
+        argv: list[list[str]] = []
+        # The first attempt fails with a device-level signature, so the runner
+        # retries — and a retry is a new attempt, which must not reuse the id
+        # of the one that failed.
+        fake = FakeMaestro([
+            FakeMaestroResult(1, stderr="devices connected"),
+            FakeMaestroResult(0, stdout="flow passed"),
+        ])
+        deps = _make_deps(fake, maestro_argv=argv)
+        flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
+
+        records: list[str] = []
+        sink = _loguru.add(lambda message: records.append(str(message)), level="INFO")
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                ok, run_id, attempts = run_one_flow(
+                    flow, serial="emulator-5554",
+                    junit_dir=pathlib.Path(tmp),
+                    skip_install=False, allow_stale=False,
+                    max_retries=1, expected_sha="abc123def456",
+                    deps=deps,
+                )
+        finally:
+            _loguru.remove(sink)
+
+        self.assertTrue(ok)
+        self.assertEqual(2, attempts, "the device-level failure was not retried")
+
+        declared = [value for cmd in argv for value in cmd
+                    if value.startswith("RUN_ID=")]
+        self.assertEqual(
+            2, len(declared),
+            f"every attempt must hand the flow its own run id: {argv}",
+        )
+        self.assertNotEqual(
+            declared[0], declared[1],
+            "a retry reused the failed attempt's run id",
+        )
+        self.assertEqual(
+            f"RUN_ID={run_id}", declared[-1],
+            "the id the flow was handed is not the one the runner reports",
+        )
+
+        logged = [line for line in records if "run id:" in line]
+        self.assertEqual(
+            2, len(logged),
+            f"every attempt must log the run id it minted: {records}",
+        )
+        self.assertIn(run_id, logged[-1])
 
 
 class FailedFlowCleanupTest(unittest.TestCase):
@@ -855,7 +924,7 @@ class FailedFlowCleanupTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: cleanup_calls.append(run_id),
+            cleanup_run_fixtures=lambda serial, mode, deps: cleanup_calls.append(mode),
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
@@ -942,7 +1011,7 @@ class FailedFlowCleanupTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: modes.append(mode),
+            cleanup_run_fixtures=lambda serial, mode, deps: modes.append(mode),
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
@@ -1016,7 +1085,7 @@ class SessionResetTest(unittest.TestCase):
             adb_on=fake_adb_on,
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
@@ -1081,7 +1150,7 @@ class SessionResetTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )
@@ -1104,7 +1173,7 @@ class SessionResetTest(unittest.TestCase):
             adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            cleanup_run_fixtures=lambda serial, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
             git_sha=lambda deps: "abc123def456",
         )

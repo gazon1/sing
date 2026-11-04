@@ -4,6 +4,14 @@ status: accepted
 tags: [python, testing, architecture, emulator]
 ---
 
+> **Superseded in part (2026-11-05):** `cleanup_run_fixtures` no longer takes a
+> `run_id`; the wipe knows every row of the active profile and the `off` scope
+> sends nothing, so the surviving scopes have none to name. The run id itself
+> still means something — `run_one_flow` mints it per attempt, declares it to
+> the flow and logs it.
+> See [2026-11-05-the-cleanup-takes-only-what-it-uses.md](2026-11-05-the-cleanup-takes-only-what-it-uses.md).
+> The rest of this decision still holds.
+
 # ADR: DeviceDeps — explicit parameter injection for device-layer primitives
 
 ## Context
