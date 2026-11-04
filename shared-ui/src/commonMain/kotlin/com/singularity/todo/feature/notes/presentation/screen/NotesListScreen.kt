@@ -469,8 +469,13 @@ private fun NoteList(
         state = listState,
         modifier =
             modifier
+                // The list's tag and the desktop bar share this node: the bar
+                // publishes a semantics key, not a second `testTag`, so neither
+                // value replaces the other.
                 .testTag(TestTags.NOTES_LIST)
                 .platformVerticalScrollbar(listState)
+                // The cap sits inside the bar, so the bar takes its geometry from
+                // the capped column and hugs it on a wide window.
                 .widthIn(max = 640.dp),
         contentPadding = PaddingValues(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

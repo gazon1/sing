@@ -10,7 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 /**
@@ -18,6 +18,12 @@ import androidx.compose.ui.unit.dp
  *
  * The adapter is remembered against the state so a recomposition does not
  * restart a drag that is in progress.
+ *
+ * The state is also published on the container through
+ * [PlatformScrollbarSemantics.listState]. That is a semantics property, not a
+ * `testTag`: a tag written here would be a second tag on a node that already has
+ * one — the notes list carries `TestTags.NOTES_LIST` — and Compose keeps one value
+ * per key, so whichever tag came second would silently replace the other.
  *
  * This file is in `:shared-ui`'s own `jvmMain`, next to the `expect` in
  * `commonMain`. An `actual` has to live in the module that declares its
@@ -27,13 +33,18 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 actual fun Modifier.platformVerticalScrollbar(state: LazyListState): Modifier =
-    this.testTag(PLATFORM_SCROLLBAR_TEST_TAG)
+    this.semantics { this[PlatformScrollbarSemantics.listState] = state }
         .verticalScrollbar(rememberScrollbarAdapter(state), style = platformScrollbarStyle())
 
-/** Desktop implementation: the real scrollbar, over a `verticalScroll` column. */
+/**
+ * Desktop implementation: the real scrollbar, over a `verticalScroll` column.
+ *
+ * The state is published through [PlatformScrollbarSemantics.columnState], for the
+ * reason given on the list overload.
+ */
 @Composable
 actual fun Modifier.platformVerticalScrollbar(state: ScrollState): Modifier =
-    this.testTag(PLATFORM_SCROLLBAR_TEST_TAG)
+    this.semantics { this[PlatformScrollbarSemantics.columnState] = state }
         .verticalScrollbar(rememberScrollbarAdapter(state), style = platformScrollbarStyle())
 
 /**
