@@ -1038,7 +1038,10 @@ class AgendaViewModelTest {
                 )
             assertEquals(
                 setOf("Buy milk"),
-                loaded.sections.flatMap { it.tasks }.map { it.task.title }.toSet(),
+                loaded.sections
+                    .flatMap { it.tasks }
+                    .map { it.task.title }
+                    .toSet(),
                 "the retried load must show the tasks again",
             )
         }

@@ -116,8 +116,9 @@ fun MultiDatePickerSheet(
                 FilterChip(
                     selected = today in selected,
                     onClick = {
-                        if (today in selected) selected = (selected - today).toImmutableSet()
-                        else if (today !in disabledDates && selected.size < maxDates) {
+                        if (today in selected) {
+                            selected = (selected - today).toImmutableSet()
+                        } else if (today !in disabledDates && selected.size < maxDates) {
                             selected = (selected + today).toImmutableSet()
                             limitReached = false
                         }
@@ -139,19 +140,21 @@ fun MultiDatePickerSheet(
                 onDayClick = { date ->
                     if (date in disabledDates) {
                         // Disabled days are inert: no selection, no counter bump.
-                    } else when {
-                        date in selected -> {
-                            selected = (selected - date).toImmutableSet()
-                            limitReached = false
-                        }
+                    } else {
+                        when {
+                            date in selected -> {
+                                selected = (selected - date).toImmutableSet()
+                                limitReached = false
+                            }
 
-                        selected.size >= maxDates -> {
-                            limitReached = true
-                        }
+                            selected.size >= maxDates -> {
+                                limitReached = true
+                            }
 
-                        else -> {
-                            selected = (selected + date).toImmutableSet()
-                            limitReached = false
+                            else -> {
+                                selected = (selected + date).toImmutableSet()
+                                limitReached = false
+                            }
                         }
                     }
                 },
