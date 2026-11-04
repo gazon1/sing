@@ -883,6 +883,97 @@ class AgendaViewModelTest {
         }
 
     /**
+     * A greeting change and a task emission in the same dispatch window must both land.
+     *
+     * The greeting used to be snapshotted while the list was being built and then
+     * published through the CAS. This is exactly that ordering: a task emission is
+     * queued, the hours change behind it, and the list write carries the greeting it
+     * captured before the change. The stale greeting is what the screen kept, because
+     * nothing re-emits a setting the user has already changed. `seed` and
+     * `setMorningEndHour` only *queue* their collectors — neither suspends — so both
+     * writes reach the ViewModel inside the single `runCurrent` below, the list's one
+     * first.
+     */
+    @Test
+    fun `a task emission does not carry an older greeting over a newer one`() =
+        runTest {
+            fakeRepo.seed(task("t1", "Morning task"))
+            val vm = createVm()
+            awaitGreeting(vm, "Good morning")
+
+            // Queued first: the list write, which is where a snapshot would be taken.
+            fakeRepo.seed(task("t1", "Morning task"), task("t2", "Afternoon task"))
+            // Queued second: the hours change, which the list write must not overwrite.
+            fakeSettings.greeting.setMorningEndHour(9)
+
+            runCurrent()
+
+            val state = awaitGreeting(vm, "Good afternoon")
+            assertEquals(
+                setOf("Morning task", "Afternoon task"),
+                state.sections.flatMap { it.tasks }.map { it.task.title }.toSet(),
+                "the queued task emission must still land alongside the new greeting",
+            )
+        }
+
+    /**
+     * The bar starts with no greeting rather than with a guess.
+     *
+     * The placeholder used to be "Good evening" — the most likely outcome — which is a
+     * greeting nobody configured, shown for as long as the hours take to arrive and for
+     * ever if they cannot be read. Empty is the honest state: the screen draws the title
+     * alone (see `AgendaContent`, which skips the second line for an empty greeting).
+     *
+     * The trade-off is pinned from both sides here: no greeting before the hours are
+     * read, and the real one after — so an "always empty" regression fails below instead
+     * of looking like the intended degradation.
+     */
+    @Test
+    fun `the bar shows no greeting until the hours are read`() =
+        runTest {
+            val hoursRead = CompletableDeferred<Unit>()
+            val gated =
+                object : GreetingSettingsRepository {
+                    override val morningEndHour: Flow<Int> =
+                        flow {
+                            hoursRead.await()
+                            emit(12)
+                        }
+
+                    override val afternoonEndHour: Flow<Int> =
+                        flow {
+                            hoursRead.await()
+                            emit(18)
+                        }
+
+                    override suspend fun setMorningEndHour(hour: Int) = Unit
+
+                    override suspend fun setAfternoonEndHour(hour: Int) = Unit
+                }
+            fakeRepo.seed(task("t1", "Morning task"))
+            val vm =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        deps = agendaDeps(greetingSettings = gated),
+                        definition = AgendaPresets.Inbox,
+                        scope = scope,
+                    )
+                }
+            runCurrent()
+
+            // The list is loaded and the hours are not: no greeting is invented for it.
+            val waiting = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            assertEquals("", waiting.greeting, "no greeting may be drawn before the hours are read")
+            assertEquals("", vm.greeting.value, "the greeting must not be guessed")
+
+            hoursRead.complete(Unit)
+
+            val state = awaitGreeting(vm, "Good morning")
+            assertEquals("Good morning", state.greeting)
+            assertEquals("Good morning", vm.greeting.value, "the startup state must reach a real greeting")
+        }
+
+    /**
      * A settings read that fails degrades to no greeting, rather than to the one it
      * last managed to compute — and the failure stops there: the screen keeps its list.
      */

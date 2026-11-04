@@ -1,9 +1,16 @@
 ---
 title: "Greeting Computation — Init vs Collector placement"
 date: "2026-10-18"
-status: "accepted"
+status: "superseded"
+superseded-by: "2026-10-19-greeting-observed-not-snapshotted"
 type: "decision"
 ---
+
+> **Superseded.** This ADR is about where to compute a greeting that is computed *once*.
+> The greeting is now observed from the greeting-hours settings and combined into the
+> loaded state, so there is no one-shot computation to place — see
+> `2026-10-19-greeting-observed-not-snapshotted.md`.
+
 
 ## Context
 

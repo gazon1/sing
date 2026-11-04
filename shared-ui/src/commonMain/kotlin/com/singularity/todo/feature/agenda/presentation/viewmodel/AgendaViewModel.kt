@@ -159,13 +159,23 @@ class AgendaViewModel(
     /**
      * The greeting the agenda shows, kept in step with the configured hours.
      *
-     * Uses [MutableStateFlow] so the value is observable from tests without a Compose
-     * runtime, and so the list builder can read the current value when it publishes a
-     * [AgendaUiState.Loaded]. It starts *empty* rather than with a guess: an hour
-     * threshold that cannot be read yet must degrade to no greeting, and a placeholder
-     * that is never replaced would be a wrong one.
+     * This is the *only* place the greeting is written, and the state pipeline reads it
+     * as an input (the `combine` in [init]) rather than copying it into a [Loaded] it is
+     * building. That distinction is the whole fix: a greeting snapshotted at map time and
+     * then published through the CAS is an older value than the one a concurrent settings
+     * emission has already put here, and nothing re-emits it afterwards — the screen keeps
+     * the stale greeting for the rest of its life. Read as an input, a settings change is
+     * a new emission, so the state converges on the newest greeting no matter when the
+     * task list happens to publish.
      *
-     * @see <docs/decisions/2026-10-18-greeting-init-no-runblocking.md>
+     * Uses [MutableStateFlow] so the value is observable from tests without a Compose
+     * runtime. It starts *empty* rather than with a guess: the old "Good evening"
+     * placeholder was the most likely outcome, but it is still a greeting nobody
+     * configured, and one that survives an unreadable settings store is a confidently
+     * wrong one. Empty means "no greeting to draw yet", and the screen draws the bar
+     * title alone until the hours arrive.
+     *
+     * @see <docs/decisions/2026-10-19-greeting-observed-not-snapshotted.md>
      */
     private val _greeting = MutableStateFlow("")
     val greeting: StateFlow<String> = _greeting.asStateFlow()
@@ -193,17 +203,33 @@ class AgendaViewModel(
     init {
         // The greeting is *observed*, not computed once: the thresholds live in a
         // settings repository the settings screen can change while this screen is open,
-        // and the agenda has to follow it. The collector writes the new value into
-        // [_greeting] — which the list builder reads when it publishes a Loaded state —
-        // and into an already-published Loaded state as a copy of just the greeting, so
-        // a greeting change cannot disturb the sections, the selection or an open
-        // blocked-close question.
+        // and the agenda has to follow it. This collector does one thing — write the
+        // latest greeting into [_greeting]. It does not touch the state: the state reads
+        // [_greeting] as an *input* (the `combine` below), which is what makes the
+        // greeting a single-writer field instead of two writers racing over one Loaded.
+        //
+        // Going through [_greeting] rather than combining the two settings flows into the
+        // state pipeline directly is also what keeps a settings failure from taking the
+        // list with it: `combine` completes when any upstream completes, and [_greeting]
+        // is a StateFlow that never does.
+        //
+        // Both flows re-emit. In production they are DataStore-backed preferences
+        // (`IntPref.flow` collects `dataStore.data`, which re-emits on every write,
+        // including a write made by another process); in tests they are StateFlows.
         //
         // A settings flow that fails emits one empty greeting and ends: "no greeting"
         // is the documented degradation, and a wrong greeting is worse than none. It is
         // not a reason to take the ViewModel's scope down, so the failure is caught
         // here rather than reaching the scope's failure handler. Cancellation is not
         // caught — [catch] rethrows the coroutine's own cancellation.
+        //
+        // [catch] is terminal, so one failure ends greeting updates for the life of this
+        // ViewModel: the bar keeps the greeting it has until the user leaves the screen.
+        // The alternative — resubscribing — would spin against a store that is still
+        // broken, and the production failure is already narrowed by the preference
+        // wrappers, which turn a read error into the default value
+        // (`Flow<Preferences>.catchDataStoreIoError`). What reaches here is a defect,
+        // and it degrades the subtitle rather than the list.
         scope.launch {
             combine(
                 deps.greetingSettings.morningEndHour,
@@ -211,16 +237,7 @@ class AgendaViewModel(
             ) { morningEnd, afternoonEnd -> morningEnd to afternoonEnd }
                 .map { (morningEnd, afternoonEnd) -> computeGreeting(morningEnd, afternoonEnd) }
                 .catch { emit("") }
-                .collect { greeting ->
-                    // Written before the state update on purpose: a Loaded state built
-                    // after this point reads the new value, and the CAS update below
-                    // re-reads the current state, so the two writers cannot leave the
-                    // screen holding a greeting neither of them computed last.
-                    _greeting.value = greeting
-                    updateState { current ->
-                        if (current is AgendaUiState.Loaded) current.copy(greeting = greeting) else current
-                    }
-                }
+                .collect { greeting -> _greeting.value = greeting }
         }
 
         scope.launch {
@@ -255,24 +272,36 @@ class AgendaViewModel(
                         // so a badge never vanishes because the project was finished. The
                         // projects are resolved here — once per list build — and ride on the
                         // row item, so no row looks a project up.
+                        // The greeting rides alongside the list instead of being copied
+                        // into a Loaded that the list builds. `combine` re-emits when
+                        // either side changes, so a greeting change republishes the
+                        // *same* `sections` instance — nothing is re-evaluated and the
+                        // selection survives — and a task change republishes with the
+                        // greeting [_greeting] holds now. Copied at map time instead, a
+                        // greeting computed between the map and the CAS below was
+                        // overwritten by the older snapshot, and because the settings flow
+                        // does not re-emit there was nothing left to correct it: the
+                        // agenda kept the old greeting. Reading it as an input makes a
+                        // settings change a *new emission*, so the state converges on the
+                        // newest greeting whatever the interleaving.
                         combine(
-                            deps.taskRepo
-                                .observeByFilter(TaskFilter.All)
-                                .distinctUntilChanged(), // skip recompute when task list unchanged
-                            deps.projectsRepository.observeAllIncludingClosed(),
-                        ) { tasks, projects -> tasks to projects }
-                            .onEach { (tasks, _) -> latestTasks.value = tasks }
-                            .map { (tasks, projects) ->
-                                val projectsById = projects.associateBy { it.id.value }
-                                AgendaUiState.Loaded(
-                                    sections =
-                                        AgendaEvaluator
-                                            .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
-                                            .toImmutableList(),
-                                    today = today,
-                                    greeting = _greeting.value,
-                                )
-                            }
+                            combine(
+                                deps.taskRepo
+                                    .observeByFilter(TaskFilter.All)
+                                    .distinctUntilChanged(), // skip recompute when task list unchanged
+                                deps.projectsRepository.observeAllIncludingClosed(),
+                            ) { tasks, projects -> tasks to projects }
+                                .onEach { (tasks, _) -> latestTasks.value = tasks }
+                                .map { (tasks, projects) ->
+                                    val projectsById = projects.associateBy { it.id.value }
+                                    AgendaEvaluator
+                                        .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
+                                        .toImmutableList()
+                                },
+                            _greeting,
+                        ) { sections, greeting ->
+                            AgendaUiState.Loaded(sections = sections, today = today, greeting = greeting)
+                        }
                     }
             }.collect { fresh ->
                     // Reconciliation goes through `updateState`, which is CAS-backed,
