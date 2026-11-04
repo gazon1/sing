@@ -21,6 +21,17 @@ import androidx.compose.ui.unit.dp
  * already use, which is what lets a screen say "this sits above the page"
  * instead of "3 dp".
  *
+ * [level4] is 8 dp — the height the onboarding spotlight card already sat at as
+ * a bare `8.dp` literal, so its call site names the level without moving a pixel.
+ * That card is the one consumer in this change; the rest of the app's elevation is
+ * still written at its call sites and can migrate a screen at a time, which is what
+ * a named scale is for. The two task-list tokens this replaces (`CardElevation`,
+ * `CardElevationHover`) had no consumer at all, so losing them loses nothing —
+ * `level1`/`level2` are where they would map if a reader ever comes back for them.
+ * The spotlight card is the one consumer in this change; the rest of the app's
+ * elevation is still written at its call sites and can migrate one screen at a
+ * time, which is what a named scale is for.
+ *
  * Read it through [MaterialTheme.elevation], which [SingularityTheme] provides.
  */
 @Immutable

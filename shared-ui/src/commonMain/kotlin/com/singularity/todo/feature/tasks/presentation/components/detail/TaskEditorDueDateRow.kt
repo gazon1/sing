@@ -73,8 +73,10 @@ fun TaskEditorDueDateRow(
                         Modifier
                     },
                 ).padding(
+                    // 14 dp vertical, as before: this row sits beside TaskAttributeCard and
+                    // pads like it. `lg` here would be 16 and grow the row by 2 dp a side.
                     horizontal = MaterialTheme.spacing.lg,
-                    vertical = MaterialTheme.spacing.lg,
+                    vertical = MaterialTheme.spacing.md + MaterialTheme.spacing.xs,
                 ),
         verticalAlignment = Alignment.CenterVertically,
     ) {

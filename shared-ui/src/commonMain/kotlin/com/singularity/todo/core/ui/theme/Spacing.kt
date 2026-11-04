@@ -16,11 +16,18 @@ import androidx.compose.ui.unit.dp
  * meant two different gaps depending on which file a composable lived in — `xl`
  * was 24 dp in the editor and 20 dp in the list.
  *
- * [xl] keeps the editor's 24 dp. The list's 20 dp is not a step here, and saying
- * which 20 dp this drops matters: no call site read `TaskListSpacing.Xl`. The
- * one place in the app that wants a 20 dp inset is the onboarding spotlight card,
- * and that was a bare literal, not a token — this change writes it as [lg] + [xs]
- * rather than promoting it to a name. A name no call site reads is not a token.
+ * [xl] keeps the editor's 24 dp. The list's 20 dp is not a step here, and which
+ * 20 dp this drops is a question that was answered by counting, not by reading:
+ * `git grep 'TaskListSpacing\.Xl' origin/main -- '*.kt'` returns **no hits**. The
+ * whole read tally of that object was `Xs 9, Md 4, Xxs 3, Lg 3, Xxl 1` — every
+ * member the list actually used, with `Xl` absent. So dropping the step broke no
+ * reader. (The list path lays out on [lg] and [lg] + [xs] now; neither of those
+ * was `Xl` before, and neither is 20 dp.)
+ *
+ * The one place in the app that wants a 20 dp inset is the onboarding spotlight
+ * card, and that was a bare literal, not a token — this change writes it as
+ * [lg] + [xs] rather than promoting it to a name. A name no call site reads is
+ * not a token.
  *
  * The steps are the 4 dp grid the code already used (91 % of the app's `.dp`
  * literals sit on it), plus [xxs] = 2 dp for the hairline between a control and

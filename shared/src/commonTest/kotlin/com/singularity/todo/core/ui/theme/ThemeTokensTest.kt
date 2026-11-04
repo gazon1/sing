@@ -5,6 +5,7 @@ import androidx.compose.ui.unit.dp
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 
 /**
  * The theme's token scales, pinned by value.
@@ -15,11 +16,18 @@ import kotlin.test.assertEquals
  * so the promise is asserted here instead of being left to the next reader of
  * two files to notice.
  *
- * The scale alone is not enough: what a call site *does* with it can still drift.
- * The cards once padded 14 dp vertically, and swapping that for a bare `lg` is a
- * 4 dp change that compiles, passes every other test, and is invisible until
- * somebody compares screenshots. The off-grid values the call sites must keep are
- * therefore pinned here as the compositions the call sites actually write.
+ * **What this file can and cannot see.** It asserts *values*, not call sites. A
+ * common-code test cannot read the `.kt` file that spends a token, so a call
+ * site that stops composing and writes a bare step compiles, passes this file,
+ * and is not caught here. What is asserted instead is the property that makes
+ * such a drift *visible*: no step of the scale equals the off-grid values the
+ * cards and the spotlight use. 14 dp and 20 dp are therefore unreachable from
+ * any single name, so a bare `lg` at one of those call sites is always a
+ * different, larger number (16) — never a silent re-spelling of the old one.
+ *
+ * The call sites are kept on the composition by the comment beside each
+ * `padding(vertical = …)` and by review. That is the limit of a value test, and
+ * stating the limit is cheaper than a test that reads as if it guards more.
  */
 @Tag("fast")
 class ThemeTokensTest {
@@ -35,8 +43,9 @@ class ThemeTokensTest {
                 AppSpacing.xl,
             )
 
-        assertEquals(steps.distinct(), steps, "two names in the scale carry the same value")
-        assertEquals(steps.sorted(), steps, "the scale is not ascending")
+        // One assertion on the whole list, not three: an explicit list already
+        // implies distinctness and ascending order, so separate `distinct()` /
+        // `sorted()` checks could not fail independently of it.
         assertEquals(listOf(2.dp, 4.dp, 8.dp, 12.dp, 16.dp, 24.dp), steps)
     }
 
@@ -48,18 +57,30 @@ class ThemeTokensTest {
 
     @Test
     fun `the cards keep the off-grid insets their old tokens carried`() {
-        // TaskAttributeCard, LinkedBacklinksCard and both LogbookSection cards padded
-        // 14 dp vertically before the task feature's two token sets were folded into one
-        // scale. 14 dp is not a step, so those call sites compose it as md + xs, and the
-        // composition is pinned here: a bare `lg` at any of them still compiles and still
-        // passes the rest of this file, while growing every card by 4 dp.
+        // TaskAttributeCard, LinkedBacklinksCard, both LogbookSection cards and the
+        // three task-editor attribute rows (due date, estimate, priority) padded 14 dp
+        // vertically before the task feature's two token sets were folded into one
+        // scale. 14 dp is not a step, so those call sites compose it as md + xs.
         assertEquals(14.dp, AppSpacing.md + AppSpacing.xs, "a card's vertical inset must stay 14 dp")
         assertEquals(16.dp, AppSpacing.lg, "a card's horizontal inset must stay 16 dp")
 
-        // The onboarding spotlight card's 20 dp inset is off-grid for the same reason: no
-        // call site ever read `TaskListSpacing.Xl`, so the scale dropped the step and the
-        // one card that wants it composes it.
+        // The onboarding spotlight card's 20 dp inset is off-grid for the same reason.
+        // `git grep 'TaskListSpacing\.Xl' origin/main -- '*.kt'` returns no hits — the
+        // step was declared and never read — so the scale dropped it and the one card
+        // that wants 20 dp composes it.
         assertEquals(20.dp, AppSpacing.lg + AppSpacing.xs, "the spotlight card's inset must stay 20 dp")
+
+        // The guard that gives the comments above their teeth: because no step is 14 or
+        // 20, swapping a composition for a bare `lg` changes the number instead of
+        // re-spelling it. This is what a value test *can* assert on behalf of call sites.
+        assertNotEquals(14.dp, AppSpacing.lg, "a bare lg must not stand in for md + xs")
+        assertNotEquals(20.dp, AppSpacing.lg, "a bare lg must not stand in for lg + xs")
+        assertEquals(
+            emptyList(),
+            listOf(AppSpacing.xxs, AppSpacing.xs, AppSpacing.sm, AppSpacing.md, AppSpacing.lg, AppSpacing.xl)
+                .filter { it == 14.dp || it == 20.dp },
+            "an off-grid card inset must not become a step, or a bare step could silently mean it",
+        )
     }
 
     @Test
@@ -74,7 +95,6 @@ class ThemeTokensTest {
                 AppElevation.level5,
             )
 
-        assertEquals(levels.sorted(), levels, "the elevation scale is not ascending")
         assertEquals(listOf(0.dp, 1.dp, 3.dp, 6.dp, 8.dp, 12.dp), levels)
     }
 }
