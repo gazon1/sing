@@ -76,6 +76,154 @@ class FabActionResolverTest {
         assertNull(result)
     }
 
+<<<<<<< HEAD
+=======
+    @Test
+    fun agendaGraph_savedAgendaResults_returnsAddTask() {
+        val result =
+            fabActionForNav3(
+                AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaResults(view)),
+                today,
+                navigate,
+            )
+        assertEquals(
+            "Add task",
+            result.label(),
+            "a saved view's results screen lists tasks, so it carries the action (#2057)",
+        )
+        val nav = result.click()
+        assertEquals(
+            AppDestination.TasksStartRoute.Create(),
+            nav.start,
+            "and it creates a plain task, with no date prefilled — as on Inbox",
+        )
+        assertNull(nav.initialDueDate, "a saved view's results prefill no date")
+    }
+
+    @Test
+    fun agendaGraph_savedAgendaEdit_returnsNull() {
+        val result =
+            fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit(view)), today, navigate)
+        assertNull(result)
+    }
+
+    @Test
+    fun agendaGraph_savedAgendaCreate_returnsNull() {
+        val result = fabActionForNav3(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaCreate), today, navigate)
+        assertNull(result)
+    }
+
+    // ── The shell's tab set is the rule ────────────────────────────────────────
+
+    /**
+     * The tab list, not a hand-copied set of routes. The Upcoming tab once listed
+     * tasks with no button, and a per-route test recorded the absence as correct;
+     * reading [DestinationKind.tabs] means a tab that loses its create action fails
+     * here, and the failure names the route (#1953, #1959).
+     */
+    @Test
+    fun everyAgendaTab_returnsAddTask() {
+        val agendaTabs = DestinationKind.tabs.filterIsInstance<AppDestination.AgendaGraph>()
+        assertTrue(agendaTabs.isNotEmpty(), "the shell's tab set must contain agenda tabs")
+        agendaTabs.forEach { tab ->
+            val action =
+                assertNotNull(
+                    fabActionForNav3(tab, today, navigate),
+                    "agenda tab ${tab.start} must offer Add task",
+                )
+            assertEquals("Add task", action.label, "agenda tab ${tab.start} must offer Add task")
+        }
+    }
+
+    /**
+     * The tabs deliberately expected to resolve to nothing, named rather than left
+     * implicit: the Calendar opens a calendar, not a task list (#1959).
+     *
+     * This walks the whole tab set, not just the agenda tabs, and the name says
+     * "tab" rather than "agenda tab" for that reason: the claim is about every
+     * tab the bottom bar can show. A tab added later that resolves to nothing
+     * fails here until someone names it as an exception, agenda route or not —
+     * which is what makes the exceptions explicit instead of silent (#1959).
+     * The agenda-tab rule itself is [everyAgendaTab_returnsAddTask]; the two
+     * tests ask different questions on purpose.
+     *
+     * The notes graph's `null` in the resolver's catch-all never reaches this
+     * test: `AppDestination.Notes` is a menu entry, not a tab
+     * (`DestinationKind.menuEntries`), and it has its own note creation button.
+     */
+    @Test
+    fun theOnlyTabWithNoShellAction_isCalendar() {
+        val withoutAction = DestinationKind.tabs.filter { fabActionForNav3(it, today, navigate) == null }
+        assertEquals(
+            listOf<AppDestination>(AppDestination.Calendar),
+            withoutAction,
+            "only the Calendar tab may resolve to no shell action",
+        )
+    }
+
+    // ── Every agenda route is classified ───────────────────────────────────────
+
+    /**
+     * Every agenda start route, so the classification below walks all of them.
+     * A route the sealed hierarchy gains later reaches [expectedAddTask] first:
+     * that `when` has no `else`, so an unclassified route does not compile.
+     */
+    private val everyAgendaRoute: List<AgendaStartRoute> =
+        listOf(
+            AgendaStartRoute.Inbox,
+            AgendaStartRoute.Today,
+            AgendaStartRoute.Upcoming,
+            AgendaStartRoute.Project(project),
+            AgendaStartRoute.Tag(tag),
+            AgendaStartRoute.Tags(setOf(tag, otherTag)),
+            AgendaStartRoute.SavedAgendaList,
+            AgendaStartRoute.SavedAgendaResults(view),
+            AgendaStartRoute.SavedAgendaEdit(view),
+            AgendaStartRoute.SavedAgendaCreate,
+            AgendaStartRoute.Blocked,
+            AgendaStartRoute.Stagnant,
+            AgendaStartRoute.Overdue,
+        )
+
+    private fun expectedAddTask(route: AgendaStartRoute): Boolean =
+        when (route) {
+            AgendaStartRoute.Inbox,
+            AgendaStartRoute.Today,
+            AgendaStartRoute.Upcoming,
+            is AgendaStartRoute.Project,
+            is AgendaStartRoute.Tag,
+            is AgendaStartRoute.Tags,
+            // A saved view's results are a list of tasks — the view is a filter over
+            // the same agenda — so the screen carries the action, plain and undated
+            // (#2057). #1952 and #1958 asked for it buttonless; the newest
+            // classification won, and `FabActionResolver`'s branch records why. This
+            // line is the same decision seen from the test side: move one, move both.
+            is AgendaStartRoute.SavedAgendaResults,
+            AgendaStartRoute.Blocked,
+            AgendaStartRoute.Stagnant,
+            AgendaStartRoute.Overdue,
+            -> true
+
+            // The saved-view *management* screens are not task lists.
+            AgendaStartRoute.SavedAgendaList,
+            is AgendaStartRoute.SavedAgendaEdit,
+            AgendaStartRoute.SavedAgendaCreate,
+            -> false
+        }
+
+    @Test
+    fun everyAgendaRoute_isClassified() {
+        everyAgendaRoute.forEach { route ->
+            val expected = expectedAddTask(route)
+            val result = fabActionForNav3(AppDestination.AgendaGraph(route), today, navigate)
+            assertEquals(expected, result != null, "route $route: Add task expected = $expected")
+            if (result != null) {
+                assertEquals("Add task", result.label, "route $route")
+            }
+        }
+    }
+
+>>>>>>> 37fa8c2e (fix: the review's findings)
     // ── Modern ProjectsGraph routes (Desktop) ───────────────────────────────────
 
     @Test

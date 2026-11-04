@@ -1,8 +1,5 @@
 package com.singularity.todo.feature.nav
 
-import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.tags.TagId
-
 /**
  * The key an entry's saved state is filed under.
  *
@@ -137,12 +134,7 @@ private fun AppDestination.RecordDestination.recordContentKey(): String =
 /** @see AppDestination.stableContentKey */
 internal fun AppDestination.TasksStartRoute.stableContentKey(): String =
     when (this) {
-        // The scope is part of the key for the same reason the date is: a create
-        // screen opened from a project is not the screen opened from a tag, and
-        // one screen's draft is not the other's.
-        is AppDestination.TasksStartRoute.Create -> {
-            "task-create:" + (draftKey ?: "plain") + taskScopeKey(projectId, tagIds)
-        }
+        is AppDestination.TasksStartRoute.Create -> "task-create:" + (draftKey ?: "plain")
 
         // The task's id, and nothing else: the view the task was opened from is context,
         // not identity, and a key that carried it would change when that context does.
@@ -211,24 +203,9 @@ internal fun TasksRoute.stableContentKey(): String =
 
         is TasksRoute.Create -> {
             "task-create:" + (initialDueDate?.toString() ?: "plain") +
-                ":" + (draftKey ?: "") +
-                taskScopeKey(projectId, tagIds)
+                ":" + (draftKey ?: "")
         }
     }
-
-/**
- * The project and tag scope of a create screen, as one key fragment.
- *
- * Tags are sorted, so the same set always produces the same fragment: a key that
- * changed with the order the set iterated in would file one screen under two names.
- */
-private fun taskScopeKey(projectId: ProjectId?, tagIds: Set<TagId>): String =
-    (projectId?.let { ":project:" + it.value } ?: "") +
-        (
-            tagIds.takeIf { it.isNotEmpty() }?.let { ids ->
-                ":tags:" + ids.map { id -> id.value }.sorted().joinToString(",")
-            } ?: ""
-        )
 
 /** @see AppDestination.stableContentKey */
 internal fun NotesRoute.stableContentKey(): String =
