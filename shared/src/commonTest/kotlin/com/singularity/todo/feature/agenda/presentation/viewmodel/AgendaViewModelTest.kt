@@ -16,6 +16,7 @@ import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.MergeTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
@@ -31,7 +32,9 @@ import com.singularity.todo.test.fakes.TEST_TZ
 import com.singularity.todo.test.helpers.VmScope
 import com.singularity.todo.test.helpers.testVm
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -83,7 +86,14 @@ class AgendaViewModelTest {
      */
     private val now: Instant = Instant.parse("2026-09-16T09:00:00Z")
 
-    private val fakeRepo = FakeTaskRepository()
+    /**
+     * The tasks the agenda reads.
+     *
+     * The failing variant of the fake, because the agenda's read is the one that
+     * can fail and leave the screen on an error — and the retry that has to get
+     * the agenda back is only reachable through that failure.
+     */
+    private val fakeRepo = FailingObserveTaskRepository()
     private val fakeSettings = FakeSettingsRepository()
     private val fakeCurrentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()
     private val fakeTaskMutations = FakeTaskMutationsUseCase(fakeRepo)
@@ -982,5 +992,82 @@ class AgendaViewModelTest {
                 fakeProjectsRepo.observeAllIncludingClosedCalls,
                 "the lookup is once per list build, not once per row",
             )
+        }
+
+    // ─── The failed load and the retry ─────────────────────────────────────────
+
+    /**
+     * The retry has to be a way out of the error, not a decoration on it.
+     *
+     * A failed load used to end the collection that the retry restarts, so the
+     * button on the error screen set the state back to Loading and bumped a
+     * trigger nobody was listening to: a spinner, forever, with a live "Retry"
+     * on it. The test is the one that says the retry brings the agenda back.
+     *
+     * It is written with `runTest` and not [withVm] because the failure has to
+     * be armed *before* the ViewModel collects — `withVm` builds the ViewModel
+     * first, and a failure armed afterwards would never be seen.
+     */
+    @Test
+    fun `a failed load shows the error and a retry loads the agenda again`() =
+        runTest {
+            fakeRepo.seed(task("t1", "Buy milk"))
+            fakeRepo.observeFailure = IllegalStateException("database is locked")
+            val vm = createVm()
+            runCurrent()
+
+            val error =
+                assertIs<AgendaUiState.Error>(
+                    vm.stateFlow.value,
+                    "a load that failed must say so, not leave the screen on the agenda it never got",
+                )
+            assertTrue(error.message.isNotBlank(), "the error must say what went wrong: ${error.message}")
+
+            // The repository heals; the user presses Retry.
+            fakeRepo.observeFailure = null
+            vm.onIntent(AgendaIntent.Retry)
+            // The retry starts a fresh subscription to the task flow: one dispatch
+            // to start it, another to deliver the state it produced.
+            runCurrent()
+            runCurrent()
+
+            val loaded =
+                assertIs<AgendaUiState.Loaded>(
+                    vm.stateFlow.value,
+                    "the retry must bring the agenda back, not leave the screen loading",
+                )
+            assertEquals(
+                setOf("Buy milk"),
+                loaded.sections
+                    .flatMap { it.tasks }
+                    .map { it.task.title }
+                    .toSet(),
+                "the retried load must show the tasks again",
+            )
+        }
+}
+
+/**
+ * A task repository whose observation can be made to fail.
+ *
+ * The shared fake fails *writes* on demand and has no way to fail a read, and
+ * the read is the one that can leave the agenda on an error — so the knob lives
+ * here, next to the test that needs it. A null [observeFailure] means the
+ * observation behaves normally.
+ */
+private class FailingObserveTaskRepository : FakeTaskRepository() {
+    /** The failure the next observation throws, or null for a healthy read. */
+    var observeFailure: Throwable? = null
+
+    /**
+     * Fails the observation while [observeFailure] is set.
+     *
+     * The failure is raised when the flow is *collected*, not when it is built:
+     * that is where a repository's read actually fails, and it is the failure
+     * the ViewModel's collector has to survive.
+     */
+    override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> =
+        super.observeByFilter(filter).onStart {
+            observeFailure?.let { throw it }
         }
 }
