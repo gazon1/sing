@@ -263,24 +263,25 @@ auth state are left alone — and it is the default scope (`all`);
 `--maestro-cleanup off` sends nothing.
 
 `run-maestro` mints `RUN_ID` on **every attempt** and declares it to the flow, so
-a flow can name its attempt:
+a flow can name its attempt. A **seeded** title carries no run id — the seed
+replaces the row it names, so the title a flow seeds is the title the flow can
+assert on, in every run:
 
 ```yaml
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=${RUN_ID}%20My%20fixture"
+      QUERY: "task=My%20fixture"
 - scrollUntilVisible:
     element:
-      id: "task_item_${RUN_ID}_my_fixture"     # slug of "<run id> My fixture"
+      id: "task_item_my_fixture"     # slug of "My fixture"
 ```
 
 The run id is **not a cleanup key**: nothing sweeps the rows by that prefix. The
 wipe knows every row of the profile, so the id only names the attempt in the
-runner's log. And per
-`docs/decisions/2026-10-28-the-seed-replaces-the-task-it-names.md`, a seeded title
-carries no run id at all: the seed replaces the row it names, so the title a flow
-seeds is the title the flow can assert on, in every run.
+runner's log. It belongs to a value the flow types for **its own** row — a saved
+view's name, a note's body, a checklist item — which the seed never touches.
+Per `docs/decisions/2026-10-28-the-seed-replaces-the-task-it-names.md`.
 
 The app still answers `todo-debug://seed?cleanup=<prefix>`, but the runner does
 not send it — the wipe is the whole cleanup scope, and the narrow sweep by title

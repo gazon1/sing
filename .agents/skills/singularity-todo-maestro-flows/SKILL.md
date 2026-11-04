@@ -339,8 +339,12 @@ split for flows — the split is `smoke` vs domain.
    `tapOn id: <target>`.
 5. Assert on `id:` selectors from `TestTags`; add a constant if one is missing
    (then the rebuild loop).
-6. Stamp the fixture title with `${output.stamp}` if the flow mutates it, unless
-   it consumes `seed-task.yaml`'s fixed title.
+6. **Give a seeded fixture a title of its own**, and assert on it as that
+   title's slug (`task_item_my_fixture`). A seeded title carries no run id: the
+   seed replaces the row it names, so the title a flow seeds is the title the
+   flow can assert on, in every run. The run id belongs to a value the flow
+   types for **its own** row — a saved view's name, a note's body, a checklist
+   item — which the seed never touches.
 7. Tag it with `smoke` only if it must always pass; otherwise use a domain tag.
 8. `just tm flow=Maestro/flows/<sub>/<file>.yaml`.
 9. **State whether the flow ran on a device**, in the header of the flow and
