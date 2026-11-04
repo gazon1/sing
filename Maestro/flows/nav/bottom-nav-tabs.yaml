@@ -2,9 +2,9 @@
 #
 # The FAB expectations encode the real contract from `FabActionResolver`:
 # Inbox/Today/Upcoming are `AgendaGraph` routes, and all three get "Add task".
-# Plans gets "Add task" too: the plan tab creates the work that is due, not a
-# project. Pomodoro is a non-agenda destination and gets nothing. The Calendar is
-# not a tab any more — it is an entry of the app menu, and it is checked there.
+# Plans is a menu destination, and it still gets "Add task" — the timeline
+# creates the work that is due, not a project. Pomodoro is a non-agenda
+# destination and gets nothing. The Calendar is a tab.
 # Getting this wrong made this flow fail on Upcoming, so the assertions are
 # written to match the resolver rather than to match a guess.
 #
@@ -42,30 +42,52 @@ tags:
 - assertVisible:
     id: nav_tab_upcoming
 
-# Back to an agenda tab before leaving for the other destinations, so the
+# Calendar — the fourth tab. It has no shell FAB of its own.
+- tapOn:
+    id: nav_tab_calendar
+- assertNotVisible:
+    id: tasks_fab
+- assertVisible:
+    id: nav_tab_calendar
+
+# Back to an agenda tab before leaving for the menu destinations, so the
 # next assertion starts from a known FAB state.
 - tapOn:
     id: nav_tab_today
 - assertVisible:
     id: tasks_fab
 
-# Plans — the FAB stays "Add task": the plan tab creates the work that is due.
+# Plans — a menu destination, below the fold of the sheet. The FAB stays
+# "Add task": the timeline creates the work that is due.
+- runFlow: ../../helpers/open-app-menu.yaml
+- scrollUntilVisible:
+    element:
+      id: menu_plans
+    direction: DOWN
+    timeout: 10000
 - tapOn:
-    id: nav_tab_plans
+    id: menu_plans
 - assertVisible:
     id: tasks_fab
+# The bar is still there — a menu destination is a top-level screen — but the
+# Plans entry is not one of its tabs.
 - assertVisible:
+    id: nav_menu_button
+- assertNotVisible:
     id: nav_tab_plans
 
 # Pomodoro — no shell FAB.
+- runFlow: ../../helpers/open-app-menu.yaml
+- scrollUntilVisible:
+    element:
+      id: menu_pomodoro
+    direction: DOWN
+    timeout: 10000
 - tapOn:
-    id: nav_tab_pomodoro
+    id: menu_pomodoro
 - assertNotVisible:
     id: tasks_fab
 - assertVisible:
+    id: nav_menu_button
+- assertNotVisible:
     id: nav_tab_pomodoro
-
-# Calendar — it left the bottom bar and is an entry of the app menu.
-- runFlow: ../../helpers/open-app-menu.yaml
-- assertVisible:
-    id: menu_calendar

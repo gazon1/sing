@@ -7,8 +7,16 @@ tags:
   - pomodoro
 ---
 - runFlow: ../../helpers/seed-task.yaml
+- runFlow: ../../helpers/open-app-menu.yaml
+# Pomodoro is an entry of the app menu, below the fold of the sheet: a row that is
+# drawn but off-screen is not a row the user can reach.
+- scrollUntilVisible:
+    element:
+      id: menu_pomodoro
+    direction: DOWN
+    timeout: 10000
 - tapOn:
-    id: nav_tab_pomodoro
+    id: menu_pomodoro
 - extendedWaitUntil:
     visible:
       id: pomodoro_phase_label

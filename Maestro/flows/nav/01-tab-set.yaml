@@ -1,0 +1,36 @@
+# The bottom bar holds exactly the tabs the shell declares, and nothing else.
+#
+# The set is `DestinationKind.tabs`: Inbox, Today and Upcoming (the agenda's
+# three start routes), the Calendar, and the Menu button that opens the app
+# menu. Plans and Pomodoro are menu destinations — a flow that looked for them
+# in the bar described a bar the app no longer draws.
+#
+# The `scenario:NAV-01` tag predates the Calendar's promotion from a menu entry
+# to a tab (commit f73aca39c): that scenario still reads "the bar no longer
+# holds a Calendar button", and the bar does. The assertions below are the bar as
+# it is; the scenario is the piece still to be rewritten.
+appId: com.singularity.todo
+name: nav-tab-set
+tags:
+  - smoke
+  - nav
+  - scenario:NAV-01
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- assertVisible:
+    id: nav_tab_inbox
+- assertVisible:
+    id: nav_tab_today
+- assertVisible:
+    id: nav_tab_upcoming
+- assertVisible:
+    id: nav_tab_calendar
+- assertVisible:
+    id: nav_menu_button
+# The two destinations that moved behind the Menu button are not tabs. Their
+# ids are not on the screen at all, which is what makes the "open the menu
+# first" step in the plans and pomodoro flows necessary rather than stylistic.
+- assertNotVisible:
+    id: nav_tab_plans
+- assertNotVisible:
+    id: nav_tab_pomodoro

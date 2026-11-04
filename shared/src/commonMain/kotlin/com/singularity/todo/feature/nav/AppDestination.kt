@@ -440,7 +440,11 @@ object DestinationKind {
     /** Anything that is NOT a top-level tab — i.e. push-on sub-routes. */
     fun isSubRoute(destination: AppDestination): Boolean = destination !in tabSet && destination !in menuSet
 
-    /** Five bottom-bar tab destinations in display order. */
+    /**
+     * Four bottom-bar tab destinations in display order: the agenda's three
+     * start routes and the Calendar. The Menu button is the bar's fifth entry
+     * and is not a destination, which is why it is not in this list.
+     */
     val tabs: List<AppDestination> =
         listOf(
             AppDestination.AgendaGraph(AgendaStartRoute.Inbox),

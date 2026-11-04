@@ -1,7 +1,7 @@
 # Plans: the chosen granularity is restored the next time Plans is opened.
 #
 # The round trip is the point: a setting that resets every time the user leaves
-# the tab is a setting the user has to set again every time, which is a
+# the screen is a setting the user has to set again every time, which is a
 # different feature from the one that was asked for.
 #
 # The week section is addressed by its own id, which carries the date of the
@@ -19,8 +19,16 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Due%20today&due=today"
+- runFlow: ../../helpers/open-app-menu.yaml
+# Plans is an entry of the app menu, below the fold of the sheet: a row that is
+# drawn but off-screen is not a row the user can reach.
+- scrollUntilVisible:
+    element:
+      id: menu_plans
+    direction: DOWN
+    timeout: 10000
 - tapOn:
-    id: nav_tab_plans
+    id: menu_plans
 - extendedWaitUntil:
     visible:
       id: plans_granularity_day
@@ -32,15 +40,23 @@ tags:
     file: ../../helpers/plans-section.yaml
     env:
       PLANS_SECTION: ${output.PLANS_WEEK_SECTION}
-# Leaving the tab and coming back: the choice is still in effect.
+# Leaving the screen and coming back: the choice is still in effect.
 - tapOn:
     id: nav_tab_today
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
     timeout: 30000
+- runFlow: ../../helpers/open-app-menu.yaml
+# Plans is an entry of the app menu, below the fold of the sheet: a row that is
+# drawn but off-screen is not a row the user can reach.
+- scrollUntilVisible:
+    element:
+      id: menu_plans
+    direction: DOWN
+    timeout: 10000
 - tapOn:
-    id: nav_tab_plans
+    id: menu_plans
 - runFlow:
     file: ../../helpers/plans-section.yaml
     env:

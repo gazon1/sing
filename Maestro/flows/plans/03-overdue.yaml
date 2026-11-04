@@ -10,8 +10,16 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Late%20task&due=-1d"
+- runFlow: ../../helpers/open-app-menu.yaml
+# Plans is an entry of the app menu, below the fold of the sheet: a row that is
+# drawn but off-screen is not a row the user can reach.
+- scrollUntilVisible:
+    element:
+      id: menu_plans
+    direction: DOWN
+    timeout: 10000
 - tapOn:
-    id: nav_tab_plans
+    id: menu_plans
 # The overdue section is above the dated ones: the first section on the screen.
 - extendedWaitUntil:
     visible:
