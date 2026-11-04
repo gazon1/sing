@@ -15,12 +15,13 @@ import kotlin.test.assertEquals
 // tag filter for exactly that reason (shared/build.gradle.kts:519-543).
 
 /**
- * The Android shell's content must clear the navigation bar.
+ * The Android shell's content must clear the navigation suite.
  *
  * The shell drops the navigation suite's padding and removes the bottom window
  * inset, and the last row of every screen is then drawn behind the bottom
  * navigation bar. These tests pin the insets the shell's scaffold pads its
- * content by: a drop of the navigation bar's height fails them.
+ * content by: dropping the room the suite took fails them — on a phone that is
+ * the bottom edge, and on a wide window it is the rail's side.
  */
 @RunWith(RobolectricTestRunner::class)
 class ShellInsetsTest {
@@ -39,14 +40,15 @@ class ShellInsetsTest {
     }
 
     @Test
-    fun the_content_is_not_padded_at_the_top() {
+    fun a_system_inset_the_suite_already_took_is_not_counted_twice() {
         val insets =
             shellContentWindowInsets(
-                horizontalInsets = WindowInsets(0, 0, 0, 0),
+                horizontalInsets = WindowInsets(0, 0, 0, 48),
                 navigationPadding = PaddingValues(bottom = 48.dp),
             )
 
-        assertEquals(0, insets.getTop(density))
+        // Union is the maximum per side; a sum would report 48 + 96.
+        assertEquals(96, insets.getBottom(density))
     }
 
     @Test
@@ -59,6 +61,18 @@ class ShellInsetsTest {
 
         assertEquals(4, insets.getLeft(density, LayoutDirection.Ltr))
         assertEquals(6, insets.getRight(density, LayoutDirection.Ltr))
+    }
+
+    @Test
+    fun the_room_a_navigation_rail_took_is_added_on_the_side() {
+        val insets =
+            shellContentWindowInsets(
+                horizontalInsets = WindowInsets(0, 0, 0, 0),
+                navigationPadding = PaddingValues(start = 80.dp),
+            )
+
+        assertEquals(160, insets.getLeft(density, LayoutDirection.Ltr))
+        assertEquals(0, insets.getBottom(density))
     }
 
     @Test

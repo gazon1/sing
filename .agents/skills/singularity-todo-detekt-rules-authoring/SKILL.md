@@ -391,7 +391,7 @@ advanceTimeBy(300L)  // advances virtual time by 300ms
 
 ## Existing Rules
 
-The full inventory lives in [`RULES.md`](RULES.md) — all 25 rules, their file, their rule set,
+The full inventory lives in [`RULES.md`](RULES.md) — every rule, its file, its rule set,
 what each one checks, whether it has a positive test, and whether it is active.
 
 That file is **generated from source** by `scripts/gen-detekt-rule-table.py` and verified by the
