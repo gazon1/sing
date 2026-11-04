@@ -99,8 +99,17 @@ internal fun NoteEditorScreen(
     // through the same state holder the task detail uses. The holder cancels the previous
     // timer on a new pulse, so two saves close together keep the pill up for a full window
     // after the later one instead of letting the earlier deadline hide it.
-    val savedPill =
-        rememberSavedPillState(viewModel.events.filterIsInstance<NotesUiEvent.SavedPulse>())
+    //
+    // The filtered flow is remembered rather than built inline: `filterIsInstance`
+    // allocates a new Flow on every call, and the holder keys its collector on the flow
+    // it is given. Handing it a fresh instance per recomposition would restart the
+    // collector on every keystroke and drop the pulses that land mid-restart — the pill
+    // would simply never show up.
+    val savedPulses =
+        remember(viewModel.events) {
+            viewModel.events.filterIsInstance<NotesUiEvent.SavedPulse>()
+        }
+    val savedPill = rememberSavedPillState(savedPulses)
 
     // The AI's proposed changes to this note. A note that is being created has none
     // yet, so the ViewModel is asked about an empty id and shows nothing.

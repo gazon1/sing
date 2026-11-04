@@ -114,6 +114,15 @@ class SavedPillState(
 /**
  * A [SavedPillState] fed by [pulses] — for a screen whose event flow has one consumer
  * and no other reason to be collected here.
+ *
+ * **[pulses] must have a stable identity across recompositions.** The effect below is
+ * keyed on it, so a caller that builds the flow inline —
+ * `rememberSavedPillState(events.filterIsInstance<SavedPulse>())` — hands over a *new*
+ * Flow object on every recomposition. The effect then cancels and restarts the collector
+ * each time the screen recomposes (on every keystroke, for an editor), and a pulse that
+ * lands while the collector is being torn down and re-subscribed is dropped: the pill
+ * silently never appears, with nothing in the log to say why. `remember` the derived flow
+ * at the call site and pass that.
  */
 @Composable
 fun rememberSavedPillState(pulses: Flow<*>): SavedPillState {
