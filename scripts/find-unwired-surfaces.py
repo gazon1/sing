@@ -27,6 +27,10 @@ Shapes detected (via Detector table — add new rows, not new loops):
                        scripts/find-unwired-surfaces-baseline.txt, because a
                        test double living in commonMain looks identical to
                        unwired production code to a static scan.
+  8. unread-public  — a public value class, constant, computed property or
+                       data-class option that no production code reads. Named
+                       `write-only` when the option *is* handed a value, which
+                       is the sharper finding: a promise the code does not keep.
 
 Shape 5 is not checked here (navigation): reachable routes are a data question
 the Maestro suite answers better than a static scan.
@@ -1268,6 +1272,196 @@ def _check_startup_unwired(
     return findings
 
 
+# ── Detector 9 — a public declaration production code never reads ─────────────
+#
+# The blind spot this closes (#1916): `ImportOptions.overwriteExisting` was
+# declared on the options class, handed a value by the builder, and asserted by a
+# test — and no production code ever read it, so `false` still meant "overwrite".
+# `dead-symbol` above cannot see it. The declaration counts as one production
+# reference, so a property that is *written* always has at least that one, and a
+# test reference on top makes it look used. Nothing in the scanner distinguished
+# a property that is read from one that is only written.
+#
+# Three rules make "is it ever read?" answerable without a parser:
+#
+#   * prose is not code. The corpus is built with `strip_code`, the same reader
+#     `dead-symbol` uses, so a KDoc link and a log tag are blanked rather than
+#     counted as a read.
+#   * a named argument or an assignment is a *write*: `receiver.name = …`, and
+#     `name = …` inside the declaring class's own constructor or its `copy`.
+#     Every other occurrence — `receiver.name`, a type position, a bare
+#     expression — is a read, and one read means the option is honoured.
+#   * a name declared more than once in the scanned roots is not attributed at
+#     all. `overwriteExisting` has one declaration and can be followed;
+#     `id`, `name` and `title` are declared on dozens of classes, and counting a
+#     receiver-less occurrence against one of them would report working code.
+#     The detector is deliberately the narrow one: it stays silent rather than
+#     guess, and a name whose declarations collide needs a reader, not a regex.
+#
+# `@Serializable` classes are skipped. kotlinx.serialization reads their fields
+# through generated code that names neither the property nor a receiver, so a
+# data-class field there is read in a way this scan cannot see.
+
+_MODIFIERS = (
+    "public|internal|private|protected|open|abstract|sealed|data|value|inline|"
+    "expect|actual|enum|annotation|inner|override|operator"
+)
+_ANNOTATIONS = r"(?:[ \t]*@[A-Za-z_][\w.]*(?:\([^\n]*\))?[ \t]*\n?[ \t]*)*"
+_DECL_HEAD = (
+    rf"(?m)^(?P<annos>{_ANNOTATIONS})[ \t]*"
+    rf"(?P<mods>(?:(?:{_MODIFIERS})[ \t]+)*)"
+)
+_VALUE_CLASS_DECL = re.compile(rf"{_DECL_HEAD}value[ \t]+class[ \t]+(?P<name>\w+)")
+_DATA_CLASS_DECL = re.compile(
+    rf"{_DECL_HEAD}data[ \t]+class[ \t]+(?P<name>\w+)[ \t]*(?:<[^>\n]*>)?[ \t]*\("
+)
+_CONST_DECL = re.compile(rf"{_DECL_HEAD}const[ \t]+val[ \t]+(?P<name>\w+)")
+_COMPUTED_DECL = re.compile(
+    rf"{_DECL_HEAD}val[ \t]+(?P<name>\w+)[^\n=]*(?:\n[ \t]*)?\bget[ \t]*\("
+)
+_PROPERTY_PARAM = re.compile(r"\b(?:val|var)[ \t]+(\w+)[ \t]*:")
+_SERIALIZABLE = re.compile(r"@(?:[A-Za-z_][\w.]*\.)?Serializable\b")
+_NOT_PUBLIC = re.compile(r"\b(?:internal|private|protected)\b")
+
+
+@dataclass(frozen=True)
+class _UnreadDecl:
+    """One declaration the detector can attribute by name."""
+
+    name: str
+    path: pathlib.Path
+    offset: int
+    shape: str
+    owner: str = ""
+    public: bool = True
+
+
+def _is_write_occurrence(text: str, start: int, end: int, owner: str) -> bool:
+    """True when the occurrence at [start, end) hands the property a value."""
+    if not re.match(r"[ \t]*=(?!=)", text[end:]):
+        return False
+    before = text[:start].rstrip(" \t")
+    if before.endswith("."):
+        return True  # receiver.name = value
+    if not (before.endswith("(") or before.endswith(",")):
+        return False
+    enclosing = _enclosing_call(text, start)
+    if enclosing is None:
+        return False  # `val name = …` and friends declare or read, they do not write
+    callee = enclosing[0]
+    return callee == owner or (bool(owner) and callee == "copy")
+
+
+def _precompute_unread_public(
+    code: dict[pathlib.Path, str],
+) -> list[tuple[_UnreadDecl, int, int]]:
+    """Candidates with their production write and read counts.
+
+    Counts come from production sources only, over `strip_code` text: a test that
+    asserts an option must not make it read, and prose must not make it
+    referenced. A declaration with reads > 0 is dropped by the check.
+    """
+    prod = {
+        path: strip_code(text)
+        for path, text in code.items()
+        if not _is_test_source(path)
+    }
+
+    decls: list[_UnreadDecl] = []
+    for path, text in prod.items():
+        for m in _VALUE_CLASS_DECL.finditer(text):
+            decls.append(
+                _UnreadDecl(
+                    m.group("name"), path, m.start("name"), "value class",
+                    public=not _NOT_PUBLIC.search(m.group("mods")),
+                )
+            )
+        for m in _CONST_DECL.finditer(text):
+            decls.append(
+                _UnreadDecl(
+                    m.group("name"), path, m.start("name"), "constant",
+                    public=not _NOT_PUBLIC.search(m.group("mods")),
+                )
+            )
+        for m in _COMPUTED_DECL.finditer(text):
+            decls.append(
+                _UnreadDecl(
+                    m.group("name"), path, m.start("name"), "computed property",
+                    public=not _NOT_PUBLIC.search(m.group("mods")),
+                )
+            )
+        for m in _DATA_CLASS_DECL.finditer(text):
+            owner = m.group("name")
+            open_paren = m.end() - 1
+            body = _balanced_body(text, open_paren)
+            if body is None:
+                continue
+            # A `@Serializable` field is read by generated code this scan cannot
+            # follow, and the declaration is the only thing it can see.
+            public = (
+                not _NOT_PUBLIC.search(m.group("mods"))
+                and not _SERIALIZABLE.search(m.group("annos"))
+            )
+            for param in _PROPERTY_PARAM.finditer(body):
+                decls.append(
+                    _UnreadDecl(
+                        param.group(1), path, open_paren + 1 + param.start(1),
+                        "property", owner, public,
+                    )
+                )
+
+    declared: dict[str, int] = {}
+    for decl in decls:
+        declared[decl.name] = declared.get(decl.name, 0) + 1
+
+    results: list[tuple[_UnreadDecl, int, int]] = []
+    for decl in decls:
+        if not decl.public or declared[decl.name] != 1:
+            continue
+        pattern = re.compile(rf"\b{re.escape(decl.name)}\b")
+        writes = reads = 0
+        for path, text in prod.items():
+            for m in pattern.finditer(text):
+                if path == decl.path and m.start() == decl.offset:
+                    continue  # the declaration itself is not a use
+                if _is_write_occurrence(text, m.start(), m.end(), decl.owner):
+                    writes += 1
+                else:
+                    reads += 1
+        results.append((decl, writes, reads))
+    return results
+
+
+def _check_unread_public(
+    _code: dict[pathlib.Path, str],
+    _corpus: str,
+    pre: list[tuple[_UnreadDecl, int, int]],
+) -> list[tuple[str, str]]:
+    findings: list[tuple[str, str]] = []
+    baseline = _load_baseline()
+    for decl, writes, reads in pre:
+        if reads:
+            continue
+        name = f"{decl.owner}.{decl.name}" if decl.owner else decl.name
+        if writes:
+            message = (
+                f"{rel(decl.path)}: {name} is written by {writes} production use(s) "
+                f"and read by none — the option is set and never consulted"
+            )
+            kind = "write-only"
+        else:
+            message = (
+                f"{rel(decl.path)}: {name} ({decl.shape}) is declared and never read "
+                f"in production"
+            )
+            kind = "unread-public"
+        if decl.name in baseline:
+            findings.append(("exempt", f"{message} — {baseline[decl.name]}"))
+        else:
+            findings.append((kind, message))
+    return findings
+
+
 # ── Detector table ──────────────────────────────────────────────────────────
 
 
@@ -1304,6 +1498,11 @@ DETECTORS: list[Detector] = [
         check=_check_startup_unwired,
         precompute=_precompute_startup,
     ),
+    Detector(
+        kind="unread-public",
+        check=_check_unread_public,
+        precompute=_precompute_unread_public,
+    ),
 ]
 
 
@@ -1315,7 +1514,12 @@ FLOOR_FILE = ROOT / "config" / "docs" / "unwired-surfaces-floor.txt"
 FLOOR_HEADER = """\
 # unwired-surfaces floor — the number of BLOCKING findings this gate may report.
 #
-# Counted 2026-10-16 against source roots: {roots}.
+# Counted when the floor was last written, against source roots: {roots}.
+#
+# The `unread-public` / `write-only` shapes added for #1916 are not counted
+# here: their findings are exempted in
+# scripts/find-unwired-surfaces-baseline.txt, one row each, so the gate keeps
+# the blocking count it had before those shapes existed.
 #
 # One-directional on purpose. Lowering it is the debt being paid down and needs no
 # justification; raising it is a new unwired surface and must be argued in review.

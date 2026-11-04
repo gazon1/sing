@@ -707,6 +707,169 @@ class TestStartupUnwiredDetector(unittest.TestCase):
         self.assertEqual(1, len(findings), findings)
 
 
+class TestUnreadPublicDetector(unittest.TestCase):
+    """A public declaration production code never reads (#1916).
+
+    The defect: `ImportOptions.overwriteExisting` was declared, handed a value by
+    the builder, and asserted by a test, and production code never read it — so
+    setting it to `false` still overwrote. `dead-symbol` could not see it: the
+    declaration counts as a production reference, and being *written* never made
+    it look unused on its own.
+
+    Each case below is one of the shapes the detector must report, or one of the
+    four it must stay silent on (a read, a serialized field, prose, a baselined
+    symbol). The last case pins the conservative rule that keeps it honest.
+    """
+
+    OPTIONS = (
+        "data class ImportOptions(\n"
+        "    val overwriteExisting: Boolean = true,\n"
+        ")\n"
+    )
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _code(self, files):
+        code = {}
+        for name, content in files.items():
+            p = self.tmp / name
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(content)
+            code[p] = fus.strip_comments(content)
+        return code
+
+    def _run(self, files):
+        code = self._code(files)
+        pre = fus._precompute_unread_public(code)
+        return fus._check_unread_public(code, "\n".join(code.values()), pre)
+
+    # ── The shapes it reports ──────────────────────────────────────────────
+
+    def test_a_builder_written_option_nobody_reads_is_write_only(self):
+        findings = self._run({
+            "shared/src/commonMain/Options.kt": self.OPTIONS,
+            "shared/src/commonMain/Builder.kt": (
+                "fun importOptions(): ImportOptions = ImportOptions(overwriteExisting = false)\n"
+            ),
+            "shared/src/commonTest/ImportTest.kt": (
+                "fun t(o: ImportOptions) { assertTrue(o.overwriteExisting) }\n"
+            ),
+        })
+        self.assertEqual(["write-only"], [k for k, _ in findings], findings)
+        self.assertIn("ImportOptions.overwriteExisting", findings[0][1])
+
+    def test_a_value_class_nobody_constructs_is_reported(self):
+        findings = self._run({
+            "shared/src/commonMain/Id.kt": "value class UnusedId(val value: String)\n",
+        })
+        self.assertEqual(["unread-public"], [k for k, _ in findings], findings)
+        self.assertIn("UnusedId", findings[0][1])
+
+    def test_a_constant_nobody_consults_is_reported(self):
+        # The brief's own example: a constant on an internal object. The object's
+        # visibility does not rescue a constant nothing reads.
+        findings = self._run({
+            "shared/src/commonMain/Keys.kt": (
+                "internal object Keys {\n"
+                "    const val UNUSED_SLOT = \"slot\"\n"
+                "}\n"
+            ),
+        })
+        self.assertEqual(["unread-public"], [k for k, _ in findings], findings)
+        self.assertIn("UNUSED_SLOT", findings[0][1])
+
+    def test_a_computed_property_nobody_reads_is_reported(self):
+        findings = self._run({
+            "shared/src/commonMain/Flags.kt": (
+                "class FeatureFlags(private val enabled: Boolean) {\n"
+                "    val isRetired: Boolean\n"
+                "        get() = !enabled\n"
+                "}\n"
+            ),
+        })
+        self.assertEqual(["unread-public"], [k for k, _ in findings], findings)
+        self.assertIn("isRetired", findings[0][1])
+
+    # ── The shapes it must not report ──────────────────────────────────────
+
+    def test_a_property_production_reads_is_not_reported(self):
+        findings = self._run({
+            "shared/src/commonMain/Options.kt": self.OPTIONS,
+            "shared/src/commonMain/Importer.kt": (
+                "fun run(o: ImportOptions) {\n"
+                "    if (!o.overwriteExisting) return\n"
+                "}\n"
+            ),
+        })
+        self.assertEqual([], findings)
+
+    def test_a_serializable_field_is_not_reported(self):
+        # kotlinx.serialization reads it through generated code that names neither
+        # the property nor a receiver, so a static scan cannot see the read.
+        findings = self._run({
+            "shared/src/commonMain/Wire.kt": (
+                "@Serializable\n"
+                "data class WireDto(\n"
+                "    val overwriteExisting: Boolean = true,\n"
+                ")\n"
+            ),
+            "shared/src/commonMain/Builder.kt": (
+                "fun wire(): WireDto = WireDto(overwriteExisting = false)\n"
+            ),
+        })
+        self.assertEqual([], findings)
+
+    def test_a_kdoc_link_and_a_log_tag_are_not_reads(self):
+        # Prose about a property is not a use of it. `strip_code` blanks the
+        # comment and the literal, so what is left is the declaration alone.
+        findings = self._run({
+            "shared/src/commonMain/Options.kt": self.OPTIONS,
+            "shared/src/commonMain/Docs.kt": (
+                "/**\n"
+                " * See [ImportOptions.overwriteExisting] for what it promises.\n"
+                " */\n"
+                "fun docs() {\n"
+                "    log.withTag(\"overwriteExisting\") { \"doc\" }\n"
+                "}\n"
+            ),
+        })
+        self.assertEqual(["unread-public"], [k for k, _ in findings], findings)
+
+    def test_a_baselined_symbol_is_exempt(self):
+        code = self._code({
+            "shared/src/commonMain/Id.kt": "value class SavedId(val value: String)\n",
+        })
+        with mock.patch.object(
+            fus, "_load_baseline", return_value={"SavedId": "kept for a named reason"}
+        ):
+            findings = fus._check_unread_public(
+                code, "\n".join(code.values()), fus._precompute_unread_public(code)
+            )
+        self.assertEqual(["exempt"], [k for k, _ in findings], findings)
+
+    def test_a_name_declared_twice_is_not_attributed(self):
+        # Two declarations, one name: a receiver-less occurrence cannot be
+        # attributed to either, so neither is reported. The detector stays silent
+        # rather than guess — `id` and `name` are declared on dozens of classes.
+        findings = self._run({
+            "shared/src/commonMain/A.kt": (
+                "data class Alpha(val overwriteExisting: Boolean = true)\n"
+            ),
+            "shared/src/commonMain/B.kt": (
+                "data class Beta(val overwriteExisting: Boolean = true)\n"
+            ),
+        })
+        self.assertEqual([], findings)
+
+    def test_the_detector_is_registered(self):
+        # A shape that is written but not in the table reports nothing, forever.
+        self.assertIn("unread-public", {d.kind for d in fus.DETECTORS})
+
+
 class TestFloor(unittest.TestCase):
     """The ratchet: an advisory gate needs a recorded number, or it can only grow.
 
