@@ -58,6 +58,7 @@ sche... | — | — |
 | detekt baseline ratchet | blocking | `scripts/check-baseline-ratchet.py` | check-baseline-ratchet.py — a detekt baseline may shrink, never grow. | — | — |
 | lint rules are declared decisions | blocking | `scripts/check-rule-intent.py` | check-rule-intent.py — a rule that reports findings must be a rule you chose. | — | — |
 | file-level suppressions explain themselves | blocking | `scripts/check-suppression-intent.py` | check-suppression-intent.py — a file-level suppression must say what it is hi... | — | — |
+| quality page states the enforced thresholds | blocking | `scripts/check-quality-thresholds.py` | check-quality-thresholds.py — the quality page must state the thresholds the ... | — | — |
 | scenario specs valid | blocking | `traceability` | scenario specs valid | — | — |
 | coverage matrix current | blocking | `traceability` | coverage matrix current | — | — |
 | coverage holes did not grow | blocking | `scripts/check-traceability-ratchet.py` | check-traceability-ratchet.py — scenario coverage holes may shrink, never grow. | — | — |

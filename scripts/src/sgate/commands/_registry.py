@@ -683,6 +683,12 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-suppression-intent.py"),
     ),
+    GateSpec(
+        name="quality page states the enforced thresholds",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-quality-thresholds.py"),
+    ),
     # ── Scenario traceability ──────────────────────────────────────────────────────
     # These two used to be `cmd_type=CmdType.PATH, path_cmd=("traceability", …)`.
     # There is no `traceability` executable: `[project.scripts]` in
@@ -1619,6 +1625,12 @@ GATE_CONTROLS: dict[str, Control] = {
     'openspec-stale': Control(kind='sabotage', proves='scripts/check-openspec-stale.py', argv=('{python}', 'scripts/check-openspec-stale.py'), path='openspec/changes/detekt-rule-has-positive-control', edit=Edit(kind='age_dir', days=30), why='an active change nobody has returned to in three weeks is a decision deferred past the point of usefulness'),
     'rule-intent': Control(kind='sabotage', proves='scripts/check-rule-intent.py', argv=('{python}', 'scripts/check-rule-intent.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>TotallyMadeUpRule:Probe.kt:1</ID>\n  </CurrentIssues>', count=1), why='a rule producing findings that nobody declared means it is running on detekt\'s defaults, unchosen. The edit is the one the twin in check-gate-wiring.py applies: the two copies of a control are the same control until one of them is edited, and the copy that rotted here named a detekt.yml pattern that has not been in the file since the rules were reorganised — so the registry described a sabotage that would have raised "matched nothing" if it had ever been the copy that ran'),
     'suppression-intent': Control(kind='sabotage', proves='scripts/check-suppression-intent.py', argv=('{python}', 'scripts/check-suppression-intent.py'), path='shared/src/jvmMain/kotlin/com/singularity/todo/feature/pomodoro/JvmPomodoroTimer.kt', edit=Edit(kind='strip_suppression_reason'), why='a file-level suppression with no recorded reason switches a rule off for every future call in that file'),
+    # quality-thresholds: the sabotage puts back the value the page actually
+    # carried — `TooManyFunctions` claiming a file default of 10 — so the control
+    # reproduces the drift the gate exists to catch rather than an invented one.
+    # It edits the DEFAULT column, and the unit tests prove the Here column
+    # separately: a single control can only prove one of the two comparisons.
+    'quality-thresholds': Control(kind='sabotage', proves='scripts/check-quality-thresholds.py', argv=('{python}', 'scripts/check-quality-thresholds.py'), path='docs/architecture/quality.md', edit=Edit(kind='replace', old='allowedFunctionsPerFile=11', new='allowedFunctionsPerFile=10', count=1), why='the page stated a detekt default that the pinned detekt does not ship, and nothing compared the two — a stated default that disagrees with the jar the build resolves is a claim the next reader trusts'),
     'workflow-exit-status': Control(
         kind='sabotage',
         proves='scripts/check-workflow-exit-status.py',
