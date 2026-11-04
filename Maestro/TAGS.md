@@ -209,9 +209,11 @@ non-alphanumeric characters with `_`.
 ### Search
 | Constant | Value | Where |
 |---|---|---|
+| `SEARCH_CLEAR_BUTTON` | `search_clear_button` | |
 | `SEARCH_EMPTY_PLACEHOLDER` | `search_empty_placeholder` | |
 | `SEARCH_EMPTY_RESULTS` | `search_empty_results` | |
 | `SEARCH_INPUT` | `search_input` | |
+| `SEARCH_LOADING` | `search_loading` | |
 | `SEARCH_MODE_CONTAINS` | `search_mode_contains` | |
 | `SEARCH_MODE_CONTAINS_NOTE` | `search_mode_contains_note` | |
 | `SEARCH_MODE_WORD` | `search_mode_word` | |

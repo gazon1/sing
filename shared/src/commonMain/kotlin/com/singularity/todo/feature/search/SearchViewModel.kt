@@ -265,6 +265,28 @@ class SearchViewModel(
      */
     private fun onModeChange(mode: SearchMode) {
         _mode.value = mode
+        // The mode is part of the question, so the answer has to be asked again —
+        // and the screen has to know that it is waiting for it. A blank query has
+        // no answer to wait for.
+        if (_queryString.value.text.isNotBlank()) {
+            updateState { it.copy(isSearching = true) }
+        }
+    }
+
+    /**
+     * The search is over: nothing is in flight, and there is no answer to show.
+     *
+     * The results are cleared as well as the flag. A query that cannot be run
+     * has no answer, and the results of the previous query would be the answer
+     * to a question the user is no longer asking.
+     */
+    private fun stopSearching() {
+        updateState {
+            it.copy(
+                isSearching = false,
+                results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
+            )
+        }
     }
 
     private fun onQueryChange(query: String) {
@@ -275,33 +297,39 @@ class SearchViewModel(
         if (query.isBlank()) {
             _parsedQuery.value = null
             _activeFilter.value = null
-            updateState {
-                it.copy(
-                    isSearching = false,
-                    results = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
-                )
-            }
+            stopSearching()
             return
         }
 
-        try {
-            val parsed = parseQuery(query)
-            _parsedQuery.value = parsed
-            // Try to derive a SimpleFilter; unsupported conditions → null
-            _activeFilter.value = SimpleFilterMapper().fromQuery(parsed).getOrNull()
-        } catch (e: com.singularity.todo.feature.search.query.QueryParseException) {
-            _parsedQuery.value = null
-            _activeFilter.value = null
-            vmScope.launch { emit(SearchUiEvent.QueryParseError(e.message, e.position)) }
-        } catch (_: UnsupportedSimpleFilterException) {
-            // Expected: query cannot be expressed as SimpleFilter — activeFilter = null signals this
-            _parsedQuery.value = null
-            _activeFilter.value = null
-        } catch (e: Exception) {
-            _parsedQuery.value = null
-            _activeFilter.value = null
-            vmScope.launch { emit(SearchUiEvent.Error("Search error: ${e.message ?: "unknown"}")) }
-        }
+        val parsed =
+            try {
+                parseQuery(query)
+            } catch (e: com.singularity.todo.feature.search.query.QueryParseException) {
+                // The query cannot be executed, so there is no answer to wait for:
+                // the screen must not sit on a spinner for a query that will never
+                // run. The error is reported by the event.
+                _parsedQuery.value = null
+                _activeFilter.value = null
+                stopSearching()
+                vmScope.launch { emit(SearchUiEvent.QueryParseError(e.message, e.position)) }
+                return
+            } catch (e: Exception) {
+                _parsedQuery.value = null
+                _activeFilter.value = null
+                stopSearching()
+                vmScope.launch { emit(SearchUiEvent.Error("Search error: ${e.message ?: "unknown"}")) }
+                return
+            }
+
+        _parsedQuery.value = parsed
+        // Try to derive a SimpleFilter; unsupported conditions → null. The null
+        // is the documented signal, not an error — the query still runs.
+        _activeFilter.value =
+            try {
+                SimpleFilterMapper().fromQuery(parsed).getOrNull()
+            } catch (_: UnsupportedSimpleFilterException) {
+                null
+            }
         updateState { it.copy(isSearching = true) }
     }
 
@@ -352,9 +380,14 @@ class SearchViewModel(
                 _parsedQuery.value = parsed
                 _activeFilter.value = SimpleFilterMapper().fromQuery(parsed).getOrNull()
             } catch (e: com.singularity.todo.feature.search.query.QueryParseException) {
+                // The saved query cannot be executed, so there is no answer to wait
+                // for: the screen must not sit on a spinner for a query that will
+                // never run. The error is reported by the event.
                 _parsedQuery.value = null
                 _activeFilter.value = null
+                stopSearching()
                 emit(SearchUiEvent.QueryParseError(e.message, e.position))
+                return@launch
             }
             updateState { it.copy(isSearching = true) }
         }

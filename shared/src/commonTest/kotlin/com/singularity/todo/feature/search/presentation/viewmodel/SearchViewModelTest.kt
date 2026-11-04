@@ -16,6 +16,7 @@ import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
 import com.singularity.todo.feature.search.query.ProjectLookup
 import com.singularity.todo.feature.search.query.ProjectLookupResult
 import com.singularity.todo.feature.search.query.Query
+import com.singularity.todo.feature.search.query.QueryParseException
 import com.singularity.todo.feature.search.query.ResolvedSearchQuery
 import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.SimpleFilter
@@ -50,6 +51,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -105,7 +107,9 @@ class SearchViewModelTest {
         fakeSavedSearchRepo.clear()
     }
 
-    private fun TestScope.createVm(): SearchViewModel {
+    private fun TestScope.createVm(
+        parseQuery: (String) -> Query = { input -> SingularityQueryParser(input).parse() },
+    ): SearchViewModel {
         val authRepo = FakeAuthRepository(Session.Anonymous(UserId("user-a")))
         val currentUser = FakeProfileAwareCurrentUser(authRepo, scope = backgroundScope)
         advanceUntilIdle()
@@ -127,7 +131,7 @@ class SearchViewModelTest {
                 ),
             savedSearchRepo = fakeSavedSearchRepo,
             taskRepo = fakeTaskRepo,
-            parseQuery = { input -> SingularityQueryParser(input).parse() },
+            parseQuery = parseQuery,
             clock = FakeClock(NOW),
             scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
         )
@@ -432,7 +436,7 @@ class SearchViewModelTest {
             runCurrent()
 
             val state = vm.stateFlow.value
-            assertEquals(SearchContent.IdlePrompt, searchContent(state.query.text, state.results))
+            assertEquals(SearchContent.IdlePrompt, searchContent(state.query.text, state.results, state.isSearching))
         }
 
     @Test
@@ -446,7 +450,7 @@ class SearchViewModelTest {
             runCurrent()
 
             val state = vm.stateFlow.value
-            assertEquals(SearchContent.NoResults, searchContent(state.query.text, state.results))
+            assertEquals(SearchContent.NoResults, searchContent(state.query.text, state.results, state.isSearching))
         }
 
     @Test
@@ -460,8 +464,45 @@ class SearchViewModelTest {
             runCurrent()
 
             val state = vm.stateFlow.value
-            assertEquals(SearchContent.Results, searchContent(state.query.text, state.results))
+            assertEquals(SearchContent.Results, searchContent(state.query.text, state.results, state.isSearching))
             assertEquals(listOf("Buy milk"), state.results.tasks.map { it.record.title })
+        }
+
+    @Test
+    fun `a query that has not run yet does not report an empty answer`() =
+        runTest {
+            val vm = createVmWithRealSearch()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnQueryChange("milk"))
+            runCurrent()
+
+            val state = vm.stateFlow.value
+            assertEquals(
+                SearchContent.Searching,
+                searchContent(state.query.text, state.results, state.isSearching),
+                "the query has not run yet — the screen must not report an empty answer",
+            )
+        }
+
+    @Test
+    fun `a query that cannot be parsed does not leave the screen waiting for an answer`() =
+        runTest {
+            val vm = createVm(parseQuery = { _ -> throw QueryParseException("bad query", 0) })
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnQueryChange("???"))
+            runCurrent()
+
+            val state = vm.stateFlow.value
+            assertFalse(
+                state.isSearching,
+                "a query that cannot run must not leave the screen waiting for an answer",
+            )
+            assertEquals(
+                SearchContent.NoResults,
+                searchContent(state.query.text, state.results, state.isSearching),
+            )
         }
 
     // ─── The mode ──────────────────────────────────────────────────────────────

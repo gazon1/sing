@@ -152,6 +152,40 @@ object TextMatch {
     }
 
     /**
+     * Where [term] occurs in [text], under the contains rule.
+     *
+     * ## Why the position is found here
+     *
+     * The contains rule is answered by reading the rows, so there is no index to
+     * ask where the match is — the position has to be found in the text itself.
+     * This is that answer, and it is the same answer as [contains]: the text and
+     * the term are folded the same way, so the span is the span of the match
+     * the rule made.
+     *
+     * ## Why the positions are the characters of the original text
+     *
+     * The fold replaces every character with exactly one character, so a
+     * position in the folded text is the same position in the original one. The
+     * span therefore lands on the characters the user sees — "cafe" in
+     * "Café au lait" is the span of the four characters of "Café".
+     *
+     * @param text the text to look in.
+     * @param term the term to look for.
+     * @return the range of the first occurrence, or `null` when the term does
+     *   not occur in the text.
+     */
+    fun containsSpan(
+        text: String,
+        term: String,
+    ): IntRange? {
+        if (text.isEmpty() || term.isEmpty()) return null
+        val foldedTerm = fold(term)
+        val start = fold(text).indexOf(foldedTerm)
+        if (start < 0) return null
+        return start until (start + foldedTerm.length)
+    }
+
+    /**
      * The text, folded and case-folded the way the tokenizer folds it.
      *
      * @param text the text to fold.

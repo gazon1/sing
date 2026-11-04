@@ -10,17 +10,22 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,7 +39,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -147,7 +155,7 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
                 }
 
                 SearchOutcome(
-                    content = searchContent(state.query.text, state.results),
+                    content = searchContent(state.query.text, state.results, state.isSearching),
                     results = state.results,
                     navigator = navigator,
                     onPin = { viewModel.onIntent(SearchIntent.OnTogglePin(it)) },
@@ -168,15 +176,33 @@ private fun SearchInputBar(
             source = querySource,
             onTextChanged = onQueryChange,
         )
+    // The screen is opened to be typed into: the field asks for the focus once,
+    // when it appears. A person who came here to type should not have to tap
+    // the field first.
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(focusRequester) {
+        focusRequester.requestFocus()
+    }
     OutlinedTextField(
         state = queryState,
         modifier =
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
+                .focusRequester(focusRequester)
                 .testTag(TestTags.SEARCH_INPUT),
         placeholder = { Text("Search tasks, notes, projects...") },
         leadingIcon = { Icon(Icons.Filled.Search, null) },
+        trailingIcon = {
+            if (queryState.text.isNotEmpty()) {
+                IconButton(
+                    onClick = { queryState.clearText() },
+                    modifier = Modifier.testTag(TestTags.SEARCH_CLEAR_BUTTON),
+                ) {
+                    Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                }
+            }
+        },
         lineLimits = TextFieldLineLimits.SingleLine,
     )
 }
@@ -243,6 +269,18 @@ private fun SearchOutcome(
             )
         }
 
+        SearchContent.Searching -> {
+            // The query has been stated and the answer has not come yet. Saying
+            // "no results" here would report an empty answer to a search that
+            // has not run.
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(modifier = Modifier.testTag(TestTags.SEARCH_LOADING))
+            }
+        }
+
         SearchContent.NoResults -> {
             EmptyState(
                 title = "No results found",
@@ -297,7 +335,8 @@ private fun SearchResultsList(
                 SimpleResultCard(
                     title = hit.record.title.ifBlank { "Untitled" },
                     onClick = { navigator.openNote(hit.record.id) },
-                    matchRanges = hit.ranges.inColumn(SearchColumn.TITLE),
+                    matchRanges = hit.ranges,
+                    column = SearchColumn.TITLE,
                 )
             }
         }
@@ -307,7 +346,8 @@ private fun SearchResultsList(
                 SimpleResultCard(
                     title = hit.record.name,
                     onClick = { navigator.openProject(hit.record.id) },
-                    matchRanges = hit.ranges.inColumn(SearchColumn.NAME),
+                    matchRanges = hit.ranges,
+                    column = SearchColumn.NAME,
                 )
             }
         }
@@ -317,7 +357,8 @@ private fun SearchResultsList(
                 SimpleResultCard(
                     title = hit.record.name,
                     onClick = { navigator.openTag(hit.record.id) },
-                    matchRanges = hit.ranges.inColumn(SearchColumn.NAME),
+                    matchRanges = hit.ranges,
+                    column = SearchColumn.NAME,
                 )
             }
         }
@@ -334,14 +375,19 @@ private fun SectionHeader(title: String) {
  *
  * @param title the title to draw.
  * @param onClick what to do when the card is clicked.
- * @param matchRanges where the search matched this record, in the text that is
- *   drawn here.
+ * @param matchRanges where the search matched this record. The card draws the
+ *   ranges that were measured in the text it draws — a range belongs to the
+ *   column it was measured in, and the offsets of one column say nothing about
+ *   the characters of another.
+ * @param column the column the title is, and the column the ranges of a match
+ *   in it are measured in.
  */
 @Composable
 private fun SimpleResultCard(
     title: String,
     onClick: () -> Unit,
     matchRanges: ImmutableList<TextMatchRange> = persistentListOf(),
+    column: SearchColumn = SearchColumn.TITLE,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val focused by interactionSource.collectIsFocusedAsState()
@@ -357,7 +403,7 @@ private fun SimpleResultCard(
                 .focusable(interactionSource = interactionSource),
     ) {
         SelectableText(
-            text = highlightedText(title, matchRanges),
+            text = highlightedText(title, matchRanges.inColumn(column)),
             modifier = Modifier.padding(12.dp),
         )
     }

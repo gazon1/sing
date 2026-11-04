@@ -654,6 +654,12 @@ object TestTags {
     /** "No results found" empty state in the search screen (shown when query has no matches). */
     const val SEARCH_EMPTY_RESULTS = "search_empty_results"
 
+    /** The "Clear" button of the search field — one tap empties the query. */
+    const val SEARCH_CLEAR_BUTTON = "search_clear_button"
+
+    /** The progress indicator of the search screen, shown while the query is running. */
+    const val SEARCH_LOADING = "search_loading"
+
     /**
      * The shared result/error dialog raised by `NotificationHost`.
      *
