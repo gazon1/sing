@@ -44,7 +44,9 @@ fun TaskChip(
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalCalendarPalette.current
-    val background =
+    // The chip's own fill — the value handed to `.background` below, not a border or a
+    // container, so the selected chip's text is contrasted against the surface it sits on.
+    val chipBackground =
         when {
             isSelected -> palette.taskSelected
             task.status == CalendarTaskStatus.DONE -> palette.taskDone
@@ -60,7 +62,7 @@ fun TaskChip(
                 modifier
                     .touchTarget(TaskListSizes.MinTouchTarget)
                     .size(8.dp)
-                    .background(background, CircleShape)
+                    .background(chipBackground, CircleShape)
                     .clickable { onClick() },
         )
         return
@@ -68,7 +70,7 @@ fun TaskChip(
 
     val textColor =
         when {
-            isSelected -> background.contrastingForeground()
+            isSelected -> chipBackground.contrastingForeground()
             task.status == CalendarTaskStatus.DONE -> palette.textMuted
             task.isLink -> palette.link
             else -> palette.textPrimary
@@ -78,7 +80,7 @@ fun TaskChip(
         modifier =
             modifier
                 .fillMaxWidth()
-                .background(background, RoundedCornerShape(4.dp))
+                .background(chipBackground, RoundedCornerShape(4.dp))
                 .clickable { onClick() }
                 .padding(horizontal = 6.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,

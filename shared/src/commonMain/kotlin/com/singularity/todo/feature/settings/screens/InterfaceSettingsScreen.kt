@@ -172,8 +172,6 @@ private fun AccentSwatch(
             Icon(
                 imageVector = Icons.Filled.Check,
                 contentDescription = null,
-                // The swatch paints the accent and publishes no content colour, so the tick
-                // names its own contrast: a pale accent would otherwise get a white check.
                 tint = accent.color.contrastingForeground(),
                 modifier = Modifier.size(20.dp),
             )

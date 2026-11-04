@@ -379,9 +379,6 @@ private fun AppearanceSection(
                         Icon(
                             Icons.Filled.Check,
                             contentDescription = null,
-                            // The swatch paints the project colour and its slot publishes no
-                            // content colour, so the tick names its own contrast: it stays
-                            // visible whatever the user picked from the palette.
                             tint = Color(color).contrastingForeground(),
                             modifier = Modifier.size(32.dp).padding(6.dp),
                         )
