@@ -12,8 +12,8 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
-import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
-import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
+import com.singularity.todo.feature.tasks.domain.state.TaskCreateIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskDraft
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import com.singularity.todo.test.fakes.FakeAttachmentRepository

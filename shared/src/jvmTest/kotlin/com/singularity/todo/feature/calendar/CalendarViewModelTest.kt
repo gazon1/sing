@@ -7,9 +7,9 @@ import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
-import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
-import com.singularity.todo.feature.calendar.presentation.state.CalendarUiEvent
-import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
+import com.singularity.todo.feature.calendar.domain.state.CalendarIntent
+import com.singularity.todo.feature.calendar.domain.state.CalendarUiEvent
+import com.singularity.todo.feature.calendar.domain.state.CalendarUiState
 import com.singularity.todo.feature.calendar.presentation.viewmodel.CalendarDeps
 import com.singularity.todo.feature.calendar.presentation.viewmodel.CalendarViewModel
 import com.singularity.todo.feature.tasks.domain.model.Task

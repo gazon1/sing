@@ -138,6 +138,7 @@ sourceSets {
 
 dependencies {
     implementation(project(":shared"))
+            implementation(project(":shared-ui"))
 
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutines.swing)

@@ -20,8 +20,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
-import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
+import com.singularity.todo.feature.tasks.domain.state.DueDateOption
+import com.singularity.todo.feature.tasks.domain.state.TaskDraft
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
