@@ -38,6 +38,8 @@ import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LocalScreenActions
 import com.singularity.todo.core.ui.components.ScreenActionsHolder
+import com.singularity.todo.core.ui.components.ShellBarTitleSource
+import com.singularity.todo.core.ui.components.resolveShellBarTitleSource
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
@@ -268,19 +270,27 @@ private fun ShellTopBar(
  *
  * A screen that owns its own bar publishes it here, and the shell draws it
  * instead of the destination's name: the month the calendar is on says more
- * than the word "Calendar".
+ * than the word "Calendar". Which of the three candidates wins is
+ * [resolveShellBarTitleSource]'s decision, not this composable's: the bar must
+ * not keep a second copy of a rule the tests have to be able to read.
  */
 @Composable
 private fun ShellBarTitle(
     screenActions: ScreenActionsHolder,
     destinationTitle: String,
 ) {
-    val selection = screenActions.selectionTitle
     val publishedTitle = screenActions.title
-    when {
-        selection != null -> Text(selection)
-        screenActions.override && publishedTitle != null -> publishedTitle.invoke()
-        else -> Text(destinationTitle)
+    val source =
+        resolveShellBarTitleSource(
+            selectionTitle = screenActions.selectionTitle,
+            overrideShell = screenActions.override,
+            hasPublishedTitle = publishedTitle != null,
+            destinationTitle = destinationTitle,
+        )
+    when (source) {
+        is ShellBarTitleSource.Selection -> Text(source.text)
+        is ShellBarTitleSource.Published -> publishedTitle?.invoke()
+        is ShellBarTitleSource.Destination -> Text(source.text)
     }
 }
 

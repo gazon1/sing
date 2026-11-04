@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -31,7 +32,9 @@ import kotlin.test.assertTrue
  *
  * The test therefore mounts the bar alone, with a holder provided through
  * [LocalScreenActions], and asserts both halves of the contract: what the bar
- * publishes while it is there, and what it takes back when it leaves.
+ * publishes while it is there, and what it takes back when it leaves. Which of
+ * the three candidates the shell bar then draws is [resolveShellBarTitleSource]'s
+ * decision, and the test asks it rather than keeping a copy of it.
  */
 @Tag("fast")
 class ShellBarOverrideTest {
@@ -65,6 +68,19 @@ class ShellBarOverrideTest {
             assertNotNull(
                 holder.navigationIcon,
                 "the published navigation icon must reach the shell, or the shell keeps its back button",
+            )
+            // What the bar draws is the resolver's answer, not a rule this test
+            // keeps: asking it here says the published header is what the shell
+            // bar shows, without restating the three cases in the test.
+            assertEquals(
+                ShellBarTitleSource.Published,
+                resolveShellBarTitleSource(
+                    selectionTitle = holder.selectionTitle,
+                    overrideShell = holder.override,
+                    hasPublishedTitle = holder.title != null,
+                    destinationTitle = "Calendar",
+                ),
+                "a screen that publishes its header under the override must be what the bar draws",
             )
 
             // The screen leaves: the bar goes out of the composition, and the
