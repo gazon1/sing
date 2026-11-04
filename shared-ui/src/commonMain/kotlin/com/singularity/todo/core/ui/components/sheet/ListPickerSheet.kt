@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
+import com.singularity.todo.core.ui.pointerCursorHand
 import kotlinx.collections.immutable.ImmutableList
 
 /**
@@ -137,7 +138,7 @@ private fun <T> ListPickerItemRow(
                 .mapTestTagsAsResourceIds()
                 .then(item.testTag?.let { Modifier.testTag(it) } ?: Modifier)
                 .then(
-                    if (item.enabled) Modifier.clickable(onClick = onSelect) else Modifier,
+                    if (item.enabled) Modifier.clickable(onClick = onSelect).pointerCursorHand() else Modifier,
                 ).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),

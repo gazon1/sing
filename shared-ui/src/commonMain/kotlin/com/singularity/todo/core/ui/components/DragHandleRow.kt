@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.pointerCursorHand
 
 /**
  * Which side the drag handle sits on.
@@ -69,7 +70,9 @@ fun DragHandleRow(
                 .fillMaxWidth()
                 .then(
                     if (onClick != null) {
-                        Modifier.clickable(onClick = onClick)
+                        Modifier
+                            .clickable(onClick = onClick)
+                            .pointerCursorHand()
                     } else {
                         Modifier
                     },

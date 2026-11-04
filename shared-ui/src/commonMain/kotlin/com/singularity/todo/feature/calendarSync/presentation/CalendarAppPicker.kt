@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.SettingsSection
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.calendarSync.domain.model.CalendarAppInfo
 import kotlinx.collections.immutable.ImmutableList
@@ -78,6 +79,7 @@ private fun AppRadioRow(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
+                .pointerCursorHand()
                 .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

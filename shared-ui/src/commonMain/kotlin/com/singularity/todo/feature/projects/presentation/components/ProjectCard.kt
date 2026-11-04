@@ -26,6 +26,7 @@ import com.singularity.todo.core.ui.components.AiActionButton
 import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.components.ReopenActionButton
 import com.singularity.todo.core.ui.contrastingForeground
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.feature.projects.domain.model.Project
 
 /**
@@ -46,7 +47,8 @@ fun ProjectCard(
             modifier
                 .fillMaxWidth()
                 .testTag(TestTags.projectCard(project.name))
-                .clickable(onClick = onClick),
+                .clickable(onClick = onClick)
+                .pointerCursorHand(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Row(

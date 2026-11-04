@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
 import com.singularity.todo.feature.tasks.presentation.theme.dividerColor
@@ -153,6 +154,7 @@ private fun ActionMenuRow(
                 .touchTarget()
                 .height(36.dp)
                 .clickable(enabled = node.enabled, onClick = onClick)
+                .pointerCursorHand(node.enabled)
                 .padding(horizontal = 8.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
@@ -216,6 +218,7 @@ private fun SubMenuRow(
                 .fillMaxWidth()
                 .height(36.dp)
                 .hoverable(interactionSource = hover.interactionSource, enabled = node.enabled)
+                .pointerCursorHand(node.enabled)
                 .padding(horizontal = 8.dp)
                 .onGloballyPositioned { rowBounds = it.boundsInWindow() },
         contentAlignment = Alignment.CenterStart,

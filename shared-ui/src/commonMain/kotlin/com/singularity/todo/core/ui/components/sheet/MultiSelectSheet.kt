@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
+import com.singularity.todo.core.ui.pointerCursorHand
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -105,6 +106,7 @@ fun <T> MultiSelectSheet(
                                     .mapTestTagsAsResourceIds()
                                     .then(item.testTag?.let { Modifier.testTag(it) } ?: Modifier)
                                     .clickable { onToggle(item.key) }
+                                    .pointerCursorHand()
                                     .padding(vertical = 10.dp, horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),

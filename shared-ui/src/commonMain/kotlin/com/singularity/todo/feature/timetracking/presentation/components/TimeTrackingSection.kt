@@ -31,6 +31,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.formatElapsed
 import com.singularity.todo.core.ui.formatMonthDayTime
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
@@ -207,6 +208,7 @@ fun TimeTrackingSection(
                     Modifier
                         .fillMaxWidth()
                         .clickable(onClick = onAddManual)
+                        .pointerCursorHand()
                         .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

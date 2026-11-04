@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import com.singularity.todo.core.ui.pointerCursorHand
 import kotlinx.collections.immutable.ImmutableList
 
 /**
@@ -116,7 +117,8 @@ private fun TopMenuBarItem(
                     indication = null,
                     enabled = node.enabled,
                     onClick = { onOpenChange(true) },
-                ).hoverable(interactionSource = hover.interactionSource, enabled = node.enabled)
+                ).pointerCursorHand(node.enabled)
+                .hoverable(interactionSource = hover.interactionSource, enabled = node.enabled)
                 .clip(RoundedCornerShape(4.dp))
                 .background(
                     if (hover.isHovered || isOpen) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
@@ -165,7 +167,8 @@ private fun TopMenuBarAction(node: MenuNode.Action) {
                     indication = null,
                     enabled = node.enabled,
                     onClick = node.onClick,
-                ).hoverable(interactionSource = hoverSource, enabled = node.enabled)
+                ).pointerCursorHand(node.enabled)
+                .hoverable(interactionSource = hoverSource, enabled = node.enabled)
                 .clip(RoundedCornerShape(4.dp))
                 .background(if (isHovered) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
                 .padding(horizontal = 12.dp, vertical = 6.dp),
@@ -238,7 +241,8 @@ private fun DropdownActionRow(
                         node.onClick()
                         onAction()
                     },
-                ).hoverable(interactionSource = hoverSource)
+                ).pointerCursorHand(node.enabled)
+                .hoverable(interactionSource = hoverSource)
                 .background(if (isHovered) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.CenterStart,
@@ -298,6 +302,7 @@ private fun DropdownSubMenuRow(
             Modifier
                 .fillMaxWidth()
                 .hoverable(interactionSource = hover.interactionSource, enabled = node.enabled)
+                .pointerCursorHand(node.enabled)
                 .background(if (hover.isHovered) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.CenterStart,

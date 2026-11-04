@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.formatElapsed
 import com.singularity.todo.core.ui.monthAbbreviation
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.text.SelectableTextGroup
 import com.singularity.todo.core.ui.text.UnselectableContent
@@ -255,6 +256,7 @@ private fun LogbookNoteRow(
             modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
+                .pointerCursorHand()
                 .padding(vertical = 6.dp)
                 .testTag(TestTags.logbookNoteByTitle(title)),
         verticalAlignment = Alignment.CenterVertically,

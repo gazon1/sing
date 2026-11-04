@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.model.ProjectTreeNode
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeUiState
@@ -101,6 +102,7 @@ private fun ProjectTreeRow(
                 // tag: a click on the row's centre is the click a test makes, and a
                 // clickable only on the name would miss it.
                 .clickable(onClick = onOpen)
+                .pointerCursorHand()
                 .testTag(TestTags.menuProjectNode(node.id.value)),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -31,6 +31,7 @@ import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
 import com.singularity.todo.core.ui.components.sheet.SheetActions
 import com.singularity.todo.core.ui.components.sheet.SheetScaffold
 import com.singularity.todo.core.ui.components.sheet.TimePickerSheet
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
@@ -239,6 +240,7 @@ private fun DateRow(
         modifier =
             modifier
                 .clickable(onClick = onClick)
+                .pointerCursorHand()
                 .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -273,6 +275,7 @@ private fun TimeRow(
         modifier =
             modifier
                 .clickable(onClick = onClick)
+                .pointerCursorHand()
                 .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {

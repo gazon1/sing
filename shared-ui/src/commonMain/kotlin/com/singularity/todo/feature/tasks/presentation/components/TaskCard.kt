@@ -34,6 +34,7 @@ import com.singularity.todo.core.search.inColumn
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.AiActionButton
 import com.singularity.todo.core.ui.components.DeleteActionButton
+import com.singularity.todo.core.ui.pointerCursorHand
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.highlightedText
@@ -85,7 +86,8 @@ fun TaskCard(
             modifier
                 .fillMaxWidth()
                 .testTag(TestTags.taskItem(task.title))
-                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                .pointerCursorHand(),
         colors =
             CardDefaults.cardColors(
                 containerColor =
