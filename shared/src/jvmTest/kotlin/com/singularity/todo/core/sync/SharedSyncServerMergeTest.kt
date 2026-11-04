@@ -3,10 +3,13 @@
 package com.singularity.todo.core.sync
 
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -201,28 +204,142 @@ class SharedSyncServerMergeTest {
         }
 
     @Test
-    fun `a delete patch puts a deletion on the feed`() =
+    fun `a delete patch writes a tombstone into the row and the feed carries it`() =
         runTest {
             val server = SharedSyncServer()
             val a = server.client(ACCOUNT)
 
             push(a, patch("p1", Hlc.of(1_000L, 0, "dev-a"), set("title", "Buy milk")))
-            val answer =
-                push(
-                    a,
-                    DeltaPatch(
-                        patchId = "p2",
-                        entityId = ENTITY,
-                        entityType = DocType.Task,
-                        baseVersion = 1L,
-                        isDelete = true,
-                    ),
-                )
+            val answer = push(a, deletePatch("p2", Hlc.of(2_000L, 0, "dev-a")))
 
             assertTrue(answer.ok)
             val events = a.getEventsSince(0L)
             assertEquals(2, events.size)
-            assertEquals(SyncEventType.DELETED, events.last().eventType)
+            val deletion = events.last()
+            assertEquals(SyncEventType.DELETED, deletion.eventType)
+            val doc = deletion.mergedDocument()
+            // The deletion is a field in the merged row, not just an event type.
+            assertEquals(JsonPrimitive(2_000L), doc["deletedAt"])
+            // The row keeps what it held: the tombstone is a field, not a wipe.
+            assertEquals(JsonPrimitive("Buy milk"), doc["title"])
+        }
+
+    @Test
+    fun `an edit after a delete does not bring the row back`() =
+        runTest {
+            val server = SharedSyncServer()
+            val a = server.client(ACCOUNT)
+
+            push(a, patch("p1", Hlc.of(1_000L, 0, "dev-a"), set("title", "Buy milk")))
+            push(a, deletePatch("p2", Hlc.of(2_000L, 0, "dev-a")))
+            val edit =
+                push(
+                    a,
+                    patch(
+                        "p3",
+                        Hlc.of(3_000L, 0, "dev-b"),
+                        set("description", "Edited after the delete"),
+                    ),
+                )
+
+            assertTrue(edit.ok)
+            assertFalse(edit.lost)
+            val doc = a.getEventsSince(0L).last().mergedDocument()
+            assertEquals(JsonPrimitive(2_000L), doc["deletedAt"])
+            assertEquals(JsonPrimitive("Edited after the delete"), doc["description"])
+        }
+
+    @Test
+    fun `a delete for a row the server never held leaves no event`() =
+        runTest {
+            val server = SharedSyncServer()
+            val a = server.client(ACCOUNT)
+
+            val answer = push(a, deletePatch("p1", Hlc.of(1_000L, 0, "dev-a")))
+
+            assertTrue(answer.ok)
+            assertNull(answer.newVersion)
+            assertTrue(a.getEventsSince(0L).isEmpty())
+        }
+
+    @Test
+    fun `a delete older than the stored one loses`() =
+        runTest {
+            val server = SharedSyncServer()
+            val a = server.client(ACCOUNT)
+
+            push(a, patch("p1", Hlc.of(1_000L, 0, "dev-a"), set("title", "Buy milk")))
+            push(a, deletePatch("p2", Hlc.of(3_000L, 0, "dev-a")))
+            val older = push(a, deletePatch("p3", Hlc.of(2_000L, 0, "dev-b")))
+
+            assertTrue(older.ok)
+            assertTrue(older.lost)
+            assertEquals(2, a.getEventsSince(0L).size)
+            assertEquals(
+                JsonPrimitive(3_000L),
+                a.getEventsSince(0L).last().mergedDocument()["deletedAt"],
+            )
+        }
+
+    @Test
+    fun `an unset clears the field, and its clock keeps it cleared`() =
+        runTest {
+            val server = SharedSyncServer()
+            val a = server.client(ACCOUNT)
+
+            push(a, patch("p1", Hlc.of(2_000L, 0, "dev-a"), set("title", "Buy milk")))
+            val cleared =
+                push(
+                    a,
+                    patch("p2", Hlc.of(3_000L, 0, "dev-a"), FieldChange("title", FieldOp.UNSET)),
+                )
+            assertTrue(cleared.ok)
+            assertFalse(cleared.lost)
+            assertEquals(JsonNull, a.getEventsSince(0L).last().mergedDocument()["title"])
+
+            val stale =
+                push(a, patch("p3", Hlc.of(2_500L, 0, "dev-a"), set("title", "Older than the clear")))
+            assertTrue(stale.lost)
+            assertEquals(JsonNull, a.getEventsSince(0L).last().mergedDocument()["title"])
+        }
+
+    @Test
+    fun `an append extends the list and a remove shrinks it`() =
+        runTest {
+            val server = SharedSyncServer()
+            val a = server.client(ACCOUNT)
+
+            push(a, patch("p1", Hlc.of(1_000L, 0, "dev-a"), append("tags", "t1")))
+            assertEquals(
+                JsonArray(listOf(JsonPrimitive("t1"))),
+                a.getEventsSince(0L).last().mergedDocument()["tags"],
+            )
+
+            push(a, patch("p2", Hlc.of(2_000L, 0, "dev-a"), append("tags", "t2")))
+            assertEquals(
+                JsonArray(listOf(JsonPrimitive("t1"), JsonPrimitive("t2"))),
+                a.getEventsSince(0L).last().mergedDocument()["tags"],
+            )
+
+            push(a, patch("p3", Hlc.of(3_000L, 0, "dev-a"), remove("tags", "t1")))
+            assertEquals(
+                JsonArray(listOf(JsonPrimitive("t2"))),
+                a.getEventsSince(0L).last().mergedDocument()["tags"],
+            )
+        }
+
+    @Test
+    fun `the event carries every field of the type, null where nothing was written`() =
+        runTest {
+            val server = SharedSyncServer()
+            val a = server.client(ACCOUNT)
+
+            push(a, patch("p1", Hlc.of(1_000L, 0, "dev-a"), set("title", "Buy milk")))
+
+            val doc = a.getEventsSince(0L).single().mergedDocument()
+            assertTrue(doc.containsKey("description"))
+            assertEquals(JsonNull, doc["description"])
+            assertEquals(JsonNull, doc["deletedAt"])
         }
 
     private fun push(
@@ -258,6 +375,29 @@ class SharedSyncServerMergeTest {
         field: String,
         value: String,
     ): FieldChange = FieldChange(field, FieldOp.SET, JsonPrimitive(value))
+
+    private fun append(
+        field: String,
+        value: String,
+    ): FieldChange = FieldChange(field, FieldOp.APPEND, JsonPrimitive(value))
+
+    private fun remove(
+        field: String,
+        value: String,
+    ): FieldChange = FieldChange(field, FieldOp.REMOVE, JsonPrimitive(value))
+
+    private fun deletePatch(
+        patchId: String,
+        clock: Hlc,
+    ): DeltaPatch =
+        DeltaPatch(
+            patchId = patchId,
+            entityId = ENTITY,
+            entityType = DocType.Task,
+            baseVersion = 0L,
+            isDelete = true,
+            hlc = clock,
+        )
 
     private companion object {
         const val ACCOUNT = "account-a"

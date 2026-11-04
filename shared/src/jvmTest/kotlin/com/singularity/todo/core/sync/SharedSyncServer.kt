@@ -4,9 +4,11 @@ package com.singularity.todo.core.sync
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * In-memory sync server shared by several [SyncApiClient] instances.
@@ -35,9 +37,20 @@ import kotlinx.serialization.json.JsonObject
  * - **Scoping.** The account is the owner: another account's rows and events
  *   are invisible. A profile is a dimension inside an account — the same entity
  *   id in two profiles is two documents.
- * - **The merged document on the wire.** A pull event carries the whole row,
- *   not the operations that changed it, so the receiving device applies the
- *   merged state rather than replaying somebody else's diff.
+ * - **The kind of each operation.** A field's clock decides whether the
+ *   operation is applied at all; once it is, the kind decides what the document
+ *   does. `set` states a value, `unset` clears the field, `append` extends a
+ *   list and `remove` shrinks it.
+ * - **A whole row on the wire.** A pull event carries the whole row, not the
+ *   operations that changed it, so the receiving device applies the merged
+ *   state rather than replaying somebody else's diff. "The whole row" means
+ *   every field the type has — null for the ones no patch ever wrote — not only
+ *   the fields some patch happened to mention.
+ * - **A deletion that is part of the row.** A delete patch writes the server's
+ *   own tombstone, the `deletedAt` document field, with the patch's clock. The
+ *   deletion therefore takes part in the per-field comparison like any other
+ *   write: a later edit to another field changes that field but cannot bring
+ *   the row back, and a deletion whose clock is older than the stored one loses.
  *
  * ## What it deliberately does not do
  *
@@ -48,9 +61,6 @@ import kotlinx.serialization.json.JsonObject
  *   schema file itself records as a defect (#207). This fixture answers with
  *   the row's version, because the client records that number as the row's
  *   version and would otherwise be told a fiction.
- * - **It does not refuse a delete patch.** The SQL expresses a deletion as a
- *   field in the document; the protocol also carries an `isDelete` flag, and
- *   this fixture honours it as a deletion of the row.
  *
  * ## Why it is not a replacement for Supabase
  *
@@ -153,7 +163,7 @@ class SharedSyncServer {
             )
         }
         val key = RowKey(account, profileId, patch.entityType, patch.entityId)
-        val row = rows[key] ?: ServerRow()
+        val row = rows[key] ?: ServerRow(patch.entityType)
         var applied = 0
         writable.forEach { op ->
             if (row.write(op, clock)) applied += 1
@@ -180,34 +190,61 @@ class SharedSyncServer {
     }
 
     /**
-     * Marks the row deleted and puts the deletion on the feed.
+     * Writes the deletion into the row and puts it on the feed.
      *
-     * The row keeps its document: the deletion is on the feed, not a tombstone
-     * in the row, so a later write on that row restores it — the feed says
-     * `updated` and the document says what the row is. A row the server never
-     * held is not created by a deletion: there would be nothing to restore, and
-     * a row that exists only to be deleted is a row the feed carries forever.
+     * A deletion is not a flag on the feed: it is the server's own tombstone
+     * field, `deletedAt`, written into the document with the patch's clock. That
+     * is what makes it survive a later edit — the edit changes its own field, the
+     * document still carries `deletedAt`, and the row stays deleted. It also
+     * makes a deletion subject to the same per-field comparison as any other
+     * write: a deletion whose clock is older than the stored one loses.
+     *
+     * A row the server never held is not created by a deletion: there would be
+     * nothing to restore, and a row that exists only to be deleted is a row the
+     * feed carries forever. The answer still says ok — there was nothing to do —
+     * but no tombstone and no event are produced.
      */
     private fun deleteRow(
         profileId: String,
         patch: DeltaPatch,
         account: String,
     ): PatchResult {
+        val clock = patch.hlc
+        if (clock == null || DELETED_AT !in SyncContract.serverFieldsFor(patch.entityType)) {
+            // A deletion is a write of `deletedAt`; a type that cannot carry that
+            // field, or a patch with no clock to order it, is refused exactly as a
+            // write to an unwritable field is.
+            return PatchResult(
+                patchId = patch.patchId,
+                ok = false,
+                error = SyncProtocol.FIELD_NOT_WRITABLE,
+            )
+        }
         val key = RowKey(account, profileId, patch.entityType, patch.entityId)
         val row = rows[key]
-        if (row != null) row.serverVersion += 1
-        recordEvent(
-            account = account,
-            profileId = profileId,
-            patch = patch,
-            data = row?.snapshot() ?: JsonObject(emptyMap()),
-            eventType = SyncEventType.DELETED,
-            clock = patch.hlc,
-        )
+            ?: return PatchResult(patchId = patch.patchId, ok = true, newVersion = null)
+        val tombstone =
+            FieldChange(
+                field = DELETED_AT,
+                op = FieldOp.SET,
+                value = JsonPrimitive(patch.timestampMs ?: clock.physical),
+            )
+        if (!row.write(tombstone, clock)) {
+            // The stored deletion is newer than this one; nothing changed.
+            return PatchResult(
+                patchId = patch.patchId,
+                ok = true,
+                lost = true,
+                newVersion = row.serverVersion,
+            )
+        }
+        row.serverVersion += 1
+        rows[key] = row
+        recordEvent(account, profileId, patch, row.snapshot(), SyncEventType.DELETED, clock)
         return PatchResult(
             patchId = patch.patchId,
             ok = true,
-            newVersion = row?.serverVersion,
+            newVersion = row.serverVersion,
         )
     }
 
@@ -252,14 +289,14 @@ class SharedSyncServer {
      * The document is the merged state; the field versions are the clock of
      * every field in it, and they are what the next patch is compared against.
      */
-    private class ServerRow {
+    private class ServerRow(private val entityType: DocType) {
         val doc = mutableMapOf<String, JsonElement>()
         val fieldVersions = mutableMapOf<String, Hlc>()
         var serverVersion: Long = 0L
 
         /**
          * Writes one operation, when its clock beats the stored clock for that
-         * field.
+         * field, and lets the operation's kind decide what the document does.
          *
          * A field with no stored clock is written by any patch: there is nothing
          * to beat. A field whose stored clock is newer keeps both its value and
@@ -271,13 +308,50 @@ class SharedSyncServer {
         ): Boolean {
             val stored = fieldVersions[op.field]
             if (stored != null && clock <= stored) return false
+            apply(op)
             fieldVersions[op.field] = clock
-            doc[op.field] = op.value ?: JsonNull
             return true
         }
 
-        /** The row as it stands, as a document the feed can carry. */
-        fun snapshot(): JsonObject = JsonObject(doc.toMap())
+        /**
+         * `set` states the value, `unset` removes the key, `append` extends the
+         * list already there and `remove` drops the named element — or empties
+         * the list when it names none.
+         *
+         * An `unset` removes the key rather than storing a null: "this field is
+         * clear" and "this field's value is null" are different claims about the
+         * row, and the merge would take the second literally.
+         */
+        private fun apply(op: FieldChange) {
+            when (op.op) {
+                FieldOp.SET -> doc[op.field] = op.value ?: JsonNull
+                FieldOp.UNSET -> doc.remove(op.field)
+                FieldOp.APPEND -> {
+                    val current = (doc[op.field] as? JsonArray)?.toList().orEmpty()
+                    doc[op.field] = JsonArray(op.value?.let { current + it } ?: current)
+                }
+                FieldOp.REMOVE -> {
+                    val current = (doc[op.field] as? JsonArray)?.toMutableList() ?: return
+                    if (op.value == null) current.clear() else current.removeAll { it == op.value }
+                    doc[op.field] = JsonArray(current)
+                }
+            }
+        }
+
+        /**
+         * The row as it stands, as a document the feed can carry.
+         *
+         * Every field the type has is in the document — null where no patch ever
+         * set it — because the receiving device applies the event as a whole
+         * row. A sparse document would read as "the server says nothing about
+         * the other fields", which is not what a server row means.
+         */
+        fun snapshot(): JsonObject =
+            JsonObject(
+                SyncContract.serverFieldsFor(entityType).associateWith { field ->
+                    doc[field] ?: JsonNull
+                },
+            )
     }
 
     /** The identity of a row: the owner, the profile, the type and the entity. */
@@ -287,6 +361,11 @@ class SharedSyncServer {
         val entityType: DocType,
         val entityId: String,
     )
+
+    private companion object {
+        /** The document field the server expresses a deletion as. */
+        const val DELETED_AT = "deletedAt"
+    }
 }
 
 private class SharedSyncClient(private val server: SharedSyncServer, val authenticatedAs: String) : SyncApiClient {
