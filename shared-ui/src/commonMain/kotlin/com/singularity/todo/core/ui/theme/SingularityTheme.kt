@@ -99,10 +99,13 @@ fun SingularityTheme(
     CompositionLocalProvider(
         LocalAccentColor provides accent,
         LocalIsDarkTheme provides isDark,
+        LocalSpacing provides AppSpacing,
+        LocalElevation provides AppElevation,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = typography,
+            shapes = AppShapes,
             content = content,
         )
     }

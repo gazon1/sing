@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
+import com.singularity.todo.core.ui.theme.elevation
 
 /**
  * The bar that appears at the bottom of the calendar while days are being picked.
@@ -37,7 +38,7 @@ fun CalendarSelectionBar(
                 .fillMaxWidth()
                 .testTag(TestTags.Calendar.SELECTION_BAR)
                 .mapTestTagsAsResourceIds(),
-        tonalElevation = 3.dp,
+        tonalElevation = MaterialTheme.elevation.level2,
     ) {
         Row(
             modifier =

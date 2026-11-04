@@ -28,7 +28,8 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.celebration.Celebration
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
-import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import com.singularity.todo.core.ui.theme.spacing
+import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColor
 import org.jetbrains.compose.resources.stringResource
 import singularity_todo.shared.generated.resources.Res
@@ -80,11 +81,11 @@ fun TaskTitleRow(
                         imageVector = glyph,
                         contentDescription = if (isCompleted) "Задача выполнена" else "Отметить как выполненную",
                         tint = doneTint,
-                        modifier = Modifier.size(TaskSpacing.iconSizeLarge),
+                        modifier = Modifier.size(TaskListSizes.IconLarge),
                     )
                 }
             }
-            Spacer(modifier = Modifier.width(TaskSpacing.md))
+            Spacer(modifier = Modifier.width(MaterialTheme.spacing.md))
         }
         BasicTextField(
             state = titleState,

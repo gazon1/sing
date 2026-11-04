@@ -41,6 +41,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.theme.elevation
 
 /** How dark the dimming layer is. Dark enough to read by, light enough to see through. */
 private val SCRIM_COLOR = Color(0xCC000000)
@@ -195,7 +196,7 @@ private fun SpotlightCard(
                 .testTag(TestTags.Onboarding.SPOTLIGHT_CARD),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = MaterialTheme.elevation.level4),
     ) {
         Column(
             modifier = Modifier.padding(20.dp),

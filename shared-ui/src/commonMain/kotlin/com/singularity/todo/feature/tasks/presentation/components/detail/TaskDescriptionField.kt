@@ -14,7 +14,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import com.singularity.todo.core.ui.theme.spacing
 import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColor
 
 /**
@@ -42,7 +42,7 @@ fun TaskDescriptionField(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(vertical = TaskSpacing.sm)
+                .padding(vertical = MaterialTheme.spacing.sm)
                 .semantics { contentDescription = "Task description" },
         decorator = { innerTextField ->
             if (descriptionState.text.isEmpty()) {
