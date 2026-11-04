@@ -36,7 +36,6 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 
 /**
  * Dialog for creating or renaming a tag. Shows a name input and a colour picker.
@@ -96,7 +95,7 @@ fun AddTagDialog(
                         Box(
                             modifier =
                                 Modifier
-                                    .touchTarget(TaskListSizes.MinTouchTarget)
+                                    .touchTarget()
                                     .size(36.dp)
                                     .clip(CircleShape)
                                     .background(Color(color))
