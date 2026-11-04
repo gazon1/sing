@@ -166,6 +166,30 @@ def reachable_gate_scripts(
     return follow_delegation(root, invoked), unresolved
 
 
+def command_name(display_name: str) -> str:
+    """The CLI command for a gate, derived from its display name.
+
+    The registry stores ``room schema integrity``; the CLI calls it
+    ``sgate room_schema_integrity``. A gate line in the tool's shape names the
+    command, not the display name, so a lookup by display name misses it.
+    """
+    slug = re.sub(r"[^a-z0-9]+", "_", display_name.lower())
+    return re.sub(r"_+", "_", slug).strip("_")
+
+
+def _spec_for_command(registry_by_name: dict[str, object], command: str) -> object | None:
+    """The registry entry a ``sgate <command>`` line dispatches to.
+
+    The registry is keyed by display name and the line names the command, so
+    the two are joined by the command the display name gives.
+    """
+    for spec in registry_by_name.values():
+        name = getattr(spec, "name", None)
+        if name and command_name(str(name)) == command:
+            return spec
+    return None
+
+
 def covered_scripts(
     root: pathlib.Path,
     shell_gates: list[tuple[str, str, str]],
@@ -194,7 +218,9 @@ def covered_scripts(
             covered.add(match.group(1))
         tokens = command.split()
         if tokens and tokens[0] == "sgate" and len(tokens) > 1:
-            spec = registry_by_name.get(tokens[1])
+            spec = registry_by_name.get(tokens[1]) or _spec_for_command(
+                registry_by_name, tokens[1]
+            )
             script = getattr(spec, "script", None)
             if script:
                 covered.add(str(script))

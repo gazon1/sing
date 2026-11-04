@@ -116,7 +116,7 @@ CLUSTERS: dict[str, tuple[str, ...]] = {
 PLACEMENTS: dict[str, Placement] = {
     "gate registries agree": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-gate-registries.py --strict',
+        command='sgate gate_registries_agree',
         note="""The two gate registries against each other, first: everything below is
 dispatched through one of them, and a gate that exists in one and not the
 other is a gate that runs on no one — or one that runs without a name.
@@ -131,7 +131,7 @@ drift is paid: the shell file and _registry.py now carry the same names.""",
     ),
     "ci workflow shape is declared": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-ci-workflow-shape.py',
+        command='sgate ci_workflow_shape_is_declared',
         note="""The shape of the CI workflow's Gradle block: one gate for three checks.
 
   - a test task whose inputs are declared;
@@ -162,7 +162,7 @@ false while the waiver keeps waiving. This checks the promise, not the pass.""",
     ),
     "published measurements match the record": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-published-measurements.py',
+        command='sgate published_measurements_match_the_record',
         note="""A published number is a claim about a measurement, and the claim outlives
 the measurement it was read from. "2.82M instructions" survived a real
 measurement of the very report it came from, because the percentages beside it
@@ -178,7 +178,7 @@ does not check, and that limit is written down in the gate's own docstring.""",
     ),
     "the recorded CI jobs are still jobs": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-recorded-ci-jobs.py',
+        command='sgate the_recorded_ci_jobs_are_still_jobs',
         note="""The published page prices the CI loop from one run, and the criterion that
 retires that record is the workflow's jobs changing. Nothing checked it: the suite job
 was renamed from `JVM tests, detekt, coverage` to `JVM tests`, and the page kept
@@ -206,7 +206,7 @@ docstring.""",
     ),
     "the memory budget is one record": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-memory-budget.py',
+        command='sgate the_memory_budget_is_one_record',
         note="""The heap of a test fork was a literal string in five build scripts, and the
 heap of the Gradle daemon was a literal string in `gradle.properties`. The
 measurement behind them lived in an ADR that no build read and no gate held.
@@ -222,15 +222,15 @@ test task in the tree with it.""",
     ),
     "tag entity constructions include nameNormalized": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/ci/check-tag-entity-normalized.py',
+        command='sgate tag_entity_constructions_include_namenormalized',
     ),
     "migration index names follow convention": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/ci/check-migration-naming.py',
+        command='sgate migration_index_names_follow_convention',
     ),
     "the text-field transformation table is true": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-text-field-transformations-table.py',
+        command='sgate the_text_field_transformation_table_is_true',
         note="""The skill that tells an agent which transformation to use for which text
 field carries a table of the transformations and the rule each one applies.
 Nothing held it to the code: a transformation could be added, renamed, or
@@ -246,7 +246,7 @@ what the code does fails too.""",
     ),
     "the platform reference ports are true": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-platform-reference-ports.py',
+        command='sgate the_platform_reference_ports_are_true',
         note="""The platform reference is the inventory of the seam: which port is bound to
 which implementation on which platform. It said so itself — "nothing here is
 generated … no gate will notice" — and it had rotted: it still named a port
@@ -260,7 +260,7 @@ its rows the gate checks, so a row that cannot be checked says so.""",
     ),
     "profile reset inventory is true": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/ci/check-profile-reset-inventory.py',
+        command='sgate profile_reset_inventory_is_true',
         note="""The E2E suite isolates one flow from the next by wiping the app's content
 between flows, and the list of tables that wipe reaches is a list of
 exceptions. Exceptions rot silently: a table added to the Room schema is not a
@@ -377,7 +377,7 @@ comparison is. The inventory is closed now, so the remaining findings are
 decisions rather than gaps, and the empty list is the assertion."""),
     "issue registry covers every change": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-issue-registry.py --quiet',
+        command='sgate issue_registry_covers_every_change',
         note="""The registry is the source of truth for a change, and nothing checked it.
 
 Four changes landed in main without an entry in `.specify/issues/`: the close
@@ -399,7 +399,7 @@ record, a record that names a different change, and two changes claiming one
 slug."""),
     "AGENTS.md pointers resolve": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-agents-pointers.py --quiet',
+        command='sgate agents_md_pointers_resolve',
         note="""A pointer that does not resolve is a stop that costs exactly what the note
 it came from was written to remove.
 
@@ -414,7 +414,7 @@ around it is not checked, because where it is relative to is not written down
 and the gate would be guessing."""),
     "review verdicts cover every change": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-review-verdicts.py --quiet',
+        command='sgate review_verdicts_cover_every_change',
         note="""The review of a change has to be somewhere the next session can read.
 
 `AGENTS.md` says a change gets a review by a separate agent before the PR is
@@ -564,7 +564,7 @@ about, and leaves a value built by a factory function to the runtime test.""",
     ),
     "doc dead refs": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-doc-dead-refs.py --strict',
+        command='sgate doc_dead_refs',
         note="""
 The other reference shape: a path inside backticks, and a dated ADR slug
 cited without its `.md`. It was registered in the Python registry with a
@@ -612,7 +612,7 @@ manifest, run `sgate render-static-gates --write`.""",
     ),
     "the cheat sheet stays a cheat sheet": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-agents-size.py',
+        command='sgate the_cheat_sheet_stays_a_cheat_sheet',
         note="""AGENTS.md is read by every session, in one go, and every line of it
 is paid for whether the session needs it or not. It was 517 lines; the rules
 that needed more room moved to docs/architecture/, and this gate keeps the
@@ -621,7 +621,7 @@ a pointer, not a longer cheat sheet.""",
     ),
     "a git command that reads a tree controls its environment": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-git-environment.py',
+        command='sgate a_git_command_that_reads_a_tree_controls_its_environment',
         note="""Git exports GIT_DIR (and GIT_WORK_TREE, GIT_INDEX_FILE,
 GIT_COMMON_DIR) to every hook it runs, and those variables override the
 directory a git command was pointed at. A digest computed that way is a
@@ -634,7 +634,7 @@ those variables from the environment the command inherits.""",
     ),
     "the checkout can work": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-checkout-invariants.py',
+        command='sgate the_checkout_can_work',
         note="""The checkout has to be able to commit, to run its hooks, and to
 keep the SSH connection alive through a long pre-push hook. A bare checkout
 refuses every command, a hooks path that leads nowhere runs no hooks at all,
@@ -663,7 +663,7 @@ name.""",
     ),
     "gates speak the JSON contract": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-gate-json-contract.py',
+        command='sgate gates_speak_the_json_contract',
         note="""
 Every gate dispatched through `sgate` is called with `--json` by
 `sgate run-all`, and the document that lands on stdout is what a consumer
@@ -678,7 +678,7 @@ found by reading the code, and both were found late.""",
     ),
     "detekt governance is consistent": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-detekt-governance.py',
+        command='sgate detekt_governance_is_consistent',
         note="""
 NOT HERE: scripts/check-gate-wiring.py
 See the ADR for this gate and the note in scripts/check-rebase-compiles.py.
@@ -767,7 +767,7 @@ different timeouts, and the instrumented suite's 8 s is the reason
     ),
     "the toolbox surface is declared once": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-skill-drift.py',
+        command='sgate the_toolbox_surface_is_declared_once',
         note="""
 Source and documentation contracts. Both have a GateSpec in
 scripts/src/sgate/commands/_registry.py and a positive control in GATE_CONTROLS,
@@ -806,7 +806,7 @@ half had ever been checked by anything.""",
     ),
     "pro licence boundary": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-pro-licence-boundary.py',
+        command='sgate pro_licence_boundary',
         note="""
 Provenance and licensing. Both were registered in `_registry.py` with a positive
 control and a sabotage that can fail, and neither had a line here — so `run-all`,
@@ -815,11 +815,11 @@ proves nothing about the gate.""",
     ),
     "provenance": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-provenance.py',
+        command='sgate provenance',
     ),
     "adr references are valid": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-adr-references.py',
+        command='sgate adr_references_are_valid',
         note="""
 ADR references: a prose mention of a dated-ADR slug carries no path, so a moved or
 deleted decision leaves a dangling claim nothing else sees.""",
@@ -880,7 +880,7 @@ That is the whole reason it had no positive control; it has one now.""",
     ),
     "compose stability contract": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-compose-stability-config.py',
+        command='sgate compose_stability_contract',
         note="""
 The Compose stability contract — `config/compose/stability_config.conf` — is
 the only thing that tells the Compose compiler which types are stable. It is
@@ -900,7 +900,7 @@ fragility this repository already has a gate for.""",
     ),
     "screen state collections": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-screen-state-collections.py',
+        command='sgate screen_state_collections',
         note="""
 The screen states — `config/compose/screen_state_collection_debt.conf` — name
 the states that still hold a raw collection.
@@ -1017,7 +1017,7 @@ Deno is absent, and the skip says so rather than passing quietly.""",
     ),
     "maestro keyboard commands have something to hide": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-maestro-keyboard-commands.py',
+        command='sgate maestro_keyboard_commands_have_something_to_hide',
         note="""
 A `hideKeyboard` is a BACK keypress when there is no keyboard to hide.
 
@@ -1031,7 +1031,7 @@ follows anything else.""",
     ),
     "maestro flows do not name a pixel": Placement(
         kind=PlacementKind.STATIC,
-        command='python3 scripts/check-maestro-screen-geometry.py',
+        command='sgate maestro_flows_do_not_name_a_pixel',
         note="""
 A flow that names a pixel is a claim about one display.
 
@@ -1152,7 +1152,7 @@ do.""",
         ),
         'touch targets meet minimum': Placement(
             kind=PlacementKind.STATIC,
-            command="python3 scripts/check-touch-targets.py",
+            command="sgate touch_targets_meet_minimum",
             note=(
                 'A touch target is 48 dp, and the order of the modifier chain decides '
                 'whether a fixed size caps the hit area or only shapes the picture: '
