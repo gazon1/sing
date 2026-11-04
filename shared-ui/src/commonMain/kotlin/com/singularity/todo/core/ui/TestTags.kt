@@ -798,30 +798,6 @@ object TestTags {
         const val SEARCH_MENU_DELETE = "search_menu_delete"
         const val SAVE_CHIP = "search_save_chip"
         const val SAVE_DIALOG_CONFIRM = "search_save_dialog_confirm"
-
-        /**
-         * The submit button inside the rename menu item.
-         *
-         * The menu item itself is a container — its own click is a no-op — so the
-         * node that performs the rename is this button, and a test that clicks the
-         * item would prove nothing.
-         */
-        const val SEARCH_MENU_RENAME_CONFIRM = "search_menu_rename_confirm"
-
-        /**
-         * The chip of one saved search, addressed by the saved search's id.
-         *
-         * A saved-search chip had no stable selector: a test could only find it by
-         * its visible label, and the long press that opens the rename/delete menu
-         * could not be aimed at a particular chip when the row held several.
-         *
-         * Keyed by id, not by name: two saved searches may share a name — nothing
-         * in the row enforces uniqueness — and a name-keyed tag would then match two
-         * chips, where `onNodeWithTag` throws on the ambiguity or acts on whichever
-         * happened to be first. The id is what the row's `LazyRow` already uses as
-         * its `key`, so it is unique by construction.
-         */
-        fun savedSearchChip(savedSearchId: String) = "search_saved_search_chip_$savedSearchId"
     }
 
     // ─── Calendar sync ───────────────────────────────────────────────────────
