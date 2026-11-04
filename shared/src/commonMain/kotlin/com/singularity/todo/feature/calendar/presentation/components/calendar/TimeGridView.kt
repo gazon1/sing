@@ -11,14 +11,17 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,6 +35,7 @@ import com.singularity.todo.core.format.formatPadded
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.calendar.domain.logic.dayOfWeekShort
 import com.singularity.todo.feature.calendar.domain.logic.isoLocalDate
+import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.presentation.theme.CalendarPalette
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
@@ -40,6 +44,11 @@ import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 private val HOUR_ROW_HEIGHT = 64.dp
 private val TIME_COLUMN_WIDTH = 56.dp
@@ -61,7 +70,14 @@ fun TimeGridView(
     modifier: Modifier = Modifier,
 ) {
     val palette: CalendarPalette = LocalCalendarPalette.current
-
+    val haptic = LocalHaptic.current
+    val scope = rememberCoroutineScope()
+    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    val showNowLineToday = today in dates
+    val listState = rememberLazyListState()
+    LaunchedEffect(today, now.hour) {
+        if (showNowLineToday) listState.animateScrollToItem(now.hour.coerceIn(0, 23))
+    }
     Column(modifier = modifier.fillMaxSize().background(palette.background)) {
         // Day header row
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -96,7 +112,7 @@ fun TimeGridView(
                 AllDayCell(
                     tasks = allDayTasksByDate[date] ?: persistentListOf(),
                     selectedTaskId = selectedTaskId,
-                    onTaskClick = onTaskClick,
+                    onTaskClick = { task -> scope.launch { haptic.perform() }; onTaskClick(task) },
                     palette = palette,
                     modifier = Modifier.weight(1f),
                 )
@@ -104,15 +120,17 @@ fun TimeGridView(
         }
 
         // Hourly grid
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             items(24, key = { it }) { hour ->
                 HourRow(
                     hour = hour,
                     dates = dates,
                     tasksByDate = tasksByDate,
                     selectedTaskId = selectedTaskId,
-                    onTaskClick = onTaskClick,
+                    onTaskClick = { task -> scope.launch { haptic.perform() }; onTaskClick(task) },
                     palette = palette,
+                    showNowLine = showNowLineToday && hour == now.hour,
+                    nowMinute = now.minute,
                 )
             }
         }
@@ -217,7 +235,15 @@ private fun HourRow(
     selectedTaskId: String?,
     onTaskClick: (CalendarTaskUi) -> Unit,
     palette: CalendarPalette,
+    showNowLine: Boolean = false,
+    nowMinute: Int = 0,
 ) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(HOUR_ROW_HEIGHT),
+    ) {
     Row(
         modifier =
             Modifier
@@ -253,7 +279,7 @@ private fun HourRow(
                         .fillMaxHeight()
                         .border(width = 0.5.dp, color = palette.gridLine),
             ) {
-                Column(modifier = Modifier.padding(2.dp)) {
+                 Column(modifier = Modifier.padding(2.dp)) {
                     timedTasks.forEach { task ->
                         TaskChip(
                             task = task,
@@ -264,5 +290,16 @@ private fun HourRow(
                 }
             }
         }
+        if (showNowLine) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .offset(y = (nowMinute / 60f * HOUR_ROW_HEIGHT.value).dp)
+                        .height(2.dp)
+                        .background(palette.todayBadge),
+            )
+        }
     }
+}
 }

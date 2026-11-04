@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,12 +42,14 @@ import com.singularity.todo.feature.calendar.domain.logic.toYearMonth
 import com.singularity.todo.feature.calendar.domain.logic.yearMonthForPage
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
+import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
 /**
@@ -208,6 +211,7 @@ private fun MonthGridPage(
 }
 
 @OptIn(ExperimentalFoundationApi::class)
+@Suppress("LongMethod")
 @Composable
 private fun MonthDayCell(
     date: LocalDate,
@@ -223,6 +227,8 @@ private fun MonthDayCell(
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalCalendarPalette.current
+    val haptic = LocalHaptic.current
+    val scope = rememberCoroutineScope()
     val visibleTasks = remember(tasks) { tasks.take(3) }
     val overflow = tasks.size - visibleTasks.size
     val dayNumberColor = if (isCurrentMonth) palette.textPrimary else palette.textMuted
@@ -241,20 +247,18 @@ private fun MonthDayCell(
                         else -> box
                     }
                 }.combinedClickable(
-                    onClick = onClick,
-                    // The long press answers on every cell. An empty day keeps its
-                    // old meaning — create one task on that day — and a day that
-                    // already holds tasks enters the date-selection mode. Before
-                    // this, the long press was wired only on empty cells, so the
-                    // gesture that starts a multi-selection could not be performed
-                    // on the days a user is most likely to pick.
+                    onClick = {
+                        scope.launch { haptic.perform() }
+                        onClick()
+                    },
                     onLongClick = {
+                        scope.launch { haptic.perform() }
                         if (hasNoTasks) onEmptyCellLongPress(date) else onDayLongPress(date)
                     },
                 ).padding(6.dp),
     ) {
         Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 if (isToday) {
                     Box(
                         modifier =
@@ -278,6 +282,23 @@ private fun MonthDayCell(
                         fontSize = 13.sp,
                         fontWeight = if (isCurrentMonth) FontWeight.Medium else FontWeight.Normal,
                     )
+                }
+                if (tasks.isNotEmpty()) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(palette.accent),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = tasks.size.toString(),
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(4.dp))

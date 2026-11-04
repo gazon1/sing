@@ -135,4 +135,23 @@ class MultiDatePickerSheetTest {
 
             assertEquals(persistentSetOf(LocalDate(2026, 10, 12)), confirmed)
         }
+
+    @Test
+    fun `disabled days cannot be selected`() =
+        runIsolatedComposeTest(width = 420, height = 1600) {
+            setContent {
+                MultiDatePickerSheet(
+                    initialDates = persistentSetOf(),
+                    onConfirm = {},
+                    onDismiss = {},
+                    today = today,
+                    maxDates = TaskSeriesPlanner.MAX_DATES,
+                    disabledDates = persistentSetOf(LocalDate(2026, 10, 5)),
+                )
+            }
+
+            clickTag(TestTags.MultiDatePicker.day("2026-10-05"))
+
+            assertTextDisplayed("Выбрано: 0")
+        }
 }

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -81,6 +82,7 @@ fun MultiDatePickerSheet(
     onDismiss: () -> Unit,
     today: LocalDate,
     maxDates: Int,
+    disabledDates: ImmutableSet<LocalDate> = persistentSetOf(),
     modifier: Modifier = Modifier,
 ) {
     var selected by remember { mutableStateOf(initialDates) }
@@ -110,6 +112,19 @@ fun MultiDatePickerSheet(
                     testTagClear = TestTags.MultiDatePicker.CLEAR,
                 ),
         ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = today in selected,
+                    onClick = {
+                        if (today in selected) selected = (selected - today).toImmutableSet()
+                        else if (today !in disabledDates && selected.size < maxDates) {
+                            selected = (selected + today).toImmutableSet()
+                            limitReached = false
+                        }
+                    },
+                    label = { Text("Сегодня") },
+                )
+            }
             MonthHeader(
                 monthAnchor = monthAnchor,
                 onPrevious = { monthAnchor = monthAnchor.minusMonth() },
@@ -120,16 +135,16 @@ fun MultiDatePickerSheet(
                 monthAnchor = monthAnchor,
                 today = today,
                 selected = selected,
+                disabledDates = disabledDates,
                 onDayClick = { date ->
-                    when {
+                    if (date in disabledDates) {
+                        // Disabled days are inert: no selection, no counter bump.
+                    } else when {
                         date in selected -> {
                             selected = (selected - date).toImmutableSet()
                             limitReached = false
                         }
 
-                        // The ceiling refuses the click and says so. The day stays
-                        // unselected, so the grid still shows exactly what will be
-                        // created.
                         selected.size >= maxDates -> {
                             limitReached = true
                         }
@@ -210,6 +225,7 @@ private fun MonthGrid(
     monthAnchor: LocalDate,
     today: LocalDate,
     selected: ImmutableSet<LocalDate>,
+    disabledDates: ImmutableSet<LocalDate> = persistentSetOf(),
     onDayClick: (LocalDate) -> Unit,
 ) {
     val gridDates = remember(monthAnchor) { monthGridDates(monthAnchor) }
@@ -226,6 +242,7 @@ private fun MonthGrid(
                     isCurrentMonth = date.month == monthAnchor.month,
                     isToday = date == today,
                     isSelected = date in selected,
+                    isDisabled = date in disabledDates,
                     onClick = { onDayClick(date) },
                     modifier = Modifier.weight(1f),
                 )
@@ -262,6 +279,7 @@ private fun MultiDateCell(
     isCurrentMonth: Boolean,
     isToday: Boolean,
     isSelected: Boolean,
+    isDisabled: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -273,11 +291,12 @@ private fun MultiDateCell(
                 .clip(CircleShape)
                 .background(
                     when {
+                        isDisabled -> Color.Transparent
                         isSelected -> MaterialTheme.colorScheme.primary
                         isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
                         else -> Color.Transparent
                     },
-                ).clickable(onClick = onClick)
+                ).clickable(enabled = !isDisabled, onClick = onClick)
                 .testTag(TestTags.MultiDatePicker.day(isoLocalDate(date)))
                 .mapTestTagsAsResourceIds(),
         contentAlignment = Alignment.Center,
@@ -286,6 +305,7 @@ private fun MultiDateCell(
             text = date.day.toString(),
             color =
                 when {
+                    isDisabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     isSelected -> MaterialTheme.colorScheme.onPrimary
                     !isCurrentMonth -> MaterialTheme.colorScheme.onSurfaceVariant
                     else -> MaterialTheme.colorScheme.onSurface
