@@ -54,6 +54,24 @@ class AgendaSectionTagReachabilityFlowTest {
             assertTagInMergedTree(TestTags.agendaSection("Overdue"), "agenda")
         }
 
+    @Test
+    fun the_today_tab_exposes_the_blocked_section_in_the_merged_tree() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            val blocker = tasks(koin).given(title = "Blocker")
+            tasks(koin).given(title = "Blocked task", dependsOn = setOf(blocker.id))
+
+            tapTab("Today")
+            assertTagInMergedTree(TestTags.agendaSection("Blocked"), "agenda")
+        }
+
+    @Test
+    fun the_today_tab_exposes_the_stagnant_section_in_the_merged_tree() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            tasks(koin).givenUndated(title = "Stale task")
+            tapTab("Today")
+            assertTagInMergedTree(TestTags.agendaSection("Not touched in a while"), "agenda")
+        }
+
     private companion object {
         val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
         val CLOCK: FakeClock = FakeClock(FIXED_NOW)
