@@ -91,7 +91,7 @@ their logic.
 | Helper | When to use |
 |---|---|
 | `launch-clean.yaml` | Any flow needing a fresh app state |
-| `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link. It waits for the agenda shell only — the flow waits for the entity it seeded |
+| `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link. It waits for the agenda shell only — the flow waits for the entity it seeded. A wait on a container that only renders when that entity exists (a Plans section, a health bucket's agenda) counts as that wait; see the helper's header for the rule and the scrolling caveat |
 | `seed-task.yaml` | Any flow needing one task titled "Buy milk" |
 | `relaunch.yaml` | Flows testing persistence (state survives process restart) |
 | `open-app-menu.yaml` | Flows opening the app menu (the bottom-bar Menu button) |

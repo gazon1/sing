@@ -5,6 +5,12 @@ status: accepted
 tags: [maestro, e2e, testing, emulator]
 ---
 
+> **Superseded in part (2026-11-04):** §9 records an inbox→today tab round-trip
+> as `helpers/seed.yaml`'s behaviour. The round-trip was removed, and the
+> helper now waits for the agenda shell while the flow waits for the entity it
+> seeded. See
+> [2026-11-04-the-seed-helper-waits-for-the-shell.md](2026-11-04-the-seed-helper-waits-for-the-shell.md).
+
 ## Context
 
 CI run 38223116125 produced 30 Maestro E2E failures across 4 shards. The failures

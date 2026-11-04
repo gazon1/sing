@@ -35,6 +35,10 @@ tags:
     visible:
       id: task_item_due_tomorrow
     timeout: 8000
+# The distant task is deliberately absent from the day horizon, so its absence
+# is asserted rather than waited for — the documented exception in
+# `helpers/seed.yaml`. The wait for that task belongs on the screen that shows
+# it, and the week horizon below is that screen.
 - assertNotVisible:
     id: task_item_due_in_45_days
 # The week horizon is twelve weeks, and forty-five days is inside it.

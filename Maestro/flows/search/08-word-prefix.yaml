@@ -40,6 +40,18 @@ tags:
       id: search_input
     timeout: 5000
 
+# The row the negative queries are about is proved to be there before they are
+# asked: a negative result is evidence only if the row exists to be found. The
+# seeded rows are waited for, not asserted bare (`helpers/seed.yaml`).
+- tapOn:
+    id: search_input
+- inputText: "airport"
+- extendedWaitUntil:
+    visible:
+      id: task_item_airport_run
+    timeout: 8000
+- eraseText
+
 # "arch" is the beginning of a word: the task is found.
 - tapOn:
     id: search_input

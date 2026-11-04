@@ -62,6 +62,25 @@
 # directly (`assertNotVisible`), and the wait for that entity belongs on the
 # screen where the entity is shown.
 #
+# ## What counts as the wait: the row, or a container that holds it
+#
+# A wait on a container that renders only when the seeded entity exists counts
+# as waiting for the entity. A Plans timeline section
+# (`helpers/plans-section.yaml`) is drawn because a task falls in it; the
+# agenda behind a health bucket shows that bucket's rows, and its section is
+# drawn only while it holds one. Waiting for either is waiting for the row's
+# arrival: the entity has arrived when the thing that can only hold it has. A
+# flow that waits this way says so in a comment naming the container. This is
+# the same rule as the row wait, not a second one.
+#
+# A flow that then asserts the row itself still waits for the row — the
+# container proves the entity arrived, not that the row is on screen where the
+# next step needs it. Use `extendedWaitUntil` for that row wait, not
+# `scrollUntilVisible`: a scroll can carry the container the flow just waited
+# for out of the viewport, so a flow that needs both waits for the container
+# first, the row second, and waits for the container again after any step that
+# scrolled it away.
+#
 # ## Why there is deliberately no inbox→today tab round-trip here
 #
 # One was added on 2026-10-12 on the belief that a deep-link seed into an

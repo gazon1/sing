@@ -37,7 +37,10 @@ tags:
     visible:
       id: task_item_due_today
     timeout: 8000
-# And no project list: the project is not on the tab any more.
+# And no project list: the project is not on the tab any more. Its absence is
+# asserted directly — the documented exception in `helpers/seed.yaml` — and the
+# wait for the project belongs on the screen that shows it, the menu tree
+# below.
 - assertNotVisible:
     id: project_card_roadmap
 # The project is not lost — it is in the menu, as a tree.

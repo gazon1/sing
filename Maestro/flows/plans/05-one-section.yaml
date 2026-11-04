@@ -20,7 +20,10 @@ tags:
       QUERY: "task=Only%20once&due=today"
 - tapOn:
     id: nav_tab_plans
-# The day section holds it.
+# The day section holds it. The section is drawn only because the task is in
+# it, so this is also the wait for the seeded entity (`helpers/seed.yaml`); the
+# row wait below is the second half of the rule — the section proves arrival,
+# the row proves it is on screen.
 - runFlow:
     file: ../../helpers/plans-section.yaml
     env:

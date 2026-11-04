@@ -240,6 +240,14 @@ is nothing to wait for. `seed-task.yaml` is the helper that does the waiting
 itself — it seeds the fixed title "Buy milk" and scrolls that row into view — so
 a flow that uses it has already waited for what it seeded.
 
+**A container that only renders when the entity exists counts as the wait.** A
+Plans timeline section (`plans-section.yaml`) and the agenda behind a health
+bucket are drawn only while a task falls in them, so waiting for one is waiting
+for the row's arrival — the same rule as above, not a second one. A flow that
+uses it says so in a comment. A flow that then asserts the row still waits for
+the row, and with `extendedWaitUntil`, not `scrollUntilVisible`: a scroll can
+carry the section it waited for out of the viewport.
+
 **`seed.yaml` has no tab round-trip, and does not need one.** An inbox→today
 round-trip was added here on 2026-10-12 because a deep-link seed appeared not to
 reach an already-composed agenda. Once the runner began wiping the profile's

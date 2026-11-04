@@ -18,6 +18,8 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=HealthBlocker"
+# The blocker is a dependency fixture with no row of its own to assert: the
+# blocked task's row and its bucket below are what prove it exists.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
@@ -39,6 +41,11 @@ tags:
       id: "task_item_healthoverdue_task"
     direction: DOWN
     timeout: 8000
+
+# Of the four fixtures, only the overdue row is waited for here; the blocked
+# and stagnant tasks are waited for on the screens that show them, as noted in
+# the bucket comments below. The blocker is the dependency fixture noted above
+# and has no row of its own anywhere.
 
 # ── Open Statistics (shared scaffold) ──────────────────────────────────────
 - runFlow: ../../helpers/open-app-menu.yaml
