@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
@@ -14,6 +13,7 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.proposals.presentation.components.ProposalCardsSection
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf

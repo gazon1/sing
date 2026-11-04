@@ -25,11 +25,9 @@ import com.singularity.todo.core.ui.preview.noopClick
  *
  * ## Usage
  *
- * Each screen provides a thin local extension that delegates to [ContentStateMapper]:
- * ```kotlin
- * private fun NotesUiState.toContentState() =
- *     ContentStateMapper.contentStateOf(this) { it.notes }
- * ```
+ * Each screen provides a thin local extension that maps its own state to
+ * [ContentState] — `NotesListScreen`, `TagsScreen` and `TagGroupsScreen` each
+ * own one.
  *
  * The screen then simply:
  * ```kotlin
@@ -52,7 +50,7 @@ import com.singularity.todo.core.ui.preview.noopClick
  * so a name written here would be a name a reader cannot compile.
  *
  * @param state            The mapped [ContentState]. **UI-only type** — build it in the
- *   screen via a `ContentStateMapper` extension, never return it from a ViewModel;
+ *   screen via a screen-local mapping extension, never return it from a ViewModel;
  *   VMs expose their own domain `UiState` (see `DraftUiState` and friends).
  * @param emptyTitle       Title shown when state is [ContentState.Empty].
  * @param emptySubtitle    Optional subtitle for the empty state.
@@ -153,7 +151,7 @@ private fun ErrorState(
  * **UI-only type.** This lives in `core.ui` and exists purely to drive
  * [StatefulContent]'s rendering branch. ViewModels must not expose it
  * directly — a VM exposes its own domain state (e.g. `DraftUiState`), and a
- * screen-local `ContentStateMapper` extension projects that into a
+ * screen-local mapping extension projects that into a
  * `ContentState` right before rendering. If `ContentState` starts appearing
  * in VM signatures, the projection has leaked and screens will start
  * disagreeing on how to map the same domain state (e.g. `isSaving` into
