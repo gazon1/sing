@@ -1,11 +1,13 @@
 # unwired-surfaces floor — the number of BLOCKING findings this gate may report.
 #
-# Counted when the floor was last written, against source roots: shared/src, androidApp/src, desktopApp/src, adr-cli/src, adr-core/src, core-base/src, mcp-server/src, pro/src, tools/unwritten-properties/src.
+# Counted when the floor was last written, against source roots: shared/src, shared-ui/src, androidApp/src, desktopApp/src, adr-cli/src, adr-core/src, core-base/src, mcp-server/src, pro/src, tools/unwritten-properties/src.
 #
-# The `unread-public` / `write-only` shapes added for #1916 are not counted
-# here: their findings are exempted in
-# scripts/find-unwired-surfaces-baseline.txt, one row each, so the gate keeps
-# the blocking count it had before those shapes existed.
+# Every detector counts, `unread-public` / `write-only` (#1916) included. Those shapes
+# were added *to* the count when they landed: a shape whose findings are never counted
+# has no floor to stop it growing, and exemptions are not a ratchet. An exemption is a
+# decision about one finding, not a property of a shape: a shape that needs no rows in
+# scripts/find-unwired-surfaces-baseline.txt still moves the number here, and that file
+# carries a row only when somebody argues a specific finding is accepted debt.
 #
 # One-directional on purpose. Lowering it is the debt being paid down and needs no
 # justification; raising it is a new unwired surface and must be argued in review.
@@ -14,4 +16,4 @@
 #
 # Rewrite with: scripts/find-unwired-surfaces.py --update-floor
 
-7
+10

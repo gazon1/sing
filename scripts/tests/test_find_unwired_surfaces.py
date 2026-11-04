@@ -1023,3 +1023,77 @@ class _FakeDetector:
 
 def _one_finding(message, kind="screen"):
     return _FakeDetector(message, kind)
+
+
+class TestFloorArithmeticAtTheCli(unittest.TestCase):
+    """The floor comparison, end to end — the arithmetic #1916 actually got wrong.
+
+    Every other test in this file drives a detector's `precompute`/`check` over a
+    synthetic tree. None of them runs `cli()`, which is where the blocking count is
+    compared with the recorded floor. A branch can therefore pass every detector test
+    and still leave the gate red: #1916 recorded a floor of 7 while its own shape pushed
+    the blocking count to 149, and no test here could have noticed. These tests run the
+    command the gate runs, with the detectors stubbed out, so the subject is the floor
+    arithmetic and nothing else.
+    """
+
+    def setUp(self):
+        import pathlib
+        import tempfile
+
+        self._orig_detectors = fus.DETECTORS
+        self._orig_floor_file = fus.FLOOR_FILE
+        self._orig_kotlin_files = fus.kotlin_files
+
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.floor_file = pathlib.Path(self._tmp.name) / "unwired-surfaces-floor.txt"
+        fus.FLOOR_FILE = self.floor_file
+        # The floor arithmetic is the subject, not the detectors: an empty tree keeps
+        # the real source out of the result and makes the finding set exact.
+        fus.kotlin_files = lambda: []
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        fus.DETECTORS = self._orig_detectors
+        fus.FLOOR_FILE = self._orig_floor_file
+        fus.kotlin_files = self._orig_kotlin_files
+
+    def _run(self, findings, floor, *args):
+        fus.DETECTORS = [
+            fus.Detector(
+                kind="screen",
+                check=lambda _code, _corpus, _pre, _f=tuple(findings): list(_f),
+            )
+        ]
+        self.floor_file.write_text(f"# floor\n{floor}\n", encoding="utf-8")
+        return fus.main(["--quiet", *args])
+
+    def test_one_blocking_finding_above_a_floor_of_zero_fails(self):
+        rc = self._run([("screen", "a screen nothing composes")], floor=0)
+        self.assertEqual(rc, 1, "a blocking finding above the floor must fail the run")
+
+    def test_a_blocking_count_equal_to_the_floor_passes(self):
+        rc = self._run([("screen", "a screen nothing composes")], floor=1)
+        self.assertEqual(rc, 0, "the floor is a maximum, not a target to beat")
+
+    def test_informational_rows_are_printed_but_not_counted(self):
+        rc = self._run(
+            [("exempt", "accepted debt"), ("note", "could not decide")], floor=0
+        )
+        self.assertEqual(
+            rc, 0,
+            "`exempt` and `note` rows do not fail the build, so they must not be "
+            "counted against the floor",
+        )
+
+    def test_update_floor_records_the_blocking_count_and_not_the_total(self):
+        rc = self._run(
+            [("screen", "blocking"), ("exempt", "accepted")], floor=0, "--update-floor"
+        )
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            fus.read_floor(), 1,
+            "--update-floor must record the count that can fail the build, so the next "
+            "run measures the same thing this one did",
+        )

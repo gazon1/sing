@@ -88,8 +88,16 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # `:detekt-rules` is deliberately absent: its rules are instantiated through
 # `RuleSetProvider`, which a call-site scan cannot see, so every finding there would be
 # noise. The test names it as excluded rather than leaving the absence unexplained.
+#
+# `:shared-ui` joined the list for #1916. Its absence was the *reading* half of the same
+# gap: `TaskCreateUiState.isSaveEnabled` is declared under `shared/src` and read by the
+# Compose screen under `shared-ui/src`, so a read-counting shape that only read
+# `SOURCE_ROOTS` reported a property that production code consults as never read. Reads
+# are evidence of use wherever the module lives, so the module that reads has to be in
+# the same list as the module that declares.
 SOURCE_ROOTS = [
     "shared/src",
+    "shared-ui/src",
     "androidApp/src",
     "desktopApp/src",
     "adr-cli/src",
@@ -1578,14 +1586,18 @@ def _check_unread_public(
         else:
             findings.append((kind, message))
     if pre.ambiguous:
+        # Count the distinct names, because the list beside the count is distinct names.
+        # `len(pre.ambiguous)` is a *declaration* count: a name declared three times
+        # appeared once in the list and three in the number, so a reader judging coverage
+        # from the note was told about 3 names and shown 1.
         names = sorted(set(pre.ambiguous))
         shown = ", ".join(names[:6]) + (", …" if len(names) > 6 else "")
         findings.append((
             "note",
-            f"{len(pre.ambiguous)} public declaration(s) skipped as ambiguous — each is "
-            f"declared more than once across the scanned roots ({shown}), so an "
-            f"occurrence with no receiver cannot be attributed to one of them. This run "
-            f"reports nothing about those declarations.",
+            f"{len(names)} public name(s) skipped as ambiguous — each is declared more "
+            f"than once across the scanned roots ({shown}), so an occurrence with no "
+            f"receiver cannot be attributed to one of them. This run reports nothing "
+            f"about those declarations.",
         ))
     return findings
 
@@ -1651,7 +1663,13 @@ FLOOR_HEADER = """\
 #
 # Every detector counts, `unread-public` / `write-only` (#1916) included. Those shapes
 # were added *to* the count when they landed: a shape whose findings are never counted
-# has no floor to stop it growing, and exemptions are not a ratchet.
+# has no floor to stop it growing, and exemptions are not a ratchet. An exemption is a
+# decision about one finding, not a property of a shape: a shape that needs no rows in
+# scripts/find-unwired-surfaces-baseline.txt still moves the number here, and that file
+# carries a row only when somebody argues a specific finding is accepted debt. An exemption is a
+# decision about one finding, not a property of a shape: a shape that needs no rows in
+# scripts/find-unwired-surfaces-baseline.txt still moves the number here, and that file
+# carries a row only when somebody argues a specific finding is accepted debt.
 #
 # One-directional on purpose. Lowering it is the debt being paid down and needs no
 # justification; raising it is a new unwired surface and must be argued in review.
