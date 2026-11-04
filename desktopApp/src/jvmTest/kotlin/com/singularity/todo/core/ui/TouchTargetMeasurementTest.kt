@@ -35,9 +35,21 @@ import kotlin.test.assertEquals
  * on both would be measuring the presence of the helper rather than what it
  * does.
  *
+ * The bounds come from `unclippedBoundsOfTag`, declared in
+ * `test/helpers/DesktopAssertions.kt` in this same `jvmTest` source set — the
+ * same reader the calendar, menu and plans position tests use, so the helper
+ * is part of a source set that already compiles, not something this file has
+ * to bring with it.
+ *
  * Tagged `slow` + `slow:compose` because a Compose UI harness counts as slow by
  * the tag convention — it mounts a real window and can block — and every
- * sibling desktop compose test carries the same pair.
+ * sibling desktop compose test carries the same pair. The `slow` tag is the
+ * primary one, so the `full` population (`fast,slow`, the nightly and the
+ * `run-full-tests` label) selects this class, and
+ * `scripts/check-slow-tests-ran.py` fails a full run whose report does not
+ * contain it — the test is not merely tagged, it is expected to have executed.
+ * `slow:compose` is the sub-tag a person changing the Compose harness asks for
+ * by name; it never replaces the primary tag.
  */
 @Tag("slow")
 @Tag("slow:compose")
