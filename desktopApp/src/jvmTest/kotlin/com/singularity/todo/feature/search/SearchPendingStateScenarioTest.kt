@@ -89,26 +89,32 @@ class SearchPendingStateScenarioTest {
     fun the_screen_says_the_search_is_running_before_it_answers() =
         runIsolatedComposeTest(width = 420, height = 900) {
             val fakes = SearchFakes()
-            fakes.seedTask("Buy milk")
-            val gate = CompletableDeferred<Unit>()
-            val viewModel = fakes.viewModel(GatedResolver(gate, fakes.resolver()))
+            try {
+                fakes.seedTask("Buy milk")
+                val gate = CompletableDeferred<Unit>()
+                val viewModel = fakes.viewModel(GatedResolver(gate, fakes.resolver()))
 
-            showSearch(viewModel)
+                showSearch(viewModel)
 
-            assertTagDisplayed(TestTags.SEARCH_EMPTY_PLACEHOLDER)
+                assertTagDisplayed(TestTags.SEARCH_EMPTY_PLACEHOLDER)
 
-            typeIntoTag(TestTags.SEARCH_INPUT, "milk")
+                typeIntoTag(TestTags.SEARCH_INPUT, "milk")
 
-            // The question is being asked: the indicator is on screen and the
-            // empty answer is not stated.
-            assertTagDisplayed(TestTags.SEARCH_LOADING)
-            awaitTagGone(TestTags.SEARCH_EMPTY_RESULTS)
+                // The question is being asked: the indicator is on screen and the
+                // empty answer is not stated.
+                assertTagDisplayed(TestTags.SEARCH_LOADING)
+                awaitTagGone(TestTags.SEARCH_EMPTY_RESULTS)
 
-            // The answer arrives.
-            gate.complete(Unit)
+                // The answer arrives. The loading tag leaving is the wait; the
+                // result is asserted after it, because an immediate assertion
+                // would be racing the search rather than observing it.
+                gate.complete(Unit)
 
-            assertTagDisplayed(TestTags.taskItem("Buy milk"))
-            awaitTagGone(TestTags.SEARCH_LOADING)
+                awaitTagGone(TestTags.SEARCH_LOADING)
+                assertTagDisplayed(TestTags.taskItem("Buy milk"))
+            } finally {
+                fakes.close()
+            }
         }
 
     /**
@@ -122,19 +128,25 @@ class SearchPendingStateScenarioTest {
     fun the_clear_button_empties_the_query_and_the_idle_prompt_returns() =
         runIsolatedComposeTest(width = 420, height = 900) {
             val fakes = SearchFakes()
-            fakes.seedTask("Buy milk")
-            showSearch(fakes.viewModel())
+            try {
+                fakes.seedTask("Buy milk")
+                showSearch(fakes.viewModel())
 
-            typeIntoTag(TestTags.SEARCH_INPUT, "milk")
-            assertTagDisplayed(TestTags.taskItem("Buy milk"))
+                typeIntoTag(TestTags.SEARCH_INPUT, "milk")
+                // The answer is asynchronous: wait for it before asserting it.
+                awaitTagGone(TestTags.SEARCH_LOADING)
+                assertTagDisplayed(TestTags.taskItem("Buy milk"))
 
-            clickTag(TestTags.SEARCH_CLEAR_BUTTON)
+                clickTag(TestTags.SEARCH_CLEAR_BUTTON)
 
-            assertTagDisplayed(TestTags.SEARCH_EMPTY_PLACEHOLDER)
-            awaitTagGone(TestTags.taskItem("Buy milk"))
-            // There is nothing left to clear, so the field no longer offers the
-            // control: a button that clears nothing is a button that does nothing.
-            awaitTagGone(TestTags.SEARCH_CLEAR_BUTTON)
+                assertTagDisplayed(TestTags.SEARCH_EMPTY_PLACEHOLDER)
+                awaitTagGone(TestTags.taskItem("Buy milk"))
+                // There is nothing left to clear, so the field no longer offers the
+                // control: a button that clears nothing is a button that does nothing.
+                awaitTagGone(TestTags.SEARCH_CLEAR_BUTTON)
+            } finally {
+                fakes.close()
+            }
         }
 
     /**
@@ -146,9 +158,14 @@ class SearchPendingStateScenarioTest {
     @Test
     fun the_query_field_holds_the_focus_when_the_screen_appears() =
         runIsolatedComposeTest(width = 420, height = 900) {
-            showSearch(SearchFakes().viewModel())
+            val fakes = SearchFakes()
+            try {
+                showSearch(fakes.viewModel())
 
-            assertTagFocused(TestTags.SEARCH_INPUT)
+                assertTagFocused(TestTags.SEARCH_INPUT)
+            } finally {
+                fakes.close()
+            }
         }
 
     /**
@@ -180,6 +197,22 @@ class SearchPendingStateScenarioTest {
         private val projectRepo = FakeProjectsRepository()
         private val tagRepo = FakeTagsRepository()
         private val savedSearchRepo = InMemorySavedSearchRepository()
+
+        /**
+         * The screen's own dispatcher: the debounce has to run in real time,
+         * because the tests assert the state the debounce holds.
+         *
+         * The test that owns the fakes closes it in a `finally`. A scope that is
+         * never closed leaves the screen's collectors subscribed to these fakes
+         * after the scene has been torn down — a leak, and a race with whatever
+         * runs next.
+         */
+        private val scope = AutoCloseableCoroutineScope(Dispatchers.Default + SupervisorJob())
+
+        /** Cancels the screen's collectors. Every test closes its fakes. */
+        fun close() {
+            scope.close()
+        }
 
         fun seedTask(title: String) {
             taskRepo.seed(
@@ -223,9 +256,10 @@ class SearchPendingStateScenarioTest {
                 taskRepo = taskRepo,
                 parseQuery = { input -> SingularityQueryParser(input).parse() },
                 clock = FakeClock(NOW),
-                // The screen's own dispatcher: the debounce has to run in real
-                // time, because the test asserts the state the debounce holds.
-                scope = AutoCloseableCoroutineScope(Dispatchers.Default + SupervisorJob()),
+                // The screen's own dispatcher, from the fakes: the debounce has to
+                // run in real time, because the test asserts the state the debounce
+                // holds. The fakes own it so that the test can close it.
+                scope = scope,
             )
     }
 

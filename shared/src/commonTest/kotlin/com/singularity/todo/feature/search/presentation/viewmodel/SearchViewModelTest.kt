@@ -505,6 +505,52 @@ class SearchViewModelTest {
             )
         }
 
+    @Test
+    fun `changing the mode after a query that cannot be parsed leaves no spinner behind`() =
+        runTest {
+            val vm = createVm(parseQuery = { _ -> throw QueryParseException("bad query", 0) })
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnQueryChange("???"))
+            runCurrent()
+            assertFalse(vm.stateFlow.value.isSearching)
+
+            vm.onIntent(SearchIntent.OnModeChange(SearchMode.Contains))
+            advanceTimeBy(400L)
+            runCurrent()
+
+            // The mode is part of the question, but the text still does not parse:
+            // the pipeline emits no answer for it, so nothing would ever lower a
+            // raised flag. The screen must not wait for an answer nobody asked for.
+            assertFalse(
+                vm.stateFlow.value.isSearching,
+                "a mode change cannot ask a question that did not parse — no answer is coming",
+            )
+            assertEquals(SearchMode.Contains, vm.stateFlow.value.mode)
+        }
+
+    @Test
+    fun `asking the same question again does not start a search nothing will answer`() =
+        runTest {
+            val vm = createVmWithRealSearch()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnQueryChange("milk"))
+            advanceTimeBy(400L)
+            runCurrent()
+            assertFalse(vm.stateFlow.value.isSearching)
+
+            // The same text and the same mode parse to the same request, which the
+            // pipeline deduplicates: no answer is coming, so no pending state may be
+            // raised for it.
+            vm.onIntent(SearchIntent.OnQueryChange("milk"))
+            runCurrent()
+            assertFalse(
+                vm.stateFlow.value.isSearching,
+                "an unchanged question is not asked again, so nothing is pending",
+            )
+        }
+
     // ─── The mode ──────────────────────────────────────────────────────────────
     //
     // The mode is part of the question: the same query asks a different thing
