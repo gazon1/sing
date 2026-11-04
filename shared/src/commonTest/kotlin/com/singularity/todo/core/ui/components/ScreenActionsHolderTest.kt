@@ -15,7 +15,7 @@ class ScreenActionsHolderTest {
 
     @Test
     fun actions_default_to_null() {
-        assertNull(ScreenActionsHolder().actions)
+        assertNull(ScreenActionsHolder().actionsFor(route()))
     }
 
     @Test
@@ -23,37 +23,15 @@ class ScreenActionsHolderTest {
         val holder = ScreenActionsHolder()
         assertNull(holder.title)
         assertNull(holder.navigationIcon)
+        assertNull(holder.headerOwner)
         assertFalse(holder.override)
     }
 
     @Test
     fun selection_state_defaults_to_null() {
         val holder = ScreenActionsHolder()
-        assertNull(holder.selectionTitle)
-        assertNull(holder.onExitSelection)
-    }
-
-    @Test
-    fun a_top_level_route_change_keeps_the_published_bar() {
-        val holder = ScreenActionsHolder()
-        holder.publishBar(owner = Any(), title = {}, navigationIcon = { publishedIcon })
-        val publishedTitle = holder.title
-        holder.actions = {}
-        holder.selectionTitle = "2 selected"
-        holder.onExitSelection = {}
-
-        holder.onTopLevelRouteChanged()
-
-        assertTrue(holder.override, "a screen's published bar must survive the navigation it caused")
-        assertEquals(
-            publishedTitle,
-            holder.title,
-            "the published title belongs to the screen, not to the shell to erase",
-        )
-        assertNotNull(holder.navigationIcon)
-        assertNull(holder.actions, "the previous screen's buttons are stale after a navigation")
-        assertNull(holder.selectionTitle)
-        assertNull(holder.onExitSelection)
+        assertNull(holder.selectionTitleFor(route()))
+        assertNull(holder.onExitSelectionFor(route()))
     }
 
     @Test
@@ -61,16 +39,12 @@ class ScreenActionsHolderTest {
         val holder = ScreenActionsHolder()
         val owner = Any()
         holder.publishBar(owner = owner, title = {}, navigationIcon = { publishedIcon })
-        holder.actions = {}
 
         holder.retractBar(owner)
 
         assertNull(holder.title)
         assertNull(holder.navigationIcon)
         assertFalse(holder.override)
-        // Actions are the shell's own slots: a header leaving is not what
-        // empties them, and taking the header down must not touch them.
-        assertNotNull(holder.actions)
     }
 
     @Test
@@ -97,42 +71,139 @@ class ScreenActionsHolderTest {
     }
 
     @Test
+    fun the_header_under_the_newest_one_takes_over_when_the_newest_leaves() {
+        val holder = ScreenActionsHolder()
+        val agenda = Any()
+        val calendar = Any()
+        holder.publishBar(owner = agenda, title = {})
+        val agendaTitle = holder.title
+        holder.publishBar(owner = calendar, title = {})
+        assertTrue(holder.override)
+
+        // The calendar leaves. The agenda is still on screen — it is the shell's
+        // start route, so it stays composed — and its header is the one the bar
+        // must draw again. This is what brings the greeting back when the user
+        // returns to the agenda tab.
+        holder.retractBar(calendar)
+
+        assertTrue(holder.override, "the screen behind the newest header is still on screen")
+        assertEquals(agendaTitle, holder.title)
+        assertEquals(agenda, holder.headerOwner)
+    }
+
+    @Test
     fun a_bar_leaving_does_not_empty_the_slots_the_arriving_bar_claimed() {
         val holder = ScreenActionsHolder()
         val leaving = Any()
         val arriving = Any()
-        holder.claimActions(leaving)
-        holder.actions = {}
+        val route = route()
+        holder.claimActions(leaving, route)
+        holder.publishSlots(leaving, actions = {}, selectionTitle = null, onExitSelection = null)
         // The arriving bar claims the slots as its composition enters, and
         // fills them from its SideEffect.
-        holder.claimActions(arriving)
-        holder.actions = {}
+        holder.claimActions(arriving, route)
+        holder.publishSlots(arriving, actions = {}, selectionTitle = null, onExitSelection = null)
 
         // The leaving bar is disposed later, once the transition has played.
         holder.clearActions(leaving)
 
         assertNotNull(
-            holder.actions,
+            holder.actionsFor(route),
             "a bar leaving during a transition must not empty the arriving screen's action slots",
         )
 
         // The arriving bar's own disposal empties them.
         holder.clearActions(arriving)
-        assertNull(holder.actions)
+        assertNull(holder.actionsFor(route))
     }
 
     @Test
     fun a_bar_that_never_claimed_the_slots_leaves_them_to_the_bar_that_did() {
         val holder = ScreenActionsHolder()
         val bar = Any()
-        holder.claimActions(bar)
-        holder.actions = {}
+        val route = route()
+        holder.claimActions(bar, route)
+        holder.publishSlots(bar, actions = {}, selectionTitle = null, onExitSelection = null)
 
         // The calendar publishes a header only and claims no slots; the bar that
         // claimed them still owns them, so its leave still empties them.
         holder.publishBar(owner = Any(), title = {})
         holder.clearActions(bar)
 
-        assertNull(holder.actions, "the previous bar's leave is still the one that empties its slots")
+        assertNull(holder.actionsFor(route), "the previous bar's leave is still the one that empties its slots")
     }
+
+    @Test
+    fun the_slots_drawn_are_the_ones_of_the_route_the_shell_draws() {
+        val holder = ScreenActionsHolder()
+        val today = route()
+        val calendar = route()
+        val todayBar = Any()
+        val calendarBar = Any()
+        holder.claimActions(todayBar, today)
+        holder.publishSlots(todayBar, actions = { }, selectionTitle = null, onExitSelection = null)
+        holder.claimActions(calendarBar, calendar)
+        holder.publishSlots(calendarBar, actions = { }, selectionTitle = null, onExitSelection = null)
+
+        assertNotNull(holder.actionsFor(today), "the bar of the route the shell draws keeps its buttons")
+        assertNotNull(holder.actionsFor(calendar))
+    }
+
+    @Test
+    fun a_bar_that_re_entered_on_the_same_route_is_the_one_the_shell_draws() {
+        val holder = ScreenActionsHolder()
+        val route = route()
+        val first = Any()
+        val second = Any()
+        holder.claimActions(first, route)
+        holder.publishSlots(first, actions = { }, selectionTitle = "1 selected", onExitSelection = null)
+        holder.claimActions(second, route)
+        holder.publishSlots(second, actions = { }, selectionTitle = "2 selected", onExitSelection = null)
+
+        assertEquals(
+            "2 selected",
+            holder.selectionTitleFor(route),
+            "the bar that claimed last is the one the shell draws",
+        )
+
+        // The second bar is disposed first — it was the one that re-entered,
+        // and the first bar is still composed. The first bar's claim is still
+        // there, so the bar does not lose its buttons.
+        holder.clearActions(second)
+        assertNotNull(holder.actionsFor(route), "the bar that is still composed keeps its slots")
+        assertEquals("1 selected", holder.selectionTitleFor(route))
+
+        holder.clearActions(first)
+        assertNull(holder.actionsFor(route))
+    }
+
+    @Test
+    fun a_bar_that_leaves_leaves_no_record_of_its_route_behind() {
+        val holder = ScreenActionsHolder()
+        val route = route()
+        val bar = Any()
+        holder.claimActions(bar, route)
+        holder.publishSlots(bar, actions = { }, selectionTitle = null, onExitSelection = null)
+
+        holder.clearActions(bar)
+
+        // A later bar on the same route finds empty slots, not the previous
+        // bar's: the claim and its owner are one record, and the owner is what
+        // removes it.
+        assertNull(holder.actionsFor(route))
+        assertNull(holder.selectionTitleFor(route))
+        assertNull(holder.onExitSelectionFor(route))
+    }
+
+    @Test
+    fun a_bar_that_never_claimed_cannot_publish_slots() {
+        val holder = ScreenActionsHolder()
+        val route = route()
+        holder.publishSlots(Any(), actions = { }, selectionTitle = "2 selected", onExitSelection = null)
+
+        assertNull(holder.actionsFor(route))
+        assertNull(holder.selectionTitleFor(route))
+    }
+
+    private fun route(): Any = Any()
 }

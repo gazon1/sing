@@ -46,21 +46,32 @@ Android bar with it and leaves with it.
 
 ## A published header survives navigation
 
-`ScreenActionsHolder.onTopLevelRouteChanged()` clears the transient slots
-(`actions`, `selectionTitle`, `onExitSelection`) because a screen without a bar
-of its own never publishes them; the previous screen's buttons would otherwise
-stay in the bar. The shell calls it in composition, ahead of the entries it
-draws, so the arriving screen's own publication has the last word of the frame.
+Every publication and every claim is recorded **against the screen that made
+it**, and only that screen can take it down. Nothing is a single slot that the
+last writer wins: that is what let one screen's leave erase another screen's
+header (#2008) and one bar's leave empty another bar's buttons (#1962 review).
 
-It does **not** clear `title`/`navigationIcon`/`override`. Those belong to the
-screen that published them, and only that screen takes them down, in its own
-`DisposableEffect` when it leaves the composition — and only its own: the
-publication carries the identity of the screen that made it, so a screen leaving
-during a navigation cannot erase the header the arriving screen has already
-published (#2008).
+- The **header** (`publishBar`, `retractBar`) belongs to the screen that
+  published it. Only that screen takes it down, in its own `DisposableEffect`
+  when it leaves the composition — and only its own: the publication carries
+  the identity of the composable that made it, so a screen leaving during a
+  navigation cannot erase the header the arriving screen has already
+  published. When the newest header goes, the one behind it takes over: the
+  screen behind it is still composed — the agenda is the shell's start route,
+  so it stays composed while another tab is on top — and its header is what
+  the bar must draw again. This is what brings the agenda's greeting back when
+  the user returns to the agenda tab.
+- The **action slots** (`claimActions`, `publishSlots`, `clearActions`) belong
+  to the bar that claimed them, on the top-level route that bar was composed
+  for. The shell asks for the slots **of the route it is drawing**
+  (`actionsFor`), so the previous screen's buttons stop being drawn in the
+  same composition that swaps the route — without a clear whose correctness
+  depends on whether it ran before or after the arriving screen published. A
+  bar that never claimed — a screen that publishes a header only, the
+  calendar — has no slots of its own and cannot touch anybody else's, and a
+  bar that leaves empties only the claim it made itself.
 
-The action slots are claimed and released under the same rule: a bar claims them
-as its composition enters (`claimActions`) and releases them as it leaves
-(`clearActions`). A bar leaving during a transition therefore does not empty the
-slots of the bar arriving, and a screen that publishes a header only — the
-calendar — claims no slots, so the previous bar's leave still empties its own.
+The shell draws a published title and a published navigation icon in its own
+composition, keyed by the screen that published them: the content a screen
+publishes is drawn content, and what it remembers belongs to that screen.
+

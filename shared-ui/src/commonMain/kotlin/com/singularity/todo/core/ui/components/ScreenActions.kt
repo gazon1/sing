@@ -17,6 +17,20 @@ import androidx.compose.runtime.setValue
  * button, a selection ends). A decision taken once, when the screen published,
  * kept the entry-time answer for as long as the screen was composed (#1962
  * review).
+ *
+ * ## Where the answer is drawn
+ *
+ * The shell owns the only bar, so the shell asks the question and draws the
+ * answer — in the shell's own composition, not in the screen's. A screen that
+ * publishes an icon therefore publishes *content*: a composable that reads
+ * Compose state and nothing else. The state it reads is subscribed to where it
+ * is drawn, so a screen that changes what its icon says is redrawn like any
+ * other state change; a screen that changes *whether* it has an icon changes
+ * the answer, and the shell asks again on the next frame.
+ *
+ * The shell keys what it draws by the publishing screen
+ * ([ScreenActionsHolder.headerOwner]), so state remembered inside a published
+ * header belongs to that screen and does not survive into the next one.
  */
 typealias PublishedNavigationIcon = @Composable () -> (@Composable () -> Unit)?
 
@@ -30,14 +44,24 @@ typealias PublishedNavigationIcon = @Composable () -> (@Composable () -> Unit)?
  * the published header from here and renders them in its single bar. On desktop
  * the holder is absent and every screen draws its own bar.
  *
- * The header and the slots have deliberately different lifetimes:
+ * ## What belongs to whom
+ *
+ * The header and the slots have deliberately different lifetimes, and both are
+ * held **per owner**: every publication and every claim is recorded against
+ * the screen that made it, and only that screen can take it down. Nothing here
+ * is a single slot that the last writer wins — that is what let one screen's
+ * leave erase another's header (#2008) and one bar's leave empty another
+ * bar's buttons (#1962 review).
  *
  * - **The header** ([publishBar], [retractBar]) belongs to the *screen* that
  *   published it and to nothing else. Only that screen takes it down, from its
  *   own `DisposableEffect`, and only its own: the publication carries the
  *   identity of the composable that made it, so a screen leaving during a
  *   navigation cannot erase the header the arriving screen has already
- *   published (#2008).
+ *   published (#2008). When the newest publication goes, the one before it
+ *   takes over — a screen that is still on screen keeps its header even while
+ *   another screen's header was drawn over it, which is what brings the
+ *   agenda's greeting back when the user returns to the agenda tab.
  * - **The action slots** ([publishSlots], [claimActions], [clearActions])
  *   belong to the *top-level route* the bar was composed for. A bar tags its
  *   slots with the route it entered on, and the shell asks for the slots **of
@@ -48,67 +72,68 @@ typealias PublishedNavigationIcon = @Composable () -> (@Composable () -> Unit)?
  *   published (#1962 review).
  */
 class ScreenActionsHolder {
-    /** The action buttons of the bar that holds the claim; read through [actionsFor]. */
-    var actions: (@Composable RowScope.() -> Unit)? by mutableStateOf(null)
-        private set
-
-    // Selection-mode state for the Android shell bar: when set, the shell shows
-    // "N selected" with an exit-selection back button instead of the normal bar.
-    var selectionTitle: String? by mutableStateOf(null)
-        private set
-    var onExitSelection: (() -> Unit)? by mutableStateOf(null)
-        private set
-
-    // The header a screen owns. On Android the shell owns the ONLY bar, so a
-    // screen that draws its own header (the calendar's month, the agenda's
-    // title with the greeting under it) publishes that header here and the
-    // shell draws it INSTEAD of its own title and back button. Two bars would
-    // be two bars.
-    //
-    // `null` means "the screen publishes no header", and the shell keeps its
-    // own destination title. That is not the same as publishing a title and no
-    // navigation icon: the second wants its title in the bar and the shell's
-    // own back button, because the shell's button knows where the shell is.
-    var title: (@Composable () -> Unit)? by mutableStateOf(null)
-        private set
+    /**
+     * The header each screen published, oldest first.
+     *
+     * One entry per publishing screen. The newest entry is the header the
+     * shell draws; the entries behind it are the headers of the screens that
+     * are still composed but are not the ones the shell is drawing.
+     */
+    private var publications: List<Publication> by mutableStateOf(emptyList())
 
     /**
-     * Draws the publisher's navigation icon, or nothing when it has none.
+     * The action slots each bar claimed, oldest first.
      *
-     * The presence of an icon is decided when the shell draws the bar and not
-     * when the screen publishes it: a screen can start or stop supplying one
-     * while it stays on screen, and an answer captured at publication time
-     * stayed for as long as the screen was composed (#1962 review).
+     * One entry per claiming bar, tagged with the top-level route the bar was
+     * composed for. A bar that never claimed — a screen that publishes a
+     * header only — has no entry here and cannot touch anybody else's.
      */
-    var navigationIcon: PublishedNavigationIcon? by mutableStateOf(null)
-        private set
+    private var claims: List<Claim> by mutableStateOf(emptyList())
 
-    // Whether the published header replaces the shell's own title and
-    // navigation icon. Derived from [title] and not stored beside it, so "this
-    // screen owns the bar" cannot disagree with "this screen published a
-    // title".
-    val override: Boolean get() = title != null
+    /** A header a screen published. */
+    private data class Publication(
+        val owner: Any,
+        val title: @Composable () -> Unit,
+        val navigationIcon: PublishedNavigationIcon?,
+    )
 
-    /** The screen whose header the bar draws; see [retractBar]. */
-    private var barOwner: Any? = null
+    /** The action slots a bar claimed. */
+    private data class Claim(
+        val owner: Any,
+        val route: Any?,
+        val actions: (@Composable RowScope.() -> Unit)?,
+        val selectionTitle: String?,
+        val onExitSelection: (() -> Unit)?,
+    )
 
-    /** The bar that filled the slots; see [claimActions]. */
-    private var slotsOwner: Any? = null
+    /** The title the shell draws, or `null` when no screen published a header. */
+    val title: (@Composable () -> Unit)? get() = publishedHeader?.title
+
+    /** The navigation icon the shell asks about, or `null` when there is no header. */
+    val navigationIcon: PublishedNavigationIcon? get() = publishedHeader?.navigationIcon
 
     /**
-     * The top-level route the slot-holding bar was composed for.
-     *
-     * Kept beside [slotsOwner] and not derived from the shell's current route,
-     * because it is the *publisher's* route that decides whether the slots may
-     * still be drawn: a bar that outlives a navigation keeps publishing from
-     * its own `SideEffect`, and what it publishes belongs to the screen it was
-     * made for, not to the screen the shell has moved to.
+     * Whether the published header replaces the shell's own title and
+     * navigation icon. Derived from [title] and not stored beside it, so "this
+     * screen owns the bar" cannot disagree with "this screen published a
+     * title".
      */
-    private var slotsRoute: Any? = null
+    val override: Boolean get() = publishedHeader != null
+
+    /**
+     * The screen whose header the shell draws.
+     *
+     * The shell keys what it draws by it, so that state remembered inside a
+     * published header belongs to the screen that published it and does not
+     * survive into the next one's header.
+     */
+    val headerOwner: Any? get() = publishedHeader?.owner
+
+    private val publishedHeader: Publication? get() = publications.lastOrNull()
 
     /**
      * The action slots of the bar that belongs to [route], or `null` when the
-     * slots on record were published by a screen the shell has already left.
+     * bar that claimed them was composed for another route.
      *
      * This is the whole of "the shell drops the previous screen's buttons on a
      * navigation". It is a **read**, not a write: the shell asks for the route
@@ -117,17 +142,20 @@ class ScreenActionsHolder {
      * write during composition to invalidate the scope that had just read it
      * (#1962 review).
      */
-    fun actionsFor(route: Any?): (@Composable RowScope.() -> Unit)? =
-        if (isOnRoute(route)) actions else null
+    fun actionsFor(route: Any?): (@Composable RowScope.() -> Unit)? = claimFor(route)?.actions
 
     /** The selection title of the bar that belongs to [route]; see [actionsFor]. */
-    fun selectionTitleFor(route: Any?): String? = if (isOnRoute(route)) selectionTitle else null
+    fun selectionTitleFor(route: Any?): String? = claimFor(route)?.selectionTitle
 
     /** The exit-selection callback of the bar that belongs to [route]; see [actionsFor]. */
-    fun onExitSelectionFor(route: Any?): (() -> Unit)? =
-        if (isOnRoute(route)) onExitSelection else null
+    fun onExitSelectionFor(route: Any?): (() -> Unit)? = claimFor(route)?.onExitSelection
 
-    private fun isOnRoute(route: Any?): Boolean = slotsOwner != null && slotsRoute === route
+    /**
+     * The claim of the bar that belongs to [route] — the newest one, so that a
+     * bar that re-entered on the same route is the one whose buttons are
+     * drawn.
+     */
+    private fun claimFor(route: Any?): Claim? = claims.lastOrNull { it.route === route }
 
     /**
      * Publishes a screen's own header: the title, its navigation icon, and the
@@ -152,14 +180,13 @@ class ScreenActionsHolder {
         title: @Composable () -> Unit,
         navigationIcon: PublishedNavigationIcon? = null,
     ) {
-        this.title = title
-        this.navigationIcon = navigationIcon
-        barOwner = owner
+        val publication = Publication(owner = owner, title = title, navigationIcon = navigationIcon)
+        publications = publications.filterNot { it.owner === owner } + publication
     }
 
     /**
-     * Takes the published header down — but only if [owner] is the publisher
-     * the bar is still showing.
+     * Takes the published header down — the one this [owner] published, and
+     * only that one.
      *
      * A screen calls this from its own `DisposableEffect` when it leaves the
      * composition. During a navigation two screens are composed for the length
@@ -169,14 +196,15 @@ class ScreenActionsHolder {
      * title (#2008). With the owner check the leaving screen can only take down
      * its own header, and nothing else takes it down for it.
      *
+     * When the header taken down is the one the shell is drawing, the header
+     * behind it takes over: a screen that is still composed keeps its header
+     * even though another screen's header was drawn over it in the meantime.
+     *
      * The action slots are not touched: they are not part of the header, and
      * they are claimed and released through [claimActions] and [clearActions].
      */
     fun retractBar(owner: Any) {
-        if (barOwner !== owner) return
-        title = null
-        navigationIcon = null
-        barOwner = null
+        publications = publications.filterNot { it.owner === owner }
     }
 
     /**
@@ -194,20 +222,23 @@ class ScreenActionsHolder {
      * [publishSlots]: the two happen in the same frame, effects before side
      * effects.
      *
+     * A claim is recorded against its owner, so a second bar claiming on the
+     * same route does not orphan the first one's claim: each bar clears its
+     * own, and the bar the shell draws from is the newest claim for the route
+     * it is drawing.
+     *
      * A screen that publishes a header only (the calendar, through
      * [ShellOverride]) does not claim the slots: it has no buttons of its own.
      */
     fun claimActions(owner: Any, route: Any?) {
-        slotsOwner = owner
-        slotsRoute = route
-        actions = null
-        selectionTitle = null
-        onExitSelection = null
+        claims =
+            claims.filterNot { it.owner === owner } +
+                Claim(owner = owner, route = route, actions = null, selectionTitle = null, onExitSelection = null)
     }
 
     /**
-     * Publishes the bar's action slots — but only for the bar that claimed
-     * them.
+     * Publishes the bar's action slots — but only into the claim that bar
+     * made.
      *
      * The owner check is what stops a bar that is leaving during a transition
      * from writing its actions over the arriving bar's: both send a
@@ -222,26 +253,36 @@ class ScreenActionsHolder {
         selectionTitle: String?,
         onExitSelection: (() -> Unit)?,
     ) {
-        if (slotsOwner !== owner) return
-        this.actions = actions
-        this.selectionTitle = selectionTitle
-        this.onExitSelection = onExitSelection
+        val claim = claims.firstOrNull { it.owner === owner } ?: return
+        claims =
+            claims.map {
+                if (it.owner === owner) {
+                    claim.copy(
+                        actions = actions,
+                        selectionTitle = selectionTitle,
+                        onExitSelection = onExitSelection,
+                    )
+                } else {
+                    it
+                }
+            }
     }
 
     /**
-     * Clears the action slots — but only for the bar that claimed them.
+     * Clears the action slots — the ones this [owner] claimed, and only those.
      *
      * A screen calls this as it leaves the composition. A bar leaving *after*
      * the arriving screen has claimed the slots must leave them alone: the
-     * arriving
+     * arriving bar's claim is a record of its own, and emptying it would take
+     * the arriving screen's buttons away.
+     *
+     * The claim that goes is this bar's own, so a claim nobody releases — a
+     * bar that claimed and never came back — cannot leave the previous bar's
+     * route on record: the record and its owner are one thing, and the owner
+     * is what removes it.
      */
     fun clearActions(owner: Any) {
-        if (slotsOwner !== owner) return
-        actions = null
-        selectionTitle = null
-        onExitSelection = null
-        slotsOwner = null
-        slotsRoute = null
+        claims = claims.filterNot { it.owner === owner }
     }
 }
 

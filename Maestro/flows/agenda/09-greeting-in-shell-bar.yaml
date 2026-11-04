@@ -1,10 +1,10 @@
 # The agenda's bar on Android, where the shell owns the only bar.
 #
 # The agenda publishes its own title — and the greeting under it — to the
-# shell's ScreenActionsHolder instead of drawing a second bar. The shell clears
-# its transient slots whenever the top-level route changes, and it must not take
-# a screen's published bar with it: the greeting has to still be in the bar
-# after the user leaves the agenda and comes back (#1962, #2008).
+# shell's ScreenActionsHolder instead of drawing a second bar. A published
+# header belongs to the screen that published it and is not taken down by the
+# shell on a navigation: the greeting has to still be in the bar after the
+# user leaves the agenda and comes back (#1962, #2008).
 #
 # The greeting is computed from the clock ("Good morning/afternoon/evening"),
 # so the assertion is a regex over the three rather than one sentence.

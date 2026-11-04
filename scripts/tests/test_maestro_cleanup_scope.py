@@ -46,7 +46,7 @@ def _recording_deps(calls: list[str]) -> "object":
         adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
         reset_adb_server=lambda: None,
         wait_for_app_resumed=lambda s, timeout=20: True,
-        cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+        cleanup_run_fixtures=lambda serial, mode, deps: None,
         capture_artifacts=lambda serial, name, artifact_dir, deps: None,
         git_sha=lambda deps: "abc123def456",
     )
@@ -83,7 +83,7 @@ class NoSweepByTitleTest(unittest.TestCase):
         calls: list[str] = []
         deps = _recording_deps(calls)
         with unittest.mock.patch.object(_fixtures.time, "sleep", lambda _s: None):
-            _fixtures.cleanup_run_fixtures("emulator-5554", "r1", mode, deps)
+            _fixtures.cleanup_run_fixtures("emulator-5554", mode, deps)
         return calls
 
     def test_the_wide_scope_wipes_the_content(self) -> None:
@@ -120,7 +120,7 @@ class UnknownScopeTest(unittest.TestCase):
         calls: list[str] = []
         deps = _recording_deps(calls)
         with self.assertRaises(ValueError):
-            _fixtures.cleanup_run_fixtures("emulator-5554", "r1", "narrow", deps)
+            _fixtures.cleanup_run_fixtures("emulator-5554", "narrow", deps)
         self.assertEqual([], calls)
 
 

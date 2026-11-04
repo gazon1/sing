@@ -24,6 +24,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -189,6 +190,12 @@ fun androidShellNav3Root(
                 CompositionLocalProvider(
                     LocalNav3State provides state,
                     LocalScreenActions provides screenActions,
+                    // The same value the shell's bar asks for — `state.topLevelRoute`
+                    // read twice in one composition is one and the same route
+                    // object, and the route identity is what decides whose action
+                    // slots the bar draws ([ScreenActionsHolder.actionsFor]). A
+                    // different object here would leave every screen without its
+                    // buttons.
                     LocalScreenActionsRoute provides state.topLevelRoute,
                 ) {
                     NavDisplay(
@@ -250,7 +257,13 @@ private fun ShellTopBar(
     onMenu: () -> Unit,
 ) {
     TopAppBar(
-        title = { ShellBarTitle(screenActions = screenActions, destinationTitle = destinationTitle) },
+        title = {
+            ShellBarTitle(
+                screenActions = screenActions,
+                destinationTitle = destinationTitle,
+                route = route,
+            )
+        },
         navigationIcon = {
             ShellNavigationIcon(
                 screenActions = screenActions,
@@ -283,12 +296,19 @@ private fun ShellTopBar(
 private fun ShellBarTitle(
     screenActions: ScreenActionsHolder,
     destinationTitle: String,
+    route: Any?,
 ) {
-    val selection = screenActions.selectionTitle
+    val selection = screenActions.selectionTitleFor(route)
     val publishedTitle = screenActions.title
+    val owner = screenActions.headerOwner
     when {
         selection != null -> Text(selection)
-        screenActions.override && publishedTitle != null -> publishedTitle.invoke()
+        screenActions.override && publishedTitle != null ->
+            // Keyed by the screen that published it: the published title is
+            // drawn here, in the shell's composition, and state remembered
+            // inside it belongs to that screen — not to the next one that
+            // takes the bar over.
+            key(owner) { publishedTitle() }
         else -> Text(destinationTitle)
     }
 }
@@ -303,16 +323,18 @@ private fun ShellBarTitle(
 @Composable
 private fun ShellNavigationIcon(
     screenActions: ScreenActionsHolder,
+    route: Any?,
     navigator: Navigator,
     onMenu: () -> Unit,
 ) {
     val context = LocalContext.current
-    val exitSelection = screenActions.onExitSelection
+    val exitSelection = screenActions.onExitSelectionFor(route)
     // Asked every time the bar is drawn, not captured once when the screen
     // published: a screen can start or stop supplying its own navigation icon
     // while it stays on screen (#1962 review).
     val publishedIcon: (@Composable () -> Unit)? =
         if (screenActions.override) screenActions.navigationIcon?.invoke() else null
+    val owner = screenActions.headerOwner
     when {
         exitSelection != null -> {
             IconButton(
@@ -327,7 +349,10 @@ private fun ShellNavigationIcon(
         }
 
         publishedIcon != null -> {
-            publishedIcon.invoke()
+            // Keyed by the screen that published it, like the published title:
+            // the icon is drawn in the shell's composition, and what it
+            // remembers belongs to that screen.
+            key(owner) { publishedIcon.invoke() }
         }
 
         else -> {

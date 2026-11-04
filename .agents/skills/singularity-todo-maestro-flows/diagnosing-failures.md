@@ -6,26 +6,31 @@ recipe. Authoring a flow — selectors, scrolling, syntax — lives in `SKILL.md
 
 ## Root causes of known failures (CI run 38223116125)
 
-| Class | Root cause | Flows | Fix |
+Snapshot of that run, not a claim about today's tree — so the Fix column names
+where each fix lives, and a row whose fix is no longer in the tree says so. Read
+it as a pointer to check, not as a description to trust.
+
+| Class | Root cause | Flows | Fix — and where it lives |
 |---|---|---|---|
-| A | Hardcoded swipe coords out-of-bounds on phone AVD | `backup-round-trip`, `smoke-settings-cycle-tabs` | `scrollUntilVisible direction: UP` |
-| B | Missing `nav_menu_button` + `scrollUntilVisible` before `menu_settings` | `calendar-sync-provider-toggle`, `calendar-sync-system-toggle`, `calendar-sync-system-unavailable`, `sync-change-interval`, `negative-empty-tags` | `scrollUntilVisible element.id: menu_settings direction: DOWN timeout: 10000` |
-| C | `menu_notes` below fold + 5 s timeout | `notes-edit-body`, `notes-filter-chips`, `notes-create-note`, `negative-empty-notes` | Same pattern as class B |
-| D | `waitForAnimationToEnd` 2000 ms after PORTRAIT rotation | `lifecycle-rotate-in-editor` | 2000 ms → 5000 ms |
-| E | Seed/state leakage, wrong testTag, agenda section timing | 4 flows | Fixed — see rows below |
-| F | Action row laid out past the screen edge | `agenda-smart-lists` | `SheetScaffold` column made scrollable |
+| A | Hardcoded swipe coords out-of-bounds on phone AVD | `backup-round-trip`, `smoke-settings-cycle-tabs` | `scrollUntilVisible` instead of a coordinate swipe. `smoke-settings-cycle-tabs` still scrolls: `Maestro/flows/settings/03-cycle-tabs.yaml` reaches `menu_settings` with it. **No longer in the tree for `backup-round-trip`**: `Maestro/flows/backup/01-round-trip.yaml` records that the scroll pushed the entry into the system navigation bar, and waits with `extendedWaitUntil` on `menu_settings` instead. |
+| B | Missing `nav_menu_button` + `scrollUntilVisible` before `menu_settings` | `calendar-sync-provider-toggle`, `calendar-sync-system-toggle`, `calendar-sync-system-unavailable`, `sync-change-interval`, `negative-empty-tags` | `scrollUntilVisible` on `menu_settings`, carried in each flow: `Maestro/flows/calendar_sync/01-provider-toggle.yaml`, `02-system-calendar-unavailable.yaml`, `03-system-calendar-toggle.yaml`, `Maestro/flows/sync/01-change-sync-interval.yaml`, `Maestro/flows/negative/06-empty-tags.yaml`. |
+| C | `menu_notes` below fold + 5 s timeout | `notes-edit-body`, `notes-filter-chips`, `notes-create-note`, `negative-empty-notes` | Same pattern as class B, on `menu_notes` with `timeout: 5000`: `Maestro/flows/notes/01-edit-body.yaml`, `02-filter-chips.yaml`, `create-note.yaml`, `Maestro/flows/negative/02-empty-notes.yaml`. |
+| D | `waitForAnimationToEnd` 2000 ms after PORTRAIT rotation | `lifecycle-rotate-in-editor` | The 2000 → 5000 ms bump is **no longer in the tree**: `Maestro/flows/lifecycle/03-rotate-in-editor.yaml` no longer calls `waitForAnimationToEnd`; it polls with three `extendedWaitUntil` steps, each `timeout: 5000`. |
+| E | Seed/state leakage, wrong testTag, agenda section timing | 4 flows | Fixed per flow — the detail table below names each flow's file and where its fix landed. |
+| F | Action row laid out past the screen edge | `agenda-smart-lists` | `shared-ui/src/commonMain/kotlin/com/singularity/todo/core/ui/components/sheet/SheetScaffold.kt`: the column is `.verticalScroll(rememberScrollState())`, so a tall body cannot push the actions row off the edge. Reached from the flow's DatePicker via `DatePickerSheet` in the same package. |
 
 ### Class E resolved — three separate defects
 
 Only one of the four flows was a test problem; the other two were real bugs. All
-four pass on `emulator-5554` with a `pm clear` slate.
+four pass on `emulator-5554` with a `pm clear` slate. Each row says where to look
+to confirm its fix.
 
-| Flow | Actual cause | Owner |
-|---|---|---|
-| `calendar-view-mode` | fixture typing + wrong testTag | test |
-| `settings-cycle-tabs` | fixture typing + wrong testTag | test |
-| `agenda-smart-lists` | DatePicker actions off-screen | **product** |
-| `auth-first-run-anonymous` | seeded row invisible until re-query | harness |
+| Flow | Actual cause | Owner | Where the fix lives |
+|---|---|---|---|
+| `calendar-view-mode` | fixture typing + wrong testTag | test | `Maestro/flows/calendar/02-view-mode.yaml`; the ids it addresses come from `Maestro/TAGS.md` |
+| `settings-cycle-tabs` | fixture typing + wrong testTag | test | `Maestro/flows/settings/03-cycle-tabs.yaml`; the ids it addresses come from `Maestro/TAGS.md` |
+| `agenda-smart-lists` | DatePicker actions off-screen | **product** | flow: `Maestro/flows/agenda/01-smart-lists.yaml`; product fix: `SheetScaffold` (`verticalScroll`) |
+| `auth-first-run-anonymous` | seeded row invisible until re-query | harness | flow: `Maestro/flows/auth/01-first-run-anonymous.yaml`; seed: `Maestro/helpers/seed.yaml` |
 
 ## A selector that cannot be reached
 
@@ -268,8 +273,9 @@ Debug from a `pm clear` slate.
 
 ## App behaviour facts flows encode
 
-These are behaviours a flow author would otherwise guess wrong; each was learned
-by a flow failing on it:
+These are behaviours a flow author would otherwise guess wrong. Most were
+learned by a flow failing on it; the back behaviour below was read off the
+screens and the navigation that runs them, which is why it is stated per screen:
 
 - **Long-press on an agenda row opens a context-menu bottom sheet**
   (`task_context_menu_sheet`), with rows tagged `sheet_item_<label>`: Open,
@@ -288,12 +294,67 @@ by a flow failing on it:
   back and the task reappears in Inbox.
 - The task detail keeps the shell FAB visible; detect a push by the editor
   appearing, not by the FAB disappearing.
+- **The task detail has no save button.** Edits autosave; `task_editor_save`
+  exists only on the create screen. A flow that expects it on the detail screen
+  fails with a confusing "not found".
 - **Notes: tapping a row opens the note's *preview*, not its editor.** The
   editor is reached from the preview's Edit action (`note_action_edit`). The
   one exception is the quick-add row: it creates the note and opens the
   editor directly (`NavigateToEditor`), so a flow that types a title into the
-  quick-add lands in the editor, not in the preview. The editor autosaves —
-  saving does not pop it; `back` does.
+  quick-add lands in the editor, not in the preview.
+- **Quick-add destinations are not stable.** The notes quick-add lands on the
+  note's preview or straight in the editor, run to run. Tap the transition
+  action with `optional: true` and then wait on the destination you actually
+  need.
+- **Some saves do not navigate.** The saved-view editor emits a "Saved"
+  snackbar and stays open; the flow must leave explicitly. The notes editor
+  shows a "Saved" pill on its autosave and does not pop either.
+- **Dismissing the keyboard commits the edit.** In this app `hideKeyboard`
+  triggers the editor's autosave-on-dismiss *and* closes the screen, which is
+  why a flow never places it before a save tap: by then the screen is gone.
+- **A feature can be modelled but unreachable.** Notes row actions (pin,
+  archive, delete, multi-select), the Calendar Today / prev / next /
+  mini-calendar controls, and the whole Sync configuration screen
+  (`SyncConfigScreen` + a complete `SyncViewModel`, composed by nothing) exist
+  with no control that dispatches them, and long-press on a note row does
+  nothing. Before writing a flow, check it is reachable.
+
+### What the system back key does, editor by editor
+
+Each screen decides back for itself, so the answer differs per screen and is
+stated one screen at a time below. Two rules hold everywhere:
+
+- **System back and the top-bar arrow mean the same thing** on a screen that
+  has both; a flow may use either.
+- **With the keyboard open, system back closes the keyboard first.** Only a
+  second press reaches the screen, so a flow leaving a screen it has just typed
+  into either closes the keyboard or presses back twice.
+
+The dirty-draft guard is shared (`DiscardChangesDialog`), and three screens host
+it: the task create screen, the project editor and the saved-view editor. A
+**dirty** draft raises the guard — a "Discard changes?" dialog confirmed with
+`text: "Discard"` (keep editing is the other button). A **pristine** draft raises
+nothing, and back pops straight away. The shared top bar's arrow is tagged
+`top_bar_back_button`, and it is the same `onBack` the system back key runs:
+one behaviour, two ways to reach it.
+
+- **Saved-view editor** (`SavedAgendaScreen`): back is the arrow's meaning, not
+  a save. A **pristine** draft pops back to the list at once. A **dirty** draft
+  opens the "Discard changes?" dialog and pops only once it is confirmed with
+  `text: "Discard"` — the view is *not* saved on the way out. `Save` is the
+  separate action, and it saves and pops; a `back` after a save therefore goes
+  one screen further than the flow wants.
+- **Task detail** (`TaskDetailScreen`): back pops the detail to the screen it
+  was opened from. The detail autosaves and has no draft, so there is no guard
+  and back never asks. A detail opened from a saved view or a reminder can sit
+  at the start of its graph, and there back leaves the graph and the shell
+  takes it — a flow that expects to stay on the detail asserts the detail's own
+  node after back instead of assuming it stayed.
+- **Notes editor** (`NoteEditorScreen`): back pops to whatever opened the
+  editor — the note's preview, or the notes list when the quick-add row created
+  the note. The editor autosaves and saving does not pop it, so back is the only
+  way out and the intended one: there is no save control to tap and nothing to
+  confirm.
 
 ## Recon before writing a flow — the probe trick
 

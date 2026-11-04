@@ -43,14 +43,6 @@ fun TopAppBar(
     val holder = LocalScreenActions.current
     if (holder != null) {
         val barOwner = remember { Any() }
-        SideEffect {
-            holder.publishSlots(
-                owner = barOwner,
-                actions = actions,
-                selectionTitle = selectionTitle,
-                onExitSelection = onExitSelection,
-            )
-        }
         // The route this bar belongs to, captured as the composition enters.
         // A bar that is leaving still recomposes while the transition plays, and
         // `remember` without keys keeps the route it entered with: the slots it
@@ -65,7 +57,7 @@ fun TopAppBar(
         val publishedTitle by rememberUpdatedState(title)
         val publishedIcon by rememberUpdatedState(navigationIcon)
         DisposableEffect(holder, overrideShell, barOwner) {
-            // The slots are claimed here and not from the SideEffect above,
+            // The slots are claimed here and not from the side effect below,
             // which runs on every recomposition: a screen on its way out still
             // recomposes while the navigation transition plays, and republishing
             // let it take the bar back from the screen that had just published.
@@ -83,9 +75,9 @@ fun TopAppBar(
                 )
             }
             onDispose {
-                // Only the bar the shell is still drawing may empty the shared
-                // slots: a bar leaving during a transition must not take the
-                // arriving screen's actions with it (#1962 review).
+                // Only the bar that claimed the slots empties them: a bar
+                // leaving during a transition must not take the arriving
+                // screen's actions with it (#1962 review).
                 holder.clearActions(barOwner)
                 // Only the bar that published the override takes it back down,
                 // and only while it is still the header the shell shows: a
@@ -97,6 +89,18 @@ fun TopAppBar(
                     holder.retractBar(barOwner)
                 }
             }
+        }
+        // The side effect comes after the claim on purpose: the two run in the
+        // same frame, and a publication that arrives before the claim it
+        // belongs to is dropped — the bar's buttons would then stay empty until
+        // something else made the bar recompose.
+        SideEffect {
+            holder.publishSlots(
+                owner = barOwner,
+                actions = actions,
+                selectionTitle = selectionTitle,
+                onExitSelection = onExitSelection,
+            )
         }
         return
     }
