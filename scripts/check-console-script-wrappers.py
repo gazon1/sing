@@ -53,7 +53,9 @@ can live — never in prose:
     about the other. Since nothing in a wrapper's shape names *which* script it
     is, and the two scripts would be indistinguishable to any reader of the
     file, two scripts sharing one entry point are rejected outright rather than
-    guessed at — see :func:`scan`.
+    guessed at: the finding names both of them, and neither is credited with a
+    wrapper — see :func:`shared_entry_points` for the pair and :func:`scan` for
+    the finding.
 
 A wrapper that imports the entry point first and binds afterwards is not
 accepted either — by then the package has already answered from wherever the
@@ -81,6 +83,12 @@ it is:
     uncovered. That is a false positive in the safe direction — a finding to
     read, not a green to trust — and it is the one place a name appears.
     Widening it is a matter of adding a name to :data:`LOAD_CALLS`.
+  - **A shared entry point is reported, not resolved.** Two scripts that
+    declare the same ``module:attribute`` are one finding, naming both, even
+    when a wrapper reaches that entry point and would bind both of them at run
+    time: nothing in a wrapper's shape says which script it is for, so the
+    check refuses to guess which of the two the wrapper serves. The remedy is
+    in the declaration — give each script an entry point of its own.
 
 An install that declares no console scripts is a finding too: a check that
 reads an empty declaration is green about nothing.
@@ -190,6 +198,30 @@ def console_scripts(declaration: pathlib.Path) -> dict[str, str]:
     if not isinstance(scripts, dict):
         raise DeclarationError("the file has no [project.scripts] table")
     return {str(name): str(target) for name, target in scripts.items()}
+
+
+def shared_entry_points(scripts: dict[str, str]) -> dict[str, list[str]]:
+    """The entry points more than one declared script names, and the names.
+
+    A wrapper's shape names the entry point it reaches, never the script it
+    serves. Two scripts that declare the same ``module:attribute`` are two
+    names on ``PATH`` and one wrapper between them, and the file cannot say
+    which of the two it is for — so the check does not guess: the pair is a
+    finding that names both.
+
+    Only well-formed entry points are grouped. A declaration that cannot name
+    one is a finding in its own right, and two of those are two findings, not
+    one pair.
+
+    @param scripts the declared console scripts, name → entry point.
+    @return the shared entry point → the names that share it, sorted.
+    """
+    by_target: dict[str, list[str]] = {}
+    for name, target in sorted(scripts.items()):
+        if ENTRY_POINT_RE.match(target) is None:
+            continue
+        by_target.setdefault(target, []).append(name)
+    return {target: names for target, names in by_target.items() if len(names) > 1}
 
 
 def blank(text: str) -> tuple[str, str, list[tuple[int, int]]]:
@@ -483,7 +515,8 @@ def scan(root: pathlib.Path) -> tuple[dict[str, str], list[str]]:
     """The declared console scripts and the ones with no checkout-bound wrapper.
 
     @param root the repository root.
-    @return the declaration, and one finding per uncovered script.
+    @return the declaration, and one finding per uncovered script or per
+        pair of scripts that share one entry point.
     """
     scripts = console_scripts(root / DECLARATION)
     wrappers = read_wrappers(root)
@@ -495,7 +528,23 @@ def scan(root: pathlib.Path) -> tuple[dict[str, str], list[str]]:
             "a check that reads an empty declaration proves nothing"
         )
 
+    # Two scripts that share an entry point cannot be told apart by a wrapper,
+    # so neither of them is credited with one. The pair is one finding, and it
+    # names both — the names are what a reader has to change.
+    shared = shared_entry_points(scripts)
+    ambiguous: set[str] = set()
+    for target, names in shared.items():
+        ambiguous.update(names)
+        findings.append(
+            f"{', '.join(names)}: both name the entry point {target} — a wrapper "
+            "names the entry point it reaches, not the script it serves, so the "
+            "two cannot be told apart and neither is credited with a wrapper: "
+            "give each of them an entry point of its own"
+        )
+
     for name, target in sorted(scripts.items()):
+        if name in ambiguous:
+            continue
         match = ENTRY_POINT_RE.match(target)
         if match is None:
             findings.append(
@@ -569,7 +618,7 @@ def cli(
     elif findings:
         click.echo(
             "check-console-script-wrappers.py: "
-            f"{len(findings)} console script(s) with no checkout-bound wrapper"
+            f"{len(findings)} finding(s): console scripts with no checkout-bound wrapper"
         )
         for finding in findings:
             click.echo(f"  {finding}")

@@ -15,6 +15,8 @@ Each test below breaks one part of the rule and expects the gate to say so:
   - a *mention* of the entry import, or of the binding call, in a comment —
     prose is not a statement, in either direction;
   - two scripts that share one entry module: two claims, not one;
+  - two scripts that share one *entry point*: the pair is rejected, and the
+    finding names both of them;
   - a wrapper that loads a fixed foreign binding path, which binds that tree;
   - a wrapper that names ``package-binding.py`` in a literal it never hands to
     a loader, which has loaded nothing;
@@ -224,6 +226,41 @@ class ConsoleScriptWrappersTest(unittest.TestCase):
         self.assertEqual(1, len(findings), findings)
         self.assertIn("bar", findings[0])
         self.assertNotIn("foo:", findings[0])
+
+    def test_two_scripts_that_share_an_entry_point_are_rejected(self) -> None:
+        """Two names on one entry point: the pair is a finding, and both are named.
+
+        A wrapper's shape says which entry point it reaches, not which script
+        it serves, so the two names on ``PATH`` cannot be told apart — and the
+        second one would answer with whichever checkout was installed last.
+        """
+        self.declare({"sgate": "sgate.cli:main", "sgate-debug": "sgate.cli:main"})
+        self.wrap("sg", wrapper("sgate.cli:main"))
+        findings = self.findings()
+        self.assertEqual(1, len(findings), findings)
+        text = findings[0]
+        # The names, not the module: "sgate" is a substring of "sgate-debug" and
+        # of "sgate.cli:main", so a plain contains() would pass on either.
+        self.assertRegex(text, r"(?<![\w.-])sgate(?![\w.-])")
+        self.assertRegex(text, r"(?<![\w.-])sgate-debug(?![\w.-])")
+        self.assertIn("sgate.cli:main", text)
+
+    def test_a_shared_entry_point_no_wrapper_reaches_is_still_one_finding(self) -> None:
+        """The pair is one finding, not one per script and not one per wrapper."""
+        self.declare({"foo": "pkg.cli:main", "bar": "pkg.cli:main"})
+        findings = self.findings()
+        self.assertEqual(1, len(findings), findings)
+        self.assertRegex(findings[0], r"(?<![\w.-])foo(?![\w.-])")
+        self.assertRegex(findings[0], r"(?<![\w.-])bar(?![\w.-])")
+
+    def test_a_shared_entry_point_makes_the_gate_red_and_names_both_scripts(self) -> None:
+        """The reviewer's case: a second name on a covered entry point."""
+        self.declare({"sgate": "sgate.cli:main", "sgate-debug": "sgate.cli:main"})
+        self.wrap("sg", wrapper("sgate.cli:main"))
+        result = CliRunner().invoke(mod.cli, ["--root", str(self.root)])
+        self.assertEqual(1, result.exit_code)
+        self.assertRegex(result.output, r"(?<![\w.-])sgate(?![\w.-])")
+        self.assertRegex(result.output, r"(?<![\w.-])sgate-debug(?![\w.-])")
 
     def test_a_fixed_foreign_binding_path_is_not_this_checkout_binding(self) -> None:
         """A wrapper that binds another tree correctly has bound the wrong tree."""
