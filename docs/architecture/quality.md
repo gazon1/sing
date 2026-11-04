@@ -20,6 +20,9 @@ others. The config is `config/detekt/detekt.yml`; the reasons live in comments
 | `LargeClass` | 600 lines | 600 | |
 | `ReturnCount` | 4 | 2 | |
 | `max_line_length` | 120 | 120 | ktlint owns it, through `.editorconfig`; detekt's own `MaxLineLength` is off. |
+| `WildcardImport` | off | on | ktlint owns it: `standard:no-wildcard-imports`. |
+| `UnusedImport` | off | off | ktlint owns it: `standard:no-unused-imports` — experimental, so `.editorconfig` enables it by name. Detekt's rule was on here and reported none of the imports ktlint found. |
+| `TrailingWhitespace` | off | off | ktlint owns it: `standard:no-trailing-spaces`. Detekt's rule was on here too — the ktlint takeover left it on, and it was switched off with the other two. |
 
 `config/detekt/baseline-*.xml` holds what is already known. **The baseline only ever
 shrinks** — a new finding is a finding, not a line to add to the baseline.
@@ -52,11 +55,17 @@ sets `ktlint_class_signature_rule_force_multiline_when_parameter_count_greater_o
 to a value no real count reaches, so ktlint does not fight the rule.
 ADR `2026-10-09-detekt-class-signature-gotcha`.
 
-### ktlint: line length
+### ktlint: the layout rules detekt gave up
 
-detekt's own `MaxLineLength` is **off** — ktlint owns line length through
-`.editorconfig` (120). Two owners of one rule is how a formatter and a gate end up
-arguing.
+detekt's own `MaxLineLength`, `WildcardImport`, `UnusedImport` and `TrailingWhitespace`
+are **off** — ktlint owns line length through `.editorconfig` (120), wildcard imports
+(`standard:no-wildcard-imports`), unused imports (`standard:no-unused-imports`) and
+trailing whitespace (`standard:no-trailing-spaces`). Two owners of one rule is how a
+formatter and a gate end up arguing.
+
+`standard:no-unused-imports` is an experimental ktlint rule, so `.editorconfig` enables
+it by name (`ktlint_standard_no-unused-imports = enabled`) — without that line, an
+unused import would be caught by nothing.
 
 ## The two tools
 

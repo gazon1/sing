@@ -2,7 +2,6 @@ package com.singularity.todo.test.helpers
 
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
-import kotlin.math.roundToLong
 
 /**
  * Records a single test step: name, optional detail, duration, pass/fail, and error.

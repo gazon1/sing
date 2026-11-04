@@ -6,16 +6,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.TestDispatcher
-import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import kotlin.coroutines.coroutineContext
 import kotlin.test.assertContains
-import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 
 /**
  * Smoke tests: verifies the kotlinx-coroutines-debug agent is active and
