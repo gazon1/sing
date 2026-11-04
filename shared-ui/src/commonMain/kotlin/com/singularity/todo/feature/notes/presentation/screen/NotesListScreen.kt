@@ -179,10 +179,17 @@ fun NotesListScreen(
             // Every note the list is showing right now, across all of its sections, or
             // `null` while it has not loaded. `null` and "empty" are different answers:
             // a list that has not arrived is no evidence that the selected note is gone.
+            // `remember` keyed on the state: the set is only an effect key, but computing
+            // it inline rebuilt a set of every note across four sections on every
+            // recomposition — a per-frame allocation on a large library, for a value that
+            // changes only when the list does. Structural equality of the key keeps an
+            // equal re-emission of the same state from paying for it again.
             val shownNoteIds: Set<NoteId>? =
-                (state as? NotesUiState.Content)?.list?.let { list ->
-                    (list.dailyNotes + list.templates + list.pinned + list.unpinned)
-                        .mapTo(mutableSetOf()) { it.id }
+                remember(state) {
+                    (state as? NotesUiState.Content)?.list?.let { list ->
+                        (list.dailyNotes + list.templates + list.pinned + list.unpinned)
+                            .mapTo(mutableSetOf()) { it.id }
+                    }
                 }
 
             // The selection is reconciled against the list, not trusted. A note leaves the
@@ -681,6 +688,11 @@ fun SwipeableNoteCard(
     onOpenNote: ((NoteId) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    // The caller's choice, or the single-pane default, bound once. A nullable function
+    // type cannot be invoked, so this line is what makes the KDoc above true rather
+    // than aspirational: `null` means "open the preview as a route", and a row built by
+    // a caller that decided nothing still opens its note.
+    val openNote: (NoteId) -> Unit = onOpenNote ?: { navigator.openPreview(it) }
     val dismissState = rememberSwipeToDismissBoxState()
 
     LaunchedEffect(dismissState.currentValue) {
@@ -726,7 +738,7 @@ fun SwipeableNoteCard(
                         if (isSelectionMode) {
                             onToggleSelection()
                         } else {
-                            onOpenNote(note.id)
+                            openNote(note.id)
                         }
                     },
                     onLongClick = onLongClick,

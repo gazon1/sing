@@ -50,9 +50,16 @@ class NotesTwoPaneFlowTest {
             assertTagDisplayed(TestTags.NOTES_QUICK_ADD_INPUT)
         }
 
+    // The harness sizes the window in *pixels*; the breakpoint (`WideLayoutMinWidth`)
+    // is 840 **dp**, so the two are only comparable once density is named. The desktop
+    // test scene runs at 1 px per dp and a raised density divides the pixel width into
+    // *fewer* dp — the failure mode is a width that lands above the breakpoint, which
+    // needs a density below 1, not above it. 600 px therefore stays the narrow branch
+    // with margin at any density the harness can pick (it would take 0.71 to reach
+    // 840 dp), instead of being narrow by the accident of today's exact window size.
     @Test
     fun a_narrow_window_still_opens_the_note_in_place_of_the_list() =
-        runDesktopAppTest(width = 800, height = 768, checkA11y = true) { koin ->
+        runDesktopAppTest(width = 600, height = 768, checkA11y = true) { koin ->
             koin.get<NotesRepository>().createNoteWithTitle("Groceries").getOrThrow()
 
             tapTab("Notes")

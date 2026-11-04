@@ -66,6 +66,7 @@ import com.singularity.todo.core.links.InternalLinkSchemes
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
@@ -75,6 +76,7 @@ import com.singularity.todo.core.ui.text.rememberAppUriHandler
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.extractPreviewText
 import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
@@ -161,6 +163,17 @@ fun NotePreviewHost(
             deleteRequested = false
             onBack()
         }
+    }
+
+    // A delete that *fails* never reaches NotFound, so the mark has to be cleared by the
+    // failure itself. Left standing it outlives the attempt it was made for: the note
+    // stays on screen marked as being deleted, and the next NotFound for the same id —
+    // deleted from another window, or a reload of a note that vanished meanwhile — closes
+    // this surface as though the user's earlier delete had just landed. Deleting is the
+    // only operation [NotePreview] reports an error for, so an error event is that
+    // failure, and clearing here is what keeps the mark the length of one attempt.
+    CollectEvents(viewModel.events) { event ->
+        if (event is NotesUiEvent.Error) deleteRequested = false
     }
 
     Box(modifier) {
