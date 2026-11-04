@@ -707,6 +707,303 @@ class TestStartupUnwiredDetector(unittest.TestCase):
         self.assertEqual(1, len(findings), findings)
 
 
+class TestUnreadPublicDetector(unittest.TestCase):
+    """A public declaration production code never reads (#1916).
+
+    The defect: `ImportOptions.overwriteExisting` was declared, handed a value by
+    the builder, and asserted by a test, and production code never read it — so
+    setting it to `false` still overwrote. `dead-symbol` could not see it: the
+    declaration counts as a production reference, and being *written* never made
+    it look unused on its own.
+
+    Each case below is one of the shapes the detector must report, or one of the
+    four it must stay silent on (a read, a serialized field, prose, a baselined
+    symbol). The last case pins the conservative rule that keeps it honest.
+    """
+
+    OPTIONS = (
+        "data class ImportOptions(\n"
+        "    val overwriteExisting: Boolean = true,\n"
+        ")\n"
+    )
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _code(self, files):
+        code = {}
+        for name, content in files.items():
+            p = self.tmp / name
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(content)
+            code[p] = fus.strip_comments(content)
+        return code
+
+    def _run(self, files):
+        code = self._code(files)
+        pre = fus._precompute_unread_public(code)
+        return fus._check_unread_public(code, "\n".join(code.values()), pre)
+
+    # ── The shapes it reports ──────────────────────────────────────────────
+
+    def test_a_builder_written_option_nobody_reads_is_write_only(self):
+        findings = self._run({
+            "shared/src/commonMain/Options.kt": self.OPTIONS,
+            "shared/src/commonMain/Builder.kt": (
+                "fun importOptions(): ImportOptions = ImportOptions(overwriteExisting = false)\n"
+            ),
+            "shared/src/commonTest/ImportTest.kt": (
+                "fun t(o: ImportOptions) { assertTrue(o.overwriteExisting) }\n"
+            ),
+        })
+        self.assertEqual(["write-only"], [k for k, _ in findings], findings)
+        self.assertIn("ImportOptions.overwriteExisting", findings[0][1])
+
+    def test_a_value_class_nobody_constructs_is_reported(self):
+        findings = self._run({
+            "shared/src/commonMain/Id.kt": "value class UnusedId(val value: String)\n",
+        })
+        self.assertEqual(["unread-public"], [k for k, _ in findings], findings)
+        self.assertIn("UnusedId", findings[0][1])
+
+    def test_a_constant_nobody_consults_is_reported(self):
+        # The brief's own example: a constant on an internal object. The object's
+        # visibility does not rescue a constant nothing reads.
+        findings = self._run({
+            "shared/src/commonMain/Keys.kt": (
+                "internal object Keys {\n"
+                "    const val UNUSED_SLOT = \"slot\"\n"
+                "}\n"
+            ),
+        })
+        self.assertEqual(["unread-public"], [k for k, _ in findings], findings)
+        self.assertIn("UNUSED_SLOT", findings[0][1])
+
+    def test_a_computed_property_nobody_reads_is_reported(self):
+        findings = self._run({
+            "shared/src/commonMain/Flags.kt": (
+                "class FeatureFlags(private val enabled: Boolean) {\n"
+                "    val isRetired: Boolean\n"
+                "        get() = !enabled\n"
+                "}\n"
+            ),
+        })
+        self.assertEqual(["unread-public"], [k for k, _ in findings], findings)
+        self.assertIn("isRetired", findings[0][1])
+
+    # ── The shapes it must not report ──────────────────────────────────────
+
+    def test_a_property_production_reads_is_not_reported(self):
+        findings = self._run({
+            "shared/src/commonMain/Options.kt": self.OPTIONS,
+            "shared/src/commonMain/Importer.kt": (
+                "fun run(o: ImportOptions) {\n"
+                "    if (!o.overwriteExisting) return\n"
+                "}\n"
+            ),
+        })
+        self.assertEqual([], findings)
+
+    def test_a_serializable_field_is_not_reported(self):
+        # kotlinx.serialization reads it through generated code that names neither
+        # the property nor a receiver, so a static scan cannot see the read.
+        findings = self._run({
+            "shared/src/commonMain/Wire.kt": (
+                "@Serializable\n"
+                "data class WireDto(\n"
+                "    val overwriteExisting: Boolean = true,\n"
+                ")\n"
+            ),
+            "shared/src/commonMain/Builder.kt": (
+                "fun wire(): WireDto = WireDto(overwriteExisting = false)\n"
+            ),
+        })
+        self.assertEqual([], findings)
+
+    def test_a_kdoc_link_and_a_log_tag_are_not_reads(self):
+        # Prose about a property is not a use of it. `strip_code` blanks the
+        # comment and the literal, so what is left is the declaration alone.
+        findings = self._run({
+            "shared/src/commonMain/Options.kt": self.OPTIONS,
+            "shared/src/commonMain/Docs.kt": (
+                "/**\n"
+                " * See [ImportOptions.overwriteExisting] for what it promises.\n"
+                " */\n"
+                "fun docs() {\n"
+                "    log.withTag(\"overwriteExisting\") { \"doc\" }\n"
+                "}\n"
+            ),
+        })
+        self.assertEqual(["unread-public"], [k for k, _ in findings], findings)
+
+    def test_a_baselined_symbol_is_exempt(self):
+        code = self._code({
+            "shared/src/commonMain/Id.kt": "value class SavedId(val value: String)\n",
+        })
+        decl_path = next(iter(code))
+        # The exemption is keyed by (symbol, declaring file) and a plain dict would hide
+        # exactly the type change the detector depends on — so the row is built the way
+        # the loader builds it, through `Baseline`.
+        row = {("SavedId", fus.rel(decl_path)): "kept for a named reason"}
+        with mock.patch.object(fus, "_load_baseline", return_value=fus.Baseline(row)):
+            findings = fus._check_unread_public(
+                code, "\n".join(code.values()), fus._precompute_unread_public(code)
+            )
+        self.assertEqual(["exempt"], [k for k, _ in findings], findings)
+        self.assertIn("kept for a named reason", findings[0][1])
+
+    def test_an_exemption_for_another_file_does_not_exempt_this_one(self):
+        code = self._code({
+            "shared/src/commonMain/Id.kt": "value class SavedId(val value: String)\n",
+        })
+        row = {("SavedId", "shared/src/commonMain/Elsewhere.kt"): "someone else's row"}
+        with mock.patch.object(fus, "_load_baseline", return_value=fus.Baseline(row)):
+            findings = fus._check_unread_public(
+                code, "\n".join(code.values()), fus._precompute_unread_public(code)
+            )
+        self.assertEqual(["unread-public"], [k for k, _ in findings], findings)
+
+    def test_a_function_local_of_the_same_name_is_not_a_read(self):
+        # `val overwriteExisting = false` declares a new symbol. Counting it as a read
+        # was how a local shadow kept a lying option green.
+        findings = self._run({
+            "shared/src/commonMain/Options.kt": self.OPTIONS,
+            "shared/src/commonMain/Builder.kt": (
+                "fun build(): ImportOptions {\n"
+                "    val overwriteExisting = false\n"
+                "    return ImportOptions(overwriteExisting = overwriteExisting)\n"
+                "}\n"
+            ),
+        })
+        self.assertEqual(["write-only"], [k for k, _ in findings], findings)
+
+
+class TestUnreadPublicReportAndFloor(unittest.TestCase):
+    """The reporting the write-only shape leans on (#1916).
+
+    Three things the shape is judged by: a read the corpus cannot show is still a
+    read, a run's counts must not call a note an exemption, and the floor header is
+    shipped into the checked-in floor file, so a paragraph pasted into it twice is
+    pasted into the repository twice.
+    """
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def _run(self, files):
+        code = {}
+        for name, content in files.items():
+            p = self.tmp / name
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(content)
+            code[p] = fus.strip_comments(content)
+        pre = fus._precompute_unread_public(code)
+        return fus._check_unread_public(code, "\n".join(code.values()), pre)
+
+    def test_a_string_template_read_is_a_read(self):
+        # `log("$overwriteExisting")` evaluates the property, so the option is
+        # consulted. The corpus is built with `strip_code`, which blanks the contents
+        # of a literal, so the template is invisible to it — without counting the
+        # template the property was reported as unread.
+        findings = self._run({
+            "shared/src/commonMain/Options.kt": (
+                "data class ImportOptions(val overwriteExisting: Boolean = true)\n"
+            ),
+            "shared/src/commonMain/Logger.kt": (
+                "fun log(message: String) {}\n"
+                "fun use(o: ImportOptions) {\n"
+                '    log("$overwriteExisting")\n'
+                "}\n"
+            ),
+        })
+        self.assertEqual([], findings)
+
+    def test_a_plain_literal_mention_is_not_a_read(self):
+        # The other half of the template rule: a log *tag* is a literal, not a
+        # template, and it does not consult the property.
+        findings = self._run({
+            "shared/src/commonMain/Options.kt": (
+                "data class ImportOptions(val overwriteExisting: Boolean = true)\n"
+            ),
+            "shared/src/commonMain/Logger.kt": (
+                "fun log(tag: String, message: String) {}\n"
+                "fun use(o: ImportOptions) {\n"
+                '    log("overwriteExisting", "done")\n'
+                "}\n"
+            ),
+        })
+        self.assertEqual(["unread-public"], [k for k, _ in findings], findings)
+
+    def test_the_summary_counts_exempt_and_note_apart(self):
+        # A note is information, not an exemption: calling it one claims a decision
+        # was taken that nobody took.
+        summary = fus._summary([
+            ("note", "3 public name(s) skipped as ambiguous"),
+            ("exempt", "SavedId is accepted debt"),
+            ("unread-public", "UnusedId is declared and never read"),
+        ])
+        self.assertEqual("1 blocking finding(s); 1 exempted; 1 note(s).", summary)
+
+    def test_the_summary_of_a_note_only_run_says_no_exemption(self):
+        summary = fus._summary([("note", "3 public name(s) skipped as ambiguous")])
+        self.assertEqual("0 blocking finding(s); 1 note(s).", summary)
+        self.assertNotIn("exempted", summary)
+
+    def test_the_floor_header_has_no_duplicated_paragraph(self):
+        # The header is written into config/docs/unwired-surfaces-floor.txt, so a
+        # paragraph pasted into it twice is shipped to the repository twice.
+        lines = [line for line in fus.FLOOR_HEADER.splitlines() if line.strip()]
+        self.assertEqual(len(lines), len(set(lines)))
+
+    def test_a_property_declared_inside_a_default_lambda_is_not_an_option(self):
+        # The `val` belongs to the default value's lambda, not to the constructor, so
+        # `Holder.tmp` never existed as an option.
+        findings = self._run({
+            "shared/src/commonMain/Holder.kt": (
+                "data class Holder(\n"
+                "    val runOnce: () -> Int = run { val tmp: Int = 1; tmp },\n"
+                ")\n"
+            ),
+        })
+        self.assertNotIn("Holder.tmp", " ".join(m for _, m in findings), findings)
+
+    def test_ambiguous_names_are_reported_instead_of_dropped_silently(self):
+        findings = self._run({
+            "shared/src/commonMain/A.kt": (
+                "data class Alpha(val overwriteExisting: Boolean = true)\n"
+            ),
+            "shared/src/commonMain/B.kt": (
+                "data class Beta(val overwriteExisting: Boolean = true)\n"
+            ),
+        })
+        notes = [m for k, m in findings if k == "note"]
+        self.assertEqual(1, len(notes), findings)
+        self.assertIn("2 public declaration(s) skipped as ambiguous", notes[0])
+        self.assertIn("overwriteExisting", notes[0])
+
+    def test_a_name_declared_twice_is_not_attributed(self):
+        # Two declarations, one name: a receiver-less occurrence cannot be
+        # attributed to either, so neither is reported. The detector stays silent
+        # rather than guess — `id` and `name` are declared on dozens of classes.
+        findings = self._run({
+            "shared/src/commonMain/A.kt": (
+                "data class Alpha(val overwriteExisting: Boolean = true)\n"
+            ),
+            "shared/src/commonMain/B.kt": (
+                "data class Beta(val overwriteExisting: Boolean = true)\n"
+            ),
+        })
+        self.assertEqual([], findings)
+
+    def test_the_detector_is_registered(self):
+        # A shape that is written but not in the table reports nothing, forever.
+        self.assertIn("unread-public", {d.kind for d in fus.DETECTORS})
+
+
 class TestFloor(unittest.TestCase):
     """The ratchet: an advisory gate needs a recorded number, or it can only grow.
 
@@ -805,3 +1102,77 @@ class _FakeDetector:
 
 def _one_finding(message, kind="screen"):
     return _FakeDetector(message, kind)
+
+
+class TestFloorArithmeticAtTheCli(unittest.TestCase):
+    """The floor comparison, end to end — the arithmetic #1916 actually got wrong.
+
+    Every other test in this file drives a detector's `precompute`/`check` over a
+    synthetic tree. None of them runs `cli()`, which is where the blocking count is
+    compared with the recorded floor. A branch can therefore pass every detector test
+    and still leave the gate red: #1916 recorded a floor of 7 while its own shape pushed
+    the blocking count to 149, and no test here could have noticed. These tests run the
+    command the gate runs, with the detectors stubbed out, so the subject is the floor
+    arithmetic and nothing else.
+    """
+
+    def setUp(self):
+        import pathlib
+        import tempfile
+
+        self._orig_detectors = fus.DETECTORS
+        self._orig_floor_file = fus.FLOOR_FILE
+        self._orig_kotlin_files = fus.kotlin_files
+
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.floor_file = pathlib.Path(self._tmp.name) / "unwired-surfaces-floor.txt"
+        fus.FLOOR_FILE = self.floor_file
+        # The floor arithmetic is the subject, not the detectors: an empty tree keeps
+        # the real source out of the result and makes the finding set exact.
+        fus.kotlin_files = lambda: []
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        fus.DETECTORS = self._orig_detectors
+        fus.FLOOR_FILE = self._orig_floor_file
+        fus.kotlin_files = self._orig_kotlin_files
+
+    def _run(self, findings, floor, *args):
+        fus.DETECTORS = [
+            fus.Detector(
+                kind="screen",
+                check=lambda _code, _corpus, _pre, _f=tuple(findings): list(_f),
+            )
+        ]
+        self.floor_file.write_text(f"# floor\n{floor}\n", encoding="utf-8")
+        return fus.main(["--quiet", *args])
+
+    def test_one_blocking_finding_above_a_floor_of_zero_fails(self):
+        rc = self._run([("screen", "a screen nothing composes")], floor=0)
+        self.assertEqual(rc, 1, "a blocking finding above the floor must fail the run")
+
+    def test_a_blocking_count_equal_to_the_floor_passes(self):
+        rc = self._run([("screen", "a screen nothing composes")], floor=1)
+        self.assertEqual(rc, 0, "the floor is a maximum, not a target to beat")
+
+    def test_informational_rows_are_printed_but_not_counted(self):
+        rc = self._run(
+            [("exempt", "accepted debt"), ("note", "could not decide")], floor=0
+        )
+        self.assertEqual(
+            rc, 0,
+            "`exempt` and `note` rows do not fail the build, so they must not be "
+            "counted against the floor",
+        )
+
+    def test_update_floor_records_the_blocking_count_and_not_the_total(self):
+        rc = self._run(
+            [("screen", "blocking"), ("exempt", "accepted")], floor=0, "--update-floor"
+        )
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            fus.read_floor(), 1,
+            "--update-floor must record the count that can fail the build, so the next "
+            "run measures the same thing this one did",
+        )

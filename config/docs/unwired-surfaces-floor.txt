@@ -1,6 +1,9 @@
 # unwired-surfaces floor — the number of BLOCKING findings this gate may report.
 #
-# Counted 2026-10-16 against source roots: shared/src, androidApp/src, desktopApp/src, adr-cli/src, adr-core/src, core-base/src, mcp-server/src, pro/src, tools/unwritten-properties/src.
+# Counted when the floor was last written, against source roots: shared/src, shared-ui/src, androidApp/src, desktopApp/src, adr-cli/src, adr-core/src, core-base/src, mcp-server/src, pro/src, tools/unwritten-properties/src.
+#
+# Every detector counts, `unread-public` / `write-only` (#1916) included: a shape
+# whose findings are never counted has no floor to stop it growing.
 #
 # One-directional on purpose. Lowering it is the debt being paid down and needs no
 # justification; raising it is a new unwired surface and must be argued in review.

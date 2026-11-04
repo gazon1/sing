@@ -27,6 +27,11 @@ Shapes detected (via Detector table — add new rows, not new loops):
                        scripts/find-unwired-surfaces-baseline.txt, because a
                        test double living in commonMain looks identical to
                        unwired production code to a static scan.
+  8. startup-unwired — a declared startup entry point that nothing calls.
+  9. unread-public  — a public value class, constant, computed property or
+                       data-class option that no production code reads. Named
+                       `write-only` when the option *is* handed a value, which
+                       is the sharper finding: a promise the code does not keep.
 
 Shape 5 is not checked here (navigation): reachable routes are a data question
 the Maestro suite answers better than a static scan.
@@ -84,8 +89,16 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # `:detekt-rules` is deliberately absent: its rules are instantiated through
 # `RuleSetProvider`, which a call-site scan cannot see, so every finding there would be
 # noise. The test names it as excluded rather than leaving the absence unexplained.
+#
+# `:shared-ui` joined the list for #1916. Its absence was the *reading* half of the same
+# gap: `TaskCreateUiState.isSaveEnabled` is declared under `shared/src` and read by the
+# Compose screen under `shared-ui/src`, so a read-counting shape that only read
+# `SOURCE_ROOTS` reported a property that production code consults as never read. Reads
+# are evidence of use wherever the module lives, so the module that reads has to be in
+# the same list as the module that declares.
 SOURCE_ROOTS = [
     "shared/src",
+    "shared-ui/src",
     "androidApp/src",
     "desktopApp/src",
     "adr-cli/src",
@@ -244,6 +257,15 @@ def _blank_braced_body(text: str, from_index: int, out: list[str]) -> None:
                 return
 
 
+def _because(reason: str | None) -> str:
+    """The exemption's reason, appended to a finding it converted to `exempt`.
+
+    Exempt findings are still printed, so the reason has to travel with them: a row
+    that silences a finding without saying why is an exemption nobody can audit.
+    """
+    return f" — {reason}" if reason else ""
+
+
 def _check_composable(
     code: dict[pathlib.Path, str], corpus: str, _pre: object = None
 ) -> list[tuple[str, str]]:
@@ -261,12 +283,15 @@ def _check_composable(
             continue
         for m in pattern.finditer(text):
             name = m.group(1)
+            reason = baseline.reason_for(name, path)
             word = r"\b" + re.escape(name) + r"\b"
             # -1: subtract the declaration itself
             refs = len(re.findall(word, corpus)) - 1
             if refs <= 0:
-                kind = "exempt" if name in baseline else "screen"
-                findings.append((kind, f"{rel(path)}: {name}() has no call site"))
+                kind = "exempt" if reason else "screen"
+                findings.append(
+                    (kind, f"{rel(path)}: {name}() has no call site{_because(reason)}")
+                )
                 continue
             # Being called is not the question; being called by *shipped* code is.
             #
@@ -276,12 +301,12 @@ def _check_composable(
             # previewed twice, called by nothing but those two previews.
             outside = len(re.findall(word, shipped_corpus)) - 1
             if outside <= 0:
-                kind = "exempt" if name in baseline else "preview-only"
+                kind = "exempt" if reason else "preview-only"
                 findings.append(
                     (
                         kind,
                         f"{rel(path)}: {name}() is called only from a @Preview — it "
-                        f"never renders for a user",
+                        f"never renders for a user{_because(reason)}",
                     )
                 )
     return findings
@@ -480,160 +505,6 @@ def _check_expect_unwired(
                         )
                     )
     return findings
-
-
-# ── Detector 7 — dead symbol (tested, never called from production) ──────────────
-
-
-_TOP_LEVEL_DECL = re.compile(
-    r"^(?:object|class|val)\s+(\w+)\s*(?:<[^>]*>)?\s*(?::[^{]*?)?(?:\(|$)",
-    re.M,
-)
-_SKIP_INHERITANCE = frozenset({
-    "Analytics", "NoopAnalytics",
-    "SubscriptionProvider", "NoopSubscriptionProvider",
-    "rememberNotificationPermissionRequester",
-})
-
-
-def _precompute_dead_symbol(
-    code: dict[pathlib.Path, str],
-) -> tuple[dict[str, int], dict[str, int]]:
-    """Returns (prod_ref_counts, test_ref_counts) for every top-level declaration.
-
-    Both this and `_check_dead_symbol` classify with `_is_test_source`, defined below.
-
-    They used to inline `"/test/" in str(path) or "/jvmTest/" in str(path)`, which
-    reads as though it covers the test source sets and does not: `commonTest` contains
-    neither substring — `/commonTest/` has no `/test/` in it — so all 171 `commonTest`
-    files were counted as **production**. Every reference inside them inflated
-    `prod_refs`, and the dead-symbol rule only fires when production references are at or
-    below the declaration itself, so a symbol used exclusively by `commonTest` looked
-    used in production and was never reported.
-
-    That is how `TagGroupRepository.setInheritedForProject` survived #228: its only other
-    reference outside production code is an `override` in `TagGroupsViewModelTest`.
-
-    The function already existed and already handled `commonTest` — it is what the other
-    detectors use. The defect was two hand-rolled copies of a decision that had a helper,
-    and both copies were wrong.
-    """
-    prod_refs: dict[str, int] = {}
-    test_refs: dict[str, int] = {}
-    prod_sources: dict[pathlib.Path, str] = {}
-    test_sources: dict[pathlib.Path, str] = {}
-
-    for path, text in code.items():
-        if _is_test_source(path):
-            test_sources[path] = text
-        else:
-            prod_sources[path] = text
-
-    for path, text in prod_sources.items():
-        decls = _TOP_LEVEL_DECL.findall(text)
-        for name in decls:
-            if name.startswith("Noop") and name[4:] in prod_refs:
-                continue  # NoopX mirrors X
-            prod_refs[name] = prod_refs.get(name, 0)
-
-    # Count references in code, not in prose about code. A KDoc link and a log
-    # tag are both word-boundary matches for the symbol they name, and both
-    # were counted as calls. That let `AutoSync` — which nothing calls, only
-    # `Logger.withTag("AutoSync")` mentions — clear the dead-symbol threshold.
-    prod_corpus = "\n".join(strip_code(t) for t in prod_sources.values())
-    test_corpus = "\n".join(strip_code(t) for t in test_sources.values())
-
-    for m in re.finditer(r"\b(\w+)\b", prod_corpus):
-        name = m.group(1)
-        prod_refs[name] = prod_refs.get(name, 0) + 1
-
-    for m in re.finditer(r"\b(\w+)\b", test_corpus):
-        name = m.group(1)
-        test_refs[name] = test_refs.get(name, 0) + 1
-
-    return prod_refs, test_refs
-
-
-def _check_dead_symbol(
-    code: dict[pathlib.Path, str],
-    corpus: str,
-    pre: tuple[dict[str, int], dict[str, int]],
-) -> list[tuple[str, str]]:
-    prod_refs, test_refs = pre
-    findings: list[tuple[str, str]] = []
-    baseline = _load_baseline()
-
-    prod_sources: dict[pathlib.Path, str] = {
-        p: t for p, t in code.items() if not _is_test_source(p)
-    }
-
-    for path, text in prod_sources.items():
-        for m in _TOP_LEVEL_DECL.finditer(text):
-            name = m.group(1)
-            if name in _SKIP_INHERITANCE:
-                continue
-            prod_count = prod_refs.get(name, 0)
-            test_count = test_refs.get(name, 0)
-            # prod_count <= 1: the declaration itself (1) counts as a reference
-            if prod_count <= 1 and test_count > 0:
-                backlog_ref = baseline.get(name, "no backlog entry")
-                # Placement, added 2026-10-05 (#191). A class nothing in production
-                # calls, that only tests call, is a test double — and this repository
-                # keeps those in `test/fakes/`, which holds 13 of them. The convention
-                # is real, was nowhere written down as a rule, and was enforced by
-                # nothing, which is how a fourteenth ended up in `core/sync/`.
-                #
-                # Named in the message rather than policed separately: the dead-symbol
-                # check already computed exactly the fact the rule needs ("referenced
-                # only by tests"), and a second script would recompute it. The check
-                # for a backlog entry stays the gate; this is the sentence that tells
-                # whoever writes the entry what the decision is about.
-                placement = ""
-                if "/test/fakes/" not in str(path):
-                    placement = (
-                        f" — a test double belongs in test/fakes/, which is where the "
-                        f"other 13 live; if it cannot move, say why in the entry"
-                    )
-                findings.append((
-                    "exempt" if name in baseline else "dead-symbol",
-                    f"{rel(path)}: {name} has {test_count} test reference(s) but "
-                    f"{prod_count} production reference(s) — {backlog_ref}{placement}",
-                ))
-    return findings
-
-
-def _load_baseline() -> dict[str, str]:
-    """Symbol name → reason, from the exemption file.
-
-    ## Why a row here is an exemption and not only a label
-
-    Until 2026-10-06 this map was read *into the finding message* and changed nothing
-    else — the detector still returned the symbol and `main()` still exited 1. So the file
-    documented an invariant ("before it can be exempted"), `check-unwired-backlog-refs.py`
-    checked that every row's reference resolves, and **nothing ever consumed the exemption**.
-    A row could therefore exist, be perfectly honest, and still leave the gate red, which
-    is the worst of both: the only way to get a green gate was to delete code.
-
-    A row now changes the finding's kind to `exempt`, and `main()` excludes exempt rows
-    from the exit code. That is what makes the other gate load-bearing — it is the thing
-    that stops "add a row" from becoming the answer to every finding.
-
-    Exemption is keyed by symbol name, not by file, because a screen or a class has one
-    home; a same-named symbol elsewhere would be exempt too, which is why the file's own
-    second column records where the exemption was granted.
-    """
-    path = ROOT / "scripts" / "find-unwired-surfaces-baseline.txt"
-    if not path.exists():
-        return {}
-    result: dict[str, str] = {}
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        parts = line.split("|")
-        if len(parts) >= 3:
-            result[parts[0].strip()] = parts[2].strip()
-    return result
 
 
 # ── Detector 6 — orphan Koin binding (no get/inject/viewModel call) ──────────
@@ -1120,6 +991,191 @@ def _check_orphan_binding(
     return findings
 
 
+# ── Detector 7 — dead symbol (tested, never called from production) ──────────────
+
+
+_TOP_LEVEL_DECL = re.compile(
+    r"^(?:object|class|val)\s+(\w+)\s*(?:<[^>]*>)?\s*(?::[^{]*?)?(?:\(|$)",
+    re.M,
+)
+_SKIP_INHERITANCE = frozenset({
+    "Analytics", "NoopAnalytics",
+    "SubscriptionProvider", "NoopSubscriptionProvider",
+    "rememberNotificationPermissionRequester",
+})
+
+
+def _precompute_dead_symbol(
+    code: dict[pathlib.Path, str],
+) -> tuple[dict[str, int], dict[str, int]]:
+    """Returns (prod_ref_counts, test_ref_counts) for every top-level declaration.
+
+    Both this and `_check_dead_symbol` classify with `_is_test_source`, defined below.
+
+    They used to inline `"/test/" in str(path) or "/jvmTest/" in str(path)`, which
+    reads as though it covers the test source sets and does not: `commonTest` contains
+    neither substring — `/commonTest/` has no `/test/` in it — so all 171 `commonTest`
+    files were counted as **production**. Every reference inside them inflated
+    `prod_refs`, and the dead-symbol rule only fires when production references are at or
+    below the declaration itself, so a symbol used exclusively by `commonTest` looked
+    used in production and was never reported.
+
+    That is how `TagGroupRepository.setInheritedForProject` survived #228: its only other
+    reference outside production code is an `override` in `TagGroupsViewModelTest`.
+
+    The function already existed and already handled `commonTest` — it is what the other
+    detectors use. The defect was two hand-rolled copies of a decision that had a helper,
+    and both copies were wrong.
+    """
+    prod_refs: dict[str, int] = {}
+    test_refs: dict[str, int] = {}
+    prod_sources: dict[pathlib.Path, str] = {}
+    test_sources: dict[pathlib.Path, str] = {}
+
+    for path, text in code.items():
+        if _is_test_source(path):
+            test_sources[path] = text
+        else:
+            prod_sources[path] = text
+
+    for path, text in prod_sources.items():
+        decls = _TOP_LEVEL_DECL.findall(text)
+        for name in decls:
+            if name.startswith("Noop") and name[4:] in prod_refs:
+                continue  # NoopX mirrors X
+            prod_refs[name] = prod_refs.get(name, 0)
+
+    # Count references in code, not in prose about code. A KDoc link and a log
+    # tag are both word-boundary matches for the symbol they name, and both
+    # were counted as calls. That let `AutoSync` — which nothing calls, only
+    # `Logger.withTag("AutoSync")` mentions — clear the dead-symbol threshold.
+    prod_corpus = "\n".join(strip_code(t) for t in prod_sources.values())
+    test_corpus = "\n".join(strip_code(t) for t in test_sources.values())
+
+    for m in re.finditer(r"\b(\w+)\b", prod_corpus):
+        name = m.group(1)
+        prod_refs[name] = prod_refs.get(name, 0) + 1
+
+    for m in re.finditer(r"\b(\w+)\b", test_corpus):
+        name = m.group(1)
+        test_refs[name] = test_refs.get(name, 0) + 1
+
+    return prod_refs, test_refs
+
+
+def _check_dead_symbol(
+    code: dict[pathlib.Path, str],
+    corpus: str,
+    pre: tuple[dict[str, int], dict[str, int]],
+) -> list[tuple[str, str]]:
+    prod_refs, test_refs = pre
+    findings: list[tuple[str, str]] = []
+    baseline = _load_baseline()
+
+    prod_sources: dict[pathlib.Path, str] = {
+        p: t for p, t in code.items() if not _is_test_source(p)
+    }
+
+    for path, text in prod_sources.items():
+        for m in _TOP_LEVEL_DECL.finditer(text):
+            name = m.group(1)
+            if name in _SKIP_INHERITANCE:
+                continue
+            prod_count = prod_refs.get(name, 0)
+            test_count = test_refs.get(name, 0)
+            # prod_count <= 1: the declaration itself (1) counts as a reference
+            if prod_count <= 1 and test_count > 0:
+                # Keyed by (symbol, declaring file): a same-named declaration in another
+                # file is a different symbol and must not inherit this exemption.
+                reason = baseline.reason_for(name, path)
+                backlog_ref = reason or "no backlog entry"
+                # Placement, added 2026-10-05 (#191). A class nothing in production
+                # calls, that only tests call, is a test double — and this repository
+                # keeps those in `test/fakes/`, which holds 13 of them. The convention
+                # is real, was nowhere written down as a rule, and was enforced by
+                # nothing, which is how a fourteenth ended up in `core/sync/`.
+                #
+                # Named in the message rather than policed separately: the dead-symbol
+                # check already computed exactly the fact the rule needs ("referenced
+                # only by tests"), and a second script would recompute it. The check
+                # for a backlog entry stays the gate; this is the sentence that tells
+                # whoever writes the entry what the decision is about.
+                placement = ""
+                if "/test/fakes/" not in str(path):
+                    placement = (
+                        f" — a test double belongs in test/fakes/, which is where the "
+                        f"other 13 live; if it cannot move, say why in the entry"
+                    )
+                findings.append((
+                    "exempt" if reason else "dead-symbol",
+                    f"{rel(path)}: {name} has {test_count} test reference(s) but "
+                    f"{prod_count} production reference(s) — {backlog_ref}{placement}",
+                ))
+    return findings
+
+
+@dataclass(frozen=True)
+class Baseline:
+    """The exemption file, keyed by *where* the exemption was granted.
+
+    ## Why a row here is an exemption and not only a label
+
+    Until 2026-10-06 this map was read *into the finding message* and changed nothing
+    else — the detector still returned the symbol and `main()` still exited 1. So the file
+    documented an invariant ("before it can be exempted"), `check-unwired-backlog-refs.py`
+    checked that every row's reference resolves, and **nothing ever consumed the exemption**.
+    A row could therefore exist, be perfectly honest, and still leave the gate red, which
+    is the worst of both: the only way to get a green gate was to delete code.
+
+    A row now changes the finding's kind to `exempt`, and `main()` excludes exempt rows
+    from the exit code. That is what makes the other gate load-bearing — it is the thing
+    that stops "add a row" from becoming the answer to every finding.
+
+    ## Why the file is part of the key
+
+    This map used to be `symbol → reason` with no file qualifier, on the reasoning that
+    "a screen or a class has one home". That held while the file held two rows and one
+    detector consulted it. `unread-public` broke it: its rows name *properties*, and a
+    property called `FooCard` or `AutoSync` collides by name with a composable or a
+    top-level declaration in a different file and a different detector. Each row added
+    widened the collision surface by one, and a collision is not a cosmetic problem — it
+    silently converts another detector's finding to `exempt`, i.e. to a finding that does
+    not fail the build.
+
+    So the second column of the row — which the format always carried and the loader
+    always discarded — is now half the key. `reason_for` requires the symbol *and* the
+    declaring file to match, and the detectors pass the path they are reporting, which is
+    the declaration site. A row can only ever exempt the declaration it names.
+
+    The residual collision a file+symbol key cannot separate is two detectors reporting
+    the same name in the same file (`val FooRow` and `fun FooRow()` can coexist). That is
+    one file's worth of ambiguity rather than the whole tree's, and the detectors report
+    different names for it in practice.
+    """
+
+    rows: dict[tuple[str, str], str] = field(default_factory=dict)
+
+    def reason_for(self, symbol: str, path: pathlib.Path) -> str | None:
+        """The exemption granted to `symbol` as declared in `path`, if any."""
+        return self.rows.get((symbol, rel(path)))
+
+
+def _load_baseline() -> Baseline:
+    """Read the exemption file into a ``(symbol, file) → reason`` map."""
+    path = ROOT / "scripts" / "find-unwired-surfaces-baseline.txt"
+    if not path.exists():
+        return Baseline()
+    rows: dict[tuple[str, str], str] = {}
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = [part.strip() for part in line.split("|")]
+        if len(parts) >= 3:
+            rows[(parts[0], parts[1])] = parts[2]
+    return Baseline(rows)
+
+
 # ── Detector 8 — startup entry point with no call site ────────────────────────
 #
 # Item 5 of docs/decisions/2026-10-04-observability-followups.md records why this
@@ -1268,6 +1324,308 @@ def _check_startup_unwired(
     return findings
 
 
+# ── Detector 9 — a public declaration production code never reads ─────────────
+#
+# The blind spot this closes (#1916): `ImportOptions.overwriteExisting` was
+# declared on the options class, handed a value by the builder, and asserted by a
+# test — and no production code ever read it, so `false` still meant "overwrite".
+# `dead-symbol` above cannot see it. The declaration counts as one production
+# reference, so a property that is *written* always has at least that one, and a
+# test reference on top makes it look used. Nothing in the scanner distinguished
+# a property that is read from one that is only written.
+#
+# Three rules make "is it ever read?" answerable without a parser:
+#
+#   * prose is not code. The corpus is built with `strip_code`, the same reader
+#     `dead-symbol` uses, so a KDoc link and a log tag are blanked rather than
+#     counted as a read.
+#   * a named argument or an assignment is a *write*: `receiver.name = …`, and
+#     `name = …` inside the declaring class's own constructor or its `copy`.
+#     Every other occurrence — `receiver.name`, a type position, a bare
+#     expression — is a read, and one read means the option is honoured.
+#   * a name declared more than once *among the shapes this detector collects* is
+#     not attributed at all. `overwriteExisting` has one declaration and can be
+#     followed; `id`, `name` and `title` are declared on dozens of classes, and
+#     counting a receiver-less occurrence against one of them would report
+#     working code. The detector is deliberately the narrow one: it stays silent
+#     rather than guess, and a name whose declarations collide needs a reader,
+#     not a regex.
+#
+#     The collision count covers the shapes above, not every declaration in the
+#     tree: a plain member property of the same name is not counted, so an
+#     occurrence with no receiver may be attributed to this declaration. That
+#     direction loses a finding; it never invents one.
+#
+# `@Serializable` classes are skipped. kotlinx.serialization reads their fields
+# through generated code that names neither the property nor a receiver, so a
+# data-class field there is read in a way this scan cannot see.
+
+_MODIFIERS = (
+    "public|internal|private|protected|open|abstract|sealed|data|value|inline|"
+    "expect|actual|enum|annotation|inner|override|operator"
+)
+_ANNOTATIONS = r"(?:[ \t]*@[A-Za-z_][\w.]*(?:\([^\n]*\))?[ \t]*\n?[ \t]*)*"
+_DECL_HEAD = (
+    rf"(?m)^(?P<annos>{_ANNOTATIONS})[ \t]*"
+    rf"(?P<mods>(?:(?:{_MODIFIERS})[ \t]+)*)"
+)
+_VALUE_CLASS_DECL = re.compile(rf"{_DECL_HEAD}value[ \t]+class[ \t]+(?P<name>\w+)")
+_DATA_CLASS_DECL = re.compile(
+    rf"{_DECL_HEAD}data[ \t]+class[ \t]+(?P<name>\w+)[ \t]*(?:<[^>\n]*>)?[ \t]*\("
+)
+_CONST_DECL = re.compile(rf"{_DECL_HEAD}const[ \t]+val[ \t]+(?P<name>\w+)")
+_COMPUTED_DECL = re.compile(
+    rf"{_DECL_HEAD}val[ \t]+(?P<name>\w+)[^\n=]*(?:\n[ \t]*)?\bget[ \t]*\("
+)
+_PROPERTY_PARAM = re.compile(r"\b(?:val|var)[ \t]+(\w+)[ \t]*:")
+_SERIALIZABLE = re.compile(r"@(?:[A-Za-z_][\w.]*\.)?Serializable\b")
+_NOT_PUBLIC = re.compile(r"\b(?:internal|private|protected)\b")
+# The short form of a string template: `"$name"`. The long form, `"${name}"`, is
+# already code as far as `strip_code` is concerned, so only this one needs counting.
+_TEMPLATE_READ = re.compile(r"\$(\w+)")
+
+
+@dataclass(frozen=True)
+class _UnreadDecl:
+    """One declaration the detector can attribute by name."""
+
+    name: str
+    path: pathlib.Path
+    offset: int
+    shape: str
+    owner: str = ""
+    public: bool = True
+
+
+def _is_write_occurrence(text: str, start: int, end: int, owner: str) -> bool:
+    """True when the occurrence at [start, end) hands the property a value."""
+    if not re.match(r"[ \t]*=(?!=)", text[end:]):
+        return False
+    before = text[:start].rstrip(" \t")
+    if before.endswith("."):
+        return True  # receiver.name = value
+    if not (before.endswith("(") or before.endswith(",")):
+        return False
+    enclosing = _enclosing_call(text, start)
+    if enclosing is None:
+        return False  # `val name = …` and friends declare or read, they do not write
+    callee = enclosing[0]
+    return callee == owner or (bool(owner) and callee == "copy")
+
+
+@dataclass(frozen=True)
+class _UnreadScan:
+    """What the scan could attribute, and what it had to leave out."""
+
+    candidates: list[tuple[_UnreadDecl, int, int]]
+    ambiguous: tuple[str, ...] = ()
+
+
+_LOCAL_DECL_BEFORE = re.compile(r"\b(?:val|var)[ \t]+$")
+_CTOR_OPTION = re.compile(
+    r"^[\s@]*(?:(?:public|internal|private|protected|override|open|final)[ \t]+)*"
+    r"(?:val|var)[ \t]+(?P<name>\w+)[ \t]*:"
+)
+_CTOR_HIDDEN = re.compile(r"\b(?:internal|private|protected)\b")
+
+
+def _is_local_declaration(text: str, start: int) -> bool:
+    """True when the occurrence names the local a `val`/`var` declares.
+
+    `val overwriteExisting = false` in a function body introduces a *new* symbol: it
+    reads neither the option of that name nor writes it. Counting it as a read let a
+    function-local shadow keep a lying option green — the hole #1916 asks this shape
+    to close.
+    """
+    return bool(_LOCAL_DECL_BEFORE.search(text, max(0, start - 32), start))
+
+
+def _top_level_options(body: str) -> list[tuple[int, str, bool]]:
+    """The `val`/`var` parameters of a parameter list, as (offset, name, hidden).
+
+    Only depth-0 pieces count. `_PROPERTY_PARAM` matched anywhere between the parens,
+    so a default-value lambda (`run { val tmp: Int = 0; tmp }`) was attributed to the
+    class as an option `Owner.tmp` that was only ever a local.
+    """
+    pieces: list[tuple[int, str]] = []
+    depth = 0
+    start = 0
+    for i, ch in enumerate(body):
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            pieces.append((start, body[start:i]))
+            start = i + 1
+    pieces.append((start, body[start:]))
+
+    options: list[tuple[int, str, bool]] = []
+    for offset, piece in pieces:
+        m = _CTOR_OPTION.match(piece)
+        if m is None:
+            continue
+        head = piece[: m.start("name")]
+        options.append(
+            (
+                offset + m.start("name"),
+                m.group("name"),
+                bool(_CTOR_HIDDEN.search(head)),
+            )
+        )
+    return options
+
+
+def _precompute_unread_public(
+    code: dict[pathlib.Path, str],
+) -> _UnreadScan:
+    """Candidates with their production write and read counts.
+
+    Counts come from production sources only, over `strip_code` text: a test that
+    asserts an option must not make it read, and prose must not make it
+    referenced. A declaration with reads > 0 is dropped by the check.
+    """
+    prod = {
+        path: strip_code(text)
+        for path, text in code.items()
+        if not _is_test_source(path)
+    }
+
+    # A string template is a read: Kotlin evaluates `"$name"`, so the property's value
+    # reaches the log line. The corpus below is built with `strip_code`, which blanks
+    # the *contents* of a literal, so the short form is not in it at all — a property
+    # whose only production use is `log("$enabled")` would be reported as unread. The
+    # long form `"${name}"` survives, because a template's body is code.
+    template_reads: set[str] = set()
+    for path, text in code.items():
+        if _is_test_source(path):
+            continue
+        template_reads.update(_TEMPLATE_READ.findall(text))
+
+    decls: list[_UnreadDecl] = []
+    for path, text in prod.items():
+        for m in _VALUE_CLASS_DECL.finditer(text):
+            decls.append(
+                _UnreadDecl(
+                    m.group("name"), path, m.start("name"), "value class",
+                    public=not _NOT_PUBLIC.search(m.group("mods")),
+                )
+            )
+        for m in _CONST_DECL.finditer(text):
+            decls.append(
+                _UnreadDecl(
+                    m.group("name"), path, m.start("name"), "constant",
+                    public=not _NOT_PUBLIC.search(m.group("mods")),
+                )
+            )
+        for m in _COMPUTED_DECL.finditer(text):
+            decls.append(
+                _UnreadDecl(
+                    m.group("name"), path, m.start("name"), "computed property",
+                    public=not _NOT_PUBLIC.search(m.group("mods")),
+                )
+            )
+        for m in _DATA_CLASS_DECL.finditer(text):
+            owner = m.group("name")
+            open_paren = m.end() - 1
+            body = _balanced_body(text, open_paren)
+            if body is None:
+                continue
+            # A `@Serializable` field is read by generated code this scan cannot
+            # follow, and the declaration is the only thing it can see.
+            public = (
+                not _NOT_PUBLIC.search(m.group("mods"))
+                and not _SERIALIZABLE.search(m.group("annos"))
+            )
+            for start, name, hidden in _top_level_options(body):
+                decls.append(
+                    _UnreadDecl(
+                        name, path, open_paren + 1 + start,
+                        "property", owner, public and not hidden,
+                    )
+                )
+
+    declared: dict[str, int] = {}
+    for decl in decls:
+        declared[decl.name] = declared.get(decl.name, 0) + 1
+
+    results: list[tuple[_UnreadDecl, int, int]] = []
+    ambiguous: list[str] = []
+    for decl in decls:
+        if not decl.public:
+            continue
+        if declared[decl.name] != 1:
+            # Load-bearing and, until now, silent. Reported as a `note` below: a green
+            # run must read as "no unambiguous unread option", not "no unread option".
+            ambiguous.append(decl.name)
+            continue
+        pattern = re.compile(rf"\b{re.escape(decl.name)}\b")
+        writes = reads = 0
+        for path, text in prod.items():
+            for m in pattern.finditer(text):
+                if path == decl.path and m.start() == decl.offset:
+                    continue  # the declaration itself is not a use
+                if _is_local_declaration(text, m.start()):
+                    # `val overwriteExisting = …` in a function body declares a *new*
+                    # symbol; it neither reads nor writes the option of that name.
+                    continue
+                if _is_write_occurrence(text, m.start(), m.end(), decl.owner):
+                    writes += 1
+                else:
+                    reads += 1
+        if decl.name in template_reads:
+            # `"$name"` is a read of the property, and the stripped corpus above
+            # cannot show it.
+            reads += 1
+        results.append((decl, writes, reads))
+    return _UnreadScan(results, tuple(ambiguous))
+
+
+def _check_unread_public(
+    _code: dict[pathlib.Path, str],
+    _corpus: str,
+    pre: _UnreadScan,
+) -> list[tuple[str, str]]:
+    findings: list[tuple[str, str]] = []
+    baseline = _load_baseline()
+    for decl, writes, reads in pre.candidates:
+        if reads:
+            continue
+        name = f"{decl.owner}.{decl.name}" if decl.owner else decl.name
+        if writes:
+            message = (
+                f"{rel(decl.path)}: {name} is written by {writes} production use(s) "
+                f"and read by none — the option is set and never consulted"
+            )
+            kind = "write-only"
+        else:
+            message = (
+                f"{rel(decl.path)}: {name} ({decl.shape}) is declared and never read "
+                f"in production"
+            )
+            kind = "unread-public"
+        reason = baseline.reason_for(decl.name, decl.path)
+        if reason:
+            findings.append(("exempt", f"{message} — {reason}"))
+        else:
+            findings.append((kind, message))
+    if pre.ambiguous:
+        # Count the distinct names, because the list beside the count is distinct names.
+        # `len(pre.ambiguous)` is a *declaration* count: a name declared three times
+        # appeared once in the list and three in the number, so a reader judging coverage
+        # from the note was told about 3 names and shown 1.
+        names = sorted(set(pre.ambiguous))
+        shown = ", ".join(names[:6]) + (", …" if len(names) > 6 else "")
+        findings.append((
+            "note",
+            f"{len(names)} public name(s) skipped as ambiguous — each is declared more "
+            f"than once among the shapes this detector collects ({shown}), so an "
+            f"occurrence with no receiver cannot be attributed to one of them. This run "
+            f"reports nothing about those declarations.",
+        ))
+    return findings
+
+
 # ── Detector table ──────────────────────────────────────────────────────────
 
 
@@ -1304,7 +1662,37 @@ DETECTORS: list[Detector] = [
         check=_check_startup_unwired,
         precompute=_precompute_startup,
     ),
+    Detector(
+        kind="unread-public",
+        check=_check_unread_public,
+        precompute=_precompute_unread_public,
+    ),
 ]
+
+# Printed, never counted. `exempt` is a decision argued in
+# scripts/find-unwired-surfaces-baseline.txt; `note` is a detector saying what it could
+# not decide, which is information rather than a finding.
+INFORMATIONAL = frozenset({"exempt", "note"})
+
+
+def _summary(findings: list[tuple[str, str]]) -> str:
+    """The one-line count of a run, with exemptions and notes counted apart.
+
+    `exempt` and `note` are both printed, and neither is a finding: an exemption is a
+    decision that was argued in the baseline file, and a note is a detector saying what
+    it could not decide. Counting them together called a note an exemption — a
+    statement about a decision nobody took, on a run whose only finding was an
+    ambiguity note.
+    """
+    blocking = [f for f in findings if f[0] not in INFORMATIONAL]
+    exempt = [f for f in findings if f[0] == "exempt"]
+    notes = [f for f in findings if f[0] == "note"]
+    counts = [f"{len(blocking)} blocking finding(s)"]
+    if exempt:
+        counts.append(f"{len(exempt)} exempted")
+    if notes:
+        counts.append(f"{len(notes)} note(s)")
+    return "; ".join(counts) + "."
 
 
 # ── Main ────────────────────────────────────────────────────────────────────
@@ -1315,7 +1703,10 @@ FLOOR_FILE = ROOT / "config" / "docs" / "unwired-surfaces-floor.txt"
 FLOOR_HEADER = """\
 # unwired-surfaces floor — the number of BLOCKING findings this gate may report.
 #
-# Counted 2026-10-16 against source roots: {roots}.
+# Counted when the floor was last written, against source roots: {roots}.
+#
+# Every detector counts, `unread-public` / `write-only` (#1916) included: a shape
+# whose findings are never counted has no floor to stop it growing.
 #
 # One-directional on purpose. Lowering it is the debt being paid down and needs no
 # justification; raising it is a new unwired surface and must be argued in review.
@@ -1386,7 +1777,7 @@ def cli(ctx: click.Context, quiet: bool, update_floor: bool) -> None:
     # dropped so that the decision stays visible in the log of the run that honoured it —
     # a gate that stops mentioning its exemptions is a gate whose exemptions nobody
     # remembers agreeing to.
-    blocking = [f for f in findings if f[0] != "exempt"]
+    blocking = [f for f in findings if f[0] not in INFORMATIONAL]
 
     if update_floor:
         write_floor(len(blocking))
@@ -1396,17 +1787,17 @@ def cli(ctx: click.Context, quiet: bool, update_floor: bool) -> None:
     for kind, message in sorted(findings):
         click.echo(f"[{kind}] {message}")
 
-    if blocking:
-        click.echo(f"\n{len(blocking)} finding(s).", err=True)
-    elif findings:
-        click.echo(
-            f"\n0 blocking finding(s); {len(findings)} exempted. Every exemption names a "
-            f"reason in DECLARED_INTENT in this file — a row without one is an "
-            f"exemption nobody can audit.",
-            err=True,
-        )
-    else:
+    if not findings:
         click.echo("\nNo unwired surfaces found.", err=True)
+    else:
+        click.echo("\n" + _summary(findings), err=True)
+        if any(kind == "exempt" for kind, _ in findings):
+            click.echo(
+                "Every exemption names a reason in "
+                "scripts/find-unwired-surfaces-baseline.txt — a row without one is an "
+                "exemption nobody can audit.",
+                err=True,
+            )
 
     floor = read_floor()
     if len(blocking) > floor:
