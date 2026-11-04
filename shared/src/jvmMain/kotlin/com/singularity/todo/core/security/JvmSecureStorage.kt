@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -19,16 +20,29 @@ import javax.crypto.spec.SecretKeySpec
  * Strategy:
  *  1. On Linux: try `secret-tool` (libsecret/GNOME Keyring) first.
  *  2. On all JVM platforms: fall back to an AES-GCM encrypted file
- *     at `~/.config/singularity/secure.bin`.
+ *     at `<root>/.config/singularity/secure.bin`.
  *
  * The AES-GCM fallback derives a key from `user.home` via PBKDF2 — no external deps.
  */
 @Suppress("TooManyFunctions")
-open class JvmSecureStorage : SecureStoragePort {
+open class JvmSecureStorage(
+    /**
+     * The directory the fallback store is rooted at:
+     * `<applicationRoot>/.config/singularity/secure.bin`.
+     *
+     * The platform module passes the root it was given, so a graph built on a temporary
+     * root reads and writes *that* root's key material, never the developer's. Without
+     * this the fallback file was the one JVM port with no root: every other binding in
+     * the module could be pointed at a temporary directory while this one still resolved
+     * against the process-global `user.home`, and a test that resolved it wrote into the
+     * real encrypted store. The default is the user's home, which is what
+     * `platformModule()` passes in production.
+     */
+    private val applicationRoot: File = File(System.getProperty("user.home")),
+) : SecureStoragePort {
     /** Open so test subclasses can direct the fallback file to a test-specific path. */
     protected open val fallbackFile: Path by lazy {
-        val home = System.getProperty("user.home")
-        val dir = Paths.get(home, ".config", "singularity")
+        val dir = Paths.get(applicationRoot.absolutePath, ".config", "singularity")
         Files.createDirectories(dir)
         dir.toFile().setReadable(false, false)
         dir.toFile().setWritable(false, false)
@@ -38,6 +52,15 @@ open class JvmSecureStorage : SecureStoragePort {
         dir.toFile().setExecutable(true, true)
         dir.resolve("secure.bin")
     }
+
+    /**
+     * Where the encrypted fallback store lives, without reading or writing a secret.
+     *
+     * Exposed so the isolation test can prove the path is under the root the graph was
+     * given. It cannot prove that by writing a value: on a host with a working keyring
+     * the write goes to the developer's real libsecret and no file appears at all.
+     */
+    internal val fallbackPath: Path get() = fallbackFile
 
     // ─── SecureStoragePort ────────────────────────────────────────────────────
 
