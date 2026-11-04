@@ -32,8 +32,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -213,84 +211,50 @@ private fun TasksTabContent(state: StatisticsUiState) {
         val buckets = snapshot?.tasksPerDay ?: persistentListOf()
 
         Text(
-            text = "Last ${buckets.takeLast(7).size} days",
+            // The range is the screen's own selection, not however many buckets
+            // happen to have arrived: a title derived from the list said "Last 7
+            // days" while the user had picked 30.
+            text = "Last ${state.rangeDays} days",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
 
-        // Bar chart
+        // Bar chart — one bar per day of the selected range, so the title, the
+        // scale and the labels all describe the same window.
         TasksBarChart(buckets = buckets)
     }
 }
 
 @Composable
 private fun TasksBarChart(buckets: ImmutableList<DayBucket>) {
-    // The labels below only describe the last seven days, so the bars use the
-    // same seven-day scale instead of stretching the selected range across the
-    // card. This keeps the bars (and their labels) readable at every range.
-    val displayed = buckets.takeLast(7)
-    val maxCount =
-        (displayed.maxOfOrNull { it.completedCount + it.overdueCount } ?: 1)
-            .coerceAtLeast(1)
+    val bars =
+        buckets.map { bucket ->
+            DayBar(
+                label = LocalDate.parse(bucket.date).day.toString(),
+                // Overdue is painted from the base and completed above it: the
+                // segment the user is asked to act on starts at the baseline.
+                // The bar is scaled against the stack (DayBarChart), so the
+                // busiest day's completed segment can no longer push the amber
+                // one off the top of the chart and hide it.
+                segments =
+                    listOf(
+                        BarSegment(bucket.overdueCount.toFloat(), DataStatusColors.Overdue),
+                        BarSegment(bucket.completedCount.toFloat(), DataStatusColors.Completed),
+                    ),
+            )
+        }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Canvas(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .padding(16.dp),
-        ) {
-            val barCount = displayed.size
-            if (barCount == 0) return@Canvas
-
-            val spacing = 8.dp.toPx()
-            val availableWidth = (size.width - (spacing * (barCount - 1))).coerceAtLeast(0f)
-            val barWidth = availableWidth / barCount
-            val chartHeight = size.height
-
-            displayed.forEachIndexed { index, bucket ->
-                if (maxCount > 0 && barWidth > 0f) {
-                    // Overdue: amber segment from the base.
-                    val overdueHeight = (bucket.overdueCount.toFloat() / maxCount) * chartHeight
-                    if (overdueHeight > 0f) {
-                        drawRect(
-                            color = DataStatusColors.Overdue,
-                            topLeft = Offset(index * (barWidth + spacing), chartHeight - overdueHeight),
-                            size = Size(barWidth, overdueHeight),
-                        )
-                    }
-
-                    // Completed: green segment above the overdue one.
-                    val completedHeight = (bucket.completedCount.toFloat() / maxCount) * chartHeight
-                    if (completedHeight > 0f) {
-                        drawRect(
-                            color = DataStatusColors.Completed,
-                            topLeft =
-                                Offset(
-                                    index * (barWidth + spacing),
-                                    chartHeight - overdueHeight - completedHeight,
-                                ),
-                            size = Size(barWidth, completedHeight),
-                        )
-                    }
-                }
+        Column(modifier = Modifier.padding(16.dp)) {
+            if (bars.isEmpty()) {
+                Text(
+                    text = "Nothing recorded yet",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                DayBarChart(bars = bars, chartHeight = 200.dp)
             }
-        }
-    }
-
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        displayed.forEach { bucket ->
-            val day = LocalDate.parse(bucket.date).day.toString()
-            Text(
-                text = day,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
         }
     }
 }
@@ -415,61 +379,19 @@ private fun InsightsStackedBarChart(
     buckets: ImmutableList<DayInsightsBucket>,
     modifier: Modifier = Modifier,
 ) {
+    val bars =
+        buckets.map { bucket ->
+            DayBar(
+                label = LocalDate.parse(bucket.date).day.toString(),
+                segments = listOf(BarSegment(bucket.totalMs.toFloat(), DataStatusColors.Completed)),
+            )
+        }
+
     Card(modifier = modifier) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Canvas(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(180.dp),
-            ) {
-                val barCount = buckets.size
-                if (barCount == 0) return@Canvas
-
-                val spacingDp = if (barCount <= 14) 6.dp else 2.dp
-                val spacing = spacingDp.toPx()
-                val availableWidth = (size.width - (spacing * (barCount - 1))).coerceAtLeast(0f)
-                val barWidth = if (barCount > 0) availableWidth / barCount else 0f
-                val chartHeight = size.height
-
-                // Determine max for scaling
-                val maxMs = buckets.maxOfOrNull { it.totalMs } ?: 1L
-
-                buckets.forEachIndexed { index, bucket ->
-                    val normalizedHeight =
-                        if (maxMs > 0 && barWidth > 0f) {
-                            (bucket.totalMs.toFloat() / maxMs) * chartHeight
-                        } else {
-                            0f
-                        }
-
-                    if (normalizedHeight > 0f) {
-                        drawRect(
-                            color = DataStatusColors.Completed,
-                            topLeft = Offset(index * (barWidth + spacing), chartHeight - normalizedHeight),
-                            size = Size(barWidth, normalizedHeight),
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // Day labels
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(if (buckets.size <= 14) 6.dp else 2.dp),
-            ) {
-                buckets.forEach { bucket ->
-                    val date = LocalDate.parse(bucket.date)
-                    Text(
-                        text = date.day.toString(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
+            // The same chart the Tasks tab uses: one geometry, one label rule,
+            // so the day numbers sit under their bars at every range.
+            DayBarChart(bars = bars, chartHeight = 180.dp)
         }
     }
 }
