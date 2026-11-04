@@ -461,6 +461,14 @@ object TestTags {
      */
     const val AGENDA_MERGE_SERIES_BUTTON = "agenda_merge_series_button"
     const val AGENDA_SAVE_CURRENT_BUTTON = "agenda_save_current_button"
+
+    /**
+     * The line at the end of the Upcoming tab that says where a task dated beyond
+     * next week is seen. It is the user-facing half of the decision recorded in
+     * `2026-11-05-the-agenda-tabs-cover-a-horizon`.
+     */
+    const val AGENDA_HORIZON_NOTE = "agenda_horizon_note"
+
     const val SAVED_AGENDA_LIST_BACK = "saved_agenda_list_back"
     const val SAVED_AGENDA_CREATE_FAB = "saved_agenda_create_fab"
     const val SAVED_AGENDA_NAME_INPUT = "saved_agenda_name_input"
