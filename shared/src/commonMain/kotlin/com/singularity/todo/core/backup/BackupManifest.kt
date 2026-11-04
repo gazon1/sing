@@ -12,12 +12,7 @@ data class BackupManifest(
     val schemaVersion: Int,
     val entityCounts: EntityCounts,
     val payloadChecksum: String,
-) {
-    val isCompatibleWith: Boolean
-        get() =
-            formatVersion <= BackupFormat.FORMAT_VERSION &&
-                schemaVersion <= BackupFormat.SCHEMA_VERSION
-}
+)
 
 @Serializable
 data class EntityCounts(

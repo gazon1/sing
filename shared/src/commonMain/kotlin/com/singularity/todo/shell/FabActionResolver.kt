@@ -22,9 +22,13 @@ data class FabAction(val label: String, val onClick: () -> Unit)
  *
  * ## FAB prefill behaviour
  *
+ * Every agenda tab that lists tasks offers an "Add task" action: **Today**,
+ * **Inbox** and **Upcoming**, plus the Blocked, Stagnant and Overdue views.
+ *
  * When navigating from the **Today** tab, the task creation screen is pre-filled with
  * `dueDate = Today` so the user can change it without having to set it from scratch.
- * When navigating from **Inbox**, no due date is pre-filled.
+ * When navigating from **Inbox** or **Upcoming**, no due date is pre-filled: a task
+ * dated today belongs to the Today tab, and one dated tomorrow is the user's call.
  *
  * @param today the date to pre-fill, supplied by the caller. Required rather than
  *   read here (#91): the shell knows the date it is rendering, and a resolver that
@@ -51,6 +55,7 @@ internal fun fabActionForNav3(
                 }
 
                 AgendaStartRoute.Inbox,
+                AgendaStartRoute.Upcoming,
                 AgendaStartRoute.Blocked,
                 AgendaStartRoute.Stagnant,
                 AgendaStartRoute.Overdue,

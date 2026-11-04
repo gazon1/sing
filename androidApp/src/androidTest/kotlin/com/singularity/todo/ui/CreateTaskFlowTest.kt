@@ -5,8 +5,11 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
+import androidx.test.uiautomator.UiObject2
 import com.singularity.todo.MainActivity
+import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.testing.InstrumentedTestBase
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -14,6 +17,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.koin.core.context.GlobalContext
 
 /**
  * Smoke tests for the task creation flow.
@@ -47,6 +51,44 @@ class CreateTaskFlowTest : InstrumentedTestBase() {
     }
 
     /**
+     * Opens the task editor on an empty draft.
+     *
+     * The editor restores the draft it was last given, so a device that carries
+     * state from an earlier run opens the editor with that text already in the
+     * title field. A test that asserts "the editor opens empty" has to make
+     * that true first — otherwise it measures the state of the device rather
+     * than the behaviour of the editor, and the suite turns red on whatever
+     * the last run left behind.
+     *
+     * @return the title input of the editor that was opened.
+     */
+    private fun openEditorWithAnEmptyDraft(): UiObject2 {
+        clearRestoredDrafts()
+        device.tapTag("tasks_fab")
+        val titleInput =
+            device.awaitTag(
+                "task_editor_title_input",
+                "the task editor's title input",
+                TAB_TIMEOUT_MS,
+            )
+        return titleInput
+    }
+
+    /**
+     * Empties the drafts of the current user.
+     *
+     * The store is the app's own, read from its Koin graph: the instrumentation
+     * runs in the app's process, so this is the same store the editor restores
+     * from — and the same user scope the shell applies to it.
+     */
+    @Suppress("NoRunBlocking") // Instrumented test: the draft store is a suspend API.
+    private fun clearRestoredDrafts() {
+        runBlocking {
+            GlobalContext.get().get<DraftStore>().clearPrefix("")
+        }
+    }
+
+    /**
      * Happy path: tap FAB → type task title → save → verify task appears in list.
      */
     @Test
@@ -59,8 +101,10 @@ class CreateTaskFlowTest : InstrumentedTestBase() {
         val scenario = ActivityScenario.launch<MainActivity>(intent)
         navigateToToday()
 
-        // Tap the FAB to open the task editor.
-        device.tapTag("tasks_fab")
+        // Open the editor on an empty draft: the editor restores the draft it
+        // was last given, so a device that carries state from an earlier run
+        // would hand this test a title that is not this test's.
+        openEditorWithAnEmptyDraft()
 
         // The title input must appear in the editor, and the title is typed into
         // it — the tap and the typing are recorded as the steps they are.
@@ -96,8 +140,7 @@ class CreateTaskFlowTest : InstrumentedTestBase() {
         navigateToToday()
 
         // Open editor.
-        device.tapTag("tasks_fab")
-        device.awaitTag("task_editor_title_input", "the task editor's title input", TAB_TIMEOUT_MS)
+        openEditorWithAnEmptyDraft()
 
         // Type a title.
         device.typeInto("task_editor_title_input", "Do not save this task")
@@ -135,15 +178,8 @@ class CreateTaskFlowTest : InstrumentedTestBase() {
         val scenario = ActivityScenario.launch<MainActivity>(intent)
         navigateToToday()
 
-        // FAB opens the editor.
-        device.tapTag("tasks_fab")
-
-        val titleInput =
-            device.awaitTag(
-                "task_editor_title_input",
-                "the task editor's title input",
-                TAB_TIMEOUT_MS,
-            )
+        // The editor opens on an empty draft, whatever the device carried.
+        val titleInput = openEditorWithAnEmptyDraft()
 
         // Input should be empty initially.
         val initialText = titleInput.text

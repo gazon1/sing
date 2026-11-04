@@ -119,7 +119,6 @@ class BackupRoundTripTest {
                     importOptions {
                         sourcePath = destPath
                         targetUserId = owner
-                        overwriteExisting = true
                     },
                 )
             assertTrue(restored.isSuccess, "import failed: ${restored.exceptionOrNull()}")
@@ -227,7 +226,6 @@ class BackupRoundTripTest {
                     importOptions {
                         sourcePath = destPath
                         targetUserId = owner
-                        overwriteExisting = true
                     },
                 )
             assertTrue(restored.isSuccess, "import failed: ${restored.exceptionOrNull()}")

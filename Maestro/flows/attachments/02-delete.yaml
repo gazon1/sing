@@ -1,4 +1,5 @@
 # Attachments: deleting an attachment removes it from the list.
+# прогнан на устройстве: нет (2026-11-04) — прогон на устройстве не выполнялся
 appId: com.singularity.todo
 name: attachments-delete
 tags:
@@ -6,24 +7,23 @@ tags:
   - scenario:ATTACH-02
 ---
 # Seed a task.
-# `due=today`: a task without a due date lands in the "No Date" bucket,
-# which the Today tab does not show — the flow would assert against a task
-# it had seeded and could not see.
-- openLink: "todo-debug://seed?task=${RUN_ID}_DeleteAttachTask2026&due=today"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+# No `due=`: the task is undated, so it lands in the Inbox tab's "No Date"
+# section — the inbox is the tab of the tasks that are not dated yet, and the
+# flow looks the task up there.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=DeleteAttachTask2026"
 
 # Open task detail and add an attachment.
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_deleteattachtask2026
+      id: task_item_deleteattachtask2026
     timeout: 8000
 - tapOn:
-    id: task_item_${RUN_ID}_deleteattachtask2026
+    id: task_item_deleteattachtask2026
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input

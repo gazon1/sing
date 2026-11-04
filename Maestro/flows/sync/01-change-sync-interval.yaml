@@ -16,8 +16,7 @@ tags:
 - runFlow: ../../helpers/launch-clean.yaml
 
 # Open the hamburger menu and scroll to Settings.
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 - scrollUntilVisible:
     element:
       id: menu_settings
@@ -65,8 +64,7 @@ tags:
 - back
 
 # Reopen Settings → Sync and verify the interval selection survived.
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 - scrollUntilVisible:
     element:
       id: menu_settings

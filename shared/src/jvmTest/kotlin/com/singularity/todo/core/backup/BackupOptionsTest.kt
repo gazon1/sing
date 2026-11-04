@@ -40,21 +40,9 @@ class BackupOptionsTest {
             importOptions {
                 sourcePath = "/tmp/backup.zip"
                 targetUserId = UserId.anonymous
-                overwriteExisting = true
             }
         assertEquals("/tmp/backup.zip", opts.sourcePath)
         assertEquals(UserId.anonymous, opts.targetUserId)
-        assertEquals(true, opts.overwriteExisting)
-    }
-
-    @Test
-    fun `importOptions defaults overwriteExisting to true`() {
-        val opts =
-            importOptions {
-                sourcePath = "/tmp/backup.zip"
-                targetUserId = UserId.anonymous
-            }
-        assertEquals(true, opts.overwriteExisting)
     }
 
     @Test

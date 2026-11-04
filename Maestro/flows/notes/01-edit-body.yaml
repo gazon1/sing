@@ -21,8 +21,7 @@ tags:
   - notes
 ---
 - runFlow: ../../helpers/launch-clean.yaml
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 - scrollUntilVisible:
     element:
       id: menu_notes
@@ -53,8 +52,7 @@ tags:
 - back
 # Reload to verify the body survives a full process restart.
 - runFlow: ../../helpers/relaunch.yaml
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 - scrollUntilVisible:
     element:
       id: menu_notes

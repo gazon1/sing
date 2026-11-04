@@ -10,6 +10,11 @@ annotation class BackupDsl
 class ExportOptionsBuilder {
     var userId: UserId? = null
     var ownerId: UserId? = null
+
+    /**
+     * Where the archive is written: a file name, or a destination the person
+     * chose. See [ExportOptions.destPath].
+     */
     var destPath: String? = null
     var includeAttachments: Boolean = true
     var appVersion: String = appVersion().name
@@ -25,12 +30,11 @@ class ImportOptionsBuilder {
     var sourcePath: String? = null
     var targetUserId: UserId? = null
     var ownerId: UserId? = null
-    var overwriteExisting: Boolean = true
 
     fun build(): ImportOptions {
         val s = sourcePath ?: error("sourcePath required")
         val u = targetUserId ?: error("targetUserId required")
-        return ImportOptions(s, u, ownerId, ownerId, overwriteExisting)
+        return ImportOptions(s, u, ownerId, ownerId)
     }
 }
 
@@ -39,11 +43,20 @@ data class ExportOptions(
     val ownerId: UserId? = null,
     val ownerUserId: UserId? = null,
     /**
-     * **File name** of the archive, not a path.
+     * Where the archive is written.
      *
-     * The repository owns the backup directory and joins the two, so a caller
-     * cannot aim the export outside that directory. A path here is rejected
-     * rather than followed.
+     * Two kinds of value are accepted, and the shape of the value says which:
+     *
+     * - A **file name** — `backup.zip`. The repository owns the backup
+     *   directory and joins the two, so the archive lands beside the app's
+     *   other backups.
+     * - A **destination the person chose** — an absolute path, or a
+     *   `content://` URI from the system save dialog. It is used as it is:
+     *   nothing is joined to it, and the archive lands exactly there.
+     *
+     * A value carrying a scheme (`://`), a `content:` prefix, or a path
+     * separator is the second kind; a value carrying none of them is the
+     * first.
      */
     val destPath: String,
     val includeAttachments: Boolean = true,
@@ -55,7 +68,6 @@ data class ImportOptions(
     val targetUserId: UserId,
     val ownerId: UserId? = null,
     val ownerUserId: UserId? = null,
-    val overwriteExisting: Boolean = true,
     /**
      * The changes that follow the archive, in order.
      *

@@ -16,61 +16,65 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Per-component observation.
+ * What the surface store holds, and what a change to one component leaves alone.
  *
  * The behaviour under test is the one the layer did not have: an update to one component must not
- * wake a subscriber watching another. When components were an immutable map inside an immutable
- * surface, one update replaced the map and every node in the tree re-rendered — which is why
- * extending the catalogue was expensive.
+ * disturb another. When components were an immutable map inside an immutable surface, one update
+ * replaced the map and every node in the tree re-rendered — which is why extending the catalogue
+ * was expensive.
  */
 @Tag("fast")
 class SurfaceReactivityTest {
     private val controller = SurfaceController()
     private val surface = SurfaceId("s1")
 
+    /** The components of the surface under test, as the store holds them right now. */
+    private fun components(): Map<String, UiNode> =
+        controller.snapshot(surface)?.componentStore?.snapshot() ?: emptyMap()
+
     @Test
-    fun updatingOneComponentDoesNotEmitOnAnother() =
+    fun updatingOneComponentLeavesTheOthersUntouched() =
         runTest {
             controller.apply(create(text = mapOf("a" to "one", "b" to "two")))
-            val seen: MutableList<UiNode?> = mutableListOf()
-            val job = launch { controller.component(surface, "b").collect { seen += it } }
+            val before = components()
+
+            controller.apply(update(text = mapOf("a" to "changed")))
+            val after = components()
+
+            assertEquals(before["b"], after["b"], "The unrelated component changed: $after")
+            assertEquals("two", (after["b"] as UiNode.Text).value)
+        }
+
+    @Test
+    fun updatingTheComponentReplacesItsNode() =
+        runTest {
+            controller.apply(create(text = mapOf("a" to "one", "b" to "two")))
+            val store = controller.snapshot(surface)!!.componentStore
+            val emissions: MutableList<Map<String, UiNode>> = mutableListOf()
+            val job = launch { store.all.collect { emissions += it } }
             testScheduler.runCurrent()
 
             controller.apply(update(text = mapOf("a" to "changed")))
             testScheduler.runCurrent()
 
-            assertEquals(1, seen.size, "The unrelated component emitted: $seen")
+            assertEquals(2, emissions.size, "The store published the change: $emissions")
+            assertEquals("changed", (components()["a"] as UiNode.Text).value)
             job.cancel()
         }
 
     @Test
-    fun updatingTheComponentEmits() =
-        runTest {
-            controller.apply(create(text = mapOf("a" to "one", "b" to "two")))
-            val seen: MutableList<UiNode?> = mutableListOf()
-            val job = launch { controller.component(surface, "a").collect { seen += it } }
-            testScheduler.runCurrent()
-
-            controller.apply(update(text = mapOf("a" to "changed")))
-            testScheduler.runCurrent()
-
-            assertEquals(2, seen.size, "The changed component emitted: $seen")
-            assertEquals("changed", (seen.last() as UiNode.Text).value)
-            job.cancel()
-        }
-
-    @Test
-    fun rewritingAnIdenticalComponentDoesNotEmit() =
+    fun rewritingAnIdenticalComponentIsNotAChange() =
         runTest {
             controller.apply(create(text = mapOf("a" to "same")))
-            val seen: MutableList<UiNode?> = mutableListOf()
-            val job = launch { controller.component(surface, "a").collect { seen += it } }
+            val store = controller.snapshot(surface)!!.componentStore
+            val emissions: MutableList<Map<String, UiNode>> = mutableListOf()
+            val job = launch { store.all.collect { emissions += it } }
             testScheduler.runCurrent()
 
             controller.apply(update(text = mapOf("a" to "same")))
             testScheduler.runCurrent()
 
-            assertEquals(1, seen.size, "A no-op update is not a change: $seen")
+            assertEquals(1, emissions.size, "A no-op update is not a change: $emissions")
             job.cancel()
         }
 
@@ -94,17 +98,14 @@ class SurfaceReactivityTest {
         }
 
     @Test
-    fun aSurfaceAppearingLaterStartsEmitting() =
+    fun aSurfaceAppearingLaterBecomesVisible() =
         runTest {
-            val seen: MutableList<UiNode?> = mutableListOf()
-            val job = launch { controller.component(surface, "a").collect { seen += it } }
-            testScheduler.runCurrent()
-            assertTrue(seen.isEmpty())
+            assertNull(controller.snapshot(surface), "The surface does not exist yet")
 
             controller.apply(create(text = mapOf("a" to "late")))
-            testScheduler.runCurrent()
-            assertEquals(1, seen.size, "A component that arrives after the collector started: $seen")
-            job.cancel()
+
+            assertNotNull(controller.snapshot(surface), "A surface that arrives after the renderer mounted")
+            assertEquals("late", (components()["a"] as UiNode.Text).value)
         }
 
     @Test
@@ -117,18 +118,15 @@ class SurfaceReactivityTest {
         }
 
     @Test
-    fun aComponentRemovedFromTheSurfaceStopsEmittingItsNode() =
+    fun aComponentRemovedFromTheSurfaceStopsHoldingItsNode() =
         runTest {
             controller.apply(create(text = mapOf("a" to "one")))
-            val seen: MutableList<UiNode?> = mutableListOf()
-            val job = launch { controller.component(surface, "a").collect { seen += it } }
-            testScheduler.runCurrent()
+            assertNotNull(components()["a"])
 
             controller.apply(UiEvent.DeleteSurface(surface))
-            testScheduler.runCurrent()
 
             assertNull(controller.snapshot(surface))
-            job.cancel()
+            assertTrue(components().isEmpty(), "A deleted surface keeps nothing: ${components()}")
         }
 
     // ─── Lifetime ─────────────────────────────────────────────────────────

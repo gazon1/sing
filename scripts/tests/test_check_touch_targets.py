@@ -148,6 +148,70 @@ private fun ProbeOnlyCorrect(onClick: () -> Unit) {
 }
 """
 
+#: A chain that fixes its width below the minimum. `.width(24.dp)` is a size
+#: in the same sense `.size(24.dp)` is: it caps the node, and the node is a
+#: target a finger has to hit. The gate used to read `.size(...)` and nothing
+#: else, so this shape was invisible to it.
+WIDTH_BELOW_MIN = """\
+package com.singularity.todo.probe
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+
+@Composable
+private fun ProbeWidth(onClick: () -> Unit) {
+    Icon(
+        modifier = Modifier
+            .width(24.dp)
+            .clickable { onClick() },
+    )
+}
+"""
+
+#: The same shape, fixing the height instead. The codebase writes both, and a
+#: gate that read one of them and not the other would be blind half the time.
+HEIGHT_BELOW_MIN = """\
+package com.singularity.todo.probe
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+
+@Composable
+private fun ProbeHeight(onClick: () -> Unit) {
+    Icon(
+        modifier = Modifier
+            .height(24.dp)
+            .clickable { onClick() },
+    )
+}
+"""
+
+#: A correct control next to a violating one, in the width form. The correct
+#: chain expands the target before the width constrains it, so its hit area
+#: is the minimum; the violating one does not. The gate has to report exactly
+#: the second: a gate that reported both would push the codebase into
+#: removing the expansion, and a gate that reported neither would not be
+#: reading the file at all.
+WIDTH_CORRECT_BESIDE_VIOLATING = """\
+package com.singularity.todo.probe
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.touchTarget
+
+@Composable
+private fun ProbeWidthCorrectBesideViolating(onClick: () -> Unit) {
+    Icon(modifier = Modifier.touchTarget().width(24.dp).clickable { onClick() })
+    Icon(modifier = Modifier.width(24.dp).clickable { onClick() })
+}
+"""
+
 #: Where the planted sources go in the temporary tree. A directory called
 #: `test` would be skipped by the gate, so the probe lives in the shape the
 #: production sources live in.
@@ -277,6 +341,42 @@ class TouchTargetsPositiveControlTest(unittest.TestCase):
         result = self._run_gate(CORRECT_BESIDE_VIOLATING)
         self.assertEqual(result.returncode, FOUND)
         # One file, one violation: the correct chain is not among them.
+        self.assertEqual(
+            result.stdout.count("Probe.kt"),
+            1,
+            f"exactly one chain in the file is a violation:\n{result.stdout}",
+        )
+
+    def test_a_width_below_the_minimum_is_reported(self):
+        """`.width(24.dp)` is a size, and the gate reads it as one.
+
+        A control that fixes its width is as small as a control that fixes
+        both dimensions. The gate used to read only `.size(...)`, so this
+        shape was invisible to it.
+        """
+        self._assert_reported(WIDTH_BELOW_MIN)
+
+    def test_a_height_below_the_minimum_is_reported(self):
+        """The same shape, fixing the height instead."""
+        self._assert_reported(HEIGHT_BELOW_MIN)
+
+    def test_the_expansion_before_a_width_is_not_reported(self):
+        """The expansion before the size is what the rule asks for.
+
+        The file holds the expanded chain and the violating one, and the gate
+        has to report exactly the violating one. A gate that reported the
+        expanded chain as well would push the codebase into removing the
+        expansion, which is the opposite of what the rule asks; a gate that
+        reported neither would not be reading the file at all.
+        """
+        result = self._run_gate(WIDTH_CORRECT_BESIDE_VIOLATING)
+        self.assertEqual(
+            result.returncode,
+            FOUND,
+            f"the gate must report the violating width chain; it exited "
+            f"{result.returncode}.\nstdout:\n{result.stdout}"
+            f"\nstderr:\n{result.stderr}",
+        )
         self.assertEqual(
             result.stdout.count("Probe.kt"),
             1,

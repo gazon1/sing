@@ -3,6 +3,9 @@
 # Covers: seed three tasks (yesterday, today, tomorrow) via debug deep-link ->
 # verify each appears in the correct agenda section with its section header testTag.
 #
+# The three agenda tabs are disjoint: the overdue and today's tasks are in the
+# Today tab, tomorrow's in the Upcoming tab, and the undated ones in the Inbox.
+#
 # The agenda section header uses TestTags.agendaSection(name) so "No Date" ->
 # `agenda_section_no_date`, "Overdue" -> `agenda_section_overdue`, etc.
 appId: com.singularity.todo
@@ -13,13 +16,18 @@ tags:
 ---
 # Seed three tasks with different due dates. The titles are fixed and the seed
 # replaces, so each run asserts on the same three rows.
-- openLink: "todo-debug://seed?task=YesterdayTask&due=-1d"
-- openLink: "todo-debug://seed?task=TodayTask&due=today"
-- openLink: "todo-debug://seed?task=TomorrowTask&due=tomorrow"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=YesterdayTask&due=-1d"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=TodayTask&due=today"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=TomorrowTask&due=tomorrow"
 
 # Navigate to agenda.
 - tapOn:
@@ -39,8 +47,13 @@ tags:
 - assertVisible:
     id: task_item_todaytask
 
-# Upcoming section should contain TomorrowTask.
-- assertVisible:
-    id: agenda_section_upcoming
+# Tomorrow section should contain TomorrowTask — in the Upcoming tab, which is
+# where what is coming lives.
+- tapOn:
+    id: nav_tab_upcoming
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_tomorrow
+    timeout: 8000
 - assertVisible:
     id: task_item_tomorrowtask

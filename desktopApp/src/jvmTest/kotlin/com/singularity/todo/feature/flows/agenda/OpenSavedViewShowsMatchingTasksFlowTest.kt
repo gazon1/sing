@@ -49,9 +49,9 @@ class OpenSavedViewShowsMatchingTasksFlowTest {
             tasks(koin).givenUndated(title = "Buy milk")
 
             // ── 2. Persist a saved view directly ─────────────────────────────────
-            // The Inbox preset contains the "No Date" section, which is what the
+            // The All preset contains the "No Date" section, which is what the
             // undated task below matches when the results screen evaluates it.
-            val definition = AgendaDefinition("My Active Tasks", AgendaPresets.Inbox.sections)
+            val definition = AgendaDefinition("My Active Tasks", AgendaPresets.All.sections)
             koin.get<SavedAgendaViewsRepository>().upsert(
                 SavedAgendaViewFactory.create(
                     userId = UserId.anonymous,

@@ -1,4 +1,0 @@
-# DEPRECATED — delete after verifying no callers remain.
-# Was: seed a task and start Pomodoro Focus mode.
-# Was used by: (none — 0 callers found in Maestro/flows/)
-# Replace with: seed.yaml + manual Focus navigation if needed.

@@ -28,14 +28,6 @@ internal typealias BackupRowIndex = Map<BackupEntityKind, Map<String, Long>>
  * the manifest's checksum, and this says nothing about it.
  */
 internal object BackupRows {
-    /** The kinds whose rows are always carried whole, changed or not. */
-    val LINK_KINDS: Set<BackupEntityKind> =
-        setOf(
-            BackupEntityKind.TASK_TAGS,
-            BackupEntityKind.TASK_DEPENDENCIES,
-            BackupEntityKind.PROJECT_TAG_GROUPS,
-        )
-
     /** What the rows of [payload] look like, kind by kind. */
     fun index(payload: BackupPayload): BackupRowIndex =
         buildMap {

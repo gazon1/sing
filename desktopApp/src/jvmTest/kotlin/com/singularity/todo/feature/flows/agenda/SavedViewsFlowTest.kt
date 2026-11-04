@@ -45,7 +45,7 @@ import kotlin.test.assertTrue
  *
  * Note: each view-contents test seeds an undated task, because the agenda
  * results screen hides sections with zero tasks — without a matching task
- * the "No Date" section (the Inbox preset's catch-all for undated work)
+ * the "No Date" section (the All preset's catch-all for undated work)
  * never renders and cannot be awaited.
  */
 @OptIn(ExperimentalTestApi::class)
@@ -57,7 +57,7 @@ class SavedViewsFlowTest {
         name: String,
     ) {
         val repo = koin.get<SavedAgendaViewsRepository>()
-        val def = AgendaDefinition(name, AgendaPresets.Inbox.sections)
+        val def = AgendaDefinition(name, AgendaPresets.All.sections)
         repo.upsert(
             SavedAgendaViewFactory.create(
                 userId = UserId.anonymous,

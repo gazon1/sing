@@ -184,7 +184,12 @@ class AgendaViewModel(
      */
     private val latestTasks = MutableStateFlow<List<Task>>(emptyList())
 
-    /** Increments to re-run the collection in [init] after a failure or a retry. */
+    /**
+     * Increments to re-run the collection in [init] after a failure or a retry.
+     *
+     * The collection this triggers has to outlive a failure, or the retry has
+     * nothing to restart — see where the catch sits in [init].
+     */
     private val _reloadTrigger = MutableStateFlow(0)
 
     init {
@@ -227,6 +232,10 @@ class AgendaViewModel(
                             }
                     }
                 }.catch { cause ->
+                    // The collection stopped: a defect, not a user-actionable error, so the
+                    // cause goes to the reporter as well as to the screen. The message alone
+                    // would hide the throwable that explains why the agenda is empty.
+                    crashReporter.report(cause, AGENDA_LOAD_FAILED)
                     setState(AgendaUiState.Error(message = cause.toMessage("Could not load agenda")))
                 }.collect { fresh ->
                     // Reconciliation goes through `updateState`, which is CAS-backed,
@@ -861,6 +870,7 @@ class AgendaViewModel(
         const val UNDO_WINDOW_MS = 5_000L
 
         // Machine-shaped grouping keys — these leave the device.
+        private const val AGENDA_LOAD_FAILED = "agenda.load_failed"
         private const val TOGGLE_COMPLETE_FAILED = "agenda.toggle_complete_failed"
         private const val TOGGLE_PINNED_FAILED = "agenda.toggle_pinned_failed"
         private const val CANCEL_REMINDERS_FAILED = "agenda.cancel_reminders_failed"

@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+#
+# ./rm — the Maestro lane of THIS checkout.
+#
+#   ./rm --dry-run --tags tasks     # the Maestro runner of this checkout
+#   ./rm emulator                   # ensure-emulator of this checkout
+#   ./rm traceability results       # the traceability layer of this checkout
+#   ./rm whereami                   # the checkout this wrapper belongs to
+#
+# WHY
+#
+# `run-maestro` on PATH is an editable install, and the install belongs to
+# whichever checkout ran `pip install -e scripts/src/` last. The Maestro runner
+# resolves its root from the *installed package's* file, so the flows it reads
+# and the APK it installs are the ones of that checkout — and the report is
+# green against a tree nobody is working on.
+#
+# PYTHONPATH alone is not the whole answer. A modern editable install
+# registers a *meta-path finder* that maps the package to the checkout that was
+# installed last. Setuptools appends it to `sys.meta_path`, so a `sys.path`
+# entry wins while it is there — but the plain `run-maestro` on PATH has no
+# such entry, and the import resolves to the foreign clone. This wrapper drops
+# any editable finder and puts this checkout's `scripts/src` first, so the
+# answer does not depend on the setuptools version that installed it. That is
+# the same move `./gw` makes with this worktree's Gradle home, and the same
+# move `./sg` makes with the gate package.
+#
+# The move itself lives in `scripts/package-binding.py`, which the gate suite's
+# runner uses too — one place that knows how to bind the packages, loaded by
+# path, because the packages may be the thing that is broken.
+#
+# WHAT IT PROVES
+#
+#   ./rm whereami         # the checkout this runner belongs to
+#
+# If that prints a path outside this repository, the wrapper is broken and the
+# flows would run against somebody else's tree.
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export RM_CHECKOUT="$root"
+
+exec "${RM_PYTHON:-python3}" - "$@" <<'PYTHON'
+import importlib.util
+import os
+import sys
+
+root = os.environ["RM_CHECKOUT"]
+
+# The binding is one module, loaded by path: the packages may be the thing
+# that is broken, so the thing that fixes them cannot live inside them.
+spec = importlib.util.spec_from_file_location(
+    "package_binding", os.path.join(root, "scripts", "package-binding.py")
+)
+binding = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(binding)
+binding.bind_local_package(root)
+
+# A run that measures the wrong tree is not a red run — it is no run at all.
+# So the packages this wrapper is about are checked before anything is
+# measured, and a package that does not resolve here is named.
+foreign = binding.foreign_packages(root)
+if foreign:
+    sys.stderr.write(
+        f"The packages of {root} do not resolve to this checkout: "
+        f"{', '.join(foreign)}.\n"
+        f"Install them from here: pip install -e {os.path.join(root, 'scripts', 'src')}\n"
+    )
+    raise SystemExit(2)
+
+argv = sys.argv[1:]
+
+# The first argument names the entry point; without one the Maestro runner is
+# what this wrapper is named after. The names are not options, and none of the
+# three CLIs takes a positional argument, so there is nothing to confuse them
+# with.
+tool = "maestro"
+if argv and argv[0] in ("maestro", "emulator", "traceability", "whereami"):
+    tool = argv.pop(0)
+
+if tool == "whereami":
+    # The checkout, as the *packages* say it — not as the wrapper's own path
+    # says it. The wrapper lives in one checkout by construction; the packages
+    # are the ones the environment can move, so they are the ones worth
+    # asking. A wrapper that answered from its own path would look right even
+    # when the binding had failed.
+    origin = binding.package_origin("emulator")
+    if origin is None:  # pragma: no cover - the refusal above catches this
+        sys.stderr.write("The emulator package does not resolve anywhere.\n")
+        raise SystemExit(2)
+    # The package directory is <root>/scripts/src/emulator: one level up is
+    # the package root (<root>/scripts/src), one more is <root>/scripts, and
+    # one more is the checkout.
+    print(origin.parent.parent.parent)
+    raise SystemExit(0)
+
+if tool == "emulator":
+    sys.argv = ["ensure-emulator", *argv]
+    from emulator._cli import main
+    raise SystemExit(main())
+
+if tool == "traceability":
+    sys.argv = ["traceability", *argv]
+    from traceability.__main__ import main
+    raise SystemExit(main(argv))
+
+sys.argv = ["run-maestro", *argv]
+from emulator.maestro._cli import main
+
+raise SystemExit(main())
+PYTHON

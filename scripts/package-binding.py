@@ -1,8 +1,12 @@
-"""package-binding.py — the one place that knows how to bind `sgate` to a checkout.
+"""package-binding.py — the one place that knows how to bind the packages to a checkout.
 
-The package is installed editable, so the environment decides which checkout's
-`scripts/src/sgate` answers `import sgate` — and a gate that measures another
-tree is a green run about somebody else's code.
+The packages are installed editable, so the environment decides which checkout's
+`scripts/src` answers `import sgate` — and a gate that measures another tree is
+a green run about somebody else's code. The same accident is available to every
+other package of the install: `emulator` (the Maestro runner and the emulator
+starter), `scanners` and `traceability` all sit next to `sgate` under
+`scripts/src/`, so they are all installed from the same place and all resolve to
+whichever checkout was installed last.
 
 Three surfaces bind the package, and they used to bind it three ways:
 
@@ -10,8 +14,8 @@ Three surfaces bind the package, and they used to bind it three ways:
     of `sys.path` (the idiom `check-script-conventions.py` checks, R2.5);
   - `scripts/ci/static-gates.sh` puts the same directory first in
     `PYTHONPATH` for the gates it dispatches;
-  - the two entry points — `./sg` and `scripts/run-gate-tests.py` — additionally
-    drop the editable finders from `sys.meta_path`.
+  - the entry points — `./sg`, `./rm` and `scripts/run-gate-tests.py` —
+    additionally drop the editable finders from `sys.meta_path`.
 
 The first two are the same move in two spellings. The third is the defensive
 one: an editable install registers a meta-path finder, and while it is
@@ -23,15 +27,22 @@ it, and they share this module so that the trust has one owner.
 **This module is loaded by path, not imported.** It cannot be imported: the
 runner has to work when the package is missing — that is the case it refuses —
 and it cannot live inside the package, because the package is what may be
-missing. It sits next to the runner instead, and both entry points reach it
+missing. It sits next to the runner instead, and every entry point reaches it
 the same way: by path.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import pathlib
 import sys
+
+#: The packages the editable install carries. They are siblings under
+#: `scripts/src/`, so one binding owns all of them — `scripts/src/pyproject.toml`
+#: declares them together, and an install that brought one of them brought the
+#: others from the same checkout.
+PACKAGES = ("emulator", "scanners", "sgate", "traceability")
 
 
 def is_editable_finder(finder: object) -> bool:
@@ -51,11 +62,11 @@ def is_editable_finder(finder: object) -> bool:
 
 
 def bind_local_package(root: pathlib.Path | str) -> pathlib.Path:
-    """Bind `import sgate` to the checkout that holds `root`.
+    """Bind `import sgate` — and every sibling package — to the checkout that holds `root`.
 
     Three moves, in this order:
 
-    1. the editable finders go — they map the package to whichever checkout
+    1. the editable finders go — they map the packages to whichever checkout
        was installed last;
     2. this checkout's `scripts/src` goes first on `sys.path` — so the package
        that answers `import sgate` is the one on disk here;
@@ -65,7 +76,7 @@ def bind_local_package(root: pathlib.Path | str) -> pathlib.Path:
        installed".
 
     @param root the repository root.
-    @return the directory the package is bound to.
+    @return the directory the packages are bound to.
     """
     source = (pathlib.Path(root) / "scripts" / "src").resolve()
     sys.meta_path = [finder for finder in sys.meta_path if not is_editable_finder(finder)]
@@ -75,3 +86,46 @@ def bind_local_package(root: pathlib.Path | str) -> pathlib.Path:
     if str(source) not in existing:
         os.environ["PYTHONPATH"] = os.pathsep.join([str(source), *existing])
     return source
+
+
+def package_origin(package: str) -> pathlib.Path | None:
+    """Where a package resolves from right now, or `None` when it does not resolve.
+
+    A package that has no `__init__.py` is a *namespace package*: it has no
+    origin, but it has a place it was found in, and that place answers the
+    question the same way.
+
+    @param package the package name.
+    @return the directory the package resolves to, or `None`.
+    """
+    try:
+        spec = importlib.util.find_spec(package)
+    except (ImportError, ValueError):
+        return None
+    if spec is None:
+        return None
+    if spec.origin:
+        return pathlib.Path(spec.origin).resolve().parent
+    locations = list(spec.submodule_search_locations or [])
+    if not locations:
+        return None
+    return pathlib.Path(locations[0]).resolve()
+
+
+def foreign_packages(root: pathlib.Path | str) -> list[str]:
+    """The packages that do not resolve to the checkout that holds `root`.
+
+    A package that does not resolve at all counts as foreign: the alternative
+    is that the import answers from wherever the environment says, which is the
+    accident this module exists to prevent.
+
+    @param root the repository root.
+    @return the names of the packages that are not this checkout's.
+    """
+    source = (pathlib.Path(root) / "scripts" / "src").resolve()
+    foreign: list[str] = []
+    for name in PACKAGES:
+        origin = package_origin(name)
+        if origin is None or source not in origin.parents:
+            foreign.append(name)
+    return foreign

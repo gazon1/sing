@@ -116,7 +116,7 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { navigator.openSavedAgendaCreate(AgendaPresets.Inbox) },
+                onClick = { navigator.openSavedAgendaCreate(AgendaPresets.All) },
                 modifier = Modifier.testTag(TestTags.SAVED_AGENDA_CREATE_FAB),
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Create view")

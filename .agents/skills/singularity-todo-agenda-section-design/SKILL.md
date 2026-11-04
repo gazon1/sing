@@ -31,10 +31,10 @@ the second occurrence crashes: `IllegalArgumentException: Key "task-id" was alre
 `discard = true`. Conversely, a range bucket that contains all earlier buckets
 must NOT have `discard` (it is the terminal collector).
 
-## Which sections need `discard` in the Inbox preset
+## Which sections need `discard` in the All preset
 
 ```kotlin
-val Inbox = agenda("Inbox") {
+val All = agenda("All") {
     section("Overdue",   RelativeBucket.Overdue,   discard = true)  // contained by nothing
     section("Today",     RelativeBucket.Today,     discard = true)  // tomorrow ∉ today
     section("Yesterday", RelativeBucket.Yesterday,   discard = true)  // tomorrow ∉ yesterday
@@ -45,6 +45,53 @@ val Inbox = agenda("Inbox") {
     section("No Date",   RelativeBucket.NoDate,    discard = false) // terminal
 }
 ```
+
+## The three tabs are disjoint
+
+The bottom bar shows three agenda tabs, and a task belongs to exactly one of them:
+
+| Tab | Preset | Sections |
+|---|---|---|
+| Inbox | `AgendaPresets.Inbox` | No Date |
+| Today | `AgendaPresets.Today` | Overdue, Today |
+| Upcoming | `AgendaPresets.Upcoming` | Tomorrow, This Week, Next Week |
+
+`AgendaPresets.All` above is **not** a tab — it holds every bucket, and it is
+the seed a new saved view starts from.
+
+Two rules keep the tabs apart:
+
+- **A tab never repeats another's bucket.** `Upcoming` used to open with
+  "Overdue" and "Today", which made it a superset of the Today tab; with one
+  task in the database all three tabs rendered the same screen.
+- **A bucket that spans another tab's days is narrowed.** `ThisWeek` runs from
+  Monday to Sunday, so it contains today and the days already gone — the days
+  the Today tab owns. The Upcoming preset's "This Week" section is therefore
+  `DateBucket(ThisWeek)` minus `Today` and `Overdue`:
+
+```kotlin
+section(
+    "this_week",
+    "This Week",
+    Selector.AllOf(
+        listOf(
+            Selector.DateBucket(RelativeBucket.ThisWeek),
+            Selector.Not(
+                Selector.AnyOf(
+                    listOf(
+                        Selector.DateBucket(RelativeBucket.Today),
+                        Selector.DateBucket(RelativeBucket.Overdue),
+                    ),
+                ),
+            ),
+        ),
+    ),
+    order = 1,
+)
+```
+
+`AgendaTabDisjointnessTest` (commonTest) pins the contract: no two tabs
+declare the same section, and every task shows up in exactly one of them.
 
 ## Bucket vs range: what overlaps with what
 
@@ -67,9 +114,9 @@ render duplicate-looking rows instead of crashing.
 ## Testing a new section
 
 1. Add a task due on the section's boundary date
-2. Open Inbox and verify it appears in **exactly one** section
-3. Switch to Upcoming (which has different sections) and verify the same task
-   appears or doesn't appear as the preset intends
+2. Open the tab that owns the section and verify the task appears in **exactly one** section
+3. Check the other two tabs: the task must not show up there either — the tabs
+   are disjoint (`AgendaTabDisjointnessTest`)
 
 ## Related
 

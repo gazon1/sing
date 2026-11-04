@@ -138,12 +138,17 @@ class MaestroHelpersInventoryTest(unittest.TestCase):
 
     def test_live_helpers_all_used(self):
         live = [
-            "launch-clean.yaml",
-            "seed-task.yaml",
-            "seed.yaml",
-            "relaunch.yaml",
+            "backup-create-via-saf.yaml",
             "calendar-day-cell.yaml",
             "calendar-tap-day-cell.yaml",
+            "launch-clean.yaml",
+            "open-app-menu.yaml",
+            "plans-section-gone.yaml",
+            "plans-section.yaml",
+            "relaunch.yaml",
+            "seed-task.yaml",
+            "seed.yaml",
+            "session-signedin.yaml",
             "session-signedout.yaml",
             "settings-account-tab.yaml",
         ]
@@ -160,13 +165,39 @@ class MaestroHelpersInventoryTest(unittest.TestCase):
                 f"{name} is a live helper and no flow uses it",
             )
 
-    def test_deprecated_helpers_are_stubs(self):
+    def test_deprecated_helpers_are_removed(self):
+        """The deprecated stubs are gone: a helper nobody calls is dead code."""
         deprecated = ["open-menu-item.yaml", "start-focus-task.yaml"]
         for name in deprecated:
             path = ROOT / "Maestro/helpers" / name
-            self.assertTrue(path.exists(), f"{name} should exist")
-            text = path.read_text()
-            self.assertIn("DEPRECATED", text, f"{name} should be marked DEPRECATED")
+            self.assertFalse(path.exists(), f"{name} should have been removed")
+
+    def test_no_helper_is_unused(self):
+        """Every helper in the directory is called by at least one flow."""
+        for helper in sorted((ROOT / "Maestro/helpers").glob("*.yaml")):
+            used = [
+                flow
+                for flow in (ROOT / "Maestro/flows").rglob("*.yaml")
+                if helper.name in flow.read_text(encoding="utf-8")
+            ]
+            self.assertTrue(
+                used,
+                f"{helper.name} is a helper no flow uses",
+            )
+
+    def test_conventions_lists_every_helper(self):
+        """The conventions table names every helper in the directory.
+
+        A helper the table does not mention is a helper nobody reaches for,
+        and the table is what the next author reads.
+        """
+        conventions = (ROOT / "Maestro/CONVENTIONS.md").read_text(encoding="utf-8")
+        for helper in sorted((ROOT / "Maestro/helpers").glob("*.yaml")):
+            self.assertIn(
+                helper.name,
+                conventions,
+                f"{helper.name} is missing from Maestro/CONVENTIONS.md",
+            )
 
 
 # ── integration tests ───────────────────────────────────────────────────────────
