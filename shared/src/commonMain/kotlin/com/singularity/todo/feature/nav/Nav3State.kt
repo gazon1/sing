@@ -191,11 +191,11 @@ class Nav3State internal constructor(
         // shell. If every resolved stack is empty, reseed the start stack and
         // return its entries.
         return if (result.isEmpty()) {
-            val startStack = backStackFor(startRoute)
-            if (startStack != null && startStack.isEmpty()) {
+            val startStack = requireBackStackFor(startRoute)
+            if (startStack.isEmpty()) {
                 startStack.add(startRoute)
             }
-            decoratedEntries[startRoute] ?: emptyList()
+            decoratedEntries[startRoute].orEmpty()
         } else {
             result
         }
