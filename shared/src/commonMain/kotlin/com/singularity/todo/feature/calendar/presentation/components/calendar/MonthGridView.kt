@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.calendar.domain.logic.YearMonth
 import com.singularity.todo.feature.calendar.domain.logic.isoLocalDate
@@ -42,7 +43,6 @@ import com.singularity.todo.feature.calendar.domain.logic.toYearMonth
 import com.singularity.todo.feature.calendar.domain.logic.yearMonthForPage
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
-import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
@@ -258,7 +258,11 @@ private fun MonthDayCell(
                 ).padding(6.dp),
     ) {
         Column {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
                 if (isToday) {
                     Box(
                         modifier =

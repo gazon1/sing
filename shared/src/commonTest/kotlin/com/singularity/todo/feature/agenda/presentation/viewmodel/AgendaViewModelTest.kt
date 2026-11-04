@@ -999,9 +999,7 @@ class AgendaViewModelTest {
      * here: the agenda's collection stops on it, and the catch that handles the
      * stop is what this test is about.
      */
-    private class FailingTaskRepository(
-        private val failure: Throwable,
-    ) : FakeTaskRepository() {
+    private class FailingTaskRepository(private val failure: Throwable) : FakeTaskRepository() {
         override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> = flow { throw failure }
     }
 
