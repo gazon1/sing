@@ -193,7 +193,10 @@ class NavigationSmokeTest : InstrumentedTestBase() {
      * is what moves the content of the sheet up and brings the later entries into
      * it — the same direction a thumb moves to read further down a list.
      */
-    private fun menuEntry(sheet: UiObject2, tag: String): UiObject2 {
+    private fun menuEntry(
+        sheet: UiObject2,
+        tag: String,
+    ): UiObject2 {
         var attempts = 0
         while (true) {
             val entry = device.findObject(By.res(tag))
