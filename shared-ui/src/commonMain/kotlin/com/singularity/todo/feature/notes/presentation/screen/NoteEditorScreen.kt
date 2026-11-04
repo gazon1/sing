@@ -36,6 +36,7 @@ import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.DiscardChangesDialog
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.Notification
@@ -43,6 +44,7 @@ import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.detail.SavedIndicator
+import com.singularity.todo.core.ui.detail.rememberSavedPillState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.nav.NotesRoute
@@ -94,17 +96,21 @@ internal fun NoteEditorScreen(
         }
     }
 
-    // Saved-pill animation: on each successful save, show "Saved" for 1.5s.
-    var savedVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        viewModel.events
-            .filterIsInstance<NotesUiEvent.SavedPulse>()
-            .collect {
-                savedVisible = true
-                kotlinx.coroutines.delay(com.singularity.todo.core.platform.TimeConstants.AutoSaveDebounceMs)
-                savedVisible = false
-            }
-    }
+    // Saved-pill animation: on each successful save, show "Saved" for one autosave window,
+    // through the same state holder the task detail uses. The holder cancels the previous
+    // timer on a new pulse, so two saves close together keep the pill up for a full window
+    // after the later one instead of letting the earlier deadline hide it.
+    //
+    // The filtered flow is remembered rather than built inline: `filterIsInstance`
+    // allocates a new Flow on every call, and the holder keys its collector on the flow
+    // it is given. Handing it a fresh instance per recomposition would restart the
+    // collector on every keystroke and drop the pulses that land mid-restart — the pill
+    // would simply never show up.
+    val savedPulses =
+        remember(viewModel.events) {
+            viewModel.events.filterIsInstance<NotesUiEvent.SavedPulse>()
+        }
+    val savedPill = rememberSavedPillState(savedPulses)
 
     // The AI's proposed changes to this note. A note that is being created has none
     // yet, so the ViewModel is asked about an empty id and shows nothing.
@@ -115,22 +121,43 @@ internal fun NoteEditorScreen(
     val proposalsState by proposalsViewModel.stateFlow.collectAsStateWithLifecycle()
 
     var showAiSheet by remember { mutableStateOf(false) }
+    // Leaving with text the editor has not stored yet asks first. The draft
+    // knows: `isDirty` stands until the autosave has written the text, and
+    // a back press inside that window would drop the last keystrokes.
+    var showDiscard by remember { mutableStateOf(false) }
     val onBack: () -> Unit = {
         viewModel.onIntent(NotesEditorIntent.Close)
         navigator.back()
     }
+    // The header's back button and the system back press mean the same thing —
+    // and both of them ask before they throw the text away.
+    //
+    // The question is not permanent, and "Discard" is not a lie: `isDirty` here is the
+    // draft-local flag that `NoteEditor.onAutosaved` clears the moment the debounced
+    // autosave writes the text. So the guard asks only while leaving really would drop
+    // keystrokes, and once the write has landed a back press goes straight out without
+    // claiming there is unsaved work that is in fact on disk. (NoteEditor.override
+    // onAutosaved — the base class's `DraftMviViewModel.onAutosaved` documentation is the
+    // contract this depends on.)
+    val guardedBack: () -> Unit = {
+        if (editorState.draft.isDirty) {
+            showDiscard = true
+        } else {
+            onBack()
+        }
+    }
     // The system back press means what the header's back button means — and
     // with the keyboard open it means "close the keyboard" first.
-    ImeAwareBackHandler { onBack() }
+    ImeAwareBackHandler { guardedBack() }
     NoteEditorScreenContent(
         editorState = editorState,
         noteNotFound = viewModel.noteNotFound,
         onTitleChange = { title -> viewModel.onIntent(NotesEditorIntent.EditTitle(title)) },
         onBodyChange = { html -> viewModel.onIntent(NotesEditorIntent.EditBody(html)) },
         onSaveNow = { viewModel.onIntent(NotesEditorIntent.SaveNow) },
-        onBack = onBack,
+        onBack = guardedBack,
         onShowAiSheet = { showAiSheet = true },
-        savedVisible = savedVisible,
+        savedVisible = savedPill.visible,
         searchNotesForLink = viewModel::searchNotesForLink,
         searchTasksForLink = viewModel::searchTasksForLink,
         onAiAction = { action -> viewModel.onIntent(NotesEditorIntent.RunAiAction(action)) },
@@ -154,6 +181,19 @@ internal fun NoteEditorScreen(
         },
         proposalFailures = proposalsState.failures,
     )
+
+    // The question the back press asks when the editor still holds text the
+    // repository has not seen. "Discard" leaves and drops the text — the same
+    // thing `Close` has always done — but the user says so first.
+    if (showDiscard) {
+        DiscardChangesDialog(
+            onDiscard = {
+                showDiscard = false
+                onBack()
+            },
+            onKeepEditing = { showDiscard = false },
+        )
+    }
 
     // The proposals carry their own failures, on their own bus. They are merged into
     // the editor's notification stream rather than hosted separately: two hosts over
@@ -230,7 +270,7 @@ fun NoteEditorScreenContent(
             TopAppBar(
                 title = { Text("Note") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onBack, modifier = Modifier.testTag(TestTags.NOTE_EDITOR_BACK)) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },

@@ -33,7 +33,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
 
             assertEquals("", slot.state.value.title.value)
         }
@@ -49,7 +51,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
 
             slot.seed("Original", "Body")
 
@@ -68,7 +72,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
 
             slot.seed("Original", "Body")
             slot.onIntent(TaskDetailIntent.Domain.TitleChanged("User edit"))
@@ -89,7 +95,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "")
             runCurrent()
 
@@ -112,7 +120,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "")
             runCurrent()
 
@@ -129,6 +139,36 @@ class TaskDraftSlotTest {
         }
 
     @Test
+    fun `a debounced write reports itself so the detail can say it saved`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1", title = "Original"))
+            val source = TaskSource(task("t1", title = "Original"))
+            var saved = 0
+            val slot =
+                TaskDraftSlot(
+                    core = fakes.core(),
+                    context = fakes.context(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                    onError = {},
+                    onSaved = { saved++ },
+                )
+            slot.seed("Original", "")
+            runCurrent()
+
+            // A keystroke is not a save: the pulse is what tells the user the text is on
+            // disk, and one per keystroke would be a pill that never goes away.
+            slot.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited"))
+            runCurrent()
+            assertEquals(0, saved, "a keystroke must not report a save")
+
+            advanceTimeBy(DEBOUNCE_PLUS_SETTLE)
+            runCurrent()
+            assertEquals(1, saved, "the write that landed is what the detail reports")
+        }
+
+    @Test
     fun `description change persists and blank is stored as null`() =
         runTest {
             val fakes = SlotFakes()
@@ -139,7 +179,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "Old")
             runCurrent()
 
@@ -168,7 +210,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "")
             runCurrent()
 
@@ -209,7 +253,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "")
             runCurrent()
 

@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.TopAppBar
+import com.singularity.todo.core.ui.detail.SavedIndicator
 import org.jetbrains.compose.resources.stringResource
 import singularity_todo.shared.generated.resources.Res
 import singularity_todo.shared.generated.resources.ai_actions
@@ -28,6 +29,9 @@ import singularity_todo.shared.generated.resources.menu
  *        (e.g. in Create mode where there is no overflow menu).
  * @param onAiClick called when the AI button is tapped. Null means the button is hidden
  *        (AI features not available on this platform).
+ * @param savedVisible whether the "Saved" indicator is shown. The task detail edits in
+ *        place and stores the edit silently, so the indicator is the only thing that
+ *        tells the user the change was kept.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("FunctionSignature")
@@ -36,6 +40,7 @@ fun TaskDetailTopBar(
     onBackClick: () -> Unit,
     onMoreClick: (() -> Unit)? = null,
     onAiClick: (() -> Unit)? = null,
+    savedVisible: Boolean = false,
 ) {
     TopAppBar(
         title = {},
@@ -49,6 +54,10 @@ fun TaskDetailTopBar(
             }
         },
         actions = {
+            SavedIndicator(
+                visible = savedVisible,
+                modifier = Modifier.testTag(TestTags.TASK_DETAIL_SAVED_INDICATOR),
+            )
             if (onAiClick != null) {
                 IconButton(
                     onClick = onAiClick,

@@ -5,8 +5,14 @@ import androidx.compose.runtime.Composable
 /**
  * Confirmation dialog shown when the user tries to navigate away from an unsaved edit.
  *
+ * Dismissing it — the "keep editing" button, the back gesture, a tap outside — always
+ * means [onKeepEditing]. Nothing about leaving the dialog is a decision to throw work
+ * away: only the explicit discard button reaches [onDiscard]. A test that closes the
+ * dialog with the dismiss action and expects the editor to still be there is therefore
+ * asserting the intended behaviour, not a quirk.
+ *
  * @param onDiscard          Called when the user confirms discarding.
- * @param onKeepEditing     Called when the user chooses to keep editing.
+ * @param onKeepEditing     Called when the user chooses to keep editing, or dismisses.
  * @param title              Dialog title text.
  * @param text               Dialog body text.
  * @param discardButtonText  Label for the confirm/discard button.

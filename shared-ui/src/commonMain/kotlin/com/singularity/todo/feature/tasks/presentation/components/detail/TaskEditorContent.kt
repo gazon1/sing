@@ -162,6 +162,7 @@ private fun TaskEditorContent(
     onBack: () -> Unit,
     onAiClick: (() -> Unit)? = null,
     sheets: DialogState<TaskEditorSheet>,
+    savedVisible: Boolean = false,
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -171,6 +172,7 @@ private fun TaskEditorContent(
                 onBackClick = onBack,
                 onMoreClick = { showMenu = true },
                 onAiClick = onAiClick,
+                savedVisible = savedVisible,
             )
         },
         bottomBar = bottomBar ?: {},
@@ -462,6 +464,9 @@ private fun StartDateRow(
  *   open a sheet through this state, so the caller owns it and hands it over — there is no
  *   default, because a default is a second state, and two states are two states that will
  *   not agree.
+ * @param savedVisible whether the top bar shows the "Saved" pill. The detail stores its
+ *   inline edits silently, so the pill is the only sign the user gets that the text they
+ *   typed is on disk. Create mode has a save button and leaves this false.
  */
 @Composable
 fun TaskEditorContent(
@@ -475,6 +480,7 @@ fun TaskEditorContent(
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
     showAttachmentsRow: Boolean = true,
+    savedVisible: Boolean = false,
 ) {
     TaskEditorScaffold(
         model = model,
@@ -485,6 +491,7 @@ fun TaskEditorContent(
         now = now,
         sheets = sheets,
         showAttachmentsRow = showAttachmentsRow,
+        savedVisible = savedVisible,
     )
 }
 
@@ -555,6 +562,7 @@ private fun TaskEditorScaffold(
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
     showAttachmentsRow: Boolean = true,
+    savedVisible: Boolean = false,
 ) {
     TaskEditorContent(
         taskId = model.taskId?.value ?: "",
@@ -600,6 +608,7 @@ private fun TaskEditorScaffold(
         onBack = callbacks.onBack,
         onAiClick = callbacks.onAiClick,
         sheets = sheets,
+        savedVisible = savedVisible,
     )
 
     TaskEditorSheetsHost(
