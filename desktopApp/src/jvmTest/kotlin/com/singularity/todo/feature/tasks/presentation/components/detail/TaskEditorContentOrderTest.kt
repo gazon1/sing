@@ -31,15 +31,18 @@ import kotlin.time.Instant
  * and its priority only after a scroll.
  *
  * The window here is 360 wide on purpose: that is the width at which the claim in
- * the issue was measured. The stub section is a tall block, because that is what
- * the sections are — three cards with a heading and an add-row each.
+ * the issue was measured, and 800 tall, because that is the height of a phone at
+ * that width (a 1080x2400 device is 360x800 dp). A shorter window would not be a
+ * phone; a taller one would be a tablet, and the claim is about a phone.
+ * The stub section is a tall block, because that is what the sections are — three
+ * cards with a heading and an add-row each.
  *
  * Run with: ./gradlew :desktopApp:test --tests "*TaskEditorContentOrderTest"
  */
 private const val CHILD_SECTION_TAG = "editor_child_section"
 
 private const val PHONE_WIDTH = 360
-private const val PHONE_HEIGHT = 640
+private const val PHONE_HEIGHT = 800
 
 @Tag("slow")
 class TaskEditorContentOrderTest {
