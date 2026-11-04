@@ -2,6 +2,8 @@ package com.singularity.todo.feature.nav
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
@@ -164,7 +166,7 @@ class Nav3State internal constructor(
     ): List<NavEntry<NavKey>> {
         val viewModelStoreDecorator = rememberViewModelStoreNavEntryDecorator<NavKey>()
         val decoratedEntries =
-            backStacks.mapValues { (_, stack) ->
+            backStacks.mapValues { (route, stack) ->
                 val decorators =
                     buildList {
                         add(viewModelStoreDecorator)
@@ -174,7 +176,9 @@ class Nav3State internal constructor(
                         add(rememberSaveableStateHolderNavEntryDecorator())
                     }
                 rememberDecoratedNavEntries(
-                    backStack = stack,
+                    // Never hand NavDisplay an empty stack: it produces no entries, and
+                    // NavDisplay rejects an empty entry list (see the class KDoc).
+                    backStack = remember(route, stack.isEmpty()) { renderableKeysFor(route) },
                     entryDecorators = decorators,
                     entryProvider = { key: NavKey ->
                         @Suppress("UNCHECKED_CAST")
@@ -182,28 +186,36 @@ class Nav3State internal constructor(
                     },
                 )
             }
-        val result =
-            getTopLevelRoutesInUse().flatMap {
-                decoratedEntries[it]
-                    ?: emptyList()
+        val routesInUse = getTopLevelRoutesInUse()
+        // Reseed an empty stack after composition, never during it: a snapshot write in
+        // composition returns a stale entry list for the frame that needed the rescue.
+        // The entries above already render the route's own key for this pass, so the
+        // shell shows something either way, and the next pass reads a seeded stack.
+        SideEffect {
+            routesInUse.forEach { route ->
+                val stack = requireBackStackFor(route)
+                if (stack.isEmpty()) stack.add(route)
             }
-        // Fallback: never yield an empty entry list, which would render a blank
-        // shell. If every resolved stack is empty, reseed the start stack and
-        // return its entries.
-        return if (result.isEmpty()) {
-            val startStack = requireBackStackFor(startRoute)
-            if (startStack.isEmpty()) {
-                startStack.add(startRoute)
-            }
-            decoratedEntries[startRoute].orEmpty()
-        } else {
-            result
         }
+        return routesInUse.flatMap { decoratedEntries.getValue(it) }
     }
 
-    // Targeted, not "all non-empty stacks": every back stack is seeded with its key at
-    // composition, so an isNotEmpty filter would always include every top-level route and
-    // NavDisplay would render the last one (Settings) instead of the current tab.
+    /**
+     * The keys this composition renders for [route].
+     *
+     * A back stack can be empty — restored blank, or emptied by a path that is not
+     * [Navigator.goBack] (which reseeds). Rendering that stack yields no entries, so the
+     * route's own key stands in for it: the shell then shows the tab the user is on,
+     * rather than a blank screen or another tab's screen.
+     */
+    internal fun renderableKeysFor(route: NavKey): List<NavKey> {
+        val stack = requireBackStackFor(route)
+        return if (stack.isEmpty()) listOf(route) else stack
+    }
+
+    // Targeted, not "all non-empty stacks": every back stack is seeded with its key, so
+    // an isNotEmpty filter would always include every top-level route and NavDisplay
+    // would render the last one (Settings) instead of the current tab.
     private fun getTopLevelRoutesInUse(): List<NavKey> =
         if (topLevelRoute == startRoute) {
             listOf(startRoute)
