@@ -33,10 +33,36 @@ tags:
     id: nav_tab_calendar
 - assertVisible:
     id: nav_menu_button
-# The two destinations that moved behind the Menu button are not tabs. Their
-# ids are not on the screen at all, which is what makes the "open the menu
-# first" step in the plans and pomodoro flows necessary rather than stylistic.
+# The two destinations that moved behind the Menu button are not tabs. Their ids
+# are not in the bar, which is what makes the "open the menu first" step in the
+# plans and pomodoro flows necessary rather than stylistic.
 - assertNotVisible:
     id: nav_tab_plans
 - assertNotVisible:
     id: nav_tab_pomodoro
+
+# Absence on its own is not the contract, though: a bar that never had Plans
+# and a bar that moved Plans into the menu both pass `assertNotVisible`, so on
+# its own that assertion would still be green if the two destinations had been
+# deleted from the app instead of moved. The set the app really has is asserted
+# by finding both ids where they do live — the menu sheet — so this flow fails
+# if either is dropped, and the failure names the entry it could not find
+# (`menu_plans` / `menu_pomodoro`) rather than an id that was never drawn.
+#
+# The sheet is a scrollable column: an entry can be in the hierarchy and still
+# be below the fold, so the scroll is part of looking for it.
+- runFlow: ../../helpers/open-app-menu.yaml
+- scrollUntilVisible:
+    element:
+      id: menu_plans
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    id: menu_plans
+- scrollUntilVisible:
+    element:
+      id: menu_pomodoro
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    id: menu_pomodoro

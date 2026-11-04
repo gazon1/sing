@@ -11,7 +11,8 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Due%20today&due=today"
-- runFlow: ../../helpers/open-plans.yaml- extendedWaitUntil:
+- runFlow: ../../helpers/open-plans.yaml
+- extendedWaitUntil:
     visible:
       id: plans_granularity_day
     timeout: 8000

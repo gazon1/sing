@@ -19,7 +19,8 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Due%20today&due=today"
-- runFlow: ../../helpers/open-plans.yaml- runFlow:
+- runFlow: ../../helpers/open-plans.yaml
+- runFlow:
     file: ../../helpers/plans-section.yaml
     env:
       PLANS_SECTION: ${output.PLANS_TODAY_SECTION}

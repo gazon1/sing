@@ -10,7 +10,8 @@ tags:
   - pomodoro
 ---
 - runFlow: ../../helpers/seed-task.yaml
-- runFlow: ../../helpers/open-pomodoro.yaml- extendedWaitUntil:
+- runFlow: ../../helpers/open-pomodoro.yaml
+- extendedWaitUntil:
     visible:
       id: pomodoro_phase_label
     timeout: 8000

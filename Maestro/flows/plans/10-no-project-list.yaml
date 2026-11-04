@@ -24,7 +24,8 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "project=Roadmap&id=roadmap"
-- runFlow: ../../helpers/open-plans.yaml# The screen is the timeline: a task, in a section that names its day.
+- runFlow: ../../helpers/open-plans.yaml
+# The screen is the timeline: a task, in a section that names its day.
 - runFlow:
     file: ../../helpers/plans-section.yaml
     env:

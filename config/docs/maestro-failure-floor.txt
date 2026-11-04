@@ -34,37 +34,50 @@
 #
 # Measured 2026-10-22 by a full run of all 94 flows on the device
 # (RMX3938, API 35): 64 passed, 30 failed, 7 of the failures in the smoke
-# subset. The numbers below started as that run's failure counts, so the gate
-# passes and fails the first time the debt grows.
+# subset. The numbers below are that run's failure counts, so the gate passes
+# today and fails the first time the debt grows.
 #
 # The smoke set has changed since that run — the floor is a count of failures,
 # not a fraction of the suite — so a flow that joins the tag and fails is
 # debt the floor does not know about until it is re-measured and the number
 # below is raised deliberately.
 #
-# ── Lowered by the tab -> menu migration ─────────────────────────────────────
+# ── The tab -> menu migration: repaired, NOT yet re-measured ─────────────────
 #
 # Eighteen flows were in the 30 because they tapped a bottom-bar id the bar no
 # longer draws (`nav_tab_plans`, `nav_tab_pomodoro`) or asserted a bar the app
-# no longer has (a Calendar button that was not one yet, Plans/Pomodoro as
-# tabs). They now reach their destination the way a person does — menu button,
-# scroll the sheet, tap the entry — and they pass:
+# no longer has. They now reach their destination the way a person does — menu
+# button, scroll the sheet, tap the entry — and the flows repaired in this
+# change are:
 #
-#   Maestro/flows/plans/01..10          (ten flows, all `plans`)
-#   Maestro/flows/pomodoro/01..05       (five flows, all `pomodoro`)
-#   Maestro/flows/nav/01-no-calendar-tab.yaml  (deleted; its replacement
-#                                       01-tab-set.yaml asserts the bar as
-#                                       drawn and passes)
-#   Maestro/flows/nav/bottom-nav-tabs.yaml
-#   Maestro/flows/smoke/01-launch-today.yaml
+#   Maestro/flows/plans/01..10               (ten flows, all tagged `plans`)
+#   Maestro/flows/pomodoro/01..05            (five flows, all tagged `pomodoro`)
+#   Maestro/flows/nav/01-tab-set.yaml        (tags `smoke`, `nav`; replaces the
+#                                            deleted nav/01-no-calendar-tab.yaml,
+#                                            so the smoke set holds one flow
+#                                            where it held one before)
+#   Maestro/flows/nav/bottom-nav-tabs.yaml   (tags `smoke`, `nav`)
+#   Maestro/flows/smoke/01-launch-today.yaml (tag `smoke`; its copy of the
+#                                            tab-set assertions moved to
+#                                            nav/01-tab-set.yaml, which now owns
+#                                            that contract)
 #
-# Three of those are in the smoke subset — nav/01, nav/bottom-nav-tabs and
-# smoke/01-launch-today — so `smoke` drops from 7 to 4 and `full` from 30 to 12.
-# The remaining 4 and 12 are the other four groups the ADR names; they do not
-# move here. This is the ratchet the header describes: the number went down in
-# the change that says what was fixed, so the first regression in, say,
-# plans/01-days-in-order.yaml fails the gate instead of eating the slack these
-# repairs would otherwise have left behind.
+# The numbers below are deliberately NOT lowered by this change. Parsing a flow
+# is not running it: eighteen flows that have never been through a device are
+# exactly the debt this header warns about, and a floor lowered by arithmetic
+# would either go red on the next run for the wrong reason (18 failures against
+# a floor of 12) or, worse, hide a real regression in those very flows under the
+# slack that a wrong number leaves behind. So the floor stays at the one
+# measurement it has — 2026-10-22 — and this change claims no re-measurement.
+#
+# The ratchet is applied by the commit that carries a run's result: that diff
+# names the flows the run no longer fails, deletes each of them from the count,
+# and lowers the number here by the count it lost — `full` by every repaired
+# flow that passes, `smoke` by the `smoke`-tagged ones among them
+# (nav/01-tab-set.yaml, nav/bottom-nav-tabs.yaml, smoke/01-launch-today.yaml are
+# the three candidates, so `smoke` has at most three to give back). Until that
+# run exists, a regression arriving in these flows still fails against the
+# measured floor instead of against a number nobody took.
 
-full 12
-smoke 4
+full 30
+smoke 7

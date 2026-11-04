@@ -19,7 +19,8 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Due%20tomorrow&due=tomorrow"
-- runFlow: ../../helpers/open-plans.yaml# A section for today, and a section for tomorrow — two days, two sections.
+- runFlow: ../../helpers/open-plans.yaml
+# A section for today, and a section for tomorrow — two days, two sections.
 - runFlow:
     file: ../../helpers/plans-section.yaml
     env:

@@ -70,7 +70,8 @@ tags:
 
 # Plans — a menu destination, below the fold of the sheet. The FAB stays
 # "Add task": the timeline creates the work that is due.
-- runFlow: ../../helpers/open-plans.yaml- assertVisible:
+- runFlow: ../../helpers/open-plans.yaml
+- assertVisible:
     id: tasks_fab
 # The bar is still there — a menu destination is a top-level screen — but the
 # Plans entry is not one of its tabs.
@@ -80,7 +81,8 @@ tags:
     id: nav_tab_plans
 
 # Pomodoro — no shell FAB.
-- runFlow: ../../helpers/open-pomodoro.yaml- assertNotVisible:
+- runFlow: ../../helpers/open-pomodoro.yaml
+- assertNotVisible:
     id: tasks_fab
 - assertVisible:
     id: nav_menu_button

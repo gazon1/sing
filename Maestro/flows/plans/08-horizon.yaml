@@ -22,7 +22,8 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Due%20in%2045%20days&due=%2B45d"
-- runFlow: ../../helpers/open-plans.yaml# The day horizon is thirty days: the distant task is not in it.
+- runFlow: ../../helpers/open-plans.yaml
+# The day horizon is thirty days: the distant task is not in it.
 - runFlow:
     file: ../../helpers/plans-section.yaml
     env:
