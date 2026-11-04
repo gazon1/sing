@@ -1146,7 +1146,6 @@ afterEvaluate {
             "com/singularity/todo/mcp/ToolSurfaceWiringTest.class",
             "com/singularity/todo/core/di/AndroidGraphResolutionTest.class",
             "com/singularity/todo/core/notifications/AndroidNotifierTest.class",
-            "com/singularity/todo/core/observability/AndroidRecordRetentionTest.class",
             "com/singularity/todo/core/security/ArchiveCryptoGoldenAndroidTest.class",
             // The Android half of the backup decoder's budget. The decoder lives in
             // androidMain, and the JVM lane cannot reach it — so the one test that

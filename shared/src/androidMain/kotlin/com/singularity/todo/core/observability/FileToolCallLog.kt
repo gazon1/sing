@@ -45,7 +45,7 @@ class AndroidFileToolCallLog(
      * because the modification time of a file that is still open is the time it was
      * last written, and today's file is always the one being written to.
      */
-    fun purgeExpired(retentionDays: Int = RETENTION_DAYS) {
+    fun purgeExpired(retentionDays: Int = ToolCallRecordPolicy.RETENTION_DAYS) {
         val cutoff =
             Instant
                 .fromEpochMilliseconds(nowEpochMillis())
@@ -73,6 +73,5 @@ class AndroidFileToolCallLog(
 
     companion object {
         const val SUFFIX = ".jsonl"
-        const val RETENTION_DAYS = 30
     }
 }

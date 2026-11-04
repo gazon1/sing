@@ -50,7 +50,7 @@ class JvmFileToolCallLog(
      * Called once, when the writer is created. Today's file is never a candidate — it is
      * the file being written to — so the writer cannot delete the file it holds open.
      */
-    fun purgeExpired(retentionDays: Int = RETENTION_DAYS) {
+    fun purgeExpired(retentionDays: Int = ToolCallRecordPolicy.RETENTION_DAYS) {
         val cutoff = nowEpochMillis() - retentionDays * 24L * 60L * 60L * 1000L
         dir.listFiles()?.forEach { file ->
             if (!file.isFile || !file.name.endsWith(SUFFIX)) return@forEach
@@ -79,6 +79,5 @@ class JvmFileToolCallLog(
 
     companion object {
         const val SUFFIX = ".jsonl"
-        const val RETENTION_DAYS = 30
     }
 }
