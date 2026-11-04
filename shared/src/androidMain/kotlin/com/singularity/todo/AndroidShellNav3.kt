@@ -174,17 +174,12 @@ fun androidShellNav3Root(
                 val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
                 LaunchedEffect(state.topLevelRoute) {
                     // A screen without its own TopAppBar never publishes actions, so clear the
-                    // slot on every navigation to avoid stale buttons from the previous screen.
-                    screenActions.actions = null
-                    screenActions.selectionTitle = null
-                    screenActions.onExitSelection = null
-                    // The same is true of a published bar: the screen that owned
-                    // it is gone, and the shell must go back to its own title
-                    // rather than keep naming the month of a screen the user
-                    // has left.
-                    screenActions.title = null
-                    screenActions.navigationIcon = null
-                    screenActions.override = false
+                    // transient slots on every navigation to avoid stale buttons from the
+                    // previous screen. A published bar is deliberately not among them: the
+                    // screen that owns it takes it back down when it leaves composition, and
+                    // clearing it here raced the publishing screen's SideEffect — the agenda
+                    // lost its title and greeting after a tab switch (#2008).
+                    screenActions.onTopLevelRouteChanged()
                 }
 
                 CompositionLocalProvider(LocalNav3State provides state, LocalScreenActions provides screenActions) {

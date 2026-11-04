@@ -1,0 +1,60 @@
+# The agenda's bar on Android, where the shell owns the only bar.
+#
+# The agenda publishes its own title — and the greeting under it — to the
+# shell's ScreenActionsHolder instead of drawing a second bar. The shell clears
+# its transient slots whenever the top-level route changes, and it must not take
+# a screen's published bar with it: the greeting has to still be in the bar
+# after the user leaves the agenda and comes back (#1962, #2008).
+#
+# The greeting is computed from the clock ("Good morning/afternoon/evening"),
+# so the assertion is a regex over the three rather than one sentence.
+appId: com.singularity.todo
+name: agenda-greeting-in-shell-bar
+tags:
+  - regression
+  - agenda
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# The boot landing is the Today agenda. Wait for its bar's own action button so
+# the assertion below runs against a composed bar rather than a blank shell.
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Good (morning|afternoon|evening)"
+    timeout: 10000
+
+# Another agenda tab: both screens publish the same kind of bar, so this is the
+# tab switch inside the agenda (#2008).
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 8000
+- tapOn:
+    id: nav_tab_today
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 8000
+- assertVisible: "Good (morning|afternoon|evening)"
+
+# A destination that publishes a bar of its own (the calendar's month), then
+# back: the calendar's header must be replaced by the agenda's, not erase it
+# and leave the shell's destination title (#2008).
+- tapOn:
+    id: nav_tab_calendar
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_calendar
+    timeout: 8000
+- tapOn:
+    id: nav_tab_today
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 10000
+- assertVisible: "Good (morning|afternoon|evening)"

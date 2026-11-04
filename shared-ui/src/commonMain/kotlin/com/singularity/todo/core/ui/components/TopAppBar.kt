@@ -9,6 +9,7 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 
@@ -39,29 +40,28 @@ fun TopAppBar(
 ) {
     val holder = LocalScreenActions.current
     if (holder != null) {
+        val barOwner = remember { Any() }
         SideEffect {
-            holder?.actions = actions
-            holder?.selectionTitle = selectionTitle
-            holder?.onExitSelection = onExitSelection
+            holder.actions = actions
+            holder.selectionTitle = selectionTitle
+            holder.onExitSelection = onExitSelection
             if (overrideShell) {
-                holder?.title = title
-                holder?.navigationIcon = navigationIcon
-                holder?.override = true
+                holder.publishBar(owner = barOwner, title = title, navigationIcon = navigationIcon)
             }
         }
-        DisposableEffect(holder, overrideShell) {
+        DisposableEffect(holder, overrideShell, barOwner) {
             onDispose {
-                holder?.actions = null
-                holder?.selectionTitle = null
-                holder?.onExitSelection = null
-                // Only the bar that published the override takes it back down.
-                // A screen that has BOTH this bar and a [ShellOverride] must
-                // not have the second one's override cleared by the first one's
-                // disposal.
+                holder.actions = null
+                holder.selectionTitle = null
+                holder.onExitSelection = null
+                // Only the bar that published the override takes it back down,
+                // and only while it is still the bar the shell shows: a screen
+                // that has BOTH this bar and a [ShellOverride] must not have
+                // the second one's override cleared by the first one's
+                // disposal, and a screen leaving during a navigation must not
+                // erase the header the arriving screen has already published.
                 if (overrideShell) {
-                    holder?.title = null
-                    holder?.navigationIcon = null
-                    holder?.override = false
+                    holder.retractBar(barOwner)
                 }
             }
         }

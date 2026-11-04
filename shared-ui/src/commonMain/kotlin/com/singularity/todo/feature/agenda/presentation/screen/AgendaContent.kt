@@ -254,6 +254,10 @@ fun AgendaContent(
                             TopAppBarDefaults.topAppBarColors(
                                 containerColor = MaterialTheme.colorScheme.surface,
                             ),
+                        // On Android the shell owns the only bar: publish this
+                        // one — the agenda's own title with the greeting under
+                        // it — instead of letting the bar say the tab's name.
+                        overrideShell = true,
                     )
                 }
             }
