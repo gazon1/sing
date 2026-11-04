@@ -3,6 +3,7 @@ package com.singularity.todo.feature.notes.presentation.screen
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
@@ -259,7 +260,10 @@ fun NoteEditorScreenContent(
             )
         },
         bottomBar = {
-            Column {
+            // The toolbar is the bottom bar, so the keyboard would cover it and
+            // the text could no longer be formatted while typing. The app runs
+            // edge to edge, so the inset has to be applied here.
+            Column(modifier = Modifier.imePadding()) {
                 EditorToolbar(
                     richTextState = session.richTextState,
                     onHtmlChange = { session.dispatchHtml() },

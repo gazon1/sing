@@ -51,25 +51,38 @@ sealed interface EditorAction {
     data object InternalLink : EditorAction
 
     companion object {
-        /** Toolbar primary row — common formatting actions. */
+        /**
+         * The formatting actions that sit on the bar itself.
+         *
+         * Three, not seven: the bar also holds Undo, Redo, the overflow trigger and
+         * the AI action, and seven 48 dp targets are 336 dp — the width of a 360 dp
+         * phone with nothing to spare. Everything else lives in [overflow], and the
+         * bar scrolls, so a narrower window still reaches all of it.
+         */
         val primary: List<EditorAction> =
             listOf(
                 Bold,
                 Italic,
                 Underline,
-                Strike,
-                H1,
-                Bullet,
-                Ordered,
             )
 
-        /** Overflow menu actions — less common or dialog-triggered. */
+        /**
+         * The actions behind the overflow menu.
+         *
+         * Headings first, so H1/H2/H3 sit together under their own glyphs.
+         *
+         * [Quote] is not offered: the rich-text library has no blockquote toggle, so
+         * a menu item for it would do nothing.
+         */
         val overflow: List<EditorAction> =
             listOf(
+                H1,
                 H2,
                 H3,
+                Strike,
                 Code,
-                Quote,
+                Bullet,
+                Ordered,
                 AlignLeft,
                 AlignCenter,
                 AlignRight,
