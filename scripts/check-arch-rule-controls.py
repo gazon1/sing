@@ -25,34 +25,63 @@ Two things keep the next one from hiding:
 2. **Every rule needs a control that proves the rule can fail.** A committed
    fixture that still contains the hunted shape, or a synthetic source that
    asserts a finding, or — while the backlog is paid down — a row that records
-   the debt and a ceiling that only falls.
+   the debt, pinned by rule id and ratcheted.
 
 ## The registry
 
-`scripts/arch-rule-controls.tsv`, one row per derived rule and a `# ceiling: N`
-line for the ratchet:
+`scripts/arch-rule-controls.tsv`, one row per derived rule, plus one
+`# grandfathered: <rule_id>` line for each rule that is still uncontrolled:
 
     rule_id <TAB> control_kind <TAB> control_ref <TAB> expects
 
 - `rule_id` — `<TestClass>.<method name>`, exactly as the derivation spells it.
 - `control_kind` — `fixture`, `synthetic`, or `none`.
 - `control_ref` — `fixture`: a repo-relative path. `synthetic`:
-  `<TestClass>.<method>` naming the control test. `none`: the document that
-  records the debt (the row is a declaration, not a control).
+  `<TestClass>.<method>` naming the control test, which must not be the rule
+  itself nor any other derived rule. `none`: the document that records the debt
+  (the row is a declaration, not a control).
 - `expects` — for a fixture, the shape the rule hunts, as a substring the file
-  must still contain. Empty for the other kinds.
+  must still contain. The match collapses runs of whitespace on both sides, and
+  says so here because the contract is what the failure is read against:
+  re-indenting or rewrapping a fixture is not fixing it, so the shape still
+  counts; the shape going away is what fails.
 
 A `fixture` ref that has lost its shape fails, so a "fixed" fixture cannot
 quietly stop proving anything. A `synthetic` ref must exist and must assert a
-finding, not its absence. A `none` row is counted against the ceiling: a new
-rule cannot arrive without a control, and the ceiling must come down when the
-debt does — a ratchet that is allowed to stay loose is not a ratchet.
+finding, not its absence — and it must not be the rule it protects: a rule ends
+in "no offenders", so its own body would satisfy its own control without ever
+proving that a finding can be produced.
 
-Why `none` and not only the two kinds in the issue: about eighteen rules have no
-control today, and the audit's migration order is `register with the current
-state, then land controls`. Forcing a control onto every one of them in the
-change that lands the mechanism would mean rewriting the rules themselves, which
-that change is explicitly not for.
+## The ratchet is per rule, not per count
+
+A `none` row is allowed only when a `# grandfathered: <rule_id>` line names the
+same rule; a `none` row with no line fails, and a line with no `none` row fails
+too (the debt was paid, the line has to go).
+
+There is no `# ceiling: N` any more, and the gate rejects one. A count is
+satisfied by one debt replacing another: delete the control of rule A, add a new
+rule B with `none`, and the number is where it was — so the gate would pass a
+new rule that arrived with a promise instead of a control, which is the thing
+this gate exists to forbid. Pinned by rule id, that swap fails on B. The one way
+left to add debt is to add a line naming the rule, which is a line the reviewer
+sees; the gate cannot forbid an edit to its own baseline, and pretending a
+declaration file is immutable would be the same promise in a different hat.
+
+## Why `none` is a third kind, and what it costs
+
+The issue lists two kinds, `fixture` and `synthetic` (its prose names a third,
+a corpus guard). Fourteen of the nineteen rules derived today have neither.
+Giving each a control means rewriting the rule, and the change that lands the
+mechanism is explicitly not the change that clears the backlog; the audit's
+migration order is *register the current state, then land controls*
+(`docs/architecture/rule-control-audit.md` §6.9). `none` is that registration:
+it makes the debt visible, named and ratcheted instead of invisible.
+
+It does not prove those fourteen rules can fail. For them the gate proves only
+that the debt is declared and shrinking; the five rules with a `synthetic`
+control are the ones the gate actually holds to "can fail". That gap is recorded
+in the audit, §6.1, so the registry cannot be read as a stronger claim than it
+makes.
 
 ## What this gate does not prove
 
@@ -67,8 +96,8 @@ Usage:
 
 Exit codes:
     0 — every derived rule has a control, and every control is still a control
-    1 — a rule with no control, a control that no longer proves anything, or a
-        ceiling that disagrees with the debt
+    1 — a rule with no control, a control that no longer proves anything, or
+        debt that is not declared (or declared and no longer owed)
     2 — the arch sources or the registry could not be read
 """
 from __future__ import annotations
@@ -99,7 +128,8 @@ ROOT = Path(__file__).resolve().parent.parent
 #: The rule sources: the inventory is derived from these, never listed.
 ARCH_SOURCES = Path("shared/src/jvmTest/kotlin/com/singularity/todo/arch")
 
-#: One row per derived rule, plus the ceiling of rows that record debt.
+#: One row per derived rule, plus one `# grandfathered:` line per rule whose
+#: control is still owed. The debt is pinned by rule id, not by a count.
 CONTROLS = Path("scripts/arch-rule-controls.tsv")
 
 #: The audit that lists the debt a `none` row points at.
@@ -117,12 +147,15 @@ SCOPE_QUERY = re.compile(
     r"|\bscope\s*\.\s*interfaces\s*\(\s*\)"
 )
 
-#: The "no offenders" assertion: the shape every rule ends in.
-NO_OFFENDERS = re.compile(
-    r"\bassertNoOffenders\s*\("
-    r"|\bfail\s*\("
-    r"|assertTrue\s*\([\s\S]{0,300}?\.isEmpty\s*\(\s*\)"
-)
+#: The "no offenders" assertion: the shape every rule ends in. The emptiness
+#: form is matched structurally, on the argument `assertTrue` is given, not on a
+#: character window. A window is wrong both ways: it runs past the assertion's
+#: closing paren, so an unrelated `x.isEmpty()` later in the body makes a rule
+#: out of a test that only asserted a non-empty finding; and it gives up after
+#: 300 characters, so a genuine rule whose argument is longer is silently absent
+#: from the inventory — the exact failure this gate hunts.
+ASSERTS_NOTHING_FOUND = re.compile(r"\bassertNoOffenders\s*\(|\bfail\s*\(")
+EMPTINESS = re.compile(r"\.\s*isEmpty\s*\(\s*\)")
 
 #: A `@Test` method, whichever way its name is spelled.
 _FUN = re.compile(r"\bfun\s+(?:`([^`]+)`|([A-Za-z_]\w*))\s*\(")
@@ -287,7 +320,7 @@ def derived_rules(root: Path) -> dict[str, Rule]:
     rules: dict[str, Rule] = {}
     for path in sorted(sources.glob("*.kt")):
         for name, body in test_methods(path.read_text(encoding="utf-8")):
-            if SCOPE_QUERY.search(body) and NO_OFFENDERS.search(body):
+            if SCOPE_QUERY.search(body) and has_no_offenders_assertion(body):
                 rule_id = f"{path.stem}.{name}"
                 rules[rule_id] = Rule(
                     rule_id=rule_id,
@@ -306,10 +339,10 @@ def _all_test_methods(root: Path) -> dict[tuple[str, str], str]:
     return methods
 
 
-def parse_registry(text: str) -> tuple[list[Row], int]:
-    """The rows and the ceiling of the TSV, or `Unreadable` naming the line."""
+def parse_registry(text: str) -> tuple[list[Row], dict[str, int]]:
+    """The rows and the grandfathered debt of the TSV, or `Unreadable` naming the line."""
     rows: list[Row] = []
-    ceiling: int | None = None
+    grandfathered: dict[str, int] = {}
     for number, raw in enumerate(text.splitlines(), 1):
         # Only the line ending is stripped: the fourth field is empty for every
         # kind but `fixture`, and `rstrip()` would eat the tab that carries it.
@@ -317,9 +350,18 @@ def parse_registry(text: str) -> tuple[list[Row], int]:
         if not line.strip():
             continue
         if line.lstrip().startswith("#"):
-            declared = re.search(r"ceiling:\s*(\d+)", line)
+            if re.search(r"\bceiling\s*:", line):
+                raise Unreadable(
+                    f"{CONTROLS}:{number}: `# ceiling:` is gone. A count of "
+                    "uncontrolled rules is satisfied by one debt replacing "
+                    "another — delete rule A's control, add a new rule B with "
+                    "`none`, and the number never moves — so it cannot forbid a "
+                    "new rule arriving with a promise. Pin the debt by rule id "
+                    "with `# grandfathered: <rule_id>` instead."
+                )
+            declared = re.search(r"\bgrandfathered\s*:\s*(\S.*?)\s*$", line)
             if declared:
-                ceiling = int(declared.group(1))
+                grandfathered[declared.group(1)] = number
             continue
         fields = line.split("\t")
         if len(fields) != 4:
@@ -334,19 +376,30 @@ def parse_registry(text: str) -> tuple[list[Row], int]:
                 f"{', '.join(CONTROL_KINDS)}"
             )
         rows.append(Row(rule_id=rule_id, kind=kind, ref=ref, expects=expects, line=number))
-    if ceiling is None:
-        raise Unreadable(
-            f"{CONTROLS}: no `# ceiling: N` line. The ceiling is what stops a new "
-            "rule from arriving without a control; without it the registry is a "
-            "list, not a ratchet."
-        )
-    return rows, ceiling
+    return rows, grandfathered
 
 
 def _balanced_argument(text: str, open_index: int) -> str:
     """The text between the `(` at `open_index` and its matching `)`."""
     close = _matching_paren(text, open_index)
     return "" if close < 0 else text[open_index + 1 : close]
+
+
+def has_no_offenders_assertion(body: str) -> bool:
+    """True when `body` asserts that a scan found no offenders.
+
+    `assertTrue(…)` counts only when the `.isEmpty()` sits *inside* the argument
+    that `assertTrue` is given. Reaching for the next `.isEmpty()` in the body
+    would let an assertion about something else stand in for this one, and
+    bounding the reach by a character count would drop a genuine rule whose
+    argument is long.
+    """
+    if ASSERTS_NOTHING_FOUND.search(body):
+        return True
+    return any(
+        EMPTINESS.search(_balanced_argument(body, call.end() - 1))
+        for call in re.finditer(r"\bassertTrue\s*\(", body)
+    )
 
 
 def asserts_a_finding(body: str) -> bool:
@@ -370,11 +423,45 @@ def asserts_a_finding(body: str) -> bool:
     return False
 
 
-def _check_synthetic(row: Row, methods: dict[tuple[str, str], str], problems: list[str]) -> None:
+def _squashed(text: str) -> str:
+    """`text` with every run of whitespace collapsed to one space.
+
+    `expects` is matched this way on both sides, and the docstring says so: a
+    fixture that was re-indented or rewrapped still holds the shape it held,
+    and failing it would call a control broken for a formatting change. What
+    the check is for is the shape going away, which no amount of whitespace
+    hides.
+    """
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _check_synthetic(
+    row: Row,
+    methods: dict[tuple[str, str], str],
+    rules: dict[str, Rule],
+    problems: list[str],
+) -> None:
     if "." not in row.ref:
         problems.append(
             f"{row.rule_id}: synthetic control_ref {row.ref!r} is not "
             "`<TestClass>.<method>`"
+        )
+        return
+    if row.ref == row.rule_id:
+        problems.append(
+            f"{row.rule_id}: the synthetic control names the rule itself. A rule "
+            "ends in `no offenders`, so its own body would satisfy its own control "
+            "without ever proving that a finding can be produced"
+        )
+        return
+    if row.ref in rules:
+        problems.append(
+            f"{row.rule_id}: the synthetic control {row.ref} is itself a derived "
+            "rule ({rules[row.ref].source}). A rule asserts that nothing was found; "
+            "over another rule's body that proves only that absence reads as "
+            "success, which is the confusion this gate exists to end. The control "
+            "must be a @Test the derivation does not count as a rule, asserting a "
+            "finding"
         )
         return
     class_name, method = row.ref.split(".", 1)
@@ -395,7 +482,8 @@ def _check_synthetic(row: Row, methods: dict[tuple[str, str], str], problems: li
 
 
 def _check_fixture(root: Path, row: Row, problems: list[str]) -> None:
-    if not row.expects:
+    shape = _squashed(row.expects)
+    if not shape:
         problems.append(
             f"{row.rule_id}: the fixture control {row.ref} names no `expects` shape, "
             "so nothing would notice the fixture losing what it proves"
@@ -405,7 +493,7 @@ def _check_fixture(root: Path, row: Row, problems: list[str]) -> None:
     if not fixture.is_file():
         problems.append(f"{row.rule_id}: the fixture {row.ref} does not exist")
         return
-    if row.expects not in fixture.read_text(encoding="utf-8"):
+    if shape not in _squashed(fixture.read_text(encoding="utf-8")):
         problems.append(
             f"{row.rule_id}: the fixture {row.ref} no longer contains "
             f"{row.expects!r} — it was fixed, and a fixed fixture proves nothing"
