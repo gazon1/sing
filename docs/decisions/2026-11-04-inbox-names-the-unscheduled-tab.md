@@ -70,8 +70,10 @@ them apart.
   that sends `inbox` gets that selection rather than an error, and the old name drains
   out of the wire one caller at a time. A test pins both directions, because an alias
   nobody checks is an alias that stops working silently.
-- A cursor issued before the rename carries the old fingerprint and is refused with a
-  warning rather than paging a different list.
+- The alias buys the *selection*, and nothing else: a cursor issued before the rename
+  carries the old fingerprint and is refused with a warning rather than paging a
+  different list. The tool's description says so, because a model handed a cursor it
+  cannot use has to be able to name why.
 - The agenda's Inbox tab, the three-tab partition and the undated section are
   unchanged.
 

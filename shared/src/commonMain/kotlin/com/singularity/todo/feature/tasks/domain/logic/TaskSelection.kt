@@ -10,6 +10,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNames
 import kotlin.time.Duration
 
 /**
@@ -30,9 +31,11 @@ import kotlin.time.Duration
  *
  * ## Why [ACTIVE_NOT_DEFERRED] carries the qualifier and [ACTIVE] does not
  *
- * The two overlap: both mean "not finished", and they differ in one respect — the
- * deferred (`someday`) tasks. A name for the narrower set that sounded *broader* — a
- * bare "open", which is how the app already talks about a task that is not finished —
+ * [ACTIVE] is every unfinished task, the deferred (`someday`) ones included.
+ * [ACTIVE_NOT_DEFERRED] is that set with the deferred tasks taken out — it is
+ * narrower in one direction only: nothing [ACTIVE] holds is missing from it except
+ * the deferred tasks. A name for the narrower set that sounded *broader* — a bare
+ * "open", which is how the app already talks about a task that is not finished —
  * would make a model guess which of the two it wants; so the narrower set states the
  * exclusion in its name, and [ACTIVE] is the one that says nothing extra because
  * nothing is excluded from it. Read the pair as a whole and a qualifier:
@@ -45,9 +48,10 @@ enum class TaskSelection {
     /**
      * Every unfinished task that is not deferred — dated or undated.
      *
-     * This is not the agenda's Inbox tab, which holds the undated tasks only, and it is
-     * narrower than [ACTIVE], which keeps the deferred tasks. The name carries both
-     * clauses so that the two are not a guess.
+     * This is not the agenda's Inbox tab, which holds the undated tasks only. It is
+     * [ACTIVE] without the deferred tasks: [ACTIVE] keeps them, this one does not, and
+     * that is the whole difference between the two. The name carries both clauses so
+     * that the two are not a guess.
      *
      * ## The old name, `inbox`
      *
@@ -60,7 +64,7 @@ enum class TaskSelection {
      * in `TaskReadSurfaceTest`), because an alias nobody checks is an alias that stops
      * working silently.
      *
-     * ## What the rename does not keep working: page cursors
+     * ## What the alias does not cover: page cursors
      *
      * A page cursor carries [TaskSelectionResolver.fingerprint], which is built from the
      * enum constant's name. A cursor minted before the rename therefore says `INBOX`
@@ -68,8 +72,10 @@ enum class TaskSelection {
      * belonging to a different selection rather than continuing a list it cannot vouch
      * for. That is fail-closed on purpose — the caller restarts the page and loses
      * nothing but the offset. "A saved prompt keeps working" is a claim about the
-     * selection, not about cursors minted before the rename.
+     * selection, not about cursors minted before the rename: the alias buys the
+     * selection, and a cursor is not a selection.
      */
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     @SerialName("active_not_deferred")
     @JsonNames("inbox")
     ACTIVE_NOT_DEFERRED,
@@ -152,9 +158,13 @@ data class TaskSelectionRequest(
  * ## Why the base is always "everything", and not a narrower query
  *
  * The repository's own filters and the domain's own filters do not always agree. The
- * repository answers `ByStatuses` with nothing at all; and the two filters that do
- * agree today — `NotDeferred` and `All` — are only kept in step by a test that pins
- * what each read selects (`TaskRepositoryContractTest`). Reading through the
+ * repository answers `ByStatuses` with nothing at all, and
+ * [TaskSelection.ACTIVE_NOT_DEFERRED] is a combination of two filters —
+ * `NotDeferred` and `ByStatuses(Active)` — so the repository cannot answer it at all.
+ * The two filters that do answer the same question twice — `NotDeferred` and `All` —
+ * are kept in step by a test that pins what each read selects
+ * (`TaskRepositoryContractTest`), and the selection's own rule is pinned by a test
+ * that pins what it selects (`TaskSelectionResolverTest`). Reading through the
  * repository's narrower filters would therefore have the tool report a different set
  * from the screen.
  *
@@ -207,9 +217,11 @@ object TaskSelectionResolver {
             // filter and a screen are not the same question — so the active-status
             // rule is applied on top, and the reader gets what is still to do.
             //
-            // [ACTIVE_NOT_DEFERRED] is the same rule the repository's `NotDeferred` read
-            // applies (`archived_at IS NULL AND someday = 0`), plus completion; that read
-            // is pinned by `TaskRepositoryContractTest` so the two cannot drift.
+            // The two rules are the repository's `NotDeferred` read
+            // (`archived_at IS NULL AND someday = 0`, which is what the domain's
+            // `NotDeferred` predicate says) plus completion. That read is pinned by
+            // `TaskRepositoryContractTest`, and this combination is pinned by
+            // `TaskSelectionResolverTest`; neither can drift from the other.
             //
             // This is *not* the agenda's Inbox tab, which holds the undated tasks
             // only. The two answer different questions — "what is not scheduled yet"
