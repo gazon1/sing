@@ -13,5 +13,4 @@ import android.animation.ValueAnimator
  * animations are on — so this reports `1f` for every enabled scale and `0f`
  * only for the one that turns them off.
  */
-actual fun systemAnimationDurationScale(): Float =
-    if (ValueAnimator.areAnimatorsEnabled()) 1f else 0f
+actual fun systemAnimationDurationScale(): Float = if (ValueAnimator.areAnimatorsEnabled()) 1f else 0f
