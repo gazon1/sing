@@ -86,15 +86,39 @@ fun TaskCreateScreen(
     // snackbar: a toast is gone before it can be read, and this is the one
     // message a person needs while they are typing.
     //
-    // The rule is the ViewModel's — the same `validate` that disables the save
-    // button produced `state.error` — so the screen asks for the rule's answer
-    // instead of keeping a second copy of the wording. An error while the draft
-    // is valid cannot be a validation failure: `save()` validates before it
-    // persists, so it is a persistence failure and belongs in the snackbar.
+    // Two questions, two sources, and both are the ViewModel's:
+    //
+    // *Which* message — always `validationError`, the answer of the one rule that
+    // disables the save button (`TaskTitleValidation`), never whatever string
+    // happens to sit in the error slot. Those are not the same string: with a
+    // blank title, setting a repeat rule and then picking several dates writes
+    // "Повтор отменён: выбрано несколько дат" into the slot, because that is the
+    // news about the dates. Drawing it here — in error colour, under the title —
+    // would point at the wrong control, and would do it while the snackbar said
+    // the same sentence.
+    //
+    // *Whether* any — `state.error != null`. The slot is recomputed from
+    // `validate` on every draft change (`DraftMviViewModel.pushUiState`), so it
+    // is non-null exactly when the editor has something to say: the person has
+    // edited the draft, or a save was refused. The first pass after restore
+    // deliberately leaves it null, so nothing is drawn on a screen nobody has
+    // touched yet. Gating on the rule's own answer instead would draw
+    // "Title is required" from the first frame — the create draft starts blank —
+    // and the message would stop meaning "you are in the middle of something".
+    // Note there is no save-attempt gate to use: a blank title makes the draft
+    // invalid, which disables the button, so a save attempt is not a thing the
+    // person can make.
+    //
+    // And the message does not vanish on the first keystroke while the title is
+    // still blank: `error` is not a one-shot that `updateDraft` clears, it is
+    // rewritten from `validate` each time, so it stays as long as the title is
+    // blank and goes the moment it is not.
     val validationError = TaskTitleValidation.error(state.draft.title.text)
-    val titleError = state.error.takeIf { validationError != null }
+    val titleError = validationError.takeIf { state.error != null }
     LaunchedEffect(state.error, validationError) {
         val error = state.error ?: return@LaunchedEffect
+        // A validation failure is already under the field, where it can be read
+        // while typing; the snackbar is for what the field cannot say.
         if (error != validationError) snackbarHostState.showSnackbar(error)
     }
 

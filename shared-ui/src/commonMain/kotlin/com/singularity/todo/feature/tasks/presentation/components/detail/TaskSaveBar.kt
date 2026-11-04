@@ -51,9 +51,19 @@ fun TaskSaveBar(
                     .testTag(TestTags.TASK_EDITOR_SAVE),
         ) {
             if (isLoading) {
+                // `isLoading` is the caller's `isSaving`: TaskCreateScreen passes
+                // `isLoading = state.isSaving` here, so this branch is what a save
+                // in flight looks like on screen. The parameter was declared and
+                // ignored before — the caller handed over the flag and the button
+                // said "Сохранить" for the whole save, which reads as "nothing
+                // happened" on a save that is merely slow. TASK_EDITOR_SAVING is
+                // therefore in the tree exactly while a save is running, which is
+                // what a test can wait on.
+                //
                 // The label gives way to the spinner: a button that says
                 // "Сохранить" while it is busy says the save has not started.
-                // The caller keeps `enabled` false while saving, so the spinner
+                // The caller keeps `enabled` false while saving (`isSaveEnabled`
+                // is `validationError == null && !isSaving`), so the spinner
                 // cannot be tapped into a second save.
                 ButtonSpinner(
                     modifier = Modifier.testTag(TestTags.TASK_EDITOR_SAVING),
