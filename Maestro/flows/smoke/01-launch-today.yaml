@@ -23,4 +23,13 @@ tags:
 # The start route and the shell's FAB: the chain reached the agenda shell.
 - assertVisible:
     id: nav_tab_today
+# The Menu button is part of "the app came up" too, because it is the only route
+# to Plans, Pomodoro, the projects and Settings: a boot that came up without it
+# looks perfect on the agenda tab and strands every one of those destinations.
+# The tab *set* is not asserted here — Maestro/flows/nav/01-tab-set.yaml owns
+# that contract and carries the `smoke` tag, so it is in the same pull-request
+# run (the runner selects smoke flows by parsing each flow's `tags:` header) —
+# but the Menu entry is asserted here, on the boot chain this flow is about.
+- assertVisible:
+    id: nav_menu_button
 - takeScreenshot: smoke/01-launch-today

@@ -1,11 +1,14 @@
 # The bottom bar holds exactly the tabs the shell declares, and nothing else.
 #
 # The set is `DestinationKind.tabs`: Inbox, Today and Upcoming (the agenda's
-# three start routes), plus the Menu button that opens the app menu. Plans and
-# Pomodoro are menu destinations — a flow that looked for them in the bar
-# described a bar the app no longer draws.
+# three start routes) plus the Calendar. The bar's other entry is the Menu
+# *button*, which opens the app menu and is not a destination — so it is
+# asserted as a button and not counted as a tab.
 #
-# The Calendar is a fourth tab (`AppDestination.Calendar`, promoted from the menu
+# Plans and Pomodoro are menu destinations — a flow that looked for them in the
+# bar described a bar the app no longer draws.
+#
+# The Calendar is a tab again (`AppDestination.Calendar`, promoted from the menu
 # in commit f73aca39c) and is asserted here like the other three: this file is
 # the one place the tab-set contract is written down, so it asserts the bar the
 # app draws.
@@ -16,6 +19,11 @@
 # point a reader — and any scenario-coverage lookup — at a contract that
 # contradicts the flow. NAV-01 needs its own rewrite; when it has one, the tag
 # comes back here.
+#
+# прогнан на устройстве: нет (no device behind this file — it is parsed and
+# selector-validated only; the floor file records the same for every flow this
+# change touched, and the commit that lowers `smoke` is the one that will carry
+# a device result for it).
 appId: com.singularity.todo
 name: nav-tab-set
 tags:
@@ -49,8 +57,18 @@ tags:
 # if either is dropped, and the failure names the entry it could not find
 # (`menu_plans` / `menu_pomodoro`) rather than an id that was never drawn.
 #
-# The sheet is a scrollable column: an entry can be in the hierarchy and still
-# be below the fold, so the scroll is part of looking for it.
+# Both searches go DOWN for two reasons, and neither is a guess about a
+# half-scrolled sheet. First, `open-app-menu.yaml` leaves a freshly opened sheet
+# at the top of its scroll, so every row is below the starting position. Second,
+# the relative order is pinned by `MaestroFlowNavigationTest`, which reads
+# `AppMenu.sheetDestinations`: Plans is drawn above Pomodoro, and that test fails
+# if a reorder puts either entry above the sheet's opening position or swaps the
+# two. Without that test this flow would be asserting an order nobody checks,
+# and a menu reorder would surface here as a scroll timeout.
+#
+# The `assertVisible` after each scroll is what catches an overshoot: a row the
+# scroll sailed past is not on screen, and Maestro reports a scrolled-past row
+# as not visible. The scroll finds the entry; the assertion says it stayed found.
 - runFlow: ../../helpers/open-app-menu.yaml
 - scrollUntilVisible:
     element:

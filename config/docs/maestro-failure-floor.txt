@@ -42,7 +42,23 @@
 # debt the floor does not know about until it is re-measured and the number
 # below is raised deliberately.
 #
-# ── The tab -> menu migration: repaired, NOT yet re-measured ─────────────────
+# ── The tab -> menu migration: repaired, NOT re-measured ────────────────────
+#
+# DIVERGENCE FROM THE ISSUE BRIEF, stated here because this file is what the
+# brief is about. The brief asks that the floor be worked down — "each fix
+# lowers the floor by one, in the commit that says what was fixed". This change
+# does not lower it: `full` stays 30, `smoke` stays 7. The reason is the rule the
+# header above already states, applied strictly: the floor is a measurement, and
+# this change carries none. The flows below were repaired by reading them, and
+# parsing a flow is not running it; a number lowered by arithmetic is a number
+# nobody took. Lowering `full` to 12 would be right only if all of them pass,
+# and lowering it to anything in between would be worse than either end of that
+# range, because the leftover slack would hide a real regression inside the very
+# flows that were repaired. The ratchet therefore waits for the commit that
+# carries a run's result — the commit that names the flows the run no longer
+# fails and lowers the number by the count it lost.
+#
+# What the repair was, and the flows carrying it:
 #
 # Eighteen flows were in the 30 because they tapped a bottom-bar id the bar no
 # longer draws (`nav_tab_plans`, `nav_tab_pomodoro`) or asserted a bar the app
@@ -52,32 +68,33 @@
 #
 #   Maestro/flows/plans/01..10               (ten flows, all tagged `plans`)
 #   Maestro/flows/pomodoro/01..05            (five flows, all tagged `pomodoro`)
-#   Maestro/flows/nav/01-tab-set.yaml        (tags `smoke`, `nav`; replaces the
-#                                            deleted nav/01-no-calendar-tab.yaml,
-#                                            so the smoke set holds one flow
-#                                            where it held one before)
+#   Maestro/flows/nav/01-tab-set.yaml        (tags `smoke`, `nav`; one line for
+#                                            one in config/docs/maestro-flows.txt,
+#                                            where it replaces the deleted
+#                                            nav/01-no-calendar-tab.yaml, so the
+#                                            catalogue count is unchanged —
+#                                            whether the *smoke* count moved
+#                                            depends on a tag on a file this diff
+#                                            deletes, and if that file was not
+#                                            `smoke` the smoke set is one larger
+#                                            than the run behind `smoke 7` knew,
+#                                            which a failure-count floor cannot
+#                                            see; the run that lowers the number
+#                                            is what settles it)
 #   Maestro/flows/nav/bottom-nav-tabs.yaml   (tags `smoke`, `nav`)
 #   Maestro/flows/smoke/01-launch-today.yaml (tag `smoke`; its copy of the
 #                                            tab-set assertions moved to
 #                                            nav/01-tab-set.yaml, which now owns
 #                                            that contract)
 #
-# The numbers below are deliberately NOT lowered by this change. Parsing a flow
-# is not running it: eighteen flows that have never been through a device are
-# exactly the debt this header warns about, and a floor lowered by arithmetic
-# would either go red on the next run for the wrong reason (18 failures against
-# a floor of 12) or, worse, hide a real regression in those very flows under the
-# slack that a wrong number leaves behind. So the floor stays at the one
-# measurement it has — 2026-10-22 — and this change claims no re-measurement.
+# The countable claims are left to the checks that count them rather than
+# restated here: `scripts/check-maestro-flow-catalogue.py` holds the tree to
+# config/docs/maestro-flows.txt in both directions, so the flow count is whatever
+# that check says it is, not a number this comment asserts. The numbers below are
+# the only claim this file makes, and they are the ones measured on 2026-10-22.
 #
-# The ratchet is applied by the commit that carries a run's result: that diff
-# names the flows the run no longer fails, deletes each of them from the count,
-# and lowers the number here by the count it lost — `full` by every repaired
-# flow that passes, `smoke` by the `smoke`-tagged ones among them
-# (nav/01-tab-set.yaml, nav/bottom-nav-tabs.yaml, smoke/01-launch-today.yaml are
-# the three candidates, so `smoke` has at most three to give back). Until that
-# run exists, a regression arriving in these flows still fails against the
-# measured floor instead of against a number nobody took.
+# Until a run of the repaired flows exists, a regression arriving in them still
+# fails against that measured floor instead of against a number nobody took.
 
 full 30
 smoke 7

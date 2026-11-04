@@ -52,14 +52,21 @@ tags:
 # The post-tap assertion is the month title, not `nav_tab_calendar`: the tab is
 # in the bar whether or not the tap did anything, so asserting it here would
 # pass on a tap that went nowhere.
+#
+# The month title is waited for BEFORE the FAB is read. `assertNotVisible` has a
+# short implicit wait, so asking it straight after the tap asks the question
+# while the agenda screen may still own the shell — a race that passes on a warm
+# device and flakes on CI. The wait makes "the Calendar screen is up" true
+# first; only then is "and its shell has no FAB" a statement about the Calendar
+# rather than about a transition nobody waited for.
 - tapOn:
     id: nav_tab_calendar
-- assertNotVisible:
-    id: tasks_fab
 - extendedWaitUntil:
     visible:
       id: calendar_month_title
     timeout: 8000
+- assertNotVisible:
+    id: tasks_fab
 
 # Back to an agenda tab before leaving for the menu destinations, so the
 # next assertion starts from a known FAB state.

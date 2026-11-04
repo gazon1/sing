@@ -7,9 +7,17 @@
 # The sheet is a scrollable column: the entry can be in the hierarchy and still
 # be below the fold, and a row that is drawn but off-screen is not a row the
 # user can reach. So the scroll is part of opening Pomodoro, not a stylistic
-# step — and it lives here, once, so a menu reorder is a one-file change and a
-# failure names the entry it could not find (`menu_pomodoro`) rather than timing
-# out on an invisible id.
+# step.
+#
+# `direction: DOWN` is a fact about the menu, not a bet on what the last flow
+# did. This helper opens the sheet itself, so the scroll starts at the top; and
+# Pomodoro is drawn after Plans in `AppMenu.sheetDestinations`, an order
+# `MaestroFlowNavigationTest` pins so a reorder fails that test rather than this
+# flow. Nothing here inherits a scroll position from a previous helper.
+#
+# On a timeout Maestro names the element it could not find (`menu_pomodoro`),
+# which is the entry a reader has to go and check — not an invisible bottom-bar
+# id.
 appId: com.singularity.todo
 ---
 - runFlow: open-app-menu.yaml
