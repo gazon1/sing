@@ -3,40 +3,61 @@ package com.singularity.todo.arch
 import org.junit.jupiter.api.Tag
 import java.io.File
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * The Android shell leaves room below its content, above the navigation suite's bar.
+ * The Android shell keeps a bottom window inset for its content, above the navigation bar.
  *
  * ## What went wrong
  *
- * `NavigationSuiteScaffold` measures its content above the navigation bar and consumes the
- * insets that bar occupies, so a bottom inset read from inside the shell resolves to zero.
- * Its content lambda takes no `PaddingValues` either — not in the version this project
- * resolves — so there was no padding to forward. The shell therefore gave its screens no
- * bottom space at all: every screen's last row sat flush against the bar, and a screen
- * whose own layout is taller than its area was clipped by it (#1699).
+ * The inner `Scaffold` stripped the bottom side of the window insets down to the horizontal
+ * sides alone. Every screen's last row was therefore drawn behind the navigation suite's bar
+ * (#1699).
  *
- * ## What this holds
+ * ## What the fix is, and what this holds
  *
- * That padding is the only thing standing between the screens and the bar, and it is one
- * line in one file: nothing about it fails when it is deleted. This test reads the shell's
- * source — as the other source-scanning architecture tests read theirs — and fails when the
- * padding is gone.
+ * The fix is the `contentWindowInsets` argument the shell hands that scaffold — a bottom
+ * side must be present in it. It cannot come from reading `WindowInsetsSides.Bottom` on the
+ * scaffold's own insets: `NavigationSuiteScaffold` wraps its content in
+ * `navigationSuiteScaffoldConsumeWindowInsets`, which consumes
+ * `NavigationBarDefaults.windowInsets.only(Bottom)`, so the bottom of
+ * `ScaffoldDefaults.contentWindowInsets` read inside the suite is zero and that side alone
+ * changes nothing. The shell reads the inset above the suite and passes it as a length
+ * (`WindowInsets(bottom = ...)`).
  *
- * The assertion is spelled against the constant the shell defines, so a bottom padding
- * somewhere else in the file cannot satisfy it, and the source root comes from the
- * `androidMain.root` property the `archTest` task declares as an input — a derived path
- * would leave the test reading a tree Gradle does not know it depends on, and report a
- * stale pass. The first test pins that the file and the function are where this test
- * thinks they are, so the second cannot pass over an empty body.
+ * A static check is what this repository uses where a property has no runtime test to hold
+ * it: this reads the shell's source, as the other source-scanning architecture tests read
+ * theirs, and looks only at the argument that decides the property. It is deliberately not
+ * spelled against one form of the fix — a `WindowInsetsSides.Bottom` side and a
+ * `WindowInsets(bottom = ...)` length both satisfy it — so re-expressing the fix without
+ * removing it does not turn this red. It fails on the shape that shipped the bug
+ * (`.only(WindowInsetsSides.Horizontal)`), which the third test pins by running the same
+ * predicate over that shape.
+ *
+ * The top side is out of scope: `ShellTopBar` pads for the status bar and the scaffold must
+ * keep leaving the top out (#1566). The fourth test holds that half so a future "take the
+ * whole inset" does not undo it.
+ *
+ * The source root comes from the `androidMain.root` property the `archTest` task declares as
+ * an input — a derived path would leave the test reading a tree Gradle does not know it
+ * depends on, and report a stale pass. The first test pins that the file and the function
+ * are where this test thinks they are, so the others cannot pass over an empty body.
  */
 @Tag("fast")
 class AndroidShellBottomInsetTest {
     private companion object {
         private const val SHELL_FILE = "AndroidShellNav3.kt"
         private const val SHELL_ROOT = "fun androidShellNav3Root("
-        private const val BOTTOM_PADDING = "SHELL_CONTENT_BOTTOM_PADDING"
+        private const val INSET_ARGUMENT = "contentWindowInsets"
+
+        /**
+         * The shell as it shipped the bug: the bottom side stripped from the scaffold's
+         * window insets and nothing else put back (#1699). The predicate below must reject
+         * this shape, or it is not guarding anything.
+         */
+        private val PRE_FIX_INSETS =
+            "contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal)"
 
         /** The Android platform sources, handed over by the `archTest` task. */
         private val shellSource: String by lazy {
