@@ -26,6 +26,7 @@ Maestro/flows/agenda/05-reachability.yaml
 Maestro/flows/agenda/06-full-lifecycle.yaml
 Maestro/flows/agenda/07-copy-to-profile.yaml
 Maestro/flows/agenda/08-persistence-restart.yaml
+Maestro/flows/agenda/09-greeting-in-shell-bar.yaml
 Maestro/flows/archive/01-restore.yaml
 Maestro/flows/attachments/01-add-url.yaml
 Maestro/flows/attachments/02-delete.yaml

@@ -1,0 +1,65 @@
+# The agenda's bar on Android, where the shell owns the only bar.
+#
+# The agenda publishes its own title — and the greeting under it — to the
+# shell's ScreenActionsHolder instead of drawing a second bar. A published
+# header belongs to the screen that published it and is not taken down by the
+# shell on a navigation: the greeting has to still be in the bar after the
+# user leaves the agenda and comes back (#1962, #2008).
+#
+# The greeting is computed from the clock ("Good morning/afternoon/evening"),
+# so the assertion is a regex over the three rather than one sentence.
+appId: com.singularity.todo
+name: agenda-greeting-in-shell-bar
+tags:
+  - regression
+  - agenda
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# The boot landing is the Today agenda. Wait for its bar's own action button so
+# the assertion below runs against a composed bar rather than a blank shell.
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Good (morning|afternoon|evening)"
+    timeout: 10000
+
+# Another agenda tab: both screens publish the same kind of bar, so this is the
+# tab switch inside the agenda (#2008).
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 8000
+- tapOn:
+    id: nav_tab_today
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 8000
+- assertVisible: "Good (morning|afternoon|evening)"
+
+# A destination that publishes a bar of its own (the calendar's month), then
+# back: the calendar's header must replace the agenda's, not erase it and leave
+# the shell's destination title (#2008).
+- tapOn:
+    id: nav_tab_calendar
+# Wait for the agenda's bar to be gone. `nav_tab_calendar` would return
+# immediately — the tab bar already shows that item before the tap — and the
+# switch back would then test the agenda's header replacing the agenda's
+# header, not one published header replacing another (#1962 review). The
+# greeting is in the bar before this tap, so waiting for it to disappear is
+# waiting for the calendar's publication to take the bar.
+- extendedWaitUntil:
+    notVisible: "Good (morning|afternoon|evening)"
+    timeout: 8000
+- tapOn:
+    id: nav_tab_today
+- extendedWaitUntil:
+    visible:
+      id: agenda_saved_views_button
+    timeout: 10000
+- assertVisible: "Good (morning|afternoon|evening)"

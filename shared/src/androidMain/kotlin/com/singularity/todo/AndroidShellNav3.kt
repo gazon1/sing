@@ -23,8 +23,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -37,6 +37,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LocalScreenActions
+import com.singularity.todo.core.ui.components.LocalScreenActionsRoute
 import com.singularity.todo.core.ui.components.ScreenActionsHolder
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
@@ -150,6 +151,7 @@ fun androidShellNav3Root(
                 ShellTopBar(
                     screenActions = screenActions,
                     destinationTitle = current.title,
+                    route = state.topLevelRoute,
                     isSearch = current == AppDestination.Search,
                     navigator = navigator,
                     onMenu = { menuVisible = true },
@@ -171,23 +173,31 @@ fun androidShellNav3Root(
 
                 // The blank-tree diagnostic (REQ-DN-004) is recorded by
                 // `toDecoratedEntries` itself, before its unresolvable-entry fallback.
+                //
+                // There is deliberately no "clear the previous screen's slots"
+                // call here, in composition or in an effect (#1962 review).
+                // Every bar tags the slots it publishes with the top-level route
+                // it was composed on — see [LocalScreenActionsRoute] — and the
+                // bar above asks for the slots of the route it is drawing
+                // ([ScreenActionsHolder.actionsFor]). The previous screen's
+                // buttons therefore stop being drawn in the same composition
+                // that swaps the route, and a bar that outlives the navigation
+                // cannot put them back. A clear would have to be ordered against
+                // the arriving screen's publication to be correct; a read scoped
+                // to the route cannot be ordered wrongly.
                 val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
-                LaunchedEffect(state.topLevelRoute) {
-                    // A screen without its own TopAppBar never publishes actions, so clear the
-                    // slot on every navigation to avoid stale buttons from the previous screen.
-                    screenActions.actions = null
-                    screenActions.selectionTitle = null
-                    screenActions.onExitSelection = null
-                    // The same is true of a published bar: the screen that owned
-                    // it is gone, and the shell must go back to its own title
-                    // rather than keep naming the month of a screen the user
-                    // has left.
-                    screenActions.title = null
-                    screenActions.navigationIcon = null
-                    screenActions.override = false
-                }
 
-                CompositionLocalProvider(LocalNav3State provides state, LocalScreenActions provides screenActions) {
+                CompositionLocalProvider(
+                    LocalNav3State provides state,
+                    LocalScreenActions provides screenActions,
+                    // The same value the shell's bar asks for — `state.topLevelRoute`
+                    // read twice in one composition is one and the same route
+                    // object, and the route identity is what decides whose action
+                    // slots the bar draws ([ScreenActionsHolder.actionsFor]). A
+                    // different object here would leave every screen without its
+                    // buttons.
+                    LocalScreenActionsRoute provides state.topLevelRoute,
+                ) {
                     NavDisplay(
                         entries = navDisplayEntries,
                         onBack = {
@@ -241,18 +251,30 @@ fun androidShellNav3Root(
 private fun ShellTopBar(
     screenActions: ScreenActionsHolder,
     destinationTitle: String,
+    route: Any?,
     isSearch: Boolean,
     navigator: Navigator,
     onMenu: () -> Unit,
 ) {
     TopAppBar(
-        title = { ShellBarTitle(screenActions = screenActions, destinationTitle = destinationTitle) },
+        title = {
+            ShellBarTitle(
+                screenActions = screenActions,
+                destinationTitle = destinationTitle,
+                route = route,
+            )
+        },
         navigationIcon = {
-            ShellNavigationIcon(screenActions = screenActions, navigator = navigator, onMenu = onMenu)
+            ShellNavigationIcon(
+                screenActions = screenActions,
+                route = route,
+                navigator = navigator,
+                onMenu = onMenu,
+            )
         },
         actions = {
-            screenActions.actions?.invoke(this)
-            if (screenActions.selectionTitle == null && !isSearch) {
+            screenActions.actionsFor(route)?.invoke(this)
+            if (screenActions.selectionTitleFor(route) == null && !isSearch) {
                 ShellSearchButton(navigator = navigator)
             }
         },
@@ -274,12 +296,19 @@ private fun ShellTopBar(
 private fun ShellBarTitle(
     screenActions: ScreenActionsHolder,
     destinationTitle: String,
+    route: Any?,
 ) {
-    val selection = screenActions.selectionTitle
+    val selection = screenActions.selectionTitleFor(route)
     val publishedTitle = screenActions.title
+    val owner = screenActions.headerOwner
     when {
         selection != null -> Text(selection)
-        screenActions.override && publishedTitle != null -> publishedTitle.invoke()
+        screenActions.override && publishedTitle != null ->
+            // Keyed by the screen that published it: the published title is
+            // drawn here, in the shell's composition, and state remembered
+            // inside it belongs to that screen — not to the next one that
+            // takes the bar over.
+            key(owner) { publishedTitle() }
         else -> Text(destinationTitle)
     }
 }
@@ -294,12 +323,18 @@ private fun ShellBarTitle(
 @Composable
 private fun ShellNavigationIcon(
     screenActions: ScreenActionsHolder,
+    route: Any?,
     navigator: Navigator,
     onMenu: () -> Unit,
 ) {
     val context = LocalContext.current
-    val exitSelection = screenActions.onExitSelection
-    val publishedIcon = if (screenActions.override) screenActions.navigationIcon else null
+    val exitSelection = screenActions.onExitSelectionFor(route)
+    // Asked every time the bar is drawn, not captured once when the screen
+    // published: a screen can start or stop supplying its own navigation icon
+    // while it stays on screen (#1962 review).
+    val publishedIcon: (@Composable () -> Unit)? =
+        if (screenActions.override) screenActions.navigationIcon?.invoke() else null
+    val owner = screenActions.headerOwner
     when {
         exitSelection != null -> {
             IconButton(
@@ -314,7 +349,10 @@ private fun ShellNavigationIcon(
         }
 
         publishedIcon != null -> {
-            publishedIcon.invoke()
+            // Keyed by the screen that published it, like the published title:
+            // the icon is drawn in the shell's composition, and what it
+            // remembers belongs to that screen.
+            key(owner) { publishedIcon.invoke() }
         }
 
         else -> {
