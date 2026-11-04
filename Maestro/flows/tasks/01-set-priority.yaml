@@ -16,7 +16,11 @@ tags:
     visible:
       id: task_editor_title_input
     timeout: 5000
-# Priority row is below the fold on phone; scroll it into view first.
+# The priority row is above the fold now that the rows come before the sections;
+# The editor's column scrolls, so a row that is off the screen is composed but not
+# displayed. scrollUntilVisible brings it into view before the tap, which makes this
+# step a statement about the screen rather than about the tree — it does not say where
+# the row sits on a 360 dp phone, and no device run has measured that.
 - scrollUntilVisible:
     element:
       id: task_editor_priority_row

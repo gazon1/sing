@@ -57,9 +57,11 @@ class SheetReachabilityTest {
             clickContentDescription(DesktopShell.FAB_ADD_TASK)
             awaitTag(TestTags.TASK_EDITOR_RECURRENCE_ROW)
 
-            // The editor's attribute list scrolls, and the pin row sits below the fold
-            // of the 1024x768 test window — a node that is composed but out of view is
-            // "not displayed", which is a different failure from "not there".
+            // The editor's attribute list scrolls, so a row that is off the screen is
+            // composed rather than displayed — and "not displayed" is a different
+            // failure from "not there". The pin row is scrolled into view before it is
+            // asserted on, whatever the window height: the scroll is what makes this an
+            // assertion about the screen rather than about the tree.
             scrollToTag(TestTags.TASK_EDITOR_PIN_ROW)
             assertTextDisplayed("Not pinned")
 

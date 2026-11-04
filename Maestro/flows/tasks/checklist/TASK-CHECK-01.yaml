@@ -74,6 +74,15 @@ tags:
 # It renders whether or not there are items: it is the only place a checklist
 # item can be added from the task screen, so a section that hid itself would
 # leave no way to add the first one.
+#
+# The section is drawn after the attribute rows, so on a phone it is below the
+# fold: a node that is composed but off the screen is "not visible" to Maestro,
+# which is a different failure from "not there". Scrolling finds it either way.
+- scrollUntilVisible:
+    element:
+      id: task_checklist_section
+    direction: UP
+    timeout: 8000
 - extendedWaitUntil:
     visible:
       id: task_checklist_section

@@ -109,7 +109,15 @@ import kotlin.time.Instant
  * @param pinCallbacks Callbacks for the pin toggle row. Null = row is hidden.
  * @param blockedBy IDs of tasks this task depends on.
  * @param availableTasks Tasks available for dependency selection.
- * @param extraSections Optional composable for View-mode-only sections (checklist, project, tags, timestamps, etc.).
+ * @param askSections Optional composable for content that asks the person for
+ *   something — the first-run offer, the pending AI proposals. Drawn directly under
+ *   the description and above the rows: it is the one thing on the screen waiting for
+ *   an answer, and a screen of fields in front of it is a screen that buries it.
+ * @param extraSections Optional composable for the sections that show the task's own
+ *   state (the checklist, the subtasks, the attachments, the logbook). Drawn after
+ *   the rows, not under the description: the rows are the fields a person fills in,
+ *   and a section that grows must not push them off the screen. Content that asks for
+ *   a decision goes in [askSections] instead.
  * @param bottomBar Optional bottom bar content. Typically [TaskSaveBar] in Create mode, null in View mode.
  * @param menuItems List of dropdown menu items. Shown when non-empty. Typically Archive/Delete in View mode.
  * @param onBack Called when the back button is tapped.
@@ -156,6 +164,7 @@ private fun TaskEditorContent(
     checklistCallbacks: ChecklistCallbacks? = null,
     attachmentsCallbacks: AttachmentsCallbacks? = null,
     showAttachmentsRow: Boolean = true,
+    askSections: (@Composable () -> Unit)? = null,
     extraSections: (@Composable () -> Unit)?,
     bottomBar: (@Composable () -> Unit)?,
     menuItems: ImmutableList<TaskEditorMenuItem>,
@@ -198,93 +207,25 @@ private fun TaskEditorContent(
                 descriptionState = descriptionState,
             )
 
-            // View-mode extra sections
-            extraSections?.invoke()
-
-            // Dependencies card
+            // Content that asks the person for something — the first-run offer and
+            // the pending AI proposals.
             //
-            // Shown when there is something to pick from, not when something is
-            // already picked: a card that appears only after the first relation is
-            // added has no first click. The label says which edge means what, because
-            // "blocks" and "follows up" are different answers about the same two
-            // tasks.
-            if (availableTasks.isNotEmpty()) {
-                val relations = blockedBy + followsUp
-                val relationTitles =
-                    relations.mapNotNull { depId ->
-                        availableTasks.find { it.id == depId }?.title?.ifBlank { null }
-                    }
-                TaskAttributeCard(
-                    icon = Icons.Filled.Block,
-                    label =
-                        when {
-                            relations.isEmpty() -> "Add dependencies"
-                            relationTitles.isNotEmpty() -> relationTitles.joinToString(", ")
-                            else -> "${relations.size} relation${if (relations.size > 1) "s" else ""}"
-                        },
-                    isActive = relations.isNotEmpty(),
-                    onClick = { sheets.show(TaskEditorSheet.Dependencies) },
-                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_DEPENDENCIES_ROW),
-                )
-            }
+            // It comes before the fields, not after them: it is the one thing on the
+            // screen that is waiting for an answer, and a card under ten attribute
+            // rows is a question asked out of earshot. The two kinds of supplied
+            // content used to share one slot, so moving the sections down moved the
+            // proposals down with them.
+            askSections?.invoke()
 
-            // Checklist row
+            // Attribute rows
             //
-            // The row is drawn when the caller gives the editor a checklist to edit —
-            // the create flow does, the detail flow does not (it lists the items under
-            // the fields instead). A row that is not drawn is a row that cannot be
-            // pressed; what it opened was the sheet, and the sheet is where the items
-            // are added, because that is the only surface with an input for them.
-            checklistCallbacks?.let { cb ->
-                TaskAttributeCard(
-                    icon = Icons.AutoMirrored.Filled.ListAlt,
-                    label = if (checklistCount > 0) "Checklist ($checklistCount)" else "Checklist",
-                    isActive = checklistCount > 0,
-                    onClick = cb.onOpen,
-                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_CHECKLIST_ROW),
-                )
-            }
-
-            // Attachments row
+            // They come first, directly under the description, because they are
+            // the fields a person fills in. The sections that add to the task —
+            // the checklist, the subtasks, the attachments, the logbook — are
+            // long, and an empty one of them is long too, so a task whose
+            // attributes were drawn after them showed its due date and its
+            // priority only after a scroll.
             //
-            // The row and the sheet are two different things that share one bundle
-            // of callbacks: the row opens the sheet, and the sheet needs the
-            // callbacks to add a link or a file. A caller that lists its
-            // attachments under the fields instead — the task detail does — draws
-            // no row here, and the sheet it opens from there still works.
-            if (showAttachmentsRow) {
-                attachmentsCallbacks?.let { cb ->
-                    TaskAttributeCard(
-                        icon = Icons.Filled.AttachFile,
-                        label =
-                            if (attachmentsCount > 0) {
-                                "Attachments ($attachmentsCount)"
-                            } else {
-                                "Attachments"
-                            },
-                        isActive = attachmentsCount > 0,
-                        onClick = cb.onOpen,
-                        modifier = Modifier.testTag(TestTags.TASK_EDITOR_ATTACHMENTS_ROW),
-                    )
-                }
-            }
-
-            // Workflow-state row
-            //
-            // Shown after completion too, because the state records how the work went
-            // and completion does not erase that. It is inert there: a completed task
-            // is shown, not re-planned.
-            workflowStateCallbacks?.let { cb ->
-                TaskAttributeCard(
-                    icon = Icons.Filled.PlayArrow,
-                    label = workflowState.label(),
-                    isActive = workflowState != TaskWorkflowState.Open,
-                    onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.WorkflowState) },
-                    enabled = !isCompleted,
-                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_WORKFLOW_STATE_ROW),
-                )
-            }
-
             // Priority row
             TaskEditorPriorityRow(
                 priority = priority,
@@ -389,6 +330,105 @@ private fun TaskEditorContent(
                             .testTag(TestTags.TASK_EDITOR_PIN_ROW),
                 )
             }
+
+            // Dependencies card
+            //
+            // Its place is with the attribute rows, after the pin row: a card that
+            // led the group pushed the due date and the priority one row further
+            // down on a task that had relations, so a task's attributes sat lower
+            // because of something else on the task.
+            //
+            // Shown when there is something to pick from, not when something is
+            // already picked: a card that appears only after the first relation is
+            // added has no first click. The label says which edge means what, because
+            // "blocks" and "follows up" are different answers about the same two
+            // tasks.
+            if (availableTasks.isNotEmpty()) {
+                val relations = blockedBy + followsUp
+                val relationTitles =
+                    relations.mapNotNull { depId ->
+                        availableTasks.find { it.id == depId }?.title?.ifBlank { null }
+                    }
+                TaskAttributeCard(
+                    icon = Icons.Filled.Block,
+                    label =
+                        when {
+                            relations.isEmpty() -> "Add dependencies"
+                            relationTitles.isNotEmpty() -> relationTitles.joinToString(", ")
+                            else -> "${relations.size} relation${if (relations.size > 1) "s" else ""}"
+                        },
+                    isActive = relations.isNotEmpty(),
+                    onClick = { sheets.show(TaskEditorSheet.Dependencies) },
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_DEPENDENCIES_ROW),
+                )
+            }
+
+            // Checklist row
+            //
+            // The row is drawn when the caller gives the editor a checklist to edit —
+            // the create flow does, the detail flow does not (it lists the items under
+            // the fields instead). A row that is not drawn is a row that cannot be
+            // pressed; what it opened was the sheet, and the sheet is where the items
+            // are added, because that is the only surface with an input for them.
+            checklistCallbacks?.let { cb ->
+                TaskAttributeCard(
+                    icon = Icons.AutoMirrored.Filled.ListAlt,
+                    label = if (checklistCount > 0) "Checklist ($checklistCount)" else "Checklist",
+                    isActive = checklistCount > 0,
+                    onClick = cb.onOpen,
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_CHECKLIST_ROW),
+                )
+            }
+
+            // Attachments row
+            //
+            // The row and the sheet are two different things that share one bundle
+            // of callbacks: the row opens the sheet, and the sheet needs the
+            // callbacks to add a link or a file. A caller that lists its
+            // attachments under the fields instead — the task detail does — draws
+            // no row here, and the sheet it opens from there still works.
+            if (showAttachmentsRow) {
+                attachmentsCallbacks?.let { cb ->
+                    TaskAttributeCard(
+                        icon = Icons.Filled.AttachFile,
+                        label =
+                            if (attachmentsCount > 0) {
+                                "Attachments ($attachmentsCount)"
+                            } else {
+                                "Attachments"
+                            },
+                        isActive = attachmentsCount > 0,
+                        onClick = cb.onOpen,
+                        modifier = Modifier.testTag(TestTags.TASK_EDITOR_ATTACHMENTS_ROW),
+                    )
+                }
+            }
+
+            // Workflow-state row
+            //
+            // Shown after completion too, because the state records how the work went
+            // and completion does not erase that. It is inert there: a completed task
+            // is shown, not re-planned.
+            workflowStateCallbacks?.let { cb ->
+                TaskAttributeCard(
+                    icon = Icons.Filled.PlayArrow,
+                    label = workflowState.label(),
+                    isActive = workflowState != TaskWorkflowState.Open,
+                    onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.WorkflowState) },
+                    enabled = !isCompleted,
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_WORKFLOW_STATE_ROW),
+                )
+            }
+
+            // Sections that show the task's own state
+            //
+            // Drawn last: these are the sections that add to the task — the
+            // checklist, the subtasks, the attachments, the logbook — and the
+            // rows above are the fields a person fills in. A section that
+            // grows pushes everything below it down, so the attributes come
+            // first and the sections follow. Content that asks for a decision
+            // never lives here; it goes in the slot under the description.
+            extraSections?.invoke()
 
             Spacer(modifier = Modifier.height(TaskSpacing.xl))
         }
@@ -594,6 +634,7 @@ private fun TaskEditorScaffold(
         checklistCallbacks = callbacks.checklist,
         attachmentsCallbacks = callbacks.attachments,
         showAttachmentsRow = showAttachmentsRow,
+        askSections = callbacks.askSections,
         extraSections = callbacks.extraSections,
         bottomBar = callbacks.bottomBar,
         menuItems = callbacks.menuItems,

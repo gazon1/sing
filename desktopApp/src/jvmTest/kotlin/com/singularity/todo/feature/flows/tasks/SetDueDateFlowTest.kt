@@ -57,9 +57,9 @@ class SetDueDateFlowTest {
             awaitTag(TestTags.taskItem("Buy milk")).performClick()
             awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
 
-            // The attribute rows live below the fold on a 1024x768 window — the priority
-            // row alone lands at y=715 — so the due row is composed at (0,0) w=0 h=0
-            // until scrolled into view, and assertIsDisplayed fails on a zero-size node.
+            // A row that is off the screen is composed at (0,0) w=0 h=0, and
+            // assertIsDisplayed fails on a zero-size node — so the row is scrolled
+            // into view first.
             scrollToTag(TestTags.TASK_EDITOR_DUE_ROW)
             assertTagDisplayed(TestTags.TASK_EDITOR_DUE_ROW)
             // The row renders the ISO date, not the placeholder.

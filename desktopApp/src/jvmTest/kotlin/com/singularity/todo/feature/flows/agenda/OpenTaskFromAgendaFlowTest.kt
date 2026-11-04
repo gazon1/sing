@@ -101,8 +101,8 @@ class OpenTaskFromAgendaFlowTest {
 
             awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
             // Priority row shows the label for High priority.
-            // The attribute rows sit below the fold on a 1024x768 window, so scroll
-            // before asserting display — the same reason the due-date test above does.
+            // "Displayed" is a claim about the screen, not the tree, so the row is
+            // scrolled into view first — the same reason the due-date test above gives.
             scrollToTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
             assertTagDisplayed(TestTags.TASK_EDITOR_PRIORITY_ROW)
             assertTextDisplayed("High priority")

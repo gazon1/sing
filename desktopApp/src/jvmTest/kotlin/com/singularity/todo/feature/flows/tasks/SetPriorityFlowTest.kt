@@ -50,8 +50,8 @@ class SetPriorityFlowTest {
             tasks(koin).given(due = today)
             openEditor("Buy milk")
 
-            // The attribute rows sit below the fold on a 1024x768 window: the row is
-            // composed, but "displayed" is a claim about the screen, not the tree.
+            // The row is composed, but "displayed" is a claim about the screen, not
+            // the tree — so it is scrolled into view before the claim is made.
             scrollToTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
             assertTagDisplayed(TestTags.TASK_EDITOR_PRIORITY_ROW)
         }
@@ -77,8 +77,8 @@ class SetPriorityFlowTest {
         runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
             tasks(koin).given(due = today)
             openEditor("Buy milk")
-            // The row is below the fold: a click on it would land outside the window
-            // and open nothing.
+            // A click on a row that is off the screen lands outside the window and
+            // opens nothing, so the row is scrolled into view first.
             clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
 
             // The sheet renders TaskPriority.entries, so all five need an id —

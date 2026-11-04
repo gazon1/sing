@@ -133,8 +133,19 @@ fun runDesktopAppTest(
     clock: Clock? = null,
     overrides: Module = module {},
     checkA11y: Boolean = false,
+    /**
+     * The width of the test window, in pixels.
+     *
+     * The default is the project's usual 1024. A phone-width window is what a
+     * layout claim is measured against: "the due date is visible without
+     * scrolling" is a statement about a 360-wide screen, and a 1024-wide
+     * window cannot make it.
+     */
+    width: Int = 1024,
+    /** The height of the test window, in pixels. */
+    height: Int = 768,
     test: suspend DesktopComposeUiTest.(koin: Koin) -> Unit,
-) = runDesktopComposeUiTest {
+) = runDesktopComposeUiTest(width = width, height = height) {
     // Reset Kermit writer list and ring buffer before every test.
     // With same_thread mode on both axes (class + method), tests run sequentially
     // in one JVM. resetKermitWriters() is called unconditionally so the code is
