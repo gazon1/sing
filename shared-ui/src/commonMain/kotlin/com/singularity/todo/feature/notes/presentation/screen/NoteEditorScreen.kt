@@ -202,7 +202,7 @@ fun NoteEditorScreenContent(
     onEditProposal: ((ProposalItemId, String) -> Unit)? = null,
     proposalFailures: ImmutableMap<ProposalItemId, String> = persistentMapOf(),
 ) {
-    val linkOverlay = rememberOverlayState<NoteLinkSheet>()
+    val linkOverlay = rememberOverlayState(NoteLinkSheet.serializer())
 
     if (noteNotFound) {
         return EmptyState(title = "Note not found")

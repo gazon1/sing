@@ -44,6 +44,7 @@ import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.feature.tags.components.AddTagDialog
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.serialization.Serializable
 
 /**
  * Tags list screen.
@@ -69,7 +70,7 @@ fun TagsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    val overlay = rememberOverlayState<TagDialog>()
+    val overlay = rememberOverlayState(TagDialog.serializer())
 
     // Show undo-delete snackbar and drive countdown via LaunchedEffect.
     LaunchedEffect(pendingDelete?.tagId) {
@@ -148,9 +149,12 @@ fun TagsScreen(
     }
 }
 
+@Serializable
 private sealed interface TagDialog {
+    @Serializable
     data object Add : TagDialog
 
+    @Serializable
     data class Rename(val tag: Tag) : TagDialog
 }
 

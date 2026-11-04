@@ -51,7 +51,7 @@ fun ProjectDetailContent(
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val lastEditedAt by viewModel.lastEditedAt.collectAsStateWithLifecycle()
     val clock: Clock = viewModel.clock
-    val sheets = rememberOverlayState<ActiveSheet>()
+    val sheets = rememberOverlayState(ActiveSheet.serializer())
     val snackbarHostState = remember { SnackbarHostState() }
     val draftState by viewModel.draftState.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()

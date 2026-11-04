@@ -56,6 +56,7 @@ import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Instant
@@ -74,7 +75,7 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    val overlay = rememberOverlayState<SavedAgendaDialog>()
+    val overlay = rememberOverlayState(SavedAgendaDialog.serializer())
 
     NotificationHost<SavedAgendaListEvent>(
         events = viewModel.events,
@@ -182,9 +183,12 @@ private fun DialogsOverlay(
     }
 }
 
+@Serializable
 private sealed interface SavedAgendaDialog {
+    @Serializable
     data class Copy(val viewId: SavedAgendaViewId) : SavedAgendaDialog
 
+    @Serializable
     data class Delete(val viewId: SavedAgendaViewId, val viewName: String?) : SavedAgendaDialog
 }
 

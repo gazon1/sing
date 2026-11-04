@@ -8,7 +8,7 @@ There are **three** kinds of UI-related data, not two:
 |---|---|---|
 | **UI state** | `StateFlow<UiState>` on VM | task list, filter, loading branch |
 | **One-shot events** | `SharedFlow<UiEvent>` on VM | snackbar, dialog, navigate back |
-| **Routing state** | `remember { mutableStateOf(...) }` on screen | `activeSheet: ActiveSheet?`, `menuExpanded: Boolean` |
+| **Routing state** | `rememberOverlayState(Type.serializer())` on screen — saveable, so it survives a rotation and process death | `activeSheet: ActiveSheet?`, `menuExpanded: Boolean` |
 
 Routing state is the **which sheet / dialog / menu is currently open**. It belongs on the screen, not in the VM, because:
 - It is Composable-local (only the current screen cares).
@@ -60,7 +60,9 @@ val actions = remember {
 ## When to keep `MutableStateFlow` inside a Composable
 
 Genuinely Composable-local UI affordances only:
-- `var activeSheet by remember { mutableStateOf<ActiveSheet?>(null) }` — UI routing, not domain
+- the open sheet, through `rememberOverlayState(Sheet.serializer())` — UI routing, not domain. Not a bare
+  `remember { mutableStateOf<ActiveSheet?>(null) }`: that form loses the sheet on every rotation, which is
+  how a pending confirmation gets silently cancelled
 - `var searchQuery by remember { mutableStateOf("") }` — local to a search field before submission
 - `Animatable` for one-shot UI animations (saved pill fade, etc.)
 

@@ -1,9 +1,16 @@
 ---
 title: State Hoisting Audit
 date: 2026-09-21
-status: accepted
+status: superseded
+superseded-by: 2026-11-04-the-overlay-survives-a-rotation
 tags: [vm, compose, state-hoisting, refactor]
 ---
+
+> **Superseded in part (2026-11-04):** the consequence that "`OverlayState` is not yet
+> saved across process death" no longer holds — the holder is now `rememberSaveable`-backed,
+> so an open sheet and the overflow menu survive a rotation and process death. The rest of
+> this audit, including `FormState` and the `@Stable` holders, stands.
+> See [2026-11-04-the-overlay-survives-a-rotation.md](2026-11-04-the-overlay-survives-a-rotation.md).
 
 # State Hoisting Audit
 

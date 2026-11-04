@@ -65,6 +65,7 @@ import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.serialization.Serializable
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -264,7 +265,9 @@ fun ProjectBottomActionBar(
 
 // ─── Quick Add (private — only used by ProjectBodySection) ─────────────────────
 
+@Serializable
 sealed class QuickAddSheet {
+    @Serializable
     data object Picker : QuickAddSheet()
 }
 
@@ -275,7 +278,7 @@ private fun ProjectDetailQuickAddInput(
     modifier: Modifier = Modifier,
 ) {
     val textState = rememberTextFieldState()
-    val popup = rememberOverlayState<QuickAddSheet>()
+    val popup = rememberOverlayState(QuickAddSheet.serializer())
     val focus = LocalFocusManager.current
 
     Box(modifier = modifier.fillMaxWidth()) {

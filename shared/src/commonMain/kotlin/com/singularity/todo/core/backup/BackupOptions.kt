@@ -2,6 +2,7 @@ package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.version.appVersion
+import kotlinx.serialization.Serializable
 
 @DslMarker
 annotation class BackupDsl
@@ -82,6 +83,7 @@ fun exportOptions(block: ExportOptionsBuilder.() -> Unit): ExportOptions = Expor
 
 fun importOptions(block: ImportOptionsBuilder.() -> Unit): ImportOptions = ImportOptionsBuilder().apply(block).build()
 
+@Serializable
 @JvmInline
 value class BackupId(val value: String) {
     companion object {
