@@ -3,11 +3,11 @@ package com.singularity.todo.feature.tasks.domain.state
 /**
  * The one rule a task title has to satisfy, and the wording that says so.
  *
- * It lives beside [TaskDraft] in the shared module, not under `shared-ui/.../presentation/state`,
- * because it is a pure answer about a string: no Compose, no ViewModel, no platform. That is what
- * makes it testable next to the draft it judges, and what lets anything in `shared` ask the same
- * question the editors ask. The file used to sit in the presentation tree while declaring a
- * `domain.state` package, which put a domain rule in a module that no domain code can see.
+ * It lives beside [TaskDraft] in the shared module, under `domain.state`, because it is a pure
+ * answer about a string: no Compose, no ViewModel, no platform. That is what makes it testable
+ * next to the draft it judges, and what lets anything in `shared` ask the same question the
+ * editors ask. A presentation-module home would be invisible to the domain code that has to
+ * refuse a blank title before it writes.
  *
  * Both editors — the create screen's ViewModel and the detail screen — ask this object, so the rule
  * and its message exist once. Two copies of "Title is required" would be two answers to one

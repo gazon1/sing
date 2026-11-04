@@ -253,7 +253,13 @@ fun NoteEditorScreenContent(
                         },
                         modifier = Modifier.testTag(TestTags.NOTE_EDITOR_SAVE),
                     ) {
-                        Icon(Icons.Filled.Check, contentDescription = "Save")
+                        // A save in flight shows progress inside the button that
+                        // started it, as the task and project editors do.
+                        if (editorState.isSaving) {
+                            com.singularity.todo.core.ui.components.ButtonSpinner()
+                        } else {
+                            Icon(Icons.Filled.Check, contentDescription = "Save")
+                        }
                     }
                 },
             )

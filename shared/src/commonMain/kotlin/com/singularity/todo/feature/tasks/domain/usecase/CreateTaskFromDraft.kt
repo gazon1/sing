@@ -28,6 +28,18 @@ import kotlinx.datetime.plus
 import kotlin.time.Clock
 
 /**
+ * The create-a-task entry point the editor's ViewModel depends on.
+ *
+ * An interface rather than the concrete use case, so a test can hand the ViewModel
+ * an implementation that fails for a reason that is not validation. The editor's
+ * dependency bundle is the seam a save-failure test goes through, and a final class
+ * gives that seam nothing to replace.
+ */
+fun interface CreateTaskFromDraft {
+    suspend operator fun invoke(draft: TaskDraft): Either<AppError, TaskId>
+}
+
+/**
  * Creates a task from a [TaskDraft] (editor UI state) — the entry point used by
  * `TaskCreateViewModel` when the user taps Save.
  *
@@ -63,8 +75,8 @@ class CreateTaskFromDraftUseCase(
     private val attachmentRepository: AttachmentRepository,
     private val unitOfWork: UnitOfWork,
     private val materialize: MaterializeRecurringSeriesUseCase,
-) {
-    suspend operator fun invoke(draft: TaskDraft): Either<AppError, TaskId> {
+) : CreateTaskFromDraft {
+    override suspend operator fun invoke(draft: TaskDraft): Either<AppError, TaskId> {
         // `today` once, then used by both resolutions below. The class already
         // took a `Clock` and still called the global `todayInSystemZone()` in four
         // places, so a test could inject a clock and get the host's date anyway --

@@ -6,13 +6,12 @@ import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.error.runCatchingCancellable
-import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.DraftMviViewModel
 import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
-import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraft
 import com.singularity.todo.feature.tasks.domain.state.DraftAttachment
 import com.singularity.todo.feature.tasks.domain.state.DraftChecklistItem
 import com.singularity.todo.feature.tasks.domain.state.DueDateOption
@@ -20,7 +19,6 @@ import com.singularity.todo.feature.tasks.domain.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.domain.state.TaskCreateUiEvent
 import com.singularity.todo.feature.tasks.domain.state.TaskDraft
 import com.singularity.todo.feature.tasks.domain.state.TaskTitleValidation
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
@@ -31,7 +29,7 @@ import kotlinx.datetime.LocalDate
  *   user-scoped instance so draft keys stay bare (no manual userId prefix).
  */
 data class TaskCreateDeps(
-    val createFromDraft: CreateTaskFromDraftUseCase,
+    val createFromDraft: CreateTaskFromDraft,
     val logger: Logger,
     val draftStore: DraftStore,
 ) {
@@ -53,7 +51,7 @@ data class TaskCreateDeps(
  * Triggers: kind/title/description/due date changes, save (explicit or auto-save on navigate-away).
  * One-shot events: [TaskCreateUiEvent.Saved].
  *
- * Draft shaping + validation + persistence are delegated to [CreateTaskFromDraftUseCase]
+ * Draft shaping + validation + persistence are delegated to [CreateTaskFromDraft]
  * so this VM stays a thin orchestrator: it owns the editor state flow, debounced draft
  * persistence, and the conversion of validation/persistence outcomes into UI events.
  * Failures from the use case surface via `state.error`, which the screen renders in a
@@ -100,25 +98,9 @@ class TaskCreateViewModel(
     override fun validate(draft: TaskDraft): String? = TaskTitleValidation.error(draft.title.text)
 
     override suspend fun persist(draft: TaskDraft): Either<AppError, Unit> =
-        try {
-            when (val result = deps.createFromDraft(draft)) {
-                is Either.Left -> {
-                    // The one place that knows the save failed for a reason other than
-                    // the title rule. Saying so as a typed event is what lets the screen
-                    // show a snackbar without comparing text against the rule's output.
-                    emit(TaskCreateUiEvent.Error(result.error.toMessage("Save failed")))
-                    Either.Left(result.error)
-                }
-
-                is Either.Right -> Either.Right(Unit)
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            // A throwing use case is a persistence failure too; the base class
-            // re-reports it, but only this layer can name it to the screen.
-            emit(TaskCreateUiEvent.Error(e.toMessage("Save failed")))
-            throw e
+        when (val result = deps.createFromDraft(draft)) {
+            is Either.Left -> Either.Left(result.error)
+            is Either.Right -> Either.Right(Unit)
         }
 
     override suspend fun onSaved() {

@@ -122,7 +122,7 @@ import kotlin.time.Instant
 private fun TaskEditorContent(
     taskId: String,
     titleState: TextFieldState,
-    titleError: String? = null,
+    titleError: String?,
     isCompleted: Boolean,
     onCheckToggle: (() -> Unit)?,
     descriptionState: TextFieldState,
@@ -472,8 +472,8 @@ private fun StartDateRow(
  *   default, because a default is a second state, and two states are two states that will
  *   not agree.
  * @param titleError the message drawn under the title field when the title cannot be saved,
- *   or `null` when there is nothing to say. The caller decides it: the rule that produced it
- *   belongs to the editor's owner, and the row only draws what it is handed.
+ *   or `null` when there is nothing to say. It has no default: a caller that forgets it would
+ *   silently lose the message this parameter exists for.
  * @param snackbarHost where transient failures land. `null` for an editor that sits inside a
  *   surface which already hosts a snackbar — two hosts would race for the same message.
  */
@@ -489,7 +489,7 @@ fun TaskEditorContent(
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
     showAttachmentsRow: Boolean = true,
-    titleError: String? = null,
+    titleError: String?,
     snackbarHost: (@Composable () -> Unit)? = null,
 ) {
     TaskEditorScaffold(
@@ -523,11 +523,8 @@ fun TaskEditorContent(
  *   open a sheet through this state, so the caller owns it and hands it over — there is no
  *   default, because a default is a second state, and two states are two states that will
  *   not agree.
- * @param titleError the message drawn under the title field when the title cannot be saved,
- *   or `null` when there is nothing to say. The caller decides it: the rule that produced it
- *   belongs to the editor's owner, and the row only draws what it is handed.
- * @param snackbarHost where transient failures land. `null` for an editor that sits inside a
- *   surface which already hosts a snackbar — two hosts would race for the same message.
+ * @param titleError see [TaskEditorContent]. No default here either.
+ * @param snackbarHost see [TaskEditorContent].
  */
 @Composable
 fun TaskCreateEditorContent(
@@ -539,7 +536,7 @@ fun TaskCreateEditorContent(
     callbacks: TaskEditorCallbacks,
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
-    titleError: String? = null,
+    titleError: String?,
     snackbarHost: (@Composable () -> Unit)? = null,
 ) {
     TaskEditorScaffold(
@@ -582,7 +579,7 @@ private fun TaskEditorScaffold(
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
     showAttachmentsRow: Boolean = true,
-    titleError: String? = null,
+    titleError: String?,
     snackbarHost: (@Composable () -> Unit)? = null,
 ) {
     TaskEditorContent(
@@ -667,6 +664,7 @@ private fun TaskEditorContentEmptyPreview() =
         TaskEditorContent(
             taskId = "",
             titleState = TextFieldState(""),
+            titleError = null,
             isCompleted = false,
             onCheckToggle = null,
             descriptionState = TextFieldState(""),
@@ -693,6 +691,7 @@ private fun TaskEditorContentFilledPreview() =
         TaskEditorContent(
             taskId = "",
             titleState = TextFieldState("Buy groceries"),
+            titleError = null,
             isCompleted = false,
             onCheckToggle = null,
             descriptionState = TextFieldState("Milk, eggs, bread"),
@@ -724,6 +723,7 @@ private fun TaskEditorContentDarkPreview() =
         TaskEditorContent(
             taskId = "",
             titleState = TextFieldState("Review PR"),
+            titleError = null,
             isCompleted = false,
             onCheckToggle = null,
             descriptionState = TextFieldState(""),

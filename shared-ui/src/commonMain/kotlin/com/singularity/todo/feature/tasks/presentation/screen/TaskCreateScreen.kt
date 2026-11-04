@@ -3,10 +3,10 @@ package com.singularity.todo.feature.tasks.presentation.screen
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.CollectEvents
@@ -38,7 +38,6 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewM
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -77,26 +76,29 @@ fun TaskCreateScreen(
     var isNavigatingBack by remember { mutableStateOf(false) }
     val sheets = rememberDialogState<TaskEditorSheet>()
 
-    val snackbarScope = rememberCoroutineScope()
     CollectEvents(vm.events) { event ->
-        when (event) {
-            is TaskCreateUiEvent.Saved -> {
-                isNavigatingBack = true
-                navigator.back()
-            }
-            // Persistence failures arrive typed. A refusal by the title rule never
-            // reaches the event bus, so the message under the field is not repeated.
-            is TaskCreateUiEvent.Error ->
-                snackbarScope.launch { snackbarHostState.showSnackbar(event.message) }
+        if (event is TaskCreateUiEvent.Saved) {
+            isNavigatingBack = true
+            navigator.back()
         }
     }
 
-    // The title's message is drawn under the field, from the one rule that also
-    // disables the save button — not from whatever string sits in the error slot,
-    // which can be the news about the dates. It is shown whenever the rule refuses
-    // the draft, not only after an edit: a fresh create screen with a blank title
-    // has nothing else to say about why "Сохранить" will not go through.
+    // The title's message is drawn under the field, from the same rule that disables
+    // the save button, and it is derived from the draft's validity rather than from
+    // the base class's last validation result. That is what makes it reach the first
+    // frame: an editor opened with no title says what is missing before the first
+    // keystroke, while DraftUiState keeps validation out of its own first pass. The
+    // button and the message tell one story — the draft is not saveable, and this is why.
     val titleError = TaskTitleValidation.error(state.draft.title.text)
+
+    // Persistence failures are the state slot's news, and the snackbar is their
+    // one surfacing point. Keying the effect on the value means a repeated failure
+    // replaces the message instead of queueing behind it. The title rule's message
+    // is the one string the snackbar does not repeat: it is already under the field.
+    LaunchedEffect(state.error) {
+        val message = state.error
+        if (message != null && message != titleError) snackbarHostState.showSnackbar(message)
+    }
 
     val guardedBack: () -> Unit = {
         when {
@@ -237,16 +239,12 @@ fun TaskCreateScreen(
                 dependencies = null,
                 bottomBar = {
                     TaskSaveBar(
-                        // Enabled while the draft is valid, and also while the only
-                        // thing wrong with it is the title — that gap is the save
-                        // attempt the batched brief's first criterion is about, and
-                        // the field under it already says why the attempt will be
-                        // refused. A button disabled by the same rule that is
-                        // explained two rows above it would be a grey control with
-                        // no next step; a pressable one answers the press with the
-                        // same sentence, inline. `!isSaving` stays in front: a save
-                        // in flight must not be tappable into a second one.
-                        isEnabled = !state.isSaving && (state.isSaveEnabled || titleError != null),
+                        // Disabled while the draft is invalid — including a blank
+                        // title — and while a save is in flight. The field above
+                        // says which rule is refusing the draft, so the button
+                        // never stands grey with no next step and never answers a
+                        // press that cannot succeed.
+                        isEnabled = !state.isSaving && state.isSaveEnabled,
                         isLoading = state.isSaving,
                         onSaveClick = { vm.onIntent(TaskCreateIntent.SaveClicked) },
                     )
