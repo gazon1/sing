@@ -1,7 +1,8 @@
 # WhatsNew: the release-notes sheet appears for a payload the user has not seen, and the
 # payload's own "Got it" action closes it.
 #
-# прогнан на устройстве: нет (2026-11-04) — не прогонялся: этот прогон не собирал APK.
+# прогнан на устройстве: нет (2026-11-05) — не прогонялся: этот прогон не собирал APK. Форма payload разбирается
+# юнит-тестом (WhatsNewDemoPayloadTest); прогон на устройстве отслеживается в #1904.
 #
 # The payload is armed by the debug seed link rather than fetched from remote config: the E2E
 # build has no config server, so `todo-debug://seed?whatsnew=…` is what makes the surface

@@ -37,17 +37,10 @@ object DebugWhatsNewArming {
     /**
      * The A2UI payload for [text].
      *
-     * A column with the note and a "Got it" button whose action is `dismiss` — the action the
-     * screen already maps onto its own dismissal. A flow can therefore close the sheet the way a
-     * payload is *meant* to close it, instead of tapping a coordinate or a scrim.
+     * The payload itself is built in commonMain, where a test can parse it — a hand-written
+     * A2UI string nothing reads is an empty sheet the first time a flow reaches the device.
      */
-    internal fun payloadFor(text: String): String =
-        """{"createSurface":{"surfaceId":"whatsnew","rootId":"root","components":[""" +
-            """{"id":"root","kind":"column","children":["t1","b1"]},""" +
-            """{"id":"t1","kind":"text","value":"${escape(text)}"},""" +
-            """{"id":"b1","kind":"button","label":"Got it","action":"dismiss"}]}}"""
-
-    private fun escape(text: String): String = text.replace("\\", "\\\\").replace("\"", "\\\"")
+    internal fun payloadFor(text: String): String = whatsNewDemoPayload(text)
 }
 
 /**

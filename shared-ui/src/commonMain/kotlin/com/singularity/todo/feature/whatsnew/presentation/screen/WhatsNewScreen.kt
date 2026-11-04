@@ -130,7 +130,12 @@ fun WhatsNewScreen(
         // it lives only in the unmerged tree — where neither accessibility nor Maestro looks.
         // The id is the catalogue's existing `genUi("whatsnew")` entry, which was declared and
         // never rendered: the surface had no tag, so a flow had nothing to wait for.
-        modifier = modifier.genuiTag("whatsnew", "Release notes"),
+        //
+        // The tag alone, with no content description. This node merges everything below it, and
+        // a description on a merging container replaces the descriptions of its descendants:
+        // the note and the button would leave the accessibility tree — and stop being the text
+        // a flow selects them by.
+        modifier = modifier.genuiTag("whatsnew"),
     ) {
         Column(
             modifier =

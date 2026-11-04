@@ -1,6 +1,7 @@
 # WhatsNew: a payload that differs from the dismissed one is shown again.
 #
-# прогнан на устройстве: нет (2026-11-04) — не прогонялся: этот прогон не собирал APK.
+# прогнан на устройстве: нет (2026-11-05) — не прогонялся: этот прогон не собирал APK. Форма payload разбирается
+# юнит-тестом (WhatsNewDemoPayloadTest); прогон на устройстве отслеживается в #1904.
 #
 # The dismissal is recorded per payload, not as a "release notes are done" flag — a second
 # release has to reach the user. Both payloads are delivered by the seed link, and each seed

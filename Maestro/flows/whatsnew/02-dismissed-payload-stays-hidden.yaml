@@ -1,7 +1,8 @@
 # WhatsNew: a payload the user has already dismissed does not come back, even when the same
 # payload is delivered again after a fresh process.
 #
-# прогнан на устройстве: нет (2026-11-04) — не прогонялся: этот прогон не собирал APK.
+# прогнан на устройстве: нет (2026-11-05) — не прогонялся: этот прогон не собирал APK. Форма payload разбирается
+# юнит-тестом (WhatsNewDemoPayloadTest); прогон на устройстве отслеживается в #1904.
 #
 # This is the second half of the feature's contract, and it is only observable because the seed
 # link can deliver a payload *as one that may already be seen* (`whatsnew-seen`) without
@@ -33,6 +34,17 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "whatsnew-seen=Release%20notes%20demo"
-- waitForAnimationToEnd
-- assertNotVisible:
-    id: genui_whatsnew
+# The app is up before anything is asserted. The sheet is composed from the payload the seed
+# link arms, so a sheet that ignored the recorded dismissal would appear a moment *after*
+# this point — not before it.
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 30000
+# The absence is asserted over a window, not once. A single `assertNotVisible` right after
+# the anchor runs before a buggy sheet has been composed and passes anyway — which is how a
+# flow that cannot fail for the reason it exists gets written.
+- extendedWaitUntil:
+    notVisible:
+      id: genui_whatsnew
+    timeout: 10000
