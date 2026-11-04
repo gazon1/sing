@@ -43,6 +43,7 @@ import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.detail.SavedIndicator
+import com.singularity.todo.core.ui.detail.rememberSavedPillState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.nav.NotesRoute
@@ -94,17 +95,12 @@ internal fun NoteEditorScreen(
         }
     }
 
-    // Saved-pill animation: on each successful save, show "Saved" for 1.5s.
-    var savedVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        viewModel.events
-            .filterIsInstance<NotesUiEvent.SavedPulse>()
-            .collect {
-                savedVisible = true
-                kotlinx.coroutines.delay(com.singularity.todo.core.platform.TimeConstants.AutoSaveDebounceMs)
-                savedVisible = false
-            }
-    }
+    // Saved-pill animation: on each successful save, show "Saved" for one autosave window,
+    // through the same state holder the task detail uses. The holder cancels the previous
+    // timer on a new pulse, so two saves close together keep the pill up for a full window
+    // after the later one instead of letting the earlier deadline hide it.
+    val savedPill =
+        rememberSavedPillState(viewModel.events.filterIsInstance<NotesUiEvent.SavedPulse>())
 
     // The AI's proposed changes to this note. A note that is being created has none
     // yet, so the ViewModel is asked about an empty id and shows nothing.
@@ -125,6 +121,14 @@ internal fun NoteEditorScreen(
     }
     // The header's back button and the system back press mean the same thing —
     // and both of them ask before they throw the text away.
+    //
+    // The question is not permanent, and "Discard" is not a lie: `isDirty` here is the
+    // draft-local flag that `NoteEditor.onAutosaved` clears the moment the debounced
+    // autosave writes the text. So the guard asks only while leaving really would drop
+    // keystrokes, and once the write has landed a back press goes straight out without
+    // claiming there is unsaved work that is in fact on disk. (NoteEditor.override
+    // onAutosaved — the base class's `DraftMviViewModel.onAutosaved` documentation is the
+    // contract this depends on.)
     val guardedBack: () -> Unit = {
         if (editorState.draft.isDirty) {
             showDiscard = true
@@ -143,7 +147,7 @@ internal fun NoteEditorScreen(
         onSaveNow = { viewModel.onIntent(NotesEditorIntent.SaveNow) },
         onBack = guardedBack,
         onShowAiSheet = { showAiSheet = true },
-        savedVisible = savedVisible,
+        savedVisible = savedPill.visible,
         searchNotesForLink = viewModel::searchNotesForLink,
         searchTasksForLink = viewModel::searchTasksForLink,
         onAiAction = { action -> viewModel.onIntent(NotesEditorIntent.RunAiAction(action)) },

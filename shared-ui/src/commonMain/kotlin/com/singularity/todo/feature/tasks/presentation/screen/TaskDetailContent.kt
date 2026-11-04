@@ -82,6 +82,7 @@ import com.singularity.todo.feature.timetracking.presentation.components.TimeTra
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import com.singularity.todo.core.ui.detail.rememberSavedPillState
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -102,9 +103,12 @@ fun TaskDetailContent(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showAiSheet by rememberSaveable { mutableStateOf(false) }
-    // The pill that says an inline edit landed. Shown for the autosave window after each
-    // debounced write, the same way the note editor shows its own.
-    var savedVisible by remember { mutableStateOf(false) }
+    // The pill that says an inline edit landed — the same state holder the note editor
+    // uses, so there is one owner of the "stay up for one autosave window" timer instead
+    // of two hand-rolled copies of it. The copy here used to `scope.launch` one
+    // uncancelled timer per pulse, which meant the first of two writes 200 ms apart took
+    // the pill down in the middle of the second write's window. See SavedPillState.
+    val savedPill = rememberSavedPillState()
     // Separate flag rather than one `showSheet` enum: the two sheets are
     // reachable from two different sections far apart in the list, and an enum
     // would mean every call site names a state it does not own.
@@ -129,15 +133,12 @@ fun TaskDetailContent(
                 // An inline edit was stored. The pill says so without a message: there is
                 // one of these per pause in typing, and they are not things the user asked
                 // for, so they must not become a snackbar each.
-                TaskDetailUiEvent.SavedPulse -> {
-                    scope.launch {
-                        savedVisible = true
-                        kotlinx.coroutines.delay(
-                            com.singularity.todo.core.platform.TimeConstants.AutoSaveDebounceMs,
-                        )
-                        savedVisible = false
-                    }
-                }
+                //
+                // The pulse goes to the holder rather than to a coroutine of its own: the
+                // holder cancels the running timer first, so the pill is up for a full
+                // window after the *last* write. It is a state holder and not a second
+                // collector on purpose — these events live in a channel with one consumer.
+                TaskDetailUiEvent.SavedPulse -> savedPill.pulse()
 
                 is TaskDetailUiEvent.Saved -> {
                     scope.launch {
@@ -346,7 +347,7 @@ fun TaskDetailContent(
                                 ),
                             titleSource = ui.titleSource,
                             descriptionSource = ui.descriptionSource,
-                            savedVisible = savedVisible,
+                            savedVisible = savedPill.visible,
                             onTitleChange = { coordinator.onIntent(TaskDetailIntent.Domain.TitleChanged(it)) },
                             onDescriptionChange = {
                                 coordinator.onIntent(TaskDetailIntent.Domain.DescriptionChanged(it))
