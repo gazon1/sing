@@ -323,7 +323,7 @@ private fun ProjectList(
     val listState = rememberLazyListState()
     LazyColumn(
         state = listState,
-        modifier = modifier.widthIn(max = 640.dp).platformVerticalScrollbar(listState),
+        modifier = modifier.platformVerticalScrollbar(listState).widthIn(max = 640.dp),
         contentPadding = PaddingValues(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
