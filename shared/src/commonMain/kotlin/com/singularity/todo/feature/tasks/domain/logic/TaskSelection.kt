@@ -22,7 +22,7 @@ import kotlin.time.Duration
  * syntax to ask for it will not; a reader who says "overdue" gets what the app calls
  * overdue. So the names here are the app's names, and each one resolves to the same
  * rule the screen uses. Where the app has no screen for a set, the name says what the
- * set is — `open` is every unfinished task that is not deferred.
+ * set is — [ACTIVE_NOT_DEFERRED] is every unfinished task that is not deferred.
  *
  * The names are also the wire format. The serial names are lower case, because they
  * travel to a model that reads English, and a value the model has to guess at is a value
@@ -32,7 +32,7 @@ import kotlin.time.Duration
  *
  * The two overlap: both mean "not finished", and they differ in one respect — the
  * deferred (`someday`) tasks. A name pair where the *narrower* set sounds broader
- * (`open` beside `active`) makes a model guess which of the two it wants; so the
+ * (`active_not_deferred` beside `active`) makes a model guess which of the two it wants; so the
  * narrower set states the exclusion in its name, and [ACTIVE] is the one that says
  * nothing extra because nothing is excluded. Read the pair as a whole and a qualifier:
  * [ACTIVE], every unfinished task; [ACTIVE_NOT_DEFERRED], the unfinished tasks that are
@@ -55,8 +55,29 @@ enum class TaskSelection {
      * working, and it resolves to this selection rather than to an error; the alias is
      * read-only — the enum encodes as `active_not_deferred`, so the old name drains out
      * of the wire one caller at a time. A test pins both directions
-     * (`TaskReadSurfaceTest`), because an alias nobody checks is an alias that stops
+     * (`the old inbox name still decodes, and the selection encodes under its new name`
+     * in `TaskReadSurfaceTest`), because an alias nobody checks is an alias that stops
      * working silently.
+     *
+     * ## What the rename does not keep working: page cursors
+     *
+     * A page cursor carries [TaskSelectionResolver.fingerprint], which is built from the
+     * enum constant's name. A cursor minted before the rename therefore says `INBOX`
+     * where this build expects `ACTIVE_NOT_DEFERRED`, and the tool refuses it as
+     * belonging to a different selection rather than continuing a list it cannot vouch
+     * for. That is fail-closed on purpose — the caller restarts the page and loses
+     * nothing but the offset. "A saved prompt keeps working" is a claim about the
+     * selection, not about cursors minted before the rename.
+     *
+     * ## What the rename does *not* keep working: cursors
+     *
+     * A page cursor carries [`TaskSelectionRequest.fingerprint`], and the fingerprint
+     * is built from the enum constant's name. A cursor minted before the rename
+     * therefore says `INBOX` where this build expects `ACTIVE_NOT_DEFERRED`, and the
+     * tool refuses it as belonging to a different selection rather than continuing a
+     * list it cannot vouch for. That is fail-closed on purpose: the caller restarts the
+     * page and loses nothing but a request. "A saved prompt keeps working" is about the
+     * *selection*, not about cursors minted before the rename.
      */
     @SerialName("active_not_deferred")
     @JsonNames("inbox")
@@ -114,7 +135,7 @@ enum class TaskSelection {
 @Serializable
 data class TaskSelectionRequest(
     /** Which named set to read. */
-    val selection: TaskSelection = TaskSelection.OPEN,
+    val selection: TaskSelection = TaskSelection.ACTIVE_NOT_DEFERRED,
     /** Keep only the tasks in this project. */
     val projectId: String? = null,
     /** Keep only the tasks carrying **every** one of these tags. */
@@ -195,15 +216,15 @@ object TaskSelectionResolver {
             // filter and a screen are not the same question — so the active-status
             // rule is applied on top, and the reader gets what is still to do.
             //
-            // `open` is the same rule the repository's `NotDeferred` read applies
-            // (`archived_at IS NULL AND someday = 0`), plus completion; that read is
-            // pinned by `TaskRepositoryContractTest` so the two cannot drift.
+            // [ACTIVE_NOT_DEFERRED] is the same rule the repository's `NotDeferred` read
+            // applies (`archived_at IS NULL AND someday = 0`), plus completion; that read
+            // is pinned by `TaskRepositoryContractTest` so the two cannot drift.
             //
             // This is *not* the agenda's Inbox tab, which holds the undated tasks
             // only. The two answer different questions — "what is not scheduled yet"
             // and "what is still to do" — and the tool's description says which one
             // this selection answers.
-            TaskSelection.OPEN -> {
+            TaskSelection.ACTIVE_NOT_DEFERRED -> {
                 TaskDomain.matchesFilter(task, TaskFilter.NotDeferred, context.today) &&
                     TaskDomain.matchesFilter(
                         task,

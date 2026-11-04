@@ -114,7 +114,7 @@ class TaskReadSurfaceTest {
     }
 
     @Test
-    fun `open is every unfinished task that is not deferred, dated or undated`() =
+    fun `active_not_deferred is every unfinished task that is not deferred, dated or undated`() =
         runTest {
             val repo = FakeTaskRepository()
             repo.seed(
@@ -125,7 +125,7 @@ class TaskReadSurfaceTest {
                 task("gone", archived = true),
             )
 
-            val output = tool(repo).execute(ListTasksInput(selection = TaskSelection.OPEN))
+            val output = tool(repo).execute(ListTasksInput(selection = TaskSelection.ACTIVE_NOT_DEFERRED))
 
             assertEquals(setOf("undated", "dated"), titles(output).toSet())
         }
@@ -173,7 +173,7 @@ class TaskReadSurfaceTest {
             val output =
                 tool(repo).execute(
                     ListTasksInput(
-                        selection = TaskSelection.OPEN,
+                        selection = TaskSelection.ACTIVE_NOT_DEFERRED,
                         projectId = "p1",
                         tagIds = listOf("home", "errand"),
                     ),
@@ -193,7 +193,7 @@ class TaskReadSurfaceTest {
 
             val output =
                 tool(repo).execute(
-                    ListTasksInput(selection = TaskSelection.OPEN, priorities = listOf("high")),
+                    ListTasksInput(selection = TaskSelection.ACTIVE_NOT_DEFERRED, priorities = listOf("high")),
                 )
 
             assertEquals(listOf("high"), titles(output))
@@ -210,11 +210,11 @@ class TaskReadSurfaceTest {
             )
             val tool = tool(repo)
 
-            val first = read(tool.execute(ListTasksInput(selection = TaskSelection.OPEN, limit = 2)))
+            val first = read(tool.execute(ListTasksInput(selection = TaskSelection.ACTIVE_NOT_DEFERRED, limit = 2)))
             assertEquals(listOf("a", "b"), titlesOf(first))
             val cursor = first["nextCursor"]!!.jsonPrimitive.content
 
-            val second = read(tool.execute(ListTasksInput(selection = TaskSelection.OPEN, limit = 2, cursor = cursor)))
+            val second = read(tool.execute(ListTasksInput(selection = TaskSelection.ACTIVE_NOT_DEFERRED, limit = 2, cursor = cursor)))
             assertEquals(listOf("c"), titlesOf(second))
             val next = second["nextCursor"]
             assertTrue(next == null || next is JsonNull, "the last page has no cursor")
@@ -231,7 +231,7 @@ class TaskReadSurfaceTest {
             )
             val tool = tool(repo)
 
-            val first = read(tool.execute(ListTasksInput(selection = TaskSelection.OPEN, limit = 1)))
+            val first = read(tool.execute(ListTasksInput(selection = TaskSelection.ACTIVE_NOT_DEFERRED, limit = 1)))
             val cursor = first["nextCursor"]!!.jsonPrimitive.content
 
             val other =
@@ -254,7 +254,7 @@ class TaskReadSurfaceTest {
                 task("fine"),
             )
 
-            val output = read(tool(repo).execute(ListTasksInput(selection = TaskSelection.OPEN)))
+            val output = read(tool(repo).execute(ListTasksInput(selection = TaskSelection.ACTIVE_NOT_DEFERRED)))
             val health = output["health"]!!.jsonObject
 
             assertEquals(1, health["overdue"]!!.jsonPrimitive.content.toInt())
@@ -271,7 +271,7 @@ class TaskReadSurfaceTest {
 
             val output =
                 read(
-                    tool(repo).execute(ListTasksInput(selection = TaskSelection.OPEN, cursor = "not-a-cursor")),
+                    tool(repo).execute(ListTasksInput(selection = TaskSelection.ACTIVE_NOT_DEFERRED, cursor = "not-a-cursor")),
                 )
 
             assertTrue(output["cursorWarning"] != null)
@@ -285,7 +285,7 @@ class TaskReadSurfaceTest {
             repo.seed(task("a"), task("b"))
             val tool = tool(repo)
 
-            val first = read(tool.execute(ListTasksInput(selection = TaskSelection.OPEN, limit = 1)))
+            val first = read(tool.execute(ListTasksInput(selection = TaskSelection.ACTIVE_NOT_DEFERRED, limit = 1)))
             val cursor = first["nextCursor"]!!.jsonPrimitive.content
             val decoded = assertNotNull(cursor.decodeTaskPageCursor())
 
@@ -354,4 +354,52 @@ class TaskReadSurfaceTest {
 
             assertFalse(first["toxic"]!!.jsonPrimitive.content.toBoolean(), "not stated is not worthless")
         }
+
+    // ─── The name on the wire ───────────────────────────────────────────────────
+
+    /**
+     * The rename has to be readable in both directions: an old caller keeps working,
+     * and what the tool hands back is the new name. Both directions are pinned here
+     * because an alias asserted only in a comment is an alias nobody will notice
+     * breaking.
+     */
+    @Test
+    fun `the old inbox name still decodes, and the selection encodes under its new name`() {
+        assertEquals(
+            TaskSelection.ACTIVE_NOT_DEFERRED,
+            StableJson.decodeFromString<TaskSelection>("\"inbox\""),
+            "a saved prompt or a caller that still sends `inbox` keeps working",
+        )
+        assertEquals(
+            "\"active_not_deferred\"",
+            StableJson.encodeToString(TaskSelection.ACTIVE_NOT_DEFERRED),
+            "the alias is read-only: the tool speaks the new name",
+        )
+    }
+
+    /**
+     * The description is the only place the model learns the vocabulary, so it has to
+     * offer exactly the names the tool decodes. A description that advertises a name the
+     * enum does not accept — or that accepts a name the description does not offer —
+     * sends the model into a decode failure it cannot diagnose.
+     */
+    @Test
+    fun `the description offers exactly the names the tool decodes`() {
+        val wireNames =
+            TaskSelection.entries.map { TaskSelection.serializer().descriptor.getElementName(it.ordinal) }
+        val offered =
+            ListTasksTool.DESCRIPTION
+                .substringAfter("The selection is one of: ")
+                .substringBefore(". ")
+                .split(", ")
+                .map { it.trim() }
+
+        assertEquals(wireNames, offered, "the description must name the wire values, in the enum's order")
+        assertTrue(
+            wireNames.containsAll(typeNamesIn(offered)),
+            "every advertised value is a value the enum decodes",
+        )
+    }
+
+    private fun typeNamesIn(offered: List<String>): List<String> = offered.filter { it.isNotEmpty() && it.all { c -> c == '_' || c.isLowerCase() } }
 }

@@ -112,7 +112,10 @@ abstract class TaskRepositoryContractTest {
 
     /**
      * Pins the set `observeByFilter(NotDeferred)` returns, because the name is a claim
-     * about that query and the pomodoro picker reads it without narrowing anything.
+     * about that query and the AI tool's `active_not_deferred` selection rests on the
+     * same rule. The pomodoro picker does *not* read this filter — it reads `All`, whose
+     * set is pinned by the test below — so narrowing this read cannot silently empty the
+     * picker.
      *
      * The claim: every live task that is not deferred. Undated in, dated in, finished
      * in — completing a task marks it and only archiving takes it away — deferred out,

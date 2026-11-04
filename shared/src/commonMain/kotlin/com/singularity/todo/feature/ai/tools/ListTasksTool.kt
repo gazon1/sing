@@ -33,7 +33,7 @@ import kotlin.time.Clock
  */
 @Serializable
 data class ListTasksInput(
-    val selection: TaskSelection = TaskSelection.OPEN,
+    val selection: TaskSelection = TaskSelection.ACTIVE_NOT_DEFERRED,
     val projectId: String? = null,
     val tagIds: List<String> = emptyList(),
     val priorities: List<String> = emptyList(),
@@ -179,9 +179,10 @@ class ListTasksTool(
          */
         const val DESCRIPTION =
             "List the user's tasks. " +
-                "The selection is one of: open, today, upcoming, overdue, blocked, stagnant, " +
-                "pinned, someday, active, completed, all. " +
-                "Open means every unfinished task that is not deferred, dated or undated. " +
+                "The selection is one of: active_not_deferred, today, upcoming, overdue, " +
+                "blocked, stagnant, pinned, someday, active, completed, all. " +
+                "active_not_deferred means every unfinished task that is not deferred, dated or " +
+                "undated; the old name inbox is still accepted for it. " +
                 "It is not the Inbox tab, which holds the undated tasks only; today means due " +
                 "today; upcoming means due later; overdue means past its due date and still " +
                 "open; blocked means waiting on something unfinished; stagnant means unfinished, " +
