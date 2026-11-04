@@ -260,6 +260,10 @@ object TagsMd {
                 DynamicMeta(fnName, "Settings", "Interface", "Settings nav rail tabs")
             }
 
+            "settingsGroup" -> {
+                DynamicMeta(fnName, "Settings", "Appearance", "Settings section headings")
+            }
+
             "Settings.workingDaySwitch" -> {
                 DynamicMeta(fnName, "Settings", "MONDAY", "Working-day toggles in the work schedule section")
             }

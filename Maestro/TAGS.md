@@ -28,6 +28,7 @@ non-alphanumeric characters with `_`.
 ### Auth
 | Constant | Value | Where |
 |---|---|---|
+| `AUTH_ACCOUNT_EMAIL` | `auth_account_email` | |
 | `AUTH_ATTACH_ACCOUNT_BUTTON` | `auth_attach_account_button` | |
 | `AUTH_ATTACH_BACK_BUTTON` | `auth_attach_back_button` | |
 | `AUTH_ATTACH_DISCARD_BUTTON` | `auth_attach_discard_button` | |
@@ -443,6 +444,7 @@ use the expanded string directly).
 | `Settings.reminderOffsetRadioRow("At due time")` | `"At due time"` | `reminder_offset_radio_at_due_time` | Reminder-offset radio rows in notification settings |
 | `Settings.themeModeButton("Dark")` | `"Dark"` | `settings_theme_mode_dark` | Theme-mode radio buttons |
 | `Settings.workingDaySwitch("MONDAY")` | `"MONDAY"` | `settings_working_day_monday` | Working-day toggles in the work schedule section |
+| `settingsGroup("Appearance")` | `"Appearance"` | `settings_group_appearance` | Settings section headings |
 | `settingsTab("Interface")` | `"Interface"` | `settings_tab_interface` | Settings nav rail tabs |
 | `menuProjectExpander("p1")` | `"p1"` | `menu_project_expander_p1` | The expander of a project in the menu's tree |
 | `menuProjectNode("p1")` | `"p1"` | `menu_project_node_p1` | A project in the menu's project tree |
