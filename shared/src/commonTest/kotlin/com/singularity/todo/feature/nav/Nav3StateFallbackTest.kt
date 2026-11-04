@@ -70,6 +70,23 @@ class Nav3StateFallbackTest {
     }
 
     @Test
+    fun `goBack reseeds an empty previous stack when switching tabs`() {
+        val state =
+            Nav3State(
+                startRoute = today,
+                topLevelRouteState = mutableStateOf(today),
+                backStacks = mapOf(today to NavBackStack(today), upcoming to NavBackStack(upcoming)),
+            )
+        // The previous tab's stack is empty: it must be reseeded, not left blank.
+        state.requireBackStackFor(today).clear()
+        state.setPreviousTopLevelRoute(today)
+        state.topLevelRoute = upcoming
+        assertTrue(Navigator(state).goBack())
+        assertEquals(today, state.topLevelRoute)
+        assertEquals(listOf(today), state.requireBackStackFor(today).toList())
+    }
+
+    @Test
     fun `goBack switches to previous tab and returns true`() {
         val state =
             Nav3State(
