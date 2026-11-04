@@ -210,23 +210,28 @@ private fun TasksTabContent(state: StatisticsUiState) {
 
         Spacer(Modifier.height(8.dp))
 
+        val buckets = snapshot?.tasksPerDay ?: persistentListOf()
+
         Text(
-            text = "Last 7 days",
+            text = "Last ${buckets.takeLast(7).size} days",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
 
         // Bar chart
-        val buckets = snapshot?.tasksPerDay ?: persistentListOf()
         TasksBarChart(buckets = buckets)
     }
 }
 
 @Composable
 private fun TasksBarChart(buckets: ImmutableList<DayBucket>) {
+    // The labels below only describe the last seven days, so the bars use the
+    // same seven-day scale instead of stretching the selected range across the
+    // card. This keeps the bars (and their labels) readable at every range.
+    val displayed = buckets.takeLast(7)
     val maxCount =
-        (buckets.maxOfOrNull { it.completedCount } ?: 1)
-            .coerceAtLeast(buckets.maxOfOrNull { it.overdueCount } ?: 1)
+        (displayed.maxOfOrNull { it.completedCount + it.overdueCount } ?: 1)
+            .coerceAtLeast(1)
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Canvas(
@@ -236,35 +241,37 @@ private fun TasksBarChart(buckets: ImmutableList<DayBucket>) {
                     .height(200.dp)
                     .padding(16.dp),
         ) {
-            val barCount = buckets.size
+            val barCount = displayed.size
             if (barCount == 0) return@Canvas
 
             val spacing = 8.dp.toPx()
-            val availableWidth = size.width - (spacing * (barCount - 1))
+            val availableWidth = (size.width - (spacing * (barCount - 1))).coerceAtLeast(0f)
             val barWidth = availableWidth / barCount
             val chartHeight = size.height
 
-            buckets.forEachIndexed { index, bucket ->
-                if (maxCount > 0) {
-                    // Completed: green bar from bottom
-                    val completedHeight = (bucket.completedCount.toFloat() / maxCount) * chartHeight
-                    drawRect(
-                        color = DataStatusColors.Completed,
-                        topLeft = Offset(index * (barWidth + spacing), chartHeight - completedHeight),
-                        size = Size(barWidth, completedHeight),
-                    )
-
-                    // Overdue: amber bar below completed
+            displayed.forEachIndexed { index, bucket ->
+                if (maxCount > 0 && barWidth > 0f) {
+                    // Overdue: amber segment from the base.
                     val overdueHeight = (bucket.overdueCount.toFloat() / maxCount) * chartHeight
-                    if (overdueHeight > 0) {
+                    if (overdueHeight > 0f) {
                         drawRect(
                             color = DataStatusColors.Overdue,
+                            topLeft = Offset(index * (barWidth + spacing), chartHeight - overdueHeight),
+                            size = Size(barWidth, overdueHeight),
+                        )
+                    }
+
+                    // Completed: green segment above the overdue one.
+                    val completedHeight = (bucket.completedCount.toFloat() / maxCount) * chartHeight
+                    if (completedHeight > 0f) {
+                        drawRect(
+                            color = DataStatusColors.Completed,
                             topLeft =
                                 Offset(
                                     index * (barWidth + spacing),
-                                    chartHeight - completedHeight - overdueHeight,
+                                    chartHeight - overdueHeight - completedHeight,
                                 ),
-                            size = Size(barWidth, overdueHeight),
+                            size = Size(barWidth, completedHeight),
                         )
                     }
                 }
@@ -273,15 +280,16 @@ private fun TasksBarChart(buckets: ImmutableList<DayBucket>) {
     }
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        buckets.takeLast(7).forEach { bucket ->
+        displayed.forEach { bucket ->
             val day = LocalDate.parse(bucket.date).day.toString()
             Text(
                 text = day,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -418,9 +426,10 @@ private fun InsightsStackedBarChart(
                 val barCount = buckets.size
                 if (barCount == 0) return@Canvas
 
-                val spacing = 6.dp.toPx()
-                val availableWidth = size.width - (spacing * (barCount - 1))
-                val barWidth = availableWidth / barCount
+                val spacingDp = if (barCount <= 14) 6.dp else 2.dp
+                val spacing = spacingDp.toPx()
+                val availableWidth = (size.width - (spacing * (barCount - 1))).coerceAtLeast(0f)
+                val barWidth = if (barCount > 0) availableWidth / barCount else 0f
                 val chartHeight = size.height
 
                 // Determine max for scaling
@@ -428,24 +437,29 @@ private fun InsightsStackedBarChart(
 
                 buckets.forEachIndexed { index, bucket ->
                     val normalizedHeight =
-                        if (maxMs > 0) {
+                        if (maxMs > 0 && barWidth > 0f) {
                             (bucket.totalMs.toFloat() / maxMs) * chartHeight
                         } else {
                             0f
                         }
 
-                    drawRect(
-                        color = DataStatusColors.Completed,
-                        topLeft = Offset(index * (barWidth + spacing), chartHeight - normalizedHeight),
-                        size = Size(barWidth, normalizedHeight),
-                    )
+                    if (normalizedHeight > 0f) {
+                        drawRect(
+                            color = DataStatusColors.Completed,
+                            topLeft = Offset(index * (barWidth + spacing), chartHeight - normalizedHeight),
+                            size = Size(barWidth, normalizedHeight),
+                        )
+                    }
                 }
             }
 
             Spacer(Modifier.height(8.dp))
 
             // Day labels
-            Row(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(if (buckets.size <= 14) 6.dp else 2.dp),
+            ) {
                 buckets.forEach { bucket ->
                     val date = LocalDate.parse(bucket.date)
                     Text(

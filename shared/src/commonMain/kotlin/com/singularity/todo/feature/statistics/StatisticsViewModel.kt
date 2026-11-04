@@ -153,11 +153,12 @@ class StatisticsViewModel(
                     now = now,
                     stagnationWindow = stagnationWindow,
                     lastActivityOf = lastTouched,
-                )
+                ) as TaskHealthSummary?
             }.catch { error ->
                 crashReporter.report(error, TASK_HEALTH_FAILED)
-                // Pure function — no exception expected, but report and fall back gracefully.
-                emit(TaskHealthSummary(emptyMap(), 0, null, null))
+                // A null summary is the error state: the screen renders "Task health
+                // unavailable" instead of a healthy-looking zero.
+                emit(null)
             }.collect { summary -> updateState { it.copy(health = summary) } }
         }
 
