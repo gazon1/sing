@@ -1267,6 +1267,27 @@ object TestTags {
     const val CALENDAR_MONTH_TITLE = "calendar_month_title"
 
     /**
+     * The bar's control strip: the view-mode trigger, the mini-calendar toggle,
+     * the month pager and "Today".
+     *
+     * One tag on the strip so a test can say where the strip sits — and that it
+     * still ends at the bar's right edge on a wide window — without addressing
+     * the individual controls. The strip scrolls when the bar is narrower than
+     * its controls, so "where it sits" is a claim about the bar's layout and not
+     * about any one button.
+     */
+    const val CALENDAR_CONTROLS = "calendar_controls"
+
+    /**
+     * The control that brings the calendar back to today's period.
+     *
+     * The label is the app's word ("Today"); a test that measured the label's
+     * node by its words would pin the app to that word. The tag says which
+     * control it is, so a layout test can measure it and a flow can tap it.
+     */
+    const val CALENDAR_TODAY = "calendar_today"
+
+    /**
      * A day cell of the calendar's day grid — the cell that holds one day.
      *
      * The month grid names its cells by date ([calendarDay]); the day grid has

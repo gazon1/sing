@@ -2,6 +2,7 @@ package com.singularity.todo.feature.calendar.presentation.components.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -23,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
@@ -69,6 +72,12 @@ fun CalendarTopBar(
                     color = palette.textPrimary,
                     fontSize = 20.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    // The bar is one line tall. A period name allowed to wrap
+                    // spends the room it does not have on letters stacked one
+                    // per line; an ellipsis at the end of one line is the same
+                    // information and cannot break the bar.
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.testTag(TestTags.CALENDAR_MONTH_TITLE),
                 )
             },
@@ -120,6 +129,12 @@ fun CalendarTopBar(
             color = palette.textPrimary,
             fontSize = 20.sp,
             fontWeight = FontWeight.SemiBold,
+            // Same reason as the shell bar's copy of this title: a week that
+            // straddles a month boundary is named "September 28 – October 4,
+            // 2026", which is wider than a phone. One line, ellipsized — the
+            // row does not grow and the controls beside it are not pushed out.
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             // The title's wording is the app's; the node that holds it is the
             // app's structure. A flow that asserts the string pins the app to a
             // sentence, a flow that asserts the tag asks whether the calendar
@@ -151,7 +166,20 @@ private fun CalendarControls(
     viewMode: CalendarViewMode,
     onIntent: (CalendarIntent) -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        // The strip keeps each control at its own size and scrolls instead of
+        // squeezing: at 360 dp the view-mode trigger and the four controls need
+        // more room than the bar has, and a squeezed control is what turned
+        // "Today" into a column of single letters. The strip is as wide as its
+        // content or the room it is given, whichever is smaller, so a wide
+        // window lays it out exactly as before — and a narrow one can still
+        // reach the month pager by scrolling.
+        modifier =
+            Modifier
+                .testTag(TestTags.CALENDAR_CONTROLS)
+                .horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         ViewModeDropdown(
             selected = viewMode,
             onSelect = { onIntent(CalendarIntent.ViewModeChanged(it)) },
@@ -187,8 +215,14 @@ private fun CalendarControls(
             text = "Today",
             color = palette.textSecondary,
             fontSize = 14.sp,
+            // The guard of last resort: where the strip is given no room at all
+            // (a period name wider than the whole bar), this label truncates
+            // instead of stacking its letters.
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier =
                 Modifier
+                    .testTag(TestTags.CALENDAR_TODAY)
                     .touchTarget()
                     .clickable { onIntent(CalendarIntent.GoToday) },
         )

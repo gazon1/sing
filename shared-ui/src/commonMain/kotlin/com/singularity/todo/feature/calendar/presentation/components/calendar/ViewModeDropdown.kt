@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
@@ -55,6 +56,11 @@ fun ViewModeDropdown(
                 text = selected.label,
                 color = palette.textPrimary,
                 fontSize = 14.sp,
+                // The bar's other texts are held to one line; this label is the
+                // third one, and the one a longer mode name would grow into a
+                // stack of letters if the trigger ever lost its room.
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 // The label is the app's own wording; the tag says which mode is
                 // selected, so a flow can assert the mode without asserting the
                 // word the app chose for it.
