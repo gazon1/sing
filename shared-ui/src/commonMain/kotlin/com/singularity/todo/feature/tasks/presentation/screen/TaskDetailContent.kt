@@ -468,72 +468,98 @@ fun TaskDetailContent(
                                         ),
                                     onTimeEntryAdd = null,
                                     onTimeEntrySave = null,
-                                    extraSections = {
+                                    // What asks the person for something: the first-run offer
+                                    // and the AI proposals waiting for an answer. Above the
+                                    // rows, because an offer under a screen of fields is an
+                                    // offer nobody reads.
+                                    askSections = {
+                                        // First-run nudge and pending AI proposals both
+                                        // arrive through `extras`, which is Unresolved
+                                        // until the coordinator's cold-start work lands.
+                                        // Reading them as absent while unresolved is the
+                                        // intended behaviour: there is nothing to show yet,
+                                        // and inventing an empty offer would flash a
+                                        // section that disappears a frame later.
+                                        val firstRun =
+                                            when (val ex = extras) {
+                                                is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
+                                                is TaskDetailExtras.Ready -> ex.firstRun
+                                            }
+                                        val proposals =
+                                            when (val ex = extras) {
+                                                is TaskDetailExtras.Unresolved -> persistentListOf()
+                                                is TaskDetailExtras.Ready -> ex.proposals
+                                            }
+                                        val proposalFailures =
+                                            when (val ex = extras) {
+                                                is TaskDetailExtras.Unresolved -> persistentMapOf()
+                                                is TaskDetailExtras.Ready -> ex.proposalFailures
+                                            }
+                                        // Nothing to ask is nothing drawn — not an empty box.
+                                        // The page spaces its children, so a slot that emitted
+                                        // an empty column would leave a gap between the
+                                        // description and the rows on a task with no offer.
+                                        if (firstRun is FirstRun.Offer || proposals.isNotEmpty()) {
+                                            Column(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                            ) {
+                                                if (firstRun is FirstRun.Offer) {
+                                                    FirstRunSection(
+                                                        // Only Ask AI has a handler to give it. The
+                                                        // other two chips are not rendered — see
+                                                        // FirstRunSection's KDoc.
+                                                        onAskAi = { showAiSheet = true },
+                                                    )
+                                                }
+                                                if (proposals.isNotEmpty()) {
+                                                    TaskDetailProposalSection(
+                                                        proposals = proposals,
+                                                        failures = proposalFailures,
+                                                        onConfirm = { itemId ->
+                                                            coordinator.onIntent(
+                                                                TaskDetailIntent.Domain.ConfirmProposalItem(itemId),
+                                                            )
+                                                        },
+                                                        onReject = { itemId, reason ->
+                                                            coordinator.onIntent(
+                                                                TaskDetailIntent.Domain.RejectProposalItem(
+                                                                    itemId,
+                                                                    reason,
+                                                                ),
+                                                            )
+                                                        },
+                                                        onConfirmAll = { proposalId ->
+                                                            coordinator.onIntent(
+                                                                TaskDetailIntent.Domain.ConfirmAllProposalItems(
+                                                                    proposalId,
+                                                                ),
+                                                            )
+                                                        },
+                                                        onDismiss = { proposalId ->
+                                                            coordinator.onIntent(
+                                                                TaskDetailIntent.Domain.DismissProposal(proposalId),
+                                                            )
+                                                        },
+                                                        onEdit = { itemId, text ->
+                                                            coordinator.onIntent(
+                                                                TaskDetailIntent.Domain.EditProposalItem(itemId, text),
+                                                            )
+                                                        },
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    },
+                                    // What shows the task's own state: its child work, drawn
+                                    // below the attribute rows so the due date, the priority
+                                    // and the project stay on the first screen instead of
+                                    // sitting under a screen of empty "add" cards.
+                                    stateSections = {
                                         Column(
                                             modifier = Modifier.fillMaxWidth(),
                                             verticalArrangement = Arrangement.spacedBy(8.dp),
                                         ) {
-                                            // First-run nudge and pending AI proposals both
-                                            // arrive through `extras`, which is Unresolved
-                                            // until the coordinator's cold-start work lands.
-                                            // Reading them as absent while unresolved is the
-                                            // intended behaviour: there is nothing to show yet,
-                                            // and inventing an empty offer would flash a
-                                            // section that disappears a frame later.
-                                            val firstRun =
-                                                when (val ex = extras) {
-                                                    is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
-                                                    is TaskDetailExtras.Ready -> ex.firstRun
-                                                }
-                                            if (firstRun is FirstRun.Offer) {
-                                                FirstRunSection(
-                                                    // Only Ask AI has a handler to give it. The
-                                                    // other two chips are not rendered — see
-                                                    // FirstRunSection's KDoc.
-                                                    onAskAi = { showAiSheet = true },
-                                                )
-                                            }
-                                            val proposals =
-                                                when (val ex = extras) {
-                                                    is TaskDetailExtras.Unresolved -> persistentListOf()
-                                                    is TaskDetailExtras.Ready -> ex.proposals
-                                                }
-                                            val proposalFailures =
-                                                when (val ex = extras) {
-                                                    is TaskDetailExtras.Unresolved -> persistentMapOf()
-                                                    is TaskDetailExtras.Ready -> ex.proposalFailures
-                                                }
-                                            if (proposals.isNotEmpty()) {
-                                                TaskDetailProposalSection(
-                                                    proposals = proposals,
-                                                    failures = proposalFailures,
-                                                    onConfirm = { itemId ->
-                                                        coordinator.onIntent(
-                                                            TaskDetailIntent.Domain.ConfirmProposalItem(itemId),
-                                                        )
-                                                    },
-                                                    onReject = { itemId, reason ->
-                                                        coordinator.onIntent(
-                                                            TaskDetailIntent.Domain.RejectProposalItem(itemId, reason),
-                                                        )
-                                                    },
-                                                    onConfirmAll = { proposalId ->
-                                                        coordinator.onIntent(
-                                                            TaskDetailIntent.Domain.ConfirmAllProposalItems(proposalId),
-                                                        )
-                                                    },
-                                                    onDismiss = { proposalId ->
-                                                        coordinator.onIntent(
-                                                            TaskDetailIntent.Domain.DismissProposal(proposalId),
-                                                        )
-                                                    },
-                                                    onEdit = { itemId, text ->
-                                                        coordinator.onIntent(
-                                                            TaskDetailIntent.Domain.EditProposalItem(itemId, text),
-                                                        )
-                                                    },
-                                                )
-                                            }
                                             TaskDetailTagsSection(
                                                 tags = ui.tags,
                                                 onDeleteTag = {

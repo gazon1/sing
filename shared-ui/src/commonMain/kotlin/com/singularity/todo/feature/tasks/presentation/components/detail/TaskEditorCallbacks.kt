@@ -146,10 +146,26 @@ data class TaskEditorCallbacks(
      */
     val onTimeEntrySave: ((startedAtMs: Long, endedAtMs: Long, kind: TimeEntryKind, note: String?) -> Unit)?,
     /**
-     * Sections the editor does not know about — the checklist, the tags, the proposals,
-     * the logbook — rendered under the fields. Null means the editor shows nothing else.
+     * Content the caller supplies that asks the person for something — the first-run
+     * offer, an AI proposal waiting for an answer. Drawn directly under the description,
+     * above the attribute rows.
+     *
+     * The two slots are not interchangeable, and the order is the reason. An ask placed
+     * under a screen of fields is an ask nobody reads, so this one goes where the person
+     * is already looking; the task's own state goes below. Null means the caller has
+     * nothing to ask, and nothing is drawn.
      */
-    val extraSections: (@Composable () -> Unit)? = null,
+    val askSections: (@Composable () -> Unit)? = null,
+    /**
+     * Content the caller supplies that shows the task's own state — the checklist, the
+     * subtasks, the attachments, the tags, the logbook, the time tracking. Drawn after
+     * the attribute rows.
+     *
+     * After them, not before: the due date, the priority and the project are what a
+     * person fills in, and content drawn above them pushes those fields below the fold.
+     * Null means the caller shows nothing below the rows, and nothing is drawn.
+     */
+    val stateSections: (@Composable () -> Unit)? = null,
     /** Bottom bar content — null means no bottom bar */
     val bottomBar: (@Composable () -> Unit)? = null,
     /** Overflow menu items — empty list = no menu shown */
