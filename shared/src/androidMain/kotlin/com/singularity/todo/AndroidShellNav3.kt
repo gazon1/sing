@@ -146,6 +146,41 @@ fun androidShellNav3Root(
             )
         },
     ) { navigationPadding ->
+        // The suite's `PaddingValues` cannot say whether its bar height *contains* the system
+        // navigation bar's inset or sits above it; the arithmetic below is right only for the
+        // first reading (a union of overlapping rectangles), and a sum is right only for the
+        // second. Rather than assume, the shell measures both and says so in the log, so the
+        // first run of a debug build on a device answers the question the source cannot — and
+        // a library upgrade that changes the answer announces itself instead of silently
+        // eating the last row. See docs/device-checks/android-shell-insets-360dp.md.
+        run {
+            val d = androidx.compose.ui.platform.LocalDensity.current
+            val systemBottomPx = androidx.compose.foundation.layout.WindowInsets.systemBars.getBottom(d)
+            val suiteBottomPx = with(d) { navigationPadding.calculateBottomPadding().roundToPx() }
+            val contentBottomPx = with(d) {
+                shellContentWindowInsets(
+                    windowInsets = ScaffoldDefaults.contentWindowInsets,
+                    navigationPadding = navigationPadding,
+                ).getBottom(d)
+            }
+            android.util.Log.i(
+                "SHELL-INSETS",
+                "systemBottomPx=$systemBottomPx suiteBottomPx=$suiteBottomPx " +
+                    "contentBottomPx=$contentBottomPx density=${d.density}",
+            )
+            if (suiteBottomPx < systemBottomPx) {
+                // The suite took less room than the system bar: its height does not contain
+                // the inset, the union is short by the difference, and the last row would be
+                // drawn under the system bar. Loud, because the fix is arithmetic, not taste.
+                android.util.Log.e(
+                    "SHELL-INSETS",
+                    "the navigation suite took ${suiteBottomPx}px but the system navigation bar " +
+                        "is ${systemBottomPx}px: the suite's bar does not contain the system " +
+                        "inset, so shellContentWindowInsets must add it instead of taking the union",
+                )
+            }
+        }
+
         Scaffold(
             topBar = {
                 ShellTopBar(
@@ -167,8 +202,11 @@ fun androidShellNav3Root(
             },
             contentWindowInsets =
                 shellContentWindowInsets(
-                    horizontalInsets =
-                        ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal),
+                    // The full set, not `.only(Horizontal)`: the helper is what decides
+                    // which edges the content gets, and it cannot answer the bottom-edge
+                    // question from an input whose bottom it has already been told to erase.
+                    // The status bar is dropped inside the helper, with the reason.
+                    windowInsets = ScaffoldDefaults.contentWindowInsets,
                     navigationPadding = navigationPadding,
                 ),
         ) { padding ->

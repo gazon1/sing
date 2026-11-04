@@ -2,7 +2,9 @@ package com.singularity.todo.shell
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asInsets
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.union
 
 /**
@@ -14,18 +16,39 @@ import androidx.compose.foundation.layout.union
  * content has to clear, or the last row is drawn behind the bar (and, on a wide window, the
  * content starts under the rail).
  *
- * Every edge the suite reports is kept, and the union — the maximum per side, not a sum —
- * means a system inset the caller already passes is not counted twice. The top edge is
- * normally zero; it is taken anyway rather than special-cased, so the rule is "the suite's
- * room is reserved" instead of "the bottom of the suite's room is reserved", which is what
- * let the rail case through.
+ * [windowInsets] is the **full** window inset set, as `ScaffoldDefaults.contentWindowInsets`
+ * reports it — all four edges, not a pre-horizontalised slice. It has to be full for two
+ * reasons. The questions that decide the bottom edge — "is the system navigation bar's room
+ * already inside the suite's bar height, or on top of it?" — are questions about a
+ * non-zero bottom inset, and a caller that hands in `.only(Horizontal)` has already erased
+ * the input that answers them, leaving a union whose two arms can only ever agree. And the
+ * sides are not the only edge the suite can take: keeping the whole set means the helper,
+ * not the call site, decides which edges the content gets.
  *
- * @param horizontalInsets the window insets the content is padded by on the sides — the
- *   system bars' horizontal insets.
+ * The top edge is dropped here, deliberately and once: `ShellTopBar` sits under the status
+ * bar and consumes that inset itself, so padding the content by it as well would move every
+ * screen down twice. That is #1566, which is out of scope — dropping the edge is how this
+ * helper stays out of it.
+ *
+ * The remaining edges are combined with `union` — the maximum per side, not a sum — because
+ * the suite's padding describes a rectangle the content must stay out of, and the system
+ * bars describe another. Where they cover the same ground (the suite's bar is drawn over
+ * the system navigation bar and its height includes that inset — measured, see
+ * `docs/device-checks/android-shell-insets-360dp.md`), the maximum is the truth and a sum
+ * would leave a gap the height of the system bar. The rail case on a wide window is carried
+ * by the same arithmetic: the suite reports its room on `start`/`end`, the window reports
+ * the sides, and the larger side wins.
+ *
+ * @param windowInsets every window inset the content could be padded by — the full set, not
+ *   a horizontal slice; the top edge is discarded here.
  * @param navigationPadding the padding the navigation suite handed to its content; every
  *   edge of it is room the suite took.
  */
 internal fun shellContentWindowInsets(
-    horizontalInsets: WindowInsets,
+    windowInsets: WindowInsets,
     navigationPadding: PaddingValues,
-): WindowInsets = horizontalInsets.union(navigationPadding.asInsets())
+): WindowInsets =
+    windowInsets
+        // The status bar belongs to ShellTopBar; see the KDoc and #1566.
+        .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
+        .union(navigationPadding.asInsets())
