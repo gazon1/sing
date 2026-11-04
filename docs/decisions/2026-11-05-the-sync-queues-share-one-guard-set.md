@@ -37,24 +37,28 @@ called, so a flow taken before a patch was shelved reported an empty shelf forev
 ## Idea
 
 A transport queue has one shape: it holds the work of several accounts, it is read
-whole, it is erased per account, and it is drained whole when an account leaves. The
-shelf is a transport queue that gave up, and the shadow is a transport queue's
-memory. So the guards do not need three designs — they need one, and each table's
-part of it.
+whole, it is erased per account, and it can be drained whole when there is no owner
+left to attribute the work to. The shelf is a transport queue that gave up, and the
+shadow is a transport queue's memory. So the guards do not need three designs — they
+need one, and each table's part of it.
 
 ## Decision
 
 - **The outbox's guard set is the one.** Global reads, owner-scoped erase and count,
-  patch-id-keyed deletes, and a global drain on sign-out — on all three tables.
-  `SyncDeadLetterDao`'s unscoped `watch`, `getAll` and `watchCount` are therefore
-  deliberate, and the DAO says so next to the query.
+  patch-id-keyed deletes, and a wholesale drain no production path calls — on all
+  three tables. `SyncDeadLetterDao`'s unscoped `watch`, `getAll` and `watchCount` are
+  therefore deliberate, and the DAO says so next to the query.
 - **The guards are pinned by one contract, run against all three implementations.**
   The Room DAOs, the shared fakes in the fake database, and the fakes beside the
   sync-engine tests answer the same scenarios the same way. A fake that cannot
   express a guard is a fake that lets a test assert the guard works.
 - **A fake's flow is a flow.** The dead-letter fake's `watch` and `watchCount` are
   cold flows over the current shelf, as Room's are — a flow taken before a row was
-  shelved reports that row once it is.
+  shelved reports that row once it is, both when it is re-collected and to a collector
+  that was already open on it.
+- **The caller is pinned, not just the signature.** The erase path names each sync
+  table by its owner-scoped delete, and a test runs that path with two accounts' rows
+  on it. A switch that reached for the shelf's `clearAll` fails that test.
 - **The shelf's missing profile is a gap in its shape, not in its guards.** It is a
   schema change, and it is filed as its own piece of work rather than smuggled into
   an audit.
@@ -88,6 +92,10 @@ decision.
 - The contract test is one abstract class with three implementations, run against all
   three: the Room one is `slow`, because it is a real database file, and the two fake
   ones are `fast`.
+- The dead-letter fake's `rows` is a read-only view of its store, not a mutable list
+  the test can write behind the flow's back: a test that mutated it would leave
+  `watch` describing a shelf that no longer exists. Every existing caller only reads
+  it, so the view is the whole of the contract a test gets.
 - A fake's guards are the query's guards. Every fake that stands in for the shadow or
   the shelf reproduces the ownership filter it replaces — the composite key for the
   shadow, the owner filter for the shelf's erase and count — and the contract is what
