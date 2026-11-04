@@ -20,7 +20,6 @@ import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.stubs.TestAuthStubs
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -71,15 +70,12 @@ import kotlin.time.Instant
  *   named `<title>`. A dependency on an incomplete task is what makes a task
  *   *blocked*. The dependency is named by title because a deep link cannot know
  *   an id it has not created itself — seed the dependency first.
- * - `cleanup=<prefix>[,<prefix>…]` — deletes instead of seeding: removes every
- *   task, note and project in the active profile whose title/name starts with
- *   any of the given prefixes. Comma-separated so one link can sweep several
- *   fixture families.
  * - `reset=content` — deletes instead of seeding: removes every row of the active
  *   profile's content — tasks, notes, projects, tags, reminders, attachments,
  *   saved views and the rest, archived, trashed and soft-deleted rows included —
- *   keeping the profile and session. For fixtures a flow *typed* rather than
- *   seeded, which carry no run id for `cleanup=` to match. The list of tables it
+ *   keeping the profile and session. This is the only cleanup the seed link
+ *   answers: it reaches the fixtures a flow *typed* as well as the ones it
+ *   seeded, and the runner uses it before every flow. The list of tables it
  *   reaches, and the ones it leaves alone, are in
  *   `docs/architecture/wipe-inventory.md`. NOT concurrency-safe — it wipes other
  *   runs' in-flight fixtures too.
@@ -100,17 +96,15 @@ import kotlin.time.Instant
  * todo-debug://seed?note=Meeting%20notes
  * todo-debug://seed?project=Work
  * todo-debug://seed?profile=Personal
- * todo-debug://seed?cleanup=r1a2b3c,Buy%20milk
  * ```
  *
- * `cleanup` removes the rows whose title starts with one of the given prefixes.
- * It is the tool for the fixtures a flow *typed* rather than seeded: a seeded
- * fixture carries no run id any more, because the seed replaces and a fixed
- * title is what keeps a flow's assertion — and the failure message of that
- * assertion — readable. The runner wipes the profile's content between flows,
- * so `cleanup` is a mid-run tool rather than the suite's isolation mechanism.
+ * `reset=content` is the one cleanup mechanism: the runner wipes the active
+ * profile's content before every flow, and no title-prefix sweep exists. A
+ * seeded fixture carries no run id, because the seed replaces and a fixed title
+ * is what keeps a flow's assertion — and the failure message of that assertion —
+ * readable; wiping the profile is what keeps one flow's fixtures out of the next.
  *
- * Cleanup and seeding are mutually exclusive: `cleanup` short-circuits the
+ * Cleanup and seeding are mutually exclusive: `reset=content` short-circuits the
  * entity-creating branches below.
  *
  * Lives in `src/debug/` — excluded from release APKs.
@@ -304,27 +298,10 @@ class DebugSeedActivity :
 
         // Cleanup wins over seeding: a cleanup link carries no entity params, and
         // honouring both would mean a link that deletes the fixture it just made.
-        //
-        // This dispatch is not an optimisation. The runner sweeps a successful
-        // run's fixtures through the `cleanup=` link, so that one run's data
-        // cannot satisfy the next run's assertions; without it, every run's
-        // entities stayed on the device, and a detekt refactor removed it
-        // silently — the methods survived, the branch that called them did not,
-        // and nothing failed. A flow that asserts an empty list then failed
-        // because of the previous run, and the suite's independence was a
-        // claim rather than a fact.
+        // `reset=content` is the only cleanup the link answers — the profile wipe
+        // the runner sends before every flow.
         if (params.containsKey("reset")) {
             resetContent()
-            return
-        }
-
-        params["cleanup"]?.let { prefixes ->
-            cleanup(
-                prefixes = prefixes.split(',').map { it.trim() }.filter { it.isNotEmpty() },
-                taskRepo = taskRepo,
-                notesRepo = notesRepo,
-                projectsRepo = projectsRepo,
-            )
             return
         }
 
@@ -428,9 +405,9 @@ class DebugSeedActivity :
      * Removes every row of the active profile's content, keeping the profile, the
      * session and the auth state intact.
      *
-     * This is the escape hatch for fixtures that a flow creates by *typing* a
-     * title rather than seeding it: those carry no run id, so the prefix sweep
-     * cannot find them, and they accumulate until a negative flow (one asserting
+     * This is the escape hatch for the fixtures a flow creates by *typing* a
+     * title rather than seeding it: a title nobody declared is one no targeted
+     * delete could name, so they accumulate until a negative flow (one asserting
      * an empty list) starts failing because a previous run's row is still there.
      *
      * The list of tables it reaches lives in the library, not here: the reset is
@@ -463,45 +440,6 @@ class DebugSeedActivity :
             "DebugSeedActivity",
             "reset(content) reached ${result.wipedTables.size} tables: ${result.wipedTables.joinToString()}",
         )
-    }
-
-    /**
-     * Removes every task, note and project in the active profile whose
-     * title/name starts with one of [prefixes].
-     *
-     * Matching is a prefix test rather than an exact-title test on purpose: a
-     * run stamps its id onto the *start* of each seeded title ("r1a2b3 Buy
-     * milk"), so one prefix sweep catches the run's whole fixture set and its
-     * variants in a single pass.
-     *
-     * Scoped to the active profile by construction — all three repositories
-     * resolve against the current user, so a cleanup can never reach another
-     * profile's data. That also means a flow that switched profiles via
-     * `profile=` must be cleaned while that profile is still active.
-     */
-    private suspend fun cleanup(
-        prefixes: List<String>,
-        taskRepo: TaskRepository,
-        notesRepo: NotesRepository,
-        projectsRepo: ProjectsRepository,
-    ) {
-        if (prefixes.isEmpty()) return
-
-        fun matches(candidate: String) = prefixes.any { candidate.startsWith(it) }
-
-        // observeAll() is user-scoped and drops deleted rows, so a single
-        // first() gives exactly the live fixture set for the active profile.
-        var removed = 0
-        taskRepo.observeAll().first().filter { matches(it.title) }.forEach {
-            taskRepo.delete(it.id).onSuccess { removed++ }
-        }
-        notesRepo.observeAll().first().filter { matches(it.title) }.forEach {
-            notesRepo.delete(it.id).onSuccess { removed++ }
-        }
-        projectsRepo.observeAll().first().filter { matches(it.name) }.forEach {
-            projectsRepo.delete(it.id).onSuccess { removed++ }
-        }
-        android.util.Log.i("DebugSeedActivity", "cleanup($prefixes) removed $removed entities")
     }
 
     private fun parseParams(uri: Uri): Map<String, String> =
