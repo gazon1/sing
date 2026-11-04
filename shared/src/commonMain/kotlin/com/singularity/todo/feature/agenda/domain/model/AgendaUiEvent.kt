@@ -32,12 +32,15 @@ sealed interface AgendaUiEvent : MviEvent {
     data class CreateInSection(val sectionId: String) : AgendaUiEvent
 
     /**
-     * Navigate to the task create screen on the draft that holds the picked days.
+     * Navigate to the task create screen on the draft named by [draftKey].
      *
-     * The event carries the *key* of the draft, not the days: the days are in
-     * the draft, and the draft is the only channel between the two screens.
+     * The event carries the *key* of the draft, not the prefill: the prefill is
+     * in the draft, and the draft is the only channel between the two screens.
+     * Two callers write one — the date picker (the picked days) and an empty
+     * list's "Create a task" (the list's project, tags and date bucket) — and
+     * the editor reads it back the same way.
      */
-    data class OpenCreateWithDates(val draftKey: String) : AgendaUiEvent
+    data class OpenCreateWithDraft(val draftKey: String) : AgendaUiEvent
 
     /**
      * A bulk operation (delete or complete) finished.

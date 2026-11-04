@@ -91,8 +91,8 @@ import kotlinx.datetime.plus
  * @param onSaveCurrentClick Called when the user taps the save-current-agenda action.
  * @param onCreateTask Called when the user taps the empty state's "Create a task"
  *   button. `null` (the default) hides the button — the agenda shows the empty
- *   state on tabs that do not start tasks, and a button that does nothing is
- *   worse than no button.
+ *   state on lists that cannot hold a task the user could create, and a button
+ *   whose task the list would never show is worse than no button.
  * @param contextMenuHost Slot for the task context menu renderer.
  * @param modifier Compose modifier.
  */

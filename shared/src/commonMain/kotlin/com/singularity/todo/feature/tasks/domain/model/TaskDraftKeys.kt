@@ -43,6 +43,15 @@ object TaskDraftKeys {
     const val CALENDAR_MULTI_DATE = "calendar_create_draft"
 
     /**
+     * The draft the agenda writes when the user starts a task from an empty list.
+     *
+     * One key, not one per list: every tap writes the draft it is about to open,
+     * so the previous one is replaced rather than restored. What differs between
+     * the lists is the prefill inside the draft, not where the draft lives.
+     */
+    const val AGENDA_EMPTY_STATE = "agenda_empty_state_draft"
+
+    /**
      * The draft the agenda writes when the user starts a task on several dates
      * from the date picker in the top bar.
      *

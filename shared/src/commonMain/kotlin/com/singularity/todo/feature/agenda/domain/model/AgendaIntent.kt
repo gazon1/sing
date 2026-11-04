@@ -75,6 +75,20 @@ sealed interface AgendaIntent : MviIntent {
      */
     data class CreateOnDates(val dates: Set<kotlinx.datetime.LocalDate>) : AgendaIntent
 
+    /**
+     * The user asked to start a task from an empty agenda list.
+     *
+     * The list already said what belongs in it — its project or tags, and the
+     * date bucket its rows live in — and that is [prefill]. An empty list is
+     * the only one that needs this: a list with sections can offer '+' in a
+     * section header instead, which writes the same kind of draft.
+     *
+     * The task itself is not created here. The prefill goes into a draft and
+     * the editor creates the task, so a task started from an empty list is
+     * created by exactly the same code as one started anywhere else.
+     */
+    data class CreateFromEmptyState(val prefill: AgendaCreatePrefill) : AgendaIntent
+
     // ── Selection mode ──────────────────────────────────────────────────────────
 
     /**
