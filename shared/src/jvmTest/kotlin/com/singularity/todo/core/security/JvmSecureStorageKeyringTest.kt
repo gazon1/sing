@@ -45,6 +45,12 @@ class JvmSecureStorageKeyringTest {
      * The defaults describe the ordinary case — a keyring that is there and behaves like a
      * map — so a test states only what it varies. The fallback path is overridden here and
      * nowhere else.
+     *
+     * Availability gates both directions on purpose: a keyring that is not there refuses the
+     * write *and* answers nothing on read, which is what sends `read` through to the file.
+     * Without the read gate a keyring that had gone away would keep answering from the map
+     * the test still holds, and the fallback cases would be asserting against the backend
+     * they exist to avoid.
      */
     private fun storage(
         keyringUp: () -> Boolean = { true },
