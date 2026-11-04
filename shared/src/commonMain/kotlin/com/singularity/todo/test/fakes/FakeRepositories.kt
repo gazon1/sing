@@ -74,6 +74,7 @@ import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewKey
 import com.singularity.todo.feature.agenda.domain.port.DefaultAgendaViewSettingsRepository
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.feature.archive.domain.port.ArchiveRepository
 import com.singularity.todo.feature.calendarSync.auth.GoogleAuthorizationException
 import com.singularity.todo.feature.calendarSync.auth.GoogleAuthorizationRequest
 import com.singularity.todo.feature.calendarSync.auth.GoogleAuthorizer
@@ -3925,4 +3926,23 @@ class FakeGoogleAuthorizer(
         redeemedGrant = grant
         return result
     }
+}
+
+// ─── ArchiveRepository ────────────────────────────────────────────────────────
+
+/**
+ * The archive write, as a test sees it.
+ *
+ * The archive screen's list is the task repository's trash observation; this
+ * port has one operation, and the fake's only job is to answer it. The default
+ * is a successful sweep of nothing, so a test that only reads the list does not
+ * have to say anything about the write. [archiveCompletedTasksOverride] lets a
+ * test make that operation fail without editing the fake.
+ */
+class FakeArchiveRepository : ArchiveRepository {
+    /** When set, the archive answers with this instead of succeeding with zero rows. */
+    var archiveCompletedTasksOverride: Result<Int>? = null
+
+    override suspend fun archiveCompletedTasks(): Result<Int> =
+        archiveCompletedTasksOverride ?: Result.success(0)
 }
