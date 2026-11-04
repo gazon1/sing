@@ -7,9 +7,10 @@
 ## What
 
 The task editor SHALL draw its attribute rows — priority, estimate, due date, start
-date, project, tags, recurrence, pin — directly under the description, and SHALL
-draw the sections that add to the task — the checklist, the subtasks, the
-attachments, the logbook, the backlinks — after them.
+date, project, tags, recurrence, pin, the dependencies card and the workflow state —
+under the description and under the content that asks the person for something, and
+SHALL draw the sections that add to the task — the checklist, the subtasks, the
+attachments, the logbook, the backlinks — after the rows.
 
 Today the sections come first. On a 360 dp phone a task opened with an empty
 checklist, no subtasks and no attachments showed, in this order: title,
@@ -35,8 +36,15 @@ grows belongs below the thing that is always there.
 
 - The editor draws the rows before the caller's sections, and the caller's
   sections last.
-- The rows themselves do not change: the same rows, the same pickers, the same
-  callbacks. Only the order of the column changes.
+- The dependencies card moves out of the head of the column and into the
+  attribute group, after the pin row (#2010). It keeps its behaviour — it appears
+  when there is something to pick from, shows its relations, and opens the
+  dependency picker — but it no longer pushes the priority and the due date down
+  by a row on a task that has relations.
+- The workflow-state row moves below the checklist and attachments rows, so on the
+  task detail, which draws no such rows, it is the last of the group.
+- The rows keep their pickers and their callbacks; beyond the two moves above, the
+  order of the column is what changes.
 - The create editor is unaffected in practice: it gives the editor no sections, so
   the column is the rows alone.
 

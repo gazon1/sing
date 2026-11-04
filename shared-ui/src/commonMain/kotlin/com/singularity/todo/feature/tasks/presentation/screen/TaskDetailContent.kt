@@ -90,8 +90,6 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import kotlin.time.Instant
 
-@Suppress("LongMethod", "CyclomaticComplexMethod", "FunctionSignature")
-@Composable
 /**
  * The task detail screen.
  *
@@ -112,6 +110,7 @@ import kotlin.time.Instant
  * work: one slot could not both stay reachable without a scroll and grow without
  * bound.
  */
+@Suppress("LongMethod", "CyclomaticComplexMethod", "FunctionSignature")
 @Composable
 fun TaskDetailContent(
     coordinator: TaskDetailCoordinator,
