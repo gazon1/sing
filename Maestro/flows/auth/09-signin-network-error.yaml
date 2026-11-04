@@ -66,13 +66,14 @@ tags:
 - tapOn:
     id: auth_sign_in_button
 
-# The app should show a network error.
+# The app should show a network error. It is presented as the shared error
+# dialog.
 - extendedWaitUntil:
     visible:
-      id: auth_error_text
+      id: result_dialog
     timeout: 20000
 - assertVisible:
-    id: auth_error_text
+    id: result_dialog
 
 # Cleanup: restore network.
 - setAirplaneMode:

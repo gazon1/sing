@@ -56,7 +56,7 @@ fun AuthFormFields(
     emailState: TextFieldState,
     passwordState: TextFieldState,
     isLoading: Boolean,
-    errorMessage: String?,
+    errorMessage: String? = null,
     message: String? = null,
     onSubmit: () -> Unit,
     /**

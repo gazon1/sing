@@ -663,6 +663,15 @@ object TestTags {
      */
     const val RESULT_DIALOG = "result_dialog"
 
+    /**
+     * The button that closes the shared result/error dialog.
+     *
+     * The label is "OK" — which reads "ОК" on this project's Russian device — so a
+     * flow that matched the words would wait forever. The dialog can be raised by
+     * an event the screen presents, so the flow has to be able to close it again.
+     */
+    const val RESULT_DIALOG_CONFIRM = "result_dialog_confirm"
+
     /** "Archive is empty" empty state title on the archive list screen. */
     const val ARCHIVE_EMPTY = "archive_empty"
 

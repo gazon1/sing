@@ -41,7 +41,7 @@ import com.singularity.todo.core.ui.text.SelectableText
 @Composable
 fun ConfirmationPendingContent(
     email: String,
-    message: String?,
+    message: String? = null,
     isLoading: Boolean,
     onResend: () -> Unit,
     onBack: () -> Unit,

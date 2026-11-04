@@ -27,7 +27,15 @@ fun ResultDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Text(text) },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier =
+                    Modifier
+                        .testTag(TestTags.RESULT_DIALOG_CONFIRM)
+                        .mapTestTagsAsResourceIds(),
+            ) { Text("OK") }
+        },
         // Flows assert the dialog is present, not what it says: these messages are
         // user-facing copy that changes with the feature and is translated on this
         // device, so matching the text rots.

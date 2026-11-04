@@ -67,7 +67,9 @@ tags:
 # Wait for the "Check your email" screen — AUTH-SIGNUP-02 expects this
 # neutral message, NOT an error. The headline is the tagged part of the
 # confirmation screen: the message under it is untagged, and the form's own
-# message slot is not on the screen once the form is replaced.
+# message slot is not on the screen once the form is replaced. The notice
+# itself reaches the user as a snackbar, which is transient, so it is not
+# waited for here — the headline carries the same fact and stays.
 - extendedWaitUntil:
     visible:
       id: auth_confirmation_headline

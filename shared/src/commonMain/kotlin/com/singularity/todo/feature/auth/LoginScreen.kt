@@ -16,22 +16,25 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.core.ui.components.Notification
+import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -42,13 +45,17 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
     // choices that are not text.
     val emailState = rememberTextFieldState()
     val passwordState = rememberTextFieldState()
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    // Kept apart from `errorMessage` so a neutral "your account was created, go check
-    // your mail" is not painted in the error colour and is not announced as a failure.
-    var message by remember { mutableStateOf<String?>(null) }
 
     val navigator = LocalAppNavigator.current
+
+    // The event bus is collected here, before anything can return early. It used to be
+    // collected *after* the no-server branch returned, so the error that branch produces
+    // — "Both the project URL and the anon key are required" — had nowhere to go and the
+    // user was told nothing.
+    LoginScreenEffects(
+        events = viewModel.events,
+        onNavigateHome = { navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today)) },
+    )
 
     // With no project configured there is nothing to sign in to, and the
     // credential form's failure would arrive as a network error pointing at the
@@ -60,29 +67,10 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
     // would be invisible to exactly the people who have nothing to configure.
     if (state is AuthUiState.SignedOutWithNoServer) {
         ServerConfigForm(
-            errorMessage = errorMessage,
             onSave = { url, key -> viewModel.onIntent(AuthIntent.SaveServerConfig(url, key)) },
             onContinueOffline = { viewModel.onIntent(AuthIntent.ContinueOffline) },
         )
         return
-    }
-
-    CollectEvents(viewModel.events) { event ->
-        when (event) {
-            AuthUiEvent.NavigateToHome -> {
-                navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today))
-            }
-
-            is AuthUiEvent.Error -> {
-                errorMessage = event.message
-                message = null
-            }
-
-            is AuthUiEvent.Message -> {
-                message = event.message
-                errorMessage = null
-            }
-        }
     }
 
     Column(
@@ -104,15 +92,11 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
         if (awaitingConfirmation != null) {
             ConfirmationPendingContent(
                 email = awaitingConfirmation.email,
-                message = message,
                 isLoading = state is AuthUiState.Loading,
                 onResend = {
-                    message = null
                     viewModel.onIntent(AuthIntent.SendMagicLink(awaitingConfirmation.email))
                 },
                 onBack = {
-                    message = null
-                    errorMessage = null
                     viewModel.onIntent(AuthIntent.ResetState)
                 },
             )
@@ -125,8 +109,6 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
                 emailState = emailState,
                 passwordState = passwordState,
                 isLoading = state is AuthUiState.Loading,
-                errorMessage = errorMessage,
-                message = message,
                 onSubmit = {
                     val email = emailState.text.toString()
                     val password = passwordState.text.toString()
@@ -143,8 +125,6 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
             TextButton(
                 onClick = {
                     form.update { copy(isSignUp = !isSignUp) }
-                    errorMessage = null
-                    message = null
                 },
                 modifier =
                     Modifier
@@ -176,6 +156,74 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
 }
 
 /**
+ * Everything the login screen does that is not drawing: the one collection of the
+ * auth event bus, and the two ways an event can reach the user.
+ *
+ * ## Why the events are presented here and not copied into local flags
+ *
+ * The screen used to keep `errorMessage` and `message` as `remember` flags and
+ * copy each event into one of them, which meant the flag had to be cleared by
+ * hand wherever the screen moved on — four places, each of them a chance to
+ * leave a stale error on the form. The event says what happened once; the
+ * screen shows it where it arrives and forgets it. That is the shape
+ * `BackupScreen` already has for `BackupUiEvent`.
+ *
+ * ## Why the notifications travel over a channel of their own
+ *
+ * The bus is a channel, and a channel has one consumer: a second collector on
+ * `events` takes its share of the events away from the first. The screen owns
+ * the single collection, so the notifications it maps are handed to the host
+ * over a channel of their own and the host is the only consumer of those.
+ *
+ * ## Why this is public
+ *
+ * It is the screen's whole event contract, and a contract that cannot be
+ * mounted on its own cannot be tested on its own: the desktop test mounts this,
+ * hands it an event, and asserts that the user is told. `BackupScreen` takes
+ * its event flow as a parameter for the same reason.
+ */
+@Composable
+fun LoginScreenEffects(
+    events: Flow<AuthUiEvent>,
+    onNavigateHome: () -> Unit,
+) {
+    val notificationChannel = remember { Channel<Notification>(Channel.BUFFERED) }
+    val notificationFlow = remember(notificationChannel) { notificationChannel.receiveAsFlow() }
+
+    LaunchedEffect(events) {
+        events.collect { event ->
+            when (event) {
+                // A destination is the screen's business, not a notification.
+                AuthUiEvent.NavigateToHome -> onNavigateHome()
+
+                // Everything else is something to tell the user, and it is told
+                // where it arrives rather than copied into a flag.
+                else -> event.toNotification()?.let { notificationChannel.send(it) }
+            }
+        }
+    }
+
+    NotificationHost(events = notificationFlow)
+}
+
+/**
+ * How an auth event reaches the user.
+ *
+ * An error is a dialog and a neutral notice is a snackbar: the two are told apart
+ * on purpose, so "your account was created" is never read as a failure, and a
+ * rejected password is never read as a success.
+ *
+ * [AuthUiEvent.NavigateToHome] is not a notification — it is a destination, and
+ * the screen handles it itself.
+ */
+internal fun AuthUiEvent.toNotification(): Notification? =
+    when (this) {
+        is AuthUiEvent.Error -> Notification.Error(message)
+        is AuthUiEvent.Message -> Notification.Toast(message)
+        AuthUiEvent.NavigateToHome -> null
+    }
+
+/**
  * The project URL and anon key, entered once.
  *
  * The anon key is a **publishable** identifier — it ships inside every copy of the
@@ -191,7 +239,6 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
  */
 @Composable
 private fun ServerConfigForm(
-    errorMessage: String?,
     onSave: (String, String) -> Unit,
     onContinueOffline: () -> Unit,
 ) {
@@ -238,16 +285,6 @@ private fun ServerConfigForm(
                     .testTag(TestTags.AUTH_SERVER_KEY_INPUT),
             lineLimits = TextFieldLineLimits.SingleLine,
         )
-
-        if (errorMessage != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = errorMessage,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.testTag(TestTags.AUTH_ERROR_TEXT),
-            )
-        }
 
         Spacer(modifier = Modifier.height(24.dp))
 

@@ -414,6 +414,7 @@ non-alphanumeric characters with `_`.
 | `PROPOSALS_EMPTY` | `proposals_empty` | |
 | `REFRESH_INDICATOR` | `refresh_indicator` | |
 | `RESULT_DIALOG` | `result_dialog` | |
+| `RESULT_DIALOG_CONFIRM` | `result_dialog_confirm` | |
 | `SHELL_BACK_BUTTON` | `shell_back_button` | |
 | `SHELL_SEARCH_BUTTON` | `shell_search_button` | |
 | `STATISTICS_OPEN_SAVED_VIEWS` | `statistics_open_saved_views` | |
