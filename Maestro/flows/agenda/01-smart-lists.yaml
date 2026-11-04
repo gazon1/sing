@@ -88,7 +88,10 @@ tags:
     timeout: 5000
 
 # The due row is above the fold now that the rows come before the sections;
-# scrollUntilVisible is a no-op here and keeps the flow working on a narrow device.
+# The editor's column scrolls, so a row that is off the screen is composed but not
+# displayed. scrollUntilVisible brings it into view before the tap, which makes this
+# step a statement about the screen rather than about the tree — it does not say where
+# the row sits on a 360 dp phone, and no device run has measured that.
 - scrollUntilVisible:
     element:
       id: task_editor_due_row

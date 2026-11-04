@@ -34,6 +34,12 @@ import kotlin.time.Instant
  * the issue was measured, and 800 tall, because that is the height of a phone at
  * that width (a 1080x2400 device is 360x800 dp). A shorter window would not be a
  * phone; a taller one would be a tablet, and the claim is about a phone.
+ *
+ * This is a window size, not a new harness: `runIsolatedComposeTest` has taken
+ * `width` and `height` for as long as the month-grid tests have needed a narrow
+ * window (`IsolatedComposeTest.kt`), and `runDesktopAppTest` takes the same two
+ * since this change, because a claim about a 360 dp phone cannot be measured in a
+ * 1024-wide window.
  * The stub section is a tall block, because that is what the sections are — three
  * cards with a heading and an add-row each.
  *
