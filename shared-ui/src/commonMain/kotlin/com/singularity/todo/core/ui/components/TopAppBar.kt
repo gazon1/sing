@@ -9,6 +9,7 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 
@@ -39,31 +40,19 @@ fun TopAppBar(
 ) {
     val holder = LocalScreenActions.current
     if (holder != null) {
+        // The actions belong to this bar for as long as it is composed. The
+        // optional bar override is the same publication [ShellOverride]
+        // makes, so it goes through that composable instead of repeating the
+        // lifecycle here — one publisher, one token, one take-down path.
+        val actionsOwner = remember { Any() }
         SideEffect {
-            holder?.actions = actions
-            holder?.selectionTitle = selectionTitle
-            holder?.onExitSelection = onExitSelection
-            if (overrideShell) {
-                holder?.title = title
-                holder?.navigationIcon = navigationIcon
-                holder?.override = true
-            }
+            holder.publishActions(actionsOwner, actions, selectionTitle, onExitSelection)
         }
-        DisposableEffect(holder, overrideShell) {
-            onDispose {
-                holder?.actions = null
-                holder?.selectionTitle = null
-                holder?.onExitSelection = null
-                // Only the bar that published the override takes it back down.
-                // A screen that has BOTH this bar and a [ShellOverride] must
-                // not have the second one's override cleared by the first one's
-                // disposal.
-                if (overrideShell) {
-                    holder?.title = null
-                    holder?.navigationIcon = null
-                    holder?.override = false
-                }
-            }
+        DisposableEffect(holder, actionsOwner) {
+            onDispose { holder.withdrawActions(actionsOwner) }
+        }
+        if (overrideShell) {
+            ShellOverride(title = title, navigationIcon = navigationIcon)
         }
         return
     }
