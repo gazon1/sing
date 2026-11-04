@@ -3,19 +3,21 @@ package com.singularity.todo.feature.nav
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.FactCheck
+import androidx.compose.material.icons.automirrored.filled.Note
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.MoveToInbox
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.singularity.todo.core.attachments.AttachmentId
@@ -384,7 +386,7 @@ val AppDestination.icon: ImageVector
                     AgendaStartRoute.Inbox -> Icons.Filled.MoveToInbox
                     AgendaStartRoute.Today -> Icons.Filled.Today
                     AgendaStartRoute.Upcoming -> Icons.Filled.Event
-                    else -> Icons.Filled.Check
+                    else -> Icons.Filled.TaskAlt
                 }
             }
 
@@ -392,33 +394,33 @@ val AppDestination.icon: ImageVector
                 when (this) {
                     AppDestination.Plans -> Icons.AutoMirrored.Filled.Assignment
                     AppDestination.Pomodoro -> Icons.Filled.Repeat
-                    AppDestination.Statistics -> Icons.Filled.BarChart
+                    AppDestination.Statistics -> Icons.Filled.Insights
                     AppDestination.Calendar -> Icons.Filled.CalendarMonth
-                    AppDestination.Notes -> Icons.Filled.Create
+                    AppDestination.Notes -> Icons.AutoMirrored.Filled.Note
                     AppDestination.AiChat -> Icons.Filled.AutoAwesome
                     is AppDestination.AttachmentViewer -> Icons.Filled.AttachFile
                     AppDestination.Search -> Icons.Filled.Search
                     AppDestination.ExternalAgent -> Icons.Filled.AutoAwesome
                     AppDestination.Proposals -> Icons.AutoMirrored.Filled.FactCheck
-                    AppDestination.Archive -> Icons.Filled.Check
+                    AppDestination.Archive -> Icons.Filled.Archive
                     AppDestination.Settings -> Icons.Filled.Settings
                     AppDestination.AiUsage -> Icons.Filled.BarChart
                     AppDestination.ProfileSwitcher -> Icons.Filled.Person
                     AppDestination.AttachAccount -> Icons.Filled.Person
                     AppDestination.ChangePassword -> Icons.Filled.Person
                     is AppDestination.MagicLinkConfirm -> Icons.Filled.Person
-                    is AppDestination.TasksGraph -> Icons.Filled.Check
+                    is AppDestination.TasksGraph -> Icons.Filled.TaskAlt
                     is AppDestination.TasksByProject -> Icons.Filled.Folder
-                    is AppDestination.ProjectEditor -> Icons.Filled.Check
-                    is AppDestination.ProjectDetail -> Icons.Filled.Check
-                    is AppDestination.ProjectsGraph -> Icons.Filled.Check
-                    is AppDestination.ProjectsStartRoute -> Icons.Filled.Check
-                    is AppDestination.NotesGraph -> Icons.Filled.Create
-                    is AppDestination.NotesStartRoute -> Icons.Filled.Create
+                    is AppDestination.ProjectEditor -> Icons.Filled.Folder
+                    is AppDestination.ProjectDetail -> Icons.Filled.Folder
+                    is AppDestination.ProjectsGraph -> Icons.Filled.Folder
+                    is AppDestination.ProjectsStartRoute -> Icons.Filled.Folder
+                    is AppDestination.NotesGraph -> Icons.AutoMirrored.Filled.Note
+                    is AppDestination.NotesStartRoute -> Icons.AutoMirrored.Filled.Note
                     is AppDestination.CalendarGraph -> Icons.Filled.CalendarMonth
                     is AppDestination.CalendarStartRoute -> Icons.Filled.CalendarMonth
-                    is AgendaStartRoute -> Icons.Filled.Check
-                    is AppDestination.TasksStartRoute -> Icons.Filled.Check
+                    is AgendaStartRoute -> Icons.Filled.TaskAlt
+                    is AppDestination.TasksStartRoute -> Icons.Filled.TaskAlt
                 }
             }
         }
