@@ -1255,6 +1255,15 @@ object TestTags {
     /** The message field of the AI chat screen. */
     const val CHAT_INPUT = "chat_input"
 
+    /**
+     * The message list of the AI chat screen.
+     *
+     * A list, not a message: the follow-the-tail policy is a property of the scroll
+     * container, so a test about it has to address the container itself. Which messages
+     * are on screen is asked of their text, not of this tag.
+     */
+    const val CHAT_MESSAGES = "chat_messages"
+
     // ─── Calendar ──────────────────────────────────────────────────────────
 
     /**

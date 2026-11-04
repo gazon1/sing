@@ -397,6 +397,7 @@ non-alphanumeric characters with `_`.
 | `ATTACHMENTS_TITLE_INPUT` | `attachments_title_input` | |
 | `ATTACHMENTS_URL_INPUT` | `attachments_url_input` | |
 | `CHAT_INPUT` | `chat_input` | |
+| `CHAT_MESSAGES` | `chat_messages` | |
 | `Calendar.CANCEL_SELECTION` | `calendar_cancel_selection` | |
 | `Calendar.CREATE_ON_SELECTED` | `calendar_create_on_selected` | |
 | `Calendar.SELECTION_BAR` | `calendar_selection_bar` | |
