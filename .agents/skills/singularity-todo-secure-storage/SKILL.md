@@ -32,11 +32,15 @@ interface SecureStoragePort {
     suspend fun read(key: String): String?
     suspend fun write(key: String, value: String)
     suspend fun delete(key: String)
-    fun isHardwareBacked(): Boolean
+    fun usesPlatformKeyStore(): Boolean
 }
 ```
 
-All operations are suspending (they may do I/O). `isHardwareBacked()` returns `true` on Android (Keystore) and Linux with libsecret, `false` for the AES-GCM file fallback.
+All operations are suspending (they may do I/O). `usesPlatformKeyStore()` returns `true` on
+Android (the Keystore) and on a desktop host that has an OS credential store (the Secret
+Service, the macOS Keychain, the Windows Credential Manager), `false` for the AES-GCM file
+fallback. It names the store, not the hardware behind it — a credential store may itself be
+software-backed.
 
 ## JVM Implementation — JvmSecureStorage
 
@@ -89,7 +93,7 @@ class AndroidSecureStorage(context: Context) : SecureStoragePort {
     override suspend fun read(key: String): String? = prefs.string[key, null]
     override suspend fun write(key: String, value: String) { prefs.string[key] = value }
     override suspend fun delete(key: String) { prefs.remove(key) }
-    override fun isHardwareBacked() = true // Android Keystore
+    override fun usesPlatformKeyStore() = true // Android Keystore
 }
 ```
 
@@ -100,14 +104,14 @@ Backed by Android Keystore (hardware-backed when available, non-exportable key).
 ```kotlin
 class FakeSecureStorage(
     private val backing: MutableMap<String, String> = mutableMapOf(),
-    private val hardwareBacked: Boolean = true
+    private val platformKeyStore: Boolean = true
 ) : SecureStoragePort {
     private val mutex = Mutex()
 
     override suspend fun read(key: String): String? = mutex.withLock { backing[key] }
     override suspend fun write(key: String, value: String) = mutex.withLock { backing[key] = value }
     override suspend fun delete(key: String) = mutex.withLock { backing.remove(key); Unit }
-    override fun isHardwareBacked(): Boolean = hardwareBacked
+    override fun usesPlatformKeyStore(): Boolean = platformKeyStore
 }
 ```
 

@@ -10,7 +10,7 @@ import kotlinx.coroutines.sync.withLock
  */
 class FakeSecureStorage(
     private val backing: MutableMap<String, String> = mutableMapOf(),
-    private val hardwareBacked: Boolean = true,
+    private val platformKeyStore: Boolean = true,
 ) : SecureStoragePort {
     private val mutex = Mutex()
 
@@ -29,5 +29,5 @@ class FakeSecureStorage(
             Unit
         }
 
-    override fun isHardwareBacked(): Boolean = hardwareBacked
+    override fun usesPlatformKeyStore(): Boolean = platformKeyStore
 }
