@@ -16,6 +16,10 @@ Each test below breaks one part of the rule and expects the gate to say so:
     prose is not a statement, in either direction;
   - two scripts that share one entry module: two claims, not one;
   - a wrapper that loads a fixed foreign binding path, which binds that tree;
+  - a wrapper that names ``package-binding.py`` in a literal it never hands to
+    a loader, which has loaded nothing;
+  - a wrapper that loads the binding with ``runpy.run_path``, which is the
+    other by-path loader and is covered like ``spec_from_file_location``;
   - a script that lost its executable bit, which is not a script that is gone;
   - an unreadable root-level script, which is an input error, not a finding.
 
@@ -247,6 +251,67 @@ class ConsoleScriptWrappersTest(unittest.TestCase):
                     "main()\n",
                 )
                 self.assertIn("run-maestro", "\n".join(self.verdict()))
+
+    def test_a_module_named_beside_the_loader_is_not_the_path_it_is_handed(self) -> None:
+        """The path has to be the literal handed to the load call.
+
+        The decoy names the binding module, is relative, and is built from the
+        wrapper's own directory — everything the old whole-file search wanted.
+        The loader is handed a foreign absolute path, so nothing here binds this
+        checkout, and a gate that reads the first matching literal anywhere in
+        the file reports the opposite.
+        """
+        self.declare({"run-maestro": "emulator.maestro._cli:main"})
+        self.wrap(
+            "rm",
+            "#!/usr/bin/env python3\n"
+            "import importlib.util\n"
+            "import os\n"
+            "root = os.path.dirname(os.path.abspath(__file__))\n"
+            'note = os.path.join(root, "scripts", "package-binding.py")\n'
+            "spec = importlib.util.spec_from_file_location(\n"
+            '    "package_binding", "/other-clone/scripts/package-binding.py"\n'
+            ")\n"
+            "binding = importlib.util.module_from_spec(spec)\n"
+            "spec.loader.exec_module(binding)\n"
+            f"{BIND_STATEMENT}"
+            "from emulator.maestro._cli import main\n"
+            "main()\n",
+        )
+        self.assertIn("run-maestro", "\n".join(self.verdict()))
+
+    def test_runpy_run_path_is_a_recognised_loader(self) -> None:
+        """The other by-path loader is ``runpy.run_path``, and the header says so."""
+        self.declare({"run-maestro": "emulator.maestro._cli:main"})
+        self.wrap(
+            "rm",
+            "#!/usr/bin/env python3\n"
+            "import pathlib\n"
+            "import runpy\n"
+            "root = pathlib.Path(__file__).parent\n"
+            'namespace = runpy.run_path(str(root / "scripts" / "package-binding.py"))\n'
+            'bind_local_package = namespace["bind_local_package"]\n'
+            "bind_local_package(root)\n"
+            "from emulator.maestro._cli import main\n"
+            "main()\n",
+        )
+        self.assertEqual([], self.findings())
+
+    def test_run_path_from_something_else_is_not_a_by_path_loader(self) -> None:
+        """``run_path`` is a loader only when it is ``runpy``'s."""
+        self.declare({"run-maestro": "emulator.maestro._cli:main"})
+        self.wrap(
+            "rm",
+            "#!/usr/bin/env python3\n"
+            "import pathlib\n"
+            "from joblib import run_path\n"
+            "root = pathlib.Path(__file__).parent\n"
+            'namespace = run_path(str(root / "scripts" / "package-binding.py"))\n'
+            f"{BIND_STATEMENT}"
+            "from emulator.maestro._cli import main\n"
+            "main()\n",
+        )
+        self.assertIn("run-maestro", "\n".join(self.verdict()))
 
     def test_the_executable_bit_does_not_decide_coverage(self) -> None:
         """A ``noexec`` mount, or a bit git lost, must not read as 'no wrappers here'."""

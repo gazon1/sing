@@ -43,8 +43,10 @@ can live — never in prose:
     discussing it;
   - the binding module is loaded by a *relative* path that the wrapper builds
     from a variable derived from its own location (``BASH_SOURCE`` in bash,
-    ``__file__`` in Python). A fixed ``/other-clone/scripts/package-binding.py``
-    binds that tree, however correctly it binds it — the exact failure above;
+    ``__file__`` in Python), and that path is the literal the wrapper hands to
+    the load call — not merely a literal that appears somewhere in the file. A
+    fixed ``/other-clone/scripts/package-binding.py`` binds that tree, however
+    correctly it binds it: the exact failure above;
   - coverage is per *script*, not per entry point. Two console scripts that
     name the same ``module:attribute`` are two names on ``PATH`` and two ways
     for the environment to answer; a wrapper satisfied by one says nothing
@@ -71,12 +73,14 @@ it is:
     another tree's suites while answering "covered". The gate therefore proves
     the *shape* a working wrapper has, and the wrapper's own run-time refusal
     (``./rm`` checks ``foreign_packages``) is what proves the behaviour;
-  - **The loader is one API, by name.** ``spec_from_file_location`` and
-    ``runpy.run_path`` are recognised; a wrapper that loads the binding through
-    some third mechanism is reported as uncovered. That is a false positive in
-    the safe direction — a finding to read, not a green to trust — and it is
-    the one place a name appears. Widening it is a matter of adding to
-    :data:`LOAD_CALLS`.
+  - **The loader is two APIs, by name.** ``importlib.util.spec_from_file_location``
+    and ``runpy.run_path`` are recognised — both, because both are ways a
+    Python wrapper can execute a file it names by path — and each has to be
+    *called*, with the module's path as an argument of that same statement. A
+    wrapper that loads the binding through some third mechanism is reported as
+    uncovered. That is a false positive in the safe direction — a finding to
+    read, not a green to trust — and it is the one place a name appears.
+    Widening it is a matter of adding a name to :data:`LOAD_CALLS`.
 
 An install that declares no console scripts is a finding too: a check that
 reads an empty declaration is green about nothing.
@@ -118,9 +122,27 @@ DECLARATION = pathlib.Path("scripts") / "src" / "pyproject.toml"
 #: package may be missing or foreign, which is the case it exists for.
 BINDING_MODULE = "package-binding.py"
 
-#: How the binding is loaded. A file that mentions the module but never loads
-#: it by path has bound nothing.
-LOAD_CALL = "spec_from_file_location"
+#: How the binding is loaded, named by the last component of the callee. A file
+#: that mentions the module but never loads it by path has bound nothing. Both
+#: of Python's by-path loaders are here, because both are shapes a wrapper can
+#: legitimately take: ``importlib.util.spec_from_file_location`` and
+#: ``runpy.run_path``. Widening the set is a matter of adding a name — see
+#: :func:`Wrapper.load_statements`.
+LOAD_CALLS = ("spec_from_file_location", "run_path")
+
+#: A *call*, not a mention: the name has to be followed by its opening
+#: bracket, and the search runs over :attr:`Wrapper.code`, so a comment or a
+#: string literal naming the loader has called nothing.
+LOAD_RE = re.compile(
+    r"\b(?P<callee>" + "|".join(re.escape(name) for name in LOAD_CALLS) + r")[ \t]*\("
+)
+
+#: ``run_path`` is a by-path loader only when it is ``runpy``'s. The module has
+#: to be named in the code — ``runpy.run_path(...)`` or an ``import runpy`` /
+#: ``from runpy import run_path`` above the call. An aliased import
+#: (``import runpy as r``) is not recognised, and the wrapper reads as
+#: uncovered: a false positive in the safe direction, stated in the header.
+RUNPY = re.compile(r"\brunpy\b")
 
 #: The call that binds the packages. It has to come before the entry point.
 BIND_CALL = "bind_local_package("
@@ -305,49 +327,74 @@ class Wrapper:
                 names.add(assignment.group("name"))
         return names
 
-    def binding_module_literal(self) -> tuple[str, int] | None:
-        """The path literal handed to the loader, if it names the binding module.
+    def load_statements(self) -> list[tuple[int, int]]:
+        """The spans of this wrapper's load-call statements.
 
-        @return the literal's value and where it starts, or ``None``.
+        A loader's arguments are its own statement — however the wrapper splits
+        it across lines — and nothing outside that statement is handed to it.
+        Reading the whole file for the module's path instead would accept a
+        wrapper that names ``package-binding.py`` in a literal it never passes
+        to a loader, which binds nothing.
+
+        @return one ``(start, end)`` span per recognised load call.
         """
-        for start, end in self.literals:
-            value = self.text[start:end]
+        spans: list[tuple[int, int]] = []
+        for match in LOAD_RE.finditer(self.code):
+            if match.group("callee") == "run_path" and RUNPY.search(self.code) is None:
+                # Some other function of that name: not a by-path loader.
+                continue
+            start = self.code.rfind("\n", 0, match.start()) + 1
+            end = start + len(statement(self.code, start))
+            if (start, end) not in spans:
+                spans.append((start, end))
+        return spans
+
+    def binding_module_literal(self, start: int, end: int) -> str | None:
+        """The path the load call spanning ``start``–``end`` is handed.
+
+        The literal has to sit inside the call's own statement. A match anywhere
+        in the file is a literal the loader never saw.
+
+        @param start the statement span's first offset.
+        @param end the statement span's end offset.
+        @return the literal's value, or ``None`` when the call is handed no path
+            whose last component names the binding module.
+        """
+        for literal_start, literal_end in self.literals:
+            if not start <= literal_start < end:
+                continue
+            value = self.text[literal_start:literal_end]
             if value.rsplit("/", 1)[-1] == BINDING_MODULE:
-                return value, start
+                return value
         return None
 
     def loads_own_binding(self) -> bool:
         """Whether the wrapper loads *its own* checkout's binding module by path.
 
-        Three facts: the loader is called, the module is named by a path, and
-        that path is relative and built from a variable derived from the
-        script's own location. The last one is the point — a wrapper that loads
-        a fixed ``/other-clone/scripts/package-binding.py`` binds that tree, and
-        binding it correctly is exactly the green report about somebody else's
-        checkout this gate exists to refuse.
+        Three facts about one statement: the loader is called, the module's path
+        is the literal handed to that call, and that path is relative and built
+        from a variable derived from the script's own location. The last one is
+        the point — a wrapper that loads a fixed
+        ``/other-clone/scripts/package-binding.py`` binds that tree, and binding
+        it correctly is exactly the green report about somebody else's checkout
+        this gate exists to refuse.
 
         @return whether the load is this checkout's.
         """
-        load = self.code.find(LOAD_CALL)
-        if load == -1:
-            return False
-        found = self.binding_module_literal()
-        if found is None:
-            return False
-        path, literal = found
-        if os.path.isabs(path) or path.startswith("~") or ".." in pathlib.PurePath(path).parts:
-            return False
-
-        # The load and the path it is given are one statement, however the
-        # wrapper splits it across lines. The path is built from a variable the
-        # wrapper derived from its own location, or it is a path from nowhere.
-        first, last = sorted((load, literal))
-        region_start = self.without_comments.rfind("\n", 0, first) + 1
-        region_end = self.without_comments.find("\n", last)
-        region = self.without_comments[
-            region_start : len(self.without_comments) if region_end == -1 else region_end
-        ]
-        return any(name in region for name in self.own_directory_names())
+        names = self.own_directory_names()
+        for start, end in self.load_statements():
+            path = self.binding_module_literal(start, end)
+            if path is None:
+                continue
+            if os.path.isabs(path) or path.startswith("~") or ".." in pathlib.PurePath(path).parts:
+                continue
+            # The path is built from a variable the wrapper derived from its own
+            # location, in the same statement it hands to the loader — or it is
+            # a path from nowhere.
+            region = self.without_comments[start:end]
+            if any(re.search(rf"\b{re.escape(name)}\b", region) for name in names):
+                return True
+        return False
 
     def entry_point_offset(self, module: str, attribute: str) -> int:
         """Where the wrapper first reaches ``module``'s ``attribute``, or -1.
