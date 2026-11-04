@@ -50,7 +50,6 @@ import com.singularity.todo.core.ui.components.ResultDialog
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
-import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.components.EditorParentPickerSheet
@@ -379,7 +378,6 @@ private fun AppearanceSection(
                         Icon(
                             Icons.Filled.Check,
                             contentDescription = null,
-                            tint = Color(color).contrastingForeground(),
                             modifier = Modifier.size(32.dp).padding(6.dp),
                         )
                     }

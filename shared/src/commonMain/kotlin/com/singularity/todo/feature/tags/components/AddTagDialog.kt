@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.core.ui.touchTarget
@@ -106,7 +107,7 @@ fun AddTagDialog(
                                 Icon(
                                     imageVector = Icons.Filled.Check,
                                     contentDescription = null,
-                                    tint = Color.White,
+                                    tint = Color(color).contrastingForeground(),
                                     modifier =
                                         Modifier
                                             .size(36.dp)
