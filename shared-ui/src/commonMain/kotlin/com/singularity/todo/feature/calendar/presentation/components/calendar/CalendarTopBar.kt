@@ -11,10 +11,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ChevronLeft
+import androidx.compose.material.icons.automirrored.filled.ChevronRight
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -174,7 +174,7 @@ private fun CalendarControls(
         Spacer(Modifier.width(12.dp))
 
         Icon(
-            Icons.Default.ChevronLeft,
+            Icons.AutoMirrored.Filled.ChevronLeft,
             contentDescription = "Previous",
             tint = palette.textSecondary,
             modifier =
@@ -195,7 +195,7 @@ private fun CalendarControls(
         )
         Spacer(Modifier.width(8.dp))
         Icon(
-            Icons.Default.ChevronRight,
+            Icons.AutoMirrored.Filled.ChevronRight,
             contentDescription = "Next",
             tint = palette.textSecondary,
             modifier =

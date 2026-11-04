@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.DragHandleIcon
 import com.singularity.todo.core.ui.components.DragHandleRow
 import com.singularity.todo.core.ui.components.HandleSide
+import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.selector.typeDescription
 
@@ -37,6 +38,16 @@ import com.singularity.todo.feature.agenda.domain.selector.typeDescription
  * `ReorderableSectionList` was the better desktop gesture but nested its own
  * `LazyColumn` and so could not be used inside this screen's; it was removed with
  * the other dead UI components. See ADR 2026-09-30-section-reorder-via-buttons.
+ *
+ * ## The buttons are drawn 40 dp and hit 48 dp
+ *
+ * Three controls of 48 dp do not fit a phone-width row, so the buttons are drawn
+ * 40 dp wide — but a target a finger cannot hit is a control that does not exist
+ * for the people who need it most. `Modifier.touchTarget()` expands the target to
+ * 48 dp, and it has to come **before** the `size(40.dp)`: the expansion is the
+ * outer modifier, so the size constrains the drawing without constraining the
+ * target. See CODING_STANDARDS.md, "Touch targets meet the minimum and the order
+ * is correct".
  *
  * @param section The section to display.
  * @param index The section's position in the list.
@@ -83,7 +94,7 @@ fun SectionEditorCard(
                 IconButton(
                     onClick = onMoveUp,
                     enabled = canMoveUp,
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.touchTarget().size(40.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowUp,
@@ -93,7 +104,7 @@ fun SectionEditorCard(
                 IconButton(
                     onClick = onMoveDown,
                     enabled = canMoveDown,
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.touchTarget().size(40.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowDown,
@@ -102,7 +113,7 @@ fun SectionEditorCard(
                 }
                 IconButton(
                     onClick = onDelete,
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.touchTarget().size(40.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,

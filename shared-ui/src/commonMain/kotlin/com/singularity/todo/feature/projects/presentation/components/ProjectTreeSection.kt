@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.automirrored.filled.ChevronRight
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -114,7 +114,7 @@ private fun ProjectTreeRow(
                         if (node.isExpanded) {
                             Icons.Default.ExpandMore
                         } else {
-                            Icons.Default.ChevronRight
+                            Icons.AutoMirrored.Filled.ChevronRight
                         },
                     contentDescription =
                         if (node.isExpanded) {
