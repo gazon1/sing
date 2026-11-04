@@ -177,12 +177,36 @@ object TextMatch {
     fun containsSpan(
         text: String,
         term: String,
-    ): IntRange? {
-        if (text.isEmpty() || term.isEmpty()) return null
-        val foldedTerm = fold(term)
-        val start = fold(text).indexOf(foldedTerm)
-        if (start < 0) return null
-        return start until (start + foldedTerm.length)
+    ): IntRange? = containsSpans(text, listOf(term)).first()
+
+    /**
+     * Where each of [terms] occurs in [text], under the contains rule.
+     *
+     * One entry per term, in the order the terms were given, and `null` where
+     * that term does not occur — so a caller that asked about several terms can
+     * still say *which* term it found where.
+     *
+     * ## Why the text is folded once
+     *
+     * A record is matched against every positive term of the rule, and the fold
+     * of its text is the same for all of them: it is a property of the text, not
+     * of the question. [containsSpan] answers one term and folds the text for
+     * it, so a caller with n terms folded the same text n times — on every
+     * emission, for every record a broad scan read. Folding it once is the same
+     * answer for a fraction of the work.
+     */
+    fun containsSpans(
+        text: String,
+        terms: List<String>,
+    ): List<IntRange?> {
+        if (text.isEmpty()) return terms.map { null }
+        val foldedText = fold(text)
+        return terms.map { term ->
+            if (term.isEmpty()) return@map null
+            val foldedTerm = fold(term)
+            val start = foldedText.indexOf(foldedTerm)
+            if (start < 0) null else start until (start + foldedTerm.length)
+        }
     }
 
     /**

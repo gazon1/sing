@@ -273,7 +273,16 @@ class SearchUseCase(
                         .filter { note -> rule.accepts(plan) { term -> mode.matches(note, term) } }
                         .sortedByDescending { note -> note.updatedAt }
                         .take(SearchLimits.NOTES)
-                        .map { note -> IndexedRecord(note, matchRanges(note.title, SearchColumn.TITLE, rule, mode)) }
+                        .map { note ->
+                            // Every surface the note is searched by, not its title
+                            // alone: the rule matched the record, and a body match
+                            // that reported no range would draw the note exactly as
+                            // an untouched one.
+                            IndexedRecord(
+                                note,
+                                matchRanges(note.searchableSurfaces, SearchColumn.TITLE, rule, mode),
+                            )
+                        }
                 }
             }
         }
@@ -296,7 +305,10 @@ class SearchUseCase(
                 TextMatchPlan.BroadScan -> {
                     projectRepo.observeAll().map { projects ->
                         projects.map { project ->
-                            IndexedRecord(project, matchRanges(project.name, SearchColumn.NAME, rule, mode))
+                            IndexedRecord(
+                                project,
+                                matchRanges(project.searchableSurfaces, SearchColumn.NAME, rule, mode),
+                            )
                         }
                     }
                 }
@@ -325,7 +337,10 @@ class SearchUseCase(
                 TextMatchPlan.BroadScan -> {
                     tagRepo.observeAll().map { tags ->
                         tags.map { tag ->
-                            IndexedRecord(tag, matchRanges(tag.name, SearchColumn.NAME, rule, mode))
+                            IndexedRecord(
+                                tag,
+                                matchRanges(tag.searchableSurfaces, SearchColumn.NAME, rule, mode),
+                            )
                         }
                     }
                 }
@@ -336,34 +351,62 @@ class SearchUseCase(
     }
 
     /**
-     * Where the matched term is in the text the screen is about to draw.
+     * Where the matched terms are in the surfaces of a record the rule matched.
      *
      * The index reports the position of a match — but only in the word mode,
      * and only for the words it stores. The contains mode has no index to ask:
      * the rows are read and matched in memory, so the position has to be found
      * in the text, with the same folding the rule folded with.
      *
-     * Only the terms the rule states are looked for, and only in the surface
-     * the record is searched by (F3) — so the range is measured in the very
-     * text the card draws, and the highlight lands on the word the rule
-     * matched.
+     * ## Why the word mode reports nothing here
      *
-     * @param text the surface of the record the screen draws.
-     * @param column the surface that text is.
+     * In the word mode the positions are the index's, and only the index's
+     * (see [com.singularity.todo.core.search.IndexedRecord]): a record read
+     * through the index arrives with them, and a record a broad scan read
+     * arrives *without* them — the scan read the rows and never tokenized them,
+     * so it has no beginning of a word to report. Measuring them again in
+     * Kotlin would be a second answer to a question the index already answered,
+     * and a term of several words can land in a different place the second
+     * time. So this reports positions for the mode that has no index, and the
+     * word mode keeps the index's answer for the records the index read.
+     *
+     * ## Why every surface, not the first one
+     *
+     * A note whose *body* carries the term matches the rule — [SearchMode.matches]
+     * asks the record, and the record says which surfaces it is searched by
+     * (F3). Measuring the title alone answered a different question: the record
+     * matched, the ranges held nothing, and the card drew the note as it draws a
+     * note the search never touched. So every surface is measured and every
+     * range says which surface it was measured in, and the card — which knows
+     * which surface it is drawing — picks the ones that belong to it.
+     *
+     * @param surfaces the record's searchable surfaces, in its own order; the
+     *   first is the one the card draws as the title.
+     * @param primaryColumn the column the first surface is — [SearchColumn.TITLE]
+     *   for a note, [SearchColumn.NAME] for a project or a tag.
      * @param rule the rule the record was matched by.
      * @param mode the mode the free text is matched in.
      */
     private fun matchRanges(
-        text: String,
-        column: SearchColumn,
+        surfaces: List<String?>,
+        primaryColumn: SearchColumn,
         rule: FreeTextRule,
         mode: SearchMode,
     ): ImmutableList<TextMatchRange> {
         if (mode != SearchMode.Contains) return persistentListOf()
+        val terms = rule.positives.map { it.text }
+        if (terms.isEmpty()) return persistentListOf()
         val ranges =
-            rule.positives.mapNotNull { term ->
-                val span = TextMatch.containsSpan(text, term.text) ?: return@mapNotNull null
-                TextMatchRange(column, span.first, span.last + 1)
+            surfaces.flatMapIndexed { index, surface ->
+                if (surface.isNullOrEmpty()) return@flatMapIndexed emptyList()
+                // The record's own order is the only order there is: its first
+                // surface is the one the card draws as the title, and everything
+                // after it is a body. A project and a tag have one surface, so
+                // this is their name and nothing else.
+                val column = if (index == 0) primaryColumn else SearchColumn.DESCRIPTION
+                TextMatch.containsSpans(surface, terms).mapNotNull { span ->
+                    span?.let { TextMatchRange(column, it.first, it.last + 1) }
+                }
             }
         return ranges.toImmutableList()
     }
@@ -380,7 +423,8 @@ class SearchUseCase(
         task: Task,
         rule: FreeTextRule,
         mode: SearchMode,
-    ): ImmutableList<TextMatchRange> = matchRanges(task.title, SearchColumn.TITLE, rule, mode)
+    ): ImmutableList<TextMatchRange> =
+        matchRanges(listOf(task.title), SearchColumn.TITLE, rule, mode)
 
     private fun sortTasks(
         tasks: List<IndexedRecord<Task>>,

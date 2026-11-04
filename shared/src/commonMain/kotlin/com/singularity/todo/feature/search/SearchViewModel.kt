@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -257,8 +258,35 @@ class SearchViewModel(
                         flowOf(request to SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
                     } else {
                         channelFlow {
-                            val userId = savedSearchRepo.currentUserId()
-                            searchUseCase(parsed, userId, request.mode).collect { send(request to it) }
+                            // Every request is answered, including the one the
+                            // search fails on. A throw out of this builder would
+                            // cancel the collector below — and with it the flag,
+                            // which is only ever lowered by an answer: the screen
+                            // would keep the spinner of a question that will never
+                            // be answered, for the rest of the ViewModel's life,
+                            // and no later query would run either. So a failure is
+                            // answered with the empty answer and reported through
+                            // the same spelling every other failure uses.
+                            val answer =
+                                try {
+                                    val userId = savedSearchRepo.currentUserId()
+                                    searchUseCase(parsed, userId, request.mode).collect { send(request to it) }
+                                    null
+                                } catch (e: CancellationException) {
+                                    // A cancelled search is a question the user
+                                    // withdrew, not a failure: it is re-thrown, and
+                                    // `flatMapLatest` has already stopped wanting
+                                    // the answer.
+                                    throw e
+                                } catch (e: Exception) {
+                                    e
+                                }
+                            if (answer != null) {
+                                reportSearchError(answer)
+                                send(
+                                    request to SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
+                                )
+                            }
                         }
                     }
                 }.collect { (request, results) ->
@@ -457,6 +485,10 @@ class SearchViewModel(
 
     private fun onApplyFilter(filter: SimpleFilter?) {
         _activeSavedSearchId.value = null
+        // What the surface states before this intent, kept so the failure branch
+        // can put it back: a filter that cannot be applied must not be left
+        // standing as the one the screen says it is showing.
+        val previousFilter = _activeFilter.value
         _activeFilter.value = filter
 
         if (filter == null) {
@@ -485,7 +517,17 @@ class SearchViewModel(
                 _activeFilter.value = filter
             },
             onFailure = { e ->
-                vmScope.launch { emit(SearchUiEvent.Error("Cannot apply filter: ${e.message}")) }
+                // The filter cannot be turned back into a query, so no question
+                // is asked and none is answered. This is the same shape as a
+                // query that does not parse, and it is answered the same way:
+                // the flag is lowered, the results of the question the user is
+                // no longer asking are cleared, the filter the surface states is
+                // put back, and the failure is reported in the one spelling
+                // `reportSearchError` gives it. Leaving the flag up here was the
+                // one place the pending state promised an answer nobody owed.
+                _activeFilter.value = previousFilter
+                stopSearching()
+                reportSearchError(e)
             },
         )
     }
