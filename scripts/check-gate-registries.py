@@ -40,11 +40,9 @@ failing on it would have blocked every run on someone else's debt. It is a
 blocking gate now: the debt is paid, and a warning nobody reads is a check
 that reports nothing.
 
-The command drift is the newest shape, and its debt is not paid yet: the
-placements are still written by hand, and one of them — this gate's own line —
-says ``--strict`` where the registry says nothing. It is reported like any
-other drift, so the two surfaces cannot disagree about a command without
-anything saying so.
+The command drift is the newest shape, and its debt is paid: the registry
+builds the same command the shell file names, so the two surfaces cannot
+disagree about what this gate measured without the gate saying so.
 
 CLI shape (R2/R3): Click, not argparse; ``--check`` reports without a
 non-zero exit; ``--json`` puts the verdict on stdout as machine-readable

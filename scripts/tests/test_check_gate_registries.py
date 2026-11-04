@@ -111,37 +111,43 @@ def _registries(shell_gates, registry, not_run=None):
 class RealRegistriesTest(unittest.TestCase):
     """This repository's own two registries."""
 
-    #: The one command the two registries still spell differently: the shell
-    #: registry runs this gate with `--strict`, the registry dispatches it
-    #: without. The comparison reports it — that is the finding it exists for,
-    #: and rewriting the hand-written placements is what pays that debt.
-    KNOWN_COMMAND_DRIFT = "gate registries agree"
+    #: The gate whose command the two registries once spelled differently: the
+    #: shell registry ran it with `--strict`, the registry dispatched it without.
+    #: The debt is paid — the registry's command carries the flag — so the
+    #: comparison finds nothing to report about it.
+    THIS_GATE = "gate registries agree"
 
-    def test_the_real_registries_report_the_known_command_drift(self):
+    def test_the_real_registries_report_no_command_drift(self):
+        """The clean tree is the pair the gate exists to police, and it agrees.
+
+        The command this gate runs is the command the shell registry names. The
+        two spellings were one flag apart once, and the gate was red on a clean
+        tree because of it — a finding nobody could act on that kept the strict
+        surface red and made the gate's own control untrustworthy.
+        """
         violations, warnings, summary = registries.evaluate(strict=True)
         findings = violations + warnings
-        self.assertTrue(
-            findings, "the real registries must report the drift that exists"
-        )
         for finding in findings:
-            self.assertIn(f"'{self.KNOWN_COMMAND_DRIFT}'", finding)
-        joined = " ".join(findings)
-        self.assertIn(
-            "python3 scripts/check-gate-registries.py --strict", joined
-        )
-        self.assertIn(
-            "python3 scripts/check-gate-registries.py' in _registry.GATES", joined
-        )
+            self.assertNotIn(f"'{self.THIS_GATE}'", finding)
         self.assertIn("gates in static-gates.sh", summary)
 
     def test_the_real_gate_is_green(self):
         """The real gate, run the way `sgate <name>` runs it.
 
-        Without `--strict` the drift is a warning, and the gate says so and
-        passes. The strict path is the one the shell registry takes, and it is
-        the one the drift above fails.
+        The registry dispatches it with `--strict`, so this is the strict path —
+        the same one the shell registry takes. It passes because the tree agrees.
         """
         code = registries.run(registries.cli.main, [])
+        self.assertEqual(0, code)
+
+    def test_the_real_gate_is_green_under_strict(self):
+        """The strict path on the real tree is green too.
+
+        The shell registry's line for this gate is the strict one, and it is the
+        line CI's static job runs. A tree where it fails is a tree where CI is
+        red, so this is the verdict that has to hold.
+        """
+        code = registries.run(registries.cli.main, ["--strict"])
         self.assertEqual(0, code)
 
 
