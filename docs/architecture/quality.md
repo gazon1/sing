@@ -22,7 +22,7 @@ others. The config is `config/detekt/detekt.yml`; the reasons live in comments
 | `max_line_length` | 120 | 120 | ktlint owns it, through `.editorconfig`; detekt's own `MaxLineLength` is off. |
 | `WildcardImport` | off | on | ktlint owns it: `standard:no-wildcard-imports`. |
 | `UnusedImport` | off | off | ktlint owns it: `standard:no-unused-imports` — experimental, so `.editorconfig` enables it by name. Detekt's rule was on here and reported none of the imports ktlint found. |
-| `TrailingWhitespace` | off | off | ktlint owns it: `standard:no-trailing-spaces`. Detekt's rule was on here until the ktlint takeover. |
+| `TrailingWhitespace` | off | off | ktlint owns it: `standard:no-trailing-spaces`. Detekt's rule was on here too — the ktlint takeover left it on, and it was switched off with the other two. |
 
 `config/detekt/baseline-*.xml` holds what is already known. **The baseline only ever
 shrinks** — a new finding is a finding, not a line to add to the baseline.

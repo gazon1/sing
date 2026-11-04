@@ -68,6 +68,8 @@ of them, so enabling the rule was a gain in coverage, not a loss of it.
 
 - Wildcard imports, unused imports and trailing whitespace are caught by ktlint, in seconds,
   without a Gradle run. Detekt keeps the semantics.
+- Nothing stops the duplication from returning: no check fails when a detekt rule and its
+  ktlint twin are both active again (issue #2043).
 - ktlint's `no-unused-imports` and detekt's `UnusedImport` do not agree: ktlint reported 18
   imports that detekt did not, and detekt reported none that ktlint did not. The imports ktlint
   reported were deleted, and the tree is clean under the rule that now owns it.
@@ -75,7 +77,7 @@ of them, so enabling the rule was a gain in coverage, not a loss of it.
   it is regenerated, never hand-edited. The three rules sit above `ReturnCount` in `detekt.yml`
   because that generator's rule-block replacement swallows every rule that follows the one it
   replaces, so a rule below `ReturnCount` would never reach the module's own config. That
-  generator defect is a separate piece of work.
+  generator defect is separate work (issue #2042).
 - The `style:` block of `detekt.yml` now reads as "what detekt keeps" rather than "what detekt
   happens to also do": the three rules that ktlint owns sit together at the top of it, next to
   `MaxLineLength`.

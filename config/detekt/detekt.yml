@@ -313,6 +313,7 @@ style:
     active: false          # ktlint owns line length via .editorconfig (max_line_length = 120)
   WildcardImport:
     active: false          # ktlint owns wildcard imports: standard:no-wildcard-imports
+    excludeImports: []     # kept: the rule is off, but the day it returns, no import is exempt
   UnusedImport:
     active: false          # ktlint owns unused imports: standard:no-unused-imports (enabled in .editorconfig)
   TrailingWhitespace:
