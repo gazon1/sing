@@ -25,6 +25,13 @@ import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.collections.immutable.ImmutableList
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.series_apply_to_all
+import singularity_todo.shared.generated.resources.series_delete
+import singularity_todo.shared.generated.resources.series_keep_separate
+import singularity_todo.shared.generated.resources.series_label
 
 /**
  * The card that tells the user the task on screen is one occurrence of a series.
@@ -37,14 +44,14 @@ import kotlinx.collections.immutable.ImmutableList
  *
  * ## What it offers
  *
- * * **Применить ко всем** — copies the time of day and the pin of this
+ * * **Apply to all** — copies the time of day and the pin of this
  *   occurrence to the others. The shared fields (title, project, tags, …) do not
  *   need this button: they are already applied to the whole series when they are
  *   edited.
- * * **Оставить отдельно** — takes this occurrence out of the series. The
+ * * **Keep separate** — takes this occurrence out of the series. The
  *   occasion is a date that turned out to be a different job: the occurrence
  *   keeps its date and becomes a task that stands alone.
- * * **Удалить серию** — archives every occurrence. Deleting one occurrence
+ * * **Delete series** — archives every occurrence. Deleting one occurrence
  *   archives only that one; that is what the overflow menu of the task does.
  *
  * The card is not rendered at all for a task that stands alone.
@@ -68,7 +75,7 @@ fun TaskSeriesCard(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
-        label = "Серия · ${members.size} дат",
+        label = pluralStringResource(Res.plurals.series_label, members.size, members.size),
         content = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 members.forEach { member ->
@@ -107,21 +114,21 @@ fun TaskSeriesCard(
                             Modifier
                                 .testTag(TestTags.TaskSeries.APPLY_TO_ALL)
                                 .mapTestTagsAsResourceIds(),
-                    ) { Text("Применить ко всем") }
+                    ) { Text(stringResource(Res.string.series_apply_to_all)) }
                     TextButton(
                         onClick = onDetach,
                         modifier =
                             Modifier
                                 .testTag(TestTags.TaskSeries.DETACH)
                                 .mapTestTagsAsResourceIds(),
-                    ) { Text("Оставить отдельно") }
+                    ) { Text(stringResource(Res.string.series_keep_separate)) }
                     TextButton(
                         onClick = onDeleteSeries,
                         modifier =
                             Modifier
                                 .testTag(TestTags.TaskSeries.DELETE)
                                 .mapTestTagsAsResourceIds(),
-                    ) { Text("Удалить серию") }
+                    ) { Text(stringResource(Res.string.series_delete)) }
                 }
             }
         },

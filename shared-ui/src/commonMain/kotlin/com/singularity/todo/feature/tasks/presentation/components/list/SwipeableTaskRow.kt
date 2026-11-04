@@ -32,6 +32,9 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TouchTarget
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.delete_task
 
 /**
  * Универсальная обёртка со свайпом-для-удаления.
@@ -121,7 +124,7 @@ fun SwipeableTaskRow(
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = "Удалить задачу",
+                    contentDescription = stringResource(Res.string.delete_task),
                     tint = Color.White,
                     modifier =
                         Modifier

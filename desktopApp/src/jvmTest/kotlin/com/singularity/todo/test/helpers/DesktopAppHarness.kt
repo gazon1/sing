@@ -165,6 +165,11 @@ fun runDesktopAppTest(
     onCloseRequest: () -> Unit = {},
     test: suspend DesktopComposeUiTest.(koin: Koin) -> Unit,
 ) = runDesktopComposeUiTest {
+    // Before the composition exists: `composeResources` resolves on the JVM from
+    // the default locale, so a `ru` host would render Russian and fail every
+    // assertion written against the base strings. See [useEnglishTestLocale].
+    useEnglishTestLocale()
+
     // Reset Kermit writer list and ring buffer before every test.
     // With same_thread mode on both axes (class + method), tests run sequentially
     // in one JVM. resetKermitWriters() is called unconditionally so the code is

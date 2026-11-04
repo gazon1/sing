@@ -43,7 +43,7 @@ class TaskSeriesCardTest {
                 )
             }
 
-            assertTextDisplayed("Серия · 2 дат")
+            assertTextDisplayed("Series · 2 dates")
         }
 
     private fun member(

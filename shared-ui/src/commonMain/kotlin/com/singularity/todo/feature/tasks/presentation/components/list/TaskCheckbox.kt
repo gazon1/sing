@@ -47,6 +47,10 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.task_checked
+import singularity_todo.shared.generated.resources.task_unchecked
 
 /**
  * Кастомный чекбокс задачи.
@@ -107,6 +111,9 @@ fun TaskCheckbox(
         label = "checkboxFill",
     )
 
+    val checkedStateDescription =
+        if (isChecked) stringResource(Res.string.task_checked) else stringResource(Res.string.task_unchecked)
+
     Box(
         modifier =
             modifier
@@ -125,7 +132,7 @@ fun TaskCheckbox(
                     onValueChange = onCheckedChange,
                 ).semantics {
                     role = Role.Checkbox
-                    stateDescription = if (isChecked) "Выполнено" else "Не выполнено"
+                    stateDescription = checkedStateDescription
                 },
         contentAlignment = Alignment.Center,
     ) {

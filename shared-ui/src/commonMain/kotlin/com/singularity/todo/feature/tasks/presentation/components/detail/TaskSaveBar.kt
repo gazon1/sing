@@ -17,6 +17,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.save_task
 
 /**
  * Bottom bar with primary save action.
@@ -50,7 +53,7 @@ fun TaskSaveBar(
                     .testTag(TestTags.TASK_EDITOR_SAVE),
         ) {
             Text(
-                text = "Сохранить",
+                text = stringResource(Res.string.save_task),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
             )

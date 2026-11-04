@@ -86,8 +86,13 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.menu_archive
+import singularity_todo.shared.generated.resources.menu_delete
+import singularity_todo.shared.generated.resources.menu_restore
 import kotlin.time.Instant
 
 @Suppress("LongMethod", "CyclomaticComplexMethod", "FunctionSignature")
@@ -710,6 +715,7 @@ fun TaskDetailContent(
 
 // ─── Menu items ─────────────────────────────────────────────────────────────
 
+@Composable
 private fun buildDetailMenuItems(
     isTrashed: Boolean,
     onIntent: (TaskDetailIntent.Domain) -> Unit,
@@ -717,7 +723,7 @@ private fun buildDetailMenuItems(
     if (isTrashed) {
         persistentListOf(
             TaskEditorMenuItem(
-                label = "Восстановить",
+                label = stringResource(Res.string.menu_restore),
                 onClick = { onIntent(TaskDetailIntent.Domain.Unarchive) },
                 testTag = TestTags.EditorOverflow.RESTORE,
             ),
@@ -725,12 +731,12 @@ private fun buildDetailMenuItems(
     } else {
         persistentListOf(
             TaskEditorMenuItem(
-                label = "Архивировать",
+                label = stringResource(Res.string.menu_archive),
                 onClick = { onIntent(TaskDetailIntent.Domain.Archive) },
                 testTag = TestTags.EditorOverflow.ARCHIVE,
             ),
             TaskEditorMenuItem(
-                label = "Удалить",
+                label = stringResource(Res.string.menu_delete),
                 onClick = { onIntent(TaskDetailIntent.Domain.Delete) },
                 testTag = TestTags.EditorOverflow.DELETE,
             ),

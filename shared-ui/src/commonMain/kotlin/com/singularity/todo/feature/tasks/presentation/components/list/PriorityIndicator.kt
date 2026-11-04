@@ -16,6 +16,13 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.priority_high
+import singularity_todo.shared.generated.resources.priority_low
+import singularity_todo.shared.generated.resources.priority_medium
+import singularity_todo.shared.generated.resources.priority_none
+import singularity_todo.shared.generated.resources.priority_urgent
 
 internal val TaskPriority.isActive: Boolean get() = this != TaskPriority.None
 
@@ -47,13 +54,14 @@ fun PriorityIndicator(
  */
 fun priorityColor(priority: TaskPriority): Color = priorityMeta(priority).color
 
+@Composable
 private fun priorityContentDescription(priority: TaskPriority): String =
     when (priority) {
-        TaskPriority.High -> "Высокий приоритет"
-        TaskPriority.Medium -> "Средний приоритет"
-        TaskPriority.Low -> "Низкий приоритет"
-        TaskPriority.None -> "Без приоритета"
-        TaskPriority.Urgent -> "Срочный приоритет"
+        TaskPriority.High -> stringResource(Res.string.priority_high)
+        TaskPriority.Medium -> stringResource(Res.string.priority_medium)
+        TaskPriority.Low -> stringResource(Res.string.priority_low)
+        TaskPriority.None -> stringResource(Res.string.priority_none)
+        TaskPriority.Urgent -> stringResource(Res.string.priority_urgent)
     }
 
 @Preview
