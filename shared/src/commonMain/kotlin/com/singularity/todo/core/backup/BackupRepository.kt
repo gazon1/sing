@@ -33,12 +33,26 @@ interface BackupRepository {
     suspend fun createBackup(): Result<BackupResult>
 
     /**
-     * Exports a full backup (tasks, notes, projects, tags, settings) to a zip in `backupDir`.
+     * Exports a full backup (tasks, notes, projects, tags, settings) to a zip.
      *
-     * [ExportOptions.destPath] is a **file name**, not a path: the repository owns the
-     * backup directory and joins the two. A caller that passes a path instead writes
-     * outside the backup directory — on Android that is the read-only root, and the
-     * export fails with `EROFS`.
+     * Where the archive lands follows [ExportOptions.destPath]: a file name is
+     * joined to the backup directory this repository owns, and a destination
+     * the person chose — in practice an absolute path, or a `content://` URI
+     * from the system save dialog — is used as it is.
+     *
+     * A `content://` URI is a document rather than a file: there is no sibling
+     * to write next to it and no rename to make, so the archive is written
+     * straight into it. An absolute path is a file, and gets what every file
+     * gets — written under a temporary sibling and moved into place once the
+     * archive is whole, so a failed export leaves no half-written archive
+     * behind.
+     *
+     * What an export outside the backup directory does not get is the chain:
+     * the change that follows the snapshot is written only for a destination
+     * inside the backup directory. Nor is such an archive one of the backups
+     * [observeAll] lists — that list is the backup directory.
+     *
+     * @return the destination that was written, in [BackupResult.destPath].
      */
     suspend fun export(options: ExportOptions): Result<BackupResult>
 

@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,10 +33,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.format.formatPadded
+import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.calendar.domain.logic.dayOfWeekShort
 import com.singularity.todo.feature.calendar.domain.logic.isoLocalDate
-import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.presentation.theme.CalendarPalette
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
@@ -43,12 +44,11 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
 
 private val HOUR_ROW_HEIGHT = 64.dp
 private val TIME_COLUMN_WIDTH = 56.dp
@@ -112,7 +112,10 @@ fun TimeGridView(
                 AllDayCell(
                     tasks = allDayTasksByDate[date] ?: persistentListOf(),
                     selectedTaskId = selectedTaskId,
-                    onTaskClick = { task -> scope.launch { haptic.perform() }; onTaskClick(task) },
+                    onTaskClick = { task ->
+                        scope.launch { haptic.perform() }
+                        onTaskClick(task)
+                    },
                     palette = palette,
                     modifier = Modifier.weight(1f),
                 )
@@ -127,7 +130,10 @@ fun TimeGridView(
                     dates = dates,
                     tasksByDate = tasksByDate,
                     selectedTaskId = selectedTaskId,
-                    onTaskClick = { task -> scope.launch { haptic.perform() }; onTaskClick(task) },
+                    onTaskClick = { task ->
+                        scope.launch { haptic.perform() }
+                        onTaskClick(task)
+                    },
                     palette = palette,
                     showNowLine = showNowLineToday && hour == now.hour,
                     nowMinute = now.minute,
@@ -244,62 +250,62 @@ private fun HourRow(
                 .fillMaxWidth()
                 .height(HOUR_ROW_HEIGHT),
     ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(HOUR_ROW_HEIGHT),
-    ) {
-        // Hour label on the left
-        Box(
+        Row(
             modifier =
                 Modifier
-                    .width(TIME_COLUMN_WIDTH)
-                    .fillMaxHeight(),
-            contentAlignment = Alignment.TopEnd,
+                    .fillMaxWidth()
+                    .height(HOUR_ROW_HEIGHT),
         ) {
-            Text(
-                text = "${formatPadded(hour)}:00",
-                color = palette.textMuted,
-                fontSize = 11.sp,
-                modifier = Modifier.padding(end = 8.dp, top = 2.dp),
-            )
-        }
-
-        // Day columns
-        dates.forEach { date ->
-            val timedTasks =
-                tasksByDate[date].orEmpty().filter {
-                    !it.isAllDay && it.startTime?.hour == hour
-                }
+            // Hour label on the left
             Box(
                 modifier =
                     Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .border(width = 0.5.dp, color = palette.gridLine),
+                        .width(TIME_COLUMN_WIDTH)
+                        .fillMaxHeight(),
+                contentAlignment = Alignment.TopEnd,
             ) {
-                 Column(modifier = Modifier.padding(2.dp)) {
-                    timedTasks.forEach { task ->
-                        TaskChip(
-                            task = task,
-                            isSelected = task.id.value == selectedTaskId,
-                            onClick = { onTaskClick(task) },
-                        )
+                Text(
+                    text = "${formatPadded(hour)}:00",
+                    color = palette.textMuted,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(end = 8.dp, top = 2.dp),
+                )
+            }
+
+            // Day columns
+            dates.forEach { date ->
+                val timedTasks =
+                    tasksByDate[date].orEmpty().filter {
+                        !it.isAllDay && it.startTime?.hour == hour
+                    }
+                Box(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .border(width = 0.5.dp, color = palette.gridLine),
+                ) {
+                    Column(modifier = Modifier.padding(2.dp)) {
+                        timedTasks.forEach { task ->
+                            TaskChip(
+                                task = task,
+                                isSelected = task.id.value == selectedTaskId,
+                                onClick = { onTaskClick(task) },
+                            )
+                        }
                     }
                 }
             }
-        }
-        if (showNowLine) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .offset(y = (nowMinute / 60f * HOUR_ROW_HEIGHT.value).dp)
-                        .height(2.dp)
-                        .background(palette.todayBadge),
-            )
+            if (showNowLine) {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .offset(y = (nowMinute / 60f * HOUR_ROW_HEIGHT.value).dp)
+                            .height(2.dp)
+                            .background(palette.todayBadge),
+                )
+            }
         }
     }
-}
 }
