@@ -125,9 +125,24 @@ run instead of letting the caller pass them separately.
 To run one class — the smoke tier, locally:
 
 ```bash
-GRADLE_ARGS="-Pandroid.testInstrumentationRunnerArguments.class=com.singularity.todo.ui.AppStartupTest" \
-  python3 scripts/run-android-ui-tests.py
+python3 scripts/run-android-ui-tests.py --class com.singularity.todo.ui.AppStartupTest
 ```
+
+`--class` is the same statement `GRADLE_ARGS` carries above, in a shape a
+caller can pass without setting the environment: the script appends
+`-Pandroid.testInstrumentationRunnerArguments.class=…` to both halves of the
+run, exactly as it appends whatever else `GRADLE_ARGS` holds.
+
+To run the classes a change reaches, ask the impact map. It names them, and
+prints this command with the list already in it:
+
+```bash
+python3 scripts/test-impact-map.py --command --population fast
+```
+
+The map prints no Gradle task for this tier: the device, this checkout's APK
+and the parsed report are part of what running one of its classes means, and
+this script is the only place that owns all three.
 
 ## The floor
 

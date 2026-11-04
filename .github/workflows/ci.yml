@@ -627,6 +627,17 @@ jobs:
           set -o pipefail
           while read -r command; do
             [ -n "$command" ] || continue
+            # The instrumented tier needs an emulator and the repository's own
+            # runner (`scripts/run-android-ui-tests.py`), and this job has
+            # neither: it names the classes for the job that does
+            # (`android-device-tests.yml`). Appending the coverage property to
+            # that command would be an argument the script does not know.
+            case "$command" in
+              "python3 scripts/run-android-ui-tests.py "*)
+                echo "on a device: $command"
+                continue
+                ;;
+            esac
             # `-Pcoverage.enabled=false`: this job is the fast signal, and the
             # Kover agent is the difference between a signal and a wait. The
             # coverage job is where the measurement belongs.

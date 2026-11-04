@@ -306,7 +306,28 @@ def main(argv: list[str] | None = None) -> int:
                         help="pin a specific device serial (also set via SERIAL env var)")
     parser.add_argument("--artifact-dir", default=None,
                         help="Directory for failure artifacts (default: build/android-ui-results)")
+    parser.add_argument("--class", dest="classes", default=None,
+                        help=("comma-separated instrumentation classes to run, forwarded to the "
+                              "runner as -Pandroid.testInstrumentationRunnerArguments.class. "
+                              "The map names this option when a change reaches one class of the tier."))
     args = parser.parse_args(argv)
+
+    # `GRADLE_ARGS` is the seam this script already documents for "what kind of
+    # build the caller wants", and a class filter is the case it names first.
+    # `--class` is the same statement in a shape a caller can pass without
+    # going through the environment: the map prints a command, and a command
+    # that only works with an environment variable set beside it is a command
+    # that does not run as printed.
+    if args.classes:
+        forwarded = os.environ.get("GRADLE_ARGS", "").strip()
+        os.environ["GRADLE_ARGS"] = " ".join(
+            part
+            for part in (
+                forwarded,
+                "-Pandroid.testInstrumentationRunnerArguments.class=" + args.classes,
+            )
+            if part
+        )
 
     serial: str | None = args.serial or os.environ.get("SERIAL")
     serial = serial or None  # normalize "" → None

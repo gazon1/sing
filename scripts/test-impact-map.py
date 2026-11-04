@@ -59,6 +59,24 @@ named it. What narrows it is the map's own `--tests` filter, which Gradle
 applies to the task: the command runs exactly the class it names. The
 population selects the candidate set; the filter runs it.
 
+The instrumentation tier is a third shape. Its classes are not run by Gradle's
+`--tests` — they are run by the Android instrumentation runner, and the class
+is named by the RUNNER ARGUMENT the plugin forwards to it
+(`-Pandroid.testInstrumentationRunnerArguments.class=…`), the same spelling the
+device smoke already uses (`.github/workflows/android-device-tests.yml`). The
+runner's `class` argument takes a comma-separated list, so one invocation
+names every class of the task. The runner does not read the tag filter
+either, so the POPULATION does not narrow that task: a class the population
+excludes would still run if the map named it. What narrows it is the runner
+argument.
+
+The COMMAND the map prints for that tier is the repository's own runner
+(`scripts/run-android-ui-tests.py`), not the Gradle task: the tier needs a
+device that exists, an APK assembled for this checkout, the auth bypass in that
+APK, and a report that is parsed — `connectedDebugAndroidTest` exits 0 having
+run zero tests when the app dies on startup. A bare Gradle task printed here is
+a command that cannot pass as printed.
+
 Usage:
     python3 scripts/test-impact-map.py                  # the test classes, one per line
     python3 scripts/test-impact-map.py --explain        # the same, with the reasons
@@ -235,7 +253,20 @@ TEST_SOURCE_DIRS: dict[str, str] = {
     'shared/src/androidHostTest': 'shared',
     'desktopApp/src/jvmTest': 'desktopApp',
     'mcp-server/src/test': 'mcp-server',
+    'androidApp/src/androidTest': 'androidApp',
 }
+
+#: The source set that holds the INSTRUMENTATION tests.
+#:
+#: The tier is the only one that sees the real Android runtime, and it is the
+#: only one whose classes are not run by Gradle's test filter: they are run by
+#: the Android instrumentation runner, on a device. Three of the map's rules
+#: are therefore different for it, and all three are stated where they are
+#: applied — the class is named by a RUNNER ARGUMENT and not `--tests`, the
+#: command printed for it is the repository's own runner
+#: (`INSTRUMENTATION_RUNNERS`), and the POPULATION does not narrow it
+#: (`POPULATION_EXEMPT_TASKS`).
+INSTRUMENTATION_SOURCE_DIR = 'androidApp/src/androidTest'
 
 #: The source sets that hold production code.
 PRODUCTION_SOURCE_DIRS: tuple[str, ...] = (
@@ -278,7 +309,56 @@ SOURCE_SET_TASKS: dict[str, str] = {
     'shared/src/androidHostTest': ':shared:testAndroidHostTest',
     'desktopApp/src/jvmTest': ':desktopApp:test',
     'mcp-server/src/test': ':mcp-server:test',
+    'androidApp/src/androidTest': ':androidApp:connectedDebugAndroidTest',
 }
+
+#: The command that runs the instrumentation tier, and the option that narrows
+#: it to named classes.
+#:
+#: A bare `:androidApp:connectedDebugAndroidTest` is not a command a caller can
+#: run: it needs a device that exists, an APK assembled for this checkout, the
+#: auth bypass in that APK, and a report that is parsed rather than trusted —
+#: `connectedDebugAndroidTest` exits 0 having run zero tests when the app dies
+#: on startup. `scripts/run-android-ui-tests.py` is the repository's own answer
+#: to all four, and every other runner of this tier goes through it, so the map
+#: names it too. The class list reaches the runner as
+#: `-Pandroid.testInstrumentationRunnerArguments.class=<fqcn,…>`, the spelling
+#: that script owns.
+#:
+#: The script chooses its own Gradle entry point, so the map's `--gradle` does
+#: not reach this tier — a caller that needs the private wrapper passes it to
+#: the script, which is the only place that runs Gradle here.
+#:
+#: A lane without a device must name this command rather than execute it:
+#: `check.sh --fast` and the CI `quick` job both skip it and say so, and the
+#: device job (`android-device-tests.yml`) is where it runs.
+INSTRUMENTATION_RUNNERS: dict[str, tuple[str, ...]] = {
+    ':androidApp:connectedDebugAndroidTest': (
+        'python3',
+        'scripts/run-android-ui-tests.py',
+    ),
+}
+
+#: The option `INSTRUMENTATION_RUNNERS` takes for a comma-separated class list.
+INSTRUMENTATION_CLASS_OPTION = '--class'
+
+#: The tasks the POPULATION does not narrow.
+#:
+#: A population is a list of JUnit tags, and the tag filter belongs to the
+#: TASK: `:shared:jvmTest` turns `-Ptest.tags` into `includeTags(...)`, and a
+#: class the population excludes is dropped from the command — because it
+#: would not have run.
+#:
+#: The instrumentation task has no such filter: the runner takes a list of
+#: classes and runs what it is given. A population therefore cannot narrow it,
+#: and dropping an untagged instrumentation class because no population
+#: selects it would drop a class the runner WOULD run — and the tier's classes
+#: are untagged by design (they are JUnit4 classes on the Vintage engine,
+#: where a Jupiter `@Tag` is not a filter at all — the same reason
+#: `shared/src/androidHostTest` is exempt in `shared/build.gradle.kts`).
+POPULATION_EXEMPT_TASKS: frozenset[str] = frozenset({
+    ':androidApp:connectedDebugAndroidTest',
+})
 
 #: The task the architecture gates run in.
 #:
@@ -333,6 +413,20 @@ BASE_CONTAINS_HEAD = 'test-impact-map: the change is already contained in the ba
 #: The prefix of the line that names a class the population excludes.
 DROPPED = 'dropped:'
 
+#: A top-level function declaration in Kotlin, reduced to its NAME.
+#:
+#: The tier's helpers are extension functions as often as classes:
+#: `UiActions.kt` and `ShellProbe.kt` declare no class at all, so a rule that
+#: read class declarations alone found nothing to attribute and selected
+#: nothing for the tier's most-used helper. A member (indented) is not
+#: collected: it is reached through its class, and the class is the name
+#: another file writes.
+FUNCTION_DECLARATION = re.compile(
+    r'^(?:(?:public|internal|private|protected|suspend|inline|operator|infix|tailrec|override)\s+)*'
+    r'fun\s+(?:<[^>]+>\s*)?(?:[A-Za-z_][\w.]*\.)?([A-Za-z_][A-Za-z0-9_]*)',
+    re.MULTILINE,
+)
+
 #: A top-level class declaration in Kotlin. The indentation is part of the
 #: pattern on purpose: a nested class is not a test class a `--tests` filter
 #: can name.
@@ -344,6 +438,25 @@ CLASS_DECLARATION = re.compile(
 
 #: A test member — the thing that makes a class a test class.
 TEST_MEMBER = re.compile(r'^\s*@(?:Test|ParameterizedTest|RepeatedTest|TestFactory)\b', re.MULTILINE)
+
+#: A JUnit4 `TestCase` test method: `testXxx` with no annotation at all.
+#:
+#: JUnit4's oldest shape names a test by its METHOD NAME, so a class of that
+#: shape declares no `@Test` anywhere and is still a class the runner runs.
+TEST_CASE_MEMBER = re.compile(r'^\s*(?:public\s+|internal\s+|private\s+|protected\s+)?fun\s+test\w+\s*\(', re.MULTILINE)
+
+#: An ABSTRACT class declaration.
+#:
+#: An abstract class is the one shape that cannot be handed to the
+#: instrumentation runner: the runner instantiates what it is given, so an
+#: abstract class is an `InitializationError` rather than a run. It is the
+#: SHAPE that says so, and not the absence of a `@Test` — a subclass whose
+#: methods all come from a base declares none of its own and is exactly the
+#: class the runner has to be given.
+ABSTRACT_DECLARATION = re.compile(
+    r'^\s*(?:(?:public|internal|private|protected|open|sealed|data|inner|value)\s+)*abstract\s+class\b',
+    re.MULTILINE,
+)
 
 #: The package a file declares.
 PACKAGE_DECLARATION = re.compile(r'^\s*package\s+([\w.]+)', re.MULTILINE)
@@ -628,6 +741,80 @@ def _class_blocks(text: str) -> list[tuple[str, str]]:
     return blocks
 
 
+def _is_test_class(name: str, body: str, source_dir: str) -> bool:
+    """Is this class one the map may name?
+
+    The rule everywhere: a class whose NAME says it is a test, or that
+    declares a test member.
+
+    The instrumentation tier adds ONE rule, and it is about the shape of the
+    declaration rather than about a member. The runner instantiates the class
+    it is given, so an ABSTRACT class is an `InitializationError` — naming the
+    tier's base class (`InstrumentedTestBase`) does not run a test, it fails
+    the run.
+
+    What it does NOT do is require the class to declare a member of its own.
+    The tier's classes inherit their test methods from that base, and JUnit4's
+    `TestCase` names its tests `testXxx` with no annotation at all — so
+    "declares a `@Test`" is not the question, and asking it dropped a subclass
+    whose methods all come from the base out of the map entirely. A class the
+    map cannot name can never be selected, never be reported and never run.
+
+    What is left is the NAME: a class of that tier that neither says `Test` in
+    its name nor declares a member of any shape is still invisible, because the
+    map reads source text and cannot see a superclass from another file. The
+    tier's convention is `*Test`, and this docstring is where the limit is
+    written down rather than discovered.
+    """
+    if (
+        'Test' not in name
+        and not TEST_MEMBER.search(body)
+        and not TEST_CASE_MEMBER.search(body)
+    ):
+        return False
+    if source_dir == INSTRUMENTATION_SOURCE_DIR:
+        return not ABSTRACT_DECLARATION.search(body)
+    return True
+
+
+def _code_without_comment_lines(body: str) -> str:
+    """The body with its comments taken out, so a mention is a USE.
+
+    A KDoc line that names a helper is not a use of it, and the
+    instrumentation tier's helpers are named with single common words
+    (`UiActions`, `StepRecorder`) — the case where a comment that mentions one
+    is most likely to be mistaken for a class that uses one.
+
+    Whole-line comments only: a trailing `//` after code is left alone, because
+    the line may carry a `https://` inside a string and cutting there would
+    hide a real use rather than a comment.
+    """
+    text = re.sub(r'/\*.*?\*/', '', body, flags=re.DOTALL)
+    kept: list[str] = []
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith(('//', '*', '/*')):
+            kept.append('')
+            continue
+        kept.append(line)
+    return '\n'.join(kept)
+
+
+def _mentions(body: str, names: list[str]) -> bool:
+    """Does this body use one of these names, as a NAME?
+
+    A substring test is not good enough here: `UiActions` sits inside a longer
+    identifier, and a helper with a one-word name matches half the file it is
+    quoted in. The name has to stand alone — and it has to be in code, not in
+    a comment.
+    """
+    code = _code_without_comment_lines(body)
+    return any(
+        re.search(r'\b' + re.escape(name) + r'\b', code) is not None
+        for name in names
+    )
+
+
 def test_classes() -> list[TestClass]:
     """Every test class of the repository, with its module, its task and its scope."""
     found: list[TestClass] = []
@@ -641,7 +828,7 @@ def test_classes() -> list[TestClass]:
             package = package_match.group(1) if package_match else ''
             scope = _scope_from_tail(path.relative_to(ROOT / source_dir).as_posix())
             for name, body in _class_blocks(text):
-                if 'Test' not in name and not TEST_MEMBER.search(body):
+                if not _is_test_class(name, body, source_dir):
                     continue
                 qualified = f'{package}.{name}' if package else name
                 found.append(
@@ -658,13 +845,46 @@ def test_classes() -> list[TestClass]:
     return found
 
 
-def _declared_names(path: str) -> list[str]:
-    """The names a production file declares — the ones another file can mention."""
+def _declared_classes(path: str) -> list[tuple[str, str]]:
+    """The top-level classes a file declares: their names and their bodies."""
     file_path = ROOT / path
     if not file_path.is_file() or file_path.suffix != '.kt':
         return []
     text = file_path.read_text(encoding='utf-8', errors='replace')
-    return [name for name, _ in _class_blocks(text)]
+    return _class_blocks(text)
+
+
+def _declared_names(path: str) -> list[str]:
+    """The names a production file declares — the ones another file can mention."""
+    return [name for name, _ in _declared_classes(path)]
+
+
+def _helper_names(path: str) -> list[str]:
+    """The names a TEST-tier file declares that another class can use.
+
+    Classes and top-level functions both, because the tier's helpers are
+    extension functions as often as they are classes — `UiActions.kt` declares
+    no class at all, and a rule that read classes alone selected nothing for
+    the file every UI test drives the device through.
+
+    A file that declares a test of its own contributes no function names: its
+    test class is selected by its path, and the functions beside it are its own
+    business. The file's OTHER classes are still contributed — a test file may
+    declare a helper next to the test that uses it.
+    """
+    blocks = _declared_classes(path)
+    test_names = {
+        name
+        for name, body in blocks
+        if _is_test_class(name, body, INSTRUMENTATION_SOURCE_DIR)
+    }
+    names = [name for name, _ in blocks if name not in test_names]
+    if not test_names:
+        file_path = ROOT / path
+        if file_path.is_file() and file_path.suffix == '.kt':
+            text = file_path.read_text(encoding='utf-8', errors='replace')
+            names.extend(FUNCTION_DECLARATION.findall(text))
+    return names
 
 
 def _is_production(path: str) -> bool:
@@ -708,6 +928,26 @@ def map_tests(paths: list[str], tests: list[TestClass]) -> tuple[list[str], list
             for test in tests:
                 if _relative(test.path) == path:
                     selected.setdefault(test.qualified_name, f'{path} — the test itself changed')
+            # The instrumentation tier's HARNESS is not a test: its base class
+            # is ABSTRACT, and an abstract class cannot be handed to the
+            # runner. The classes that extend it are the tests that have to
+            # run — a change to the harness changes what every one of them
+            # asserts. This tier is the only one where a changed test file is
+            # not itself a test.
+            #
+            # Only the file's HELPERS are matched: a class that is a test is
+            # selected by its path above, and another test does not use it.
+            if _test_source_of(path) == INSTRUMENTATION_SOURCE_DIR:
+                helpers = _helper_names(path)
+                if helpers:
+                    for test in tests:
+                        if _relative(test.path) == path:
+                            continue
+                        if _mentions(test.body, helpers):
+                            selected.setdefault(
+                                test.qualified_name,
+                                f'{path} — the test uses it',
+                            )
             # And it can break a gate that reads the whole test tree — a gate
             # that asserts every test class carries a @Tag is broken by a test
             # class that does not, and the class that broke it is the one that
@@ -781,11 +1021,20 @@ def select_for_population(
     population excludes is dropped from the command and NAMED in the report:
     a `--tests` filter that names a class the population excludes runs
     nothing, and a run that ran nothing reports green.
+
+    A task the POPULATION does not narrow is the exception, and it is not an
+    exception to the QUESTION — it is an exception to the build's filter: the
+    instrumentation runner takes a list of classes and runs what it is given
+    (`POPULATION_EXEMPT_TASKS`). Its classes are kept, because naming one
+    would run it.
     """
     selected = set(tags)
     kept: list[TestClass] = []
     dropped: list[str] = []
     for test in tests:
+        if test.task in POPULATION_EXEMPT_TASKS:
+            kept.append(test)
+            continue
         simple = test.qualified_name.rsplit('.', 1)[-1]
         tag = scanning.read_tag(test.source, simple)
         if tag in selected:
@@ -816,6 +1065,16 @@ def gradle_commands(
     spelling of a thing the repository already declares in one place, and the
     two spellings drift: the map used to answer a different question than the
     one asked, selecting the fast and slow half together.
+
+    A task that does not read the tag filter does not get a population named
+    on its command: the property would be read by nothing, and naming it
+    would say the population narrows the task when it does not.
+
+    One task is not run by this command at all: the instrumentation tier is
+    run by the repository's own runner (`INSTRUMENTATION_RUNNERS`), which owns
+    the device, the APK's provenance and the report parsing. Its command is
+    that script with the classes, and the classes reach the runner as the
+    runner argument — the only filter that task understands.
     """
     by_task: dict[str, list[str]] = {}
     for test in tests:
@@ -823,8 +1082,29 @@ def gradle_commands(
 
     commands: list[list[str]] = []
     for task in sorted(by_task):
-        command = [gradle, task, f'-Ptest.population={population}']
-        for name in sorted(by_task[task]):
+        names = sorted(by_task[task])
+        runner = INSTRUMENTATION_RUNNERS.get(task)
+        if runner is not None:
+            # Not a Gradle command at all: the tier needs a device that exists,
+            # an APK assembled with the auth bypass, and a report that is
+            # parsed rather than trusted, and the repository's own runner does
+            # all four. A bare `connectedDebugAndroidTest` printed here is a
+            # command that cannot pass as printed, and the fast lane is exactly
+            # where a caller runs one verbatim.
+            #
+            # One invocation for every class of the task: the runner's class
+            # filter is a single comma-separated argument, so the map's
+            # per-class `--tests` model has no equivalent here and the list is
+            # all-or-nothing by nature. What keeps that honest is that every
+            # name in it is a class the runner can initialize — the tier's
+            # helpers and its abstract base are not in `test_classes()` at all.
+            command = [*runner, INSTRUMENTATION_CLASS_OPTION, ','.join(names)]
+            commands.append(command)
+            continue
+        command = [gradle, task]
+        if task not in POPULATION_EXEMPT_TASKS:
+            command.append(f'-Ptest.population={population}')
+        for name in names:
             command += ['--tests', name]
         commands.append(command)
     return commands
@@ -939,9 +1219,13 @@ def main(argv: list[str], paths: list[str] | None = None) -> int:
             # prints the selection for a caller to run, and the caller decides
             # what to run it with (the CI `quick` job adds the same flag). This
             # path RUNS the command, so it decides for itself.
-            print(' '.join([*command, COVERAGE_OFF]), file=sys.stderr)
+            # The instrumentation tier is run by the repository's own runner,
+            # not by Gradle: a Gradle property appended to that command would
+            # be an argument the script does not know.
+            extra = [] if command[0] != args.gradle else [COVERAGE_OFF]
+            print(' '.join([*command, *extra]), file=sys.stderr)
             result = subprocess.run(
-                [*command, COVERAGE_OFF], cwd=ROOT, check=False,
+                [*command, *extra], cwd=ROOT, check=False,
             )
             if result.returncode != 0:
                 return result.returncode
