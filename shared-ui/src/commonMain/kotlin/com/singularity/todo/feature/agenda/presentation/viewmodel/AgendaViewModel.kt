@@ -8,7 +8,7 @@ import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
-import com.singularity.todo.core.platform.localTimeAt
+import com.singularity.todo.core.platform.localHourFlow
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.text.FieldOwnedText
@@ -35,12 +35,13 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -156,23 +157,50 @@ class AgendaViewModel(
      */
     private val deleteSequence = AtomicInt(0)
 
-    // Non-null default breaks the tie before computeGreeting() finishes.
-    // "Good evening" is the most common outcome; the computed value replaces it within
-    // the same runCurrent() window in tests, so there is no flash of the wrong greeting.
+    /**
+     * Drives the greeting the agenda draws.
+     *
+     * Starts empty rather than with a placeholder: a greeting is a claim about the
+     * hour, and a default is a claim that is wrong until the first read lands. Empty
+     * is the documented "no greeting" — the screen draws nothing.
+     *
+     * Private, and deliberately not exposed as a second public carrier: the value the
+     * screen reads is `AgendaUiState.Loaded.greeting`, so a reader of a separate flow
+     * would bypass the state and not re-render. This flow is the seed a *new* `Loaded`
+     * is built with, written by the collector in [init] rather than by the agenda's task
+     * collector, so a list emission never overwrites a greeting that has already caught
+     * up with the clock.
+     *
+     * @see <docs/decisions/2026-11-05-the-greeting-follows-the-clock-and-the-settings.md>
+     */
+    private val _greeting = MutableStateFlow("")
 
     /**
-     * Drives the greeting computation.
+     * The greeting as the clock and the configured hours define it, right now.
      *
-     * Uses [MutableStateFlow] so the value is observable from tests without a Compose
-     * runtime. Initialized in [init] rather than inside the `collect` block so tests
-     * can drain it with a bounded number of [runCurrent] calls — no `advanceUntilIdle`
-     * (which hangs on the infinite [todayFlow] loop) and no `runBlocking` (forbidden
-     * by [NoRunBlockingRule]).
+     * Three inputs, because the value depends on all three: the hour boundary the
+     * user configured for the morning, the one for the afternoon, and the hour it is
+     * — each observed rather than read once. [localHourFlow] re-emits at every hour
+     * boundary, so a screen left open across noon follows it; the settings flows
+     * re-emit on a change made in Settings, so the user does not have to leave the
+     * agenda to see their own configuration.
      *
-     * @see <docs/decisions/2026-10-18-greeting-init-no-runblocking.md>
+     * A failed read ends the observation with the empty greeting. That is the promise
+     * the one-shot computation made, kept: no greeting, never a stale one, and never
+     * an exception escaping a collector nobody is watching.
      */
-    private val _greeting = MutableStateFlow("Good evening")
-    val greeting: StateFlow<String> = _greeting.asStateFlow()
+    private val greetingFlow: Flow<String> =
+        combine(
+            deps.greetingSettings.morningEndHour,
+            deps.greetingSettings.afternoonEndHour,
+            localHourFlow(deps.clock, deps.timeZone.current()),
+        ) { morningEnd, afternoonEnd, hour ->
+            when {
+                hour < morningEnd -> "Good morning"
+                hour < afternoonEnd -> "Good afternoon"
+                else -> "Good evening"
+            }
+        }.catch { emit("") }
 
     /**
      * The task list the current evaluation was made against.
@@ -195,14 +223,18 @@ class AgendaViewModel(
     private val reloadTrigger = ReloadTrigger()
 
     init {
-        // Greeting is computed once at load from greetingSettings and the current clock hour.
-        // It does not change during the lifetime of this ViewModel instance.
-        // Launched here (not inside the collector) so tests can drain it with runCurrent:
-        // the collect chain and the greeting computation are independent coroutines on the
-        // same scope, and runCurrent advances one pending task per call, so the greeting
-        // computation completes in 3-4 calls before the collect callback reads _greeting.value.
+        // The greeting follows the clock and the configured hours, and is written into
+        // the *live* state so a screen already on display re-renders: a `Loaded` carries
+        // the greeting, so updating only the private flow would leave the bar showing the
+        // value it was built with. The copy touches the greeting and nothing else — the
+        // sections and the selection are the same instances before and after.
         scope.launch {
-            _greeting.value = computeGreeting()
+            greetingFlow.collect { greeting ->
+                _greeting.value = greeting
+                updateState { current ->
+                    if (current is AgendaUiState.Loaded) current.copy(greeting = greeting) else current
+                }
+            }
         }
 
         scope.launch {
@@ -276,20 +308,6 @@ class AgendaViewModel(
                 }
         }
     }
-
-    /** Computes the time-of-day greeting from [greetingSettings] and the current clock hour. */
-    private suspend fun computeGreeting(): String =
-        runCatchingCancellable {
-            val morningEnd = deps.greetingSettings.morningEndHour.first()
-            val afternoonEnd = deps.greetingSettings.afternoonEndHour.first()
-            // localTimeAt(Clock, TimeZone) hides the kotlinx-datetime bridge internally.
-            val hour = localTimeAt(deps.clock, deps.timeZone.current()).hour
-            when {
-                hour < morningEnd -> "Good morning"
-                hour < afternoonEnd -> "Good afternoon"
-                else -> "Good evening"
-            }
-        }.getOrElse { "" }
 
     private fun AgendaUiState.Loaded.taskIds(): Set<TaskId> =
         sections.flatMapTo(mutableSetOf()) { section -> section.tasks.map { it.task.id } }

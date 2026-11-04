@@ -195,18 +195,7 @@ fun AgendaContent(
                     )
                 } else {
                     TopAppBar(
-                        title = {
-                            Column {
-                                Text(title)
-                                if (greeting.isNotEmpty()) {
-                                    Text(
-                                        text = greeting,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        },
+                        title = { Text(title) },
                         actions = {
                             if (onMultiDateCreate != null) {
                                 IconButton(
@@ -295,22 +284,47 @@ fun AgendaContent(
                 }
 
                 is AgendaUiState.Loaded -> {
-                    if (state.sections.isEmpty()) {
-                        EmptyState(
-                            title = "No tasks",
-                            subtitle = "You're all caught up — nothing due in this agenda",
-                            modifier = Modifier.padding(paddingValues),
-                        )
-                    } else {
-                        AgendaList(
-                            sections = state.sections,
-                            isSelectionMode = isSelectionMode,
-                            selectedTaskIds = selectedTaskIds,
-                            onIntent = onIntent,
-                            onOpenContextMenu = ::openContextMenu,
-                            listState = listState,
-                            modifier = Modifier.padding(paddingValues),
-                        )
+                    // The greeting is a header of the body, not a second line in the bar.
+                    // On Android the shell owns the only bar and the shared wrapper drops a
+                    // screen's title slot, so a greeting drawn there was never seen on
+                    // Android. Here it is drawn by the screen both clients render.
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues),
+                    ) {
+                        if (!isSelectionMode && greeting.isNotEmpty()) {
+                            Text(
+                                text = greeting,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                        .testTag(TestTags.AGENDA_GREETING),
+                            )
+                        }
+                        Box(modifier = Modifier.weight(1f)) {
+                            if (state.sections.isEmpty()) {
+                                EmptyState(
+                                    title = "No tasks",
+                                    subtitle = "You're all caught up — nothing due in this agenda",
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            } else {
+                                AgendaList(
+                                    sections = state.sections,
+                                    isSelectionMode = isSelectionMode,
+                                    selectedTaskIds = selectedTaskIds,
+                                    onIntent = onIntent,
+                                    onOpenContextMenu = ::openContextMenu,
+                                    listState = listState,
+                                    modifier = Modifier,
+                                )
+                            }
+                        }
                     }
                 }
             }

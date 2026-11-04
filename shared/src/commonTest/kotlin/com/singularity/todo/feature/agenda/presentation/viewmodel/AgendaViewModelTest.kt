@@ -31,7 +31,9 @@ import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import com.singularity.todo.test.fakes.TEST_TZ
 import com.singularity.todo.test.helpers.VmScope
+import com.singularity.todo.test.helpers.awaitState
 import com.singularity.todo.test.helpers.testVm
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
@@ -717,10 +719,57 @@ class AgendaViewModelTest {
             }
         }
 
-    // ─── Greeting computation ────────────────────────────────────────────────
+    // ─── The greeting follows the clock and the settings ──────────────────────
     //
-    // computeGreeting() is called once on the first task-emission inside the
-    // collector. It is private so we test it through AgendaUiState.Loaded.greeting.
+    // The greeting used to be computed once in `init` and snapshotted into every
+    // `Loaded` state, so it could change only when the ViewModel was recreated. It is
+    // now derived from the two observed greeting-hour settings and a clock that
+    // re-emits at every hour boundary, so these tests move the clock and the settings
+    // instead of counting dispatches.
+
+    /**
+     * Waits until the agenda renders [greeting], then returns the state carrying it.
+     *
+     * Awaited rather than counted: the value arrives from a `combine` of three flows,
+     * so how many dispatches it takes is an implementation detail — and the four
+     * `runCurrent()` calls the one-shot computation needed are exactly the choreography
+     * that stops being true the moment the shape changes.
+     */
+    private fun TestScope.awaitGreeting(
+        vm: AgendaViewModel,
+        greeting: String,
+    ): AgendaUiState.Loaded {
+        awaitState { (vm.stateFlow.value as? AgendaUiState.Loaded)?.greeting == greeting }
+        return assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+    }
+
+    /** A ViewModel whose clock this test can move, built the way [createVm] builds one. */
+    private fun TestScope.createVmAt(clock: FakeClock): AgendaViewModel =
+        createVmIn { scope ->
+            AgendaViewModel(
+                deps = agendaDeps(clock = clock),
+                definition = AgendaPresets.Inbox,
+                scope = scope,
+            )
+        }
+
+    /**
+     * Moves the ViewModel's clock past the next hour boundary and lets the hour flow
+     * notice it.
+     *
+     * Both clocks have to move, and that is not a detail a test may forget: the fake
+     * clock says what time it *is*, the coroutine scheduler says when the hour flow's
+     * `delay` elapses, and advancing one without the other either reads the old hour or
+     * never wakes up. Overshooting the delay is harmless — the flow re-reads the hour
+     * after every wake-up and `distinctUntilChanged` drops a repeat.
+     */
+    private fun TestScope.crossHourBoundaryTo(
+        clock: FakeClock,
+        instant: Instant,
+    ) {
+        clock.setNow(instant)
+        advanceTimeBy(61 * 60_000L)
+    }
 
     @Test
     fun `greeting is Good morning before noon`() =
@@ -729,21 +778,18 @@ class AgendaViewModelTest {
             // fakeClock default: 09:00 UTC → local hour < 12 → "Good morning"
             fakeRepo.seed(task("t1", "Morning task"))
             val vm = createVm()
-            // repeat(4) advances exactly 4 pending tasks:
-            //   1. scope.launch { _greeting.value = computeGreeting() } starts → first first() suspends
-            //   2. computeGreeting() resumes → second first() suspends
-            //   3. computeGreeting() finishes → _greeting.value = "Good morning"
-            //   4. todayFlow emits → flatMapLatest → task flow → collect callback fires
-            repeat(4) { runCurrent() }
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-            assertEquals("Good morning", state.greeting, "9am UTC should produce Good morning")
+            assertEquals(
+                "Good morning",
+                awaitGreeting(vm, "Good morning").greeting,
+                "9am UTC should produce Good morning",
+            )
         }
 
     @Test
     fun `greeting is Good afternoon between noon and 6pm`() =
         runTest {
-            // Create a greeting settings that ends morning at 10 and afternoon at 14 (10am–2pm = afternoon).
-            // Use a clock at 11:00 UTC → local hour 11 is between 10 and 14 → "Good afternoon".
+            // A settings that ends morning at 10 and afternoon at 14 (10am–2pm = afternoon).
+            // A clock at 11:00 UTC → local hour 11 is between 10 and 14 → "Good afternoon".
             val customGreeting =
                 object : GreetingSettingsRepository {
                     override val morningEndHour: kotlinx.coroutines.flow.Flow<Int> = kotlinx.coroutines.flow.flowOf(10)
@@ -769,10 +815,11 @@ class AgendaViewModelTest {
                         scope = scope,
                     )
                 }
-            // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
-            repeat(4) { runCurrent() }
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-            assertEquals("Good afternoon", state.greeting, "11am UTC with morningEnd=10 should produce Good afternoon")
+            assertEquals(
+                "Good afternoon",
+                awaitGreeting(vm, "Good afternoon").greeting,
+                "11am UTC with morningEnd=10 should produce Good afternoon",
+            )
         }
 
     @Test
@@ -790,10 +837,134 @@ class AgendaViewModelTest {
                         scope = scope,
                     )
                 }
-            // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
-            repeat(4) { runCurrent() }
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-            assertEquals("Good evening", state.greeting, "20:00 UTC should produce Good evening")
+            assertEquals(
+                "Good evening",
+                awaitGreeting(vm, "Good evening").greeting,
+                "20:00 UTC should produce Good evening",
+            )
+        }
+
+    /**
+     * The defect the one-shot computation had: a screen left open across a boundary kept
+     * the greeting it was built with. The ViewModel is the same instance throughout, so
+     * nothing about the change can be explained by a fresh `init`.
+     */
+    @Test
+    fun `crossing an hour boundary changes the greeting without recreating the ViewModel`() =
+        runTest {
+            fakeRepo.seed(task("t1", "Open across noon"))
+            val clock = FakeClock(Instant.parse("2026-09-16T11:59:00Z"))
+            val vm = createVmAt(clock)
+            assertEquals(
+                "Good morning",
+                awaitGreeting(vm, "Good morning").greeting,
+                "11:59 is before the 12:00 morning boundary",
+            )
+
+            crossHourBoundaryTo(clock, Instant.parse("2026-09-16T12:01:00Z"))
+            assertEquals("Good afternoon", awaitGreeting(vm, "Good afternoon").greeting)
+
+            crossHourBoundaryTo(clock, Instant.parse("2026-09-16T18:01:00Z"))
+            assertEquals("Good evening", awaitGreeting(vm, "Good evening").greeting)
+        }
+
+    /**
+     * #1961: the agenda kept the greeting computed with the hours configured when the
+     * screen opened, so a change made in Settings was visible only after leaving the
+     * agenda and coming back to it.
+     */
+    @Test
+    fun `changing a configured boundary changes the greeting while the ViewModel lives`() =
+        runTest {
+            fakeRepo.seed(task("t1", "Settings change"))
+            // fakeClock: 09:00 UTC; the fake settings end the morning at 12.
+            val vm = createVm()
+            assertEquals("Good morning", awaitGreeting(vm, "Good morning").greeting)
+
+            // The user moves the morning boundary below the current hour: 09:00 is now
+            // afternoon, and the observed settings flow is what carries the new value.
+            fakeSettings.greeting.setMorningEndHour(8)
+
+            assertEquals("Good afternoon", awaitGreeting(vm, "Good afternoon").greeting)
+        }
+
+    /**
+     * The other half of the promise: a greeting that cannot be computed degrades to
+     * none — not to the value the first successful read produced, which would be a wrong
+     * greeting and worse than no greeting.
+     */
+    @Test
+    fun `a failing settings read yields no greeting rather than a stale one`() =
+        runTest {
+            // The first read succeeds; the failure is released afterwards, so the test
+            // *shows* a stale greeting being replaced. A read that failed before anything
+            // was computed would pass the same assertion while proving nothing.
+            val releaseFailure = CompletableDeferred<Unit>()
+            val unreadable =
+                object : GreetingSettingsRepository {
+                    override val morningEndHour: Flow<Int> =
+                        flow {
+                            emit(10)
+                            releaseFailure.await()
+                            throw IllegalStateException("settings unreadable")
+                        }
+                    override val afternoonEndHour: Flow<Int> = flow { emit(18) }
+
+                    override suspend fun setMorningEndHour(hour: Int) {}
+
+                    override suspend fun setAfternoonEndHour(hour: Int) {}
+                }
+            fakeRepo.seed(task("t1", "Unreadable settings"))
+            val vm =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        deps =
+                            agendaDeps(
+                                clock = FakeClock(Instant.parse("2026-09-16T11:00:00Z")),
+                                greetingSettings = unreadable,
+                            ),
+                        definition = AgendaPresets.Inbox,
+                        scope = scope,
+                    )
+                }
+
+            // 11:00 with morningEnd=10 is a real greeting, and it is what the user sees
+            // before the settings become unreadable.
+            assertEquals("Good afternoon", awaitGreeting(vm, "Good afternoon").greeting)
+
+            releaseFailure.complete(Unit)
+
+            assertEquals("", awaitGreeting(vm, "").greeting, "a failed read must degrade to no greeting")
+            assertIs<AgendaUiState.Loaded>(
+                vm.stateFlow.value,
+                "the failure is the greeting's, not the agenda's: the task list must still be the state",
+            )
+        }
+
+    /**
+     * A greeting is decoration. Recomputing it must not cost the user the list they are
+     * reading or the selection they are in the middle of making.
+     */
+    @Test
+    fun `a greeting change leaves the task list and the selection alone`() =
+        runTest {
+            fakeRepo.seed(task("t1", "Kept"))
+            val clock = FakeClock(Instant.parse("2026-09-16T11:59:00Z"))
+            val vm = createVmAt(clock)
+            val before = awaitGreeting(vm, "Good morning")
+
+            vm.onIntent(AgendaIntent.ToggleSelection(TaskId("t1")))
+            awaitState {
+                (vm.stateFlow.value as? AgendaUiState.Loaded)?.selectedTaskIds?.contains(TaskId("t1")) == true
+            }
+            val selected = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+
+            crossHourBoundaryTo(clock, Instant.parse("2026-09-16T12:01:00Z"))
+            val after = awaitGreeting(vm, "Good afternoon")
+
+            assertEquals(before.sections, after.sections, "a greeting change must not rebuild the task list")
+            assertEquals(selected.selectedTaskIds, after.selectedTaskIds, "a greeting change must not drop the selection")
+            assertTrue(after.isSelectionMode, "a greeting change must not leave selection mode")
         }
 
     // ─── WorkSchedule and Greeting deps are wired ─────────────────────────────
@@ -811,11 +982,8 @@ class AgendaViewModelTest {
         runTest {
             fakeRepo.seed(task("t1", "Wired"))
             val vm = createVm()
-            // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
-            repeat(4) { runCurrent() }
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            val state = awaitGreeting(vm, "Good morning")
             assertEquals("Good morning", state.greeting, "9am UTC with default fakeSettings must produce Good morning")
-            assertTrue(state.sections.isNotEmpty() || true, "VM renders with wired deps")
         }
 
     private fun loadedSelection(vm: AgendaViewModel): Set<TaskId> =
