@@ -52,6 +52,16 @@
 # A seed of `session=anonymous` creates no entity, so there is nothing to wait
 # for.
 #
+# One helper does the waiting for the caller: `seed-task.yaml` seeds the fixed
+# title "Buy milk" and scrolls that row into view before it returns, so a flow
+# that uses it has already waited for the entity it seeded.
+#
+# The one exception to "wait for it": a flow that asserts the entity is *not*
+# on the screen it is looking at — a row that screen filters out — cannot wait
+# for a row that is deliberately absent. There the absence is asserted
+# directly (`assertNotVisible`), and the wait for that entity belongs on the
+# screen where the entity is shown.
+#
 # ## Why there is deliberately no inbox→today tab round-trip here
 #
 # One was added on 2026-10-12 on the belief that a deep-link seed into an

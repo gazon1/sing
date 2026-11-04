@@ -14,6 +14,10 @@
 # own.
 #
 # This helper runs launch-clean internally.
+#
+# It also waits for the row it seeded — the row is scrolled into view below —
+# so a caller that uses this helper has already waited for the entity it
+# seeded and does not wait again (see the contract in helpers/seed.yaml).
 appId: com.singularity.todo
 name: seed-task
 ---

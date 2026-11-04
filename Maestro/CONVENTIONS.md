@@ -326,7 +326,13 @@ cases, is in `Maestro/helpers/seed.yaml`). A flow that seeds a task, a note or
 a project therefore waits for that entity itself before asserting on it — a wait
 (`extendedWaitUntil`, or `scrollUntilVisible` when the row may be below the
 fold), never a bare `assertVisible`. A `session=anonymous` seed creates no
-entity, so there is nothing to wait for.
+entity, so there is nothing to wait for. The one exception: a flow that
+asserts the entity is *not* on the screen it is looking at — a row that screen
+filters out — cannot wait for a row that is deliberately absent, so the
+absence is asserted directly and the wait belongs where the entity is shown.
+The one helper that does the waiting for the caller is `seed-task.yaml`: it
+seeds the fixed title "Buy milk" and scrolls that row into view, so a flow
+that uses it has already waited for what it seeded.
 
 The two flows that clear state to reach the server-configuration screen —
 `auth/08-signup-network-error.yaml` and `auth/09-signin-network-error.yaml` —

@@ -270,7 +270,7 @@ copy — "Удалить", "Архивировать" — are fine; only typed i
 | Helper | What it does |
 |---|---|
 | `launch-clean.yaml` | `launchApp`, waits 30s for `nav_tab_today`; includes `waitForAnimationToEnd` after launch |
-| `seed-task.yaml` | `launch-clean` + `seed.yaml` with the fixed title "Buy milk"; ends on Inbox and asserts `task_item_buy_milk` |
+| `seed-task.yaml` | `launch-clean` + `seed.yaml` with the fixed title "Buy milk"; ends on Inbox with `task_item_buy_milk` scrolled into view — the wait for the row happens here, so a caller does not wait again |
 | `seed.yaml` | Seeds via `todo-debug://seed?QUERY` deep-link (task/note/project/profile); waits for the shell and leaves the app on Today. It does **not** wait for the seeded row — the flow waits for that |
 | `open-app-menu.yaml` | Opens the app menu (the bottom-bar Menu button) and waits for the sheet |
 | `relaunch.yaml` | Stops the app and launches it again, keeping its data |

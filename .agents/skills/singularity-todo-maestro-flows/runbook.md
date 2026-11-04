@@ -236,7 +236,9 @@ helper cannot wait for the row either — the contract and its edge cases are in
 waits for that entity itself before asserting on it — `extendedWaitUntil` when
 the row is on screen, `scrollUntilVisible` when it may be below the fold, never
 a bare `assertVisible`. A `session=anonymous` seed creates no entity, so there
-is nothing to wait for.
+is nothing to wait for. `seed-task.yaml` is the helper that does the waiting
+itself — it seeds the fixed title "Buy milk" and scrolls that row into view — so
+a flow that uses it has already waited for what it seeded.
 
 **`seed.yaml` has no tab round-trip, and does not need one.** An inbox→today
 round-trip was added here on 2026-10-12 because a deep-link seed appeared not to

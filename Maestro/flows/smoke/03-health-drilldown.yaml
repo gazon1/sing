@@ -75,7 +75,7 @@ tags:
 # the shell, not for the row it wrote.
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_blocked_task
+      id: task_item_healthblocked_task
     timeout: 8000
 - assertVisible:
     id: agenda_section_blocked
@@ -103,7 +103,7 @@ tags:
 # the shell, not for the row it wrote.
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_stagnant_task
+      id: task_item_healthstagnant_task
     timeout: 8000
 - assertVisible:
     id: agenda_section_not_touched_in_a_while
@@ -131,7 +131,7 @@ tags:
 # the shell, not for the row it wrote.
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_overdue_task
+      id: task_item_healthoverdue_task
     timeout: 8000
 - assertVisible:
     id: agenda_section_overdue
