@@ -58,16 +58,22 @@ fun TaskCreateScreen(
     initialProjectId: ProjectId? = null,
     initialTagIds: Set<TagId> = emptySet(),
 ) {
-    // Positional, and matched by position in both places: the four parameters
-    // here are destructured, in this order, by the `viewModel {
-    // (initialDueDate, draftKey, initialProjectId, initialTagIds) }` factory in
-    // `TasksDiModule`. Koin resolves them by order and by type, so reordering
-    // or dropping one here does not fail the build — it fails at runtime, or
-    // worse, binds a `Set<TagId>` to a `String?`-shaped slot. Change the two
-    // together. `initialProjectId`/`initialTagIds` are the seed the agenda FAB
-    // passes so a task created from a project's or tag's list belongs to it.
+    // One value, not four loose arguments: `parametersOf(a, b, c, d)` was matched
+    // by position against the destructuring in `TasksDiModule`, so a reorder
+    // compiled and failed inside the Koin graph at runtime. The seed is a single
+    // parameter on both sides and its fields are wired by name, which puts that
+    // class of mistake back in front of the compiler. See `TaskCreateSeed`.
     val vm: TaskCreateViewModel =
-        koinViewModel { parametersOf(initialDueDate, draftKey, initialProjectId, initialTagIds) }
+        koinViewModel {
+            parametersOf(
+                TaskCreateSeed(
+                    initialDueDate = initialDueDate,
+                    draftKey = draftKey,
+                    initialProjectId = initialProjectId,
+                    initialTagIds = initialTagIds,
+                ),
+            )
+        }
     // The injected clock, not the system one. This screen hands `now` down to the
     // editor and stamps draft attachments with it, so a test that pins a clock in
     // Koin controls both. `koinInject` rather than a parameter: this is a nav

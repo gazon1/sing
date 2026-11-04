@@ -139,9 +139,11 @@ internal fun AppDestination.TasksStartRoute.stableContentKey(): String =
     when (this) {
         // The scope is part of the key for the same reason the date is: a create
         // screen opened from a project is not the screen opened from a tag, and
-        // one screen's draft is not the other's.
+        // one screen's draft is not the other's. The key itself is built by
+        // [taskCreateKey], the same function the inner [TasksRoute.Create] uses,
+        // so the two `task-create:` keys cannot drift apart.
         is AppDestination.TasksStartRoute.Create -> {
-            "task-create:" + (draftKey ?: "plain") + taskScopeKey(projectId, tagIds)
+            taskCreateKey(draftKey = draftKey, projectId = projectId, tagIds = tagIds)
         }
 
         // The task's id, and nothing else: the view the task was opened from is context,
@@ -209,11 +211,7 @@ internal fun TasksRoute.stableContentKey(): String =
             "task:" + taskId.value
         }
 
-        is TasksRoute.Create -> {
-            "task-create:" + (initialDueDate?.toString() ?: "plain") +
-                ":" + (draftKey ?: "") +
-                taskScopeKey(projectId, tagIds)
-        }
+        is TasksRoute.Create -> taskCreateKey(initialDueDate = initialDueDate, draftKey = draftKey, projectId = projectId, tagIds = tagIds)
     }
 
 /**

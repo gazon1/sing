@@ -95,6 +95,13 @@ internal fun tasksScreenEntryProvider() =
             // nothing. `NavStackSeedTest` pins the AppDestination→TasksRoute
             // half of the chain; `TaskCreateViewModelTest` pins the
             // constructor→draft half. This handoff is the seam between them.
-            TaskCreateScreen(route.initialDueDate, route.draftKey, route.projectId, route.tagIds)
+            // Named, not positional: four same-shaped arguments read by position
+            // is how a project seed becomes a tag seed without anyone noticing.
+            TaskCreateScreen(
+                initialDueDate = route.initialDueDate,
+                draftKey = route.draftKey,
+                initialProjectId = route.projectId,
+                initialTagIds = route.tagIds,
+            )
         }
     }
