@@ -23,16 +23,20 @@ import kotlin.test.Test
 @Tag("fast")
 class TaskSaveBarTest {
     @Test
-    fun `a save in flight shows the spinner and keeps the label`() =
+    fun `a save in flight shows the spinner and not the label`() =
         runIsolatedComposeTest {
             setContent {
                 TaskSaveBar(isEnabled = false, isLoading = true, onSaveClick = {})
             }
 
+            // The spinner on its own node, which is what the tag is for — inferring
+            // it from the label disappearing would pass for a bar that drew nothing.
             assertTagDisplayed(TestTags.TASK_EDITOR_SAVING)
-            // The label stays: the button never loses its name, and the name is what
-            // a screen reader announces while the save runs.
-            assertTextDisplayed("Сохранить")
+            // And the label is gone, not merely beside it: the button says what it is
+            // doing, not both things at once (#2170). The wording is asserted absent
+            // rather than the bar's text node, so a bar that kept the label beside the
+            // spinner fails here.
+            onAllNodesWithText("Сохранить").assertCountEquals(0)
         }
 
     @Test

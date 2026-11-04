@@ -93,11 +93,17 @@ fun TaskCreateScreen(
 
     // Persistence failures are the state slot's news, and the snackbar is their
     // one surfacing point. Keying the effect on the value means a repeated failure
-    // replaces the message instead of queueing behind it. The title rule's message
-    // is the one string the snackbar does not repeat: it is already under the field.
+    // replaces the message instead of queueing behind it.
+    //
+    // The gate is the draft's *validity*, not the message's wording. Comparing the
+    // error string with the title rule's message would swallow a persistence
+    // failure that happened to carry the same text — a store that echoes an
+    // upstream validation message would surface nothing at all. A blank title is
+    // the only thing the inline line speaks for, so any error raised while the
+    // title is sound came from the store and belongs in the snackbar.
     LaunchedEffect(state.error) {
-        val message = state.error
-        if (message != null && message != titleError) snackbarHostState.showSnackbar(message)
+        val message = state.error ?: return@LaunchedEffect
+        if (titleError == null) snackbarHostState.showSnackbar(message)
     }
 
     val guardedBack: () -> Unit = {

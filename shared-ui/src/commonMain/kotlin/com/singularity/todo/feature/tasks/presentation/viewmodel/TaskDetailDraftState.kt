@@ -126,7 +126,11 @@ class TaskDetailDraftState(initial: TaskDetailDraft = TaskDetailDraft.empty()) {
  *   was replaced from outside.
  * @property description the description as the field shows it, and the count of the
  *   times it was replaced from outside.
- * @property originalTitle the title as the repository last accepted it.
+ * @property originalTitle the title as the repository last accepted it. It moves
+ *   on every accepted write, not only on the first seed: the saved task comes
+ *   back through [seed], which recognises the echo of our own write and moves the
+ *   baseline with it. That is what makes [revertTitle] put the field back on the
+ *   *latest* accepted title rather than the one the screen opened with.
  * @property originalDescription the description as the repository last accepted it.
  * @property initialized whether the draft has been seeded at all.
  */

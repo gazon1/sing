@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.celebration.Celebration
@@ -75,17 +76,7 @@ fun TaskTitleRow(
         // separate node rather than a decoration of the field, because a second
         // `testTag` on the field's modifier chain is dropped by the semantics
         // merge — the tag would exist in `TestTags` and nowhere in the tree.
-        if (titleError != null) {
-            Text(
-                text = titleError,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier =
-                    Modifier
-                        .padding(top = TaskSpacing.md)
-                        .testTag(TestTags.TASK_EDITOR_TITLE_ERROR),
-            )
-        }
+    differing = 0,
     }
 }
 
