@@ -725,6 +725,17 @@ object TestTags {
         /** Font-size slider in the interface settings screen. */
         const val FONT_SIZE_SLIDER = "settings_font_size_slider"
 
+        /**
+         * One of the greeting-hour sliders on the work-schedule screen, by name
+         * (`morning` / `afternoon`).
+         *
+         * The two greeting rows are measured in hours and the four work-day rows in
+         * minutes, and they render through the same row component. A test that says
+         * "the slider's range is a day" has to be able to name which row it means,
+         * or it proves nothing about the one that was wrong.
+         */
+        fun greetingSlider(name: String) = "settings_greeting_slider_${slug(name)}"
+
         /** Theme-mode segmented button (System / Light / Dark) in interface settings. */
         fun themeModeButton(modeName: String) = "settings_theme_mode_${slug(modeName)}"
 
