@@ -40,7 +40,7 @@ def reset_session(serial: str, deps: "DeviceDeps") -> None:
 
 
 def cleanup_run_fixtures(
-    serial: str, run_id: str, mode: str, deps: "DeviceDeps",
+    serial: str, mode: str, deps: "DeviceDeps",
 ) -> None:
     """Remove what the previous flow left on the device. Best-effort.
 
@@ -77,11 +77,6 @@ def cleanup_run_fixtures(
 
     Uses ``deps.adb_on`` so ``-s <serial>`` is present; see
     ``emulator/maestro/_artifacts.py`` for the failure this prevents.
-
-    ``run_id`` is the id of the flow whose fixtures are being swept. It is part
-    of the ``DeviceDeps`` contract and every fake in the tree passes it, but
-    the surviving scopes do not name individual rows — the wipe knows every
-    row, and ``off`` sends nothing — so it is not read.
     """
     if mode == "off":
         return
