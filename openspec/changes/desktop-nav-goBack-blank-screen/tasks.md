@@ -11,9 +11,11 @@ in this batch
 
 ## Diagnosis first
 
-- [ ] **Shell-layer diagnostic** — observe `currentRoute` and back-stack contents
-      from `DesktopShellNav3Root` / `DesktopShellNav3`, where state is observable
-      while the tree is empty.
+- [x] **Blank-tree diagnostic** — when the shell has no entry to render it records the
+      active route, the previous tab and every back-stack route key (an empty stack drawn
+      as `[]`). It lives in `Nav3State.toDecoratedEntries`, immediately before the
+      unresolvable-entry fallback reseeds the stacks — the one place that still sees the
+      empty stacks while the tree has nothing to draw into (REQ-DN-004).
 - [ ] **Capture on a failing run** before changing any behaviour.
 
 ## Hypothesis to test with the capture
