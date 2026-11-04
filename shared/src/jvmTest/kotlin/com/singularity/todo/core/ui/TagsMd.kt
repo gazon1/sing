@@ -89,6 +89,7 @@ object TagsMd {
             "AI",
             "Calendar",
             "Calendar sync",
+            "Search",
             "Search filters",
         )
 
@@ -382,6 +383,10 @@ object TagsMd {
 
             "tagRename" -> {
                 DynamicMeta(fnName, "Tags", "inbox", "Rename affordance on a tag card")
+            }
+
+            "savedSearchChip" -> {
+                DynamicMeta(fnName, "Search", "Work tasks", "Saved-search chips in the search row")
             }
 
             "tagOpen" -> {

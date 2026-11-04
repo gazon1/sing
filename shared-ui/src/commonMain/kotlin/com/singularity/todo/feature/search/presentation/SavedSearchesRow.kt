@@ -133,10 +133,12 @@ private fun SavedSearchChipWithMenu(
                 )
             },
             modifier =
-                Modifier.combinedClickable(
-                    onClick = onClick,
-                    onLongClick = { showMenu = true },
-                ),
+                Modifier
+                    .testTag(TestTags.SavedSearches.savedSearchChip(saved.name))
+                    .combinedClickable(
+                        onClick = onClick,
+                        onLongClick = { showMenu = true },
+                    ),
         )
 
         DropdownMenu(
@@ -147,8 +149,10 @@ private fun SavedSearchChipWithMenu(
             modifier = Modifier.mapTestTagsAsResourceIds(),
         ) {
             // Rename row with inline text field.
-            // Desktop gap: DropdownMenu renders in a separate layer that the desktop
-            // Compose test API cannot reach. These tags are for Android/Maestro.
+            // A DropdownMenu opens its own root, reachable from the scene's cross-root
+            // search (measured in PopupReachabilityTest) — but not from the main tree,
+            // so a helper that counts there finds nothing. The submit button carries its
+            // own tag because this item's click is a no-op.
             DropdownMenuItem(
                 text = {
                     Column(
@@ -171,7 +175,10 @@ private fun SavedSearchChipWithMenu(
                                 }
                                 showMenu = false
                             },
-                            modifier = Modifier.align(androidx.compose.ui.Alignment.End),
+                            modifier =
+                                Modifier
+                                    .align(androidx.compose.ui.Alignment.End)
+                                    .testTag(TestTags.SavedSearches.SEARCH_MENU_RENAME_CONFIRM),
                         ) {
                             Text("Rename")
                         }
@@ -181,8 +188,7 @@ private fun SavedSearchChipWithMenu(
                 leadingIcon = {},
                 modifier = Modifier.testTag(TestTags.SavedSearches.SEARCH_MENU_RENAME),
             )
-            // Desktop gap: DropdownMenu renders in a separate layer that the desktop
-            // Compose test API cannot reach. These tags are for Android/Maestro.
+            // The menu's own root, as above: addressable from the scene, not the main tree.
             DropdownMenuItem(
                 text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                 onClick = {

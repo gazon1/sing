@@ -219,6 +219,7 @@ non-alphanumeric characters with `_`.
 | `SavedSearches.SAVE_DIALOG_CONFIRM` | `search_save_dialog_confirm` | |
 | `SavedSearches.SEARCH_MENU_DELETE` | `search_menu_delete` | |
 | `SavedSearches.SEARCH_MENU_RENAME` | `search_menu_rename` | |
+| `SavedSearches.SEARCH_MENU_RENAME_CONFIRM` | `search_menu_rename_confirm` | |
 
 ### Projects
 | Constant | Value | Where |
@@ -478,6 +479,7 @@ use the expanded string directly).
 | `calendarViewMode("month")` | `"month"` | `calendar_view_mode_month` | Calendar view-mode tabs (month / day / 4_days) |
 | `CalendarSync.googleCalendarRow("primary-cal")` | `"primary-cal"` | `calendar_sync_google_calendar_primary_cal` | One row per writable Google calendar |
 | `CalendarSync.providerSegment("Google Calendar")` | `"Google Calendar"` | `calendar_sync_provider_google_calendar` | Provider segments in the panel |
+| `savedSearchChip("Work tasks")` | `"Work tasks"` | `search_saved_search_chip_work_tasks` | Saved-search chips in the search row |
 <!-- GENERATED:END -->
 
 ## Raw-string tags (NOT via TestTags.kt)

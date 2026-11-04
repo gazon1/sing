@@ -216,6 +216,29 @@ fun DesktopComposeUiTest.awaitTagGone(tag: String) =
     }
 
 /**
+ * Waits until no node with [text] remains, for asserting that something the
+ * test just did made it disappear.
+ *
+ * The text sibling of [awaitTagGone]. Some overlays carry no tag at all — a
+ * sheet's title, its "Cancel" action, the one option it offers — so text is the
+ * only way to say "that surface is gone", and a one-shot absence check races
+ * the dismiss the same way it races navigation.
+ *
+ * Do not use it to assert absence of something that was never there — that is a
+ * plain `assertDoesNotExist` and needs no waiting.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.awaitTextGone(text: String) =
+    step("awaitTextGone", text) {
+        waitUntil(
+            conditionDescription = "no node with text '$text' remains",
+            timeoutMillis = TIMEOUT_MS,
+        ) {
+            onAllNodes(hasText(text)).fetchSemanticsNodes().isEmpty()
+        }
+    }
+
+/**
  * Waits for a node with [text] to appear, then returns a handle to it.
  * Uses `hasText()` semantics matcher — matches any node whose semantics text
  * includes the given string.
