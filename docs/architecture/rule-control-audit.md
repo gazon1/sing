@@ -158,10 +158,14 @@ feature's area), and `positiveControlDetectsADomainFileThatImportsPresentation`
 runs it over a synthetic domain file that imports a presentation type (it must be
 reported) and over the genui package (it must not). The count is therefore 23.
 
-The two layers still differ: the detekt layer derives its inventory
-from the sources (`scripts/gen-detekt-rule-table.py:266`), and the Konsist
-layer has no equivalent derivation — so this count is a reading, and a rule
-added today is invisible to it until someone re-reads this file.
+The two layers now differ less than they did: the detekt layer derives its
+inventory from the sources (`scripts/gen-detekt-rule-table.py:266`), and the
+Konsist layer has an equivalent derivation in
+`scripts/check-arch-rule-controls.py` — it parses the rule sources for the
+scope-query-plus-no-offenders shape, so a rule added today is in the inventory
+today. What that gate does not do is prove the *count* here: this table is still
+a reading of which rules are uncontrolled, and the registry it derives
+(`scripts/arch-rule-controls.tsv`) is the list that is enforced.
 
 ## 4. Other rule-like checks
 

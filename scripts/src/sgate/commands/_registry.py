@@ -1174,6 +1174,18 @@ _REGISTERED: tuple[GateSpec, ...] = (
             cmd_type=CmdType.PYTHON3,
             script=Path("scripts/check-touch-targets.py"),
         ),
+        # The architecture rules are derived from their own sources, so the
+        # inventory cannot go stale; what went stale before was the question of
+        # whether each rule can still fail. `repository read methods are
+        # user-scoped` was green for its whole life over a corpus that could not
+        # hold the shape it hunted (#788).
+        GateSpec(
+            name="architecture rules have controls",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-arch-rule-controls.py"),
+            script_args=("--quiet", "--check"),
+        ),
 )
 
 
@@ -2064,6 +2076,35 @@ GATE_EXEMPTIONS: dict[str, Control] = {
             'gate-wiring check, to re-prove what those unit tests already pin. If a control is '
             'wanted later, the cheap honest form is a FIXTURE: synthesise a two-spec corpus and '
             'assert `traceability validate` rejects it.'
+        ),
+    ),
+    # arch-rule-controls: the architecture rules are derived from the test
+    # sources, so the inventory cannot go stale — but a rule whose control has
+    # gone away still reads as green. The probe deletes one rule's control row;
+    # the gate must name the rule that is no longer protected. A gate that kept
+    # passing there would not notice the next #788.
+    'arch-rule-controls': Control(
+        kind='sabotage',
+        proves='scripts/check-arch-rule-controls.py',
+        argv=('{python}', 'scripts/check-arch-rule-controls.py', '--check'),
+        path='scripts/arch-rule-controls.tsv',
+        edit=Edit(
+            kind='replace',
+            old=(
+                'DiFacadeTest.per-domain DiModule files declare no loose bindings\t'
+                'synthetic\tDiFacadeTest.positiveControlDetectsLooseBinding\t'
+            ),
+            new='',
+            count=1,
+        ),
+        why=(
+            'a rule asserts that a scan found no offenders, and a scan that has '
+            'stopped scanning finds no offenders too — the two states are the same '
+            'green, which is how `repository read methods are user-scoped` stayed '
+            'green for its whole life over a corpus that could not hold a @Query '
+            '(#788). Deleting the control row of a rule that has one must make the '
+            'gate name that rule; if it does not, the gate cannot tell a protected '
+            'rule from an abandoned one'
         ),
     ),
 }

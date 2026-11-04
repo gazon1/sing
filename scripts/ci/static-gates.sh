@@ -468,6 +468,17 @@ gate blocking "AGENTS.md pointers resolve" python3 scripts/check-agents-pointers
 # and that list only shrinks — accepting a new exception is an edit a reviewer
 # can see, not a side effect of a maintenance command.
 gate blocking "review verdicts cover every change" python3 scripts/check-review-verdicts.py --quiet
+# A rule asserts that a scan found no offenders. A scan that has stopped
+# scanning finds no offenders too, so the rule passes for the same reason a clean tree
+# does — `repository read methods are user-scoped` read `@Query` annotations out of
+# files that held none, and stayed green for its whole life (#788).
+#
+# The inventory is derived from the rule sources, not listed, and every derived rule
+# needs a control that proves it can fail: a fixture that still contains the hunted
+# shape, a synthetic source that asserts a finding, or a row recording the debt. The
+# debt is counted against a ceiling that may only fall, so a new rule cannot arrive
+# with a promise instead of a control.
+gate blocking "architecture rules have controls" sgate architecture_rules_have_controls
 # The catalogue of the ids a Maestro flow may address.
 #
 # `Maestro/TAGS.md` is a golden file, and its reader is a JVM test — so a tag

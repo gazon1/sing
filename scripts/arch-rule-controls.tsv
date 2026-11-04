@@ -1,0 +1,39 @@
+# The controls behind the architecture rules.
+#
+# The gate `scripts/check-arch-rule-controls.py` derives the inventory from the
+# test methods under shared/src/jvmTest/kotlin/com/singularity/todo/arch/, and
+# fails when a derived rule has no row here. One row per rule:
+#
+#     rule_id <TAB> control_kind <TAB> control_ref <TAB> expects
+#
+# control_kind:
+#   fixture   — a committed Kotlin source under shared/src/jvmTest/fixtures/.
+#               `control_ref` is its path; `expects` is the shape the rule
+#               hunts, as a substring the file must still contain — a fixture
+#               that was "fixed" stops proving anything and fails the gate.
+#   synthetic — a @Test method that runs the rule over a source built in the
+#               test. `control_ref` is <TestClass>.<method>; the gate reads the
+#               method and requires an assertion that a finding was produced.
+#   none      — no control yet. `control_ref` names the document that records
+#               the debt. These rows are counted against `# ceiling:` below,
+#               which may only fall.
+#
+# ceiling: 14
+ArchitectureTest.DAO mutations are ownership-scoped	none	docs/architecture/rule-control-audit.md	
+ArchitectureTest.OutboxService must not own stateful logic	none	docs/architecture/rule-control-audit.md	
+ArchitectureTest.SyncBootstrapper must not own event-handling logic	none	docs/architecture/rule-control-audit.md	
+ArchitectureTest.SyncEngine child phases must not create their own StateFlow	none	docs/architecture/rule-control-audit.md	
+ArchitectureTest.SyncEngine must not own business logic	none	docs/architecture/rule-control-audit.md	
+ArchitectureTest.a preview uses the app theme, not a bare MaterialTheme	none	docs/architecture/rule-control-audit.md	
+ArchitectureTest.colour literals live in theme files, not in feature code	none	docs/architecture/rule-control-audit.md	
+ArchitectureTest.commonMain does not use JVM file APIs	none	docs/architecture/rule-control-audit.md	
+ArchitectureTest.core layer reaches DAO mutations only through a repository	synthetic	ArchitectureTest.positiveControlDetectsADaoWriteAndLeavesTheFileSystemAlone	
+ArchitectureTest.feature use cases do not import repository implementations	none	docs/architecture/rule-control-audit.md	
+ArchitectureTest.koog imports are confined to ai-related packages	none	docs/architecture/rule-control-audit.md	
+ArchitectureTest.only the theme itself reads isSystemInDarkTheme	none	docs/architecture/rule-control-audit.md	
+ArchitectureTest.repository implementations are imported only from di modules	none	docs/architecture/rule-control-audit.md	
+ArchitectureTest.repository interfaces declare no Blocking methods	none	docs/architecture/rule-control-audit.md	
+ArchitectureTest.repository read methods are user-scoped	none	docs/architecture/rule-control-audit.md	
+ArchitectureTest.the question asked of the index is built by the rule	synthetic	ArchitectureTest.positiveControlDetectsAQuestionBuiltByHand	
+DiFacadeTest.per-domain DiModule files declare no loose bindings	synthetic	DiFacadeTest.positiveControlDetectsLooseBinding	
+SingleOfKotlinDefaultsTest.allowlistedClassesHaveNoDefaults	synthetic	SingleOfKotlinDefaultsTest.positiveControlDetectsClassWithDefaults	

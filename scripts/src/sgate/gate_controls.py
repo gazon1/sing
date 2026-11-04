@@ -244,6 +244,16 @@ class ScriptGate:
 
 SCRIPT_GATES = [
     ScriptGate(
+        name="arch-rule-controls",
+        cmd=[sys.executable, "scripts/check-arch-rule-controls.py", "--check"],
+        why=(
+            "the architecture rules are derived from their own sources, so the "
+            "inventory cannot go stale — but a rule whose control went away still "
+            "reads as green, and the probe deletes one rule's control row to prove "
+            "the gate names the rule it no longer protects"
+        ),
+    ),
+    ScriptGate(
         name="text-field-transformations-table",
         cmd=[sys.executable, "scripts/check-text-field-transformations-table.py"],
         why=(
