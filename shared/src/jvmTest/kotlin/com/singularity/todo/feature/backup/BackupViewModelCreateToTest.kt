@@ -31,7 +31,9 @@ import com.singularity.todo.test.fakes.FakeDeviceKeyStore
 import com.singularity.todo.test.fakes.FakeFileSharePort
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import java.io.File
@@ -108,15 +110,20 @@ class BackupViewModelCreateToTest {
     fun `a bare file name is written into the backup directory and the change follows it`() =
         runTest {
             seedTask("t-1", "before")
-            val vm = createVm()
+            val vm = createVm(backgroundScope)
 
             vm.onIntent(BackupIntent.CreateBackupTo("a.zip"))
-            testScheduler.runCurrent()
+            advanceUntilIdle()
             testScheduler.runCurrent()
 
             assertTrue(
                 File("$backupDir/a.zip").isFile,
                 "the archive the person asked for must be in the app's own backup directory",
+            )
+            assertFalse(
+                File("$backupDir/a.zip.delta").exists(),
+                "the first export has nothing before it to change, so it writes no change — " +
+                    "without this the change asserted below could come from any export",
             )
             assertEquals(
                 "$backupDir/a.zip",
@@ -127,7 +134,7 @@ class BackupViewModelCreateToTest {
             renameTask("t-1", "after")
 
             vm.onIntent(BackupIntent.CreateBackupTo("b.zip"))
-            testScheduler.runCurrent()
+            advanceUntilIdle()
             testScheduler.runCurrent()
 
             assertTrue(
@@ -148,11 +155,11 @@ class BackupViewModelCreateToTest {
     fun `a destination the user picked gets the snapshot and no change`() =
         runTest {
             seedTask("t-1", "before")
-            val vm = createVm()
+            val vm = createVm(backgroundScope)
             val picked = File(pickedDir, "chosen.zip").absolutePath
 
             vm.onIntent(BackupIntent.CreateBackupTo(picked))
-            testScheduler.runCurrent()
+            advanceUntilIdle()
             testScheduler.runCurrent()
 
             assertTrue(File(picked).isFile, "the archive must land where the user asked for it")
@@ -161,12 +168,13 @@ class BackupViewModelCreateToTest {
             renameTask("t-1", "after")
 
             vm.onIntent(BackupIntent.CreateBackupTo(File(pickedDir, "chosen-again.zip").absolutePath))
-            testScheduler.runCurrent()
+            advanceUntilIdle()
             testScheduler.runCurrent()
 
             assertFalse(
                 File("$picked.delta").exists(),
-                "a file the user chose cannot carry the change — the change belongs to the chain in the backup directory",
+                "a file the user chose cannot carry the change — the change belongs to the " +
+                    "chain in the backup directory",
             )
             assertFalse(
                 File(File(pickedDir, "chosen-again.zip").absolutePath + ".delta").exists(),
@@ -182,7 +190,7 @@ class BackupViewModelCreateToTest {
     // ─── fixture ──────────────────────────────────────────────────────────────
 
     /** The ViewModel, wired to the real repository and the real exporter. */
-    private fun createVm(): BackupViewModel =
+    private fun createVm(scope: CoroutineScope): BackupViewModel =
         BackupViewModel(
             repository = repository(),
             authRepository = FakeAuthRepository(Session.Anonymous(owner)),
@@ -192,7 +200,7 @@ class BackupViewModelCreateToTest {
             settingsImporter = stubSettingsImporter,
             fileSourceFactory = JvmFileSourceFactory(),
             fileSharePort = FakeFileSharePort(),
-            scope = testScope(backgroundScope),
+            scope = testScope(scope),
         )
 
     /** The repository: the real one, over the real filesystem. */
