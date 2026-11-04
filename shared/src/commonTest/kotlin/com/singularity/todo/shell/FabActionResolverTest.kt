@@ -2,12 +2,14 @@ package com.singularity.todo.shell
 
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
+import com.singularity.todo.feature.nav.DestinationKind
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @Tag("fast")
 class FabActionResolverTest {
@@ -27,6 +29,81 @@ class FabActionResolverTest {
     private fun FabAction?.click() {
         assertIs<FabAction>(this)
         this.onClick()
+    }
+
+    // ── The shell's own tab set, and the create action it must keep ─────────────
+
+    /**
+     * The bottom-bar tabs that deliberately have no shell create action.
+     *
+     * A calendar is not a list of tasks, so it has nothing to add. Naming it here
+     * instead of filtering it out silently is the point: an exception the test does
+     * not name is an exception nobody decided, and a button that quietly disappears
+     * is the defect this guard exists for (#1953, #1959).
+     */
+    private val tabsWithoutCreateAction: List<AppDestination> =
+        listOf(AppDestination.Calendar)
+
+    /**
+     * Every agenda tab the bottom bar shows must resolve to "Add task".
+     *
+     * The per-route tests below name one route each, so a tab whose route leaves the
+     * create branch takes its expectation with it: the Upcoming tab once had no FAB,
+     * and that was written into the suite as the expected result, so the suite stayed
+     * green (#1953). This test reads the tab set the shell itself renders from, so the
+     * set of tabs and the set of routes that resolve to a create action cannot drift
+     * apart in silence — and a tab added to the bar is covered without editing the
+     * test.
+     */
+    @Test
+    fun everyAgendaTabInTheShellsTabSet_resolvesToAddTask() {
+        val agendaTabs = DestinationKind.tabs.filterIsInstance<AppDestination.AgendaGraph>()
+        assertTrue(
+            agendaTabs.isNotEmpty(),
+            "DestinationKind.tabs holds no agenda tab, so this guard measures nothing",
+        )
+        // Every tab is accounted for: it either carries "Add task" or is named above
+        // as a tab that does not. A tab that is neither is an unstated exception.
+        assertEquals(
+            DestinationKind.tabs.toSet(),
+            agendaTabs.toSet() + tabsWithoutCreateAction.toSet(),
+            "Every shell tab must be either an agenda tab, which resolves to \"Add task\", " +
+                "or a tab named in tabsWithoutCreateAction. A tab that is neither is an " +
+                "exception nobody stated; a tab that left the bar is still named there.",
+        )
+        agendaTabs.forEach { tab ->
+            val result = fabActionForNav3(tab, today, navigate)
+            assertEquals(
+                "Add task",
+                result?.label,
+                "Agenda tab \"${tab.title}\" (${tab.start}) is a shell tab, " +
+                    "so it must resolve to \"Add task\"; " +
+                    "fabActionForNav3 returned ${result?.label ?: "no action"}",
+            )
+            // The label is not the action: a tab whose button opened something other
+            // than the create screen would still read "Add task". The per-route tests
+            // pin today's three tabs; this pins whichever tab the bar gains next.
+            navigatedTo = null
+            result?.click()
+            val nav = navigatedTo
+            assertIs<AppDestination.TasksGraph>(
+                nav,
+                "Agenda tab \"${tab.title}\" (${tab.start}) must open the task create screen, " +
+                    "but its action navigated to $nav",
+            )
+            assertIs<AppDestination.TasksStartRoute.Create>(
+                nav.start,
+                "Agenda tab \"${tab.title}\" (${tab.start}) must open the task create screen, " +
+                    "but its action navigated to ${nav.start}",
+            )
+        }
+        tabsWithoutCreateAction.forEach { tab ->
+            assertNull(
+                fabActionForNav3(tab, today, navigate),
+                "Tab \"${tab.title}\" is declared in tabsWithoutCreateAction, so it must " +
+                    "not resolve to a create action; fabActionForNav3 returned one",
+            )
+        }
     }
 
     // ── Modern AgendaGraph routes (Desktop) ─────────────────────────────────────

@@ -25,6 +25,12 @@ data class FabAction(val label: String, val onClick: () -> Unit)
  * Every agenda tab that lists tasks offers an "Add task" action: **Today**,
  * **Inbox** and **Upcoming**, plus the Blocked, Stagnant and Overdue views.
  *
+ * The agenda routes that are *not* a list of tasks — the project and tag
+ * drill-downs and the saved-view screens — resolve to no action. They are named
+ * in the branch rather than caught by an `else`, so adding a route to
+ * `AgendaStartRoute` fails to compile until somebody classifies it: a tab that
+ * lists tasks cannot silently lose its button (#1959).
+ *
  * When navigating from the **Today** tab, the task creation screen is pre-filled with
  * `dueDate = Today` so the user can change it without having to set it from scratch.
  * When navigating from **Inbox** or **Upcoming**, no due date is pre-filled: a task
@@ -68,7 +74,19 @@ internal fun fabActionForNav3(
                     )
                 }
 
-                else -> {
+                // The agenda routes that are not a list of tasks: the project and tag
+                // drill-downs and the saved-view screens. They are named rather than
+                // caught by an `else`, so a route added to `AgendaStartRoute` is a
+                // compile error here instead of a tab that silently loses its button
+                // (#1959). A route that does list tasks belongs in the branch above.
+                is AgendaStartRoute.Project,
+                is AgendaStartRoute.Tag,
+                is AgendaStartRoute.Tags,
+                AgendaStartRoute.SavedAgendaList,
+                is AgendaStartRoute.SavedAgendaResults,
+                is AgendaStartRoute.SavedAgendaEdit,
+                AgendaStartRoute.SavedAgendaCreate,
+                -> {
                     null
                 }
             }
