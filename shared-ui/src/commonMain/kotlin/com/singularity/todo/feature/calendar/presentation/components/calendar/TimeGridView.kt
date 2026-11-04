@@ -303,7 +303,10 @@ private fun HourRow(
                             .fillMaxWidth()
                             .offset(y = (nowMinute / 60f * HOUR_ROW_HEIGHT.value).dp)
                             .height(2.dp)
-                            .background(palette.todayBadge),
+                            // `nowIndicator`, not `todayBadge`: the palette names
+                            // the role, and the line is the "now" mark rather
+                            // than the badge that marks today's date.
+                            .background(palette.nowIndicator),
                 )
             }
         }

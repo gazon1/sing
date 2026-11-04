@@ -4,16 +4,21 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.feature.calendar.domain.logic.YearMonth
 import com.singularity.todo.feature.calendar.domain.logic.headerLabel
@@ -22,7 +27,9 @@ import com.singularity.todo.feature.calendar.domain.logic.yearMonthForPage
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.components.calendar.CalendarSelectionBar
 import com.singularity.todo.feature.calendar.presentation.components.calendar.CalendarTopBar
+import com.singularity.todo.feature.calendar.presentation.components.calendar.MiniCalendarInlineMinWidth
 import com.singularity.todo.feature.calendar.presentation.components.calendar.MiniCalendarPanel
+import com.singularity.todo.feature.calendar.presentation.components.calendar.MiniCalendarPanelWidth
 import com.singularity.todo.feature.calendar.presentation.components.calendar.MonthGridView
 import com.singularity.todo.feature.calendar.presentation.components.calendar.TimeGridView
 import com.singularity.todo.feature.calendar.domain.state.CalendarIntent
@@ -89,69 +96,127 @@ fun CalendarContent(
                     headerLabel(anchorDate, loadedState.viewMode)
                 }
 
-            Row(modifier = contentModifier.fillMaxSize()) {
-                // Main calendar area: Column carries the weight so child views fill height
-                Column(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .fillMaxHeight(),
-                ) {
-                    CalendarTopBar(
-                        state = loadedState,
-                        today = loadedState.today,
-                        onIntent = onIntent,
-                        headerLabelOverride = liveHeaderLabel,
-                        onBack = onBack,
+            BoxWithConstraints(modifier = contentModifier.fillMaxSize()) {
+                // The mini calendar takes a third of a phone's width. Below
+                // [MiniCalendarInlineMinWidth] the two do not fit side by side — a
+                // 340 dp panel beside a 360 dp phone leaves the grid a sliver and
+                // crushes the calendar's own controls — so the panel floats over
+                // the grid, which keeps its full width, and the grid stays visible
+                // beside the panel.
+                val isNarrow = maxWidth < MiniCalendarInlineMinWidth
+                val panelWidth =
+                    minOf(
+                        MiniCalendarPanelWidth,
+                        // At most 70% of the screen: the panel covers the grid's
+                        // right-hand part, not the whole of it.
+                        (maxWidth * 0.7f).coerceAtLeast(0.dp),
                     )
 
-                    // The grid takes the rest of the height, so the selection bar below
-                    // it has room. Without the weight the grid would take all of it and
-                    // the bar would be pushed off the screen.
-                    Box(
-                        modifier = Modifier.weight(1f),
+                Row(modifier = Modifier.fillMaxSize()) {
+                    // Main calendar area: Column carries the weight so child views fill height
+                    Column(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
                     ) {
-                        CalendarGrid(
+                        CalendarTopBar(
+                            state = loadedState,
+                            today = loadedState.today,
+                            onIntent = onIntent,
+                            headerLabelOverride = liveHeaderLabel,
+                            onBack = onBack,
+                        )
+
+                        // The grid takes the rest of the height, so the selection bar below
+                        // it has room. Without the weight the grid would take all of it and
+                        // the bar would be pushed off the screen.
+                        Box(
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            CalendarGrid(
+                                loadedState = loadedState,
+                                onIntent = onIntent,
+                                pagerState = pagerState,
+                            )
+
+                            // On a narrow screen the panel floats over the grid, under
+                            // the top bar: the controls of the calendar itself stay
+                            // visible and reachable while the panel is open.
+                            if (isNarrow) {
+                                MiniCalendarPanelSlot(
+                                    loadedState = loadedState,
+                                    onIntent = onIntent,
+                                    modifier = Modifier.align(Alignment.CenterEnd),
+                                    panelModifier =
+                                        Modifier
+                                            .width(panelWidth)
+                                            .shadow(8.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    // Mini calendar side panel (slides in from right).
+                    //
+                    // Hidden while the days are being picked: two grids whose taps mean
+                    // different things — "open this day" and "pick this day" — is a trap
+                    // the user walks into without being told.
+                    if (!isNarrow) {
+                        MiniCalendarPanelSlot(
                             loadedState = loadedState,
                             onIntent = onIntent,
-                            pagerState = pagerState,
+                            panelModifier = Modifier.width(MiniCalendarPanelWidth),
+                        )
+                    }
+
+                    // The bar that offers to turn the picked days into one task. It lives
+                    // under the grid, not over it: the grid is what the user is picking in.
+                    if (loadedState.isDateSelectionMode) {
+                        CalendarSelectionBar(
+                            selectedCount = loadedState.selectedDates.size,
+                            onCreateTask = { onIntent(CalendarIntent.CreateTaskOnSelectedDates) },
+                            onCancel = { onIntent(CalendarIntent.ExitDateSelectionMode) },
                         )
                     }
                 }
-
-                // Mini calendar side panel (slides in from right).
-                //
-                // Hidden while the days are being picked: two grids whose taps mean
-                // different things — "open this day" and "pick this day" — is a trap
-                // the user walks into without being told.
-                AnimatedVisibility(
-                    visible = loadedState.isMiniCalendarOpen && !loadedState.isDateSelectionMode,
-                    enter = slideInHorizontally(initialOffsetX = { it }),
-                    exit = slideOutHorizontally(targetOffsetX = { it }),
-                ) {
-                    MiniCalendarPanel(
-                        monthAnchor = loadedState.anchor,
-                        selectedDate = loadedState.selectedDate,
-                        today = loadedState.today,
-                        onDateSelected = { date ->
-                            onIntent(CalendarIntent.DayClicked(date))
-                            onIntent(CalendarIntent.DismissMiniCalendar)
-                        },
-                        onClose = { onIntent(CalendarIntent.DismissMiniCalendar) },
-                    )
-                }
-
-                // The bar that offers to turn the picked days into one task. It lives
-                // under the grid, not over it: the grid is what the user is picking in.
-                if (loadedState.isDateSelectionMode) {
-                    CalendarSelectionBar(
-                        selectedCount = loadedState.selectedDates.size,
-                        onCreateTask = { onIntent(CalendarIntent.CreateTaskOnSelectedDates) },
-                        onCancel = { onIntent(CalendarIntent.ExitDateSelectionMode) },
-                    )
-                }
             }
         }
+    }
+}
+
+/**
+ * The mini calendar panel and the way it appears.
+ *
+ * @param modifier Where the panel sits — on a narrow screen it is aligned over
+ *   the grid, on a wide one it takes its place in the row beside it.
+ * @param panelModifier The panel's own placement: its width, and on a narrow
+ *   screen the shadow that separates it from the grid it floats over.
+ */
+@Composable
+private fun MiniCalendarPanelSlot(
+    loadedState: CalendarUiState.Loaded,
+    onIntent: (CalendarIntent) -> Unit,
+    modifier: Modifier = Modifier,
+    panelModifier: Modifier = Modifier,
+) {
+    AnimatedVisibility(
+        visible = loadedState.isMiniCalendarOpen && !loadedState.isDateSelectionMode,
+        enter = slideInHorizontally(initialOffsetX = { it }),
+        exit = slideOutHorizontally(targetOffsetX = { it }),
+        modifier = modifier,
+    ) {
+        MiniCalendarPanel(
+            monthAnchor = loadedState.anchor,
+            selectedDate = loadedState.selectedDate,
+            today = loadedState.today,
+            onDateSelected = { date ->
+                onIntent(CalendarIntent.DayClicked(date))
+                onIntent(CalendarIntent.DismissMiniCalendar)
+            },
+            onClose = { onIntent(CalendarIntent.DismissMiniCalendar) },
+            modifier = panelModifier,
+        )
     }
 }
 
