@@ -12,13 +12,13 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.DragHandleIcon
 import com.singularity.todo.core.ui.components.DragHandleRow
 import com.singularity.todo.core.ui.components.HandleSide
-import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.selector.typeDescription
 
@@ -39,16 +39,21 @@ import com.singularity.todo.feature.agenda.domain.selector.typeDescription
  * `LazyColumn` and so could not be used inside this screen's; it was removed with
  * the other dead UI components. See ADR 2026-09-30-section-reorder-via-buttons.
  *
- * ## The buttons are drawn 40 dp and hit 48 dp
+ * ## The state layer is drawn 40 dp
  *
- * Three painted 48 dp circles crowd a phone-width row, so each button's state layer
- * is drawn 40 dp wide — but a target a finger cannot hit is a control that does not
- * exist for the people who need it most. `Modifier.touchTarget()` expands the target
- * to 48 dp, and it has to come **before** the `size(40.dp)`: the expansion is the
- * outer modifier, so the size constrains the drawing without constraining the target.
- * The row therefore reserves 48 dp per button, and the name column takes what is
- * left. See CODING_STANDARDS.md, "Touch targets meet the minimum and the order is
- * correct".
+ * Three 40 dp state layers in one row already crowd a phone's width, so each button
+ * keeps the 40 dp painted size it had — but the *modifier order* is what decides
+ * whether the button is still a thumb-sized target. `Modifier.minimumInteractiveComponentSize()`
+ * comes first and `size(40.dp)` second: the minimum sits outside the size, so it can
+ * reserve Material's 48 dp while the size still constrains what is drawn, and the row
+ * therefore gives each button 48 dp and leaves the rest to the name column. Reversed,
+ * the size would cap the minimum back to 40 dp — the arrangement this screen shipped
+ * with, where the button was drawn 40 dp and its target was 40 dp too.
+ *
+ * `minimumInteractiveComponentSize()` is Material's own mechanism for exactly this,
+ * so this screen no longer leans on the project's `Modifier.touchTarget()` helper
+ * (#2173 questions whether that helper's extra layout space becomes hit area; the
+ * Material modifier is the sanctioned form of the same idea).
  *
  * @param section The section to display.
  * @param index The section's position in the list.
@@ -95,7 +100,7 @@ fun SectionEditorCard(
                 IconButton(
                     onClick = onMoveUp,
                     enabled = canMoveUp,
-                    modifier = Modifier.touchTarget().size(40.dp),
+                    modifier = Modifier.minimumInteractiveComponentSize().size(40.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowUp,
@@ -105,7 +110,7 @@ fun SectionEditorCard(
                 IconButton(
                     onClick = onMoveDown,
                     enabled = canMoveDown,
-                    modifier = Modifier.touchTarget().size(40.dp),
+                    modifier = Modifier.minimumInteractiveComponentSize().size(40.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowDown,
@@ -114,7 +119,7 @@ fun SectionEditorCard(
                 }
                 IconButton(
                     onClick = onDelete,
-                    modifier = Modifier.touchTarget().size(40.dp),
+                    modifier = Modifier.minimumInteractiveComponentSize().size(40.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,

@@ -22,7 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.sync.SyncEngineStatus
-import com.singularity.todo.core.ui.LocalAnimationDurationScale
+import com.singularity.todo.core.ui.animationDurationScale
 import com.singularity.todo.core.ui.animationsEnabled
 
 /**
@@ -39,11 +39,12 @@ import com.singularity.todo.core.ui.animationsEnabled
  *
  * ## The rotation stops when the platform's animations are off
  *
- * [LocalAnimationDurationScale] carries the operating system's answer to "are
- * animations on?". When it says no, the icon is drawn still: the status is
- * still reported in the content description, and the button still shows that a
- * sync is running — but nothing moves, because a spinner that rotates forever
- * is the one thing a user who has turned animations off does not want to watch.
+ * [animationDurationScale] carries the operating system's answer to "are
+ * animations on?", read again rather than replayed from startup. When it says
+ * no, the icon is drawn still: the status is still reported in the content
+ * description, and the button still shows that a sync is running — but nothing
+ * moves, because a spinner that rotates forever is the one thing a user who has
+ * turned animations off does not want to watch.
  *
  * Tapping triggers [SyncIntent.SyncNow].
  */
@@ -54,8 +55,7 @@ fun SyncButton(
     modifier: Modifier = Modifier,
 ) {
     val isRunning = status.isRunning()
-    val animationsOn = animationsEnabled(LocalAnimationDurationScale.current)
-    val animate = isRunning && animationsOn
+    val animate = isRunning && animationsEnabled(animationDurationScale())
 
     // Wrapping in key(status) means: when status changes, the entire block is
     // disposed and recreated (fresh animation). When status is the same across
@@ -119,7 +119,7 @@ fun SyncButton(
  * asked for no motion.
  */
 @Composable
-private fun rememberSyncRotation(animate: Boolean): Float {
+internal fun rememberSyncRotation(animate: Boolean): Float {
     if (!animate) return 0f
 
     val infiniteTransition = rememberInfiniteTransition(label = "sync_rotation")
