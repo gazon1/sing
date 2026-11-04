@@ -36,6 +36,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -719,8 +720,26 @@ class AgendaViewModelTest {
 
     // ─── Greeting computation ────────────────────────────────────────────────
     //
-    // computeGreeting() is called once on the first task-emission inside the
-    // collector. It is private so we test it through AgendaUiState.Loaded.greeting.
+    // computeGreeting() is resolved once, in its own coroutine, and patched into the
+    // published state. It is private so we test it through AgendaUiState.Loaded.greeting.
+
+    /**
+     * The first loaded agenda state that carries a greeting, awaited rather than counted.
+     *
+     * The wording comes from the resource bundle, whose loader is asynchronous, so how
+     * many `runCurrent()` calls it takes is no longer a fact about this ViewModel: the
+     * greeting arrives when the bundle answers. Awaiting the state is what these
+     * assertions actually need. `advanceUntilIdle` is still not an option — see the
+     * class KDoc: `todayFlow` never lets the scheduler drain.
+     */
+    private suspend fun TestScope.awaitGreeting(vm: AgendaViewModel): AgendaUiState.Loaded {
+        // Start the ViewModel's work first: nothing runs until the scheduler is asked,
+        // and the greeting's resource load may suspend past this window.
+        repeat(4) { runCurrent() }
+        return assertIs(
+            vm.stateFlow.first { it is AgendaUiState.Loaded && it.greeting.isNotEmpty() },
+        )
+    }
 
     @Test
     fun `greeting is Good morning before noon`() =
@@ -729,13 +748,7 @@ class AgendaViewModelTest {
             // fakeClock default: 09:00 UTC → local hour < 12 → "Good morning"
             fakeRepo.seed(task("t1", "Morning task"))
             val vm = createVm()
-            // repeat(4) advances exactly 4 pending tasks:
-            //   1. scope.launch { _greeting.value = computeGreeting() } starts → first first() suspends
-            //   2. computeGreeting() resumes → second first() suspends
-            //   3. computeGreeting() finishes → _greeting.value = "Good morning"
-            //   4. todayFlow emits → flatMapLatest → task flow → collect callback fires
-            repeat(4) { runCurrent() }
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            val state = awaitGreeting(vm)
             assertEquals("Good morning", state.greeting, "9am UTC should produce Good morning")
         }
 
@@ -769,9 +782,7 @@ class AgendaViewModelTest {
                         scope = scope,
                     )
                 }
-            // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
-            repeat(4) { runCurrent() }
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            val state = awaitGreeting(vm)
             assertEquals("Good afternoon", state.greeting, "11am UTC with morningEnd=10 should produce Good afternoon")
         }
 
@@ -790,9 +801,7 @@ class AgendaViewModelTest {
                         scope = scope,
                     )
                 }
-            // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
-            repeat(4) { runCurrent() }
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            val state = awaitGreeting(vm)
             assertEquals("Good evening", state.greeting, "20:00 UTC should produce Good evening")
         }
 
@@ -811,9 +820,7 @@ class AgendaViewModelTest {
         runTest {
             fakeRepo.seed(task("t1", "Wired"))
             val vm = createVm()
-            // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
-            repeat(4) { runCurrent() }
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            val state = awaitGreeting(vm)
             assertEquals("Good morning", state.greeting, "9am UTC with default fakeSettings must produce Good morning")
             assertTrue(state.sections.isNotEmpty() || true, "VM renders with wired deps")
         }

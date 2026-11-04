@@ -45,6 +45,11 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.getString
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.good_afternoon
+import singularity_todo.shared.generated.resources.good_evening
+import singularity_todo.shared.generated.resources.good_morning
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
@@ -156,22 +161,18 @@ class AgendaViewModel(
      */
     private val deleteSequence = AtomicInt(0)
 
-    // Non-null default breaks the tie before computeGreeting() finishes.
-    // "Good evening" is the most common outcome; the computed value replaces it within
-    // the same runCurrent() window in tests, so there is no flash of the wrong greeting.
-
     /**
-     * Drives the greeting computation.
+     * The greeting the agenda's bar draws under its title.
      *
-     * Uses [MutableStateFlow] so the value is observable from tests without a Compose
-     * runtime. Initialized in [init] rather than inside the `collect` block so tests
-     * can drain it with a bounded number of [runCurrent] calls — no `advanceUntilIdle`
-     * (which hangs on the infinite [todayFlow] loop) and no `runBlocking` (forbidden
-     * by [NoRunBlockingRule]).
+     * A [MutableStateFlow] so the value is observable from tests without a Compose
+     * runtime. It starts empty and is filled by [computeGreeting] before the collection
+     * starts: a property initializer cannot await the localizing helper, and a guessed
+     * default would be one language's word for a moment the user can see. The subtitle
+     * is drawn only when the value is non-empty.
      *
      * @see <docs/decisions/2026-10-18-greeting-init-no-runblocking.md>
      */
-    private val _greeting = MutableStateFlow("Good evening")
+    private val _greeting = MutableStateFlow("")
     val greeting: StateFlow<String> = _greeting.asStateFlow()
 
     /**
@@ -195,14 +196,21 @@ class AgendaViewModel(
     private val reloadTrigger = ReloadTrigger()
 
     init {
-        // Greeting is computed once at load from greetingSettings and the current clock hour.
-        // It does not change during the lifetime of this ViewModel instance.
-        // Launched here (not inside the collector) so tests can drain it with runCurrent:
-        // the collect chain and the greeting computation are independent coroutines on the
-        // same scope, and runCurrent advances one pending task per call, so the greeting
-        // computation completes in 3-4 calls before the collect callback reads _greeting.value.
+        // Greeting is computed once at load from greetingSettings and the current clock
+        // hour. It does not change during the lifetime of this ViewModel instance.
+        // Launched here rather than inside the collector, as
+        // <docs/decisions/2026-10-18-greeting-init-no-runblocking.md> decided: no
+        // runBlocking, and the collector reads the value from `_greeting`.
         scope.launch {
-            _greeting.value = computeGreeting()
+            val greeting = computeGreeting()
+            _greeting.value = greeting
+            // The collection does not wait for the bundle: it publishes the first state as
+            // soon as the tasks are there, and the bundle's loader answers later. Patch the
+            // published state once the greeting resolves, or the subtitle would stay empty
+            // until something else emitted — a task change, or midnight.
+            updateState { current ->
+                if (current is AgendaUiState.Loaded) current.copy(greeting = greeting) else current
+            }
         }
 
         scope.launch {
@@ -271,6 +279,10 @@ class AgendaViewModel(
                         fresh.copy(
                             isSelectionMode = kept.isNotEmpty(),
                             selectedTaskIds = kept,
+                            // This list may have been built before the greeting resolved;
+                            // re-read it so a state assembled a moment too early cannot
+                            // overwrite the greeting the patch already published.
+                            greeting = _greeting.value,
                         )
                     }
                 }
@@ -285,9 +297,9 @@ class AgendaViewModel(
             // localTimeAt(Clock, TimeZone) hides the kotlinx-datetime bridge internally.
             val hour = localTimeAt(deps.clock, deps.timeZone.current()).hour
             when {
-                hour < morningEnd -> "Good morning"
-                hour < afternoonEnd -> "Good afternoon"
-                else -> "Good evening"
+                hour < morningEnd -> getString(Res.string.good_morning)
+                hour < afternoonEnd -> getString(Res.string.good_afternoon)
+                else -> getString(Res.string.good_evening)
             }
         }.getOrElse { "" }
 
