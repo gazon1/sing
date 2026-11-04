@@ -10,10 +10,17 @@ the size call itself — it is the *order* of the modifier chain:
     Modifier.size(40.dp).clickable { }      // the size caps the hit area
     Modifier.touchTarget().size(40.dp)      // the expansion is outside: 48 dp
 
-`minimumInteractiveComponentSize()` — and the `touchTarget()` helper in
+`Modifier.touchTarget(minSize)` — the project's helper in
 `core/ui/TouchTarget.kt` — has to be the **outermost** modifier. It then
 expands the node to the minimum, and the `size(...)` that follows constrains
 the visual size without touching the hit area.
+
+Material's own `minimumInteractiveComponentSize()` is accepted in the same
+position, because a chain that legally calls it is not a violation — but it is
+not the call to write. In the pinned material3 it takes no size argument (the
+minimum is a composition local), so a call site here writes
+`Modifier.touchTarget(minSize)`. See `CODING_STANDARDS.md`, "Touch targets meet
+the minimum and the order is correct".
 
 So the rule is one sentence: **a chain that fixes a size below 48 dp and
 carries an interactive modifier has to expand the target before that size.**
