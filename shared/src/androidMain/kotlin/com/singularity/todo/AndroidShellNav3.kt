@@ -175,16 +175,11 @@ fun androidShellNav3Root(
                 LaunchedEffect(state.topLevelRoute) {
                     // A screen without its own TopAppBar never publishes actions, so clear the
                     // slot on every navigation to avoid stale buttons from the previous screen.
-                    screenActions.actions = null
-                    screenActions.selectionTitle = null
-                    screenActions.onExitSelection = null
                     // The same is true of a published bar: the screen that owned
                     // it is gone, and the shell must go back to its own title
                     // rather than keep naming the month of a screen the user
                     // has left.
-                    screenActions.title = null
-                    screenActions.navigationIcon = null
-                    screenActions.override = false
+                    screenActions.clear()
                 }
 
                 CompositionLocalProvider(LocalNav3State provides state, LocalScreenActions provides screenActions) {
