@@ -22,7 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import com.singularity.todo.core.ui.theme.spacing
+import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 
 /**
  * Renders the estimate attribute row in the task editor.
@@ -54,8 +55,10 @@ fun TaskEditorEstimateRow(
                         Modifier
                     },
                 ).padding(
-                    horizontal = TaskSpacing.cardPaddingHorizontal,
-                    vertical = TaskSpacing.cardPaddingVertical,
+                    // 14 dp vertical, as before: this row sits beside TaskAttributeCard and
+                    // pads like it. `lg` here would be 16 and grow the row by 2 dp a side.
+                    horizontal = MaterialTheme.spacing.lg,
+                    vertical = MaterialTheme.spacing.md + MaterialTheme.spacing.xs,
                 ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -68,9 +71,9 @@ fun TaskEditorEstimateRow(
             imageVector = Icons.Filled.Timer,
             contentDescription = null,
             tint = if (hasEstimate) activeTint else idleTint,
-            modifier = Modifier.size(TaskSpacing.iconSize),
+            modifier = Modifier.size(TaskListSizes.Icon),
         )
-        Spacer(Modifier.width(TaskSpacing.lg))
+        Spacer(Modifier.width(MaterialTheme.spacing.lg))
         Text(
             text = estimateRowLabel(estimateMinutes),
             color = if (hasEstimate) idleTint else MaterialTheme.colorScheme.onSurfaceVariant,

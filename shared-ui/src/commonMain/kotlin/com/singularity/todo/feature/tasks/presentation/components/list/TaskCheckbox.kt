@@ -42,10 +42,10 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.theme.spacing
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
 
 /**
@@ -183,8 +183,8 @@ private fun lerpColor(
 private fun TaskCheckboxPreview() {
     PreviewThemed(darkTheme = true, useSurface = true) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(TaskListSpacing.Lg),
-            modifier = Modifier.padding(TaskListSpacing.Lg).size(280.dp, 60.dp),
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.lg),
+            modifier = Modifier.padding(MaterialTheme.spacing.lg).size(280.dp, 60.dp),
         ) {
             TaskCheckbox(isChecked = false, onCheckedChange = {})
             TaskCheckbox(isChecked = true, onCheckedChange = {})

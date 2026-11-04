@@ -19,10 +19,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.theme.spacing
 import com.singularity.todo.feature.tasks.domain.logic.displayOrder
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
 import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
 import kotlinx.collections.immutable.ImmutableSet
@@ -96,7 +96,7 @@ fun TaskMarkingsRow(
                 tint = marking.tint(),
                 modifier = Modifier.size(TaskListSizes.MetaIcon),
             )
-            Spacer(Modifier.width(TaskListSpacing.Xs))
+            Spacer(Modifier.width(MaterialTheme.spacing.xs))
         }
         if (hidden > 0) {
             Text(

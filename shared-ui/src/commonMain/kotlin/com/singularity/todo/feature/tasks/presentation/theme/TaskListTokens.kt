@@ -1,52 +1,34 @@
 package com.singularity.todo.feature.tasks.presentation.theme
 
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TouchTarget
 
 /**
- * Design tokens экрана списка задач — геометрия, spacing, размеры.
+ * Per-widget geometry of the task surfaces — the size a control is drawn at,
+ * not the gap between controls.
  *
- * Шкалы (spacing, sizes) идут с шагом 4.dp — стандарт Material 8-pt grid,
- * кратный 2х, чтобы значения не "плавали" на разных плотностях экрана.
+ * The spacing and shape scales that used to live here moved to `core/ui/theme`:
+ * this file carried a second spacing scale (2 / 4 / 8 / 12 / 16 / 20 / 24) beside
+ * `TaskSpacing`'s (8 / 12 / 16 / 24), so `xl` meant 24 dp in the editor and 20 dp
+ * in the list. Both are now the theme's one scale, read as
+ * `MaterialTheme.spacing`, and corner radii come from `MaterialTheme.shapes`.
  *
- * Раньше здесь же был объект `TaskListColors` — пятнадцать фиксированных
- * значений в тёмной палитре. Он не мог реагировать на тему, поэтому
- * пользователь в светлом режиме (дефолт приложения) видел тёмный список
- * задач, а выбор акцента на этом экране не работал вовсе: акцент был
- * записан литералом. Цвета теперь берутся из темы — прямые роли из
- * `MaterialTheme.colorScheme` (см. [TaskDerivedColors]), а те, что не должны
- * зависеть от темы, — из [TaskSemanticColors].
+ * What remains is genuinely per-widget: a checkbox is 22 dp wherever it is
+ * drawn, and that number is not a step on anybody's grid. [Icon] and [IconLarge]
+ * are the two icon sizes `TaskSpacing.iconSize` / `iconSizeLarge` used to carry —
+ * they are widget geometry, not gaps, so they landed here rather than on the
+ * spacing scale, and every former reader now names them. The two elevation
+ * tokens this object also carried were read by nothing and are gone; elevation
+ * is `MaterialTheme.elevation` now.
  */
-object TaskListShapes {
-    val CardRadius = RoundedCornerShape(16.dp)
-    val ChipRadius = RoundedCornerShape(12.dp)
-    val FabRadius = RoundedCornerShape(16.dp)
-    val IconContainerRadius = RoundedCornerShape(14.dp)
-    val CheckboxSize = 22.dp
-}
-
-/** Отступы в UI — одна шкала, чтобы визуальный ритм не "плавал" между компонентами. */
-object TaskListSpacing {
-    val None = 0.dp
-    val Xxs = 2.dp
-    val Xs = 4.dp
-    val Sm = 8.dp
-    val Md = 12.dp
-    val Lg = 16.dp
-    val Xl = 20.dp
-    val Xxl = 24.dp
-}
-
-/** Семантические размеры (не "отступы", а "размер виджета"). */
 object TaskListSizes {
     val Checkbox = 22.dp
     val CheckIcon = 13.dp
+    val Icon = 22.dp
+    val IconLarge = 26.dp
     val PriorityStar = 16.dp
     val MetaIcon = 13.dp
     val DividerThickness = 1.dp
-    val CardElevation = 1.dp
-    val CardElevationHover = 4.dp
 
     /**
      * Устаревший псевдоним общего минимума площади касания.

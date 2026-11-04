@@ -7,15 +7,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.theme.spacing
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.PriorityPalette
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
 
 internal val TaskPriority.isActive: Boolean get() = this != TaskPriority.None
@@ -61,7 +62,7 @@ private fun priorityContentDescription(priority: TaskPriority): String =
 @Composable
 private fun PriorityIndicatorPreview() {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(TaskListSpacing.Xs),
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs),
         modifier = Modifier.size(200.dp, 48.dp),
     ) {
         PriorityIndicator(TaskPriority.None)

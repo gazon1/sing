@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TextSnippet
 import androidx.compose.material.icons.filled.Add
@@ -35,10 +34,11 @@ import com.singularity.todo.core.ui.monthAbbreviation
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.text.SelectableTextGroup
 import com.singularity.todo.core.ui.text.UnselectableContent
+import com.singularity.todo.core.ui.theme.spacing
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.LogbookEntry
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.datetime.LocalDate
@@ -89,7 +89,7 @@ private fun LogbookEmptyCard(
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
+        shape = MaterialTheme.shapes.large,
         modifier =
             modifier
                 .fillMaxWidth()
@@ -99,8 +99,10 @@ private fun LogbookEmptyCard(
             modifier =
                 Modifier
                     .padding(
-                        horizontal = TaskSpacing.cardPaddingHorizontal,
-                        vertical = TaskSpacing.cardPaddingVertical,
+                        // 14 dp vertical, as before: md + xs is how this scale writes an
+                        // off-grid gap. `lg` here would be 16 and grow the card by 4 dp.
+                        horizontal = MaterialTheme.spacing.lg,
+                        vertical = MaterialTheme.spacing.md + MaterialTheme.spacing.xs,
                     ).fillMaxWidth()
                     .testTag(TestTags.LOGBOOK_EMPTY),
             verticalAlignment = Alignment.CenterVertically,
@@ -133,9 +135,9 @@ private fun LogbookHeader(
             imageVector = Icons.AutoMirrored.Filled.TextSnippet,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(TaskSpacing.iconSize),
+            modifier = Modifier.size(TaskListSizes.Icon),
         )
-        Spacer(Modifier.width(TaskSpacing.lg))
+        Spacer(Modifier.width(MaterialTheme.spacing.lg))
         SelectableTextGroup(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -153,7 +155,7 @@ private fun LogbookHeader(
                     imageVector = Icons.Filled.Add,
                     contentDescription = "Add note to logbook",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(TaskSpacing.iconSize),
+                    modifier = Modifier.size(TaskListSizes.Icon),
                 )
             }
         }
@@ -188,7 +190,7 @@ private fun LogbookLoadedCard(
 
     Surface(
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
+        shape = MaterialTheme.shapes.large,
         modifier =
             modifier
                 .fillMaxWidth()
@@ -198,8 +200,10 @@ private fun LogbookLoadedCard(
             modifier =
                 Modifier
                     .padding(
-                        horizontal = TaskSpacing.cardPaddingHorizontal,
-                        vertical = TaskSpacing.cardPaddingVertical,
+                        // 14 dp vertical, as before: md + xs is how this scale writes an
+                        // off-grid gap. `lg` here would be 16 and grow the card by 4 dp.
+                        horizontal = MaterialTheme.spacing.lg,
+                        vertical = MaterialTheme.spacing.md + MaterialTheme.spacing.xs,
                     ).fillMaxWidth(),
         ) {
             // Header row
@@ -208,7 +212,7 @@ private fun LogbookLoadedCard(
                 onAddNote = onAddNote,
             )
 
-            Spacer(Modifier.height(TaskSpacing.md))
+            Spacer(Modifier.height(MaterialTheme.spacing.md))
 
             // Grouped entries
             grouped.forEach { (date: LocalDate, dayEntries: List<LogbookEntry>) ->

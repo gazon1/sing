@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -14,12 +15,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.theme.spacing
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.dividerColor
 import kotlinx.collections.immutable.persistentSetOf
 
@@ -92,7 +93,10 @@ fun TaskRowFlat(
                         onClick = onClick,
                         onLongClick = onLongClick,
                     ).then(secondaryClickModifier)
-                    .padding(vertical = TaskListSpacing.Md + TaskListSpacing.Xs, horizontal = TaskListSpacing.Lg),
+                    .padding(
+                        vertical = MaterialTheme.spacing.md + MaterialTheme.spacing.xs,
+                        horizontal = MaterialTheme.spacing.lg,
+                    ),
         )
 
         if (showDivider) {

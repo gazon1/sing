@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.DragHandleIcon
 import com.singularity.todo.core.ui.components.DragHandleRow
 import com.singularity.todo.core.ui.components.HandleSide
+import com.singularity.todo.core.ui.theme.elevation
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.selector.typeDescription
 
@@ -62,7 +63,7 @@ fun SectionEditorCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = MaterialTheme.elevation.level0),
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,

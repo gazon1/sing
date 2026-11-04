@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,9 +22,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.components.SeriesMarker
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.theme.spacing
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
 import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
 import kotlinx.collections.immutable.ImmutableSet
@@ -69,7 +70,7 @@ fun TaskMetaRow(
 
         if (seriesDates != null) {
             SeriesMarker(isSeries = true, dates = seriesDates)
-            Spacer(Modifier.width(TaskListSpacing.Xs))
+            Spacer(Modifier.width(MaterialTheme.spacing.xs))
         }
 
         dueLabel?.let {
@@ -113,7 +114,7 @@ private fun ProjectBadge(
                         .clip(CircleShape)
                         .background(Color(color)),
             )
-            Spacer(Modifier.width(TaskListSpacing.Xxs))
+            Spacer(Modifier.width(MaterialTheme.spacing.xxs))
         }
         Text(
             text = name,
@@ -132,20 +133,20 @@ private fun ProjectBadge(
  */
 @Composable
 private fun MetaSeparator() {
-    Spacer(Modifier.width(TaskListSpacing.Xs))
+    Spacer(Modifier.width(MaterialTheme.spacing.xs))
     Text(
         text = "·",
         color = mutedTextColor(),
         fontSize = 12.sp,
     )
-    Spacer(Modifier.width(TaskListSpacing.Xs))
+    Spacer(Modifier.width(MaterialTheme.spacing.xs))
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun TaskMetaRowPreview() {
     PreviewThemed(darkTheme = true, useSurface = true) {
-        Column(verticalArrangement = Arrangement.spacedBy(TaskListSpacing.Md)) {
+        Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.md)) {
             TaskMetaRow(
                 "Сб, 05 сен 2026",
                 "Семья",

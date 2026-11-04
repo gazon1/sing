@@ -24,7 +24,8 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.formatRussianDateList
 import com.singularity.todo.core.ui.components.formatRussianDueDateWithTime
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
-import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import com.singularity.todo.core.ui.theme.spacing
+import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.LocalDate
@@ -72,8 +73,10 @@ fun TaskEditorDueDateRow(
                         Modifier
                     },
                 ).padding(
-                    horizontal = TaskSpacing.cardPaddingHorizontal,
-                    vertical = TaskSpacing.cardPaddingVertical,
+                    // 14 dp vertical, as before: this row sits beside TaskAttributeCard and
+                    // pads like it. `lg` here would be 16 and grow the row by 2 dp a side.
+                    horizontal = MaterialTheme.spacing.lg,
+                    vertical = MaterialTheme.spacing.md + MaterialTheme.spacing.xs,
                 ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -85,9 +88,9 @@ fun TaskEditorDueDateRow(
             imageVector = Icons.Outlined.CalendarToday,
             contentDescription = null,
             tint = if (dueDate != null) activeTint else idleTint,
-            modifier = Modifier.size(TaskSpacing.iconSize),
+            modifier = Modifier.size(TaskListSizes.Icon),
         )
-        Spacer(Modifier.width(TaskSpacing.lg))
+        Spacer(Modifier.width(MaterialTheme.spacing.lg))
         val labelModifier =
             if (labelTestTag != null) Modifier.testTag(labelTestTag) else Modifier
         Text(

@@ -3,7 +3,6 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -16,7 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import com.singularity.todo.core.ui.theme.spacing
 
 /**
  * Bottom bar with primary save action.
@@ -36,7 +35,7 @@ fun TaskSaveBar(
         Button(
             onClick = onSaveClick,
             enabled = isEnabled,
-            shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
+            shape = MaterialTheme.shapes.large,
             colors =
                 ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -45,7 +44,7 @@ fun TaskSaveBar(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = TaskSpacing.screenPadding, vertical = TaskSpacing.md)
+                    .padding(horizontal = MaterialTheme.spacing.lg, vertical = MaterialTheme.spacing.md)
                     .height(52.dp)
                     .testTag(TestTags.TASK_EDITOR_SAVE),
         ) {

@@ -56,6 +56,7 @@ import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.theme.spacing
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
@@ -65,7 +66,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
-import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
@@ -182,8 +182,8 @@ private fun TaskEditorContent(
                     .padding(padding)
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = TaskSpacing.screenPadding),
-            verticalArrangement = Arrangement.spacedBy(TaskSpacing.md),
+                    .padding(horizontal = MaterialTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.md),
         ) {
             // Title row
             TaskTitleRow(
@@ -390,7 +390,7 @@ private fun TaskEditorContent(
                 )
             }
 
-            Spacer(modifier = Modifier.height(TaskSpacing.xl))
+            Spacer(modifier = Modifier.height(MaterialTheme.spacing.xl))
         }
     }
 

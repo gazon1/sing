@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,7 +19,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.digitsOnlyTransformation
-import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import com.singularity.todo.core.ui.theme.spacing
 
 /**
  * Estimate selection sheet with preset chips (5/15/30/60/120 min) and a custom input field.
@@ -42,7 +43,7 @@ fun TaskEditorEstimateSheet(
             modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(TaskSpacing.md),
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.md),
     ) {
         FlowRow(
             modifier = Modifier.fillMaxWidth(),

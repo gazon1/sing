@@ -30,7 +30,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TouchTarget
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+import com.singularity.todo.core.ui.theme.spacing
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
 
 /**
@@ -49,7 +49,8 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
  *  - **[isSelectionMode] == true** блокирует свайп — в режиме выделения
  *    свайп для удаления неуместен
  *
- * @param backgroundShape форма фона удаления — RoundedCornerShape(0.dp) для Flat, [TaskListShapes.CardRadius] для Card
+ * @param backgroundShape форма фона удаления — `RoundedCornerShape(0.dp)` для Flat,
+ *   `MaterialTheme.shapes.large` для Card
  * @param isSelectionMode true — свайп заблокирован (режим выделения)
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -116,7 +117,7 @@ fun SwipeableTaskRow(
                         .fillMaxSize()
                         .clip(backgroundShape)
                         .background(TaskSemanticColors.Danger)
-                        .padding(horizontal = TaskListSpacing.Xxl),
+                        .padding(horizontal = MaterialTheme.spacing.xl),
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 Icon(
@@ -125,7 +126,7 @@ fun SwipeableTaskRow(
                     tint = Color.White,
                     modifier =
                         Modifier
-                            .size(TouchTarget.MinSize - TaskListSpacing.Md) // 36dp
+                            .size(TouchTarget.MinSize - MaterialTheme.spacing.md) // 36dp
                             .scale(iconScale),
                 )
             }

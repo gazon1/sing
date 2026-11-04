@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -20,7 +19,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import com.singularity.todo.core.ui.theme.spacing
+import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 
 /**
  * Карточка-строка для основных атрибутов задачи (проект, приоритет, дата и т.д.).
@@ -64,7 +64,7 @@ fun TaskAttributeCard(
 ) {
     Surface(
         color = containerColor,
-        shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
+        shape = MaterialTheme.shapes.large,
         modifier =
             modifier
                 .fillMaxWidth()
@@ -74,8 +74,10 @@ fun TaskAttributeCard(
             modifier =
                 Modifier
                     .padding(
-                        horizontal = TaskSpacing.cardPaddingHorizontal,
-                        vertical = TaskSpacing.cardPaddingVertical,
+                        // 14 dp vertical, as before: md + xs is how this scale writes an
+                        // off-grid gap. `lg` here would be 16 and grow the card by 4 dp.
+                        horizontal = MaterialTheme.spacing.lg,
+                        vertical = MaterialTheme.spacing.md + MaterialTheme.spacing.xs,
                     ).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -83,9 +85,9 @@ fun TaskAttributeCard(
                 imageVector = icon,
                 contentDescription = null,
                 tint = iconTint,
-                modifier = Modifier.size(TaskSpacing.iconSize),
+                modifier = Modifier.size(TaskListSizes.Icon),
             )
-            Spacer(Modifier.width(TaskSpacing.lg))
+            Spacer(Modifier.width(MaterialTheme.spacing.lg))
             Text(
                 text = label,
                 color = textColor,

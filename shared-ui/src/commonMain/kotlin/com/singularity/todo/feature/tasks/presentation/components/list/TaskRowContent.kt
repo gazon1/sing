@@ -19,11 +19,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.theme.spacing
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
 import kotlinx.collections.immutable.persistentSetOf
 
@@ -56,8 +56,8 @@ fun TaskRowContent(
             // same tag here, or completion cannot be driven from UI automation.
             modifier = Modifier.testTag(TestTags.taskCheckbox(task.title)),
         )
-
-        Spacer(Modifier.width(TaskListSpacing.Md + TaskListSpacing.Xs)) // 14dp — выравнивание текста по сетке
+        // 14dp — выравнивание текста по сетке
+        Spacer(Modifier.width(MaterialTheme.spacing.md + MaterialTheme.spacing.xs))
 
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.Top) {
@@ -67,9 +67,9 @@ fun TaskRowContent(
                     // для иконок рядом с многострочным текстом).
                     PriorityIndicator(
                         task.priority,
-                        modifier = Modifier.padding(top = TaskListSpacing.Xxs),
+                        modifier = Modifier.padding(top = MaterialTheme.spacing.xxs),
                     )
-                    Spacer(Modifier.width(TaskListSpacing.Xs + TaskListSpacing.Xxs))
+                    Spacer(Modifier.width(MaterialTheme.spacing.xs + MaterialTheme.spacing.xxs))
                 }
                 Text(
                     text = task.title,
@@ -90,7 +90,7 @@ fun TaskRowContent(
                 task.dueLabel != null || task.project != null ||
                     task.markings.isNotEmpty() || task.seriesDates != null
             if (hasMeta) {
-                Spacer(Modifier.height(TaskListSpacing.Xs))
+                Spacer(Modifier.height(MaterialTheme.spacing.xs))
                 TaskMetaRow(
                     dueLabel = task.dueLabel,
                     project = task.project,
