@@ -195,7 +195,9 @@ fun NoteEditorScreenContent(
     onEditProposal: ((ProposalItemId, String) -> Unit)? = null,
     proposalFailures: ImmutableMap<ProposalItemId, String> = persistentMapOf(),
 ) {
-    val linkOverlay = rememberOverlayState<NoteLinkSheet>()
+    // One overlay at a time: the AI action sheet and the two link sheets are
+    // siblings, so they share a single holder rather than a flag each.
+    val overlay = rememberOverlayState<NoteEditorSheet>()
 
     if (noteNotFound) {
         return EmptyState(title = "Note not found")
@@ -256,9 +258,9 @@ fun NoteEditorScreenContent(
                 EditorToolbar(
                     richTextState = session.richTextState,
                     onHtmlChange = { session.dispatchHtml() },
-                    onAiClick = { linkOverlay.show(NoteLinkSheet.AiAction) },
-                    onLinkClick = { linkOverlay.show(NoteLinkSheet.External) },
-                    onInternalLinkClick = { linkOverlay.show(NoteLinkSheet.InternalPicker()) },
+                    onAiClick = { overlay.show(NoteEditorSheet.AiAction) },
+                    onLinkClick = { overlay.show(NoteEditorSheet.External) },
+                    onInternalLinkClick = { overlay.show(NoteEditorSheet.InternalPicker()) },
                 )
             }
         },
@@ -281,21 +283,21 @@ fun NoteEditorScreenContent(
         }
     }
 
-    if (linkOverlay.sheet == NoteLinkSheet.External) {
+    if (overlay.sheet == NoteEditorSheet.External) {
         LinkUrlDialog(
             onConfirm = { url ->
                 // The link text is the address: there is no selection to speak for it,
                 // and the address is what the user typed.
                 session.insertLink(url = url, text = url)
-                linkOverlay.dismissAll()
+                overlay.dismissSheet()
             },
             onDismiss = {
-                linkOverlay.dismissAll()
+                overlay.dismissSheet()
             },
         )
     }
 
-    val internalPicker = linkOverlay.sheet as? NoteLinkSheet.InternalPicker
+    val internalPicker = overlay.sheet as? NoteEditorSheet.InternalPicker
     if (internalPicker != null) {
         InternalLinkPickerSheet(
             onSearch = { q ->
@@ -312,19 +314,19 @@ fun NoteEditorScreenContent(
                 )
             },
             onDismiss = {
-                linkOverlay.dismissAll()
+                overlay.dismissSheet()
             },
         )
     }
 
-    if (linkOverlay.sheet == NoteLinkSheet.AiAction) {
+    if (overlay.sheet == NoteEditorSheet.AiAction) {
         NoteAiActionSheet(
             onSelect = { action ->
                 onAiAction?.invoke(action)
-                linkOverlay.dismissAll()
+                overlay.dismissSheet()
             },
             onDismiss = {
-                linkOverlay.dismissAll()
+                overlay.dismissSheet()
             },
         )
     }
@@ -398,7 +400,9 @@ private fun NoteEditorScreenEditingPreview() =
                 onBodyChange = { },
                 onSaveNow = {},
                 onBack = {},
-                onShowAiSheet = {},
+                // The AI action sheet opens from the toolbar's AI button and is held
+                // in the screen's own overlay state, so the preview needs no extra
+                // seam to open it — tapping that button in the preview opens it too.
                 savedVisible = false,
                 onAiAction = null,
             )
@@ -425,7 +429,9 @@ private fun NoteEditorScreenDirtyPreview() =
                 onBodyChange = { },
                 onSaveNow = {},
                 onBack = {},
-                onShowAiSheet = {},
+                // The AI action sheet opens from the toolbar's AI button and is held
+                // in the screen's own overlay state, so the preview needs no extra
+                // seam to open it — tapping that button in the preview opens it too.
                 savedVisible = false,
                 onAiAction = null,
             )
