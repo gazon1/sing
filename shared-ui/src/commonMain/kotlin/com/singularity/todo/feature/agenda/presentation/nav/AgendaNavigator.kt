@@ -83,6 +83,22 @@ open class AgendaNavigator(
         )
     }
 
+    /**
+     * Open the task create screen with no pre-fill.
+     *
+     * The agenda's empty state offers this: a list with nothing in it has to
+     * say how to put something in it. The route carries no draft, so the
+     * editor starts blank — the same screen the shell's add-task button
+     * opens.
+     */
+    open fun openCreateTask() {
+        onExitGraph(
+            AppDestination.TasksGraph(
+                start = AppDestination.TasksStartRoute.Create(),
+            ),
+        )
+    }
+
     /** Push the saved agenda views list onto the stack. */
     open fun openSavedAgendaList() {
         backStack.add(AgendaStartRoute.SavedAgendaList)

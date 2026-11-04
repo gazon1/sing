@@ -461,6 +461,7 @@ object TestTags {
      */
     const val AGENDA_MERGE_SERIES_BUTTON = "agenda_merge_series_button"
     const val AGENDA_SAVE_CURRENT_BUTTON = "agenda_save_current_button"
+    const val AGENDA_EMPTY_CREATE_TASK = "agenda_empty_create_task"
     const val SAVED_AGENDA_LIST_BACK = "saved_agenda_list_back"
     const val SAVED_AGENDA_CREATE_FAB = "saved_agenda_create_fab"
     const val SAVED_AGENDA_NAME_INPUT = "saved_agenda_name_input"

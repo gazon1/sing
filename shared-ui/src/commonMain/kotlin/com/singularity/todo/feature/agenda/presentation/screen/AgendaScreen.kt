@@ -125,6 +125,7 @@ fun AgendaScreen(
                     seedStore.setSeed(definition)
                     navigator.openSavedAgendaCreate(definition)
                 },
+                onCreateTask = { navigator.openCreateTask() },
                 contextMenuHost = contextMenuHost,
                 spotlightRegistry = tour.registry,
                 modifier = Modifier,
