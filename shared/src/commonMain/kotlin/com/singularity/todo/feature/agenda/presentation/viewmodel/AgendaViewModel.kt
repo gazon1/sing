@@ -184,7 +184,12 @@ class AgendaViewModel(
      */
     private val latestTasks = MutableStateFlow<List<Task>>(emptyList())
 
-    /** Increments to re-run the collection in [init] after a failure or a retry. */
+    /**
+     * Increments to re-run the collection in [init] after a failure or a retry.
+     *
+     * The collection this triggers has to outlive a failure, or the retry has
+     * nothing to restart — see where the catch sits in [init].
+     */
     private val _reloadTrigger = MutableStateFlow(0)
 
     init {
@@ -201,33 +206,46 @@ class AgendaViewModel(
         scope.launch {
             _reloadTrigger
                 .flatMapLatest { _ ->
-                    todayFlow(deps.clock, deps.timeZone.current()).flatMapLatest { today ->
-                        // The projects are observed alongside the tasks: the row needs its
-                        // project's name and colour, and the lookup includes closed projects
-                        // so a badge never vanishes because the project was finished. The
-                        // projects are resolved here — once per list build — and ride on the
-                        // row item, so no row looks a project up.
-                        combine(
-                            deps.taskRepo
-                                .observeByFilter(TaskFilter.All)
-                                .distinctUntilChanged(), // skip recompute when task list unchanged
-                            deps.projectsRepository.observeAllIncludingClosed(),
-                        ) { tasks, projects -> tasks to projects }
-                            .onEach { (tasks, _) -> latestTasks.value = tasks }
-                            .map { (tasks, projects) ->
-                                val projectsById = projects.associateBy { it.id.value }
-                                AgendaUiState.Loaded(
-                                    sections =
-                                        AgendaEvaluator
-                                            .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
-                                            .toImmutableList(),
-                                    today = today,
-                                    greeting = _greeting.value,
-                                )
-                            }
-                    }
-                }.catch { cause ->
-                    setState(AgendaUiState.Error(message = cause.toMessage("Could not load agenda")))
+                    todayFlow(deps.clock, deps.timeZone.current())
+                        .flatMapLatest { today ->
+                            // The projects are observed alongside the tasks: the row needs its
+                            // project's name and colour, and the lookup includes closed projects
+                            // so a badge never vanishes because the project was finished. The
+                            // projects are resolved here — once per list build — and ride on the
+                            // row item, so no row looks a project up.
+                            combine(
+                                deps.taskRepo
+                                    .observeByFilter(TaskFilter.All)
+                                    .distinctUntilChanged(), // skip recompute when task list unchanged
+                                deps.projectsRepository.observeAllIncludingClosed(),
+                            ) { tasks, projects -> tasks to projects }
+                                .onEach { (tasks, _) -> latestTasks.value = tasks }
+                                .map { (tasks, projects) ->
+                                    val projectsById = projects.associateBy { it.id.value }
+                                    AgendaUiState.Loaded(
+                                        sections =
+                                            AgendaEvaluator
+                                                .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
+                                                .toImmutableList(),
+                                        today = today,
+                                        greeting = _greeting.value,
+                                    )
+                                }
+                        }
+                        // The catch belongs *inside* the trigger's flatMapLatest, not after it.
+                        //
+                        // A catch placed after the trigger ends the whole collection: the
+                        // failure is reported, and with it the collector that would have
+                        // seen the next trigger value. The retry then set the state to
+                        // Loading and bumped a trigger nobody was listening to — a spinner
+                        // with a live "Retry" button on it, and no way back to the agenda.
+                        //
+                        // Here the failure ends only the inner collection. The trigger keeps
+                        // collecting, so the next bump re-subscribes and the agenda loads
+                        // again — which is what the retry promises the user.
+                        .catch { cause ->
+                            setState(AgendaUiState.Error(message = cause.toMessage("Could not load agenda")))
+                        }
                 }.collect { fresh ->
                     // Reconciliation goes through `updateState`, which is CAS-backed,
                     // because this collector and the selection handlers both write and
