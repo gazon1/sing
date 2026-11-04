@@ -39,12 +39,6 @@ internal class PullPhase(
      */
     private val hlcFactory: HlcFactory,
     /**
-     * The shadow of what the server holds, kept current on pull so a lost-race
-     * revert restores the server's state (and its claims) rather than a stale
-     * snapshot. Nullable so callers that do not need the shadow (tests) can omit it.
-     */
-    private val shadowDao: SyncShadowDao? = null,
-    /**
      * The shelf of things that gave up.
      *
      * Used by the pull path for one case only: an event whose payload is present but
@@ -52,17 +46,20 @@ internal class PullPhase(
      * every delivery — and the event is recorded here, so a remote change this device
      * dropped is a row somebody can find rather than a log line nobody reads.
      *
-     * Not nullable, and the default is [NoDeadLetterShelf] rather than `null`: a null
-     * default made the omission silent, so the recording half of this feature could be
-     * compiled away at a call site and a corrupt payload would leave no trace but a log
-     * line. The stand-in logs an error, by name, for every write it is asked for.
-     *
-     * A default rather than a required argument because the pull loop is exercised on
-     * its own, with no database behind it. The production wiring does not rely on it:
-     * [SyncEngine] takes the shelf as a required constructor argument and passes it on,
-     * so the engine cannot be built without one.
+     * Required, and without a default, because a default made the omission silent: the
+     * recording half of this feature could be left out at a call site and compiled away,
+     * and a corrupt payload would leave no trace but a log line. There is no stand-in
+     * to fall back on — every construction site says which shelf it writes to, so
+     * leaving one out is a compile error rather than a quiet change of behaviour. The
+     * app hands over the real DAO; a test hands over a fake.
      */
-    private val deadLetterDao: SyncDeadLetterDao = NoDeadLetterShelf,
+    private val deadLetterDao: SyncDeadLetterDao,
+    /**
+     * The shadow of what the server holds, kept current on pull so a lost-race
+     * revert restores the server's state (and its claims) rather than a stale
+     * snapshot. Nullable so callers that do not need the shadow (tests) can omit it.
+     */
+    private val shadowDao: SyncShadowDao? = null,
 ) {
     private val log = Logger.withTag("PullPhase")
 

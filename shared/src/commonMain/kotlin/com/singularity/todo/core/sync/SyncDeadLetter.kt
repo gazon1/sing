@@ -7,9 +7,7 @@ import androidx.room3.Insert
 import androidx.room3.OnConflictStrategy
 import androidx.room3.PrimaryKey
 import androidx.room3.Query
-import co.touchlab.kermit.Logger
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
 
 /**
  * A patch that failed [PatchRetryPolicy.maxAttempts] times and was set aside.
@@ -312,71 +310,4 @@ interface SyncDeadLetterDao {
     /** Count rows owned by [ownerId], without deleting. For preview before erase. */
     @Query("SELECT COUNT(*) FROM sync_dead_letter WHERE owner_id = :ownerId")
     suspend fun countForOwner(ownerId: String): Int
-}
-
-/**
- * The shelf that stands in when none was wired into the pull path.
- *
- * It used to be a `null` default on the pull phase's constructor, and that made the
- * omission silent: the recording half of this feature could be left out at a call site
- * and the only trace of a corrupt payload would be a log line — exactly the behaviour
- * the shelf exists to replace. This object cannot be silent about it: every write it is
- * asked for is logged at error level, by name.
- *
- * It is still a default rather than a hard requirement because the pull loop is
- * exercised on its own in tests, with no database behind it. Production wiring — the
- * only place this matters — hands over the real DAO as a non-optional constructor
- * argument of [SyncEngine], which passes it on.
- */
-internal object NoDeadLetterShelf : SyncDeadLetterDao {
-    private val log = Logger.withTag("DeadLetterShelf")
-
-    override fun watch(): Flow<List<SyncDeadLetterEntity>> = flowOf(emptyList())
-
-    override suspend fun getAll(): List<SyncDeadLetterEntity> = emptyList()
-
-    override fun watchCount(): Flow<Int> = flowOf(0)
-
-    override suspend fun insert(entity: SyncDeadLetterEntity) {
-        log.e {
-            "No dead-letter shelf is wired into the pull phase: ${entity.patchId} " +
-                "was NOT recorded (${entity.lastError})"
-        }
-    }
-
-    /**
-     * Logged at error level and reported as "handled" (`0`, not [INSERT_IGNORED]).
-     *
-     * The stand-in holds no rows, so there is nothing for a bump to count: returning
-     * the ignored-insert marker would send the caller on to bump a row that does not
-     * exist and log a second, misleading line for one event.
-     */
-    override suspend fun insertInboundIfAbsent(entity: SyncDeadLetterEntity): Long {
-        log.e {
-            "No dead-letter shelf is wired into the pull phase: ${entity.patchId} " +
-                "was NOT recorded (${entity.lastError})"
-        }
-        return 0L
-    }
-
-    override suspend fun bumpInboundDelivery(
-        id: String,
-        ownerId: String,
-    ): Int {
-        log.e { "No dead-letter shelf is wired into the pull phase: $id was NOT counted" }
-        return 0
-    }
-
-    override suspend fun pruneInboundTo(
-        ownerId: String,
-        maxRows: Int,
-    ): Int = 0
-
-    override suspend fun delete(id: String): Int = 0
-
-    override suspend fun clearAll() = Unit
-
-    override suspend fun deleteForOwner(ownerId: String): Int = 0
-
-    override suspend fun countForOwner(ownerId: String): Int = 0
 }

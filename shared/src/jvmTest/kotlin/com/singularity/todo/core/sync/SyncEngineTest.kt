@@ -130,6 +130,7 @@ class SyncEngineTest {
                         getHandlers = { emptyMap() },
                         scope = engineScope,
                         hlcFactory = FakeHlcFactory(),
+                        deadLetterDao = FakeSyncDeadLetterDao(),
                     ),
                 bootstrapper = null,
                 syncAuthBridge = fakeSyncAuthBridge(auth),

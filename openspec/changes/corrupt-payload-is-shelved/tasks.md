@@ -34,13 +34,14 @@ Spec: `offline-sync` REQ-OS-032. Issue: #1422.
       left where they were. One row alone is what a plain IGNORE gives, so without the
       count and the timestamps that test would not notice
       `bumpInboundDelivery` never being reached.
-- [x] `shared/` Hand the shelf to the pull phase the application assembles. The engine's
-      own default phase carries `deadLetterDao`; the DI module builds its phase by hand
-      and did not, so the record happened in every test and nowhere in the app.
-      **Test:** none — the phase's dependency is private and the seam is a construction,
-      so the construction site carries the comment that names the rule. The behaviour it
-      enables is covered by `PullPhaseTest`; what is unproven is that the app builds that
-      phase, which nothing in the tree checks.
+- [x] `shared/` Hand the shelf to the pull phase the application assembles. The shelf is
+      a **required** argument of the pull phase — no default, no stand-in — so every
+      construction site says which shelf it writes to, and one that leaves it out is a
+      compile error rather than a quiet loss of the record. The DI module builds the
+      phase by hand and hands over the real DAO; the engine's own phase hands over the
+      one the engine was given.
+      **Test:** the requirement is the type — a construction that omits the shelf does
+      not compile. The behaviour it enables is covered by `PullPhaseTest`.
 
 ## The record of the decision
 
@@ -51,8 +52,12 @@ Spec: `offline-sync` REQ-OS-032. Issue: #1422.
 
 ## Verification
 
-- [ ] `shared/` `./gw :shared:jvmTest` — not run: this run's sandbox refuses Gradle
-      ("this run does not compile"), so CI carries it.
-- [ ] `shared/` `./gw detekt` — not run, same reason.
+- [ ] `shared/` `./gw :shared:jvmTest` — **not run**: this run's sandbox refuses Gradle
+      ("this run does not compile"), so CI carries it. What was done here instead was
+      read: every construction site of the pull phase was audited by hand, and the
+      path that has to hold — `PullEventHandler` returning `Skipped(corrupt = true)`,
+      the pull phase's `Corrupt` arm writing the row — was read against the tests that
+      assert it.
+- [ ] `shared/` `./gw detekt` — **not run**, same reason.
 - [x] `openspec validate --all --json --strict` — ran, exit 0: 54 changes and 39 specs
       valid, none failed.

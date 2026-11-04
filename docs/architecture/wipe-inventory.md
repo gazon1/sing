@@ -108,7 +108,7 @@ by consequence, and none is unresolved.
 | `sync_state` | not profile content | The sync engine's own bookkeeping: the last log sequence number it applied, and whether the first seed is done. Clearing it makes the next pull re-download everything the reset just removed — the reset would undo itself. |
 | `sync_shadow` | not profile content | The sync engine's record of what the server is known to hold, keyed by (owner, profile). It is the base the planner diffs against, not content. |
 | `sync_outbox` | not profile content | The queue of patches waiting to go to the server. The reset's own repository deletes enqueue there — that is how the server learns the tasks are gone — so clearing the queue after the wipe would discard the patches that make the wipe stick. |
-| `sync_dead_letter` | not profile content | The shelf of patches that could not be delivered. Its own documentation says a change the user made must not be destroyed because the system could not deliver it. |
+| `sync_dead_letter` | not profile content | The shelf of things that gave up: outbound patches that could not be delivered, and inbound events this device could not read. Its own documentation says a change the user made must not be destroyed because the system could not deliver it. |
 | `calendar_sync_state` | not profile content | The calendar provider's incremental cursor — the sync token, and when the provider was last read. It is the engine's bookkeeping about the outside world; clearing it costs a full re-listing of the provider's calendar and buys no isolation. |
 
 ### 3. Emptied by consequence — the index tables the reset does not delete

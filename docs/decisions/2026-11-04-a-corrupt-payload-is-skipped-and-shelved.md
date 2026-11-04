@@ -52,10 +52,10 @@ state, and a divergence nobody can see is a divergence nobody can fix.
 
 The record is the existing shelf, not a new table. The two kinds of row live together
 and are told apart by their key: an outbound patch keeps its patch id and can be put
-back on the outbox; an inbound event's key is `pull:<profile>:<lsn>:<type>:<id>` and
-cannot be retried. A new table would have cost a schema migration, a second
-owner-scoped erase, and a second thing for a reader to check — for a distinction the
-key already carries.
+back on the outbox; an inbound event's key is
+`pull:<owner>:<profile>:<lsn>:<type>:<id>` and cannot be retried. A new table would
+have cost a schema migration, a second owner-scoped erase, and a second thing for a
+reader to check — for a distinction the key already carries.
 
 Only a payload that was *present and unusable* is corrupt: it is not a document, or it
 does not decode into one. A payload the server never sent, an event from a newer
@@ -116,8 +116,8 @@ before, so the profile is carried in the key instead.
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncDeadLetter.kt` —
   the two kinds of row and the key that tells them apart
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/di/SyncDiModule.kt` —
-  the production pull phase, which has to be handed the shelf: the engine's own default
-  is bypassed there, so a dependency left out of that construction is not a compile error
+  the production pull phase, which is handed the shelf: the shelf is a required
+  argument of the pull phase, so a construction that leaves it out does not compile
 - Tests: `PullEventHandlerTest`, `PullPhaseTest`, `ApplyOutcomeArmsTest`
 - Related decisions: `2026-10-06-a-transient-failure-is-not-a-permanent-one.md`,
   `2026-10-19-retriable-push-failure-defers-the-patch.md`

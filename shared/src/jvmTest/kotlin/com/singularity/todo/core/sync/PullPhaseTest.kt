@@ -64,7 +64,7 @@ class PullPhaseTest {
         scopeProvider: FakeSyncScopeProvider = FakeSyncScopeProvider(testScopeObj),
         taskRepo: FakeTaskRepository = FakeTaskRepository(),
         shadow: FakeSyncShadowDao? = null,
-        deadLetter: FakeSyncDeadLetterDao? = null,
+        deadLetter: FakeSyncDeadLetterDao = FakeSyncDeadLetterDao(),
     ): Pair<PullPhase, AutoCloseableCoroutineScope> {
         val writer = fakeSyncDocumentWriter(tasks = taskRepo)
         val state = SyncEngineState(log, NoOpCrashReportingPort())
@@ -104,8 +104,8 @@ class PullPhaseTest {
                 getHandlers = { handlers },
                 scope = phaseScope,
                 hlcFactory = FakeHlcFactory(),
-                shadowDao = shadow,
                 deadLetterDao = deadLetter,
+                shadowDao = shadow,
             )
         return p to phaseScope
     }
@@ -263,14 +263,6 @@ class PullPhaseTest {
      * rethrew, the account's sync would wedge on an unreadable row, which is the failure
      * mode the whole change exists to avoid.
      */
-    /**
-     * REQ-OS-032, *a record that cannot be written*.
-     *
-     * The shelf's write throws — the stand-in for a full disk or a busy SQLite — and the
-     * pull still finishes as `Ok` with the position moved past the event. If this
-     * rethrew, the account's sync would wedge on an unreadable row, which is the failure
-     * mode the whole change exists to avoid.
-     */
     @Test
     fun `a shelf that cannot be written does not fail the pull`() =
         runTest {
@@ -334,6 +326,7 @@ class PullPhaseTest {
                     getHandlers = { emptyMap() },
                     scope = phaseScope,
                     hlcFactory = FakeHlcFactory(),
+                    deadLetterDao = FakeSyncDeadLetterDao(),
                 )
 
             val result = p.pull(testScopeObj, sinceLsn = 0)
@@ -380,6 +373,7 @@ class PullPhaseTest {
                     getHandlers = { mapOf(DocType.Task to EntityApply { ApplyOutcome.Applied }) },
                     scope = phaseScope,
                     hlcFactory = FakeHlcFactory(),
+                    deadLetterDao = FakeSyncDeadLetterDao(),
                 )
 
             val result = p.pull(testScopeObj, sinceLsn = 0)
@@ -428,6 +422,7 @@ class PullPhaseTest {
                     getHandlers = { emptyMap() }, // No handler for TagGroup.
                     scope = phaseScope,
                     hlcFactory = FakeHlcFactory(),
+                    deadLetterDao = FakeSyncDeadLetterDao(),
                 )
 
             val result = p.pull(testScopeObj, sinceLsn = 0)
@@ -470,6 +465,7 @@ class PullPhaseTest {
                     getHandlers = { emptyMap() },
                     scope = phaseScope,
                     hlcFactory = FakeHlcFactory(),
+                    deadLetterDao = FakeSyncDeadLetterDao(),
                 )
 
             p.pull(testScopeObj, sinceLsn = 5)
@@ -511,6 +507,7 @@ class PullPhaseTest {
                     getHandlers = { emptyMap() },
                     scope = phaseScope,
                     hlcFactory = FakeHlcFactory(),
+                    deadLetterDao = FakeSyncDeadLetterDao(),
                 )
 
             p.pull(testScopeObj, sinceLsn = 0)
@@ -548,6 +545,7 @@ class PullPhaseTest {
                     getHandlers = { mapOf(DocType.Task to EntityApply { ApplyOutcome.Applied }) },
                     scope = phaseScope,
                     hlcFactory = FakeHlcFactory(),
+                    deadLetterDao = FakeSyncDeadLetterDao(),
                 )
 
             val result = p.pull(testScopeObj, sinceLsn = 0)
@@ -589,6 +587,7 @@ class PullPhaseTest {
                     getHandlers = { mapOf(DocType.Task to EntityApply { ApplyOutcome.Applied }) },
                     scope = phaseScope,
                     hlcFactory = FakeHlcFactory(),
+                    deadLetterDao = FakeSyncDeadLetterDao(),
                 )
 
             val result = p.pull(testScopeObj, sinceLsn = 0)
@@ -636,6 +635,7 @@ class PullPhaseTest {
                     getHandlers = { mapOf(DocType.Task to EntityApply { ApplyOutcome.Applied }) },
                     scope = phaseScope,
                     hlcFactory = FakeHlcFactory(),
+                    deadLetterDao = FakeSyncDeadLetterDao(),
                 )
 
             p.pull(scope, sinceLsn = 0)
@@ -670,6 +670,7 @@ class PullPhaseTest {
                     getHandlers = { emptyMap() },
                     scope = phaseScope,
                     hlcFactory = FakeHlcFactory(),
+                    deadLetterDao = FakeSyncDeadLetterDao(),
                 )
 
             val result = p.pull(testScopeObj, sinceLsn = 0)
@@ -705,6 +706,7 @@ class PullPhaseTest {
                     getHandlers = { mapOf(DocType.Task to EntityApply { ApplyOutcome.Applied }) },
                     scope = phaseScope,
                     hlcFactory = FakeHlcFactory(),
+                    deadLetterDao = FakeSyncDeadLetterDao(),
                 )
 
             val result = p.pull(testScopeObj, sinceLsn = 0)

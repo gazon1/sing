@@ -297,10 +297,11 @@ private fun Scope.syncEngine(): SyncEngine {
     // getHandlers lambda uses get<SyncEngine>() — Koin resolves engine as a singleton,
     // so this returns the same instance. The lambda is not invoked during construction.
     //
-    // Built by hand rather than by SyncEngine's own default, so a dependency left out
-    // here is not a compile error — the phase simply runs without it. `deadLetterDao`
-    // is the shelf a corrupt payload is recorded on (#1422); omitting it turns the
-    // record back into a log line nobody reads.
+    // Built by hand rather than by SyncEngine's own default. Every dependency of the
+    // pull phase is required, so a dependency left out here is a compile error rather
+    // than a phase that quietly runs without it. `deadLetterDao` is the shelf a corrupt
+    // payload is recorded on (#1422); it is the same shelf the engine holds, so a
+    // shelved event is one the engine can show.
     val pullPhase =
         PullPhase(
             api = get(),

@@ -77,9 +77,22 @@ What was run, and what was not. Nothing here claims a green run the authoring se
 did not perform, and `tasks.md` says the same thing in the same terms.
 
 - `openspec validate --all --strict` — ran, exit 0.
-- `:shared:jvmTest` — **not run**: the authoring sandbox refused Gradle. The tests that
-  carry this change are named in `tasks.md`: the handler classifies a corrupt payload,
-  the pull phase shelves it and still advances the cursor, the outcome shape is pinned,
-  and a redelivery is counted rather than swallowed. CI is what runs them; until it
-  reports, this change is unverified, not verified.
+- `:shared:jvmTest` — **not run**: the authoring sandbox refused Gradle, and so did the
+  session that answered the review of the pull request. The tests that carry this
+  change are named in `tasks.md`: the handler classifies a corrupt payload, the pull
+  phase shelves it and still advances the cursor, the outcome shape is pinned, and a
+  redelivery is counted rather than swallowed. CI is what runs them; until it reports,
+  this change is unverified, not verified.
 - `detekt` — **not run**, same reason. Not a claim of a green run.
+
+## The shelf is not optional
+
+The review of the pull request found the recording half could be left out: the pull
+phase took the shelf as a defaulted argument, so a construction site that forgot it
+compiled, ran, and dropped the record without saying so — the divergence #1407 is
+about, in a quieter shape.
+
+The shelf is now a required argument of the pull phase, with no default and no
+stand-in: a construction that does not name a shelf does not compile. The app hands
+over the real DAO and a test hands over a fake. The behaviour is unchanged; what
+changed is that the omission is no longer expressible.
