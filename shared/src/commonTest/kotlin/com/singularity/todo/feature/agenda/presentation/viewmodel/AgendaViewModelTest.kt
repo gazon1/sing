@@ -16,6 +16,7 @@ import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.MergeTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
@@ -27,11 +28,14 @@ import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import com.singularity.todo.test.fakes.FakeTaskMutationsUseCase
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import com.singularity.todo.test.fakes.TEST_TZ
 import com.singularity.todo.test.helpers.VmScope
 import com.singularity.todo.test.helpers.testVm
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -45,6 +49,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -132,8 +137,9 @@ class AgendaViewModelTest {
         draftStore: FakeDraftStore = FakeDraftStore(),
         reminderScheduler: ReminderScheduler = fakeReminderScheduler,
         greetingSettings: GreetingSettingsRepository = fakeSettings.greeting,
+        taskRepo: FakeTaskRepository = fakeRepo,
     ) = AgendaDeps(
-        taskRepo = fakeRepo,
+        taskRepo = taskRepo,
         clock = clock,
         timeZone = TEST_TZ,
         logger = Logger,
@@ -982,5 +988,53 @@ class AgendaViewModelTest {
                 fakeProjectsRepo.observeAllIncludingClosedCalls,
                 "the lookup is once per list build, not once per row",
             )
+        }
+
+    // ─── A failed load is reported ───────────────────────────────────────────
+
+    /**
+     * A task repository whose filtered observation fails.
+     *
+     * The fake has no hook for a failing flow, so the observation is overridden
+     * here: the agenda's collection stops on it, and the catch that handles the
+     * stop is what this test is about.
+     */
+    private class FailingTaskRepository(
+        private val failure: Throwable,
+    ) : FakeTaskRepository() {
+        override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> = flow { throw failure }
+    }
+
+    /**
+     * The cause must reach the crash reporter, not only the screen.
+     *
+     * The catch that handles the stopped collection used to turn the cause into
+     * a message and drop it, so a defect in the agenda's observation was
+     * invisible off-device: the screen said "Could not load agenda" and nothing
+     * said why.
+     */
+    @Test
+    fun `a failed load reports the cause to the crash reporter`() =
+        runTest {
+            val failure = IllegalStateException("the observation failed")
+            val reporter = RecordingCrashReportingPort()
+            val vm =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        deps = agendaDeps(taskRepo = FailingTaskRepository(failure)),
+                        definition = AgendaPresets.Inbox,
+                        crashReporter = reporter,
+                        scope = scope,
+                    )
+                }
+            // The failure travels through several dispatches — flatMapLatest, the
+            // combine, the catch — so the scheduler is drained twice.
+            runCurrent()
+            runCurrent()
+
+            assertIs<AgendaUiState.Error>(vm.stateFlow.value)
+            val reported = reporter.reports.single()
+            assertSame(failure, reported.first, "the reporter gets the original throwable")
+            assertEquals("agenda.load_failed", reported.second)
         }
 }
