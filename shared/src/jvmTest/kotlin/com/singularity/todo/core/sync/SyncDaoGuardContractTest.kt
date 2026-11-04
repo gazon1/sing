@@ -6,8 +6,15 @@ import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.test.fakes.FakeAppDatabase
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -17,6 +24,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 /**
  * The ownership guards of the sync shadow and the sync dead-letter shelf.
@@ -76,6 +84,15 @@ abstract class SyncDaoGuardContractTest {
         assertEquals(0, deadLetterDao.countForOwner("owner-c"))
     }
 
+    /**
+     * A flow taken from the shelf before the shelf changed reports the change.
+     *
+     * Two things are pinned here, and they are different. Re-collecting the flow reports
+     * the row, which is what a fake that captured a snapshot in `watch()` fails — its
+     * frozen list stays empty forever. And a collector started on the flow *taken above*
+     * sees the row arrive, which is what makes this a flow rather than a re-read of
+     * whatever the caller happens to ask next.
+     */
     @Test
     fun `the shelf reports a patch shelved after the flow was taken`() = runTest {
         val shelf = deadLetterDao.watch()
@@ -84,9 +101,29 @@ abstract class SyncDaoGuardContractTest {
         assertTrue(shelf.first().isEmpty(), "the shelf starts empty")
         assertEquals(0, count.first())
 
+        val shelved = CompletableDeferred<Int>()
+        val counted = CompletableDeferred<Int>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            shelf.collect { rows -> if (rows.isNotEmpty()) shelved.complete(rows.size) }
+        }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            count.collect { total -> if (total > 0) counted.complete(total) }
+        }
+
         deadLetterDao.insert(shelfRow("patch-a", OWNER_A))
 
-        assertEquals(1, shelf.first().size, "a flow taken before the row was shelved must still report it")
+        assertEquals(
+            1,
+            awaitEmission(shelved, "the shelved row"),
+            "a flow taken before the row was shelved must report it without being re-collected",
+        )
+        assertEquals(
+            1,
+            awaitEmission(counted, "the shelf's count"),
+            "the count taken before the row was shelved must report it too",
+        )
+
+        assertEquals(1, shelf.first().size, "and re-collecting reports it as well")
         assertEquals(1, count.first())
     }
 
@@ -97,7 +134,11 @@ abstract class SyncDaoGuardContractTest {
         shadowDao.upsert(shadowRow(OWNER_B, PROFILE_ONE, "entity-3"))
 
         assertEquals(2, shadowDao.countForOwner(OWNER_A))
-        assertEquals(1, shadowDao.deleteForOwner(OWNER_A))
+        assertEquals(
+            2,
+            shadowDao.deleteForOwner(OWNER_A),
+            "the erase takes both of the owner's profiles, and reports both rows",
+        )
 
         assertEquals(0, shadowDao.countForOwner(OWNER_A))
         assertNotNull(
@@ -329,6 +370,23 @@ abstract class SyncDaoGuardContractTest {
         assertEquals("""{"title":"new"}""", row.inFlightJson)
     }
 
+    /**
+     * Waits for [deferred] in real time, and says what never arrived.
+     *
+     * Real time rather than the test scheduler's virtual clock: the Room tiers' flows
+     * emit from the database's own dispatcher, which the test scheduler does not drive,
+     * and a virtual `withTimeout` would fire the moment the test's own queue went idle.
+     */
+    private suspend fun <T> awaitEmission(
+        deferred: CompletableDeferred<T>,
+        what: String,
+    ): T =
+        try {
+            withContext(Dispatchers.Default) { withTimeout(FLOW_TIMEOUT_MS) { deferred.await() } }
+        } catch (timeout: TimeoutCancellationException) {
+            fail("$what never arrived on a flow taken before the change: $timeout")
+        }
+
     /** A shelved patch, as the shelf holds it. */
     private fun shelfRow(
         patchId: String,
@@ -370,6 +428,9 @@ abstract class SyncDaoGuardContractTest {
         const val PROFILE_ONE = "profile-1"
         const val PROFILE_TWO = "profile-2"
         const val TASK = "task"
+
+        /** How long an open flow is given to report a change. Generous: it is a wait, not a deadline. */
+        private const val FLOW_TIMEOUT_MS = 10_000L
     }
 }
 

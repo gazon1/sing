@@ -60,8 +60,11 @@ data class SyncDeadLetterEntity(
  *   erase, and the preview that precedes it.
  * - **patch-id-keyed** — `delete`. A patch id is a UUID, so it names one row; the
  *   outbox's `delete` is keyed the same way.
- * - **global** — `clearAll`. A sign-out drains every account's shelf, exactly as it
- *   drains every account's outbox.
+ * - **global** — `clearAll`, the wholesale drain. No production path calls it: a
+ *   sign-out keeps local data (REQ-UA-006, `SignOutKeepsLocalDataTest`), and the
+ *   account switch erases one owner through `deleteForOwner`. It is the counterpart
+ *   of the outbox's own `clearAll` — a reset with no owner to name — and not a
+ *   substitute for the scoped erase.
  *
  * ## What the shelf does not carry
  *
@@ -106,15 +109,14 @@ interface SyncDeadLetterDao {
     /**
      * Drops every account's shelved patches.
      *
-     * A sign-out drains the shelf as it drains the outbox: work kept across a
-     * sign-out belongs to the account that is leaving, and a shelf that outlived it
-     * would hold patches no account can send.
+     * The wholesale drain, and no substitute for [deleteForOwner]: the account switch
+     * erases one account's shelf and leaves the rest, while this empties every
+     * account's. Nothing in production calls it — a sign-out keeps local data
+     * (REQ-UA-006), so the shelf outlives the account that left — and it exists as the
+     * counterpart of the outbox's `clearAll`, for a reset with no owner to name.
      *
-     * The global drain, and not a substitute for [deleteForOwner]: the account
-     * switch erases one account's shelf and leaves the rest, while this empties
-     * every account's. The two are different operations with different callers, and
-     * a sign-out is the only thing that wants the second one — REQ-UA-017's switch
-     * must not take another account's shelved work with it.
+     * A switch that reached for this would take the incoming account's shelved work
+     * with the outgoing one's, which is the failure [deleteForOwner] exists to prevent.
      */
     @Query("DELETE FROM sync_dead_letter")
     suspend fun clearAll()
