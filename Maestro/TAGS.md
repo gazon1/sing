@@ -348,8 +348,10 @@ non-alphanumeric characters with `_`.
 ### Calendar
 | Constant | Value | Where |
 |---|---|---|
+| `CALENDAR_CONTROLS` | `calendar_controls` | |
 | `CALENDAR_DAY_CELL` | `calendar_day_cell` | |
 | `CALENDAR_MONTH_TITLE` | `calendar_month_title` | |
+| `CALENDAR_TODAY` | `calendar_today` | |
 | `CALENDAR_VIEW_MODE_TRIGGER` | `calendar_view_mode_trigger` | |
 | `CALENDAR_WEEKDAY_MON` | `calendar_weekday_mon` | |
 | `CALENDAR_WEEKDAY_SUN` | `calendar_weekday_sun` | |

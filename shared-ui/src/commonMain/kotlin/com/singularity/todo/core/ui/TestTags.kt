@@ -1267,6 +1267,32 @@ object TestTags {
     const val CALENDAR_MONTH_TITLE = "calendar_month_title"
 
     /**
+     * The bar's control strip: the view-mode trigger, the mini-calendar toggle,
+     * the month pager and "Today".
+     *
+     * One tag on the strip so a layout test can say where the strip sits — that
+     * it ends at the bar's right edge on a wide window, and that it stays inside
+     * the window at a phone width — without addressing the individual controls.
+     * The strip does not scroll: it is laid out at the size of its controls and
+     * the bar around it is what gives way, so "where it sits" is a claim about
+     * the bar's layout and not about any one button. No Maestro flow uses this
+     * tag today; it exists for [CalendarTopBarNarrowTest] and is in the
+     * catalogue so a flow that needs it can be written against a documented id.
+     */
+    const val CALENDAR_CONTROLS = "calendar_controls"
+
+    /**
+     * The control that brings the calendar back to today's period.
+     *
+     * The label is the app's word ("Today"); a test that measured the label's
+     * node by its words would pin the app to that word, and the tag lets a
+     * layout test measure the control that the word used to be — the one that
+     * wrapped one letter per line at 360 dp. No flow taps it today; a flow that
+     * does should use this id rather than the word.
+     */
+    const val CALENDAR_TODAY = "calendar_today"
+
+    /**
      * A day cell of the calendar's day grid — the cell that holds one day.
      *
      * The month grid names its cells by date ([calendarDay]); the day grid has
