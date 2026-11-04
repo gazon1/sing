@@ -2,10 +2,14 @@ package com.singularity.todo
 
 import android.app.Activity
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateBottomPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -31,6 +35,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
@@ -114,6 +119,29 @@ fun androidShellNav3Root(
 
     val screenActions = remember { ScreenActionsHolder() }
 
+    // The room the last row of a screen needs so it sits above the navigation bar rather
+    // than under it (#1699), read *here* rather than inside the navigation suite's content.
+    //
+    // NavigationSuiteScaffold wraps everything it composes in
+    // `navigationSuiteScaffoldConsumeWindowInsets`, which consumes
+    // `NavigationBarDefaults.windowInsets.only(Bottom)` — the bar's own window inset — for
+    // the bar itself. Reading the bottom inset from inside the content lambda therefore
+    // resolves to zero, and taking that side there changes nothing: the edge the bar does
+    // not reserve for this content is exactly the one restored below. Above the suite the
+    // consumption has not happened yet, so this is the window's real inset: taller under
+    // 3-button navigation, shorter under gesture navigation, and absent on a wide window
+    // that puts the suite beside the content. A constant would be wrong in each of those
+    // cases, which is why the value is read rather than written down.
+    //
+    // `Scaffold`'s `contentWindowInsets` is in PIXELS, while `calculateBottomPadding()`
+    // returns a `Dp`: the conversion belongs here, at the one place that knows the
+    // composition's density. Handing the `Dp` straight to `WindowInsets(bottom = ...)` is an
+    // Int-where-Dp mismatch and does not compile.
+    val windowBottomInsetPx =
+        with(LocalDensity.current) {
+            WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding().roundToPx()
+        }
+
     NavigationSuiteScaffold(
         navigationSuiteItems = {
             DestinationKind.tabs.forEach { destination ->
@@ -164,9 +192,38 @@ fun androidShellNav3Root(
                     modifier = Modifier.testTag(TestTags.TASKS_FAB),
                 )
             },
-            contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal),
+            // The horizontal sides are taken so a cutout or a wide window's side edge
+            // never reaches the content. The top side is deliberately left out:
+            // ShellTopBar already pads for the status bar, so keeping it here applies it
+            // twice (#1566). `AndroidShellBottomInsetTest` holds that half too, so a later
+            // "take the whole inset" cannot undo it without turning a gate red.
+            //
+            // The bottom side is taken, and that is the fix for #1699: the last row of
+            // every screen must sit above the navigation bar, not under it. It is spelled
+            // as `windowBottomInsetPx` — the inset read above the suite — rather than as
+            // `only(... Bottom)` on this scaffold's own window insets, because the suite
+            // has already consumed the bar's inset for this subtree: taking the bottom side
+            // from inside it evaluates to zero and would leave the bug in place. The value
+            // is the window's own inset, so it follows 3-button navigation, gesture
+            // navigation and a rail rather than standing in a fixed length for them.
+            //
+            // The suite's `PaddingValues` is not an alternative source, because there is
+            // none to take. The artifact this project resolves,
+            // `org.jetbrains.compose.material3:material3-adaptive-navigation-suite:1.13.0-beta01`,
+            // carries no classes at all — it re-exports
+            // `androidx.compose.material3:material3-adaptive-navigation-suite-android:1.5.0-beta01`
+            // — and `javap` over that jar lists every `NavigationSuiteScaffold` overload
+            // with `content` as `Function2<Composer, Integer, Unit>`: a bare
+            // `@Composable () -> Unit`, with no `PaddingValues` parameter to forward.
+            contentWindowInsets = ScaffoldDefaults.contentWindowInsets
+                .only(WindowInsetsSides.Horizontal) +
+                WindowInsets(bottom = windowBottomInsetPx),
         ) { padding ->
-            Box(Modifier.fillMaxSize().padding(padding)) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+            ) {
                 val appEntryProvider = createAppEntryProvider(navCallbacks, today)
 
                 // The blank-tree diagnostic (REQ-DN-004) is recorded by
