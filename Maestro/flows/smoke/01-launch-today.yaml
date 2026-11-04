@@ -4,9 +4,14 @@
 # AuthGuard (anonymous session) -> Nav3 startRoute (AgendaGraph/Today) ->
 # androidShellNav3Root (bottom bar + FAB).
 #
-# The bar's set is `DestinationKind.tabs` — Inbox, Today, Upcoming, Calendar,
-# plus the Menu button. Plans and Pomodoro are menu destinations and are not
-# tabs, so asserting them here would assert a bar the app does not draw.
+# This flow asserts the boot chain, not the tab set. It used to enumerate the
+# whole bar — the same five `assertVisible` and two `assertNotVisible` that
+# Maestro/flows/nav/01-tab-set.yaml carries — and since both files are
+# `smoke`-tagged, the pull-request tier paid for the same seven assertions on
+# every push and the two copies were free to drift apart. The set has one owner
+# now (`DestinationKind.tabs`: Inbox, Today, Upcoming, Calendar, plus the Menu
+# button); this flow asserts only that the chain landed on an agenda tab with
+# the shell's FAB, which is what "the app came up" means.
 appId: com.singularity.todo
 name: smoke-launch-today
 tags:
@@ -15,18 +20,7 @@ tags:
 - runFlow: ../../helpers/launch-clean.yaml
 - assertVisible:
     id: tasks_fab
-- assertVisible:
-    id: nav_tab_inbox
+# The start route and the shell's FAB: the chain reached the agenda shell.
 - assertVisible:
     id: nav_tab_today
-- assertVisible:
-    id: nav_tab_upcoming
-- assertVisible:
-    id: nav_tab_calendar
-- assertVisible:
-    id: nav_menu_button
-- assertNotVisible:
-    id: nav_tab_plans
-- assertNotVisible:
-    id: nav_tab_pomodoro
 - takeScreenshot: smoke/01-launch-today

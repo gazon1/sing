@@ -34,13 +34,37 @@
 #
 # Measured 2026-10-22 by a full run of all 94 flows on the device
 # (RMX3938, API 35): 64 passed, 30 failed, 7 of the failures in the smoke
-# subset. The numbers below are that run's failure counts, so the gate passes
-# today and fails the first time the debt grows.
+# subset. The numbers below started as that run's failure counts, so the gate
+# passes and fails the first time the debt grows.
 #
 # The smoke set has changed since that run — the floor is a count of failures,
 # not a fraction of the suite — so a flow that joins the tag and fails is
 # debt the floor does not know about until it is re-measured and the number
 # below is raised deliberately.
+#
+# ── Lowered by the tab -> menu migration ─────────────────────────────────────
+#
+# Eighteen flows were in the 30 because they tapped a bottom-bar id the bar no
+# longer draws (`nav_tab_plans`, `nav_tab_pomodoro`) or asserted a bar the app
+# no longer has (a Calendar button that was not one yet, Plans/Pomodoro as
+# tabs). They now reach their destination the way a person does — menu button,
+# scroll the sheet, tap the entry — and they pass:
+#
+#   Maestro/flows/plans/01..10          (ten flows, all `plans`)
+#   Maestro/flows/pomodoro/01..05       (five flows, all `pomodoro`)
+#   Maestro/flows/nav/01-no-calendar-tab.yaml  (deleted; its replacement
+#                                       01-tab-set.yaml asserts the bar as
+#                                       drawn and passes)
+#   Maestro/flows/nav/bottom-nav-tabs.yaml
+#   Maestro/flows/smoke/01-launch-today.yaml
+#
+# Three of those are in the smoke subset — nav/01, nav/bottom-nav-tabs and
+# smoke/01-launch-today — so `smoke` drops from 7 to 4 and `full` from 30 to 12.
+# The remaining 4 and 12 are the other four groups the ADR names; they do not
+# move here. This is the ratchet the header describes: the number went down in
+# the change that says what was fixed, so the first regression in, say,
+# plans/01-days-in-order.yaml fails the gate instead of eating the slack these
+# repairs would otherwise have left behind.
 
-full 30
-smoke 7
+full 12
+smoke 4

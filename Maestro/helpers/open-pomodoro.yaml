@@ -1,0 +1,22 @@
+# Opens Pomodoro the way a person does: bottom-bar Menu button, then the entry.
+#
+# Pomodoro is a destination of the app menu, not a tab. A flow that taps
+# `nav_tab_pomodoro` is tapping an id the bar does not render, so it fails on an
+# element that cannot exist and the failure says nothing about Pomodoro.
+#
+# The sheet is a scrollable column: the entry can be in the hierarchy and still
+# be below the fold, and a row that is drawn but off-screen is not a row the
+# user can reach. So the scroll is part of opening Pomodoro, not a stylistic
+# step — and it lives here, once, so a menu reorder is a one-file change and a
+# failure names the entry it could not find (`menu_pomodoro`) rather than timing
+# out on an invisible id.
+appId: com.singularity.todo
+---
+- runFlow: open-app-menu.yaml
+- scrollUntilVisible:
+    element:
+      id: menu_pomodoro
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: menu_pomodoro

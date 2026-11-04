@@ -1,20 +1,26 @@
 # The bottom bar holds exactly the tabs the shell declares, and nothing else.
 #
 # The set is `DestinationKind.tabs`: Inbox, Today and Upcoming (the agenda's
-# three start routes), the Calendar, and the Menu button that opens the app
-# menu. Plans and Pomodoro are menu destinations — a flow that looked for them
-# in the bar described a bar the app no longer draws.
+# three start routes), plus the Menu button that opens the app menu. Plans and
+# Pomodoro are menu destinations — a flow that looked for them in the bar
+# described a bar the app no longer draws.
 #
-# The `scenario:NAV-01` tag predates the Calendar's promotion from a menu entry
-# to a tab (commit f73aca39c): that scenario still reads "the bar no longer
-# holds a Calendar button", and the bar does. The assertions below are the bar as
-# it is; the scenario is the piece still to be rewritten.
+# The Calendar is a fourth tab (`AppDestination.Calendar`, promoted from the menu
+# in commit f73aca39c) and is asserted here like the other three: this file is
+# the one place the tab-set contract is written down, so it asserts the bar the
+# app draws.
+#
+# The `scenario:NAV-01` tag this file inherited from 01-no-calendar-tab.yaml is
+# gone. That scenario still reads "the bar no longer holds a Calendar button";
+# the bar has held one since f73aca39c, so tagging these assertions NAV-01 would
+# point a reader — and any scenario-coverage lookup — at a contract that
+# contradicts the flow. NAV-01 needs its own rewrite; when it has one, the tag
+# comes back here.
 appId: com.singularity.todo
 name: nav-tab-set
 tags:
   - smoke
   - nav
-  - scenario:NAV-01
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 - assertVisible:

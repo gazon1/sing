@@ -42,13 +42,24 @@ tags:
 - assertVisible:
     id: nav_tab_upcoming
 
-# Calendar — the fourth tab. It has no shell FAB of its own.
+# Calendar — the fourth tab. It has no shell FAB, and that is read off
+# `fabActionForNav3` rather than guessed: its `when` has branches for
+# AgendaGraph (Add task), ProjectsGraph (Add project) and Plans (Add task) and
+# nothing else, so `AppDestination.Calendar` falls into `else -> null`. If the
+# Calendar ever earns a FAB, the resolver grows a branch and this assertion is
+# the one that has to change.
+#
+# The post-tap assertion is the month title, not `nav_tab_calendar`: the tab is
+# in the bar whether or not the tap did anything, so asserting it here would
+# pass on a tap that went nowhere.
 - tapOn:
     id: nav_tab_calendar
 - assertNotVisible:
     id: tasks_fab
-- assertVisible:
-    id: nav_tab_calendar
+- extendedWaitUntil:
+    visible:
+      id: calendar_month_title
+    timeout: 8000
 
 # Back to an agenda tab before leaving for the menu destinations, so the
 # next assertion starts from a known FAB state.
@@ -59,15 +70,7 @@ tags:
 
 # Plans — a menu destination, below the fold of the sheet. The FAB stays
 # "Add task": the timeline creates the work that is due.
-- runFlow: ../../helpers/open-app-menu.yaml
-- scrollUntilVisible:
-    element:
-      id: menu_plans
-    direction: DOWN
-    timeout: 10000
-- tapOn:
-    id: menu_plans
-- assertVisible:
+- runFlow: ../../helpers/open-plans.yaml- assertVisible:
     id: tasks_fab
 # The bar is still there — a menu destination is a top-level screen — but the
 # Plans entry is not one of its tabs.
@@ -77,15 +80,7 @@ tags:
     id: nav_tab_plans
 
 # Pomodoro — no shell FAB.
-- runFlow: ../../helpers/open-app-menu.yaml
-- scrollUntilVisible:
-    element:
-      id: menu_pomodoro
-    direction: DOWN
-    timeout: 10000
-- tapOn:
-    id: menu_pomodoro
-- assertNotVisible:
+- runFlow: ../../helpers/open-pomodoro.yaml- assertNotVisible:
     id: tasks_fab
 - assertVisible:
     id: nav_menu_button

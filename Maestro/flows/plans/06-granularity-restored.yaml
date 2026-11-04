@@ -19,17 +19,7 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Due%20today&due=today"
-- runFlow: ../../helpers/open-app-menu.yaml
-# Plans is an entry of the app menu, below the fold of the sheet: a row that is
-# drawn but off-screen is not a row the user can reach.
-- scrollUntilVisible:
-    element:
-      id: menu_plans
-    direction: DOWN
-    timeout: 10000
-- tapOn:
-    id: menu_plans
-- extendedWaitUntil:
+- runFlow: ../../helpers/open-plans.yaml- extendedWaitUntil:
     visible:
       id: plans_granularity_day
     timeout: 8000
@@ -40,24 +30,23 @@ tags:
     file: ../../helpers/plans-section.yaml
     env:
       PLANS_SECTION: ${output.PLANS_WEEK_SECTION}
-# Leaving the screen and coming back: the choice is still in effect.
+# Leaving the screen and coming back: the choice is still in effect. What this
+# half proves is that the setting is not screen-local — the flow leaves through
+# a real tab (`nav_tab_today`, which the resolver gives an "Add task" FAB, so
+# the landing is asserted rather than assumed) and returns through the same
+# `helpers/open-plans.yaml` entry it arrived by. The entry step is a named
+# helper, so a failure here names `menu_plans` or the week section; it cannot be
+# a silent menu-scroll artefact, and if the granularity had reset on re-entry
+# the week section would be absent and the assertion below would fail.
 - tapOn:
     id: nav_tab_today
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
     timeout: 30000
-- runFlow: ../../helpers/open-app-menu.yaml
-# Plans is an entry of the app menu, below the fold of the sheet: a row that is
-# drawn but off-screen is not a row the user can reach.
-- scrollUntilVisible:
-    element:
-      id: menu_plans
-    direction: DOWN
-    timeout: 10000
-- tapOn:
-    id: menu_plans
-- runFlow:
+- assertVisible:
+    id: tasks_fab
+- runFlow: ../../helpers/open-plans.yaml- runFlow:
     file: ../../helpers/plans-section.yaml
     env:
       PLANS_SECTION: ${output.PLANS_WEEK_SECTION}
