@@ -2,6 +2,7 @@ package com.singularity.todo.feature.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -19,20 +20,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,6 +60,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.TopAppBar
+import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.ui.preview.PreviewSamples
@@ -195,7 +196,7 @@ private fun SettingsContent(
         val narrow = maxWidth < 600.dp
         if (narrow) {
             Column(modifier = Modifier.fillMaxSize()) {
-                SettingsTabDropdown(
+                SettingsTabSheet(
                     selectedTab = selectedTab,
                     onSelect = onSelectTab,
                 )
@@ -490,56 +491,97 @@ private fun SettingsNavRail(
     }
 }
 
+/**
+ * The narrow screen's way into the settings sections.
+ *
+ * It is a bottom sheet, not a dropdown: the sheet holds five headings and
+ * thirteen tabs, and a dropdown popup is shorter than a phone — the rows of
+ * the last group sat below its fold and had to be scrolled to.
+ *
+ * The sheet reads [SETTINGS_GROUPS], the same list the wide nav rail reads, so
+ * the two layouts cannot drift apart again: the phone is a narrower version of
+ * the rail, not a different screen.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsTabDropdown(
+private fun SettingsTabSheet(
     selectedTab: SettingsTab,
     onSelect: (SettingsTab) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-        modifier = Modifier.fillMaxWidth().padding(8.dp),
+    var showSheet by rememberSaveable { mutableStateOf(false) }
+
+    Button(
+        onClick = { showSheet = true },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+                .testTag(TestTags.Settings.TAB_DROPDOWN),
     ) {
-        Button(
-            onClick = { expanded = !expanded },
-            modifier =
-                Modifier
-                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                    .fillMaxWidth()
-                    .testTag(TestTags.Settings.TAB_DROPDOWN),
+        Text(selectedTab.groupedLabel)
+        Icon(Icons.Filled.ExpandMore, contentDescription = null)
+    }
+
+    if (showSheet) {
+        // The sheet opens to show what it holds: eighteen rows do not fit a
+        // phone's popup, and a half-open sheet would clip the last group
+        // again. See docs/decisions/2026-10-22-a-sheet-opens-to-what-it-holds.md.
+        val sheetState =
+            rememberBottomSheetState(
+                initialValue = SheetValue.Hidden,
+                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+            )
+        LaunchedEffect(Unit) { sheetState.show() }
+        // The canonical sheet host, not a bare ModalBottomSheet: it applies the
+        // window insets and asserts the testTag→resource-id mapping on the
+        // sheet's own window.
+        BottomSheetHost(
+            onDismiss = { showSheet = false },
+            sheetState = sheetState,
         ) {
-            Text(selectedTab.groupedLabel)
-            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-        }
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.mapTestTagsAsResourceIds(),
-        ) {
-            // The same groups, in the same order, as the wide nav rail: the
-            // narrow menu is a narrower version of the rail, not a different
-            // screen with thirteen undifferentiated rows.
-            SETTINGS_GROUPS.forEach { group ->
-                Text(
-                    text = group.title,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier =
-                        Modifier
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .testTag(TestTags.settingsGroup(group.title)),
-                )
-                group.tabs.forEach { tab ->
-                    DropdownMenuItem(
-                        text = { Text(tab.label) },
-                        modifier = Modifier.testTag(TestTags.settingsTab(tab.name)),
-                        onClick = {
-                            onSelect(tab)
-                            expanded = false
-                        },
+            Column(
+                // The sheet renders into its own window, so the app-root
+                // testTagsAsResourceId never reaches the rows.
+                //
+                // The column scrolls: eighteen rows do not fit a phone, and the
+                // rows of the last group have to be reachable, not clipped.
+                modifier =
+                    Modifier
+                        .mapTestTagsAsResourceIds()
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                SETTINGS_GROUPS.forEach { group ->
+                    Text(
+                        text = group.title,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier =
+                            Modifier
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .testTag(TestTags.settingsGroup(group.title)),
                     )
+                    group.tabs.forEach { tab ->
+                        NavigationDrawerItem(
+                            label = { Text(tab.label) },
+                            selected = tab == selectedTab,
+                            onClick = {
+                                onSelect(tab)
+                                showSheet = false
+                            },
+                            icon = { Icon(tab.icon, contentDescription = null) },
+                            // NavigationDrawerItem may establish its own
+                            // semantics scope, so the mapping is applied to the
+                            // item as well as to the column above it.
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .mapTestTagsAsResourceIds()
+                                    .testTag(TestTags.settingsTab(tab.name)),
+                        )
+                    }
                 }
             }
         }
