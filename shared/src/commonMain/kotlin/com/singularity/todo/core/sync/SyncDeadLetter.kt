@@ -46,16 +46,47 @@ data class SyncDeadLetterEntity(
 
 /**
  * DAO for patches that exhausted their retries.
+ *
+ * ## The guards, and where they come from
+ *
+ * The outbox is the reference, and this DAO wears the same guard set:
+ *
+ * - **global reads** — `watch`, `getAll`, `watchCount`. The shelf holds several
+ *   accounts' work at once (REQ-UA-006 keeps work across a sign-out), and a read
+ *   that is not scoped to an account is the outbox's `watchPending` under another
+ *   name. The outbox's *sending* path is owner-scoped, and so is nothing here that
+ *   moves a patch: the shelf's job is to hold work, not to deliver it.
+ * - **owner-scoped erase and count** — `deleteForOwner`, `countForOwner`. REQ-UA-017's
+ *   erase, and the preview that precedes it.
+ * - **patch-id-keyed** — `delete`. A patch id is a UUID, so it names one row; the
+ *   outbox's `delete` is keyed the same way.
+ * - **global** — `clearAll`. A sign-out drains every account's shelf, exactly as it
+ *   drains every account's outbox.
+ *
+ * ## What the shelf does not carry
+ *
+ * No profile. The outbox row names the profile it belongs to and the shadow's key is
+ * `(owner, profile)`, so a shelved patch is the one row of the three that cannot say
+ * which profile it was queued under — and putting it back on the outbox therefore
+ * cannot be done profile-correctly. That is a gap in the shelf's shape, not in its
+ * guards, and it is a schema change rather than a query.
  */
 @Dao
 interface SyncDeadLetterDao {
-    /** Watch dead-lettered patches, newest first — for a settings screen. */
+    /**
+     * Watch dead-lettered patches, newest first — for a settings screen.
+     *
+     * Every account's shelved work, like the outbox's `watchPending`. The shelf is
+     * a transport queue that gave up, and the outbox's queue is read the same way.
+     */
     @Query("SELECT * FROM sync_dead_letter ORDER BY failed_at DESC")
     fun watch(): Flow<List<SyncDeadLetterEntity>>
 
+    /** Every shelved patch, newest first. Unscoped, as [watch] is. */
     @Query("SELECT * FROM sync_dead_letter ORDER BY failed_at DESC")
     suspend fun getAll(): List<SyncDeadLetterEntity>
 
+    /** How many patches are shelved, across every account. Unscoped, as [watch] is. */
     @Query("SELECT COUNT(*) FROM sync_dead_letter")
     fun watchCount(): Flow<Int>
 
@@ -72,6 +103,13 @@ interface SyncDeadLetterDao {
     @Query("DELETE FROM sync_dead_letter WHERE patch_id = :id")
     suspend fun delete(id: String): Int
 
+    /**
+     * Drops every account's shelved patches.
+     *
+     * A sign-out drains the shelf as it drains the outbox: work kept across a
+     * sign-out belongs to the account that is leaving, and a shelf that outlived it
+     * would hold patches no account can send.
+     */
     @Query("DELETE FROM sync_dead_letter")
     suspend fun clearAll()
 

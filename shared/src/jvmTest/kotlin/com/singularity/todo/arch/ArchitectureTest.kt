@@ -299,8 +299,11 @@ class ArchitectureTest {
                 "SyncOutboxDao.clearAll",
                 // The dead-letter shelf is the same transport queue by another name: a
                 // patch that exceeded its retry budget is moved there verbatim, and the
-                // rows carry a patch id rather than a user. Absent until now — the gate
-                // had never been run against the file.
+                // row is addressed by its patch id — the same key the outbox's own
+                // unscoped deletes use. The shelf does carry an `owner_id` since #209,
+                // and the owner-scoped erase (`deleteForOwner`, `countForOwner`) uses
+                // it; these two entries are the patch-id-keyed delete and the
+                // wholesale drain a sign-out performs, and both are deliberate.
                 "SyncDeadLetterDao.delete",
                 "SyncDeadLetterDao.clearAll",
                 // `sync_state` is scoped by `owner_id` (see SCOPING_COLUMNS) on every other
