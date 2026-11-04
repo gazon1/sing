@@ -83,6 +83,10 @@ class NotePreview(
         val current = currentState as? NotePreviewState.Loaded ?: return
         emitError("Delete failed", { msg -> NotesUiEvent.Error("Delete failed: $msg") }) {
             repo.delete(current.note.id)
+            // The note is gone, so nothing is left to show. Saying so in the state is
+            // what lets a host tell a delete that landed from one that failed: it leaves
+            // on NotFound, not on the tap that asked for the delete.
+            updateState { NotePreviewState.NotFound }
         }
     }
 }

@@ -1,8 +1,13 @@
 package com.singularity.todo.feature.notes.presentation.screen
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.WideLayoutDetailPaneMaxWidth
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -16,6 +21,11 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  * pane clears the selection instead of popping a back-stack entry — there is no
  * entry to pop, and popping the one that *is* there would leave the notes graph
  * entirely.
+ *
+ * The pane's own content is capped at [WideLayoutDetailPaneMaxWidth] and centred
+ * in its half: a weight alone would give the monitor that motivated this layout a
+ * metre-wide measure of prose, and the pane is the half that needs the cap more
+ * than the list does.
  *
  * @param noteId the selected note, or `null` when nothing is selected yet.
  * @param onClose clears the selection — the pane's "back".
@@ -32,22 +42,28 @@ internal fun NotesDetailPane(
     onNavigateToTask: (TaskId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (noteId == null) {
-        EmptyState(
-            title = "No note selected",
-            subtitle = "Pick a note from the list to read it here",
-            testTag = TestTags.NOTES_DETAIL_EMPTY,
-            modifier = modifier,
-        )
-        return
-    }
+    val contentModifier =
+        Modifier
+            .widthIn(max = WideLayoutDetailPaneMaxWidth)
+            .fillMaxSize()
 
-    NotePreviewHost(
-        noteId = noteId,
-        onBack = onClose,
-        onEdit = { onEdit(noteId) },
-        onNavigateToNote = onSelect,
-        onNavigateToTask = onNavigateToTask,
-        modifier = modifier,
-    )
+    Box(modifier = modifier, contentAlignment = Alignment.TopCenter) {
+        if (noteId == null) {
+            EmptyState(
+                title = "No note selected",
+                subtitle = "Pick a note from the list to read it here",
+                testTag = TestTags.NOTES_DETAIL_EMPTY,
+                modifier = contentModifier,
+            )
+        } else {
+            NotePreviewHost(
+                noteId = noteId,
+                onBack = onClose,
+                onEdit = { onEdit(noteId) },
+                onNavigateToNote = onSelect,
+                onNavigateToTask = onNavigateToTask,
+                modifier = contentModifier,
+            )
+        }
+    }
 }

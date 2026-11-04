@@ -23,3 +23,14 @@ val WideLayoutMinWidth: Dp = 840.dp
  * whatever the caller measured, and the answer is a comparison.
  */
 fun isWideLayout(width: Dp): Boolean = width >= WideLayoutMinWidth
+
+/**
+ * The widest the detail pane's text column is allowed to get.
+ *
+ * The breakpoint above exists so that a list and a reader-width detail pane both
+ * fit; a pane left uncapped undoes that on the monitor that motivated it, where
+ * it grows to a thousand pixels of prose per line. The list already caps itself
+ * at 640 dp (#1509); the pane is the half that needs the cap more, and it is the
+ * half that was left open.
+ */
+val WideLayoutDetailPaneMaxWidth: Dp = 720.dp

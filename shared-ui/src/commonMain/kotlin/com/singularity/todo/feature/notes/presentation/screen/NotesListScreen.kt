@@ -176,11 +176,24 @@ fun NotesListScreen(
         ) {
             val isWide = isWideLayout(maxWidth)
 
-            // Narrowing below the breakpoint drops a selection the narrow layout has
-            // nowhere to show. Kept, it would be invisible until the window widened
-            // again, and then a note nobody opened would be on screen.
-            LaunchedEffect(isWide) {
-                if (!isWide) selectedNoteId = null
+            // Every note the list is showing right now, across all of its sections, or
+            // `null` while it has not loaded. `null` and "empty" are different answers:
+            // a list that has not arrived is no evidence that the selected note is gone.
+            val shownNoteIds: Set<NoteId>? =
+                (state as? NotesUiState.Content)?.list?.let { list ->
+                    (list.dailyNotes + list.templates + list.pinned + list.unpinned)
+                        .mapTo(mutableSetOf()) { it.id }
+                }
+
+            // The selection is reconciled against the list, not trusted. A note leaves the
+            // list without the pane being told — swiped away, bulk-deleted, deleted from
+            // the editor the pane itself opened, or hidden by a filter — and a pane that
+            // kept it showed a note that no longer exists: no empty state ever appeared,
+            // and its edit affordance opened a deleted id. Narrowing below the breakpoint
+            // drops the selection for the same reason: the single-pane layout has nowhere
+            // to put it.
+            LaunchedEffect(isWide, shownNoteIds, selectedNoteId) {
+                selectedNoteId = reconciledSelection(selectedNoteId, shownNoteIds, isWide)
             }
 
             val openNote: (NoteId) -> Unit =
@@ -237,10 +250,13 @@ fun NotesScreenContent(
     modifier: Modifier = Modifier,
     actions: NotesActions = NotesActions.Empty,
     /**
-     * What a note row does. The default is the single-pane behaviour — open the
-     * preview as a route; the wide layout passes "select it for the pane".
+     * What a note row does, or `null` when the caller has not decided.
+     *
+     * `null` is not a behaviour of its own: it hands the row to the one definition of
+     * the single-pane default, which lives in [SwipeableNoteCard] and nowhere else.
+     * The wide layout passes "select it for the pane" and that reaches every row.
      */
-    onOpenNote: (NoteId) -> Unit = { navigator.openPreview(it) },
+    onOpenNote: ((NoteId) -> Unit)? = null,
 ) {
     var sortMenuExpanded by remember { mutableStateOf(false) }
     val listState = (state as? NotesUiState.Content)?.list
@@ -519,7 +535,7 @@ private fun NoteList(
     isSelectionMode: Boolean,
     selectedIds: ImmutableSet<NoteId>,
     navigator: NotesNavigator,
-    onOpenNote: (NoteId) -> Unit,
+    onOpenNote: ((NoteId) -> Unit)?,
     actions: NotesActions,
     currentFilter: NoteFilter,
     modifier: Modifier = Modifier,
@@ -657,11 +673,12 @@ fun SwipeableNoteCard(
     isArchived: Boolean = false,
     onUnarchive: () -> Unit = {},
     /**
-     * What tapping the card does. The default is the single-pane behaviour —
-     * open the preview as a route; the wide layout passes "select it for the
-     * detail pane", so the list keeps its place.
+     * What tapping the card does, or `null` for the single-pane behaviour — open the
+     * preview as a route. This is the one place that default is stated: `NotesScreenContent`
+     * and [NoteList] pass the caller's choice through without a fallback of their own, so
+     * a caller that has a detail pane cannot end up with a row that navigates instead.
      */
-    onOpenNote: (NoteId) -> Unit = { navigator.openPreview(it) },
+    onOpenNote: ((NoteId) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val dismissState = rememberSwipeToDismissBoxState()

@@ -46,6 +46,9 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -146,6 +149,20 @@ fun NotePreviewHost(
         viewModel.onIntent(NotePreviewIntent.Load(noteId.value))
     }
 
+    // A delete is only finished once the note is actually gone, and [NotePreview] says
+    // so by dropping to NotFound — the state it reaches only after the repository has
+    // removed the note. Leaving on the tap instead announced a delete that had not
+    // happened: the route popped, the pane said "no note selected", and the note was
+    // still in the list. `deleteRequested` keeps a note that was missing all along from
+    // being mistaken for one that was just deleted.
+    var deleteRequested by remember(noteId) { mutableStateOf(false) }
+    LaunchedEffect(state, deleteRequested) {
+        if (deleteRequested && state is NotePreviewState.NotFound) {
+            deleteRequested = false
+            onBack()
+        }
+    }
+
     Box(modifier) {
         NotePreviewScreenContent(
             state = state,
@@ -166,11 +183,12 @@ fun NotePreviewHost(
             confirmLabel = "Delete",
             dismissLabel = "Cancel",
             onConfirm = {
-                viewModel.onIntent(NotePreviewIntent.Delete)
                 sheets.dismissSheet()
-                // A deleted note cannot stay on screen in either layout: the route
-                // pops, the pane clears.
-                onBack()
+                // The sheet closes now; the screen leaves only when the delete lands,
+                // in the effect above. A failed delete leaves the note on screen, where
+                // it still is in the list.
+                deleteRequested = true
+                viewModel.onIntent(NotePreviewIntent.Delete)
             },
             onDismiss = { sheets.dismissSheet() },
         )
