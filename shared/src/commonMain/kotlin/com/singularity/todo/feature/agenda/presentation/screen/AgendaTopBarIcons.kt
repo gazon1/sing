@@ -20,9 +20,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * The first pair was a filled bookmark next to an outlined one. Both said
  * "bookmark", the difference was a hairline the eye cannot resolve on a phone,
  * and nothing on screen said which button opened the list and which saved the
- * view that was open. The metaphors are separate now, and the "saved views"
- * button carries the same list glyph as the saved-views destination itself, so
- * the button and the screen it opens agree.
+ * view that was open. "Saved views" is a list now — the same glyph the saved-views
+ * destination carries, so the button and the screen it opens agree — and the only
+ * bookmark left in the bar is the one with a plus, which is the one that creates
+ * a saved view. A second bookmark is not an option: two of them in one bar is the
+ * defect this replaced.
  *
  * The icons are named here rather than written inline in the composable, so a
  * test can hold the rule that they differ.

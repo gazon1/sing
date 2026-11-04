@@ -3,27 +3,38 @@ package com.singularity.todo.feature.nav
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.FactCheck
+import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.automirrored.filled.Note
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.FolderShared
+import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoveToInbox
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.platform.systemToday
@@ -386,16 +397,21 @@ sealed interface AppDestination : AppNavKey {
  * The glyph a destination is drawn with.
  *
  * One metaphor per destination, and the metaphor is the destination's name: a box
- * for the archive, a tick-in-a-circle for the tasks, a notebook for the notes, a
- * chart for the statistics and a different chart for the AI usage. Two rules follow
- * from the destinations being read as one list — the menu, the bottom bar — where a
- * repeated glyph turns recognition into reading:
+ * for the archive, a to-do list for the tasks, a notebook for the notes, a chart
+ * for the statistics and a different chart for the AI usage.
  *
- * 1. no two destinations of one list share a glyph;
- * 2. no destination reuses the "done" tick, which means a completed task rather
- *    than a screen.
+ * The rules, each held by a test rather than by this comment:
  *
- * `NavigationIconsTest` holds both rules.
+ * 1. no two entries of one presented list — the menu, the bottom bar — share a
+ *    glyph (`MenuIconsTest` in the shell);
+ * 2. the agenda's start routes do not share one glyph among themselves, and none
+ *    of them is the tasks' glyph (`DestinationIconsTest`);
+ * 3. no destination anywhere is drawn with the "done" tick, which says a task is
+ *    finished rather than naming a screen (`DestinationIconsTest`).
+ *
+ * Every route is named in its `when`. A catch-all branch is how the agenda's
+ * drill-downs came to share one glyph with Tasks: the branch compiles, the list
+ * of destinations looks plausible, and nothing says which ones fell into it.
  */
 val AppDestination.icon: ImageVector
     get() =
@@ -405,10 +421,22 @@ val AppDestination.icon: ImageVector
                     AgendaStartRoute.Inbox -> Icons.Filled.MoveToInbox
                     AgendaStartRoute.Today -> Icons.Filled.Today
                     AgendaStartRoute.Upcoming -> Icons.Filled.Event
+                    // A project's agenda is reached from the projects, so it keeps
+                    // the folder the projects list carries. The project's own
+                    // screens split the family — open folder, new folder, shared
+                    // folder for its tasks — rather than all repeating one glyph.
+                    is AgendaStartRoute.Project -> Icons.Filled.Folder
+                    is AgendaStartRoute.Tag -> Icons.AutoMirrored.Filled.Label
+                    is AgendaStartRoute.Tags -> Icons.Filled.LocalOffer
                     // The saved views are a list of saved views — the same metaphor
                     // the agenda top bar's "Saved views" button carries.
                     AgendaStartRoute.SavedAgendaList -> Icons.Filled.ViewList
-                    else -> Icons.Filled.TaskAlt
+                    is AgendaStartRoute.SavedAgendaResults -> Icons.Filled.QueryStats
+                    is AgendaStartRoute.SavedAgendaEdit -> Icons.Filled.Edit
+                    AgendaStartRoute.SavedAgendaCreate -> Icons.Filled.Add
+                    AgendaStartRoute.Blocked -> Icons.Filled.Block
+                    AgendaStartRoute.Stagnant -> Icons.Filled.HourglassEmpty
+                    AgendaStartRoute.Overdue -> Icons.Filled.WarningAmber
                 }
             }
 
@@ -431,18 +459,19 @@ val AppDestination.icon: ImageVector
                     AppDestination.AttachAccount -> Icons.Filled.PersonAdd
                     AppDestination.ChangePassword -> Icons.Filled.Lock
                     is AppDestination.MagicLinkConfirm -> Icons.Filled.VerifiedUser
-                    is AppDestination.TasksGraph -> Icons.Filled.TaskAlt
-                    is AppDestination.TasksByProject -> Icons.Filled.Folder
-                    is AppDestination.ProjectEditor -> Icons.Filled.Folder
-                    is AppDestination.ProjectDetail -> Icons.Filled.Folder
+                    // Tasks are a list, not a tick: a tick says one task is
+                    // finished, a list says where the tasks live. Nothing in the
+                    // destination map draws the tick at all.
+                    is AppDestination.TasksGraph -> Icons.AutoMirrored.Filled.ListAlt
+                    is AppDestination.TasksByProject -> Icons.Filled.FolderShared
+                    is AppDestination.ProjectEditor -> Icons.Filled.CreateNewFolder
+                    is AppDestination.ProjectDetail -> Icons.Filled.FolderOpen
                     is AppDestination.ProjectsGraph -> Icons.Filled.Folder
                     is AppDestination.ProjectsStartRoute -> Icons.Filled.Folder
                     is AppDestination.NotesGraph -> Icons.AutoMirrored.Filled.Note
                     is AppDestination.NotesStartRoute -> Icons.AutoMirrored.Filled.Note
                     is AppDestination.CalendarGraph -> Icons.Filled.CalendarMonth
                     is AppDestination.CalendarStartRoute -> Icons.Filled.CalendarMonth
-                    is AgendaStartRoute -> Icons.Filled.TaskAlt
-                    is AppDestination.TasksStartRoute -> Icons.Filled.TaskAlt
                 }
             }
         }

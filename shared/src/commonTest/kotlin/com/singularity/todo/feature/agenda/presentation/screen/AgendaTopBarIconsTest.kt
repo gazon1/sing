@@ -42,6 +42,36 @@ class AgendaTopBarIconsTest {
     }
 
     /**
+     * "Saved views" and "Save current agenda" are two different jobs, so they are
+     * two different metaphors.
+     *
+     * Distinct names are not enough on their own: `Bookmark` and `BookmarkBorder`
+     * have distinct names and are one silhouette, which is exactly the pair this
+     * bar used to draw. So the list button has to be a list, and the save button
+     * has to not be a second bookmark.
+     */
+    @Test
+    fun theSavedViewsButtonIsAListAndTheSaveButtonIsNotASecondBookmark() {
+        // Any list will do — the point is that it is a list, not a bookmark. Pinning
+        // one list glyph would fail on a legitimate swap to another.
+        val listGlyphs = setOf("List", "ListAlt", "ViewList", "FormatListBulleted", "Subject")
+        assertTrue(
+            AgendaTopBarIcons.savedViews.glyphName() in listGlyphs,
+            "The saved-views button no longer carries the list it opens " +
+                "(${AgendaTopBarIcons.savedViews.glyphName()})",
+        )
+        // One bookmark may stay — the one that creates a view. What may not come
+        // back is a second plain bookmark next to it.
+        val plainBookmarks = setOf("Bookmark", "BookmarkBorder", "Bookmarks")
+        assertTrue(
+            AgendaTopBarIcons.saveCurrent.glyphName() !in plainBookmarks,
+            "The save button is a plain bookmark again, next to the list: two bookmark " +
+                "silhouettes in one bar is the defect the split replaced " +
+                "(${AgendaTopBarIcons.saveCurrent.glyphName()})",
+        )
+    }
+
+    /**
      * The name of a glyph, without the style it is drawn in.
      *
      * "Filled.Bookmark" and "Outlined.Bookmark" are one glyph in two styles, so
