@@ -299,18 +299,34 @@ class ArchitectureTest {
                 "SyncOutboxDao.clearAll",
                 // The dead-letter shelf is the same transport queue by another name: a
                 // patch that exceeded its retry budget is moved there verbatim, and the
-                // rows carry a patch id rather than a user. Absent until now — the gate
-                // had never been run against the file.
+                // row is addressed by its patch id — the same key the outbox's own
+                // unscoped deletes use. The shelf does carry an `owner_id` since #209,
+                // and the owner-scoped erase (`deleteForOwner`, `countForOwner`) uses
+                // it; these two entries are the patch-id-keyed delete and the wholesale
+                // drain, and both are deliberate.
+                //
+                // Neither of them is a sign-out. A sign-out keeps local data
+                // (REQ-UA-006, `SignOutKeepsLocalDataTest`), so it reaches no sync table
+                // at all, and the account switch — the one path that does erase sync
+                // rows — goes through `OwnerScopedEraser`, which calls `deleteForOwner`
+                // and never `clearAll` (`OwnerScopedEraserTest`). Grep `clearAll()` in
+                // commonMain: declaration, delegation, no caller. These drains exist for
+                // a reset with no owner to name, and a future path that reaches for one
+                // on a switch would empty every account's shelf — the failure
+                // `deleteForOwner` exists to prevent.
                 "SyncDeadLetterDao.delete",
                 "SyncDeadLetterDao.clearAll",
                 // `sync_state` is scoped by `owner_id` (see SCOPING_COLUMNS) on every other
-                // write. This one is the deliberate exception: a sign-out drains every
-                // scope, because leaving the previous account's cursor behind would make
-                // the next sign-in resume inside its history.
+                // write. This one is the deliberate exception: draining every scope is
+                // only correct for a reset with no owner left to name, and no production
+                // path calls it — a sign-out keeps local data (REQ-UA-006). A scoped
+                // drain would leave the next account resuming inside the previous one's
+                // history, which is why this is not the erase the switch uses.
                 "SyncStateDao.clearAll",
-                // A sign-out drops every scope's shadow at once, like the state table. A
-                // scoped drain would leave the next account diffing against a base that
-                // describes the previous one's uploads.
+                // Same shape, same absence of a caller: a global drain is for a reset,
+                // and the switch erases through `OwnerScopedEraser` instead. A drain here
+                // would leave the next account diffing against a base that describes the
+                // previous one's uploads, so it must not be reached for on a switch.
                 "SyncShadowDao.clearAll",
                 // calendar_sync_task_map has no user_id column: it is device-local
                 // bookkeeping mapping calendar events, not user-owned data. Making it
@@ -738,6 +754,85 @@ class ArchitectureTest {
                 "cross profiles. If a query is genuinely global, add it to " +
                 "GLOBAL_DAO_MUTATION_ALLOWLIST and record the decision in the write-layer ADR.",
         ) { it }
+    }
+
+    /**
+     * The sync queues share one owner-scoped erase and count.
+     *
+     * The outbox is the reference: it carries an owner-scoped erase and the count
+     * that precedes it, so a switch takes one account's work and leaves the rest.
+     * The shadow and the dead-letter shelf sit beside it and must carry the same
+     * pair — a shelf whose erase was global would take another account's shelved
+     * work with it, and a shadow whose count was global would report rows the
+     * erase is about to destroy.
+     *
+     * The rest of the set — the global reads, the patch-id-keyed deletes, the
+     * global drains — is deliberate and is recorded in
+     * `GLOBAL_DAO_MUTATION_ALLOWLIST` and in
+     * `docs/decisions/2026-11-05-the-sync-queues-share-one-guard-set.md`. This test
+     * pins the half that is not a choice: the erase and the count.
+     *
+     * ## What this pins, exactly, and what it does not
+     *
+     * It reads the `@Query` text, so it can only pin the *shape* of the filter: the
+     * statement must mention a scoping column **bound to a parameter** — `owner_id = :`
+     * — and must not contain an `OR`, which is the one word that turns a filter into a
+     * tautology (`WHERE owner_id = :ownerId OR 1 = 1`). What it cannot do is prove the
+     * statement means what it says; `WHERE owner_id = owner_id` would satisfy any text
+     * check that only looks for the column, and this one still cannot see a comparison
+     * that is syntactically scoped and semantically empty.
+     *
+     * So this is a smoke guard, not the proof. The proof is
+     * `SyncDaoGuardContractTest`, which runs the erase and the count against two
+     * accounts' rows on the Room DAOs and on both fakes and asserts what *survives* —
+     * a query that stopped constraining fails there and only there. This test exists so
+     * that silently unscoping a query (`WHERE owner_id = :ownerId` → `WHERE 1`), the
+     * change that would make the contract fail, is caught by a fast gate that names the
+     * column it lost.
+     */
+    @Test
+    fun `the sync queues share one owner-scoped erase and count`() {
+        val syncDaos = setOf("SyncShadowDao", "SyncDeadLetterDao")
+        val ownerScopedMethods = listOf("deleteForOwner", "countForOwner")
+        val scoped =
+            scope.files
+                .flatMap { file -> queryFunctions(file) }
+                .filter { (dao, method, _) -> dao in syncDaos && method in ownerScopedMethods }
+                .filter { (_, _, sql) -> SCOPING_COLUMNS.any { column -> scopedByParameter(sql, column) } }
+                .map { (dao, method, _) -> "$dao.$method" }
+                .toSet()
+        val missing =
+            syncDaos
+                .flatMap { dao -> ownerScopedMethods.map { "$dao.$it" } }
+                .filterNot { it in scoped }
+        assertNoOffenders(
+            missing,
+            "the shadow and the dead-letter shelf must each carry an owner-scoped erase and " +
+                "count, as the outbox does — see " +
+                "docs/decisions/2026-11-05-the-sync-queues-share-one-guard-set.md",
+        ) { it }
+    }
+
+    /**
+     * Whether [sql] constrains [column] against a bind parameter rather than merely
+     * naming it.
+     *
+     * `WHERE owner_id = :ownerId` does; `WHERE owner_id = owner_id` does not. A
+     * disjunction anywhere in the statement is the other way a filter stops filtering
+     * (`... WHERE owner_id = :ownerId OR 1 = 1`), so an `OR` disqualifies it too.
+     * `ORDER` does not match — the pattern needs a word boundary on both sides.
+     *
+     * This is still a text check, and therefore a lower bound: it can see that the
+     * filter is *shaped* like a constraint, not that it constrains. The behaviour is
+     * `SyncDaoGuardContractTest`'s to prove.
+     */
+    private fun scopedByParameter(
+        sql: String,
+        column: String,
+    ): Boolean {
+        val bindsParameter = Regex("""\b$column\s*=\s*:""").containsMatchIn(sql)
+        val noDisjunction = !Regex("""\bOR\b""", RegexOption.IGNORE_CASE).containsMatchIn(sql)
+        return bindsParameter && noDisjunction
     }
 
     @Test
