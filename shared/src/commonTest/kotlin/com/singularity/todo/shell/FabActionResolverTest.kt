@@ -129,7 +129,11 @@ class FabActionResolverTest {
                 today,
                 navigate,
             )
-        assertNull(result, "a saved view's results screen is not the shell's task list")
+        assertNull(
+            result,
+            "a saved view's results screen is not the shell's task list: #1952 and #1958 " +
+                "keep it buttonless, and FabActionResolver.kt records why that beat #2057",
+        )
     }
 
     @Test
@@ -170,11 +174,27 @@ class FabActionResolverTest {
     /**
      * The tabs deliberately expected to resolve to nothing, named rather than left
      * implicit: the Calendar opens a calendar, not a task list (#1959).
+     *
+     * This walks the whole tab set, not just the agenda tabs, and the name says
+     * "tab" rather than "agenda tab" for that reason: the claim is about every
+     * tab the bottom bar can show. A tab added later that resolves to nothing
+     * fails here until someone names it as an exception, agenda route or not —
+     * which is what makes the exceptions explicit instead of silent (#1959).
+     * The agenda-tab rule itself is [everyAgendaTab_returnsAddTask]; the two
+     * tests ask different questions on purpose.
+     *
+     * The notes graph's `null` in the resolver's catch-all never reaches this
+     * test: `AppDestination.Notes` is a menu entry, not a tab
+     * (`DestinationKind.menuEntries`), and it has its own note creation button.
      */
     @Test
-    fun theOnlyTabWithoutAnAgendaAction_isCalendar() {
+    fun theOnlyTabWithNoShellAction_isCalendar() {
         val withoutAction = DestinationKind.tabs.filter { fabActionForNav3(it, today, navigate) == null }
-        assertEquals(listOf<AppDestination>(AppDestination.Calendar), withoutAction)
+        assertEquals(
+            listOf<AppDestination>(AppDestination.Calendar),
+            withoutAction,
+            "only the Calendar tab may resolve to no shell action",
+        )
     }
 
     // ── Every agenda route is classified ───────────────────────────────────────
@@ -214,6 +234,11 @@ class FabActionResolverTest {
             AgendaStartRoute.Overdue,
             -> true
 
+            // #2057 asks for an "Add task" action on the saved-view *results*
+            // screen; #1952 and #1958 keep every saved-view screen buttonless.
+            // The majority won, and `FabActionResolver`'s saved-view branch
+            // records why — this line is the same decision seen from the test
+            // side, so the two must be changed together.
             AgendaStartRoute.SavedAgendaList,
             is AgendaStartRoute.SavedAgendaResults,
             is AgendaStartRoute.SavedAgendaEdit,
