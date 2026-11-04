@@ -10,15 +10,20 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoveToInbox
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.Today
+import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.platform.systemToday
@@ -377,7 +382,21 @@ sealed interface AppDestination : AppNavKey {
     }
 }
 
-/** UI metadata for [AppDestination]. Kept separate so the route stays pure-data. */
+/**
+ * The glyph a destination is drawn with.
+ *
+ * One metaphor per destination, and the metaphor is the destination's name: a box
+ * for the archive, a tick-in-a-circle for the tasks, a notebook for the notes, a
+ * chart for the statistics and a different chart for the AI usage. Two rules follow
+ * from the destinations being read as one list — the menu, the bottom bar — where a
+ * repeated glyph turns recognition into reading:
+ *
+ * 1. no two destinations of one list share a glyph;
+ * 2. no destination reuses the "done" tick, which means a completed task rather
+ *    than a screen.
+ *
+ * `NavigationIconsTest` holds both rules.
+ */
 val AppDestination.icon: ImageVector
     get() =
         when {
@@ -386,6 +405,9 @@ val AppDestination.icon: ImageVector
                     AgendaStartRoute.Inbox -> Icons.Filled.MoveToInbox
                     AgendaStartRoute.Today -> Icons.Filled.Today
                     AgendaStartRoute.Upcoming -> Icons.Filled.Event
+                    // The saved views are a list of saved views — the same metaphor
+                    // the agenda top bar's "Saved views" button carries.
+                    AgendaStartRoute.SavedAgendaList -> Icons.Filled.ViewList
                     else -> Icons.Filled.TaskAlt
                 }
             }
@@ -400,15 +422,15 @@ val AppDestination.icon: ImageVector
                     AppDestination.AiChat -> Icons.Filled.AutoAwesome
                     is AppDestination.AttachmentViewer -> Icons.Filled.AttachFile
                     AppDestination.Search -> Icons.Filled.Search
-                    AppDestination.ExternalAgent -> Icons.Filled.AutoAwesome
+                    AppDestination.ExternalAgent -> Icons.Filled.Extension
                     AppDestination.Proposals -> Icons.AutoMirrored.Filled.FactCheck
                     AppDestination.Archive -> Icons.Filled.Archive
                     AppDestination.Settings -> Icons.Filled.Settings
                     AppDestination.AiUsage -> Icons.Filled.BarChart
                     AppDestination.ProfileSwitcher -> Icons.Filled.Person
-                    AppDestination.AttachAccount -> Icons.Filled.Person
-                    AppDestination.ChangePassword -> Icons.Filled.Person
-                    is AppDestination.MagicLinkConfirm -> Icons.Filled.Person
+                    AppDestination.AttachAccount -> Icons.Filled.PersonAdd
+                    AppDestination.ChangePassword -> Icons.Filled.Lock
+                    is AppDestination.MagicLinkConfirm -> Icons.Filled.VerifiedUser
                     is AppDestination.TasksGraph -> Icons.Filled.TaskAlt
                     is AppDestination.TasksByProject -> Icons.Filled.Folder
                     is AppDestination.ProjectEditor -> Icons.Filled.Folder

@@ -15,11 +15,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.CallMerge
-import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -215,7 +212,7 @@ fun AgendaContent(
                                             .testTag(TestTags.AGENDA_MULTI_DATE_BUTTON),
                                 ) {
                                     Icon(
-                                        Icons.Outlined.DateRange,
+                                        AgendaTopBarIcons.multiDate,
                                         contentDescription = "Task on several dates",
                                     )
                                 }
@@ -231,7 +228,7 @@ fun AgendaContent(
                                                 spotlightRegistry,
                                             ),
                                 ) {
-                                    Icon(Icons.Default.Bookmark, contentDescription = "Saved views")
+                                    Icon(AgendaTopBarIcons.savedViews, contentDescription = "Saved views")
                                 }
                             }
                             if (onSaveCurrentClick != null) {
@@ -245,7 +242,7 @@ fun AgendaContent(
                                                 spotlightRegistry,
                                             ),
                                 ) {
-                                    Icon(Icons.Default.BookmarkBorder, contentDescription = "Save current agenda")
+                                    Icon(AgendaTopBarIcons.saveCurrent, contentDescription = "Save current agenda")
                                 }
                             }
                         },
