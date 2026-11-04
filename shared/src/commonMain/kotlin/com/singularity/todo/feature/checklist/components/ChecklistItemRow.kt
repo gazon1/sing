@@ -66,9 +66,16 @@ data class ChecklistRowTags(
  *
  * The task screen shows two lists of parts, and they used to be two lists of text
  * with a tick character in front of them, drawn by two near-identical private rows.
- * The user asked for the two lists to look the same and to behave the same, so the
- * row is one widget: a Material3 checkbox, a `bodyLarge` title, and a line through
- * the title once the item is finished.
+ * The user asked for the two lists to look the same and to be ticked the same way,
+ * so the row is one widget: a Material3 checkbox, a `bodyLarge` title, and a line
+ * through the title once the item is finished.
+ *
+ * Ticking is what the two kinds share. What a tap on the *title* does is not
+ * shared, because it is not the same question: a subtask is a task with a screen
+ * of its own, a checklist item is not. That difference is expressed by the caller
+ * passing or omitting [onOpen], and the title never falls back to the toggle —
+ * a tap on the text used to complete the item, which is a destructive action
+ * hidden behind the one gesture that reads as "let me read this".
  *
  * The row is deliberately decoupled from any feature package — it takes primitives
  * (`text`, `checked`), so a checklist item and a subtask can both be rendered by it
@@ -76,12 +83,13 @@ data class ChecklistRowTags(
  *
  * @param text      The title of the item.
  * @param checked   Whether the item is completed (determines the strike-through).
- * @param onToggle  Called when the checkbox is clicked.
+ * @param onToggle  Called when the checkbox is clicked. The checkbox is the only
+ *   control that changes [checked]; nothing else in the row toggles the item.
  * @param onDelete  Optional delete action. When null the delete button is hidden.
  * @param onOpen    Optional action that opens the item as a task of its own. A
  *   subtask is a task and keeps its own screen; a checklist item is not a task and
- *   offers nothing to open. When null the title toggles the item instead, which is
- *   what a checklist item's title has always done.
+ *   offers nothing to open. When null the title is inert: it is a label, and a tap
+ *   on it does nothing at all — in particular it does not complete the item.
  * @param tags      The test tags of this row.
  * @param modifier  Standard Compose modifier.
  */
@@ -95,6 +103,13 @@ fun ChecklistItemRow(
     tags: ChecklistRowTags = ChecklistRowTags.forChecklistItem(id = text, title = text),
     modifier: Modifier = Modifier,
 ) {
+    // The title's click is the caller's decision and it is spelled out as one
+    // modifier, not as a fallback inside a click handler: when the caller passes
+    // no `onOpen` the label is inert. It used to fall back to `onToggle`, so a
+    // tap on the text completed the item — a destructive write behind the one
+    // gesture that reads as "let me read this line".
+    val titleClick: Modifier = if (onOpen != null) Modifier.clickable { onOpen() } else Modifier
+
     Row(
         modifier =
             modifier
@@ -128,13 +143,7 @@ fun ChecklistItemRow(
             modifier =
                 Modifier
                     .weight(1f)
-                    .let { base ->
-                        if (onOpen != null) {
-                            base.clickable { onOpen() }
-                        } else {
-                            base
-                        }
-                    }
+                    .then(titleClick)
                     .testTag(tags.item),
         )
 

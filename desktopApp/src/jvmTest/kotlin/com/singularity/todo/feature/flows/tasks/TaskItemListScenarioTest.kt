@@ -23,6 +23,7 @@ import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitText
 import com.singularity.todo.test.helpers.clickCheckbox
 import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.isCheckboxChecked
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import org.koin.dsl.module
 import kotlin.test.Test
+import kotlin.test.assertFalse
 
 /**
  * Desktop carrier for `TASK-ITEM-01` — see
@@ -85,6 +87,19 @@ class TaskItemListScenarioTest {
             scrollToTag(TestTags.checklistItemCheckbox(id = MILK, title = MILK))
             clickCheckbox(TestTags.checklistItemCheckbox(id = MILK, title = MILK))
             awaitCheckboxChecked(TestTags.checklistItemCheckbox(id = MILK, title = MILK))
+            awaitText("Checklist (1/2)")
+
+            // A tap on the *text* of a checklist line is not a way to complete
+            // it. The title used to fall back to the toggle whenever the caller
+            // passed no `onOpen`, so reading a line ticked it and struck it
+            // through; the checkbox is the only control that may change the
+            // state, and the count must not move either.
+            scrollToTag(TestTags.checklistItem(id = BREAD, title = BREAD))
+            clickTag(TestTags.checklistItem(id = BREAD, title = BREAD))
+            assertFalse(
+                isCheckboxChecked(TestTags.checklistItemCheckbox(id = BREAD, title = BREAD)),
+                "a tap on a checklist item's text must not tick that item",
+            )
             awaitText("Checklist (1/2)")
 
             // An item is added from the screen itself: the add-row is inside the
