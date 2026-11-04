@@ -36,10 +36,8 @@ import androidx.compose.ui.Modifier
  * and nothing in this seam can go wrong; pass a second `rememberLazyListState()`
  * and the bar is drawn from a state no list ever scrolls — full length, and
  * stuck. The code cannot enforce the identity of the instance, so every call
- * site is a pair: the list's `state =` and this modifier, same variable. All of
- * them hold today, including the two that keep the state as a parameter instead
- * of a local (the agenda's list and the saved-agenda list take
- * `listState: LazyListState` from their screen and thread it to both).
+ * site is a pair: the list's `state =` and this modifier, same variable. The
+ * section below says how that pair is kept honest.
  *
  * ## Where the two `actual`s live, and why
  *
@@ -53,15 +51,30 @@ import androidx.compose.ui.Modifier
  *
  * The identity of the instance is a source-level contract, not something the
  * type system can check: the modifier and the container must be handed the same
- * variable. Compose's `verticalScrollbar` draws a layout node and publishes no
- * semantics, so a flow test over a long list cannot yet tell a bar wired to the
- * right state from one wired to a second `rememberLazyListState()`. Proving
- * that at the RCA level — so a screen that drops the bar fails a test — is
- * tracked separately (the desktop-scrollbar proof issue); until it lands, every
- * call site is reviewed as a pair, and the two that hoist the state (the
- * agenda's list and the saved-agenda list) take `listState: LazyListState` as a
- * parameter and pass that one instance to both the list and the modifier.
+ * variable. To make at least the first half of that contract testable, the
+ * desktop `actual` publishes [PLATFORM_SCROLLBAR_TEST_TAG] on the container it
+ * is attached to — a scrollbar draws and hit-tests but publishes no semantics
+ * of its own, so without the tag a test could not tell a list that carries the
+ * bar from one that lost it. `PlatformScrollbarTest` asserts the tag on a long
+ * list and its absence on a list without the modifier, so a screen that drops
+ * the bar fails rather than silently losing an affordance.
+ *
+ * What the tag cannot show is whether the state handed to the bar is the one
+ * the container scrolls — a second `rememberLazyListState()` would carry the
+ * tag just as well. That is why every call site is written as a pair: one
+ * variable, passed to the container's `state =` and to this modifier. Most call
+ * sites create that variable locally; the agenda's list is handed
+ * `listState: LazyListState` by its screen and passes the same instance on.
  */
+
+/**
+ * The tag the desktop bar publishes on the container it is attached to.
+ *
+ * See the file comment above: the bar itself publishes no semantics, so this is
+ * what a test can address to prove a scrolling container still carries it.
+ */
+const val PLATFORM_SCROLLBAR_TEST_TAG: String = "platform-scrollbar"
+
 @Composable
 expect fun Modifier.platformVerticalScrollbar(state: LazyListState): Modifier
 

@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
 /**
@@ -26,12 +27,14 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 actual fun Modifier.platformVerticalScrollbar(state: LazyListState): Modifier =
-    this.verticalScrollbar(rememberScrollbarAdapter(state), style = platformScrollbarStyle())
+    this.testTag(PLATFORM_SCROLLBAR_TEST_TAG)
+        .verticalScrollbar(rememberScrollbarAdapter(state), style = platformScrollbarStyle())
 
 /** Desktop implementation: the real scrollbar, over a `verticalScroll` column. */
 @Composable
 actual fun Modifier.platformVerticalScrollbar(state: ScrollState): Modifier =
-    this.verticalScrollbar(rememberScrollbarAdapter(state), style = platformScrollbarStyle())
+    this.testTag(PLATFORM_SCROLLBAR_TEST_TAG)
+        .verticalScrollbar(rememberScrollbarAdapter(state), style = platformScrollbarStyle())
 
 /**
  * The bar's colours, taken from the theme.
