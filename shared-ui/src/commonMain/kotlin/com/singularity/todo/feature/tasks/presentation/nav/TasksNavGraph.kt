@@ -86,6 +86,15 @@ internal fun tasksScreenEntryProvider() =
     entryProvider {
         entry<TasksRoute.Detail>(clazzContentKey = { it.stableContentKey() }) { route -> TaskDetailScreen(route) }
         entry<TasksRoute.Create>(clazzContentKey = { it.stableContentKey() }) { route ->
+            // This line is the *only* place a create route's project/tag scope
+            // reaches the screen, and therefore the only place the FAB's seed
+            // (#1952/#1958) can be dropped. Losing `route.projectId` or
+            // `route.tagIds` here compiles, leaves the resolver tests green
+            // (they stop at the AppDestination) and makes the whole feature
+            // inert — a create screen opened from a project agenda that seeds
+            // nothing. `NavStackSeedTest` pins the AppDestination→TasksRoute
+            // half of the chain; `TaskCreateViewModelTest` pins the
+            // constructor→draft half. This handoff is the seam between them.
             TaskCreateScreen(route.initialDueDate, route.draftKey, route.projectId, route.tagIds)
         }
     }
