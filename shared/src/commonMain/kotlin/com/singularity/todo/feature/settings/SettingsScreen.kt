@@ -19,19 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Label
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudSync
-import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -108,40 +95,6 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableMap
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-
-private enum class SettingsTab(val label: String) {
-    Interface("Interface"),
-    Agenda("Agenda"),
-    Notifications("Notifications"),
-    AIProvider("AI Provider"),
-    WorkSchedule("Work Schedule"),
-    Calendar("Calendar"),
-    Sync("Sync"),
-    Tags("Tags"),
-    TagGroups("Tag Groups"),
-    Tasks("Tasks"),
-    Files("Files"),
-    Backup("Backup"),
-    Account("Account"),
-}
-
-private val SettingsTab.icon
-    get() =
-        when (this) {
-            SettingsTab.Interface -> Icons.Filled.Palette
-            SettingsTab.Agenda -> Icons.Filled.Schedule
-            SettingsTab.Notifications -> Icons.Filled.Notifications
-            SettingsTab.AIProvider -> Icons.Filled.SmartToy
-            SettingsTab.WorkSchedule -> Icons.Filled.DateRange
-            SettingsTab.Calendar -> Icons.Filled.CalendarMonth
-            SettingsTab.Sync -> Icons.Filled.CloudSync
-            SettingsTab.Tags -> Icons.AutoMirrored.Filled.Label
-            SettingsTab.TagGroups -> Icons.Filled.Category
-            SettingsTab.Tasks -> Icons.Filled.CheckCircle
-            SettingsTab.Files -> Icons.Filled.Folder
-            SettingsTab.Backup -> Icons.Filled.CloudUpload
-            SettingsTab.Account -> Icons.Filled.AccountCircle
-        }
 
 @Composable
 fun SettingsScreen(
@@ -479,30 +432,17 @@ private fun SettingsNavRail(
                 .padding(vertical = 8.dp)
                 .testTag(TestTags.Settings.NAV_RAIL_SCROLL),
     ) {
-        val groups =
-            listOf(
-                "Appearance" to listOf(SettingsTab.Interface),
-                "Productivity" to listOf(SettingsTab.Agenda, SettingsTab.WorkSchedule, SettingsTab.Tasks),
-                "Notifications" to listOf(SettingsTab.Notifications),
-                "Data" to
-                    listOf(
-                        SettingsTab.Files,
-                        SettingsTab.Backup,
-                        SettingsTab.Sync,
-                        SettingsTab.Calendar,
-                        SettingsTab.Tags,
-                        SettingsTab.TagGroups,
-                    ),
-                "AI & Account" to listOf(SettingsTab.AIProvider, SettingsTab.Account),
-            )
-        groups.forEach { (group, tabs) ->
+        SETTINGS_GROUPS.forEach { group ->
             Text(
-                text = group,
+                text = group.title,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                modifier =
+                    Modifier
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .testTag(TestTags.settingsGroup(group.title)),
             )
-            tabs.forEach { tab ->
+            group.tabs.forEach { tab ->
                 val isSelected = tab == selectedTab
                 Column(
                     modifier =
@@ -570,7 +510,7 @@ private fun SettingsTabDropdown(
                     .fillMaxWidth()
                     .testTag(TestTags.Settings.TAB_DROPDOWN),
         ) {
-            Text(selectedTab.label)
+            Text(selectedTab.groupedLabel)
             ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
         }
         ExposedDropdownMenu(
@@ -578,15 +518,29 @@ private fun SettingsTabDropdown(
             onDismissRequest = { expanded = false },
             modifier = Modifier.mapTestTagsAsResourceIds(),
         ) {
-            SettingsTab.entries.forEach { tab ->
-                DropdownMenuItem(
-                    text = { Text(tab.label) },
-                    modifier = Modifier.testTag(TestTags.settingsTab(tab.name)),
-                    onClick = {
-                        onSelect(tab)
-                        expanded = false
-                    },
+            // The same groups, in the same order, as the wide nav rail: the
+            // narrow menu is a narrower version of the rail, not a different
+            // screen with thirteen undifferentiated rows.
+            SETTINGS_GROUPS.forEach { group ->
+                Text(
+                    text = group.title,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier =
+                        Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .testTag(TestTags.settingsGroup(group.title)),
                 )
+                group.tabs.forEach { tab ->
+                    DropdownMenuItem(
+                        text = { Text(tab.label) },
+                        modifier = Modifier.testTag(TestTags.settingsTab(tab.name)),
+                        onClick = {
+                            onSelect(tab)
+                            expanded = false
+                        },
+                    )
+                }
             }
         }
     }
