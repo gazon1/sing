@@ -580,13 +580,15 @@ before the expansion caps the hit area — the order is the bug.
   write.** In the pinned material3 it takes no size argument — the minimum
   comes from the `LocalMinimumInteractiveComponentSize` composition local —
   so the size it applies cannot be chosen at the call site. The shared
-  `touchTarget(minSize)` helper (`core/ui/TouchTarget.kt`) is what enforces
+  `touchTarget()` helper (`core/ui/TouchTarget.kt`) is what enforces
   the size in this project.
-- **Use the token.** `TaskListSizes.MinTouchTarget = 48.dp` is the source of
-  truth for task-list controls; `TouchTarget.MinSize` is the 48 dp minimum
-  the helper defaults to. Prefer passing the token explicitly rather than
-  relying on the default when the control is in scope of that token:
-  `Modifier.touchTarget(TaskListSizes.MinTouchTarget)`.
+- **Use the shared minimum.** `TouchTarget.MinSize` (48 dp) in
+  `core/ui/TouchTarget.kt` is the one source of truth for the minimum, and
+  `Modifier.touchTarget()` defaults to it. Write the call without an
+  argument: `Modifier.touchTarget()`. Do not reach into another feature's
+  theme for the number — `TaskListSizes.MinTouchTarget` is a deprecated alias
+  kept for task-list call sites, not a token to import from outside the task
+  feature.
 - **A touch target is still a control.** Padding and hit expansion do not
   replace a real hit area. A `clickable`/`toggleable`/`IconButton` on a small
   node needs expansion, and the expansion must not be clipped by a

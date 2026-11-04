@@ -49,22 +49,20 @@ object TaskListSizes {
     val CardElevationHover = 4.dp
 
     /**
-     * Минимальная площадь касания контрола списка задач.
+     * Имя минимальной площади касания, которым пользуется список задач.
      *
-     * Раньше здесь было `44.dp`. В рамках выравнивания по требованиям доступности
-     * (`#1706`) значение поднято до `48.dp` — минимум Material. Токен теперь
-     * ссылается на [TouchTarget.MinSize], чтобы источником истины был один.
+     * Значение — это [TouchTarget.MinSize], единый минимум приложения (48 dp,
+     * минимум Material). Контролы пишут `Modifier.touchTarget()` без аргумента:
+     * по умолчанию он расширяет до того же [TouchTarget.MinSize].
      *
-     * Побочный эффект: у всех контролов, читающих токен (чекбокс задачи, кнопки
-     * добавления чек-листа и подзадачи, строка вложения, удаление тега, элементы
-     * календаря и др.), слот компоновки стал на 4 dp шире — в строке задачи текст
-     * сдвигается вправо.
-     *
-     * Токен задаёт и видимый размер: иконка удаления в строке свайпа равна
-     * `MinTouchTarget - TaskListSpacing.Md`, то есть 36 dp вместо прежних 32 dp.
-     *
-     * Нижняя граница зафиксирована тестом `TaskListSizesTouchTargetTest`:
-     * значение нельзя молча уменьшить.
+     * Имя сохранено, чтобы не ломать код списка задач, который его знает;
+     * удаление — отдельная работа (#2121). Источник истины — [TouchTarget.MinSize],
+     * и связь закреплена тестом `TaskListSizesTouchTargetTest`, поэтому значения
+     * не могут разойтись молча.
      */
+    @Deprecated(
+        message = "The app-wide touch minimum lives in core; use TouchTarget.MinSize or Modifier.touchTarget().",
+        replaceWith = ReplaceWith("TouchTarget.MinSize", "com.singularity.todo.core.ui.TouchTarget"),
+    )
     val MinTouchTarget = TouchTarget.MinSize
 }

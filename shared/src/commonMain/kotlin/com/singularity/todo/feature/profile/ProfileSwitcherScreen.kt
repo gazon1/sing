@@ -60,7 +60,6 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.maxLengthTransformation
 import com.singularity.todo.core.ui.theme.ProfileIdentityColors
 import com.singularity.todo.core.ui.touchTarget
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import kotlinx.collections.immutable.ImmutableList
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -338,7 +337,7 @@ private fun CreateProfileDialog(
                         Box(
                             modifier =
                                 Modifier
-                                    .touchTarget(TaskListSizes.MinTouchTarget)
+                                    .touchTarget()
                                     .size(28.dp)
                                     .clip(CircleShape)
                                     .background(color)

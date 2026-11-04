@@ -15,6 +15,7 @@ import kotlin.test.assertTrue
  * тест делает границу проверяемой.
  */
 @Tag("fast")
+@Suppress("DEPRECATION", "Deprecation")
 class TaskListSizesTouchTargetTest {
     @Test
     fun `minimum touch target of the task list is not below the Material minimum`() {
