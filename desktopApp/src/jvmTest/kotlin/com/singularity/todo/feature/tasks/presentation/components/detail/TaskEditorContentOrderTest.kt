@@ -47,6 +47,15 @@ import kotlin.time.Instant
  */
 private const val CHILD_SECTION_TAG = "editor_child_section"
 
+/**
+ * The upper slot's stub.
+ *
+ * An offer card is one card, not a growing list, so the stub is short — long enough to
+ * have a position, small enough that the "no scroll" claim about the rows below it is
+ * still a claim about a phone.
+ */
+private const val ASK_SECTION_TAG = "editor_ask_section"
+
 private const val PHONE_WIDTH = 360
 private const val PHONE_HEIGHT = 800
 
@@ -82,6 +91,45 @@ class TaskEditorContentOrderTest {
             assertTagDisplayed(TestTags.TASK_EDITOR_DUE_ROW)
         }
 
+    /**
+     * The two supplied-content slots, in opposite places.
+     *
+     * They carry opposite kinds of content — an ask and the task's own state — and
+     * they shared one slot until the child sections moved below the rows, which moved
+     * the offers and the pending proposals down with them. This is the check that
+     * fails if the two are ever merged back, or if either is drawn on the wrong side.
+     */
+    @Test
+    fun `the ask goes above the rows and the child sections below them`() =
+        runIsolatedComposeTest(width = PHONE_WIDTH, height = PHONE_HEIGHT) {
+            setContent { editor() }
+
+            val askTop = topOf(ASK_SECTION_TAG)
+            val childTop = topOf(CHILD_SECTION_TAG)
+            assertTrue(
+                askTop < childTop,
+                "The ask slot ($askTop) must be drawn above the child sections ($childTop)",
+            )
+
+            listOf(
+                TestTags.TASK_EDITOR_PRIORITY_ROW,
+                TestTags.TASK_EDITOR_DUE_ROW,
+                TestTags.TASK_EDITOR_PROJECT_ROW,
+            ).forEach { rowTag ->
+                val rowTop = topOf(rowTag)
+                assertTrue(
+                    askTop < rowTop,
+                    "The ask slot ($askTop) must come above the row '$rowTag' ($rowTop) — " +
+                        "content that asks for a decision belongs under the description, " +
+                        "not under the fields.",
+                )
+                assertTrue(
+                    rowTop < childTop,
+                    "The row '$rowTag' ($rowTop) must come above the child section ($childTop)",
+                )
+            }
+        }
+
     private fun DesktopComposeUiTest.topOf(tag: String) = awaitTag(tag).fetchSemanticsNode().boundsInRoot.top
 }
 
@@ -108,6 +156,18 @@ private fun editor() {
                 estimate = null,
                 onTimeEntryAdd = null,
                 onTimeEntrySave = null,
+                askSections = {
+                    // An offer card's height, not a growing list's: the upper slot holds
+                    // one card, and the claim about the rows below it is a claim about a
+                    // phone.
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .testTag(ASK_SECTION_TAG),
+                    )
+                },
                 extraSections = {
                     Box(
                         modifier =

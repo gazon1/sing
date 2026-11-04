@@ -110,9 +110,15 @@ import kotlin.time.Instant
  * @param pinCallbacks Callbacks for the pin toggle row. Null = row is hidden.
  * @param blockedBy IDs of tasks this task depends on.
  * @param availableTasks Tasks available for dependency selection.
- * @param extraSections Optional composable for View-mode-only sections (checklist, project, tags, timestamps, etc.).
- *   Drawn after the rows, not under the description: the rows are the fields a person
- *   fills in, and a section that grows must not push them off the screen.
+ * @param askSections Optional composable for content that asks the person for
+ *   something — the first-run offer, the pending AI proposals. Drawn directly under
+ *   the description and above the rows: it is the one thing on the screen waiting for
+ *   an answer, and a screen of fields in front of it is a screen that buries it.
+ * @param extraSections Optional composable for the sections that show the task's own
+ *   state (the checklist, the subtasks, the attachments, the logbook). Drawn after
+ *   the rows, not under the description: the rows are the fields a person fills in,
+ *   and a section that grows must not push them off the screen. Content that asks for
+ *   a decision goes in [askSections] instead.
  * @param bottomBar Optional bottom bar content. Typically [TaskSaveBar] in Create mode, null in View mode.
  * @param menuItems List of dropdown menu items. Shown when non-empty. Typically Archive/Delete in View mode.
  * @param onBack Called when the back button is tapped.
@@ -159,6 +165,7 @@ private fun TaskEditorContent(
     checklistCallbacks: ChecklistCallbacks? = null,
     attachmentsCallbacks: AttachmentsCallbacks? = null,
     showAttachmentsRow: Boolean = true,
+    askSections: (@Composable () -> Unit)? = null,
     extraSections: (@Composable () -> Unit)?,
     bottomBar: (@Composable () -> Unit)?,
     menuItems: ImmutableList<TaskEditorMenuItem>,
@@ -200,6 +207,16 @@ private fun TaskEditorContent(
             TaskDescriptionField(
                 descriptionState = descriptionState,
             )
+
+            // Content that asks the person for something — the first-run offer and
+            // the pending AI proposals.
+            //
+            // It comes before the fields, not after them: it is the one thing on the
+            // screen that is waiting for an answer, and a card under ten attribute
+            // rows is a question asked out of earshot. The two kinds of supplied
+            // content used to share one slot, so moving the sections down moved the
+            // proposals down with them.
+            askSections?.invoke()
 
             // Attribute rows
             //
@@ -404,13 +421,14 @@ private fun TaskEditorContent(
                 )
             }
 
-            // View-mode extra sections
+            // Sections that show the task's own state
             //
             // Drawn last: these are the sections that add to the task — the
             // checklist, the subtasks, the attachments, the logbook — and the
             // rows above are the fields a person fills in. A section that
             // grows pushes everything below it down, so the attributes come
-            // first and the sections follow.
+            // first and the sections follow. Content that asks for a decision
+            // never lives here; it goes in the slot under the description.
             extraSections?.invoke()
 
             Spacer(modifier = Modifier.height(TaskSpacing.xl))
@@ -617,6 +635,7 @@ private fun TaskEditorScaffold(
         checklistCallbacks = callbacks.checklist,
         attachmentsCallbacks = callbacks.attachments,
         showAttachmentsRow = showAttachmentsRow,
+        askSections = callbacks.askSections,
         extraSections = callbacks.extraSections,
         bottomBar = callbacks.bottomBar,
         menuItems = callbacks.menuItems,

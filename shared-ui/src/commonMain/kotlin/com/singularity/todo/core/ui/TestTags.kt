@@ -309,6 +309,17 @@ object TestTags {
     const val WORKFLOW_STATE_OPTION_IN_PROGRESS = "workflow_state_option_in_progress"
 
     /**
+     * The stack of pending AI proposals in the task detail.
+     *
+     * It is in the detail's upper slot — under the description, above the attribute
+     * rows — because a proposal is waiting for a decision, and a decision a person has
+     * to scroll for is a decision they are not being asked for. A flow addresses the
+     * stack by this tag rather than by a proposal's summary text, which the model
+     * writes.
+     */
+    const val TASK_PROPOSALS_SECTION = "task_proposals_section"
+
+    /**
      * First-run suggestion card in the task detail view.
      *
      * Shown for tasks < 5 min old that have no description, checklist items, or

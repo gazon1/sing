@@ -146,9 +146,24 @@ data class TaskEditorCallbacks(
      */
     val onTimeEntrySave: ((startedAtMs: Long, endedAtMs: Long, kind: TimeEntryKind, note: String?) -> Unit)?,
     /**
-     * Sections the editor does not know about — the checklist items, the subtasks,
-     * the attachments, the proposals, the logbook — rendered after the rows, so the
-     * rows a person fills in stay above them. Null means the editor shows nothing else.
+     * Content that asks the person for something — the first-run offer, the pending
+     * AI proposals — rendered directly under the description and above the rows.
+     *
+     * It is a slot of its own rather than the head of [extraSections] because the two
+     * have opposite layout needs: a question has to be reachable without a scroll, and
+     * the sections below grow without bound. While they shared one slot, a task with
+     * proposals drew them under every attribute row.
+     *
+     * Null means the editor shows no offer.
+     */
+    val askSections: (@Composable () -> Unit)? = null,
+    /**
+     * Sections that show the task's own state — the checklist items, the subtasks,
+     * the attachments, the logbook, the time tracking — rendered after the rows, so
+     * the rows a person fills in stay above them. Content that asks for a decision
+     * belongs in [askSections], above the rows.
+     *
+     * Null means the editor shows nothing else.
      */
     val extraSections: (@Composable () -> Unit)? = null,
     /** Bottom bar content — null means no bottom bar */

@@ -92,6 +92,27 @@ import kotlin.time.Instant
 
 @Suppress("LongMethod", "CyclomaticComplexMethod", "FunctionSignature")
 @Composable
+/**
+ * The task detail screen.
+ *
+ * ## Where the screen's own order comes from
+ *
+ * The editor draws the title and the description, then the content that asks the
+ * person for something — the first-run offer and the pending AI proposals — then the
+ * attribute rows (priority, estimate, due date, project, tags, recurrence, pin,
+ * dependencies, state), and only then the sections that show the task's own state:
+ * its tags, its checklist, its subtasks, its attachments, its backlinks, its series,
+ * its timer and its logbook.
+ *
+ * The question slots are the editor's two supplied-content slots, and this screen is
+ * what fills them: `askSections` carries an ask, `extraSections` carries the state.
+ * The position is the same for every task — a task with no proposals and no offer
+ * draws nothing there, rather than moving what is left. That is the contract #2007
+ * asked for, and it is why the offer and the proposals no longer ride with the child
+ * work: one slot could not both stay reachable without a scroll and grow without
+ * bound.
+ */
+@Composable
 fun TaskDetailContent(
     coordinator: TaskDetailCoordinator,
     modifier: Modifier = Modifier,
@@ -463,7 +484,16 @@ fun TaskDetailContent(
                                         ),
                                     onTimeEntryAdd = null,
                                     onTimeEntrySave = null,
-                                    extraSections = {
+                                    // The content that asks the person for something.
+                                    //
+                                    // It goes in the editor's upper slot, under the
+                                    // description, for every task: an offer and a pending
+                                    // proposal are both waiting for an answer, and an
+                                    // answer that needs a scroll is not being asked for.
+                                    // It used to ride in `extraSections` with the child
+                                    // work, so moving the child work down took the
+                                    // questions with it.
+                                    askSections = {
                                         Column(
                                             modifier = Modifier.fillMaxWidth(),
                                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -529,6 +559,19 @@ fun TaskDetailContent(
                                                     },
                                                 )
                                             }
+                                        }
+                                    },
+                                    // The task's own state, in the editor's lower slot,
+                                    // after the attribute rows: these sections grow with
+                                    // the task — the checklist shows every item, the
+                                    // attachments every file — and one of them above the
+                                    // rows pushed the due date and the priority off a
+                                    // phone's first screen.
+                                    extraSections = {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        ) {
                                             TaskDetailTagsSection(
                                                 tags = ui.tags,
                                                 onDeleteTag = {
