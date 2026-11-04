@@ -75,8 +75,10 @@ the user is told.
 - The bus has exactly one collector per screen. The bus is a channel, and a
   second collector takes its share of the events away from the first.
 - The inline error and message slots of `AuthFormFields` and
-  `ConfirmationPendingContent` are fed by nobody now. Their removal is the
-  follow-up, not this change.
+  `ConfirmationPendingContent` are gone, and `AUTH_MESSAGE_TEXT` with them. The
+  error tag stays because the change-password screen still draws an inline
+  error. The error dialog these events raise takes its heading from the resource
+  bundle, so a Russian device reads a Russian heading.
 - The Maestro flows that asserted an inline auth error had to move to the
   surface that replaced it.
 

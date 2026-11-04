@@ -10,6 +10,9 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.error
 
 /**
  * Generic "AI Result" / error dialog.
@@ -46,6 +49,28 @@ fun ResultDialog(
     )
 }
 
+/**
+ * The error variant of [ResultDialog], with the heading every failure wears.
+ *
+ * The title comes from the resource bundle rather than from the call site: it is
+ * the same word on every screen that reports a failure through
+ * [Notification.Error], and a literal would read as English on a device whose
+ * language is not. Only the heading is fixed here — the message and the button
+ * stay the caller's, so a feature that reports an error keeps saying what
+ * happened in its own words.
+ */
+@Composable
+fun ErrorResultDialog(
+    text: String,
+    onDismiss: () -> Unit,
+) {
+    ResultDialog(
+        title = stringResource(Res.string.error),
+        text = text,
+        onDismiss = onDismiss,
+    )
+}
+
 // ===== Preview =====
 
 @androidx.compose.ui.tooling.preview.Preview
@@ -63,8 +88,7 @@ private fun ResultDialogSuccessPreview() =
 @Composable
 private fun ResultDialogErrorPreview() =
     PreviewThemed(darkTheme = true) {
-        ResultDialog(
-            title = "Error",
+        ErrorResultDialog(
             text = "Failed to connect to the server. Please check your internet connection.",
             onDismiss = noopClick,
         )

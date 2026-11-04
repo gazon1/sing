@@ -266,7 +266,6 @@ private fun LoginScreenFormPreview() =
             emailState = rememberTextFieldState("user@example.com"),
             passwordState = rememberTextFieldState("password"),
             isLoading = false,
-            errorMessage = null,
             isSignUp = false,
             onSignIn = {},
             onToggleMode = {},
@@ -281,7 +280,6 @@ private fun LoginScreenLoadingPreview() =
             emailState = rememberTextFieldState("user@example.com"),
             passwordState = rememberTextFieldState("password"),
             isLoading = true,
-            errorMessage = null,
             isSignUp = false,
             onSignIn = {},
             onToggleMode = {},
@@ -296,23 +294,6 @@ private fun LoginScreenDarkPreview() =
             emailState = rememberTextFieldState(),
             passwordState = rememberTextFieldState(),
             isLoading = false,
-            errorMessage = "Invalid email or password",
-            isSignUp = true,
-            onSignIn = {},
-            onToggleMode = {},
-        )
-    }
-
-@androidx.compose.ui.tooling.preview.Preview
-@Composable
-private fun LoginScreenMessagePreview() =
-    PreviewThemed(darkTheme = false) {
-        LoginScreenFormContent(
-            emailState = rememberTextFieldState("user@example.com"),
-            passwordState = rememberTextFieldState("password"),
-            isLoading = false,
-            errorMessage = null,
-            message = "Account created. Check your email to confirm the address.",
             isSignUp = true,
             onSignIn = {},
             onToggleMode = {},
@@ -328,8 +309,6 @@ private fun LoginScreenFormContent(
     emailState: TextFieldState,
     passwordState: TextFieldState,
     isLoading: Boolean,
-    errorMessage: String?,
-    message: String? = null,
     isSignUp: Boolean,
     onSignIn: () -> Unit,
     onToggleMode: () -> Unit,
@@ -352,8 +331,6 @@ private fun LoginScreenFormContent(
             emailState = emailState,
             passwordState = passwordState,
             isLoading = isLoading,
-            errorMessage = errorMessage,
-            message = message,
             onSubmit = onSignIn,
         )
         Spacer(modifier = Modifier.height(8.dp))

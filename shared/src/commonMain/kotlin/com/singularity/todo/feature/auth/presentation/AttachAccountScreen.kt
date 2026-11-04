@@ -113,10 +113,6 @@ fun AttachAccountScreen(viewModel: AuthViewModel = koinViewModel()) {
         passwordState = passwordState,
         disposition = form.value.disposition,
         isLoading = state is AuthUiState.Loading,
-        // The inline slots stay until the follow-up that removes them; the events
-        // are presented where they arrive, so nothing feeds them here.
-        errorMessage = null,
-        message = null,
         onDispositionChange = { choice -> form.update { copy(disposition = choice) } },
         onSubmit = {
             // Unreachable while the choice is null — the button is disabled —
@@ -177,7 +173,6 @@ private fun AttachAccountScreenPreview() =
             passwordState = rememberTextFieldState("password"),
             disposition = LocalDataDisposition.Keep(ReassignCounts(tasks = 12, notes = 3), LocalDataSummary(12, 3)),
             isLoading = false,
-            errorMessage = null,
             onDispositionChange = {},
             onSubmit = {},
             onBack = {},
@@ -193,7 +188,6 @@ private fun AttachAccountScreenUnansweredPreview() =
             passwordState = rememberTextFieldState("password"),
             disposition = null,
             isLoading = false,
-            errorMessage = null,
             onDispositionChange = {},
             onSubmit = {},
             onBack = {},
@@ -206,8 +200,6 @@ internal fun AttachAccountScreenContent(
     passwordState: TextFieldState,
     disposition: LocalDataDisposition?,
     isLoading: Boolean,
-    errorMessage: String?,
-    message: String? = null,
     onDispositionChange: (LocalDataDisposition) -> Unit,
     onSubmit: () -> Unit,
     onBack: () -> Unit,
@@ -246,8 +238,6 @@ internal fun AttachAccountScreenContent(
                 passwordState = passwordState,
                 disposition = disposition,
                 isLoading = isLoading,
-                errorMessage = errorMessage,
-                message = message,
                 onDispositionChange = onDispositionChange,
                 onSubmit = onSubmit,
             )
@@ -275,8 +265,6 @@ private fun AttachAccountForm(
     passwordState: TextFieldState,
     disposition: LocalDataDisposition?,
     isLoading: Boolean,
-    errorMessage: String?,
-    message: String?,
     onDispositionChange: (LocalDataDisposition) -> Unit,
     onSubmit: () -> Unit,
 ) {
@@ -305,8 +293,6 @@ private fun AttachAccountForm(
         emailState = emailState,
         passwordState = passwordState,
         isLoading = isLoading,
-        errorMessage = errorMessage,
-        message = message,
         onSubmit = onSubmit,
         submitEnabled = disposition != null,
     )

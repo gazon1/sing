@@ -82,9 +82,6 @@ fun MagicLinkConfirmScreen(
         if (awaitingConfirmation != null) {
             MagicLinkPending(
                 email = awaitingConfirmation.email,
-                // The inline slots stay until the follow-up that removes them; the
-                // events are presented where they arrive, so nothing feeds them here.
-                message = null,
                 isLoading = state is AuthUiState.Loading,
                 onResend = {
                     viewModel.onIntent(AuthIntent.SendMagicLink(awaitingConfirmation.email.trim()))
@@ -99,10 +96,6 @@ fun MagicLinkConfirmScreen(
                 tokenState = tokenState,
                 emailEnabled = prefillEmail.isEmpty(),
                 isLoading = state is AuthUiState.Loading,
-                // The inline slots stay until the follow-up that removes them; the
-                // events are presented where they arrive, so nothing feeds them here.
-                errorMessage = null,
-                message = null,
                 onSubmit = {
                     viewModel.onIntent(
                         AuthIntent.VerifyMagicLink(
@@ -179,14 +172,12 @@ fun MagicLinkConfirmScreenEffects(
 @Composable
 private fun MagicLinkPending(
     email: String,
-    message: String?,
     isLoading: Boolean,
     onResend: () -> Unit,
     onBack: () -> Unit,
 ) {
     ConfirmationPendingContent(
         email = email,
-        message = message,
         isLoading = isLoading,
         onResend = onResend,
         onBack = onBack,
@@ -257,8 +248,6 @@ private fun MagicLinkVerifyForm(
     emailState: TextFieldState,
     tokenState: TextFieldState,
     isLoading: Boolean,
-    errorMessage: String?,
-    message: String?,
     onSubmit: () -> Unit,
     onResend: () -> Unit,
     emailEnabled: Boolean = true,
@@ -295,26 +284,6 @@ private fun MagicLinkVerifyForm(
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
         lineLimits = TextFieldLineLimits.SingleLine,
     )
-
-    if (errorMessage != null) {
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = errorMessage,
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.testTag(TestTags.AUTH_ERROR_TEXT),
-        )
-    }
-
-    if (message != null) {
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = message,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.testTag(TestTags.AUTH_MESSAGE_TEXT),
-        )
-    }
 
     Spacer(modifier = Modifier.height(24.dp))
 
@@ -358,8 +327,6 @@ private fun MagicLinkConfirmScreenPreview() =
             emailState = rememberTextFieldState("user@example.com"),
             tokenState = rememberTextFieldState(),
             isLoading = false,
-            errorMessage = null,
-            message = null,
             onSubmit = {},
             onResend = {},
             onBack = {},
@@ -371,8 +338,6 @@ internal fun MagicLinkConfirmScreenContent(
     emailState: TextFieldState,
     tokenState: TextFieldState,
     isLoading: Boolean,
-    errorMessage: String?,
-    message: String? = null,
     onSubmit: () -> Unit,
     onResend: () -> Unit,
     onBack: () -> Unit,
@@ -385,8 +350,6 @@ internal fun MagicLinkConfirmScreenContent(
             emailState = emailState,
             tokenState = tokenState,
             isLoading = isLoading,
-            errorMessage = errorMessage,
-            message = message,
             onSubmit = onSubmit,
             onResend = onResend,
         )
