@@ -50,8 +50,12 @@ import kotlin.time.Instant
 fun TaskCreateScreen(
     initialDueDate: LocalDate?,
     draftKey: String? = null,
+    initialProjectId: ProjectId? = null,
+    initialTagIds: Set<TagId> = emptySet(),
 ) {
-    val vm: TaskCreateViewModel = koinViewModel { parametersOf(initialDueDate, draftKey) }
+    val vm: TaskCreateViewModel =
+        koinViewModel { parametersOf(initialDueDate, draftKey, initialProjectId, initialTagIds) }
+    val clock: Clock = koinInject()
     val clock: Clock = koinInject()
     val now: Instant = clock.now()
     val navigator = LocalTasksNavigator.current
