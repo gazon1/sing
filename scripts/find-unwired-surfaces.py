@@ -248,6 +248,15 @@ def _blank_braced_body(text: str, from_index: int, out: list[str]) -> None:
                 return
 
 
+def _because(reason: str | None) -> str:
+    """The exemption's reason, appended to a finding it converted to `exempt`.
+
+    Exempt findings are still printed, so the reason has to travel with them: a row
+    that silences a finding without saying why is an exemption nobody can audit.
+    """
+    return f" — {reason}" if reason else ""
+
+
 def _check_composable(
     code: dict[pathlib.Path, str], corpus: str, _pre: object = None
 ) -> list[tuple[str, str]]:
@@ -265,12 +274,15 @@ def _check_composable(
             continue
         for m in pattern.finditer(text):
             name = m.group(1)
+            reason = baseline.reason_for(name, path)
             word = r"\b" + re.escape(name) + r"\b"
             # -1: subtract the declaration itself
             refs = len(re.findall(word, corpus)) - 1
             if refs <= 0:
-                kind = "exempt" if name in baseline else "screen"
-                findings.append((kind, f"{rel(path)}: {name}() has no call site"))
+                kind = "exempt" if reason else "screen"
+                findings.append(
+                    (kind, f"{rel(path)}: {name}() has no call site{_because(reason)}")
+                )
                 continue
             # Being called is not the question; being called by *shipped* code is.
             #
@@ -280,12 +292,12 @@ def _check_composable(
             # previewed twice, called by nothing but those two previews.
             outside = len(re.findall(word, shipped_corpus)) - 1
             if outside <= 0:
-                kind = "exempt" if name in baseline else "preview-only"
+                kind = "exempt" if reason else "preview-only"
                 findings.append(
                     (
                         kind,
                         f"{rel(path)}: {name}() is called only from a @Preview — it "
-                        f"never renders for a user",
+                        f"never renders for a user{_because(reason)}",
                     )
                 )
     return findings
@@ -580,7 +592,10 @@ def _check_dead_symbol(
             test_count = test_refs.get(name, 0)
             # prod_count <= 1: the declaration itself (1) counts as a reference
             if prod_count <= 1 and test_count > 0:
-                backlog_ref = baseline.get(name, "no backlog entry")
+                # Keyed by (symbol, declaring file): a same-named declaration in another
+                # file is a different symbol and must not inherit this exemption.
+                reason = baseline.reason_for(name, path)
+                backlog_ref = reason or "no backlog entry"
                 # Placement, added 2026-10-05 (#191). A class nothing in production
                 # calls, that only tests call, is a test double — and this repository
                 # keeps those in `test/fakes/`, which holds 13 of them. The convention
@@ -599,7 +614,7 @@ def _check_dead_symbol(
                         f"other 13 live; if it cannot move, say why in the entry"
                     )
                 findings.append((
-                    "exempt" if name in baseline else "dead-symbol",
+                    "exempt" if reason else "dead-symbol",
                     f"{rel(path)}: {name} has {test_count} test reference(s) but "
                     f"{prod_count} production reference(s) — {backlog_ref}{placement}",
                 ))
@@ -1380,9 +1395,73 @@ def _is_write_occurrence(text: str, start: int, end: int, owner: str) -> bool:
     return callee == owner or (bool(owner) and callee == "copy")
 
 
+@dataclass(frozen=True)
+class _UnreadScan:
+    """What the scan could attribute, and what it had to leave out."""
+
+    candidates: list[tuple[_UnreadDecl, int, int]]
+    ambiguous: tuple[str, ...] = ()
+
+
+_LOCAL_DECL_BEFORE = re.compile(r"\b(?:val|var)[ \t]+$")
+_CTOR_OPTION = re.compile(
+    r"^[\s@]*(?:(?:public|internal|private|protected|override|open|final)[ \t]+)*"
+    r"(?:val|var)[ \t]+(?P<name>\w+)[ \t]*:"
+)
+_CTOR_HIDDEN = re.compile(r"\b(?:internal|private|protected)\b")
+
+
+def _is_local_declaration(text: str, start: int) -> bool:
+    """True when the occurrence names the local a `val`/`var` declares.
+
+    `val overwriteExisting = false` in a function body introduces a *new* symbol: it
+    reads neither the option of that name nor writes it. Counting it as a read let a
+    function-local shadow keep a lying option green — the hole #1916 asks this shape
+    to close. An occurrence inside a string template is different: Kotlin evaluates
+    `"$overwriteExisting"`, so that really is a read of the property.
+    """
+    return bool(_LOCAL_DECL_BEFORE.search(text, max(0, start - 32), start))
+
+
+def _top_level_options(body: str) -> list[tuple[int, str, bool]]:
+    """The `val`/`var` parameters of a parameter list, as (offset, name, hidden).
+
+    Only depth-0 pieces count. `_PROPERTY_PARAM` matched anywhere between the parens,
+    so a default-value lambda (`run { val tmp: Int = 0; tmp }`) was attributed to the
+    class as an option `Owner.tmp` that was only ever a local.
+    """
+    pieces: list[tuple[int, str]] = []
+    depth = 0
+    start = 0
+    for i, ch in enumerate(body):
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            pieces.append((start, body[start:i]))
+            start = i + 1
+    pieces.append((start, body[start:]))
+
+    options: list[tuple[int, str, bool]] = []
+    for offset, piece in pieces:
+        m = _CTOR_OPTION.match(piece)
+        if m is None:
+            continue
+        head = piece[: m.start("name")]
+        options.append(
+            (
+                offset + m.start("name"),
+                m.group("name"),
+                bool(_CTOR_HIDDEN.search(head)),
+            )
+        )
+    return options
+
+
 def _precompute_unread_public(
     code: dict[pathlib.Path, str],
-) -> list[tuple[_UnreadDecl, int, int]]:
+) -> _UnreadScan:
     """Candidates with their production write and read counts.
 
     Counts come from production sources only, over `strip_code` text: a test that
@@ -1430,11 +1509,11 @@ def _precompute_unread_public(
                 not _NOT_PUBLIC.search(m.group("mods"))
                 and not _SERIALIZABLE.search(m.group("annos"))
             )
-            for param in _PROPERTY_PARAM.finditer(body):
+            for start, name, hidden in _top_level_options(body):
                 decls.append(
                     _UnreadDecl(
-                        param.group(1), path, open_paren + 1 + param.start(1),
-                        "property", owner, public,
+                        name, path, open_paren + 1 + start,
+                        "property", owner, public and not hidden,
                     )
                 )
 
@@ -1443,8 +1522,14 @@ def _precompute_unread_public(
         declared[decl.name] = declared.get(decl.name, 0) + 1
 
     results: list[tuple[_UnreadDecl, int, int]] = []
+    ambiguous: list[str] = []
     for decl in decls:
-        if not decl.public or declared[decl.name] != 1:
+        if not decl.public:
+            continue
+        if declared[decl.name] != 1:
+            # Load-bearing and, until now, silent. Reported as a `note` below: a green
+            # run must read as "no unambiguous unread option", not "no unread option".
+            ambiguous.append(decl.name)
             continue
         pattern = re.compile(rf"\b{re.escape(decl.name)}\b")
         writes = reads = 0
@@ -1452,22 +1537,26 @@ def _precompute_unread_public(
             for m in pattern.finditer(text):
                 if path == decl.path and m.start() == decl.offset:
                     continue  # the declaration itself is not a use
+                if _is_local_declaration(text, m.start()):
+                    # `val overwriteExisting = …` in a function body declares a *new*
+                    # symbol; it neither reads nor writes the option of that name.
+                    continue
                 if _is_write_occurrence(text, m.start(), m.end(), decl.owner):
                     writes += 1
                 else:
                     reads += 1
         results.append((decl, writes, reads))
-    return results
+    return _UnreadScan(results, tuple(ambiguous))
 
 
 def _check_unread_public(
     _code: dict[pathlib.Path, str],
     _corpus: str,
-    pre: list[tuple[_UnreadDecl, int, int]],
+    pre: _UnreadScan,
 ) -> list[tuple[str, str]]:
     findings: list[tuple[str, str]] = []
     baseline = _load_baseline()
-    for decl, writes, reads in pre:
+    for decl, writes, reads in pre.candidates:
         if reads:
             continue
         name = f"{decl.owner}.{decl.name}" if decl.owner else decl.name
@@ -1483,10 +1572,21 @@ def _check_unread_public(
                 f"in production"
             )
             kind = "unread-public"
-        if decl.name in baseline:
-            findings.append(("exempt", f"{message} — {baseline[decl.name]}"))
+        reason = baseline.reason_for(decl.name, decl.path)
+        if reason:
+            findings.append(("exempt", f"{message} — {reason}"))
         else:
             findings.append((kind, message))
+    if pre.ambiguous:
+        names = sorted(set(pre.ambiguous))
+        shown = ", ".join(names[:6]) + (", …" if len(names) > 6 else "")
+        findings.append((
+            "note",
+            f"{len(pre.ambiguous)} public declaration(s) skipped as ambiguous — each is "
+            f"declared more than once across the scanned roots ({shown}), so an "
+            f"occurrence with no receiver cannot be attributed to one of them. This run "
+            f"reports nothing about those declarations.",
+        ))
     return findings
 
 
@@ -1533,6 +1633,11 @@ DETECTORS: list[Detector] = [
     ),
 ]
 
+# Printed, never counted. `exempt` is a decision argued in
+# scripts/find-unwired-surfaces-baseline.txt; `note` is a detector saying what it could
+# not decide, which is information rather than a finding.
+INFORMATIONAL = frozenset({"exempt", "note"})
+
 
 # ── Main ────────────────────────────────────────────────────────────────────
 
@@ -1544,10 +1649,9 @@ FLOOR_HEADER = """\
 #
 # Counted when the floor was last written, against source roots: {roots}.
 #
-# The `unread-public` / `write-only` shapes added for #1916 are not counted
-# here: their findings are exempted in
-# scripts/find-unwired-surfaces-baseline.txt, one row each, so the gate keeps
-# the blocking count it had before those shapes existed.
+# Every detector counts, `unread-public` / `write-only` (#1916) included. Those shapes
+# were added *to* the count when they landed: a shape whose findings are never counted
+# has no floor to stop it growing, and exemptions are not a ratchet.
 #
 # One-directional on purpose. Lowering it is the debt being paid down and needs no
 # justification; raising it is a new unwired surface and must be argued in review.
@@ -1618,7 +1722,7 @@ def cli(ctx: click.Context, quiet: bool, update_floor: bool) -> None:
     # dropped so that the decision stays visible in the log of the run that honoured it —
     # a gate that stops mentioning its exemptions is a gate whose exemptions nobody
     # remembers agreeing to.
-    blocking = [f for f in findings if f[0] != "exempt"]
+    blocking = [f for f in findings if f[0] not in INFORMATIONAL]
 
     if update_floor:
         write_floor(len(blocking))

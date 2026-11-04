@@ -843,13 +843,68 @@ class TestUnreadPublicDetector(unittest.TestCase):
         code = self._code({
             "shared/src/commonMain/Id.kt": "value class SavedId(val value: String)\n",
         })
-        with mock.patch.object(
-            fus, "_load_baseline", return_value={"SavedId": "kept for a named reason"}
-        ):
+        decl_path = next(iter(code))
+        # The exemption is keyed by (symbol, declaring file) and a plain dict would hide
+        # exactly the type change the detector depends on — so the row is built the way
+        # the loader builds it, through `Baseline`.
+        row = {("SavedId", fus.rel(decl_path)): "kept for a named reason"}
+        with mock.patch.object(fus, "_load_baseline", return_value=fus.Baseline(row)):
             findings = fus._check_unread_public(
                 code, "\n".join(code.values()), fus._precompute_unread_public(code)
             )
         self.assertEqual(["exempt"], [k for k, _ in findings], findings)
+        self.assertIn("kept for a named reason", findings[0][1])
+
+    def test_an_exemption_for_another_file_does_not_exempt_this_one(self):
+        code = self._code({
+            "shared/src/commonMain/Id.kt": "value class SavedId(val value: String)\n",
+        })
+        row = {("SavedId", "shared/src/commonMain/Elsewhere.kt"): "someone else's row"}
+        with mock.patch.object(fus, "_load_baseline", return_value=fus.Baseline(row)):
+            findings = fus._check_unread_public(
+                code, "\n".join(code.values()), fus._precompute_unread_public(code)
+            )
+        self.assertEqual(["unread-public"], [k for k, _ in findings], findings)
+
+    def test_a_function_local_of_the_same_name_is_not_a_read(self):
+        # `val overwriteExisting = false` declares a new symbol. Counting it as a read
+        # was how a local shadow kept a lying option green.
+        findings = self._run({
+            "shared/src/commonMain/Options.kt": self.OPTIONS,
+            "shared/src/commonMain/Builder.kt": (
+                "fun build(): ImportOptions {\n"
+                "    val overwriteExisting = false\n"
+                "    return ImportOptions(overwriteExisting = overwriteExisting)\n"
+                "}\n"
+            ),
+        })
+        self.assertEqual(["write-only"], [k for k, _ in findings], findings)
+
+    def test_a_property_declared_inside_a_default_lambda_is_not_an_option(self):
+        # The `val` belongs to the default value's lambda, not to the constructor, so
+        # `Holder.tmp` never existed as an option.
+        findings = self._run({
+            "shared/src/commonMain/Holder.kt": (
+                "data class Holder(\n"
+                "    val runOnce: () -> Int = run { val tmp: Int = 1; tmp },\n"
+                ")\n"
+            ),
+        })
+        self.assertNotIn("Holder.tmp", " ".join(m for _, m in findings), findings)
+
+    def test_ambiguous_names_are_reported_instead_of_dropped_silently(self):
+        findings = self._run({
+            "shared/src/commonMain/A.kt": (
+                "data class Alpha(val overwriteExisting: Boolean = true)\n"
+            ),
+            "shared/src/commonMain/B.kt": (
+                "data class Beta(val overwriteExisting: Boolean = true)\n"
+            ),
+        })
+        notes = [m for k, m in findings if k == "note"]
+        self.assertEqual(1, len(notes), findings)
+        self.assertIn("2 public declaration(s) skipped as ambiguous", notes[0])
+        self.assertIn("overwriteExisting", notes[0])
 
     def test_a_name_declared_twice_is_not_attributed(self):
         # Two declarations, one name: a receiver-less occurrence cannot be
