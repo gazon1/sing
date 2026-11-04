@@ -291,8 +291,9 @@ fun NoteEditorScreenContent(
     if (linkOverlay.sheet == NoteLinkSheet.External) {
         LinkUrlDialog(
             onConfirm = { url ->
-                session.richTextState.addLinkToSelection(url = url)
-                session.dispatchHtml()
+                // The link text is the address: there is no selection to speak for it,
+                // and the address is what the user typed.
+                session.insertLink(url = url, text = url)
                 linkOverlay.dismissAll()
             },
             onDismiss = {
@@ -310,9 +311,12 @@ fun NoteEditorScreenContent(
                 notes + tasks
             },
             onSelected = { result ->
-                val url = result.kind.urlFor(result.id)
-                session.richTextState.addLinkToSelection(url = url)
-                session.dispatchHtml()
+                // The title is what the link shows. The sheet offers a note or a task
+                // by its title, and a title it shows is a title the link can carry.
+                session.insertLink(
+                    url = result.kind.urlFor(result.id),
+                    text = result.title.ifBlank { "(Untitled)" },
+                )
             },
             onDismiss = {
                 linkOverlay.dismissAll()
