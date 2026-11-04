@@ -240,26 +240,8 @@ step time, not at authoring time:
   there is no `content-desc` selector to fall back on. Select those with a regex
   over the same string, e.g. `text: ".* 1, 20[0-9][0-9]"` for the 1st of the
   month on screen — the year wildcard keeps the flow valid past the turn of the year.
-- **The task detail screen has no save button.** Edits autosave; `task_editor_save`
-  exists only on the create screen. A flow that expects it on the detail screen
-  fails with a confusing "not found".
 - **Pre-filled fields append.** `inputText` does not clear, so a field seeded
   with "Today" becomes "TodayFocus". `eraseText` first.
-- **Leaving a dirty draft raises a guard.** The shared top bar is tagged
-  `top_bar_back_button`; tapping it on a dirty editor opens a
-  "Discard changes?" dialog that must be confirmed with `text: "Discard"`.
-  System back does not pop the saved-view editor at all — use the top-bar arrow.
-- **Some saves do not navigate.** The saved-view editor emits a "Saved" snackbar
-  and stays open; the flow must leave explicitly.
-- **Quick-add destinations are not stable.** The notes quick-add lands on the
-  note's preview or straight in the editor, run to run. Tap the transition action
-  with `optional: true` and then wait on the destination you actually need.
-- **A feature can be modelled but unreachable.** Notes row actions (pin,
-  archive, delete, multi-select), the Calendar Today / prev / next /
-  mini-calendar controls, and the whole Sync configuration screen
-  (`SyncConfigScreen` + a complete `SyncViewModel`, composed by nothing) exist
-  with no control that dispatches them, and long-press on a note row does
-  nothing. Before writing a flow, check it is reachable.
 - **Day cells in a calendar grid are `text:`-addressable** — the number is
   unique within one month, so a full-string match is unambiguous. The mode
   control is labelled with the current mode ("Day", "4 days", "Week", "Month")
@@ -316,6 +298,16 @@ see [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-
 The runbook sits beside this skill: the seeding walkthrough, the app's behaviour
 facts, the probe recipe and the failure tables. Read it when a flow needs data
 or misbehaves:
+
+**The app-behaviour facts live in the runbook, not here.** What a screen does —
+where a save leaves you, which screen a tap opens, which features a control
+reaches — is stated once, in
+[App behaviour facts flows encode](diagnosing-failures.md#app-behaviour-facts-flows-encode).
+This file keeps the authoring rules: what to write in a flow, and which Maestro
+quirk a step has to work around. A new behaviour belongs in that section, not
+here; `scripts/check-maestro-behaviour-ownership.py` fails when one is restated
+in this file, and when an identifier that section names no longer exists in the
+source.
 
 - [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them) —
   why typing a fixture into the editor does not work, the `seed.yaml` query keys,

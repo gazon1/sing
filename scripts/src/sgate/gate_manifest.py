@@ -114,6 +114,14 @@ CLUSTERS: dict[str, tuple[str, ...]] = {
 #: The keys are the gate names, so this table and ``_registry.GATES`` are joined
 #: by name — and a name in one and not the other is a gate nobody can place.
 PLACEMENTS: dict[str, Placement] = {
+    "the Maestro runbook owns the app behaviour facts": Placement(
+        kind=PlacementKind.STATIC,
+        command="sgate the_maestro_runbook_owns_the_app_behaviour_facts",
+        note="""The Maestro document pair: the skill body keeps the authoring rules, the
+runbook owns the app-behaviour facts, and an identifier the runbook names has to
+exist in the source. Two behaviours were restated in the skill body and went
+false, and the section carried a tag and a screen that no longer existed.""",
+    ),
     "gate registries agree": Placement(
         kind=PlacementKind.STATIC,
         command='python3 scripts/check-gate-registries.py --strict',

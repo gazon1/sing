@@ -268,13 +268,21 @@ Debug from a `pm clear` slate.
 
 ## App behaviour facts flows encode
 
+**This section is the single home for the app's behaviour facts.** The skill body
+(`SKILL.md`) keeps the authoring rules and points here; it does not restate a
+behaviour, because two statements of one behaviour drift, and the one nobody
+re-reads is the one that goes wrong. `scripts/check-maestro-behaviour-ownership.py`
+fails when the skill body restates one of them, and when an identifier named
+below no longer exists in the source.
+
 These are behaviours a flow author would otherwise guess wrong; each was learned
 by a flow failing on it:
 
 - **Long-press on an agenda row opens a context-menu bottom sheet**
-  (`task_context_menu_sheet`), with rows tagged `sheet_item_<label>`: Open,
-  Mark as completed/uncompleted, Pin/Unpin, Archive. Use
-  `longPressOn: id: task_item_<slug>` then `tapOn: id: sheet_item_Archive`.
+  (`task_context_menu_sheet`), whose rows carry one tag each — `task_action_open`,
+  `task_action_mark_as_completed` (its label flips to "mark as uncompleted"),
+  `task_action_pin` and `task_action_archive`. Long-press the row through
+  `task_item_<slug>` and tap `task_action_archive`.
   Before the fix long-press fell through to the click handler and opened the
   editor.
 - **The detail overflow menu is state-dependent.** An active task shows
@@ -294,6 +302,25 @@ by a flow failing on it:
   editor directly (`NavigateToEditor`), so a flow that types a title into the
   quick-add lands in the editor, not in the preview. The editor autosaves —
   saving does not pop it; `back` does.
+- **The task detail has no save button; the create screen does.**
+  `task_editor_save` exists only on the create screen, and edits on the detail
+  autosave. A flow that expects a save button on the detail fails with a
+  confusing "not found".
+- **Leaving a dirty editor asks first, and the editor's back control is the
+  top-bar arrow.** The shared back control is tagged `top_bar_back_button`.
+  Pressing it — or the system back key, which the screen routes to the same
+  handler — on a dirty draft opens a "Discard changes?" dialog that must be
+  confirmed with `text: "Discard"`.
+- **A save pops the saved-view editor; the note editor's save does not.**
+  Saving a saved view writes it and navigates back (`SavedAgendaScreen`), so a
+  flow that saved is already on the list screen and must not press back. The
+  note editor autosaves and stays open — `back` is what leaves it.
+- **A feature can look modelled and still be unreachable — and a list of such
+  screens goes stale.** Check that a control dispatches the feature before
+  writing a flow. Two entries that used to be on this list are reachable now:
+  long-press on a note row enters selection mode, and the sync settings screen
+  (`SyncSettingsScreen`) is composed from Settings. Treat a reachability claim
+  as a fact to re-check against the source, not as a list to trust.
 
 ## Recon before writing a flow — the probe trick
 

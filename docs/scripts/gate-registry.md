@@ -35,6 +35,7 @@ sche... | — | — |
 | the toolbox surface is declared once | blocking | `scripts/check-skill-drift.py` | check-skill-drift.py — the declared toolbox must be the implemented toolbox (... | — | — |
 | workflow env context resolves | blocking | `scripts/check-workflow-env-context.py` | check-workflow-env-context.py — every `${{ env.X }}` in a workflow must resolve. | — | — |
 | maestro flow catalogue is current | blocking | `scripts/check-maestro-flow-catalogue.py` | check-maestro-flow-catalogue.py — the flow catalogue must match the tree. | — | — |
+| the Maestro runbook owns the app behaviour facts | blocking | `scripts/check-maestro-behaviour-ownership.py` | check-maestro-behaviour-ownership.py — the runbook owns the app behaviour facts. | — | — |
 | ui wait budgets are consistent | blocking | `scripts/check-ui-wait-budgets.py` | check-ui-wait-budgets.py — one number for the wait, in every layer that waits. | — | — |
 | git hooks path is per-worktree | advisory | `scripts/check-hooks-path.py` | check-hooks-path.py — `core.hooksPath` must not point at another checkout (#5... | — | — |
 | the cheat sheet stays a cheat sheet | blocking | `scripts/check-agents-size.py` | check-agents-size.py — AGENTS.md is a cheat sheet, and a cheat sheet has a size. | — | — |
