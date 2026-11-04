@@ -8,10 +8,10 @@ description: Author and run Maestro UI flows for the Android app. Covers seeding
 Maestro drives the Android app end-to-end. Flows live in `Maestro/flows/` across 11
 subdirectories (~39 flows total). Helpers live in `Maestro/helpers/`.
 
-Status (run 38223116125): classes A–D fixed (hardcoded swipe, missing nav menu
-openers, menu item scroll, animation timing). Class E diagnosed on `emulator-5554`
-— see the runbook in [`diagnosing-failures.md`](diagnosing-failures.md).
-All 4 Class E flows pass.
+Status (run 38223116125): classes A–D fixed, and class E diagnosed on
+`emulator-5554` — all 4 of its flows pass. What each letter names, and where
+each fix lives, is in the runbook's failure table:
+[`diagnosing-failures.md`](diagnosing-failures.md).
 
 ## Prerequisites: emulator first
 

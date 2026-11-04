@@ -6,26 +6,32 @@ recipe. Authoring a flow — selectors, scrolling, syntax — lives in `SKILL.md
 
 ## Root causes of known failures (CI run 38223116125)
 
-| Class | Root cause | Flows | Fix |
+The letters are the ones the run's decision record uses
+(`docs/decisions/2026-10-12-maestro-e2e-fixes.md`): a letter names the same
+failure here and there. Each row also says where its fix lives, so a reader can
+check the fix is still in the tree — and a row whose fix is gone says so rather
+than describing a change that is no longer there.
+
+| Class | Root cause | Flows | Fix and where it lives |
 |---|---|---|---|
-| A | Hardcoded swipe coords out-of-bounds on phone AVD | `backup-round-trip`, `smoke-settings-cycle-tabs` | `scrollUntilVisible direction: UP` |
-| B | Missing `nav_menu_button` + `scrollUntilVisible` before `menu_settings` | `calendar-sync-provider-toggle`, `calendar-sync-system-toggle`, `calendar-sync-system-unavailable`, `sync-change-interval`, `negative-empty-tags` | `scrollUntilVisible element.id: menu_settings direction: DOWN timeout: 10000` |
-| C | `menu_notes` below fold + 5 s timeout | `notes-edit-body`, `notes-filter-chips`, `notes-create-note`, `negative-empty-notes` | Same pattern as class B |
-| D | `waitForAnimationToEnd` 2000 ms after PORTRAIT rotation | `lifecycle-rotate-in-editor` | 2000 ms → 5000 ms |
-| E | Seed/state leakage, wrong testTag, agenda section timing | 4 flows | Fixed — see rows below |
-| F | Action row laid out past the screen edge | `agenda-smart-lists` | `SheetScaffold` column made scrollable |
+| A | Seed-task timeout cascade — `task_item_buy_milk` never appears on a loaded runner | ~14 flows depending on `task_item_buy_milk` | `scrollUntilVisible … timeout: 8000` in `Maestro/helpers/seed-task.yaml` — see "Seed cascade detection" |
+| B | Below-fold menu items + 5 s timeout — the menu is not opened with `nav_menu_button` first, and the entry sits below the fold | `calendar-sync-provider-toggle`, `calendar-sync-system-toggle`, `calendar-sync-system-unavailable`, `sync-change-interval`, `negative-empty-tags` (the five `menu_settings` flows) and `notes-edit-body`, `notes-filter-chips`, `notes-create-note`, `negative-empty-notes` (the four `menu_notes` flows the record counts) | opener in `Maestro/helpers/open-app-menu.yaml`; each flow's own `scrollUntilVisible … timeout: 5000` before the tap |
+| C | Hardcoded swipe coordinates — out-of-bounds on the phone AVD | `backup-round-trip`, `smoke-settings-cycle-tabs` | gone, not merely changed: `Maestro/flows/backup/01-round-trip.yaml` opens the menu through `helpers/open-app-menu.yaml` and waits on `menu_settings` (its comment records that scrolling pushed the entry into the nav bar); `Maestro/flows/settings/03-cycle-tabs.yaml` scrolls with `direction: DOWN timeout: 5000`. No `direction: UP` swipe remains in either flow |
+| D | `waitForAnimationToEnd` 2000 ms after the PORTRAIT rotation | `lifecycle-rotate-in-editor` | gone: `Maestro/flows/lifecycle/03-rotate-in-editor.yaml` uses `setOrientation` and polls `extendedWaitUntil … task_editor_title_input timeout: 5000`; no `waitForAnimationToEnd` remains in the flow |
+| E | True product failures — the bucket refined below: two test defects, one harness defect and one product defect | 4 flows | see "Class E resolved" below; the product fix is `verticalScroll` on the sheet column in `shared-ui/src/commonMain/kotlin/com/singularity/todo/core/ui/components/sheet/SheetScaffold.kt` |
 
 ### Class E resolved — three separate defects
 
-Only one of the four flows was a test problem; the other two were real bugs. All
-four pass on `emulator-5554` with a `pm clear` slate.
+Two of the four flows were test defects, one a harness defect, and one —
+`agenda-smart-lists` — a real product bug. All four pass on `emulator-5554` with
+a `pm clear` slate.
 
-| Flow | Actual cause | Owner |
-|---|---|---|
-| `calendar-view-mode` | fixture typing + wrong testTag | test |
-| `settings-cycle-tabs` | fixture typing + wrong testTag | test |
-| `agenda-smart-lists` | DatePicker actions off-screen | **product** |
-| `auth-first-run-anonymous` | seeded row invisible until re-query | harness |
+| Flow | Actual cause | Owner | Where the fix lives |
+|---|---|---|---|
+| `calendar-view-mode` | fixture typing + wrong testTag | test | `Maestro/flows/calendar/02-view-mode.yaml` — seeds through `helpers/launch-clean.yaml` + `helpers/calendar-day-cell.yaml`, then asserts the `calendar_view_mode_*` tags |
+| `settings-cycle-tabs` | fixture typing + wrong testTag | test | `Maestro/flows/settings/03-cycle-tabs.yaml` — asserts the `settings_tab_*` tags |
+| `agenda-smart-lists` | DatePicker actions off-screen | **product** | `Maestro/flows/agenda/01-smart-lists.yaml` scrolls the sheet to `dialog_date_picker_ok`; the column's `verticalScroll` is in `SheetScaffold.kt` |
+| `auth-first-run-anonymous` | seeded row invisible until re-query | harness | `Maestro/flows/auth/01-first-run-anonymous.yaml` — seeds `task=Anonymous task` through `helpers/seed.yaml`, then `scrollUntilVisible` to `task_item_anonymous_task` |
 
 ## A selector that cannot be reached
 
