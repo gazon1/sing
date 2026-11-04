@@ -171,16 +171,27 @@ fun androidShellNav3Root(
 
                 // The blank-tree diagnostic (REQ-DN-004) is recorded by
                 // `toDecoratedEntries` itself, before its unresolvable-entry fallback.
-                val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
-                LaunchedEffect(state.topLevelRoute) {
-                    // A screen without its own TopAppBar never publishes actions, so clear the
-                    // transient slots on every navigation to avoid stale buttons from the
-                    // previous screen. A published bar is deliberately not among them: the
-                    // screen that owns it takes it back down when it leaves composition, and
-                    // clearing it here raced the publishing screen's SideEffect — the agenda
-                    // lost its title and greeting after a tab switch (#2008).
+                // Drop what the screen we are leaving told the bar, BEFORE the entries
+                // below compose (#2008, #1962).
+                //
+                // The order is the whole fix. Cleared from a LaunchedEffect — which runs
+                // once the frame is applied, after every screen's publication — the clear
+                // erased the header the arriving screen had just published, and the agenda
+                // lost its title and greeting on a tab switch. Done here, in composition
+                // and ahead of the entries, the arriving screen publishes last: a screen
+                // that owns its bar has it drawn, and a screen that publishes nothing
+                // leaves the shell's own destination title in place instead of inheriting
+                // the previous screen's header.
+                //
+                // This is also why the clear cannot live in a DisposableEffect on the
+                // route: effect order is not the contract, composition order is.
+                val route = state.topLevelRoute
+                val lastRoute = remember { mutableStateOf(route) }
+                if (lastRoute.value != route) {
+                    lastRoute.value = route
                     screenActions.onTopLevelRouteChanged()
                 }
+                val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
 
                 CompositionLocalProvider(LocalNav3State provides state, LocalScreenActions provides screenActions) {
                     NavDisplay(

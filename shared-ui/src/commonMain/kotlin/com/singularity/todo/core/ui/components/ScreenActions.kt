@@ -53,6 +53,15 @@ class ScreenActionsHolder {
      * fact that they replace the shell's. The three belong together — the
      * shell reads them as one header — so they are written in one call.
      *
+     * A screen publishes **once**, when its composition enters, and keeps the
+     * published content current by reading state inside [title] instead of
+     * publishing again. That is what makes [retractBar]'s owner check sound.
+     * A publication driven by a `SideEffect` runs on every recomposition, and a
+     * screen that is leaving the composition still recomposes while the
+     * navigation transition plays: the departing screen published itself back
+     * on top of the screen that had just arrived, and its own [retractBar] then
+     * erased the arriving screen's header (#1962 review).
+     *
      * @param owner an identity the publishing screen remembers and hands back
      *   to [retractBar]; it is what makes "take MY header down" expressible.
      */
@@ -76,8 +85,8 @@ class ScreenActionsHolder {
      * of the transition, and the one leaving is usually disposed *after* the
      * one arriving has published; an unconditional clear here would erase the
      * arriving screen's header and leave the bar with the shell's destination
-     * title until that screen happened to recompose (#2008). With the owner
-     * check the leaving screen can only take down its own header.
+     * title (#2008). With the owner check the leaving screen can only take down
+     * its own header.
      */
     fun retractBar(owner: Any) {
         if (barOwner !== owner) return
@@ -88,20 +97,39 @@ class ScreenActionsHolder {
     }
 
     /**
-     * Called by the shell when the top-level route changes.
+     * Called by the shell when the top-level route changes — **inside the
+     * composition that draws the new route, before the arriving screen
+     * composes** (see `androidShellNav3Root`).
      *
      * A screen without a bar of its own never publishes actions, so the
      * previous screen's buttons would otherwise stay in the shell bar; those
      * transient slots are cleared here.
      *
-     * The published bar is NOT cleared: the screen that owns it takes it back
-     * down through [retractBar] when it leaves composition, and it must keep
-     * it across the navigation that follows it (#2008).
+     * The published bar is cleared here too, and the *order* is the whole
+     * point. Dropped before the arriving screen publishes, nothing follows the
+     * clear that could disagree with it: the screen now on top has the last
+     * word, a screen that publishes nothing leaves the shell's own title in
+     * place (which is what makes the fallback reachable at all, rather than
+     * only when the departing screen happens to be disposed), and a screen that
+     * publishes a header has it drawn. Dropped *after* — as a `LaunchedEffect`
+     * did, once the frame was applied — the clear erased the header the
+     * arriving screen had just published and left the bar with the destination
+     * title until that screen happened to recompose. That was #2008: the
+     * agenda lost its title and greeting on a tab switch.
+     *
+     * A screen that leaves the composition still takes its own header down
+     * through [retractBar]; it is the backstop for navigations that do not
+     * change the top-level route, such as a nested screen opened over the
+     * agenda. After this clear its owner check makes that retraction a no-op.
      */
     fun onTopLevelRouteChanged() {
         actions = null
         selectionTitle = null
         onExitSelection = null
+        title = null
+        navigationIcon = null
+        override = false
+        barOwner = null
     }
 }
 

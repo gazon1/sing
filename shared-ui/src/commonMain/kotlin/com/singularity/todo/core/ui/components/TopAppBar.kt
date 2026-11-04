@@ -9,7 +9,9 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 
@@ -45,11 +47,25 @@ fun TopAppBar(
             holder.actions = actions
             holder.selectionTitle = selectionTitle
             holder.onExitSelection = onExitSelection
-            if (overrideShell) {
-                holder.publishBar(owner = barOwner, title = title, navigationIcon = navigationIcon)
-            }
         }
+        // The publication below happens once, when this composition enters.
+        // Its content is read through these, so the bar still shows what the
+        // screen says now without the screen publishing again.
+        val publishedTitle by rememberUpdatedState(title)
+        val publishedIcon by rememberUpdatedState(navigationIcon)
+        val icon: (@Composable () -> Unit)? =
+            if (navigationIcon == null) null else { publishedIcon?.invoke() }
         DisposableEffect(holder, overrideShell, barOwner) {
+            // Published here and retracted below — deliberately NOT from the
+            // SideEffect above, which runs on every recomposition. A screen on
+            // its way out still recomposes while the navigation transition
+            // plays; republishing let it take the bar back from the screen that
+            // had just published, and its own retraction then erased that
+            // screen's header. One publication per composition is what makes
+            // [ScreenActionsHolder.retractBar]'s owner check sound.
+            if (overrideShell) {
+                holder.publishBar(owner = barOwner, title = { publishedTitle() }, navigationIcon = icon)
+            }
             onDispose {
                 holder.actions = null
                 holder.selectionTitle = null
