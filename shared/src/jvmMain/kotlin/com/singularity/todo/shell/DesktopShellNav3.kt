@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.ui.NavDisplay
+import com.singularity.todo.core.ui.DesktopShellLabels
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.menu.ComposeTopMenuBar
 import com.singularity.todo.core.ui.menu.MenuNode
@@ -403,13 +404,15 @@ fun DesktopShellNav3Root(
  * back arrow there would take the drawer away again. Back is each screen's own arrow,
  * and the window's back request.
  *
- * Its content description is part of the desktop flow suite's contract: the helpers
- * address it as "Menu" (`DesktopShell.HAMBURGER`).
+ * Its content description is [DesktopShellLabels.DRAWER_TRIGGER], and it is read from
+ * there rather than written here: that constant is part of the desktop flow suite's
+ * contract — the helpers bind `DesktopShell.HAMBURGER` to the same value — and a name
+ * only one of the two sides reads is a name the other side silently stops matching.
  */
 @Composable
 private fun DrawerTrigger(onClick: () -> Unit) {
     IconButton(onClick = onClick) {
-        Icon(Icons.Default.Menu, contentDescription = "Menu")
+        Icon(Icons.Default.Menu, contentDescription = DesktopShellLabels.DRAWER_TRIGGER)
     }
 }
 

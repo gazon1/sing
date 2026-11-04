@@ -106,9 +106,10 @@ fun DesktopComposeUiTest.openDrawer() =
         // throws if the node is not composed *yet*; the hamburger is the first thing
         // the shell draws, so under load it has sometimes not drawn when this runs.
         // The failure reads as "Failed to inject mouse input ... could not find any
-        // node that satisfies ContentDescription = 'Menu'", which blames the input
-        // injection and the drawer and never mentions timing — measured on
-        // `AuthFirstRunScenarioTest` in a 12-minute run, passing in isolation.
+        // node that satisfies ContentDescription = '${DesktopShell.HAMBURGER}'", which
+        // blames the input injection and the drawer and never mentions timing —
+        // measured on `AuthFirstRunScenarioTest` in a 12-minute run, passing in
+        // isolation.
         awaitContentDescription(DesktopShell.HAMBURGER).performClick()
         waitUntil(
             conditionDescription = "drawer entry '${DesktopShell.TABS.first()}' slides into view",
@@ -148,14 +149,23 @@ fun DesktopComposeUiTest.assertCurrentTab(label: String) =
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.goBack() =
     step("goBack") {
-        onNodeWithContentDescription(DesktopShell.BACK).performClick()
+        // The wait is on the *identity* of the arrow just clicked, not on a
+        // description reappearing. Descriptions prove nothing here: the screen the pop
+        // reveals may draw a "Back" arrow of its own, and the wait this replaces asked
+        // for the drawer trigger — which the shell draws on every screen since #1943,
+        // so it was already on screen before the click and the wait could not fail.
+        // The popped screen owns the arrow that was clicked, so that node leaving the
+        // tree is the pop.
+        val arrow = onNodeWithContentDescription(DesktopShell.BACK)
+        val popped = arrow.fetchSemanticsNode()
+        arrow.performClick()
         waitUntil(
-            conditionDescription = "shell returns to a drawer-openable tab",
+            conditionDescription = "the screen that drew the clicked Back arrow is popped",
             timeoutMillis = TIMEOUT_MS,
         ) {
-            onAllNodes(hasContentDescription(DesktopShell.HAMBURGER))
+            onAllNodes(hasContentDescription(DesktopShell.BACK))
                 .fetchSemanticsNodes()
-                .isNotEmpty()
+                .none { it.id == popped.id }
         }
         waitForIdle()
     }
