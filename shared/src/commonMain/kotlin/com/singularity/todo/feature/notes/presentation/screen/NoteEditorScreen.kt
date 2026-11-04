@@ -113,7 +113,6 @@ internal fun NoteEditorScreen(
         }
     val proposalsState by proposalsViewModel.stateFlow.collectAsStateWithLifecycle()
 
-    val linkOverlay = rememberOverlayState<NoteLinkSheet>()
     val onBack: () -> Unit = {
         viewModel.onIntent(NotesEditorIntent.Close)
         navigator.back()
@@ -128,12 +127,10 @@ internal fun NoteEditorScreen(
         onBodyChange = { html -> viewModel.onIntent(NotesEditorIntent.EditBody(html)) },
         onSaveNow = { viewModel.onIntent(NotesEditorIntent.SaveNow) },
         onBack = onBack,
-        onShowAiSheet = { linkOverlay.show(NoteLinkSheet.AiAction) },
         savedVisible = savedVisible,
         searchNotesForLink = viewModel::searchNotesForLink,
         searchTasksForLink = viewModel::searchTasksForLink,
         onAiAction = { action -> viewModel.onIntent(NotesEditorIntent.RunAiAction(action)) },
-        linkOverlay = linkOverlay,
         pendingProposals = proposalsState.proposals,
         onConfirmProposal = { itemId ->
             proposalsViewModel.onIntent(NoteProposalsIntent.Confirm(itemId))
@@ -185,13 +182,11 @@ fun NoteEditorScreenContent(
     onBodyChange: (html: String) -> Unit,
     onSaveNow: () -> Unit,
     onBack: () -> Unit,
-    onShowAiSheet: () -> Unit,
     noteNotFound: Boolean = false,
     savedVisible: Boolean = false,
     searchNotesForLink: (suspend (String) -> List<LinkResult>)? = null,
     searchTasksForLink: (suspend (String) -> List<LinkResult>)? = null,
     onAiAction: ((com.singularity.todo.feature.notes.NoteAiAction) -> Unit)? = null,
-    linkOverlay: com.singularity.todo.core.ui.components.OverlayState<NoteLinkSheet> = rememberOverlayState<NoteLinkSheet>(),
     pendingProposals: ImmutableList<AiProposal> = persistentListOf(),
     onConfirmProposal: (ProposalItemId) -> Unit = {},
     onRejectProposal: (ProposalItemId, String?) -> Unit = { _, _ -> },
@@ -200,7 +195,7 @@ fun NoteEditorScreenContent(
     onEditProposal: ((ProposalItemId, String) -> Unit)? = null,
     proposalFailures: ImmutableMap<ProposalItemId, String> = persistentMapOf(),
 ) {
-    val resolvedLinkOverlay = linkOverlay
+    val linkOverlay = rememberOverlayState<NoteLinkSheet>()
 
     if (noteNotFound) {
         return EmptyState(title = "Note not found")
@@ -261,9 +256,9 @@ fun NoteEditorScreenContent(
                 EditorToolbar(
                     richTextState = session.richTextState,
                     onHtmlChange = { session.dispatchHtml() },
-                    onAiClick = onShowAiSheet,
-                    onLinkClick = { resolvedLinkOverlay.show(NoteLinkSheet.External) },
-                    onInternalLinkClick = { resolvedLinkOverlay.show(NoteLinkSheet.InternalPicker()) },
+                    onAiClick = { linkOverlay.show(NoteLinkSheet.AiAction) },
+                    onLinkClick = { linkOverlay.show(NoteLinkSheet.External) },
+                    onInternalLinkClick = { linkOverlay.show(NoteLinkSheet.InternalPicker()) },
                 )
             }
         },
@@ -286,21 +281,21 @@ fun NoteEditorScreenContent(
         }
     }
 
-    if (resolvedLinkOverlay.sheet == NoteLinkSheet.External) {
+    if (linkOverlay.sheet == NoteLinkSheet.External) {
         LinkUrlDialog(
             onConfirm = { url ->
                 // The link text is the address: there is no selection to speak for it,
                 // and the address is what the user typed.
                 session.insertLink(url = url, text = url)
-                resolvedLinkOverlay.dismissAll()
+                linkOverlay.dismissAll()
             },
             onDismiss = {
-                resolvedLinkOverlay.dismissAll()
+                linkOverlay.dismissAll()
             },
         )
     }
 
-    val internalPicker = resolvedLinkOverlay.sheet as? NoteLinkSheet.InternalPicker
+    val internalPicker = linkOverlay.sheet as? NoteLinkSheet.InternalPicker
     if (internalPicker != null) {
         InternalLinkPickerSheet(
             onSearch = { q ->
@@ -317,19 +312,19 @@ fun NoteEditorScreenContent(
                 )
             },
             onDismiss = {
-                resolvedLinkOverlay.dismissAll()
+                linkOverlay.dismissAll()
             },
         )
     }
 
-    if (resolvedLinkOverlay.sheet == NoteLinkSheet.AiAction) {
+    if (linkOverlay.sheet == NoteLinkSheet.AiAction) {
         NoteAiActionSheet(
             onSelect = { action ->
                 onAiAction?.invoke(action)
-                resolvedLinkOverlay.dismissAll()
+                linkOverlay.dismissAll()
             },
             onDismiss = {
-                resolvedLinkOverlay.dismissAll()
+                linkOverlay.dismissAll()
             },
         )
     }
