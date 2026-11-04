@@ -29,7 +29,6 @@ import com.singularity.todo.core.ui.components.SeriesMarker
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskStatus
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 
 /**
  * One task row, used in the all-day strip, month grid cells, and hour grid cells.
@@ -58,7 +57,7 @@ fun TaskChip(
         Box(
             modifier =
                 modifier
-                    .touchTarget(TaskListSizes.MinTouchTarget)
+                    .touchTarget()
                     .size(8.dp)
                     .background(background, CircleShape)
                     .clickable { onClick() },

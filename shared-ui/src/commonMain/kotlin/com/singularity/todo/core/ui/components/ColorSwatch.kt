@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.core.ui.touchTarget
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 
 /**
  * A round colour chip.
@@ -45,7 +44,7 @@ fun ColorSwatch(
     Box(
         modifier =
             modifier
-                .touchTarget(TaskListSizes.MinTouchTarget)
+                .touchTarget()
                 .size(size)
                 .clip(CircleShape)
                 .background(color)
