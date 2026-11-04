@@ -1,14 +1,18 @@
 package com.singularity.todo.core.database
 
 import androidx.room3.Room
+import androidx.room3.RoomDatabase
 import androidx.sqlite.SQLiteDriver
 import com.singularity.todo.core.database.contract.PlatformPragmas
 import com.singularity.todo.core.database.contract.wrappingDriver
 
 /**
- * Single seam where [androidx.room3.Room] is referenced.
+ * The seam where [androidx.room3.Room] is referenced.
  *
  * - Encapsulates Room so feature code never imports `androidx.room3.*`.
+ * - Its JVM half, `buildInMemoryAppDatabase` in `jvmMain` next to this file, is the one
+ *   other file that names Room: `Room.inMemoryDatabaseBuilder` is declared in Room's JVM
+ *   source set and cannot be reached from here. See "File-backed only in commonMain".
  * - [wrappingDriver] (the result of [createSqlDriver]) applies per-connection PRAGMAs
  *   (synchronous, cache_size, temp_store, foreign_keys, busy_timeout) on every connection
  *   that Room opens from the pool.
@@ -39,33 +43,40 @@ object AppDatabaseFactory {
      * corresponding [androidx.room3.AutoMigration] in [AppDatabase] and an
      * [androidx.room3.migration.AutoMigrationSpec] in [Migrations].
      *
-     * The one exception is [Migration31To32] (dropped `ai_proposal.task_id` +
-     * backfill): it needs data movement BEFORE the schema rebuild, which
-     * `AutoMigrationSpec.onPostMigrate` cannot express — it is registered as a
-     * manual [androidx.room3.migration.Migration] via `addMigrations` below.
+     * The manual [androidx.room3.migration.Migration]s — the ones an `AutoMigrationSpec`
+     * cannot express — are registered in [applyAppMigrations], the one answer to "which
+     * migrations exist": this file-backed entry point and the JVM in-memory entry point
+     * beside the seam both call it, so neither can fall behind the other.
      *
-     * [Migration42To43] is the other exception: it creates the full-text
-     * indexes, and an index is a virtual table that no schema differ describes.
+     * [Migration31To32] (dropped `ai_proposal.task_id` + backfill) needs data movement
+     * BEFORE the schema rebuild, which `AutoMigrationSpec.onPostMigrate` cannot express.
      *
-     * [Migration45To46] is the third: the derived auto-migration rewrites the
-     * whole `tasks` table, and dropping the table fires the foreign key that
-     * points the notes at a task. A column can be added without that rewrite.
+     * [Migration42To43] creates the full-text indexes, and an index is a virtual table
+     * that no schema differ describes.
+     *
+     * [Migration45To46] is the third: the derived auto-migration rewrites the whole
+     * `tasks` table, and dropping the table fires the foreign key that points the notes
+     * at a task. A column can be added without that rewrite.
      *
      * During **active schema development** (adding a new migration), you may
-     * temporarily re-add `.fallbackToDestructiveMigration(dropAllTables = true)`
-     * to this builder to skip writing the migration by hand. **Remove it before
-     * committing** — leaving it in production builds causes data loss on upgrade.
+     * temporarily add `.fallbackToDestructiveMigration(dropAllTables = true)` to the
+     * builder to skip writing the migration by hand. **Remove it before committing** —
+     * leaving it in production builds causes data loss on upgrade.
      *
-     * ## No ":memory:" — use a temp file
+     * ## File-backed only in commonMain
      *
-     * [dbPath] must be a real file path. Room rejects the literal name `":memory:"`
-     * in `databaseBuilder` and only accepts in-memory databases through
-     * `Room.inMemoryDatabaseBuilder<T>()`, which is declared in Room's **jvmMain**
-     * source set and therefore unreachable from this commonMain seam. Tests that want
-     * a throwaway database should create a temp directory and pass a file path inside
-     * it — see [com.singularity.todo.feature.tasks.RoomTaskRepositoryContractTest],
-     * [com.singularity.todo.core.database.AppDatabaseFactoryJvmTest] and
-     * [com.singularity.todo.core.database.DesktopRestartSmokeTest].
+     * [dbPath] must be a real file path. Room rejects the literal name `":memory:"` in
+     * `databaseBuilder`; an in-memory database is only reachable through
+     * `Room.inMemoryDatabaseBuilder<T>()`, which is declared in Room's **jvmMain** source
+     * set and therefore cannot be called from this commonMain seam.
+     *
+     * That gap is closed, in the smallest way, by the JVM entry point
+     * `buildInMemoryAppDatabase` in the same package (`jvmMain`): it supplies Room's
+     * in-memory builder and applies the very same [applyAppMigrations] this method uses.
+     * JVM tests reach both modes through the `DatabaseTestFixture` helper in
+     * `shared/src/jvmTest`, which owns opening, closing and removing the temp directory.
+     * Tests that do want a file may also create a temp directory and pass a file path
+     * inside it, as this method expects.
      */
     fun build(
         driver: SQLiteDriver,
@@ -78,38 +89,56 @@ object AppDatabaseFactory {
         return Room
             .databaseBuilder<AppDatabase>(name = dbPath)
             .setDriver(driver)
-            .addMigrations(
-                Migration31To32(),
-                // Clears the queue tables, so it cannot be an AutoMigrationSpec — that
-                // can only describe a schema change. See Migration37To38.
-                Migration37To38(),
-                Migration38To39(),
-                // Rewrites the stored links so the one grammar reads them, and
-                // backfills the note-to-task relation that was never filled.
-                Migration44To45(),
-                // Adds tasks.series_id without rewriting the `tasks` table: the
-                // derived auto-migration drops the table, and the notes that point
-                // at a task lose that point. See Migration45To46.
-                Migration45To46(),
-                // Adds tasks.workflow_state for the same reason: a column on
-                // `tasks` cannot be added by the derived auto-migration without
-                // rewriting the table. See Migration46To47.
-                Migration46To47(),
-                // Tag name uniqueness: normalized column, duplicate merge,
-                // re-pointed task_tags, partial unique index. See Migration47To48.
-                Migration47To48(),
-                // Adds profile_id to sync_outbox so a queued patch keeps the profile
-                // it was edited under. See Migration48To49.
-                Migration48To49(),
-                // Adds claimed_at to sync_outbox (later superseded by claim_token). See Migration49To50.
-                Migration49To50(),
-                // Adds claim_token to sync_outbox. See Migration51To52.
-                Migration51To52(),
-                // Drops claimed_at from sync_outbox. See Migration52To53.
-                Migration52To53(),
-                // Creates the full-text indexes — virtual tables, which an
-                // AutoMigrationSpec cannot describe. See Migration42To43.
-                Migration42To43(),
-            ).build()
+            .applyAppMigrations()
+            .build()
     }
 }
+
+/**
+ * Registers the manual migrations for [AppDatabase] on a Room builder.
+ *
+ * This is the one place they are written down, because a second copy is a second answer
+ * to "which migrations exist" and the two drift: a database opened through the shorter
+ * copy is silently behind the current schema, and the failure surfaces later as a missing
+ * column. Both entry points — [AppDatabaseFactory.build] here and
+ * `buildInMemoryAppDatabase` on the JVM — register them through this function.
+ *
+ * The list stays a literal argument of `addMigrations` on purpose:
+ * `scripts/check-room-schema-integrity.py` reads the names from inside that call to prove
+ * every manual step is registered. A list that is spread into `addMigrations` is invisible
+ * to it, and the gate then reports every migration as unregistered.
+ */
+internal fun RoomDatabase.Builder<AppDatabase>.applyAppMigrations(): RoomDatabase.Builder<AppDatabase> =
+    addMigrations(
+        Migration31To32(),
+        // Clears the queue tables, so it cannot be an AutoMigrationSpec — that
+        // can only describe a schema change. See Migration37To38.
+        Migration37To38(),
+        Migration38To39(),
+        // Rewrites the stored links so the one grammar reads them, and
+        // backfills the note-to-task relation that was never filled.
+        Migration44To45(),
+        // Adds tasks.series_id without rewriting the `tasks` table: the
+        // derived auto-migration drops the table, and the notes that point
+        // at a task lose that point. See Migration45To46.
+        Migration45To46(),
+        // Adds tasks.workflow_state for the same reason: a column on
+        // `tasks` cannot be added by the derived auto-migration without
+        // rewriting the table. See Migration46To47.
+        Migration46To47(),
+        // Tag name uniqueness: normalized column, duplicate merge,
+        // re-pointed task_tags, partial unique index. See Migration47To48.
+        Migration47To48(),
+        // Adds profile_id to sync_outbox so a queued patch keeps the profile
+        // it was edited under. See Migration48To49.
+        Migration48To49(),
+        // Adds claimed_at to sync_outbox (later superseded by claim_token). See Migration49To50.
+        Migration49To50(),
+        // Adds claim_token to sync_outbox. See Migration51To52.
+        Migration51To52(),
+        // Drops claimed_at from sync_outbox. See Migration52To53.
+        Migration52To53(),
+        // Creates the full-text indexes — virtual tables, which an
+        // AutoMigrationSpec cannot describe. See Migration42To43.
+        Migration42To43(),
+    )
