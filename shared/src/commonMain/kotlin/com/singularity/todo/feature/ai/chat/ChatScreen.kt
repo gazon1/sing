@@ -26,9 +26,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
@@ -340,7 +340,13 @@ fun FollowConversationEnd(
     var left by remember(listState) { mutableStateOf(listState.anchor) }
 
     // How many questions the reader has asked, as of the last request.
-    var questions by remember(listState) { mutableIntStateOf(0) }
+    //
+    // Saved, not merely remembered: a screen remounted from saved state — a tab switch, a process
+    // restored after the system killed it — restores a conversation whose first tail already has
+    // questions in it. Counted from zero again, that first tail looks like a question the reader
+    // just asked, and the reader-asked rule would override where they were parked. The count is
+    // part of the conversation's history, so it is saved alongside it.
+    var questions by rememberSaveable(listState) { mutableStateOf(0) }
 
     // "The end of the conversation moved, and here is how." Conflated on purpose: two tokens in
     // one frame are one move, and a request that arrives mid-slide retargets the next move rather
