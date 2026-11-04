@@ -10,12 +10,11 @@ tags:
   - pomodoro
 ---
 - runFlow: ../../helpers/seed-task.yaml
-- tapOn:
-    id: nav_tab_pomodoro
-- extendedWaitUntil:
-    visible:
-      id: pomodoro_phase_label
-    timeout: 8000
+- runFlow:
+    file: ../../helpers/open-menu-item.yaml
+    env:
+      ENTRY_ID: menu_pomodoro
+      DEST_ID: pomodoro_phase_label
 # Selecting a chip starts the timer on that task.
 - tapOn:
     id: pomodoro_task_chip_buy_milk

@@ -10,8 +10,11 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Late%20task&due=-1d"
-- tapOn:
-    id: nav_tab_plans
+- runFlow:
+    file: ../../helpers/open-menu-item.yaml
+    env:
+      ENTRY_ID: menu_plans
+      DEST_ID: plans_screen
 # The overdue section is above the dated ones: the first section on the screen.
 - extendedWaitUntil:
     visible:

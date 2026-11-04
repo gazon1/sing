@@ -1,0 +1,121 @@
+package com.singularity.todo.feature.projects.presentation.components
+
+import androidx.compose.runtime.Stable
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.state.ProjectDetailIntent
+import com.singularity.todo.feature.tags.domain.model.TagGroupId
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+
+/**
+ * All callbacks for [com.singularity.todo.feature.projects.ProjectDetailContent].
+ * Packed into a [JvmInline value class][value class] so each section receives
+ * one parameter instead of 5–11 individual lambdas.
+ *
+ * Routing variants ([ProjectDetailIntent.Routing]) are handled by the screen directly
+ * (no VM call needed). Domain variants are dispatched to [ProjectDetailViewModel.onIntent].
+ *
+ * Screen dispatcher:
+ * ```
+ * ProjectDetailActions { intent ->
+ *     when (intent) {
+ *         is ProjectDetailIntent.Routing.NavigateToTasks -> onNavigateToTasks(intent.projectId)
+ *         is ProjectDetailIntent.Routing.NavigateToTask  -> onNavigateToTask(intent.taskId)
+ *         is ProjectDetailIntent.Domain -> viewModel.onIntent(intent)
+ *     }
+ * }
+ * ```
+ *
+ * @see ProjectDetailIntent — исчерпывающий список всех операций.
+ */
+@Stable
+@JvmInline
+value class ProjectDetailActions(private val block: (ProjectDetailIntent) -> Unit) {
+    // ── Sheet openers ───────────────────────────────────────────────────────
+
+    fun onOpenColorSheet() = block(ProjectDetailIntent.Routing.OpenColorSheet)
+
+    fun onOpenIconSheet() = block(ProjectDetailIntent.Routing.OpenIconSheet)
+
+    fun onOpenParentSheet(currentParentId: ProjectId?) =
+        block(ProjectDetailIntent.Routing.OpenParentSheet(currentParentId))
+
+    fun onOpenDueDateSheet() = block(ProjectDetailIntent.Routing.OpenDueDateSheet)
+
+    fun onOpenChildrenSheet() = block(ProjectDetailIntent.Routing.OpenChildrenSheet)
+
+    fun onOpenInheritedTagGroupsSheet() = block(ProjectDetailIntent.Routing.OpenInheritedTagGroupsSheet)
+
+    fun onOpenDeleteSheet() = block(ProjectDetailIntent.Routing.OpenDeleteSheet)
+
+    fun onOpenArchiveSheet() = block(ProjectDetailIntent.Routing.OpenArchiveSheet)
+
+    fun onOpenCloseSheet() = block(ProjectDetailIntent.Routing.OpenCloseSheet)
+
+    fun onOpenReminderSheet() = block(ProjectDetailIntent.Routing.OpenReminderSheet)
+
+    fun onOpenAttachmentSheet() = block(ProjectDetailIntent.Routing.OpenAttachmentSheet)
+
+    fun onNavigateToChild(projectId: ProjectId) = block(ProjectDetailIntent.Routing.NavigateToChild(projectId))
+
+    // ── Visibility ──────────────────────────────────────────────────────────
+
+    fun onToggleHideCompleted() = block(ProjectDetailIntent.Domain.ToggleHideCompleted)
+
+    fun onToggleHideBlocked() = block(ProjectDetailIntent.Domain.ToggleHideBlocked)
+
+    fun onSetReminder(offsetMinutes: Int?) = block(ProjectDetailIntent.Domain.SetReminder(offsetMinutes))
+
+    // ── Inline edits ────────────────────────────────────────────────────────
+
+    fun onUpdateName(name: String) = block(ProjectDetailIntent.Domain.UpdateName(name))
+
+    fun onUpdateDescription(description: String?) = block(ProjectDetailIntent.Domain.UpdateDescription(description))
+
+    // ── Pickers ─────────────────────────────────────────────────────────────
+
+    fun onUpdateColor(color: Int) = block(ProjectDetailIntent.Domain.UpdateColor(color))
+
+    fun onUpdateIcon(icon: String?) = block(ProjectDetailIntent.Domain.UpdateIcon(icon))
+
+    fun onUpdateParent(parentId: ProjectId?) = block(ProjectDetailIntent.Domain.UpdateParent(parentId))
+
+    fun onUpdateInheritedTagGroups(groupIds: Set<TagGroupId>) =
+        block(ProjectDetailIntent.Domain.UpdateInheritedTagGroups(groupIds))
+
+    fun onUpdateDueDate(dueDate: kotlinx.datetime.LocalDate?) = block(ProjectDetailIntent.Domain.UpdateDueDate(dueDate))
+
+    // ── Lifecycle ───────────────────────────────────────────────────────────
+
+    fun onToggleArchive() = block(ProjectDetailIntent.Domain.ToggleArchive)
+
+    fun onDelete() = block(ProjectDetailIntent.Domain.Delete)
+
+    fun onCloseProject() = block(ProjectDetailIntent.Domain.CloseProject)
+
+    fun onConfirmCloseProject() = block(ProjectDetailIntent.Domain.ConfirmCloseProject)
+
+    fun onDismissCloseProject() = block(ProjectDetailIntent.Domain.DismissCloseProject)
+
+    // ── Tasks ─────────────────────────────────────────────────────────────
+
+    fun onCreateTask(title: String) = block(ProjectDetailIntent.Domain.CreateTask(title))
+
+    fun onMoveTaskToProject(taskId: TaskId) = block(ProjectDetailIntent.Domain.MoveTaskToProject(taskId))
+
+    fun onPin(taskId: TaskId) = block(ProjectDetailIntent.Domain.ToggleTaskPin(taskId))
+
+    fun onDeleteTask(taskId: TaskId) = block(ProjectDetailIntent.Domain.DeleteTask(taskId))
+
+    companion object {
+        /**
+         * No-op actions — для превью и unit-тестов в модуле shared.
+         *
+         * **Visibility is `internal`** so external consumers (androidApp, desktopApp)
+         * cannot accidentally use this in production code — passing Empty makes
+         * all 22 dispatched intents no-ops, producing a silent no-action UI.
+         * Production callers must construct a real dispatcher via
+         * `ProjectDetailActions { intent -> ... }`.
+         */
+        internal val Empty = ProjectDetailActions {}
+    }
+}

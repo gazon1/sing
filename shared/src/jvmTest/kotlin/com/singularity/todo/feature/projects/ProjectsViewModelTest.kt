@@ -10,8 +10,8 @@ import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
-import com.singularity.todo.feature.projects.presentation.state.ProjectSortOrder
-import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
+import com.singularity.todo.feature.projects.domain.state.ProjectSortOrder
+import com.singularity.todo.feature.projects.domain.state.ProjectsUiState
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsIntent
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel
 import com.singularity.todo.test.fakes.FakeProjectsRepository
@@ -234,6 +234,74 @@ class ProjectsViewModelTest {
             // Verify store reflects soft-delete
             val after = fakeProjectRepo.store.values().filter { !it.isDeleted }
             assertEquals(0, after.size, "After soft-delete, no non-deleted projects should remain in store")
+        }
+
+    /**
+     * A Retry after a failed load must observe the projects again.
+     *
+     * The Retry intent used to run a private `reload()` whose `catch` sat on the
+     * observation's own chain: the failed collection ended with the exception it
+     * handled, so the second attempt restarted nothing and the screen stayed on
+     * the error state. The observable that tells the two apart is the repository
+     * being asked a second time — a retry that only rewrote the state would pass
+     * a test that only looked at the state.
+     */
+    @Test
+    fun `retry after a failed load observes the projects again`() =
+        runTest {
+            seedProject("p1", "Work")
+            fakeProjectRepo.nextObserveCountsFailure = IllegalStateException("the observation failed")
+
+            val vm = createVm()
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertIs<ProjectsUiState.Error>(vm.stateFlow.value)
+            assertEquals(1, fakeProjectRepo.observeProjectsWithCountsCalls)
+
+            vm.onIntent(ProjectsIntent.Retry)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertEquals(
+                2,
+                fakeProjectRepo.observeProjectsWithCountsCalls,
+                "Retry must observe the projects again, not only change the state",
+            )
+            assertIs<ProjectsUiState.Content>(
+                vm.stateFlow.value,
+                "the retry must leave the error state and show the list again",
+            )
+        }
+
+    /**
+     * A retry that fails again lands in the error state, not on a spinner.
+     *
+     * The state Retry writes is a promise that a load is running; when that load
+     * fails the error state has to replace it, or the screen waits for ever.
+     */
+    @Test
+    fun `a retry that fails again lands in the error state`() =
+        runTest {
+            seedProject("p1", "Work")
+            fakeProjectRepo.nextObserveCountsFailure = IllegalStateException("the first attempt failed")
+
+            val vm = createVm()
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertIs<ProjectsUiState.Error>(vm.stateFlow.value)
+
+            fakeProjectRepo.nextObserveCountsFailure = IllegalStateException("the retry failed too")
+            vm.onIntent(ProjectsIntent.Retry)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertEquals(2, fakeProjectRepo.observeProjectsWithCountsCalls)
+            assertIs<ProjectsUiState.Error>(
+                vm.stateFlow.value,
+                "a failed retry must land in the error state, not on the spinner",
+            )
         }
 }
 

@@ -28,8 +28,14 @@ class ReloadTrigger {
      *
      * The count itself is not meaningful to a caller; it is what tells the
      * trigger apart from itself, so that two bumps are two bumps and not one.
+     *
+     * Internal on purpose: [reloadOn] is the only thing that should ever observe
+     * this. A caller that combines the counter into its own chain gets the shape
+     * this file exists to prevent — a `catch` of its own, sitting outside the
+     * attempt, which ends the collection that handled the failure and leaves the
+     * next `reload()` shouting at nobody.
      */
-    val ticks: StateFlow<Int> = _ticks.asStateFlow()
+    internal val ticks: StateFlow<Int> = _ticks.asStateFlow()
 
     /**
      * Asks for a fresh attempt.
