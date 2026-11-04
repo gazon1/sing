@@ -9,6 +9,7 @@ import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
@@ -47,7 +48,8 @@ class NoDroppedNavigationPaddingRule(config: Config) : Rule(config, "", null) {
 
     override fun visitCallExpression(expression: KtCallExpression) {
         super.visitCallExpression(expression)
-        if (expression.calleeText() != NAVIGATION_SUITE_SCAFFOLD) return
+        val callee = expression.calleeText()
+        if (callee == null || callee !in expression.navigationSuiteScaffoldNames()) return
 
         val content = expression.contentLambda() ?: return
         val paddingParameter = content.functionLiteral.valueParameters.firstOrNull()
@@ -56,7 +58,16 @@ class NoDroppedNavigationPaddingRule(config: Config) : Rule(config, "", null) {
             return
         }
 
-        val paddingName = paddingParameter.name ?: return
+        val paddingName = paddingParameter.name
+        if (paddingName == null) {
+            // A destructuring parameter has no single name to read, so the padding cannot
+            // reach the content by either of the shapes this rule anchors on. Reported, not
+            // skipped: a parameter the rule cannot follow is the same lost padding as one
+            // that was never declared, and `PaddingValues` has no componentN to destructure
+            // in the first place.
+            reportDropped(expression, NO_PARAMETER_MESSAGE)
+            return
+        }
         if (!content.spends(paddingName)) {
             reportDropped(expression, UNUSED_PARAMETER_MESSAGE.format(paddingName))
         }
@@ -86,9 +97,16 @@ class NoDroppedNavigationPaddingRule(config: Config) : Rule(config, "", null) {
             valueArguments
                 .firstOrNull { it.getArgumentName()?.text == CONTENT }
                 ?.getArgumentExpression()
-        val trailing = lambdaArguments.lastOrNull()?.getArgumentExpression()
-        val lastValue = valueArguments.lastOrNull()?.getArgumentExpression()
-        return (named ?: trailing ?: lastValue) as? KtLambdaExpression
+        if (named != null) return named as? KtLambdaExpression
+
+        // Only a trailing lambda is a candidate. The last *value* argument is not: in
+        // `NavigationSuiteScaffold(navigationSuiteItems = …, something = { … })` the last
+        // argument is a lambda that is not the content, and analysing it would report
+        // legitimate code against a lambda the rule was never written about. When the
+        // content is spelled positionally inside the parentheses the call says nothing the
+        // rule can anchor on, so nothing is reported — a false positive on correct code is
+        // worse than a miss on a shape nobody writes.
+        return lambdaArguments.lastOrNull()?.getArgumentExpression() as? KtLambdaExpression
     }
 
     /** Whether the lambda reads the padding name anywhere that spends it on the content. */
@@ -125,7 +143,35 @@ class NoDroppedNavigationPaddingRule(config: Config) : Rule(config, "", null) {
     }
 
     private fun KtCallExpression.calleeText(): String? =
-        (calleeExpression as? KtNameReferenceExpression)?.text
+        when (val callee = calleeExpression) {
+            // `NavigationSuiteScaffold(…)`
+            is KtNameReferenceExpression -> callee.getReferencedName()
+            // `androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold(…)`.
+            // Without this arm the callee does not resolve to a name reference at all and the
+            // call is skipped in silence — the guard would be off for the one call site it
+            // exists to protect, and #2192's regression would come back with no signal.
+            is KtDotQualifiedExpression ->
+                (callee.selectorExpression as? KtNameReferenceExpression)?.getReferencedName()
+            else -> null
+        }
+
+    /**
+     * The names this file uses for `NavigationSuiteScaffold`.
+     *
+     * An aliased import (`import …NavigationSuiteScaffold as ShellNavSuite`) renames the
+     * callee, so matching only the plain text would skip the call. The alias is read from
+     * the file's imports; anything the rule cannot resolve is left alone rather than
+     * guessed at.
+     */
+    private fun KtCallExpression.navigationSuiteScaffoldNames(): Set<String> {
+        val names = mutableSetOf(NAVIGATION_SUITE_SCAFFOLD)
+        containingKtFile.importDirectives.forEach { directive ->
+            val alias = directive.aliasName ?: return@forEach
+            val imported = directive.importedFqName?.asString() ?: return@forEach
+            if (imported == NAVIGATION_SUITE_SCAFFOLD_FQ) names += alias
+        }
+        return names
+    }
 
     /** A word match, so `navigationPadding` is not found inside a longer identifier. */
     private fun String.mentions(identifier: String): Boolean =
@@ -133,6 +179,10 @@ class NoDroppedNavigationPaddingRule(config: Config) : Rule(config, "", null) {
 
     private companion object {
         const val NAVIGATION_SUITE_SCAFFOLD = "NavigationSuiteScaffold"
+
+        /** The imported symbol an aliased call renames; see [navigationSuiteScaffoldNames]. */
+        const val NAVIGATION_SUITE_SCAFFOLD_FQ =
+            "androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold"
         const val CONTENT = "content"
         const val CONTENT_WINDOW_INSETS = "contentWindowInsets"
         const val PADDING = "padding"

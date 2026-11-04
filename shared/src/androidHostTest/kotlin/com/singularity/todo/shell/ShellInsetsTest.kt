@@ -17,10 +17,10 @@ import kotlin.test.assertEquals
 /**
  * The Android shell's content must clear the navigation suite.
  *
- * The shell drops the navigation suite's padding and removes the bottom window
- * inset, and the last row of every screen is then drawn behind the bottom
- * navigation bar. These tests pin the insets the shell's scaffold pads its
- * content by: dropping the room the suite took fails them — on a phone that is
+ * Before #1699 the shell dropped the navigation suite's padding and removed the
+ * bottom window inset, so the last row of every screen was drawn behind the
+ * bottom navigation bar. These tests pin the insets the shell's scaffold pads
+ * its content by, so reintroducing that shape fails them — on a phone that is
  * the bottom edge, and on a wide window it is the rail's side.
  */
 @RunWith(RobolectricTestRunner::class)
