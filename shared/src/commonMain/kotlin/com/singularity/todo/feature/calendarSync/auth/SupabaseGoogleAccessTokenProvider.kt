@@ -22,7 +22,6 @@ class SupabaseGoogleAccessTokenProvider(
     private val gateway: GoogleTokenGateway,
     private val credentialStore: GoogleCredentialStore,
 ) : GoogleAccessTokenProvider {
-
     override suspend fun accessToken(userId: UserId): String? {
         val fresh = gateway.accessToken().getOrNull()
         if (fresh != null) {

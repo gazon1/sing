@@ -100,21 +100,24 @@ fun SettingsRow(
     trailing: SettingsRowTrailing = {},
 ) {
     Row(
-        modifier = modifier.fillMaxWidth()
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(role = Role.Button, onClick = onClick)
-                } else {
-                    Modifier
-                },
-            )
-            .padding(vertical = 12.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .then(
+                    if (onClick != null) {
+                        Modifier.clickable(role = Role.Button, onClick = onClick)
+                    } else {
+                        Modifier
+                    },
+                ).padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(
-            modifier = Modifier.weight(1f)
-                .fillMaxWidth(),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
         ) {
             Text(text = title, style = MaterialTheme.typography.bodyLarge)
             subtitle?.let {
@@ -186,11 +189,12 @@ fun SettingsSwitchRow(
         modifier = modifier.testTag(testTag),
         // A disabled row drops its click handler entirely rather than ignoring the
         // callback, so the control is genuinely inert instead of merely refusing to act.
-        onClick = if (interactive) {
-            { onCheckedChange(!checked) }
-        } else {
-            null
-        },
+        onClick =
+            if (interactive) {
+                { onCheckedChange(!checked) }
+            } else {
+                null
+            },
         trailing = {
             Switch(
                 checked = checked,
@@ -265,73 +269,83 @@ fun SettingsActionRow(
 
 @Preview
 @Composable
-private fun SettingsSectionLightPreview() = PreviewThemed(darkTheme = false) {
-    SettingsSection(title = "Appearance") {
-        SettingsSwitchRow(
-            title = "Dark theme",
-            subtitle = "Use dark color scheme",
-            testTag = TestTags.Settings.DARK_THEME_SWITCH,
-            checked = false,
-            onCheckedChange = {},
-        )
-        SettingsSwitchRow(
-            title = "Notifications",
-            subtitle = "Show reminders",
-            testTag = TestTags.Settings.NOTIFICATIONS_ENABLED_SWITCH,
-            checked = true,
-            onCheckedChange = {},
-        )
+private fun SettingsSectionLightPreview() =
+    PreviewThemed(darkTheme = false) {
+        SettingsSection(title = "Appearance") {
+            SettingsSwitchRow(
+                title = "Dark theme",
+                subtitle = "Use dark color scheme",
+                testTag = TestTags.Settings.DARK_THEME_SWITCH,
+                checked = false,
+                onCheckedChange = {},
+            )
+            SettingsSwitchRow(
+                title = "Notifications",
+                subtitle = "Show reminders",
+                testTag = TestTags.Settings.NOTIFICATIONS_ENABLED_SWITCH,
+                checked = true,
+                onCheckedChange = {},
+            )
+        }
     }
-}
 
 @Preview
 @Composable
-private fun SettingsSectionDarkPreview() = PreviewThemed(darkTheme = true) {
-    SettingsSection(title = "Account") {
-        SettingsSwitchRow(
-            title = "Auto-sync",
-            subtitle = "Sync data automatically",
-            testTag = "preview_auto_sync",
-            checked = true,
-            onCheckedChange = {},
-        )
-        SettingsSwitchRow(
-            title = "Offline mode",
-            testTag = "preview_offline_mode",
-            checked = false,
-            onCheckedChange = {},
-        )
+private fun SettingsSectionDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        SettingsSection(title = "Account") {
+            SettingsSwitchRow(
+                title = "Auto-sync",
+                subtitle = "Sync data automatically",
+                testTag = "preview_auto_sync",
+                checked = true,
+                onCheckedChange = {},
+            )
+            SettingsSwitchRow(
+                title = "Offline mode",
+                testTag = "preview_offline_mode",
+                checked = false,
+                onCheckedChange = {},
+            )
+        }
     }
-}
 
 @Preview
 @Composable
-private fun SettingsRowLightPreview() = PreviewThemed(darkTheme = false) {
-    SettingsSection(title = "General") {
-        SettingsActionRow(title = "Language", subtitle = "English", onClick = noopClick)
-        SettingsActionRow(title = "About", onClick = noopClick)
-        SettingsSwitchRow(title = "Switch setting", checked = true, onCheckedChange = {}, testTag = "preview_switch")
+private fun SettingsRowLightPreview() =
+    PreviewThemed(darkTheme = false) {
+        SettingsSection(title = "General") {
+            SettingsActionRow(title = "Language", subtitle = "English", onClick = noopClick)
+            SettingsActionRow(title = "About", onClick = noopClick)
+            SettingsSwitchRow(
+                title = "Switch setting",
+                checked = true,
+                onCheckedChange = {},
+                testTag = "preview_switch",
+            )
+        }
     }
-}
 
 @Preview
 @Composable
-private fun SettingsRowDarkPreview() = PreviewThemed(darkTheme = true) {
-    SettingsSection(title = "General") {
-        SettingsActionRow(title = "Language", subtitle = "English", onClick = noopClick)
+private fun SettingsRowDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        SettingsSection(title = "General") {
+            SettingsActionRow(title = "Language", subtitle = "English", onClick = noopClick)
+        }
     }
-}
 
 @Preview
 @Composable
-private fun SettingsValueRowPreview() = PreviewThemed(darkTheme = false) {
-    SettingsSection(title = "Region") {
-        SettingsValueRow(title = "Language", value = "English", onClick = noopClick)
-        SettingsValueRow(
-            title = "Week starts on",
-            value = "Monday",
-            subtitle = "Applies to calendar and reminders",
-            onClick = noopClick,
-        )
+private fun SettingsValueRowPreview() =
+    PreviewThemed(darkTheme = false) {
+        SettingsSection(title = "Region") {
+            SettingsValueRow(title = "Language", value = "English", onClick = noopClick)
+            SettingsValueRow(
+                title = "Week starts on",
+                value = "Monday",
+                subtitle = "Applies to calendar and reminders",
+                onClick = noopClick,
+            )
+        }
     }
-}

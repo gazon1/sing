@@ -78,9 +78,10 @@ class SyncEngineEnqueueReportsFailureTest {
         crashReporter: CrashReportingPort,
     ): SyncEngine {
         val engineScope = testScope(scope.backgroundScope)
-        val auth = FakeSyncAuthRepository(
-            Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
-        )
+        val auth =
+            FakeSyncAuthRepository(
+                Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
+            )
         val state = SyncEngineState(log, crashReporter)
         val outboxService =
             OutboxService(

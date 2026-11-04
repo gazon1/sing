@@ -37,7 +37,6 @@ package com.singularity.todo.core.security
  * decision, and the decision record is where it belongs.
  */
 object ArchiveCryptoParams {
-
     /** The cipher: AES in Galois/Counter Mode, without padding. */
     const val TRANSFORM = "AES/GCM/NoPadding"
 

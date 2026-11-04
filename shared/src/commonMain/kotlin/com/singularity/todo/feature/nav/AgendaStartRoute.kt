@@ -11,7 +11,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface AgendaStartRoute : AppNavKey {
-
     /**
      * Inbox — the tasks with no due date.
      *

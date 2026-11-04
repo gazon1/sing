@@ -10,8 +10,8 @@ import com.singularity.todo.feature.reminders.ReminderType
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
-import com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps
 import com.singularity.todo.feature.tasks.domain.util.dueInstant
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskRemindersIntent
@@ -49,7 +49,6 @@ class TaskRemindersSlot(
     taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
 ) : FeatureSlot<TaskRemindersState, TaskRemindersIntent> {
-
     private companion object {
         /**
          * Shown instead of silently accepting the reminder. Deliberately names the
@@ -79,50 +78,59 @@ class TaskRemindersSlot(
         }
     }
 
-    private fun setReminder(offset: ReminderOffset) = scope.launch {
-        val task = parentTask.value ?: return@launch
-        if (offset == ReminderOffset.AT_DUE) {
-            clearReminders(task)
-            return@launch
+    private fun setReminder(offset: ReminderOffset) =
+        scope.launch {
+            val task = parentTask.value ?: return@launch
+            if (offset == ReminderOffset.AT_DUE) {
+                clearReminders(task)
+                return@launch
+            }
+            // Checked before the write, not after: the row is the half the user can see, and a
+            // stored row renders as a live reminder forever while the alarm stays unarmed.
+            if (!scheduling.reminderScheduler.isSupported) {
+                onError(UNSUPPORTED_MESSAGE)
+                return@launch
+            }
+            val userId = core.taskRepo.currentUserId()
+            val now = context.clock.now().toEpochMilliseconds()
+            val fireAt =
+                task.dueDate?.let { due ->
+                    dueInstant(due, task.dueTime, offset, scheduling.timeZoneProvider.current())
+                } ?: now
+            // Reuse existing reminder id so last_fired_at is preserved (avoids resetting the
+            // recurring fire-count on every offset change)
+            val existingId =
+                _state.value.reminders
+                    .firstOrNull()
+                    ?.id ?: ReminderId.generate()
+            val reminder =
+                Reminder(
+                    id = existingId,
+                    taskId = task.id,
+                    userId = userId,
+                    type = ReminderType.Gentle,
+                    offsetMinutes = -offset.minutes,
+                    fireAt = fireAt,
+                    recurringPattern = null,
+                    viewId = sourceViewId,
+                )
+            scheduling.reminderRepo
+                .upsert(reminder)
+                .onSuccess { scheduling.reminderScheduler.schedule(reminder) }
+                .onFailure { onError("Failed to set reminder") }
         }
-        // Checked before the write, not after: the row is the half the user can see, and a
-        // stored row renders as a live reminder forever while the alarm stays unarmed.
-        if (!scheduling.reminderScheduler.isSupported) {
-            onError(UNSUPPORTED_MESSAGE)
-            return@launch
-        }
-        val userId = core.taskRepo.currentUserId()
-        val now = context.clock.now().toEpochMilliseconds()
-        val fireAt = task.dueDate?.let { due ->
-            dueInstant(due, task.dueTime, offset, scheduling.timeZoneProvider.current())
-        } ?: now
-        // Reuse existing reminder id so last_fired_at is preserved (avoids resetting the
-        // recurring fire-count on every offset change)
-        val existingId = _state.value.reminders.firstOrNull()?.id ?: ReminderId.generate()
-        val reminder = Reminder(
-            id = existingId,
-            taskId = task.id,
-            userId = userId,
-            type = ReminderType.Gentle,
-            offsetMinutes = -offset.minutes,
-            fireAt = fireAt,
-            recurringPattern = null,
-            viewId = sourceViewId,
-        )
-        scheduling.reminderRepo.upsert(reminder)
-            .onSuccess { scheduling.reminderScheduler.schedule(reminder) }
-            .onFailure { onError("Failed to set reminder") }
-    }
 
-    private fun clearReminder() = scope.launch {
-        val task = parentTask.value ?: return@launch
-        clearReminders(task)
-    }
+    private fun clearReminder() =
+        scope.launch {
+            val task = parentTask.value ?: return@launch
+            clearReminders(task)
+        }
 
     private suspend fun clearReminders(task: Task) {
         val userId = core.taskRepo.currentUserId()
         scheduling.reminderScheduler.cancelByTask(task.id, userId)
-        scheduling.reminderRepo.deleteByTask(task.id)
+        scheduling.reminderRepo
+            .deleteByTask(task.id)
             .onFailure { onError("Failed to remove reminder") }
     }
 }

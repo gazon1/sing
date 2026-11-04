@@ -42,10 +42,11 @@ sealed class McpToolError : Throwable() {
 }
 
 /** Human-readable representation of [McpToolError], safe to include in a tool response. */
-fun McpToolError.format(): String = when (this) {
-    is McpToolError.Validation -> "[Validation] $field: $text"
-    is McpToolError.NotFound -> "[NotFound] $resource '$id' not found"
-    is McpToolError.Conflict -> "[Conflict] $reason"
-    is McpToolError.Unauthorized -> "[Unauthorized] Cannot modify $resource — belongs to another user"
-    is McpToolError.Internal -> "[InternalError] $code"
-}
+fun McpToolError.format(): String =
+    when (this) {
+        is McpToolError.Validation -> "[Validation] $field: $text"
+        is McpToolError.NotFound -> "[NotFound] $resource '$id' not found"
+        is McpToolError.Conflict -> "[Conflict] $reason"
+        is McpToolError.Unauthorized -> "[Unauthorized] Cannot modify $resource — belongs to another user"
+        is McpToolError.Internal -> "[InternalError] $code"
+    }

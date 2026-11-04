@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,18 +28,18 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.format.formatPadded
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.calendar.domain.logic.dayOfWeekShort
 import com.singularity.todo.feature.calendar.domain.logic.isoLocalDate
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.toImmutableList
 import com.singularity.todo.feature.calendar.presentation.theme.CalendarPalette
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
-import kotlinx.datetime.LocalDate
-import androidx.compose.runtime.remember
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.datetime.LocalDate
 
 private val HOUR_ROW_HEIGHT = 64.dp
 private val TIME_COLUMN_WIDTH = 56.dp
@@ -78,16 +79,18 @@ fun TimeGridView(
         // The all-day tasks of every day, derived once per map: the strip
         // renders one cell per day, and filtering the day's tasks inside the
         // cell rebuilt the list for every day on every recomposition.
-        val allDayTasksByDate = remember(tasksByDate) {
-            tasksByDate.mapValues { (_, tasks) -> tasks.filter { it.isAllDay }.toImmutableList() }
-        }
+        val allDayTasksByDate =
+            remember(tasksByDate) {
+                tasksByDate.mapValues { (_, tasks) -> tasks.filter { it.isAllDay }.toImmutableList() }
+            }
 
         // All-day strip
         Row(modifier = Modifier.fillMaxWidth()) {
             Spacer(
-                modifier = Modifier
-                    .width(TIME_COLUMN_WIDTH)
-                    .align(Alignment.Top),
+                modifier =
+                    Modifier
+                        .width(TIME_COLUMN_WIDTH)
+                        .align(Alignment.Top),
             )
             dates.forEach { date ->
                 AllDayCell(
@@ -117,24 +120,31 @@ fun TimeGridView(
 }
 
 @Composable
-private fun DayHeaderCell(date: LocalDate, isToday: Boolean, palette: CalendarPalette, modifier: Modifier = Modifier) {
+private fun DayHeaderCell(
+    date: LocalDate,
+    isToday: Boolean,
+    palette: CalendarPalette,
+    modifier: Modifier = Modifier,
+) {
     Column(
         // The cell is tagged so a flow can address a day of the day grid
         // without reading the app's date format; the day it holds is tagged by
         // date on the number inside it, exactly as the month grid tags its
         // cells.
-        modifier = modifier
-            .testTag(TestTags.CALENDAR_DAY_CELL)
-            .padding(vertical = 8.dp),
+        modifier =
+            modifier
+                .testTag(TestTags.CALENDAR_DAY_CELL)
+                .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.Start,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (isToday) {
                 Box(
-                    modifier = Modifier
-                        .size(22.dp)
-                        .clip(CircleShape)
-                        .background(palette.todayBadge),
+                    modifier =
+                        Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .background(palette.todayBadge),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -176,10 +186,11 @@ private fun AllDayCell(
     val overflow = tasks.size - visible.size
 
     Column(
-        modifier = modifier
-            .padding(horizontal = 2.dp)
-            .border(width = 0.5.dp, color = palette.divider)
-            .padding(vertical = 4.dp),
+        modifier =
+            modifier
+                .padding(horizontal = 2.dp)
+                .border(width = 0.5.dp, color = palette.divider)
+                .padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         visible.forEach { task ->
@@ -208,19 +219,21 @@ private fun HourRow(
     palette: CalendarPalette,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(HOUR_ROW_HEIGHT),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(HOUR_ROW_HEIGHT),
     ) {
         // Hour label on the left
         Box(
-            modifier = Modifier
-                .width(TIME_COLUMN_WIDTH)
-                .fillMaxHeight(),
+            modifier =
+                Modifier
+                    .width(TIME_COLUMN_WIDTH)
+                    .fillMaxHeight(),
             contentAlignment = Alignment.TopEnd,
         ) {
             Text(
-                text = "%02d:00".format(hour),
+                text = "${formatPadded(hour)}:00",
                 color = palette.textMuted,
                 fontSize = 11.sp,
                 modifier = Modifier.padding(end = 8.dp, top = 2.dp),
@@ -229,14 +242,16 @@ private fun HourRow(
 
         // Day columns
         dates.forEach { date ->
-            val timedTasks = tasksByDate[date].orEmpty().filter {
-                !it.isAllDay && it.startTime?.hour == hour
-            }
+            val timedTasks =
+                tasksByDate[date].orEmpty().filter {
+                    !it.isAllDay && it.startTime?.hour == hour
+                }
             Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .border(width = 0.5.dp, color = palette.gridLine),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .border(width = 0.5.dp, color = palette.gridLine),
             ) {
                 Column(modifier = Modifier.padding(2.dp)) {
                     timedTasks.forEach { task ->

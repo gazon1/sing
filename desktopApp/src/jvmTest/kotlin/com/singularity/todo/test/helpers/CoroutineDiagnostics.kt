@@ -21,8 +21,10 @@ import java.time.Instant
  * (advanceUntilIdle vs runCurrent), and does not prove a coroutine is leaked.
  */
 object CoroutineDiagnostics {
-
-    fun dump(testClass: String?, attempt: Int): String {
+    fun dump(
+        testClass: String?,
+        attempt: Int,
+    ): String {
         if (!DebugProbes.isInstalled) {
             return "coroutines debug agent is not attached"
         }
@@ -41,18 +43,22 @@ object CoroutineDiagnostics {
         }
     }
 
-    private fun formatCoroutine(info: CoroutineInfo, index: Int): String = buildString {
-        appendLine("--- Coroutine #${index + 1} ---")
-        appendLine("state=${info.state}")
-        appendLine("context=${info.context}")
-        appendLine("job=${info.job?.let { DebugProbes.jobToString(it) } ?: "null"}")
-        appendLine("creationStackTrace:")
-        info.creationStackTrace.forEach { element ->
-            appendLine("    at $element")
+    private fun formatCoroutine(
+        info: CoroutineInfo,
+        index: Int,
+    ): String =
+        buildString {
+            appendLine("--- Coroutine #${index + 1} ---")
+            appendLine("state=${info.state}")
+            appendLine("context=${info.context}")
+            appendLine("job=${info.job?.let { DebugProbes.jobToString(it) } ?: "null"}")
+            appendLine("creationStackTrace:")
+            info.creationStackTrace.forEach { element ->
+                appendLine("    at $element")
+            }
+            appendLine("lastObservedStackTrace:")
+            info.lastObservedStackTrace().forEach { element ->
+                appendLine("    at $element")
+            }
         }
-        appendLine("lastObservedStackTrace:")
-        info.lastObservedStackTrace().forEach { element ->
-            appendLine("    at $element")
-        }
-    }
 }

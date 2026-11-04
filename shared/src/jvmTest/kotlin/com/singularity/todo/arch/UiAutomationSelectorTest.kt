@@ -26,12 +26,13 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class UiAutomationSelectorTest {
-
-    private val commonMainRoot: Path = run {
-        val root = System.getProperty("commonMain.root")
-            ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
-        Paths.get(root)
-    }
+    private val commonMainRoot: Path =
+        run {
+            val root =
+                System.getProperty("commonMain.root")
+                    ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
+            Paths.get(root)
+        }
 
     /**
      * The surfaces that render into their own Android window, and the call
@@ -48,16 +49,17 @@ class UiAutomationSelectorTest {
      * and this table has never heard of it, so a surface the rule does not know
      * is a finding rather than a blind spot.
      */
-    private val windowSurfaces: Map<String, String> = mapOf(
-        "androidx.compose.ui.window.Dialog" to "Dialog(",
-        "androidx.compose.ui.window.Popup" to "Popup(",
-        "androidx.compose.material3.AlertDialog" to "AlertDialog(",
-        "androidx.compose.material3.BasicAlertDialog" to "BasicAlertDialog(",
-        "androidx.compose.material3.ModalBottomSheet" to "ModalBottomSheet(",
-        "androidx.compose.material3.DropdownMenu" to "DropdownMenu(",
-        "androidx.compose.material3.ExposedDropdownMenu" to "ExposedDropdownMenu(",
-        "androidx.compose.material3.Snackbar" to "Snackbar(",
-    )
+    private val windowSurfaces: Map<String, String> =
+        mapOf(
+            "androidx.compose.ui.window.Dialog" to "Dialog(",
+            "androidx.compose.ui.window.Popup" to "Popup(",
+            "androidx.compose.material3.AlertDialog" to "AlertDialog(",
+            "androidx.compose.material3.BasicAlertDialog" to "BasicAlertDialog(",
+            "androidx.compose.material3.ModalBottomSheet" to "ModalBottomSheet(",
+            "androidx.compose.material3.DropdownMenu" to "DropdownMenu(",
+            "androidx.compose.material3.ExposedDropdownMenu" to "ExposedDropdownMenu(",
+            "androidx.compose.material3.Snackbar" to "Snackbar(",
+        )
 
     private val windowComposables: List<String> = windowSurfaces.values.toList()
 
@@ -81,9 +83,10 @@ class UiAutomationSelectorTest {
     /** The package that owns the surfaces which open a window of their own. */
     private val composeWindowPackages = listOf("androidx.compose.")
 
-    private val kotlinFiles: List<Path> = Files.walk(commonMainRoot).use { stream ->
-        stream.filter { it.isRegularFile() && it.extension == "kt" }.toList()
-    }
+    private val kotlinFiles: List<Path> =
+        Files.walk(commonMainRoot).use { stream ->
+            stream.filter { it.isRegularFile() && it.extension == "kt" }.toList()
+        }
 
     /**
      * A tagged control inside a window-owning surface, where the window does
@@ -192,19 +195,21 @@ class UiAutomationSelectorTest {
      */
     @Test
     fun `the window rule catches every shape it claims to know`() {
-        val shapes = mapOf(
-            "Dialog(" to "androidx.compose.ui.window.Dialog",
-            "Popup(" to "androidx.compose.ui.window.Popup",
-            "AlertDialog(" to "androidx.compose.material3.AlertDialog",
-            "BasicAlertDialog(" to "androidx.compose.material3.BasicAlertDialog",
-            "ModalBottomSheet(" to "androidx.compose.material3.ModalBottomSheet",
-            "DropdownMenu(" to "androidx.compose.material3.DropdownMenu",
-            "ExposedDropdownMenu(" to "androidx.compose.material3.ExposedDropdownMenu",
-            "Snackbar(" to "androidx.compose.material3.Snackbar",
-        )
+        val shapes =
+            mapOf(
+                "Dialog(" to "androidx.compose.ui.window.Dialog",
+                "Popup(" to "androidx.compose.ui.window.Popup",
+                "AlertDialog(" to "androidx.compose.material3.AlertDialog",
+                "BasicAlertDialog(" to "androidx.compose.material3.BasicAlertDialog",
+                "ModalBottomSheet(" to "androidx.compose.material3.ModalBottomSheet",
+                "DropdownMenu(" to "androidx.compose.material3.DropdownMenu",
+                "ExposedDropdownMenu(" to "androidx.compose.material3.ExposedDropdownMenu",
+                "Snackbar(" to "androidx.compose.material3.Snackbar",
+            )
 
         shapes.forEach { (shape, import) ->
-            val withoutMapping = """
+            val withoutMapping =
+                """
                 import $import
 
                 fun Surface() {
@@ -212,8 +217,9 @@ class UiAutomationSelectorTest {
                         Row { Text("hi").testTag("row_tag") }
                     }
                 }
-            """.trimIndent()
-            val withMapping = """
+                """.trimIndent()
+            val withMapping =
+                """
                 import $import
 
                 fun Surface() {
@@ -223,7 +229,7 @@ class UiAutomationSelectorTest {
                         }
                     }
                 }
-            """.trimIndent()
+                """.trimIndent()
 
             assertTrue(
                 windowViolations(withoutMapping).isNotEmpty(),
@@ -360,11 +366,12 @@ class UiAutomationSelectorTest {
      */
     @Test
     fun `the rule still recognises two tags on one node`() {
-        val violations = listOf(
-            "Modifier.testTag(A).testTag(B)" to "adjacent calls",
-            "Modifier\n    .testTag(A)\n    .testTag(B)" to "calls across lines",
-            "Modifier.testTag(A).weight(1f).testTag(B)" to "a modifier between them",
-        )
+        val violations =
+            listOf(
+                "Modifier.testTag(A).testTag(B)" to "adjacent calls",
+                "Modifier\n    .testTag(A)\n    .testTag(B)" to "calls across lines",
+                "Modifier.testTag(A).weight(1f).testTag(B)" to "a modifier between them",
+            )
         for ((source, description) in violations) {
             val calls = TEST_TAG_CALL.findAll(source).toList()
             val between = source.substring(calls[0].range.last + 1, calls[1].range.first)
@@ -467,7 +474,8 @@ class UiAutomationSelectorTest {
      */
     @Test
     fun `the host rule tells caller content from own content`() {
-        val host = """
+        val host =
+            """
             fun SheetHost(
                 onDismiss: () -> Unit,
                 content: @Composable ColumnScope.() -> Unit,
@@ -476,14 +484,15 @@ class UiAutomationSelectorTest {
                     content()
                 }
             }
-        """.trimIndent()
-        val ownContent = """
+            """.trimIndent()
+        val ownContent =
+            """
             fun SheetHost(onDismiss: () -> Unit) {
                 ModalBottomSheet(onDismissRequest = onDismiss) {
                     Column { Text("hello") }
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
 
         assertTrue(
             rendersCallerContent(host),
@@ -497,11 +506,11 @@ class UiAutomationSelectorTest {
         assertFalse(
             rendersCallerContent(
                 """
-                    fun SheetHost(onDismiss: () -> Unit, onDelete: () -> Unit) {
-                        ModalBottomSheet(onDismissRequest = onDismiss) {
-                            onDelete()
-                        }
+                fun SheetHost(onDismiss: () -> Unit, onDelete: () -> Unit) {
+                    ModalBottomSheet(onDismissRequest = onDismiss) {
+                        onDelete()
                     }
+                }
                 """.trimIndent(),
             ),
             "the rule reported a plain callback as caller content — only a composable parameter " +
@@ -554,7 +563,10 @@ class UiAutomationSelectorTest {
      */
     private fun stripComments(code: String): String = KotlinText.stripComments(code)
 
-    private fun findOccurrences(code: String, needle: String): List<Int> {
+    private fun findOccurrences(
+        code: String,
+        needle: String,
+    ): List<Int> {
         val out = mutableListOf<Int>()
         var i = code.indexOf(needle)
         while (i >= 0) {
@@ -573,7 +585,10 @@ class UiAutomationSelectorTest {
      * the tail of the name would make the rule ask a custom composable to map
      * tags it never owned.
      */
-    private fun windowCallSites(code: String, needle: String): List<Int> =
+    private fun windowCallSites(
+        code: String,
+        needle: String,
+    ): List<Int> =
         findOccurrences(code, needle).filter { start ->
             val before = if (start == 0) ' ' else code[start - 1]
             !before.isLetterOrDigit() && before != '_' && before != '.'
@@ -606,7 +621,10 @@ class UiAutomationSelectorTest {
      * End offset of the construct that starts at [openIndex] (the `(` or `{`),
      * including a trailing lambda when one follows.
      */
-    private fun windowBodyEnd(code: String, openIndex: Int): Int {
+    private fun windowBodyEnd(
+        code: String,
+        openIndex: Int,
+    ): Int {
         val afterParen = matchPair(code, openIndex, '(', ')')
         var next = afterParen
         while (next < code.length && code[next].isWhitespace()) next++
@@ -626,7 +644,10 @@ class UiAutomationSelectorTest {
      * surface's own content begins. The argument list is not content: it holds
      * the callbacks the surface is given, not the nodes it shows.
      */
-    private fun windowContentStart(code: String, openIndex: Int): Int {
+    private fun windowContentStart(
+        code: String,
+        openIndex: Int,
+    ): Int {
         val afterParen = matchPair(code, openIndex, '(', ')')
         var next = afterParen
         while (next < code.length && code[next].isWhitespace()) next++
@@ -640,7 +661,10 @@ class UiAutomationSelectorTest {
      * list closes before it. A lambda inside the function has no parameters of
      * its own, so the declaration found is the one that owns the window call.
      */
-    private fun enclosingFunParameters(code: String, pos: Int): String? {
+    private fun enclosingFunParameters(
+        code: String,
+        pos: Int,
+    ): String? {
         var best = -1
         var at = 0
         while (true) {
@@ -705,7 +729,10 @@ class UiAutomationSelectorTest {
     }
 
     /** Splits [text] on [delimiter], ignoring separators inside brackets or strings. */
-    private fun splitTopLevel(text: String, delimiter: Char): List<String> {
+    private fun splitTopLevel(
+        text: String,
+        delimiter: Char,
+    ): List<String> {
         val parts = mutableListOf<String>()
         val current = StringBuilder()
         var depth = 0
@@ -722,7 +749,9 @@ class UiAutomationSelectorTest {
                         i++
                     }
 
-                    c == q -> quote = null
+                    c == q -> {
+                        quote = null
+                    }
                 }
             } else {
                 when {
@@ -746,7 +775,9 @@ class UiAutomationSelectorTest {
                         current.clear()
                     }
 
-                    else -> current.append(c)
+                    else -> {
+                        current.append(c)
+                    }
                 }
             }
             i++
@@ -756,7 +787,12 @@ class UiAutomationSelectorTest {
     }
 
     /** Index just past the pair closing at [openIndex]; string literals skipped. */
-    private fun matchPair(code: String, openIndex: Int, open: Char, close: Char): Int {
+    private fun matchPair(
+        code: String,
+        openIndex: Int,
+        open: Char,
+        close: Char,
+    ): Int {
         var depth = 0
         var i = openIndex
         var inString: Char? = null
@@ -770,9 +806,13 @@ class UiAutomationSelectorTest {
                 }
             } else {
                 when (c) {
-                    '"', '\'' -> inString = c
+                    '"', '\'' -> {
+                        inString = c
+                    }
 
-                    open -> depth++
+                    open -> {
+                        depth++
+                    }
 
                     close -> {
                         depth--

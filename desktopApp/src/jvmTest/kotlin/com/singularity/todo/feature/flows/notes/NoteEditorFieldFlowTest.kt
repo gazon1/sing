@@ -38,63 +38,65 @@ import kotlin.time.Duration.Companion.seconds
 @Tag("slow")
 @Tag("slow:compose")
 class NoteEditorFieldFlowTest {
-
     @Test
-    fun the_note_editor_shows_the_title_of_the_note() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Notes")
+    fun the_note_editor_shows_the_title_of_the_note() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Notes")
 
-        // The quick-add creates the note and opens the editor for it.
-        typeIntoTag(TestTags.NOTES_QUICK_ADD_INPUT, "Groceries")
-        submitTag(TestTags.NOTES_QUICK_ADD_INPUT)
+            // The quick-add creates the note and opens the editor for it.
+            typeIntoTag(TestTags.NOTES_QUICK_ADD_INPUT, "Groceries")
+            submitTag(TestTags.NOTES_QUICK_ADD_INPUT)
 
-        assertTagDisplayed(TestTags.NOTE_EDITOR_TITLE_INPUT)
-        assertTagTextEquals(TestTags.NOTE_EDITOR_TITLE_INPUT, "Groceries")
-    }
-
-    @Test
-    fun the_body_typed_in_the_editor_reaches_the_note() = runDesktopAppTest(checkA11y = true) { koin ->
-        // The body is a rich-text editor, not a text field: the text lives *inside* the
-        // editor's state object, and that object is the same instance for the whole
-        // session. A dispatch keyed on the object rather than on its contents therefore
-        // never fires — and a body that is never dispatched is a body that is never
-        // saved. The user types, the editor shows the text, and the note stays empty:
-        // the loss is silent, and nothing on the screen says so.
-        //
-        // This is the regression test for that: the text has to reach the *note*,
-        // not just the editor's buffer.
-        tapTab("Notes")
-        typeIntoTag(TestTags.NOTES_QUICK_ADD_INPUT, "Groceries")
-        submitTag(TestTags.NOTES_QUICK_ADD_INPUT)
-
-        assertTagDisplayed(TestTags.NOTE_EDITOR_BODY)
-        typeIntoTag(TestTags.NOTE_EDITOR_BODY, "Discuss roadmap")
-        assertTagTextEquals(TestTags.NOTE_EDITOR_BODY, "Discuss roadmap")
-
-        // The save button flushes the editor before the ViewModel reads the draft:
-        // the dispatch of the last keystroke is asynchronous, and a save that ran
-        // before it would persist the previous body.
-        clickTag(TestTags.NOTE_EDITOR_SAVE)
-
-        val repository = koin.get<NotesRepository>()
-        // The write happens on the ViewModel's own background scope, and the debounce
-        // in front of it is real time — a suspending timeout on the test's virtual
-        // clock fires long before the write could happen. The wait therefore runs on
-        // a real dispatcher.
-        var lastSeen: String? = null
-        val body = withContext(Dispatchers.Default) {
-            withTimeoutOrNull(10.seconds) {
-                repository.watchRootNotes()
-                    .map { notes ->
-                        notes.firstOrNull { it.title == "Groceries" }?.bodyHtml.also { html ->
-                            lastSeen = html
-                        }
-                    }
-                    .firstOrNull { it?.contains("Discuss roadmap") == true }
-            }
+            assertTagDisplayed(TestTags.NOTE_EDITOR_TITLE_INPUT)
+            assertTagTextEquals(TestTags.NOTE_EDITOR_TITLE_INPUT, "Groceries")
         }
-        assertTrue(
-            body != null,
-            "the body did not reach the note; the note's body was: $lastSeen",
-        )
-    }
+
+    @Test
+    fun the_body_typed_in_the_editor_reaches_the_note() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            // The body is a rich-text editor, not a text field: the text lives *inside* the
+            // editor's state object, and that object is the same instance for the whole
+            // session. A dispatch keyed on the object rather than on its contents therefore
+            // never fires — and a body that is never dispatched is a body that is never
+            // saved. The user types, the editor shows the text, and the note stays empty:
+            // the loss is silent, and nothing on the screen says so.
+            //
+            // This is the regression test for that: the text has to reach the *note*,
+            // not just the editor's buffer.
+            tapTab("Notes")
+            typeIntoTag(TestTags.NOTES_QUICK_ADD_INPUT, "Groceries")
+            submitTag(TestTags.NOTES_QUICK_ADD_INPUT)
+
+            assertTagDisplayed(TestTags.NOTE_EDITOR_BODY)
+            typeIntoTag(TestTags.NOTE_EDITOR_BODY, "Discuss roadmap")
+            assertTagTextEquals(TestTags.NOTE_EDITOR_BODY, "Discuss roadmap")
+
+            // The save button flushes the editor before the ViewModel reads the draft:
+            // the dispatch of the last keystroke is asynchronous, and a save that ran
+            // before it would persist the previous body.
+            clickTag(TestTags.NOTE_EDITOR_SAVE)
+
+            val repository = koin.get<NotesRepository>()
+            // The write happens on the ViewModel's own background scope, and the debounce
+            // in front of it is real time — a suspending timeout on the test's virtual
+            // clock fires long before the write could happen. The wait therefore runs on
+            // a real dispatcher.
+            var lastSeen: String? = null
+            val body =
+                withContext(Dispatchers.Default) {
+                    withTimeoutOrNull(10.seconds) {
+                        repository
+                            .watchRootNotes()
+                            .map { notes ->
+                                notes.firstOrNull { it.title == "Groceries" }?.bodyHtml.also { html ->
+                                    lastSeen = html
+                                }
+                            }.firstOrNull { it?.contains("Discuss roadmap") == true }
+                    }
+                }
+            assertTrue(
+                body != null,
+                "the body did not reach the note; the note's body was: $lastSeen",
+            )
+        }
 }

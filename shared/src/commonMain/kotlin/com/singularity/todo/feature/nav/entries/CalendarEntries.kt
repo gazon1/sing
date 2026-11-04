@@ -1,13 +1,13 @@
 package com.singularity.todo.feature.nav.entries
 
 import androidx.navigation3.runtime.EntryProviderScope
+import com.singularity.todo.feature.calendar.presentation.nav.CalendarNavGraph
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AppNavStacks
 import com.singularity.todo.feature.nav.CalendarRoute
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.nav.toCalendarRoute
-import com.singularity.todo.feature.calendar.presentation.nav.CalendarNavGraph
 import kotlinx.datetime.LocalDate
 
 /**

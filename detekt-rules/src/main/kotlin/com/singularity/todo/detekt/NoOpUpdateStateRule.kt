@@ -1,5 +1,6 @@
 package com.singularity.todo.detekt
 
+import com.intellij.psi.PsiElement
 import dev.detekt.api.Config
 import dev.detekt.api.Entity
 import dev.detekt.api.Finding
@@ -11,7 +12,6 @@ import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
-import com.intellij.psi.PsiElement
 
 /**
  * Bans `updateState { it }` — a reducer that returns its input unchanged.
@@ -36,7 +36,6 @@ import com.intellij.psi.PsiElement
  * @see NoOpUpdateStateProvider for registration.
  */
 class NoOpUpdateStateRule(config: Config) : Rule(config, "", null) {
-
     override fun visitCallExpression(expression: KtCallExpression) {
         // Without super the tree traversal stops at this node and updateState calls
         // deeper in the file would never be visited.
@@ -49,10 +48,11 @@ class NoOpUpdateStateRule(config: Config) : Rule(config, "", null) {
         report(
             Finding(
                 entity = Entity.from(expression),
-                message = "updateState { it } is a no-op: the transform returns the current state " +
-                    "unchanged, so the value being collected is discarded and the screen never " +
-                    "leaves its Loading branch. Use setState(collected) to assign an already " +
-                    "computed value, or updateState { it.copy(...) } to actually derive one.",
+                message =
+                    "updateState { it } is a no-op: the transform returns the current state " +
+                        "unchanged, so the value being collected is discarded and the screen never " +
+                        "leaves its Loading branch. Use setState(collected) to assign an already " +
+                        "computed value, or updateState { it.copy(...) } to actually derive one.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -112,10 +112,12 @@ class NoOpUpdateStateRule(config: Config) : Rule(config, "", null) {
  */
 class NoOpUpdateStateProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-op-update-state")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoOpUpdateState") to { cfg: Config -> NoOpUpdateStateRule(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoOpUpdateState") to { cfg: Config -> NoOpUpdateStateRule(cfg) },
+            ),
+        )
 }

@@ -67,7 +67,6 @@ import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
  * @see NoDroppedUiStatePropertyProvider for registration.
  */
 class NoDroppedUiStatePropertyRule(config: Config) : Rule(config, "", null) {
-
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
         for (sealedInterface in sealedUiStateInterfaces(root)) {
@@ -106,15 +105,23 @@ class NoDroppedUiStatePropertyRule(config: Config) : Rule(config, "", null) {
      * interface's own declarations are the ones every variant has to carry.
      */
     private fun interfaceProperties(sealedInterface: KtClass): List<KtProperty> =
-        sealedInterface.body?.declarations?.filterIsInstance<KtProperty>().orEmpty()
+        sealedInterface.body
+            ?.declarations
+            ?.filterIsInstance<KtProperty>()
+            .orEmpty()
 
     /** The variants of the interface: the nested classes and objects that implement it. */
     private fun variants(sealedInterface: KtClass): List<KtClass> =
         sealedInterface.body?.declarations?.filterIsInstance<KtClass>().orEmpty().filter { variant ->
-            variant.isInterface().not() && variant.superTypeListEntries.any { entry ->
-                entry.typeReference?.text?.substringBefore('<')?.substringAfterLast('.')?.trim() ==
-                    sealedInterface.name
-            }
+            variant.isInterface().not() &&
+                variant.superTypeListEntries.any { entry ->
+                    entry.typeReference
+                        ?.text
+                        ?.substringBefore('<')
+                        ?.substringAfterLast('.')
+                        ?.trim() ==
+                        sealedInterface.name
+                }
         }
 
     private fun checkVariants(sealedInterface: KtClass) {
@@ -125,45 +132,65 @@ class NoDroppedUiStatePropertyRule(config: Config) : Rule(config, "", null) {
                 val name = property.name ?: continue
                 val parameter = constructorParameter(variant, name)
                 when {
-                    parameter == null && declaresInBody(variant, name) -> report(
-                        variant,
-                        name,
-                        "declares it in the class body, which makes it a constant",
-                    )
+                    parameter == null && declaresInBody(variant, name) -> {
+                        report(
+                            variant,
+                            name,
+                            "declares it in the class body, which makes it a constant",
+                        )
+                    }
 
-                    parameter == null -> report(variant, name, "does not declare it at all")
+                    parameter == null -> {
+                        report(variant, name, "does not declare it at all")
+                    }
 
-                    parameter.hasDefaultValue() -> report(
-                        variant,
-                        name,
-                        "gives it a default value, and a default is a value the ViewModel " +
-                            "did not have to think about",
-                    )
+                    parameter.hasDefaultValue() -> {
+                        report(
+                            variant,
+                            name,
+                            "gives it a default value, and a default is a value the ViewModel " +
+                                "did not have to think about",
+                        )
+                    }
                 }
             }
         }
     }
 
     /** The variant's primary-constructor parameter for [name], if it has one. */
-    private fun constructorParameter(variant: KtClass, name: String): KtParameter? =
-        variant.primaryConstructor?.valueParameters?.firstOrNull { it.name == name }
+    private fun constructorParameter(
+        variant: KtClass,
+        name: String,
+    ): KtParameter? = variant.primaryConstructor?.valueParameters?.firstOrNull { it.name == name }
 
     /** True when the variant declares the property in its body rather than its constructor. */
-    private fun declaresInBody(variant: KtClass, name: String): Boolean =
-        variant.body?.declarations?.filterIsInstance<KtProperty>().orEmpty().any { it.name == name }
+    private fun declaresInBody(
+        variant: KtClass,
+        name: String,
+    ): Boolean =
+        variant.body
+            ?.declarations
+            ?.filterIsInstance<KtProperty>()
+            .orEmpty()
+            .any { it.name == name }
 
     /** Reports the variant, naming the property and what is wrong with it. */
-    private fun report(variant: KtClass, name: String, problem: String) {
+    private fun report(
+        variant: KtClass,
+        name: String,
+        problem: String,
+    ) {
         report(
             Finding(
                 entity = Entity.from(variant),
-                message = "`${variant.name}` $problem (`$name`), but it is a property of the " +
-                    "interface it implements. Every variant of a sealed UI state has to carry " +
-                    "the properties the interface declares: the screen binds them to its " +
-                    "controls, so a variant that replaces one with a constant resets what " +
-                    "the user had chosen. Declare it as a constructor parameter without a " +
-                    "default value — the compiler then forces the ViewModel to pass the " +
-                    "value it holds.",
+                message =
+                    "`${variant.name}` $problem (`$name`), but it is a property of the " +
+                        "interface it implements. Every variant of a sealed UI state has to carry " +
+                        "the properties the interface declares: the screen binds them to its " +
+                        "controls, so a variant that replaces one with a constant resets what " +
+                        "the user had chosen. Declare it as a constructor parameter without a " +
+                        "default value — the compiler then forces the ViewModel to pass the " +
+                        "value it holds.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -176,12 +203,14 @@ class NoDroppedUiStatePropertyRule(config: Config) : Rule(config, "", null) {
  */
 class NoDroppedUiStatePropertyProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-dropped-ui-state-property")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoDroppedUiStateProperty") to { cfg: Config ->
-                NoDroppedUiStatePropertyRule(cfg)
-            },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoDroppedUiStateProperty") to { cfg: Config ->
+                    NoDroppedUiStatePropertyRule(cfg)
+                },
+            ),
+        )
 }

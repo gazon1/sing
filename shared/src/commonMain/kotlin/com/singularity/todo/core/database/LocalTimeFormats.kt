@@ -1,5 +1,6 @@
 package com.singularity.todo.core.database
 
+import com.singularity.todo.core.format.formatPadded
 import kotlinx.datetime.LocalTime
 
 /**
@@ -13,7 +14,10 @@ import kotlinx.datetime.LocalTime
 object LocalTimeFormats {
     /**
      * Parses `HH:mm` or `HH:mm:ss` into [LocalTime].
-     * Returns null if the string is malformed.
+     *
+     * Throws `IllegalArgumentException` when the string is malformed — it does
+     * not return `null`, and a caller that needs a nullable result has to
+     * catch it.
      */
     fun parse(value: String): LocalTime {
         val parts = value.split(":")
@@ -27,6 +31,15 @@ object LocalTimeFormats {
         return LocalTime(hour, minute, second)
     }
 
-    /** Formats as `HH:mm:ss` (zero-padded). */
-    fun format(time: LocalTime): String = "%02d:%02d:%02d".format(time.hour, time.minute, time.second)
+    /**
+     * Formats as `HH:mm:ss` (zero-padded).
+     *
+     * Padded by hand, not with `"%02d:%02d:%02d".format(...)`: that formats in the
+     * *device's* locale, and on an Arabic phone it writes "١٤:٣٠:٠٠" into the
+     * database — which [parse] then rejects, because `toInt()` does not read
+     * Arabic-Indic digits. This is the wire format: Room, backup DTOs and AI tool
+     * inputs all read it back.
+     */
+    fun format(time: LocalTime): String =
+        "${formatPadded(time.hour)}:${formatPadded(time.minute)}:${formatPadded(time.second)}"
 }

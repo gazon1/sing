@@ -40,15 +40,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.ui.TestTags
@@ -57,16 +58,16 @@ import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavigator
-import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
-import kotlinx.collections.immutable.toImmutableSet
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
-import kotlinx.collections.immutable.ImmutableList
+
 /** Task list section of [ProjectDetailScreen]: quick-add input, task cards, and
  * "See all N tasks" link.
  *
@@ -102,9 +103,10 @@ fun ProjectBodySection(
                     modifier = Modifier.padding(32.dp),
                 )
             } else {
-                val blockedTaskIds = remember(ui.tasks) {
-                    Blocking.blockedTaskIds(ui.tasks).toImmutableSet()
-                }
+                val blockedTaskIds =
+                    remember(ui.tasks) {
+                        Blocking.blockedTaskIds(ui.tasks).toImmutableSet()
+                    }
                 LazyColumn(modifier = Modifier.fillMaxWidth()) {
                     items(ui.tasks, key = { it.id.value }) { task ->
                         TaskCard(
@@ -112,10 +114,11 @@ fun ProjectBodySection(
                             today = systemToday(),
                             blockedTaskIds = blockedTaskIds,
                             onClick = { nav.openTask(task.id) },
-                            actions = TaskCardActions(
-                                onPin = { actions.onPin(task.id) },
-                                onDelete = { actions.onDeleteTask(task.id) },
-                            ),
+                            actions =
+                                TaskCardActions(
+                                    onPin = { actions.onPin(task.id) },
+                                    onDelete = { actions.onDeleteTask(task.id) },
+                                ),
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                         )
                     }
@@ -149,9 +152,10 @@ private fun ProjectTasksHeader(
     actions: ProjectDetailActions,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -168,12 +172,13 @@ private fun ProjectTasksHeader(
                     if (hideCompleted) "Show completed" else "Hide completed",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .clickable(onClick = actions::onToggleHideCompleted)
-                        .semantics {
-                            role = Role.Button
-                            stateDescription = if (hideCompleted) "Completed hidden" else "Completed shown"
-                        },
+                    modifier =
+                        Modifier
+                            .clickable(onClick = actions::onToggleHideCompleted)
+                            .semantics {
+                                role = Role.Button
+                                stateDescription = if (hideCompleted) "Completed hidden" else "Completed shown"
+                            },
                 )
                 Text(
                     "  ·  ",
@@ -184,12 +189,13 @@ private fun ProjectTasksHeader(
                     if (hideBlocked) "Show blocked" else "Hide blocked",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .clickable(onClick = actions::onToggleHideBlocked)
-                        .semantics {
-                            role = Role.Button
-                            stateDescription = if (hideBlocked) "Blocked hidden" else "Blocked shown"
-                        },
+                    modifier =
+                        Modifier
+                            .clickable(onClick = actions::onToggleHideBlocked)
+                            .semantics {
+                                role = Role.Button
+                                stateDescription = if (hideBlocked) "Blocked hidden" else "Blocked shown"
+                            },
                 )
             }
         }
@@ -229,7 +235,11 @@ const val PROJECT_REMINDERS_SUPPORTED: Boolean = false
  * lie for an invisible half-feature.
  */
 @Composable
-fun ProjectBottomActionBar(isArchived: Boolean, actions: ProjectDetailActions, modifier: Modifier = Modifier) {
+fun ProjectBottomActionBar(
+    isArchived: Boolean,
+    actions: ProjectDetailActions,
+    modifier: Modifier = Modifier,
+) {
     BottomAppBar(modifier = modifier.fillMaxWidth()) {
         IconButton(
             onClick = actions::onOpenReminderSheet,
@@ -277,9 +287,10 @@ private fun ProjectDetailQuickAddInput(
             OutlinedTextField(
                 state = textState,
                 placeholder = { Text("Add a task...") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(TestTags.PROJECT_DETAIL_QUICK_ADD),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.PROJECT_DETAIL_QUICK_ADD),
                 lineLimits = TextFieldLineLimits.SingleLine,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 onKeyboardAction = {
@@ -341,10 +352,11 @@ private fun AddExistingTaskPopup(
     }
     ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
         ) {
             Text("Add existing task", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(12.dp))
@@ -382,7 +394,10 @@ private fun AddExistingTaskPopup(
  * Formats a saved-at timestamp as a human-readable relative string.
  */
 @OptIn(ExperimentalTime::class)
-fun formatSavedRelative(now: Instant, lastEdited: Instant): String {
+fun formatSavedRelative(
+    now: Instant,
+    lastEdited: Instant,
+): String {
     val diffMs = now.toEpochMilliseconds() - lastEdited.toEpochMilliseconds()
     return when {
         diffMs < 60_000 -> "Saved just now"

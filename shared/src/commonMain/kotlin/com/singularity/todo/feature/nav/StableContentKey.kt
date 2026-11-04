@@ -27,51 +27,52 @@ package com.singularity.todo.feature.nav
  *
  * @see AppDestination.stableContentKey
  */
-internal fun AppDestination.stableContentKey(): String = when (this) {
-    is AppDestination.Plans -> "plans"
+internal fun AppDestination.stableContentKey(): String =
+    when (this) {
+        is AppDestination.Plans -> "plans"
 
-    is AppDestination.Pomodoro -> "pomodoro"
+        is AppDestination.Pomodoro -> "pomodoro"
 
-    is AppDestination.Statistics -> "statistics"
+        is AppDestination.Statistics -> "statistics"
 
-    is AppDestination.Calendar -> "calendar"
+        is AppDestination.Calendar -> "calendar"
 
-    is AppDestination.Notes -> "notes"
+        is AppDestination.Notes -> "notes"
 
-    is AppDestination.AiChat -> "ai-chat"
+        is AppDestination.AiChat -> "ai-chat"
 
-    is AppDestination.ExternalAgent -> "external-agent"
+        is AppDestination.ExternalAgent -> "external-agent"
 
-    is AppDestination.Proposals -> "proposals"
+        is AppDestination.Proposals -> "proposals"
 
-    is AppDestination.Search -> "search"
+        is AppDestination.Search -> "search"
 
-    is AppDestination.Archive -> "archive"
+        is AppDestination.Archive -> "archive"
 
-    is AppDestination.Settings -> "settings"
+        is AppDestination.Settings -> "settings"
 
-    is AppDestination.AiUsage -> "ai-usage"
+        is AppDestination.AiUsage -> "ai-usage"
 
-    is AppDestination.ProfileSwitcher -> "profile-switcher"
+        is AppDestination.ProfileSwitcher -> "profile-switcher"
 
-    is AppDestination.AttachAccount -> "attach-account"
+        is AppDestination.AttachAccount -> "attach-account"
 
-    is AppDestination.ChangePassword -> "change-password"
+        is AppDestination.ChangePassword -> "change-password"
 
-    // The token is a secret: it does not belong in a key that is written into the
-    // saved state. One magic link at a time is the only case there is.
-    is AppDestination.MagicLinkConfirm -> "magic-link"
+        // The token is a secret: it does not belong in a key that is written into the
+        // saved state. One magic link at a time is the only case there is.
+        is AppDestination.MagicLinkConfirm -> "magic-link"
 
-    // The destinations that stand for a record — a task, a project, an attachment —
-    // or for a nested graph. Their keys carry the record's id, so they are computed
-    // in [recordContentKey]; the `when` above stays exhaustive over the hierarchy
-    // and stays under the complexity limit.
-    //
-    // The group is a type ([AppDestination.RecordDestination]), so it is named once:
-    // a `when` over it is exhaustive by the compiler, and a destination that joins
-    // the group does not compile until it has a key.
-    is AppDestination.RecordDestination -> recordContentKey()
-}
+        // The destinations that stand for a record — a task, a project, an attachment —
+        // or for a nested graph. Their keys carry the record's id, so they are computed
+        // in [recordContentKey]; the `when` above stays exhaustive over the hierarchy
+        // and stays under the complexity limit.
+        //
+        // The group is a type ([AppDestination.RecordDestination]), so it is named once:
+        // a `when` over it is exhaustive by the compiler, and a destination that joins
+        // the group does not compile until it has a key.
+        is AppDestination.RecordDestination -> recordContentKey()
+    }
 
 /**
  * The key of a destination that stands for a record or for a nested graph.
@@ -88,111 +89,143 @@ internal fun AppDestination.stableContentKey(): String = when (this) {
  * and the two could drift apart, which reached the runtime as "no content key
  * for ...".
  */
-private fun AppDestination.RecordDestination.recordContentKey(): String = when (this) {
-    // The date is part of the key: two new-task screens that prefill different dates
-    // are two different screens, and one screen's draft is not the other's.
-    is AppDestination.TasksGraph -> "tasks-graph:" + start.stableContentKey() +
-        (initialDueDate?.let { ":$it" } ?: "")
+private fun AppDestination.RecordDestination.recordContentKey(): String =
+    when (this) {
+        // The date is part of the key: two new-task screens that prefill different dates
+        // are two different screens, and one screen's draft is not the other's.
+        is AppDestination.TasksGraph -> {
+            "tasks-graph:" + start.stableContentKey() +
+                (initialDueDate?.let { ":$it" } ?: "")
+        }
 
-    is AppDestination.TasksByProject -> "tasks-by-project:" + projectId.value
+        is AppDestination.TasksByProject -> {
+            "tasks-by-project:" + projectId.value
+        }
 
-    is AppDestination.ProjectEditor -> "project-editor:" + (projectId?.value ?: "new")
+        is AppDestination.ProjectEditor -> {
+            "project-editor:" + (projectId?.value ?: "new")
+        }
 
-    is AppDestination.ProjectDetail -> "project:" + projectId.value
+        is AppDestination.ProjectDetail -> {
+            "project:" + projectId.value
+        }
 
-    is AppDestination.AttachmentViewer -> "attachment:" + attachmentId.value
+        is AppDestination.AttachmentViewer -> {
+            "attachment:" + attachmentId.value
+        }
 
-    is AppDestination.ProjectsGraph -> "projects-graph:" + start.stableContentKey()
+        is AppDestination.ProjectsGraph -> {
+            "projects-graph:" + start.stableContentKey()
+        }
 
-    is AppDestination.NotesGraph -> "notes-graph:" + start.stableContentKey()
+        is AppDestination.NotesGraph -> {
+            "notes-graph:" + start.stableContentKey()
+        }
 
-    is AppDestination.CalendarGraph -> "calendar-graph:" + start.stableContentKey()
+        is AppDestination.CalendarGraph -> {
+            "calendar-graph:" + start.stableContentKey()
+        }
 
-    is AppDestination.AgendaGraph -> "agenda-graph:" + start.stableContentKey()
-}
-
-/** @see AppDestination.stableContentKey */
-internal fun AppDestination.TasksStartRoute.stableContentKey(): String = when (this) {
-    is AppDestination.TasksStartRoute.Create -> "task-create:" + (draftKey ?: "plain")
-
-    // The task's id, and nothing else: the view the task was opened from is context,
-    // not identity, and a key that carried it would change when that context does.
-    is AppDestination.TasksStartRoute.Detail -> "task:" + taskId.value
-}
-
-/** @see AppDestination.stableContentKey */
-internal fun AppDestination.ProjectsStartRoute.stableContentKey(): String = when (this) {
-    is AppDestination.ProjectsStartRoute.List -> "projects-list"
-    is AppDestination.ProjectsStartRoute.Editor -> "projects-editor:" + (projectId?.value ?: "new")
-}
-
-/** @see AppDestination.stableContentKey */
-internal fun AppDestination.NotesStartRoute.stableContentKey(): String = when (this) {
-    is AppDestination.NotesStartRoute.List -> "notes-list"
-    is AppDestination.NotesStartRoute.Preview -> "note:" + noteId.value
-    is AppDestination.NotesStartRoute.EditorForTask -> "note-for-task:" + taskId.value
-}
+        is AppDestination.AgendaGraph -> {
+            "agenda-graph:" + start.stableContentKey()
+        }
+    }
 
 /** @see AppDestination.stableContentKey */
-internal fun AppDestination.CalendarStartRoute.stableContentKey(): String = when (this) {
-    is AppDestination.CalendarStartRoute.Month -> "calendar-month:" + anchor
-}
+internal fun AppDestination.TasksStartRoute.stableContentKey(): String =
+    when (this) {
+        is AppDestination.TasksStartRoute.Create -> "task-create:" + (draftKey ?: "plain")
+
+        // The task's id, and nothing else: the view the task was opened from is context,
+        // not identity, and a key that carried it would change when that context does.
+        is AppDestination.TasksStartRoute.Detail -> "task:" + taskId.value
+    }
 
 /** @see AppDestination.stableContentKey */
-internal fun AgendaStartRoute.stableContentKey(): String = when (this) {
-    is AgendaStartRoute.Inbox -> "agenda-inbox"
-
-    is AgendaStartRoute.Today -> "agenda-today"
-
-    is AgendaStartRoute.Upcoming -> "agenda-upcoming"
-
-    is AgendaStartRoute.Project -> "agenda-project:" + projectId.value
-
-    is AgendaStartRoute.Tag -> "agenda-tag:" + tagId.value
-
-    // The ids are sorted: a set has no order of its own, and a key that changed
-    // with the iteration order would be a key that changes for no reason.
-    is AgendaStartRoute.Tags -> "agenda-tags:" + tagIds.map { it.value }.sorted().joinToString(",")
-
-    is AgendaStartRoute.SavedAgendaList -> "saved-views"
-
-    is AgendaStartRoute.SavedAgendaResults -> "saved-view:" + viewId.raw
-
-    is AgendaStartRoute.SavedAgendaEdit -> "saved-view-edit:" + viewId.raw
-
-    is AgendaStartRoute.SavedAgendaCreate -> "saved-view-create"
-
-    is AgendaStartRoute.Blocked -> "agenda-blocked"
-
-    is AgendaStartRoute.Stagnant -> "agenda-stagnant"
-
-    is AgendaStartRoute.Overdue -> "agenda-overdue"
-}
+internal fun AppDestination.ProjectsStartRoute.stableContentKey(): String =
+    when (this) {
+        is AppDestination.ProjectsStartRoute.List -> "projects-list"
+        is AppDestination.ProjectsStartRoute.Editor -> "projects-editor:" + (projectId?.value ?: "new")
+    }
 
 /** @see AppDestination.stableContentKey */
-internal fun TasksRoute.stableContentKey(): String = when (this) {
-    is TasksRoute.Detail -> "task:" + taskId.value
-
-    is TasksRoute.Create -> "task-create:" + (initialDueDate?.toString() ?: "plain") +
-        ":" + (draftKey ?: "")
-}
-
-/** @see AppDestination.stableContentKey */
-internal fun NotesRoute.stableContentKey(): String = when (this) {
-    is NotesRoute.List -> "notes-list"
-    is NotesRoute.Preview -> "note:" + noteId.value
-    is NotesRoute.Editor -> "note-editor:" + (noteId?.value ?: taskId?.value ?: "new")
-}
+internal fun AppDestination.NotesStartRoute.stableContentKey(): String =
+    when (this) {
+        is AppDestination.NotesStartRoute.List -> "notes-list"
+        is AppDestination.NotesStartRoute.Preview -> "note:" + noteId.value
+        is AppDestination.NotesStartRoute.EditorForTask -> "note-for-task:" + taskId.value
+    }
 
 /** @see AppDestination.stableContentKey */
-internal fun ProjectsRoute.stableContentKey(): String = when (this) {
-    is ProjectsRoute.List -> "projects-list"
-    is ProjectsRoute.Editor -> "projects-editor:" + (projectId?.value ?: "new")
-    is ProjectsRoute.Detail -> "project:" + projectId.value
-}
+internal fun AppDestination.CalendarStartRoute.stableContentKey(): String =
+    when (this) {
+        is AppDestination.CalendarStartRoute.Month -> "calendar-month:" + anchor
+    }
 
 /** @see AppDestination.stableContentKey */
-internal fun CalendarRoute.stableContentKey(): String = when (this) {
-    is CalendarRoute.Month -> "calendar-month:" + anchor
-    is CalendarRoute.Day -> "calendar-day:" + anchor
-}
+internal fun AgendaStartRoute.stableContentKey(): String =
+    when (this) {
+        is AgendaStartRoute.Inbox -> "agenda-inbox"
+
+        is AgendaStartRoute.Today -> "agenda-today"
+
+        is AgendaStartRoute.Upcoming -> "agenda-upcoming"
+
+        is AgendaStartRoute.Project -> "agenda-project:" + projectId.value
+
+        is AgendaStartRoute.Tag -> "agenda-tag:" + tagId.value
+
+        // The ids are sorted: a set has no order of its own, and a key that changed
+        // with the iteration order would be a key that changes for no reason.
+        is AgendaStartRoute.Tags -> "agenda-tags:" + tagIds.map { it.value }.sorted().joinToString(",")
+
+        is AgendaStartRoute.SavedAgendaList -> "saved-views"
+
+        is AgendaStartRoute.SavedAgendaResults -> "saved-view:" + viewId.raw
+
+        is AgendaStartRoute.SavedAgendaEdit -> "saved-view-edit:" + viewId.raw
+
+        is AgendaStartRoute.SavedAgendaCreate -> "saved-view-create"
+
+        is AgendaStartRoute.Blocked -> "agenda-blocked"
+
+        is AgendaStartRoute.Stagnant -> "agenda-stagnant"
+
+        is AgendaStartRoute.Overdue -> "agenda-overdue"
+    }
+
+/** @see AppDestination.stableContentKey */
+internal fun TasksRoute.stableContentKey(): String =
+    when (this) {
+        is TasksRoute.Detail -> {
+            "task:" + taskId.value
+        }
+
+        is TasksRoute.Create -> {
+            "task-create:" + (initialDueDate?.toString() ?: "plain") +
+                ":" + (draftKey ?: "")
+        }
+    }
+
+/** @see AppDestination.stableContentKey */
+internal fun NotesRoute.stableContentKey(): String =
+    when (this) {
+        is NotesRoute.List -> "notes-list"
+        is NotesRoute.Preview -> "note:" + noteId.value
+        is NotesRoute.Editor -> "note-editor:" + (noteId?.value ?: taskId?.value ?: "new")
+    }
+
+/** @see AppDestination.stableContentKey */
+internal fun ProjectsRoute.stableContentKey(): String =
+    when (this) {
+        is ProjectsRoute.List -> "projects-list"
+        is ProjectsRoute.Editor -> "projects-editor:" + (projectId?.value ?: "new")
+        is ProjectsRoute.Detail -> "project:" + projectId.value
+    }
+
+/** @see AppDestination.stableContentKey */
+internal fun CalendarRoute.stableContentKey(): String =
+    when (this) {
+        is CalendarRoute.Month -> "calendar-month:" + anchor
+        is CalendarRoute.Day -> "calendar-day:" + anchor
+    }

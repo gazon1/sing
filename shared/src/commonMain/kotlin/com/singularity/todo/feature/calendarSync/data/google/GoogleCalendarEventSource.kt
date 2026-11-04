@@ -13,9 +13,9 @@ import com.singularity.todo.feature.calendarSync.error.CalendarSyncException
 import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
-import io.ktor.client.request.post
 import io.ktor.client.request.header
 import io.ktor.client.request.patch
+import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
@@ -86,7 +86,6 @@ class GoogleCalendarEventSource(
      */
     private val clock: Clock,
 ) : CalendarEventSource {
-
     override suspend fun listCalendars(): List<GoogleCalendarSummary> {
         val response = getJson("$BASE/users/me/calendarList?minAccessRole=writer")
         val body = response.requireSuccess()
@@ -102,27 +101,31 @@ class GoogleCalendarEventSource(
         }
     }
 
-    override suspend fun fetchChanges(calendarId: String, syncToken: String?): ChangePage {
+    override suspend fun fetchChanges(
+        calendarId: String,
+        syncToken: String?,
+    ): ChangePage {
         // The query-parameter lock is the reason this is not simply "list with filters":
         // once a syncToken is in play Google rejects timeMin/timeMax/q/orderBy/updatedMin
         // with a 400, and singleEvents must stay the same or the token is invalidated. So
         // the token call sends *only* the token plus the flags, and a full listing sends a
         // different parameter set entirely.
-        val url = if (syncToken == null) {
-            buildString {
-                append("$BASE/calendars/$calendarId/events")
-                append("?singleEvents=true&showDeleted=true&orderBy=startTime")
-                append("&maxResults=$PAGE_SIZE")
-                // Both ends, from one window value. A full listing with no lower bound would
-                // return a Google account's entire history, and the user would have to undo
-                // the import by hand.
-                append("&timeMin=${importWindow.startInclusive(clock.now())}")
-                importWindow.endExclusive(clock.now())?.let { append("&timeMax=$it") }
+        val url =
+            if (syncToken == null) {
+                buildString {
+                    append("$BASE/calendars/$calendarId/events")
+                    append("?singleEvents=true&showDeleted=true&orderBy=startTime")
+                    append("&maxResults=$PAGE_SIZE")
+                    // Both ends, from one window value. A full listing with no lower bound would
+                    // return a Google account's entire history, and the user would have to undo
+                    // the import by hand.
+                    append("&timeMin=${importWindow.startInclusive(clock.now())}")
+                    importWindow.endExclusive(clock.now())?.let { append("&timeMax=$it") }
+                }
+            } else {
+                "$BASE/calendars/$calendarId/events" +
+                    "?singleEvents=true&showDeleted=true&maxResults=$PAGE_SIZE&syncToken=$syncToken"
             }
-        } else {
-            "$BASE/calendars/$calendarId/events" +
-                "?singleEvents=true&showDeleted=true&maxResults=$PAGE_SIZE&syncToken=$syncToken"
-        }
 
         val response = getJson(url)
         if (response.status == HttpStatusCode.Gone) {
@@ -133,13 +136,13 @@ class GoogleCalendarEventSource(
         }
         val obj = response.requireSuccess().asJsonObject()
 
-        val events = (obj["items"] as? kotlinx.serialization.json.JsonArray)
-            ?.mapNotNull { element ->
-                // Items arrive as JsonElement, and the mapper is a JsonObject extension, so
-                // the cast is explicit rather than assumed.
-                (element as? JsonObject)?.toGoogleEventOrNull()
-            }
-            .orEmpty()
+        val events =
+            (obj["items"] as? kotlinx.serialization.json.JsonArray)
+                ?.mapNotNull { element ->
+                    // Items arrive as JsonElement, and the mapper is a JsonObject extension, so
+                    // the cast is explicit rather than assumed.
+                    (element as? JsonObject)?.toGoogleEventOrNull()
+                }.orEmpty()
         val nextPage = obj.stringOrNull("nextPageToken")
         // nextSyncToken arrives only with the final page. Handing it back earlier would
         // make the caller persist a cursor for a window it has not finished reading, and
@@ -149,15 +152,19 @@ class GoogleCalendarEventSource(
         return ChangePage(events = events, nextPageToken = nextPage, nextSyncToken = nextSync)
     }
 
-    override suspend fun insert(calendarId: String, event: GoogleEvent): GoogleEvent {
+    override suspend fun insert(
+        calendarId: String,
+        event: GoogleEvent,
+    ): GoogleEvent {
         // `httpClient.post`, not a bare `post`: this class has a member called `patch`, and
         // a bare `patch(...)` would resolve to it rather than to Ktor's verb.
         val token = requireToken()
-        val response = httpClient.post("$BASE/calendars/$calendarId/events") {
-            authorize(token)
-            contentType(ContentType.Application.Json)
-            setBody(event.toRequestJson())
-        }
+        val response =
+            httpClient.post("$BASE/calendars/$calendarId/events") {
+                authorize(token)
+                contentType(ContentType.Application.Json)
+                setBody(event.toRequestJson())
+            }
         return response.requireSuccess().asJsonObject().toGoogleEvent()
     }
 
@@ -168,28 +175,39 @@ class GoogleCalendarEventSource(
         event: GoogleEvent,
     ): GoogleEvent {
         val token = requireToken()
-        val response = httpClient.patch("$BASE/calendars/$calendarId/events/${eventId.value}") {
-            authorize(token)
-            contentType(ContentType.Application.Json)
-            // If-Match is what turns a lost race into a 412 instead of a silent overwrite of
-            // an edit the app never saw. Without it, two devices writing the same event in
-            // the same second would produce a merge that never happened.
-            if (etag != null) header(HttpHeaders.IfMatch, etag)
-            setBody(event.toRequestJson())
-        }
+        val response =
+            httpClient.patch("$BASE/calendars/$calendarId/events/${eventId.value}") {
+                authorize(token)
+                contentType(ContentType.Application.Json)
+                // If-Match is what turns a lost race into a 412 instead of a silent overwrite of
+                // an edit the app never saw. Without it, two devices writing the same event in
+                // the same second would produce a merge that never happened.
+                if (etag != null) header(HttpHeaders.IfMatch, etag)
+                setBody(event.toRequestJson())
+            }
         return response.requireSuccess().asJsonObject().toGoogleEvent()
     }
 
-    override suspend fun get(calendarId: String, eventId: GoogleEventId): GoogleEvent =
+    override suspend fun get(
+        calendarId: String,
+        eventId: GoogleEventId,
+    ): GoogleEvent =
         getJson("$BASE/calendars/$calendarId/events/${eventId.value}")
-            .requireSuccess().asJsonObject().toGoogleEvent()
+            .requireSuccess()
+            .asJsonObject()
+            .toGoogleEvent()
 
-    override suspend fun cancel(calendarId: String, eventId: GoogleEventId, etag: String?) {
+    override suspend fun cancel(
+        calendarId: String,
+        eventId: GoogleEventId,
+        etag: String?,
+    ) {
         val token = requireToken()
-        val response = httpClient.delete("$BASE/calendars/$calendarId/events/${eventId.value}") {
-            authorize(token)
-            if (etag != null) header(HttpHeaders.IfMatch, etag)
-        }
+        val response =
+            httpClient.delete("$BASE/calendars/$calendarId/events/${eventId.value}") {
+                authorize(token)
+                if (etag != null) header(HttpHeaders.IfMatch, etag)
+            }
         if (response.status == HttpStatusCode.NoContent || response.status == HttpStatusCode.OK) return
         response.requireSuccess()
     }
@@ -231,19 +249,26 @@ class GoogleCalendarEventSource(
      * parsing a status code, because getting that wrong either gives up on a recoverable
      * condition or hammers a rate limit.
      */
-    private fun translate(status: HttpStatusCode, body: String): CalendarSyncException {
-        val reason = runCatching {
-            json.parseToJsonElement(body).jsonObject
-                .let { it["error"]?.jsonObject?.stringOrNull("message") }
-        }.getOrNull()
+    private fun translate(
+        status: HttpStatusCode,
+        body: String,
+    ): CalendarSyncException {
+        val reason =
+            runCatching {
+                json
+                    .parseToJsonElement(body)
+                    .jsonObject
+                    .let { it["error"]?.jsonObject?.stringOrNull("message") }
+            }.getOrNull()
 
         return when (status) {
-            HttpStatusCode.Unauthorized ->
+            HttpStatusCode.Unauthorized -> {
                 CalendarSyncException.PermissionRevokedException(
                     "Google rejected the access token" + (reason?.let { ": $it" } ?: ""),
                 )
+            }
 
-            HttpStatusCode.Forbidden ->
+            HttpStatusCode.Forbidden -> {
                 if (body.contains("rateLimitExceeded") || body.contains("userRateLimitExceeded")) {
                     CalendarSyncException.TransientSyncException("Google rate limit reached", null)
                 } else {
@@ -251,22 +276,27 @@ class GoogleCalendarEventSource(
                         "Google refused the request" + (reason?.let { ": $it" } ?: ""),
                     )
                 }
+            }
 
-            HttpStatusCode.NotFound ->
+            HttpStatusCode.NotFound -> {
                 CalendarSyncException.CalendarNotFoundException(status.description)
+            }
 
             // 412 is the etag guard doing its job. Transient by design: the caller's
             // response is to re-read the event and re-plan, which converges.
-            HttpStatusCode.PreconditionFailed ->
+            HttpStatusCode.PreconditionFailed -> {
                 CalendarSyncException.TransientSyncException("The event changed on another device", null)
+            }
 
-            HttpStatusCode.Gone ->
+            HttpStatusCode.Gone -> {
                 CalendarSyncException.TransientSyncException("The sync token expired", null)
+            }
 
-            HttpStatusCode.Conflict ->
+            HttpStatusCode.Conflict -> {
                 CalendarSyncException.TransientSyncException("Conflicting event version", null)
+            }
 
-            else ->
+            else -> {
                 if (status.value >= 500) {
                     CalendarSyncException.TransientSyncException(
                         "Google returned ${status.value}" + (reason?.let { ": $it" } ?: ""),
@@ -278,6 +308,7 @@ class GoogleCalendarEventSource(
                         null,
                     )
                 }
+            }
         }
     }
 

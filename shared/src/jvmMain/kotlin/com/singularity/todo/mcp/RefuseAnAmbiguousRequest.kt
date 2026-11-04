@@ -8,7 +8,6 @@ package com.singularity.todo.mcp
  * the process leaves with another.
  */
 internal object RefuseAnAmbiguousRequest : ToolServerStartupStep {
-
     override val title: String = "refuse an ambiguous request"
 
     override suspend fun run(context: ToolServerStartupContext): ToolServerStartup.Refused? {

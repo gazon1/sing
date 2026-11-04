@@ -43,7 +43,6 @@ import org.koin.core.component.inject
 class CalendarSyncWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params),
     KoinComponent {
-
     private val taskRepo: TaskRepository by inject()
     private val reminderRepo: ReminderRepository by inject()
     private val calendarProvider: CalendarProviderPort by inject()
@@ -67,25 +66,30 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
 
         return try {
             val userId = currentUser.scopedUserId.value.value
-            val allTasks = taskRepo.observeAll()
-                .first()
-                .filter { it.belongsOnACalendar }
+            val allTasks =
+                taskRepo
+                    .observeAll()
+                    .first()
+                    .filter { it.belongsOnACalendar }
 
             // Map entities to the domain read model so the pure diff never sees Room types
-            val existingMap: Map<String, SyncedEventRef> = taskMapDao.getAll(userId)
-                .associateBy({ it.taskId }, { it.toSyncedEventRef() })
+            val existingMap: Map<String, SyncedEventRef> =
+                taskMapDao
+                    .getAll(userId)
+                    .associateBy({ it.taskId }, { it.toSyncedEventRef() })
 
             // Map all tasks to CalendarSyncEvents
-            val desiredEvents = allTasks.mapNotNull { task ->
-                val reminder = reminderRepo.watchByTask(task.id).first().firstOrNull()
-                val existingEntity = existingMap[task.id.value]
-                CalendarEventMapper.mapToEvent(
-                    task,
-                    reminder,
-                    targetCalendarId,
-                    existingEntity?.eventId,
-                )
-            }
+            val desiredEvents =
+                allTasks.mapNotNull { task ->
+                    val reminder = reminderRepo.watchByTask(task.id).first().firstOrNull()
+                    val existingEntity = existingMap[task.id.value]
+                    CalendarEventMapper.mapToEvent(
+                        task,
+                        reminder,
+                        targetCalendarId,
+                        existingEntity?.eventId,
+                    )
+                }
 
             val plans = SyncDiffMerge.diff(existingMap, desiredEvents)
 
@@ -99,45 +103,51 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
                     is SyncPlan.NoOp -> { /* nothing */ }
 
                     is SyncPlan.Insert -> {
-                        calendarProvider.insertEvent(plan.event).onSuccess { eventId ->
-                            taskMapDao.upsert(
-                                CalendarSyncTaskMapEntity(
-                                    taskId = plan.event.taskId.value,
-                                    userId = userId,
-                                    calendarId = plan.event.calendarId,
-                                    eventId = eventId,
-                                    syncedAt = System.currentTimeMillis(),
-                                    checksum = plan.event.checksum(),
-                                ),
-                            )
-                            inserted++
-                        }.onFailure { errors++ }
+                        calendarProvider
+                            .insertEvent(plan.event)
+                            .onSuccess { eventId ->
+                                taskMapDao.upsert(
+                                    CalendarSyncTaskMapEntity(
+                                        taskId = plan.event.taskId.value,
+                                        userId = userId,
+                                        calendarId = plan.event.calendarId,
+                                        eventId = eventId,
+                                        syncedAt = System.currentTimeMillis(),
+                                        checksum = plan.event.checksum(),
+                                    ),
+                                )
+                                inserted++
+                            }.onFailure { errors++ }
                     }
 
                     is SyncPlan.Update -> {
-                        calendarProvider.updateEvent(plan.eventId, plan.event).onSuccess {
-                            taskMapDao.upsert(
-                                CalendarSyncTaskMapEntity(
-                                    taskId = plan.event.taskId.value,
-                                    userId = userId,
-                                    calendarId = plan.event.calendarId,
-                                    eventId = plan.eventId,
-                                    syncedAt = System.currentTimeMillis(),
-                                    checksum = plan.event.checksum(),
-                                ),
-                            )
-                            updated++
-                        }.onFailure { errors++ }
+                        calendarProvider
+                            .updateEvent(plan.eventId, plan.event)
+                            .onSuccess {
+                                taskMapDao.upsert(
+                                    CalendarSyncTaskMapEntity(
+                                        taskId = plan.event.taskId.value,
+                                        userId = userId,
+                                        calendarId = plan.event.calendarId,
+                                        eventId = plan.eventId,
+                                        syncedAt = System.currentTimeMillis(),
+                                        checksum = plan.event.checksum(),
+                                    ),
+                                )
+                                updated++
+                            }.onFailure { errors++ }
                     }
 
                     is SyncPlan.Delete -> {
-                        calendarProvider.deleteEvent(plan.eventId).onSuccess {
-                            taskMapDao.deleteByEventId(plan.eventId, userId)
-                            deleted++
-                        }.onFailure {
-                            failedDeletes.add(plan.eventId)
-                            errors++
-                        }
+                        calendarProvider
+                            .deleteEvent(plan.eventId)
+                            .onSuccess {
+                                taskMapDao.deleteByEventId(plan.eventId, userId)
+                                deleted++
+                            }.onFailure {
+                                failedDeletes.add(plan.eventId)
+                                errors++
+                            }
                     }
                 }
             }
@@ -154,15 +164,21 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
             // leaves a stale event in the user's calendar with no task behind it, and
             // "3 operation(s) failed" says neither which nor how many are orphaned.
             val orphanedIds: List<Long> = failedDeletes.toList().sorted()
-            val failureReason: String? = when {
-                errors == 0 -> null
+            val failureReason: String? =
+                when {
+                    errors == 0 -> {
+                        null
+                    }
 
-                orphanedIds.isEmpty() -> "$errors operation(s) failed"
+                    orphanedIds.isEmpty() -> {
+                        "$errors operation(s) failed"
+                    }
 
-                else ->
-                    "$errors operation(s) failed, ${orphanedIds.size} " +
-                        "event(s) could not be removed: " + orphanedIds.joinToString(", ")
-            }
+                    else -> {
+                        "$errors operation(s) failed, ${orphanedIds.size} " +
+                            "event(s) could not be removed: " + orphanedIds.joinToString(", ")
+                    }
+                }
 
             syncRepo.setStatus(
                 if (failureReason == null) {
@@ -176,13 +192,14 @@ class CalendarSyncWorker(context: Context, params: WorkerParameters) :
         } catch (e: CancellationException) {
             throw e
         } catch (e: CalendarSyncException) {
-            val type = when (e) {
-                is CalendarSyncException.PermissionRevokedException -> FailureType.PermissionRevoked
-                is CalendarSyncException.CalendarNotFoundException -> FailureType.CalendarNotFound
-                is CalendarSyncException.CalendarAppMissingException -> FailureType.CalendarAppMissing
-                is CalendarSyncException.TransientSyncException -> FailureType.Transient
-                is CalendarSyncException.NetworkSyncException -> FailureType.Network
-            }
+            val type =
+                when (e) {
+                    is CalendarSyncException.PermissionRevokedException -> FailureType.PermissionRevoked
+                    is CalendarSyncException.CalendarNotFoundException -> FailureType.CalendarNotFound
+                    is CalendarSyncException.CalendarAppMissingException -> FailureType.CalendarAppMissing
+                    is CalendarSyncException.TransientSyncException -> FailureType.Transient
+                    is CalendarSyncException.NetworkSyncException -> FailureType.Network
+                }
             syncRepo.setStatus(CalendarSyncStatus.Failed(e.message ?: "Sync failed", type))
             // PermissionRevoked and CalendarAppMissing are not retryable — user must take action
             if (type == FailureType.PermissionRevoked || type == FailureType.CalendarAppMissing) {

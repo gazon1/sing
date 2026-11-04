@@ -26,7 +26,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ProposalItemStatusTest {
-
     @Test
     fun `a status this build knows reads as itself`() {
         assertEquals(ProposalItemStatus.Pending, ProposalItemStatus.read("Pending"))

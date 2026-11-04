@@ -11,13 +11,13 @@ import kotlinx.coroutines.CancellationException
  * On failure, logs the cause and returns false, like every other start-up failure.
  */
 internal object VerifyTheDatabase : ToolServerStartupStep {
-
     override val title: String = "verify the database"
 
     override suspend fun run(context: ToolServerStartupContext): ToolServerStartup.Refused? {
-        val dependencies = checkNotNull(context.dependencies) {
-            "The order does not resolve the dependencies before this step."
-        }
+        val dependencies =
+            checkNotNull(context.dependencies) {
+                "The order does not resolve the dependencies before this step."
+            }
         if (!verify(dependencies)) {
             return ToolServerStartup.Refused(
                 code = -32001,
@@ -30,13 +30,14 @@ internal object VerifyTheDatabase : ToolServerStartupStep {
 
     // The same one-place failure as the start-up: the database either opens or it does not.
     @Suppress("TooGenericExceptionCaught") // the database either opens or it does not
-    private suspend fun verify(dependencies: ServerDependencies): Boolean = try {
-        dependencies.database.profileDao().count()
-        true
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Throwable) {
-        startupLog.e(e) { "Database initialization failed: ${e.message}" }
-        false
-    }
+    private suspend fun verify(dependencies: ServerDependencies): Boolean =
+        try {
+            dependencies.database.profileDao().count()
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            startupLog.e(e) { "Database initialization failed: ${e.message}" }
+            false
+        }
 }

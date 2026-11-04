@@ -50,7 +50,6 @@ class TaskDraftSlot(
     private val taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
 ) : FeatureSlot<TaskDetailDraft, TaskDraftIntent> {
-
     private val draftState = TaskDetailDraftState()
     override val state: StateFlow<TaskDetailDraft> = draftState.state
 
@@ -104,10 +103,12 @@ class TaskDraftSlot(
     ) = scope.launch {
         val seriesId = task.seriesId
         if (seriesId != null && sharedFieldOf(intent) != null) {
-            core.updateSeries.updateSeries(seriesId) { it.transform() }
+            core.updateSeries
+                .updateSeries(seriesId) { it.transform() }
                 .onFailure { onError("Save failed") }
         } else {
-            core.updateTask(task.id) { it.transform() }
+            core
+                .updateTask(task.id) { it.transform() }
                 .onFailure { onError("Save failed") }
         }
     }
@@ -120,7 +121,10 @@ class TaskDraftSlot(
      * reset the text field: only a rewrite from outside, on a draft that holds
      * no unsaved edits, replaces the text.
      */
-    fun seed(title: String, description: String) = draftState.seed(title, description)
+    fun seed(
+        title: String,
+        description: String,
+    ) = draftState.seed(title, description)
 
     /**
      * Forces a write of the current draft if it differs from the original, bypassing

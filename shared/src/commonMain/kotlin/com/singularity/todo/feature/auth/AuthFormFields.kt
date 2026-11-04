@@ -73,9 +73,10 @@ fun AuthFormFields(
         OutlinedTextField(
             state = emailState,
             label = { Text("Email") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(emailTag),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(emailTag),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             lineLimits = TextFieldLineLimits.SingleLine,
         )
@@ -85,9 +86,10 @@ fun AuthFormFields(
         OutlinedSecureTextField(
             state = passwordState,
             label = { Text("Password") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(passwordTag),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(passwordTag),
             textObfuscationMode = TextObfuscationMode.Hidden,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         )
@@ -116,19 +118,22 @@ fun AuthFormFields(
 
         if (isLoading) {
             ButtonSpinner(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(TestTags.AUTH_LOADING),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.AUTH_LOADING),
             )
         } else {
             Button(
                 onClick = onSubmit,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(submitTag),
-                enabled = emailState.text.isNotBlank() &&
-                    passwordState.text.isNotBlank() &&
-                    submitEnabled,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(submitTag),
+                enabled =
+                    emailState.text.isNotBlank() &&
+                        passwordState.text.isNotBlank() &&
+                        submitEnabled,
             ) {
                 Text(submitLabel)
             }
@@ -140,102 +145,108 @@ fun AuthFormFields(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AuthFormFieldsPreview() = PreviewThemed(darkTheme = false) {
-    AuthFormFields(
-        emailTag = "auth_email",
-        passwordTag = "auth_password",
-        submitTag = "auth_submit",
-        submitLabel = "Sign In",
-        emailState = rememberTextFieldState("user@example.com"),
-        passwordState = rememberTextFieldState("password"),
-        isLoading = false,
-        errorMessage = null,
-        message = null,
-        onSubmit = {},
-    )
-}
+private fun AuthFormFieldsPreview() =
+    PreviewThemed(darkTheme = false) {
+        AuthFormFields(
+            emailTag = "auth_email",
+            passwordTag = "auth_password",
+            submitTag = "auth_submit",
+            submitLabel = "Sign In",
+            emailState = rememberTextFieldState("user@example.com"),
+            passwordState = rememberTextFieldState("password"),
+            isLoading = false,
+            errorMessage = null,
+            message = null,
+            onSubmit = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AuthFormFieldsWithMessagePreview() = PreviewThemed(darkTheme = false) {
-    AuthFormFields(
-        emailTag = "auth_email",
-        passwordTag = "auth_password",
-        submitTag = "auth_submit",
-        submitLabel = "Sign In",
-        emailState = rememberTextFieldState("user@example.com"),
-        passwordState = rememberTextFieldState("password"),
-        isLoading = false,
-        errorMessage = null,
-        message = "Account created. Check your email to confirm the address.",
-        onSubmit = {},
-    )
-}
+private fun AuthFormFieldsWithMessagePreview() =
+    PreviewThemed(darkTheme = false) {
+        AuthFormFields(
+            emailTag = "auth_email",
+            passwordTag = "auth_password",
+            submitTag = "auth_submit",
+            submitLabel = "Sign In",
+            emailState = rememberTextFieldState("user@example.com"),
+            passwordState = rememberTextFieldState("password"),
+            isLoading = false,
+            errorMessage = null,
+            message = "Account created. Check your email to confirm the address.",
+            onSubmit = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AuthFormFieldsLoadingPreview() = PreviewThemed(darkTheme = false) {
-    AuthFormFields(
-        emailTag = "auth_email",
-        passwordTag = "auth_password",
-        submitTag = "auth_submit",
-        submitLabel = "Sign In",
-        emailState = rememberTextFieldState("user@example.com"),
-        passwordState = rememberTextFieldState("password"),
-        isLoading = true,
-        errorMessage = null,
-        message = null,
-        onSubmit = {},
-    )
-}
+private fun AuthFormFieldsLoadingPreview() =
+    PreviewThemed(darkTheme = false) {
+        AuthFormFields(
+            emailTag = "auth_email",
+            passwordTag = "auth_password",
+            submitTag = "auth_submit",
+            submitLabel = "Sign In",
+            emailState = rememberTextFieldState("user@example.com"),
+            passwordState = rememberTextFieldState("password"),
+            isLoading = true,
+            errorMessage = null,
+            message = null,
+            onSubmit = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AuthFormFieldsDisabledPreview() = PreviewThemed(darkTheme = false) {
-    AuthFormFields(
-        emailTag = "auth_email",
-        passwordTag = "auth_password",
-        submitTag = "auth_submit",
-        submitLabel = "Sign In",
-        emailState = rememberTextFieldState("user@example.com"),
-        passwordState = rememberTextFieldState("password"),
-        isLoading = false,
-        errorMessage = null,
-        message = null,
-        onSubmit = {},
-    )
-}
+private fun AuthFormFieldsDisabledPreview() =
+    PreviewThemed(darkTheme = false) {
+        AuthFormFields(
+            emailTag = "auth_email",
+            passwordTag = "auth_password",
+            submitTag = "auth_submit",
+            submitLabel = "Sign In",
+            emailState = rememberTextFieldState("user@example.com"),
+            passwordState = rememberTextFieldState("password"),
+            isLoading = false,
+            errorMessage = null,
+            message = null,
+            onSubmit = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AuthFormFieldsErrorPreview() = PreviewThemed(darkTheme = false) {
-    AuthFormFields(
-        emailTag = "auth_email",
-        passwordTag = "auth_password",
-        submitTag = "auth_submit",
-        submitLabel = "Sign In",
-        emailState = rememberTextFieldState("user@example.com"),
-        passwordState = rememberTextFieldState("wrong-password"),
-        isLoading = false,
-        errorMessage = "Invalid email or password.",
-        message = null,
-        onSubmit = {},
-    )
-}
+private fun AuthFormFieldsErrorPreview() =
+    PreviewThemed(darkTheme = false) {
+        AuthFormFields(
+            emailTag = "auth_email",
+            passwordTag = "auth_password",
+            submitTag = "auth_submit",
+            submitLabel = "Sign In",
+            emailState = rememberTextFieldState("user@example.com"),
+            passwordState = rememberTextFieldState("wrong-password"),
+            isLoading = false,
+            errorMessage = "Invalid email or password.",
+            message = null,
+            onSubmit = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AuthFormFieldsDarkPreview() = PreviewThemed(darkTheme = true) {
-    AuthFormFields(
-        emailTag = "auth_email",
-        passwordTag = "auth_password",
-        submitTag = "auth_submit",
-        submitLabel = "Sign In",
-        emailState = rememberTextFieldState("user@example.com"),
-        passwordState = rememberTextFieldState("password"),
-        isLoading = false,
-        errorMessage = null,
-        message = null,
-        onSubmit = {},
-    )
-}
+private fun AuthFormFieldsDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        AuthFormFields(
+            emailTag = "auth_email",
+            passwordTag = "auth_password",
+            submitTag = "auth_submit",
+            submitLabel = "Sign In",
+            emailState = rememberTextFieldState("user@example.com"),
+            passwordState = rememberTextFieldState("password"),
+            isLoading = false,
+            errorMessage = null,
+            message = null,
+            onSubmit = {},
+        )
+    }

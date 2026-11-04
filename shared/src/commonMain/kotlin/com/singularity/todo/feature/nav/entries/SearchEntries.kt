@@ -13,7 +13,10 @@ import com.singularity.todo.feature.search.presentation.nav.SearchNavGraph
  * @param nav the outer navigation callbacks.
  * @param stacks the stacks the platform hoists.
  */
-fun EntryProviderScope<AppDestination>.searchEntries(nav: NavCallbacks, stacks: AppNavStacks) {
+fun EntryProviderScope<AppDestination>.searchEntries(
+    nav: NavCallbacks,
+    stacks: AppNavStacks,
+) {
     entry<AppDestination.Search>(clazzContentKey = { it.stableContentKey() }) {
         SearchNavGraph(
             navCallbacks = nav,

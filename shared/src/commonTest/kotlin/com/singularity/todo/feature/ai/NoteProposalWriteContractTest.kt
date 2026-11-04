@@ -15,11 +15,11 @@ import com.singularity.todo.feature.ai.tools.UpdateNoteOutput
 import com.singularity.todo.feature.ai.tools.UpdateNoteTool
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
-import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeNotesRepository
@@ -64,7 +64,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class NoteProposalWriteContractTest {
-
     private val clock = FakeClock()
     private val user: UserId = TestUsers.DEFAULT
 
@@ -79,15 +78,26 @@ class NoteProposalWriteContractTest {
 
     private val currentUser = FakeProfileAwareCurrentUser(user)
 
-    private val apply = ApplyProposalItemUseCase(
-        proposals = proposals,
-        tasks = tasks,
-        notes = notes,
-        projects = projectsFake,
-        tags = tags,
-        planner = ProposalPlanner(clock),
-        dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, projectsFake, deleteProject, clock),
-    )
+    private val apply =
+        ApplyProposalItemUseCase(
+            proposals = proposals,
+            tasks = tasks,
+            notes = notes,
+            projects = projectsFake,
+            tags = tags,
+            planner = ProposalPlanner(clock),
+            dispatch =
+                ProposalDispatch(
+                    tasks,
+                    tags,
+                    checklist,
+                    timeTracking,
+                    notes,
+                    projectsFake,
+                    deleteProject,
+                    clock,
+                ),
+        )
 
     // ── The catalogue and the behaviour must agree ──────────────────────────────
 
@@ -106,205 +116,226 @@ class NoteProposalWriteContractTest {
     // ── create_note: the note does not exist until the user says yes ───────────
 
     @Test
-    fun `create_note proposes a note and creates nothing`() = runTest {
-        val output = decodeCreate(
-            CreateNoteTool(proposals, currentUser, clock).execute(CreateNoteInput(title = "Ideas")),
-        )
+    fun `create_note proposes a note and creates nothing`() =
+        runTest {
+            val output =
+                decodeCreate(
+                    CreateNoteTool(proposals, currentUser, clock).execute(CreateNoteInput(title = "Ideas")),
+                )
 
-        assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
-        assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
-        assertEquals("Ideas", output.title, "the tool says what it proposed")
-        assertTrue(notes.notes.isEmpty(), "nothing was created: ${notes.notes.keys}")
+            assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
+            assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
+            assertEquals("Ideas", output.title, "the tool says what it proposed")
+            assertTrue(notes.notes.isEmpty(), "nothing was created: ${notes.notes.keys}")
 
-        val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
-        assertNotNull(stored, "the proposal is in the store")
-        assertEquals(1, stored.items.size, "the proposal holds one change")
-        assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
-    }
-
-    @Test
-    fun `confirming a create_note proposal creates the note`() = runTest {
-        val output = decodeCreate(
-            CreateNoteTool(proposals, currentUser, clock).execute(CreateNoteInput(title = "Ideas")),
-        )
-        val result = apply.confirm(singleItemId(output.proposalId), user)
-        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
-
-        val created = notes.notes.values.singleOrNull()
-        assertNotNull(created, "the note exists")
-        assertEquals("Ideas", created.title)
-        assertEquals(user, created.userId)
-    }
+            val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
+            assertNotNull(stored, "the proposal is in the store")
+            assertEquals(1, stored.items.size, "the proposal holds one change")
+            assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
+        }
 
     @Test
-    fun `declining a create_note proposal creates nothing`() = runTest {
-        val output = decodeCreate(
-            CreateNoteTool(proposals, currentUser, clock).execute(CreateNoteInput(title = "Ideas")),
-        )
-        val itemId = singleItemId(output.proposalId)
-        val result = apply.reject(itemId, user, reason = "not needed")
-        assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+    fun `confirming a create_note proposal creates the note`() =
+        runTest {
+            val output =
+                decodeCreate(
+                    CreateNoteTool(proposals, currentUser, clock).execute(CreateNoteInput(title = "Ideas")),
+                )
+            val result = apply.confirm(singleItemId(output.proposalId), user)
+            assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
 
-        assertTrue(notes.notes.isEmpty(), "nothing was created: ${notes.notes.keys}")
-        assertEquals(
-            ProposalItemStatus.Rejected,
-            proposals.getItem(itemId)?.status,
-            "the change was refused, not left pending",
-        )
-    }
+            val created = notes.notes.values.singleOrNull()
+            assertNotNull(created, "the note exists")
+            assertEquals("Ideas", created.title)
+            assertEquals(user, created.userId)
+        }
+
+    @Test
+    fun `declining a create_note proposal creates nothing`() =
+        runTest {
+            val output =
+                decodeCreate(
+                    CreateNoteTool(proposals, currentUser, clock).execute(CreateNoteInput(title = "Ideas")),
+                )
+            val itemId = singleItemId(output.proposalId)
+            val result = apply.reject(itemId, user, reason = "not needed")
+            assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+
+            assertTrue(notes.notes.isEmpty(), "nothing was created: ${notes.notes.keys}")
+            assertEquals(
+                ProposalItemStatus.Rejected,
+                proposals.getItem(itemId)?.status,
+                "the change was refused, not left pending",
+            )
+        }
 
     // ── update_note: only what really differs is proposed ─────────────────────
 
     @Test
-    fun `update_note proposes a change and writes nothing`() = runTest {
-        val note = seedNote("Ideas")
+    fun `update_note proposes a change and writes nothing`() =
+        runTest {
+            val note = seedNote("Ideas")
 
-        val output = decodeUpdate(
-            UpdateNoteTool(proposals, notes, currentUser, clock)
-                .execute(UpdateNoteInput(noteId = note.id.value, title = "Better ideas")),
-        )
+            val output =
+                decodeUpdate(
+                    UpdateNoteTool(proposals, notes, currentUser, clock)
+                        .execute(UpdateNoteInput(noteId = note.id.value, title = "Better ideas")),
+                )
 
-        assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
-        assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
-        assertEquals(
-            "Ideas",
-            notes.notes[note.id.value]?.title,
-            "the note was not touched by the call",
-        )
+            assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
+            assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
+            assertEquals(
+                "Ideas",
+                notes.notes[note.id.value]?.title,
+                "the note was not touched by the call",
+            )
 
-        val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
-        assertNotNull(stored, "the proposal is in the store")
-        assertEquals(1, stored.items.size, "one field changed, so one change is proposed")
-        assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
-    }
-
-    @Test
-    fun `update_note refuses a note that does not exist and proposes nothing`() = runTest {
-        val output = decodeUpdate(
-            UpdateNoteTool(proposals, notes, currentUser, clock)
-                .execute(UpdateNoteInput(noteId = "no-such-note", title = "Better ideas")),
-        )
-
-        assertFalse(output.proposalCreated, "no proposal was made: ${output.error}")
-        assertNotNull(output.error, "the model is told why nothing was proposed")
-        assertTrue(output.proposalId.isBlank(), "there is no proposal to find")
-        assertTrue(notes.notes.isEmpty(), "nothing was written: ${notes.notes.keys}")
-    }
+            val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
+            assertNotNull(stored, "the proposal is in the store")
+            assertEquals(1, stored.items.size, "one field changed, so one change is proposed")
+            assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
+        }
 
     @Test
-    fun `confirming an update_note proposal writes the change`() = runTest {
-        val note = seedNote("Ideas")
+    fun `update_note refuses a note that does not exist and proposes nothing`() =
+        runTest {
+            val output =
+                decodeUpdate(
+                    UpdateNoteTool(proposals, notes, currentUser, clock)
+                        .execute(UpdateNoteInput(noteId = "no-such-note", title = "Better ideas")),
+                )
 
-        val output = decodeUpdate(
-            UpdateNoteTool(proposals, notes, currentUser, clock)
-                .execute(UpdateNoteInput(noteId = note.id.value, title = "Better ideas")),
-        )
-        val result = apply.confirm(singleItemId(output.proposalId), user)
-        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
-
-        assertEquals(
-            "Better ideas",
-            notes.notes[note.id.value]?.title,
-            "the confirmed change is in the user's note",
-        )
-    }
+            assertFalse(output.proposalCreated, "no proposal was made: ${output.error}")
+            assertNotNull(output.error, "the model is told why nothing was proposed")
+            assertTrue(output.proposalId.isBlank(), "there is no proposal to find")
+            assertTrue(notes.notes.isEmpty(), "nothing was written: ${notes.notes.keys}")
+        }
 
     @Test
-    fun `declining an update_note proposal leaves the note unchanged`() = runTest {
-        val note = seedNote("Ideas")
+    fun `confirming an update_note proposal writes the change`() =
+        runTest {
+            val note = seedNote("Ideas")
 
-        val output = decodeUpdate(
-            UpdateNoteTool(proposals, notes, currentUser, clock)
-                .execute(UpdateNoteInput(noteId = note.id.value, title = "Better ideas")),
-        )
-        val itemId = singleItemId(output.proposalId)
-        val result = apply.reject(itemId, user, reason = "not now")
-        assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+            val output =
+                decodeUpdate(
+                    UpdateNoteTool(proposals, notes, currentUser, clock)
+                        .execute(UpdateNoteInput(noteId = note.id.value, title = "Better ideas")),
+                )
+            val result = apply.confirm(singleItemId(output.proposalId), user)
+            assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
 
-        assertEquals(
-            "Ideas",
-            notes.notes[note.id.value]?.title,
-            "the note is exactly as it was",
-        )
-        assertEquals(
-            ProposalItemStatus.Rejected,
-            proposals.getItem(itemId)?.status,
-            "the change was refused, not left pending",
-        )
-    }
+            assertEquals(
+                "Better ideas",
+                notes.notes[note.id.value]?.title,
+                "the confirmed change is in the user's note",
+            )
+        }
+
+    @Test
+    fun `declining an update_note proposal leaves the note unchanged`() =
+        runTest {
+            val note = seedNote("Ideas")
+
+            val output =
+                decodeUpdate(
+                    UpdateNoteTool(proposals, notes, currentUser, clock)
+                        .execute(UpdateNoteInput(noteId = note.id.value, title = "Better ideas")),
+                )
+            val itemId = singleItemId(output.proposalId)
+            val result = apply.reject(itemId, user, reason = "not now")
+            assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+
+            assertEquals(
+                "Ideas",
+                notes.notes[note.id.value]?.title,
+                "the note is exactly as it was",
+            )
+            assertEquals(
+                ProposalItemStatus.Rejected,
+                proposals.getItem(itemId)?.status,
+                "the change was refused, not left pending",
+            )
+        }
 
     // ── delete_note: the note must survive the refusal ─────────────────────────
 
     @Test
-    fun `delete_note proposes the deletion and deletes nothing`() = runTest {
-        val note = seedNote("Ideas")
+    fun `delete_note proposes the deletion and deletes nothing`() =
+        runTest {
+            val note = seedNote("Ideas")
 
-        val output = decodeDelete(
-            DeleteNoteTool(proposals, currentUser, clock)
-                .execute(DeleteNoteInput(noteId = note.id.value, reason = "no longer needed")),
-        )
+            val output =
+                decodeDelete(
+                    DeleteNoteTool(proposals, currentUser, clock)
+                        .execute(DeleteNoteInput(noteId = note.id.value, reason = "no longer needed")),
+                )
 
-        assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
-        assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
-        val stillThere = assertNotNull(notes.notes[note.id.value], "the note is still there")
-        assertNull(stillThere.archivedAt, "the note is not archived")
+            assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
+            assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
+            val stillThere = assertNotNull(notes.notes[note.id.value], "the note is still there")
+            assertNull(stillThere.archivedAt, "the note is not archived")
 
-        val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
-        assertNotNull(stored, "the proposal is in the store")
-        assertEquals(1, stored.items.size, "the proposal holds one change")
-        assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
-    }
-
-    @Test
-    fun `confirming a delete_note proposal archives the note`() = runTest {
-        val note = seedNote("Ideas")
-
-        val output = decodeDelete(
-            DeleteNoteTool(proposals, currentUser, clock)
-                .execute(DeleteNoteInput(noteId = note.id.value, reason = "no longer needed")),
-        )
-        val result = apply.confirm(singleItemId(output.proposalId), user)
-        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
-
-        val archived = assertNotNull(notes.notes[note.id.value], "the note row is still readable")
-        assertNotNull(archived.archivedAt, "the confirmed deletion archived the note")
-        assertTrue(liveNotes().isEmpty(), "the note left the user's list: ${liveNotes()}")
-    }
+            val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
+            assertNotNull(stored, "the proposal is in the store")
+            assertEquals(1, stored.items.size, "the proposal holds one change")
+            assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
+        }
 
     @Test
-    fun `declining a delete_note proposal leaves the note in place`() = runTest {
-        val note = seedNote("Ideas")
+    fun `confirming a delete_note proposal archives the note`() =
+        runTest {
+            val note = seedNote("Ideas")
 
-        val output = decodeDelete(
-            DeleteNoteTool(proposals, currentUser, clock)
-                .execute(DeleteNoteInput(noteId = note.id.value, reason = "no longer needed")),
-        )
-        val itemId = singleItemId(output.proposalId)
-        val result = apply.reject(itemId, user, reason = "keep it")
-        assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+            val output =
+                decodeDelete(
+                    DeleteNoteTool(proposals, currentUser, clock)
+                        .execute(DeleteNoteInput(noteId = note.id.value, reason = "no longer needed")),
+                )
+            val result = apply.confirm(singleItemId(output.proposalId), user)
+            assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
 
-        val survivor = assertNotNull(notes.notes[note.id.value], "the note survived the refusal")
-        assertNull(survivor.archivedAt, "the note was not archived")
-        assertEquals(1, liveNotes().size, "the note is still in the user's list")
-        assertEquals(
-            ProposalItemStatus.Rejected,
-            proposals.getItem(itemId)?.status,
-            "the change was refused, not left pending",
-        )
-    }
+            val archived = assertNotNull(notes.notes[note.id.value], "the note row is still readable")
+            assertNotNull(archived.archivedAt, "the confirmed deletion archived the note")
+            assertTrue(liveNotes().isEmpty(), "the note left the user's list: ${liveNotes()}")
+        }
+
+    @Test
+    fun `declining a delete_note proposal leaves the note in place`() =
+        runTest {
+            val note = seedNote("Ideas")
+
+            val output =
+                decodeDelete(
+                    DeleteNoteTool(proposals, currentUser, clock)
+                        .execute(DeleteNoteInput(noteId = note.id.value, reason = "no longer needed")),
+                )
+            val itemId = singleItemId(output.proposalId)
+            val result = apply.reject(itemId, user, reason = "keep it")
+            assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+
+            val survivor = assertNotNull(notes.notes[note.id.value], "the note survived the refusal")
+            assertNull(survivor.archivedAt, "the note was not archived")
+            assertEquals(1, liveNotes().size, "the note is still in the user's list")
+            assertEquals(
+                ProposalItemStatus.Rejected,
+                proposals.getItem(itemId)?.status,
+                "the change was refused, not left pending",
+            )
+        }
 
     // ── Fixtures ────────────────────────────────────────────────────────────────
 
     private fun seedNote(title: String): Note {
-        val note = Note(
-            id = NoteId.generate(),
-            userId = user,
-            title = title,
-            bodyMarkdown = null,
-            bodyHtml = "<p>first</p>",
-            createdAt = clock.now(),
-            updatedAt = clock.now(),
-        )
+        val note =
+            Note(
+                id = NoteId.generate(),
+                userId = user,
+                title = title,
+                bodyMarkdown = null,
+                bodyHtml = "<p>first</p>",
+                createdAt = clock.now(),
+                updatedAt = clock.now(),
+            )
         notes.seed(note)
         return note
     }
@@ -319,5 +350,11 @@ class NoteProposalWriteContractTest {
     private fun decodeDelete(raw: String): DeleteNoteOutput = Json.decodeFromString(DeleteNoteOutput.serializer(), raw)
 
     private suspend fun singleItemId(proposalId: String) =
-        requireNotNull(proposals.watchProposal(ProposalId(proposalId)).first()?.items?.singleOrNull()).id
+        requireNotNull(
+            proposals
+                .watchProposal(ProposalId(proposalId))
+                .first()
+                ?.items
+                ?.singleOrNull(),
+        ).id
 }

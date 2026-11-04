@@ -70,7 +70,12 @@ fun main(args: Array<String>) {
  * @return whether the agent keeps talking. False means the agent is done — which is
  *   how the crashing mode ends: it dies in the middle of the turn, on purpose.
  */
-private fun handle(line: String, mode: String, json: Json, transcript: java.io.File?): Boolean {
+private fun handle(
+    line: String,
+    mode: String,
+    json: Json,
+    transcript: java.io.File?,
+): Boolean {
     // The line is recorded so that a test which cannot make the agent answer can
     // show what the client actually sent.
     transcript?.appendText("RECEIVED: $line\n")
@@ -111,13 +116,17 @@ private fun handle(line: String, mode: String, json: Json, transcript: java.io.F
         // real bridge's three — a session setting this application does not show. They
         // are here because the bridge sends them: a fake that answers a different
         // session than the bridge does proves nothing about the bridge.
-        "session/new" -> respond(id, SESSION_RESPONSE, "session/new", transcript)
+        "session/new" -> {
+            respond(id, SESSION_RESPONSE, "session/new", transcript)
+        }
 
         // The goodbye is answered, as a real agent answers it. A request that is
         // received and never answered is the one failure the client cannot defend
         // against on its own — so the agent that behaves well answers, and the mode
         // below is the one that does not.
-        "session/close" -> if (mode != MODE_MUTE_CLOSE) respond(id, "{}", "session/close", transcript)
+        "session/close" -> {
+            if (mode != MODE_MUTE_CLOSE) respond(id, "{}", "session/close", transcript)
+        }
 
         "session/prompt" -> {
             if (mode == MODE_CRASH) return false
@@ -143,7 +152,9 @@ private fun handle(line: String, mode: String, json: Json, transcript: java.io.F
             respond(id, PROMPT_RESPONSE, "session/prompt", transcript)
         }
 
-        else -> Unit
+        else -> {
+            Unit
+        }
     }
     return true
 }
@@ -155,7 +166,12 @@ private fun handle(line: String, mode: String, json: Json, transcript: java.io.F
  * arrived *while the turn was running* has to be able to show that the answer came
  * after it — and the transcript is the only place where the order is written.
  */
-private fun respond(id: JsonElement?, result: String, method: String, transcript: java.io.File?) {
+private fun respond(
+    id: JsonElement?,
+    result: String,
+    method: String,
+    transcript: java.io.File?,
+) {
     // The id is echoed exactly as it arrived — a number stays a number. See the note
     // where it is read.
     val idPart = id?.toString() ?: "null"
@@ -175,7 +191,11 @@ private fun respond(id: JsonElement?, result: String, method: String, transcript
  * What the fake *sent* is written down as well as what it received: a test that
  * claims a notification arrived during the turn has to be able to show that it did.
  */
-private fun notify(method: String, params: String, transcript: java.io.File?) {
+private fun notify(
+    method: String,
+    params: String,
+    transcript: java.io.File?,
+) {
     val frame = """{"jsonrpc":"2.0","method":"$method","params":$params}"""
     transcript?.appendText("SENT: $frame\n")
     println(frame)

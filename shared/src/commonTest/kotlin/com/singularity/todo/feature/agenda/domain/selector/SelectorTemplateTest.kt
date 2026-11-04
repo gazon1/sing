@@ -5,12 +5,12 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Tag
 
 /**
  * The selector-parameter configurator: the editor picks a [SelectorTemplate],
@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Tag
  */
 @Tag("fast")
 class SelectorTemplateTest {
-
     @Test
     fun `fixed templates need no parameters and resolve to themselves`() {
         val fixed = SelectorTemplate.catalogue.filterIsInstance<SelectorTemplate.Fixed>()
@@ -52,10 +51,11 @@ class SelectorTemplateTest {
 
     @Test
     fun `by tag resolves the chosen tag ids`() {
-        val config = ConfigurableSelector(
-            template = SelectorTemplate.ByTags(),
-            options = listOf(SelectorOption("tag-work", "work"), SelectorOption("tag-home", "home")),
-        )
+        val config =
+            ConfigurableSelector(
+                template = SelectorTemplate.ByTags(),
+                options = listOf(SelectorOption("tag-work", "work"), SelectorOption("tag-home", "home")),
+            )
         assertEquals(
             Selector.Tags(setOf(TagId("tag-work"), TagId("tag-home"))),
             config.resolve(setOf("tag-work", "tag-home")),
@@ -76,10 +76,12 @@ class SelectorTemplateTest {
         val options = listOf(SelectorOption("tag-work", "work"), SelectorOption("tag-home", "home"))
         val chosen = setOf("tag-work", "tag-home")
 
-        val matchAny = ConfigurableSelector(SelectorTemplate.ByTags(matchAll = false), options)
-            .resolve(chosen)
-        val matchAll = ConfigurableSelector(SelectorTemplate.ByTags(matchAll = true), options)
-            .resolve(chosen)
+        val matchAny =
+            ConfigurableSelector(SelectorTemplate.ByTags(matchAll = false), options)
+                .resolve(chosen)
+        val matchAll =
+            ConfigurableSelector(SelectorTemplate.ByTags(matchAll = true), options)
+                .resolve(chosen)
 
         assertEquals(Selector.Tags(setOf(TagId("tag-work"), TagId("tag-home")), matchAll = false), matchAny)
         assertEquals(Selector.Tags(setOf(TagId("tag-work"), TagId("tag-home")), matchAll = true), matchAll)
@@ -87,19 +89,21 @@ class SelectorTemplateTest {
 
     @Test
     fun `by project resolves the chosen project ids`() {
-        val config = ConfigurableSelector(
-            template = SelectorTemplate.ByProjects,
-            options = listOf(SelectorOption("p1", "Alpha"), SelectorOption("p2", "Beta")),
-        )
+        val config =
+            ConfigurableSelector(
+                template = SelectorTemplate.ByProjects,
+                options = listOf(SelectorOption("p1", "Alpha"), SelectorOption("p2", "Beta")),
+            )
         assertEquals(Selector.Projects(setOf(ProjectId("p1"))), config.resolve(setOf("p1")))
     }
 
     @Test
     fun `by priority resolves enum names`() {
-        val config = ConfigurableSelector(
-            template = SelectorTemplate.ByPriority(),
-            options = TaskPriority.entries.map { SelectorOption(it.name, it.name) },
-        )
+        val config =
+            ConfigurableSelector(
+                template = SelectorTemplate.ByPriority(),
+                options = TaskPriority.entries.map { SelectorOption(it.name, it.name) },
+            )
         assertEquals(
             Selector.Priorities(setOf(TaskPriority.High, TaskPriority.Urgent), atMost = true),
             config.resolve(setOf("High", "Urgent")),
@@ -108,10 +112,11 @@ class SelectorTemplateTest {
 
     @Test
     fun `by status resolves enum names`() {
-        val config = ConfigurableSelector(
-            template = SelectorTemplate.ByStatus,
-            options = TaskStatus.entries.map { SelectorOption(it.name, it.name) },
-        )
+        val config =
+            ConfigurableSelector(
+                template = SelectorTemplate.ByStatus,
+                options = TaskStatus.entries.map { SelectorOption(it.name, it.name) },
+            )
         assertEquals(
             Selector.Statuses(setOf(TaskStatus.Completed)),
             config.resolve(setOf("Completed")),
@@ -134,10 +139,11 @@ class SelectorTemplateTest {
         // The user had the picker open when a tag was deleted. Resolving the
         // stale id would build a selector referencing a row that no longer
         // exists — a section that silently matches nothing, with no error.
-        val config = ConfigurableSelector(
-            template = SelectorTemplate.ByTags(),
-            options = listOf(SelectorOption("tag-work", "work")),
-        )
+        val config =
+            ConfigurableSelector(
+                template = SelectorTemplate.ByTags(),
+                options = listOf(SelectorOption("tag-work", "work")),
+            )
         assertNull(config.resolve(setOf("tag-deleted")))
         assertEquals(
             Selector.Tags(setOf(TagId("tag-work"))),

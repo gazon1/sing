@@ -35,23 +35,24 @@ class DeleteTaskTool(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : SimpleTool<DeleteTaskInput>(TypeToken.of(DeleteTaskInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: DeleteTaskInput): String {
-        val result = runCatchingCancellable {
-            val taskId = TaskId.fromString(args.taskId)
-            val userId = currentUser.scopedUserId.value
+        val result =
+            runCatchingCancellable {
+                val taskId = TaskId.fromString(args.taskId)
+                val userId = currentUser.scopedUserId.value
 
-            val (proposal, _) = ProposalBuilder.forTask(
-                kind = ProposalItemKind.DeleteTask(args.reason),
-                taskId = taskId,
-                userId = userId,
-                source = ProposalSource.Agent,
-                clock = clock,
-            )
+                val (proposal, _) =
+                    ProposalBuilder.forTask(
+                        kind = ProposalItemKind.DeleteTask(args.reason),
+                        taskId = taskId,
+                        userId = userId,
+                        source = ProposalSource.Agent,
+                        clock = clock,
+                    )
 
-            proposals.save(proposal).getOrThrow()
-            proposal.id.value to Unit
-        }
+                proposals.save(proposal).getOrThrow()
+                proposal.id.value to Unit
+            }
 
         return Json.encodeToString(
             DeleteTaskOutput.serializer(),

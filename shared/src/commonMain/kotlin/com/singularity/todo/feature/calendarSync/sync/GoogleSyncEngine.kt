@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.calendarSync.sync
 
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventDao
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncStateDao
@@ -8,7 +9,6 @@ import com.singularity.todo.feature.calendarSync.data.GoogleEventShadowDao
 import com.singularity.todo.feature.calendarSync.data.GoogleEventShadowEntity
 import com.singularity.todo.feature.calendarSync.domain.logic.BidirectionalMerge
 import com.singularity.todo.feature.calendarSync.domain.logic.EventShadow
-import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.feature.calendarSync.domain.logic.EventShadowCodec
 import com.singularity.todo.feature.calendarSync.domain.logic.EventShadowRef
 import com.singularity.todo.feature.calendarSync.domain.logic.GooglePushAction
@@ -93,7 +93,6 @@ class GoogleSyncEngine(
      */
     private val applier: GoogleTaskApplier? = null,
 ) : GoogleSyncPass {
-
     private val mutex = Mutex()
 
     /** What one pass did, so a caller can report it without re-deriving anything. */
@@ -174,11 +173,12 @@ class GoogleSyncEngine(
                 applyEvent(event, calendarId, liveEventIds, tombstoneIds, counts)
             }
             finalSyncToken = if (page.hasMorePages) null else page.nextSyncToken
-            page = if (page.hasMorePages) {
-                eventSource.fetchChanges(calendarId, page.nextPageToken)
-            } else {
-                null
-            }
+            page =
+                if (page.hasMorePages) {
+                    eventSource.fetchChanges(calendarId, page.nextPageToken)
+                } else {
+                    null
+                }
         }
 
         val now = clock.now().toEpochMilliseconds()
@@ -240,18 +240,19 @@ class GoogleSyncEngine(
 
         // Mapped to the domain read model here, at the boundary: the planner is domain logic
         // and must not know what a Room row is. `ArchitectureTest` enforces the direction.
-        val plan = GooglePushPlanner.plan(
-            desired,
-            shadowDao.getAll(userId).map {
-                EventShadowRef(
-                    eventId = it.eventId,
-                    calendarId = it.calendarId,
-                    taskId = it.taskId,
-                    etag = it.etag,
-                    base = EventShadowCodec.decodeOrEmpty(it.baseJson),
-                )
-            },
-        )
+        val plan =
+            GooglePushPlanner.plan(
+                desired,
+                shadowDao.getAll(userId).map {
+                    EventShadowRef(
+                        eventId = it.eventId,
+                        calendarId = it.calendarId,
+                        taskId = it.taskId,
+                        etag = it.etag,
+                        base = EventShadowCodec.decodeOrEmpty(it.baseJson),
+                    )
+                },
+            )
         var written = 0
         var failed = 0
 
@@ -262,8 +263,9 @@ class GoogleSyncEngine(
             // The stored form is authoritative, not what we asked for: Google may normalise a
             // title or a time zone, and writing back what we *sent* would make every later
             // merge see a difference that does not exist.
-            val stored = runCatchingCancellable { eventSource.insert(calendarId, action.event) }
-                .getOrNull()
+            val stored =
+                runCatchingCancellable { eventSource.insert(calendarId, action.event) }
+                    .getOrNull()
             if (stored == null) {
                 failed++
             } else {
@@ -317,14 +319,16 @@ class GoogleSyncEngine(
         // two-way and could only pull: renaming a task never reached the calendar, and no
         // test caught it because the two tests that touch the patch list assert it stays
         // empty. The applier owns tasks, so the engine asks it rather than reading them.
-        val desired = existing.taskId
-            ?.let { applier?.desiredEventFor(TaskId(it), event) }
-            ?: event.withFieldsFrom(base)
-        val merge = BidirectionalMerge.merge(
-            ours = desired,
-            theirs = event,
-            base = base,
-        )
+        val desired =
+            existing.taskId
+                ?.let { applier?.desiredEventFor(TaskId(it), event) }
+                ?: event.withFieldsFrom(base)
+        val merge =
+            BidirectionalMerge.merge(
+                ours = desired,
+                theirs = event,
+                base = base,
+            )
 
         if (merge.requiresAttention) {
             // Both sides changed the repeat rule. The write is held: a local series
@@ -371,15 +375,16 @@ class GoogleSyncEngine(
      * `ours` side when a task *does* exist: doing so silently disables pushing, which is
      * exactly the bug this function's callers used to have.
      */
-    private fun GoogleEvent.withFieldsFrom(base: EventShadow): GoogleEvent = copy(
-        title = base.title,
-        description = base.description,
-        startsAt = base.startsAt,
-        endsAt = base.endsAt,
-        allDay = base.allDay,
-        location = base.location,
-        recurrenceRule = base.recurrenceRule,
-    )
+    private fun GoogleEvent.withFieldsFrom(base: EventShadow): GoogleEvent =
+        copy(
+            title = base.title,
+            description = base.description,
+            startsAt = base.startsAt,
+            endsAt = base.endsAt,
+            allDay = base.allDay,
+            location = base.location,
+            recurrenceRule = base.recurrenceRule,
+        )
 
     /**
      * The patch payload: Google's event with the app-owned fields replaced by the task's.
@@ -389,15 +394,23 @@ class GoogleSyncEngine(
      * fields the app models is what keeps `location` and `recurrenceRule` intact on the
      * user's real calendar entry.
      */
-    private fun desiredOverRemote(desired: GoogleEvent, remote: GoogleEvent): GoogleEvent = remote.copy(
-        title = desired.title,
-        description = desired.description,
-        startsAt = desired.startsAt,
-        endsAt = desired.endsAt,
-        allDay = desired.allDay,
-    )
+    private fun desiredOverRemote(
+        desired: GoogleEvent,
+        remote: GoogleEvent,
+    ): GoogleEvent =
+        remote.copy(
+            title = desired.title,
+            description = desired.description,
+            startsAt = desired.startsAt,
+            endsAt = desired.endsAt,
+            allDay = desired.allDay,
+        )
 
-    private suspend fun writeShadow(calendarId: String, event: GoogleEvent, taskId: String?) {
+    private suspend fun writeShadow(
+        calendarId: String,
+        event: GoogleEvent,
+        taskId: String?,
+    ) {
         shadowDao.upsert(
             GoogleEventShadowEntity(
                 userId = userId,
@@ -426,7 +439,10 @@ class GoogleSyncEngine(
      * pass. Without it the tombstone is created and deleted within the same pass, which is
      * the bug this method exists to remove.
      */
-    private suspend fun tombstone(event: GoogleEvent, tombstoneIds: MutableList<String>) {
+    private suspend fun tombstone(
+        event: GoogleEvent,
+        tombstoneIds: MutableList<String>,
+    ) {
         tombstoneIds += event.id.value
         val previous = shadowDao.get(userId, event.id.value)
         shadowDao.upsert(
@@ -436,8 +452,9 @@ class GoogleSyncEngine(
                 taskId = previous?.taskId,
                 calendarId = previous?.calendarId ?: event.calendarId,
                 etag = previous?.etag,
-                baseJson = previous?.baseJson
-                    ?: EventShadowCodec.encode(event.toShadow()),
+                baseJson =
+                    previous?.baseJson
+                        ?: EventShadowCodec.encode(event.toShadow()),
                 remoteUpdatedAt = clock.now().toEpochMilliseconds(),
                 cancelledAt = clock.now().toEpochMilliseconds(),
                 lastSyncedAt = clock.now().toEpochMilliseconds(),
@@ -445,21 +462,22 @@ class GoogleSyncEngine(
         )
     }
 
-    private fun GoogleEvent.toImportRow() = CalendarImportEventEntity(
-        userId = userId,
-        eventId = id.value,
-        calendarId = calendarId,
-        title = title,
-        description = description,
-        location = location,
-        startsAt = startsAt?.toEpochMilliseconds(),
-        endsAt = endsAt?.toEpochMilliseconds(),
-        allDay = allDay == true,
-        recurrenceRule = recurrenceRule,
-        etag = etag,
-        lastSyncedAt = clock.now().toEpochMilliseconds(),
-        importedAt = clock.now().toEpochMilliseconds(),
-    )
+    private fun GoogleEvent.toImportRow() =
+        CalendarImportEventEntity(
+            userId = userId,
+            eventId = id.value,
+            calendarId = calendarId,
+            title = title,
+            description = description,
+            location = location,
+            startsAt = startsAt?.toEpochMilliseconds(),
+            endsAt = endsAt?.toEpochMilliseconds(),
+            allDay = allDay == true,
+            recurrenceRule = recurrenceRule,
+            etag = etag,
+            lastSyncedAt = clock.now().toEpochMilliseconds(),
+            importedAt = clock.now().toEpochMilliseconds(),
+        )
 
     private fun newState(calendarId: String) =
         CalendarSyncStateEntity(userId = userId, provider = provider, calendarId = calendarId)

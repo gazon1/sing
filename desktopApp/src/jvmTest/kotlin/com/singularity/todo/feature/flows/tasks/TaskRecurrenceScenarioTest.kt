@@ -79,42 +79,42 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class TaskRecurrenceScenarioTest {
-
     @Test
     @DisplayName("TASK-REC-01 the composer applies a daily recurrence")
-    fun the_composer_applies_a_daily_recurrence() = runDesktopAppTest(checkA11y = true) {
-        // Desktop renders a plain FAB carrying only a contentDescription —
-        // `TestTags.TASKS_FAB` is the Android shell's, per CreateTaskFlowTest.
-        clickContentDescription(DesktopShell.FAB_ADD_TASK)
+    fun the_composer_applies_a_daily_recurrence() =
+        runDesktopAppTest(checkA11y = true) {
+            // Desktop renders a plain FAB carrying only a contentDescription —
+            // `TestTags.TASKS_FAB` is the Android shell's, per CreateTaskFlowTest.
+            clickContentDescription(DesktopShell.FAB_ADD_TASK)
 
-        awaitTag(TestTags.TASK_EDITOR_RECURRENCE_ROW)
+            awaitTag(TestTags.TASK_EDITOR_RECURRENCE_ROW)
 
-        // The attribute list scrolls, and the recurrence row sits below the fold
-        // of the 1024x768 test window: a node that is composed but out of view
-        // reads as "not displayed", which is a different failure from "not there".
-        scrollToTag(TestTags.TASK_EDITOR_RECURRENCE_ROW)
+            // The attribute list scrolls, and the recurrence row sits below the fold
+            // of the 1024x768 test window: a node that is composed but out of view
+            // reads as "not displayed", which is a different failure from "not there".
+            scrollToTag(TestTags.TASK_EDITOR_RECURRENCE_ROW)
 
-        // The label is the state the user reads, so asserting it is what makes
-        // this a behaviour check rather than a selector smoke test: a row
-        // rendering the right tag while reporting a stale rule would pass a
-        // presence-only assertion.
-        assertTextDisplayed("No repeat")
+            // The label is the state the user reads, so asserting it is what makes
+            // this a behaviour check rather than a selector smoke test: a row
+            // rendering the right tag while reporting a stale rule would pass a
+            // presence-only assertion.
+            assertTextDisplayed("No repeat")
 
-        // The picker opens its own window on desktop; its content is in the
-        // scene, and the cross-root search finds it.
-        clickTagScrolled(TestTags.TASK_EDITOR_RECURRENCE_ROW)
-        awaitTag(TestTags.RECURRENCE_OPTION_DAILY)
-        clickTag(TestTags.RECURRENCE_OPTION_DAILY)
+            // The picker opens its own window on desktop; its content is in the
+            // scene, and the cross-root search finds it.
+            clickTagScrolled(TestTags.TASK_EDITOR_RECURRENCE_ROW)
+            awaitTag(TestTags.RECURRENCE_OPTION_DAILY)
+            clickTag(TestTags.RECURRENCE_OPTION_DAILY)
 
-        // The sheet does not dismiss on a selection: the ✓ commits the pending
-        // rule, and the sheet is composed in two windows while it animates, so
-        // the button is in the tree twice and the first copy is pressed.
-        clickTagFirst(TestTags.SHEET_CONFIRM)
-        awaitTagGone(TestTags.RECURRENCE_OPTION_DAILY)
+            // The sheet does not dismiss on a selection: the ✓ commits the pending
+            // rule, and the sheet is composed in two windows while it animates, so
+            // the button is in the tree twice and the first copy is pressed.
+            clickTagFirst(TestTags.SHEET_CONFIRM)
+            awaitTagGone(TestTags.RECURRENCE_OPTION_DAILY)
 
-        // The row now reports the rule the user chose. This is the step that was
-        // unreachable from this tier before the sheet's chrome was fixed.
-        assertTagDisplayed(TestTags.TASK_EDITOR_RECURRENCE_ROW)
-        assertTextDisplayed("Repeats")
-    }
+            // The row now reports the rule the user chose. This is the step that was
+            // unreachable from this tier before the sheet's chrome was fixed.
+            assertTagDisplayed(TestTags.TASK_EDITOR_RECURRENCE_ROW)
+            assertTextDisplayed("Repeats")
+        }
 }

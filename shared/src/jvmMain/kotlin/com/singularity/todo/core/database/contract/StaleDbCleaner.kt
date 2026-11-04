@@ -20,7 +20,6 @@ private val log = Logger.withTag("StaleDbCleaner")
  * no change can be held to.
  */
 internal sealed interface ProbeOutcome {
-
     /** The file carries the application's bookkeeping marker. It is the application's. */
     data object RoomManaged : ProbeOutcome
 
@@ -53,7 +52,6 @@ private val SQLITE_HEADER = "SQLite format 3".toByteArray(Charsets.US_ASCII)
  * file could not be opened at all.
  */
 private sealed interface HeaderOutcome {
-
     /** The file starts with the database header. */
     data object Database : HeaderOutcome
 
@@ -93,9 +91,13 @@ fun wipeIfNotRoomManaged(dbPath: String): Boolean {
     if (!file.exists()) return false
 
     return when (val outcome = probe(dbPath)) {
-        is ProbeOutcome.RoomManaged -> false
+        is ProbeOutcome.RoomManaged -> {
+            false
+        }
 
-        is ProbeOutcome.NotOurs -> deleteDatabaseFiles(file)
+        is ProbeOutcome.NotOurs -> {
+            deleteDatabaseFiles(file)
+        }
 
         is ProbeOutcome.Uncertain -> {
             log.w {
@@ -123,13 +125,17 @@ fun wipeIfNotRoomManaged(dbPath: String): Boolean {
 @Suppress("TooGenericExceptionCaught") // the probe is fail-safe: every way of failing means "uncertain"
 internal fun probe(dbPath: String): ProbeOutcome {
     when (val header = readHeader(dbPath)) {
-        HeaderOutcome.Database -> Unit
+        HeaderOutcome.Database -> {
+            Unit
+        }
 
-        HeaderOutcome.NotADatabase ->
+        HeaderOutcome.NotADatabase -> {
             return ProbeOutcome.Uncertain("the file does not start with a database header")
+        }
 
-        is HeaderOutcome.Unreadable ->
+        is HeaderOutcome.Unreadable -> {
             return ProbeOutcome.Uncertain("the file could not be read: ${header.reason}")
+        }
     }
 
     return try {
@@ -168,18 +174,19 @@ private const val MARKER_QUERY =
  * from an older layout and a user's data behind a permission the process does not have.
  */
 @Suppress("TooGenericExceptionCaught") // the probe is fail-safe: every way of not reading it means "not ours"
-private fun readHeader(dbPath: String): HeaderOutcome = try {
-    val header = ByteArray(SQLITE_HEADER.size)
-    val read = File(dbPath).inputStream().use { stream -> stream.read(header) }
-    if (read == SQLITE_HEADER.size && header.contentEquals(SQLITE_HEADER)) {
-        HeaderOutcome.Database
-    } else {
-        HeaderOutcome.NotADatabase
+private fun readHeader(dbPath: String): HeaderOutcome =
+    try {
+        val header = ByteArray(SQLITE_HEADER.size)
+        val read = File(dbPath).inputStream().use { stream -> stream.read(header) }
+        if (read == SQLITE_HEADER.size && header.contentEquals(SQLITE_HEADER)) {
+            HeaderOutcome.Database
+        } else {
+            HeaderOutcome.NotADatabase
+        }
+    } catch (e: Exception) {
+        log.d(e) { "The candidate file could not be read, so the probe cannot say what it is: $dbPath" }
+        HeaderOutcome.Unreadable(e.message ?: e::class.simpleName.orEmpty())
     }
-} catch (e: Exception) {
-    log.d(e) { "The candidate file could not be read, so the probe cannot say what it is: $dbPath" }
-    HeaderOutcome.Unreadable(e.message ?: e::class.simpleName.orEmpty())
-}
 
 /**
  * Removes the database and its companions.

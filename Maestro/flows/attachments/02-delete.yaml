@@ -9,11 +9,10 @@ tags:
 # No `due=`: the task is undated, so it lands in the Inbox tab's "No Date"
 # section — the inbox is the tab of the tasks that are not dated yet, and the
 # flow looks the task up there.
-- openLink: "todo-debug://seed?task=${RUN_ID}_DeleteAttachTask2026"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=${RUN_ID}_DeleteAttachTask2026"
 
 # Open task detail and add an attachment.
 - tapOn:

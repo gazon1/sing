@@ -24,7 +24,11 @@ import kotlinx.collections.immutable.ImmutableList
  * @param ranges where the match is, in the characters of [text].
  * @param style the style the match is drawn with.
  */
-fun highlightedText(text: String, ranges: ImmutableList<TextMatchRange>, style: SpanStyle): AnnotatedString =
+fun highlightedText(
+    text: String,
+    ranges: ImmutableList<TextMatchRange>,
+    style: SpanStyle,
+): AnnotatedString =
     buildAnnotatedString {
         append(text)
         ranges.forEach { range ->
@@ -45,10 +49,14 @@ fun highlightedText(text: String, ranges: ImmutableList<TextMatchRange>, style: 
  * @param ranges where the match is, in the characters of [text].
  */
 @Composable
-fun highlightedText(text: String, ranges: ImmutableList<TextMatchRange>): AnnotatedString {
-    val style = SpanStyle(
-        fontWeight = FontWeight.SemiBold,
-        background = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-    )
+fun highlightedText(
+    text: String,
+    ranges: ImmutableList<TextMatchRange>,
+): AnnotatedString {
+    val style =
+        SpanStyle(
+            fontWeight = FontWeight.SemiBold,
+            background = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+        )
     return highlightedText(text, ranges, style)
 }

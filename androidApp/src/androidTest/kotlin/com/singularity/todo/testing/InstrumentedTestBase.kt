@@ -47,7 +47,6 @@ import org.junit.Rule
  * @see com.singularity.todo.ui.StepRecorder
  */
 abstract class InstrumentedTestBase {
-
     /**
      * The recorder of the test that is running.
      *

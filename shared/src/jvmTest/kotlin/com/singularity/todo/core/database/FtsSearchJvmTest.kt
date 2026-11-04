@@ -33,7 +33,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class FtsSearchJvmTest {
-
     private lateinit var tempDir: File
     private lateinit var db: AppDatabase
 
@@ -75,122 +74,130 @@ class FtsSearchJvmTest {
     )
 
     @Test
-    fun `a task is found by the beginning of a word in its title`() = runTest {
-        db.taskDao().upsert(task(id = "t1", title = "Write the quarterly report"))
+    fun `a task is found by the beginning of a word in its title`() =
+        runTest {
+            db.taskDao().upsert(task(id = "t1", title = "Write the quarterly report"))
 
-        val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("quarter"))).first()
+            val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("quarter"))).first()
 
-        assertEquals(listOf("t1"), found.map { it.task.id })
-    }
-
-    @Test
-    fun `a task is found by the beginning of a word in its description`() = runTest {
-        db.taskDao().upsert(task(id = "t1", title = "Numbers", description = "Quarterly figures"))
-
-        val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("quarter"))).first()
-
-        assertEquals(listOf("t1"), found.map { it.task.id })
-    }
+            assertEquals(listOf("t1"), found.map { it.task.id })
+        }
 
     @Test
-    fun `another user's task is not found`() = runTest {
-        db.taskDao().upsert(task(id = "t1", title = "Write the quarterly report"))
-        db.taskDao().upsert(task(id = "t2", title = "Write the quarterly report", userId = "u2"))
+    fun `a task is found by the beginning of a word in its description`() =
+        runTest {
+            db.taskDao().upsert(task(id = "t1", title = "Numbers", description = "Quarterly figures"))
 
-        val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("quarter"))).first()
+            val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("quarter"))).first()
 
-        assertEquals(listOf("t1"), found.map { it.task.id })
-    }
-
-    @Test
-    fun `a renamed task is no longer found under its old name`() = runTest {
-        val dao = db.taskDao()
-        val index = db.ftsDao()
-        dao.upsert(task(id = "t1", title = "Write the quarterly report"))
-        assertEquals(1, index.watchTasks("u1", TextMatchQuery(listOf("quarterly"))).first().size)
-
-        dao.upsert(task(id = "t1", title = "Write the annual report"))
-
-        assertTrue(
-            index.watchTasks("u1", TextMatchQuery(listOf("quarterly"))).first().isEmpty(),
-            "the index must follow the row, not keep the old text",
-        )
-        assertEquals(1, index.watchTasks("u1", TextMatchQuery(listOf("annual"))).first().size)
-    }
+            assertEquals(listOf("t1"), found.map { it.task.id })
+        }
 
     @Test
-    fun `a note is found by the beginning of a word in its title`() = runTest {
-        db.noteDao().upsert(
-            NoteEntity(
-                id = "n1",
-                userId = "u1",
-                title = "Ideas for the launch",
-                bodyMarkdown = null,
-                bodyHtml = null,
-                parentNoteId = null,
-                createdAt = 1_000L,
-                updatedAt = 1_000L,
-                deletedAt = null,
-                archivedAt = null,
-            ),
-        )
+    fun `another user's task is not found`() =
+        runTest {
+            db.taskDao().upsert(task(id = "t1", title = "Write the quarterly report"))
+            db.taskDao().upsert(task(id = "t2", title = "Write the quarterly report", userId = "u2"))
 
-        val found = db.ftsDao().watchNotes("u1", TextMatchQuery(listOf("laun"))).first()
+            val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("quarter"))).first()
 
-        assertEquals(listOf("n1"), found.map { it.note.id })
-    }
+            assertEquals(listOf("t1"), found.map { it.task.id })
+        }
 
     @Test
-    fun `a project is found by the beginning of a word in its name`() = runTest {
-        db.projectDao().upsert(
-            ProjectEntity(
-                id = "p1",
-                userId = "u1",
-                name = "House renovation",
-                color = 0,
-                icon = null,
-                description = null,
-                createdAt = 1_000L,
-                updatedAt = 1_000L,
-                dueDate = null,
-                team = null,
-                deletedAt = null,
-                parentId = null,
-                externalId = null,
-            ),
-        )
+    fun `a renamed task is no longer found under its old name`() =
+        runTest {
+            val dao = db.taskDao()
+            val index = db.ftsDao()
+            dao.upsert(task(id = "t1", title = "Write the quarterly report"))
+            assertEquals(1, index.watchTasks("u1", TextMatchQuery(listOf("quarterly"))).first().size)
 
-        val found = db.ftsDao().watchProjects("u1", TextMatchQuery(listOf("reno"))).first()
+            dao.upsert(task(id = "t1", title = "Write the annual report"))
 
-        assertEquals(listOf("p1"), found.map { it.project.id })
-    }
+            assertTrue(
+                index.watchTasks("u1", TextMatchQuery(listOf("quarterly"))).first().isEmpty(),
+                "the index must follow the row, not keep the old text",
+            )
+            assertEquals(1, index.watchTasks("u1", TextMatchQuery(listOf("annual"))).first().size)
+        }
 
     @Test
-    fun `a tag is found by the beginning of a word in its name`() = runTest {
-        db.tagDao().upsert(
-            TagEntity(
-                id = "g1",
-                userId = "u1",
-                name = "Deep work",
-                nameNormalized = "deep work",
-                color = 0,
-                createdAt = 1_000L,
-                updatedAt = 1_000L,
-                deletedAt = null,
-            ),
-        )
+    fun `a note is found by the beginning of a word in its title`() =
+        runTest {
+            db.noteDao().upsert(
+                NoteEntity(
+                    id = "n1",
+                    userId = "u1",
+                    title = "Ideas for the launch",
+                    bodyMarkdown = null,
+                    bodyHtml = null,
+                    parentNoteId = null,
+                    createdAt = 1_000L,
+                    updatedAt = 1_000L,
+                    deletedAt = null,
+                    archivedAt = null,
+                ),
+            )
 
-        val found = db.ftsDao().watchTags("u1", TextMatchQuery(listOf("deep"))).first()
+            val found = db.ftsDao().watchNotes("u1", TextMatchQuery(listOf("laun"))).first()
 
-        assertEquals(listOf("g1"), found.map { it.tag.id })
-    }
+            assertEquals(listOf("n1"), found.map { it.note.id })
+        }
 
     @Test
-    fun `letters outside ascii are searchable`() = runTest {
-        db.taskDao().upsert(task(id = "t1", title = "Купить молоко"))
+    fun `a project is found by the beginning of a word in its name`() =
+        runTest {
+            db.projectDao().upsert(
+                ProjectEntity(
+                    id = "p1",
+                    userId = "u1",
+                    name = "House renovation",
+                    color = 0,
+                    icon = null,
+                    description = null,
+                    createdAt = 1_000L,
+                    updatedAt = 1_000L,
+                    dueDate = null,
+                    team = null,
+                    deletedAt = null,
+                    parentId = null,
+                    externalId = null,
+                ),
+            )
 
-        val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("мол"))).first()
+            val found = db.ftsDao().watchProjects("u1", TextMatchQuery(listOf("reno"))).first()
 
-        assertEquals(listOf("t1"), found.map { it.task.id })
-    }
+            assertEquals(listOf("p1"), found.map { it.project.id })
+        }
+
+    @Test
+    fun `a tag is found by the beginning of a word in its name`() =
+        runTest {
+            db.tagDao().upsert(
+                TagEntity(
+                    id = "g1",
+                    userId = "u1",
+                    name = "Deep work",
+                    nameNormalized = "deep work",
+                    color = 0,
+                    createdAt = 1_000L,
+                    updatedAt = 1_000L,
+                    deletedAt = null,
+                ),
+            )
+
+            val found = db.ftsDao().watchTags("u1", TextMatchQuery(listOf("deep"))).first()
+
+            assertEquals(listOf("g1"), found.map { it.tag.id })
+        }
+
+    @Test
+    fun `letters outside ascii are searchable`() =
+        runTest {
+            db.taskDao().upsert(task(id = "t1", title = "Купить молоко"))
+
+            val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("мол"))).first()
+
+            assertEquals(listOf("t1"), found.map { it.task.id })
+        }
 }

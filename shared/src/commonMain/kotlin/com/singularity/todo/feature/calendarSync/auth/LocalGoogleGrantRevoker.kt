@@ -39,10 +39,10 @@ class LocalGoogleGrantRevoker(
     private val credentialStore: GoogleCredentialStore,
     private val tokenClientFactory: () -> GoogleTokenExchange,
 ) : GoogleGrantRevoker {
-
-    override suspend fun revoke(userId: String): Result<Unit> = runCatchingCancellable {
-        val stored = credentialStore.load(userId) ?: return@runCatchingCancellable
-        val refreshToken = stored.refreshToken ?: return@runCatchingCancellable
-        tokenClientFactory().revoke(refreshToken)
-    }
+    override suspend fun revoke(userId: String): Result<Unit> =
+        runCatchingCancellable {
+            val stored = credentialStore.load(userId) ?: return@runCatchingCancellable
+            val refreshToken = stored.refreshToken ?: return@runCatchingCancellable
+            tokenClientFactory().revoke(refreshToken)
+        }
 }

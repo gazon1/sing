@@ -15,7 +15,12 @@ import kotlin.time.Instant
 @JvmInline
 value class TagId(val value: String) {
     companion object {
-        fun generate() = TagId(com.singularity.todo.core.ids.nextId())
+        fun generate() =
+            TagId(
+                com.singularity.todo.core.ids
+                    .nextId(),
+            )
+
         fun fromString(value: String) = TagId(value)
     }
 }
@@ -48,7 +53,6 @@ data class Tag(
     val hlc: Hlc? = null,
 ) : SyncableEntity,
     Searchable {
-
     /**
      * The surfaces a tag is searched by (F3): its name.
      *

@@ -18,15 +18,16 @@ import kotlin.test.assertIs
  */
 @Tag("fast")
 class TextMatchPlanTest {
-
     @Test
     fun `a rule of positive terms is narrowed by them`() {
-        val rule = FreeTextRule(
-            terms = listOf(
-                FreeTextRule.Term(text = "arch"),
-                FreeTextRule.Term(text = "report"),
-            ),
-        )
+        val rule =
+            FreeTextRule(
+                terms =
+                    listOf(
+                        FreeTextRule.Term(text = "arch"),
+                        FreeTextRule.Term(text = "report"),
+                    ),
+            )
 
         val plan = rule.plan(SearchMode.Word)
 
@@ -38,13 +39,15 @@ class TextMatchPlanTest {
 
     @Test
     fun `a rule of alternatives is narrowed by them, as alternatives`() {
-        val rule = FreeTextRule(
-            terms = listOf(
-                FreeTextRule.Term(text = "arch"),
-                FreeTextRule.Term(text = "report"),
-            ),
-            combinesWithOr = true,
-        )
+        val rule =
+            FreeTextRule(
+                terms =
+                    listOf(
+                        FreeTextRule.Term(text = "arch"),
+                        FreeTextRule.Term(text = "report"),
+                    ),
+                combinesWithOr = true,
+            )
 
         val plan = rule.plan(SearchMode.Word)
 
@@ -59,12 +62,14 @@ class TextMatchPlanTest {
         // The index finds the records that carry "arch"; the rule then removes
         // the ones that carry "draft". The negation is the rule's business, and
         // it does not stop the index from narrowing.
-        val rule = FreeTextRule(
-            terms = listOf(
-                FreeTextRule.Term(text = "arch"),
-                FreeTextRule.Term(text = "draft", negated = true),
-            ),
-        )
+        val rule =
+            FreeTextRule(
+                terms =
+                    listOf(
+                        FreeTextRule.Term(text = "arch"),
+                        FreeTextRule.Term(text = "draft", negated = true),
+                    ),
+            )
 
         val plan = rule.plan(SearchMode.Word)
 
@@ -79,13 +84,15 @@ class TextMatchPlanTest {
         // "arch OR NOT draft" — the records that match by *not* carrying
         // "draft" are exactly the ones a positive lookup throws away, so there
         // is nothing to look up and the rows have to be read.
-        val rule = FreeTextRule(
-            terms = listOf(
-                FreeTextRule.Term(text = "arch"),
-                FreeTextRule.Term(text = "draft", negated = true),
-            ),
-            combinesWithOr = true,
-        )
+        val rule =
+            FreeTextRule(
+                terms =
+                    listOf(
+                        FreeTextRule.Term(text = "arch"),
+                        FreeTextRule.Term(text = "draft", negated = true),
+                    ),
+                combinesWithOr = true,
+            )
 
         assertIs<TextMatchPlan.BroadScan>(rule.plan(SearchMode.Word))
     }

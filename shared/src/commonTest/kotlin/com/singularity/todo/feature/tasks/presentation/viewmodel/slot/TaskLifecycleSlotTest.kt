@@ -20,7 +20,6 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class TaskLifecycleSlotTest {
-
     private fun slot(
         fakes: SlotFakes,
         source: TaskSource,
@@ -42,179 +41,213 @@ class TaskLifecycleSlotTest {
     )
 
     @Test
-    fun `delete soft-deletes and offers undo`() = runTest {
-        val fakes = SlotFakes()
-        fakes.taskRepo.seed(task("t1"))
-        val undone = mutableListOf<String>()
-        val slot = slot(fakes, TaskSource(task("t1")), backgroundScope, onUndo = { undone += it })
-        runCurrent()
+    fun `delete soft-deletes and offers undo`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1"))
+            val undone = mutableListOf<String>()
+            val slot = slot(fakes, TaskSource(task("t1")), backgroundScope, onUndo = { undone += it })
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.Delete)
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.Delete)
+            runCurrent()
 
-        assertNotNull(fakes.taskRepo.tasks.value["t1"]?.archivedAt)
-        assertEquals(listOf("t1"), undone)
-    }
-
-    @Test
-    fun `delete keeps a snapshot for restore`() = runTest {
-        val fakes = SlotFakes()
-        fakes.taskRepo.seed(task("t1"))
-        val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
-        runCurrent()
-
-        slot.onIntent(TaskDetailIntent.Domain.Delete)
-        runCurrent()
-
-        assertNotNull(slot.state.value.recentlyDeleted)
-    }
+            assertNotNull(
+                fakes.taskRepo.tasks.value["t1"]
+                    ?.archivedAt,
+            )
+            assertEquals(listOf("t1"), undone)
+        }
 
     @Test
-    fun `archive keeps a snapshot for undo`() = runTest {
-        val fakes = SlotFakes()
-        fakes.taskRepo.seed(task("t1"))
-        val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
-        runCurrent()
+    fun `delete keeps a snapshot for restore`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1"))
+            val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.Archive)
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.Delete)
+            runCurrent()
 
-        assertNotNull(fakes.taskRepo.tasks.value["t1"]?.archivedAt)
-        assertNotNull(slot.state.value.recentlyDeleted, "archive must offer an undo path")
-    }
-
-    @Test
-    fun `archive offers the undo`() = runTest {
-        val fakes = SlotFakes()
-        fakes.taskRepo.seed(task("t1"))
-        var undone: String? = null
-        val slot = slot(fakes, TaskSource(task("t1")), backgroundScope, onUndoArchive = { undone = it })
-        runCurrent()
-
-        slot.onIntent(TaskDetailIntent.Domain.Archive)
-        runCurrent()
-
-        assertEquals("t1", undone)
-    }
+            assertNotNull(slot.state.value.recentlyDeleted)
+        }
 
     @Test
-    fun `deleting a series archives every occurrence and offers the undo`() = runTest {
-        val fakes = SlotFakes()
-        val series = TaskSeriesId("s1")
-        fakes.taskRepo.seed(task("t1", seriesId = series), task("t2", seriesId = series))
-        val undone = mutableListOf<String>()
-        val slot = slot(fakes, TaskSource(task("t1", seriesId = series)), backgroundScope, onUndo = { undone += it })
-        runCurrent()
+    fun `archive keeps a snapshot for undo`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1"))
+            val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.DeleteSeries)
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.Archive)
+            runCurrent()
 
-        assertNotNull(fakes.taskRepo.tasks.value["t1"]?.archivedAt)
-        assertNotNull(fakes.taskRepo.tasks.value["t2"]?.archivedAt)
-        assertEquals(listOf("t1,t2"), undone, "the undo has to know what went away")
-    }
-
-    @Test
-    fun `deleting a series keeps the screen until the offer is declined`() = runTest {
-        val fakes = SlotFakes()
-        val series = TaskSeriesId("s1")
-        fakes.taskRepo.seed(task("t1", seriesId = series), task("t2", seriesId = series))
-        var navigated = false
-        val slot = slot(
-            fakes,
-            TaskSource(task("t1", seriesId = series)),
-            backgroundScope,
-            onBack = { navigated = true },
-        )
-        runCurrent()
-
-        slot.onIntent(TaskDetailIntent.Domain.DeleteSeries)
-        runCurrent()
-
-        assertTrue(
-            !navigated,
-            "the toast that carries the way back lives in this screen — leaving first would " +
-                "destroy the offer it was supposed to accompany",
-        )
-    }
+            assertNotNull(
+                fakes.taskRepo.tasks.value["t1"]
+                    ?.archivedAt,
+            )
+            assertNotNull(slot.state.value.recentlyDeleted, "archive must offer an undo path")
+        }
 
     @Test
-    fun `restoring a series puts every occurrence back`() = runTest {
-        val fakes = SlotFakes()
-        val series = TaskSeriesId("s1")
-        fakes.taskRepo.seed(task("t1", seriesId = series), task("t2", seriesId = series))
-        val slot = slot(fakes, TaskSource(task("t1", seriesId = series)), backgroundScope)
-        runCurrent()
+    fun `archive offers the undo`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1"))
+            var undone: String? = null
+            val slot = slot(fakes, TaskSource(task("t1")), backgroundScope, onUndoArchive = { undone = it })
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.DeleteSeries)
-        runCurrent()
-        slot.onIntent(
-            TaskDetailIntent.Domain.RestoreSeries(listOf(TaskId("t1"), TaskId("t2"))),
-        )
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.Archive)
+            runCurrent()
 
-        assertNull(fakes.taskRepo.tasks.value["t1"]?.archivedAt)
-        assertNull(fakes.taskRepo.tasks.value["t2"]?.archivedAt)
-    }
+            assertEquals("t1", undone)
+        }
 
     @Test
-    fun `restore brings the task back and clears the snapshot`() = runTest {
-        val fakes = SlotFakes()
-        fakes.taskRepo.seed(task("t1"))
-        val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
-        runCurrent()
+    fun `deleting a series archives every occurrence and offers the undo`() =
+        runTest {
+            val fakes = SlotFakes()
+            val series = TaskSeriesId("s1")
+            fakes.taskRepo.seed(task("t1", seriesId = series), task("t2", seriesId = series))
+            val undone = mutableListOf<String>()
+            val slot =
+                slot(fakes, TaskSource(task("t1", seriesId = series)), backgroundScope, onUndo = { undone += it })
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.Delete)
-        runCurrent()
-        slot.onIntent(TaskDetailIntent.Domain.Restore)
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.DeleteSeries)
+            runCurrent()
 
-        assertNull(fakes.taskRepo.tasks.value["t1"]?.archivedAt)
-        assertNull(slot.state.value.recentlyDeleted)
-    }
-
-    @Test
-    fun `restore without a prior delete is a no-op`() = runTest {
-        val fakes = SlotFakes()
-        fakes.taskRepo.seed(task("t1"))
-        val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
-        runCurrent()
-
-        slot.onIntent(TaskDetailIntent.Domain.Restore)
-        runCurrent()
-
-        assertNull(slot.state.value.recentlyDeleted)
-    }
+            assertNotNull(
+                fakes.taskRepo.tasks.value["t1"]
+                    ?.archivedAt,
+            )
+            assertNotNull(
+                fakes.taskRepo.tasks.value["t2"]
+                    ?.archivedAt,
+            )
+            assertEquals(listOf("t1,t2"), undone, "the undo has to know what went away")
+        }
 
     @Test
-    fun `restore failure keeps the snapshot alive so the user can retry`() = runTest {
-        val fakes = SlotFakes()
-        fakes.taskRepo.seed(task("t1"))
-        val errors = mutableListOf<String>()
-        val slot = TaskLifecycleSlot(
-            core = fakes.core(),
-            scheduling = fakes.scheduling(),
-            scope = testSlotScope(backgroundScope),
-            taskFlow = TaskSource(task("t1")).also { it.emit(task("t1")) }.state,
-            onError = { errors += it },
-            onUndoDelete = {},
-            onUndoDeleteSeries = {},
-            onNavigateBack = {},
-            onSaved = {},
-        )
-        runCurrent()
+    fun `deleting a series keeps the screen until the offer is declined`() =
+        runTest {
+            val fakes = SlotFakes()
+            val series = TaskSeriesId("s1")
+            fakes.taskRepo.seed(task("t1", seriesId = series), task("t2", seriesId = series))
+            var navigated = false
+            val slot =
+                slot(
+                    fakes,
+                    TaskSource(task("t1", seriesId = series)),
+                    backgroundScope,
+                    onBack = { navigated = true },
+                )
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.Delete)
-        runCurrent()
-        assertNotNull(slot.state.value.recentlyDeleted)
+            slot.onIntent(TaskDetailIntent.Domain.DeleteSeries)
+            runCurrent()
 
-        // Simulate a persistent server error
-        fakes.taskRepo.restoreOverride = Result.failure(IllegalStateException("Server error"))
-        slot.onIntent(TaskDetailIntent.Domain.Restore)
-        runCurrent()
+            assertTrue(
+                !navigated,
+                "the toast that carries the way back lives in this screen — leaving first would " +
+                    "destroy the offer it was supposed to accompany",
+            )
+        }
 
-        // Snapshot must stay alive so the user can try again once the server recovers
-        assertNotNull(slot.state.value.recentlyDeleted)
-        assertEquals(listOf("Restore failed"), errors)
-    }
+    @Test
+    fun `restoring a series puts every occurrence back`() =
+        runTest {
+            val fakes = SlotFakes()
+            val series = TaskSeriesId("s1")
+            fakes.taskRepo.seed(task("t1", seriesId = series), task("t2", seriesId = series))
+            val slot = slot(fakes, TaskSource(task("t1", seriesId = series)), backgroundScope)
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.DeleteSeries)
+            runCurrent()
+            slot.onIntent(
+                TaskDetailIntent.Domain.RestoreSeries(listOf(TaskId("t1"), TaskId("t2"))),
+            )
+            runCurrent()
+
+            assertNull(
+                fakes.taskRepo.tasks.value["t1"]
+                    ?.archivedAt,
+            )
+            assertNull(
+                fakes.taskRepo.tasks.value["t2"]
+                    ?.archivedAt,
+            )
+        }
+
+    @Test
+    fun `restore brings the task back and clears the snapshot`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1"))
+            val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.Delete)
+            runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.Restore)
+            runCurrent()
+
+            assertNull(
+                fakes.taskRepo.tasks.value["t1"]
+                    ?.archivedAt,
+            )
+            assertNull(slot.state.value.recentlyDeleted)
+        }
+
+    @Test
+    fun `restore without a prior delete is a no-op`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1"))
+            val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.Restore)
+            runCurrent()
+
+            assertNull(slot.state.value.recentlyDeleted)
+        }
+
+    @Test
+    fun `restore failure keeps the snapshot alive so the user can retry`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("t1"))
+            val errors = mutableListOf<String>()
+            val slot =
+                TaskLifecycleSlot(
+                    core = fakes.core(),
+                    scheduling = fakes.scheduling(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = TaskSource(task("t1")).also { it.emit(task("t1")) }.state,
+                    onError = { errors += it },
+                    onUndoDelete = {},
+                    onUndoDeleteSeries = {},
+                    onNavigateBack = {},
+                    onSaved = {},
+                )
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.Delete)
+            runCurrent()
+            assertNotNull(slot.state.value.recentlyDeleted)
+
+            // Simulate a persistent server error
+            fakes.taskRepo.restoreOverride = Result.failure(IllegalStateException("Server error"))
+            slot.onIntent(TaskDetailIntent.Domain.Restore)
+            runCurrent()
+
+            // Snapshot must stay alive so the user can try again once the server recovers
+            assertNotNull(slot.state.value.recentlyDeleted)
+            assertEquals(listOf("Restore failed"), errors)
+        }
 }

@@ -10,10 +10,10 @@ import ai.koog.prompt.message.MessagePart
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
 import co.touchlab.kermit.Logger
-import com.singularity.todo.feature.ai.prompts.Prompts
-import kotlinx.serialization.Serializable
-import kotlinx.coroutines.CancellationException
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.feature.ai.prompts.Prompts
+import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.Serializable
 
 @Serializable
 data class ExtractActionsInput(val title: String, val body: String)
@@ -23,29 +23,31 @@ data class ExtractActionsOutput(val actions: List<String>)
 
 class ExtractActionsTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
     SimpleTool<ExtractActionsInput>(TypeToken.of(ExtractActionsInput::class.java), NAME, DESCRIPTION) {
-
     private val logger = Logger.withTag("ExtractActions")
 
     override suspend fun execute(args: ExtractActionsInput): String {
-        val p = prompt(Prompt.Empty, KoogClock.System) {
-            system(Prompts.extractActionsSystem)
-            user(Prompts.extractActionsUser(args.title, args.body))
-        }
+        val p =
+            prompt(Prompt.Empty, KoogClock.System) {
+                system(Prompts.extractActionsSystem)
+                user(Prompts.extractActionsUser(args.title, args.body))
+            }
         val response = promptExecutor.execute(p, model, emptyList())
         val text = extractText(response)
         return try {
             kotlinx.serialization.json.Json.decodeFromString<ExtractActionsOutput>(text).let { out ->
-                kotlinx.serialization.json.Json.encodeToString(ExtractActionsOutput.serializer(), out)
+                kotlinx.serialization.json.Json
+                    .encodeToString(ExtractActionsOutput.serializer(), out)
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             logger.w(e) { "failed" }
-            val actions = runCatchingCancellable {
-                kotlinx.serialization.json.Json.decodeFromString<List<String>>(
-                    text,
-                )
-            }.getOrNull() ?: emptyList()
+            val actions =
+                runCatchingCancellable {
+                    kotlinx.serialization.json.Json.decodeFromString<List<String>>(
+                        text,
+                    )
+                }.getOrNull() ?: emptyList()
             kotlinx.serialization.json.Json.encodeToString(
                 ExtractActionsOutput.serializer(),
                 ExtractActionsOutput(actions),
@@ -58,6 +60,9 @@ class ExtractActionsTool(private val promptExecutor: PromptExecutor, private val
         const val DESCRIPTION = "Extract actionable tasks from a note."
 
         private fun extractText(response: Message.Assistant): String =
-            response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }.trim()
+            response.parts
+                .filterIsInstance<MessagePart.Text>()
+                .joinToString("") { it.text }
+                .trim()
     }
 }

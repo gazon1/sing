@@ -23,6 +23,5 @@ class SurfaceTurnFactory(
     private val rejectionCounter: GenuiRejectionCounter,
 ) {
     /** Starts the screen of one answer. */
-    fun begin(id: SurfaceId): SurfaceTurn =
-        SurfaceTurn(id, parser, processor, controller, catalog, rejectionCounter)
+    fun begin(id: SurfaceId): SurfaceTurn = SurfaceTurn(id, parser, processor, controller, catalog, rejectionCounter)
 }

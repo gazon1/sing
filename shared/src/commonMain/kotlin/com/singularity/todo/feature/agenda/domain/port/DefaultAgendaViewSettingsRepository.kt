@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
  * Contract for the default agenda view setting.
  */
 interface DefaultAgendaViewSettingsRepository {
-
     val defaultViewId: Flow<SavedAgendaViewId?>
+
     suspend fun setDefaultViewId(id: SavedAgendaViewId?)
 }

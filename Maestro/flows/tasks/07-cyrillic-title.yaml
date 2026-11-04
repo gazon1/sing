@@ -12,11 +12,10 @@ tags:
   - smoke
 ---
 # Seed a task with a Cyrillic title using the debug deep-link.
-- openLink: "todo-debug://seed?task=%D0%9A%D1%83%D0%BF%D0%B8%D1%82%D1%8C%20%D0%BC%D0%BE%D0%BB%D0%BE%D0%BA%D0%BE&due=today"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=%D0%9A%D1%83%D0%BF%D0%B8%D1%82%D1%8C%20%D0%BC%D0%BE%D0%BB%D0%BE%D0%BA%D0%BE&due=today"
 # The task must appear in Today with its Cyrillic title intact.
 - extendedWaitUntil:
     visible:

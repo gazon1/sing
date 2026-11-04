@@ -42,7 +42,6 @@ import java.time.Instant
 class TestFailureDetailsWriter :
     BeforeAllCallback,
     TestExecutionExceptionHandler {
-
     private lateinit var context: FailureInfo
 
     override fun beforeAll(extensionContext: ExtensionContext) {
@@ -56,12 +55,16 @@ class TestFailureDetailsWriter :
         writeFailureDetails(extensionContext, throwable)
     }
 
-    private fun writeFailureDetails(extensionContext: ExtensionContext, throwable: Throwable) {
+    private fun writeFailureDetails(
+        extensionContext: ExtensionContext,
+        throwable: Throwable,
+    ) {
         runCatching {
             val testClass = extensionContext.requiredTestClass.simpleName
-            val testMethod = runCatching {
-                extensionContext.testMethod.map { it.name }.orElse(null)
-            }.getOrNull()
+            val testMethod =
+                runCatching {
+                    extensionContext.testMethod.map { it.name }.orElse(null)
+                }.getOrNull()
             val buildDirPath = System.getProperty("shared.build.dir") ?: return@runCatching
             val buildDir = File(buildDirPath)
             val diagnosticsDir = File(buildDir, "diagnostics/$testClass")
@@ -69,51 +72,52 @@ class TestFailureDetailsWriter :
             val detailsFile = File(diagnosticsDir, "failure-details.txt")
 
             val isTimeout = isTimeoutException(throwable)
-            val failureInfo = buildString {
-                appendLine("=== Test failure details ===")
-                appendLine("timestamp=${Instant.now()}")
-                appendLine("testClass=$testClass")
-                appendLine("testMethod=$testMethod")
-                appendLine("isTimeout=$isTimeout")
-                appendLine("java=${System.getProperty("java.version")}")
-                appendLine("git=${context.gitHash}")
-                appendLine()
-                appendLine("--- Exception ---")
-                appendLine("type=${throwable::class.java.name}")
-                appendLine("message=${throwable.message ?: "(no message)"}")
-                appendLine()
-                appendLine("--- Stacktrace ---")
-                throwable.stackTrace.forEach { element ->
-                    appendLine("    at $element")
-                }
-
-                // Walk the full cause chain
-                var cause: Throwable? = throwable.cause
-                var depth = 0
-                while (cause != null && depth < 10) {
+            val failureInfo =
+                buildString {
+                    appendLine("=== Test failure details ===")
+                    appendLine("timestamp=${Instant.now()}")
+                    appendLine("testClass=$testClass")
+                    appendLine("testMethod=$testMethod")
+                    appendLine("isTimeout=$isTimeout")
+                    appendLine("java=${System.getProperty("java.version")}")
+                    appendLine("git=${context.gitHash}")
                     appendLine()
-                    appendLine("--- Caused by: ${cause::class.java.name} ---")
-                    appendLine("message=${cause.message ?: "(no message)"}")
-                    cause.stackTrace.forEach { element ->
+                    appendLine("--- Exception ---")
+                    appendLine("type=${throwable::class.java.name}")
+                    appendLine("message=${throwable.message ?: "(no message)"}")
+                    appendLine()
+                    appendLine("--- Stacktrace ---")
+                    throwable.stackTrace.forEach { element ->
                         appendLine("    at $element")
                     }
-                    cause = cause.cause
-                    depth++
+
+                    // Walk the full cause chain
+                    var cause: Throwable? = throwable.cause
+                    var depth = 0
+                    while (cause != null && depth < 10) {
+                        appendLine()
+                        appendLine("--- Caused by: ${cause::class.java.name} ---")
+                        appendLine("message=${cause.message ?: "(no message)"}")
+                        cause.stackTrace.forEach { element ->
+                            appendLine("    at $element")
+                        }
+                        cause = cause.cause
+                        depth++
+                    }
+
+                    appendLine()
+                    appendLine("--- Thread state ---")
+                    appendLine("thread=${Thread.currentThread().name}")
+                    appendLine("threadId=${Thread.currentThread().id}")
+                    appendLine("threadState=${Thread.currentThread().state}")
+
+                    appendLine()
+                    appendLine("--- Environment ---")
+                    appendLine("os=${System.getProperty("os.name")} ${System.getProperty("os.version")}")
+                    appendLine("availableProcessors=${Runtime.getRuntime().availableProcessors()}")
+                    appendLine("maxMemory=${Runtime.getRuntime().maxMemory()}")
+                    appendLine("freeMemory=${Runtime.getRuntime().freeMemory()}")
                 }
-
-                appendLine()
-                appendLine("--- Thread state ---")
-                appendLine("thread=${Thread.currentThread().name}")
-                appendLine("threadId=${Thread.currentThread().id}")
-                appendLine("threadState=${Thread.currentThread().state}")
-
-                appendLine()
-                appendLine("--- Environment ---")
-                appendLine("os=${System.getProperty("os.name")} ${System.getProperty("os.version")}")
-                appendLine("availableProcessors=${Runtime.getRuntime().availableProcessors()}")
-                appendLine("maxMemory=${Runtime.getRuntime().maxMemory()}")
-                appendLine("freeMemory=${Runtime.getRuntime().freeMemory()}")
-            }
 
             detailsFile.writeText(failureInfo)
         }
@@ -136,14 +140,15 @@ class TestFailureDetailsWriter :
 private data class FailureInfo(val gitHash: String, val javaVersion: String) {
     companion object {
         fun capture(): FailureInfo {
-            val gitHash = runCatching {
-                ProcessBuilder("git", "rev-parse", "--short=8", "HEAD")
-                    .start()
-                    .inputStream
-                    .bufferedReader()
-                    .readText()
-                    .trim()
-            }.getOrElse { "unknown" }
+            val gitHash =
+                runCatching {
+                    ProcessBuilder("git", "rev-parse", "--short=8", "HEAD")
+                        .start()
+                        .inputStream
+                        .bufferedReader()
+                        .readText()
+                        .trim()
+                }.getOrElse { "unknown" }
 
             return FailureInfo(
                 gitHash = gitHash,

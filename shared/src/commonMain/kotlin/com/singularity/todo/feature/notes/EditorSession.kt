@@ -73,19 +73,20 @@ fun rememberEditorSession(
 ): EditorSession {
     val onBodyChangeState = rememberUpdatedState(onBodyChange)
 
-    val session = remember(state.id) {
-        val richTextState = RichTextState().also { it.setHtml(state.bodySource.text) }
-        EditorSession(
-            richTextState = richTextState,
-            // The baseline is the loaded content *as this editor renders it* —
-            // `state.html` may differ from `toHtml()` in normalisation only.
-            // Comparing against the rendered form is what makes the first
-            // observation a no-op instead of a phantom edit.
-            lastDispatchedHtml = richTextState.toHtml(),
-            onBodyChange = { id, html -> onBodyChangeState.value(id, html) },
-            id = state.id,
-        )
-    }
+    val session =
+        remember(state.id) {
+            val richTextState = RichTextState().also { it.setHtml(state.bodySource.text) }
+            EditorSession(
+                richTextState = richTextState,
+                // The baseline is the loaded content *as this editor renders it* —
+                // `state.html` may differ from `toHtml()` in normalisation only.
+                // Comparing against the rendered form is what makes the first
+                // observation a no-op instead of a phantom edit.
+                lastDispatchedHtml = richTextState.toHtml(),
+                onBodyChange = { id, html -> onBodyChangeState.value(id, html) },
+                id = state.id,
+            )
+        }
 
     // The note was rewritten from outside: take the content it now holds.
     //

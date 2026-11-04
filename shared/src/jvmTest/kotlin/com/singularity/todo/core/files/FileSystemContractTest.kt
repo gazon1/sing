@@ -40,14 +40,19 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 abstract class FileSystemContract<F : FileSystem>(private val makeSut: () -> F) {
-
     private val sut: F by lazy { makeSut() }
 
     private companion object {
         /** Unique per JVM; not relied upon for cross-class uniqueness (forkEvery is now 0). */
-        val RUN_ID: String = java.util.UUID.randomUUID().toString().take(8)
+        val RUN_ID: String =
+            java.util.UUID
+                .randomUUID()
+                .toString()
+                .take(8)
 
-        val CALLS = java.util.concurrent.atomic.AtomicInteger(0)
+        val CALLS =
+            java.util.concurrent.atomic
+                .AtomicInteger(0)
 
         fun tmpPath(suffix: String = "f"): String = "/tmp/contract-test-$RUN_ID-${CALLS.incrementAndGet()}$suffix"
 
@@ -55,28 +60,31 @@ abstract class FileSystemContract<F : FileSystem>(private val makeSut: () -> F) 
     }
 
     @Test
-    fun `readBytes throws for missing path`() = runTest {
-        val result = runCatching { sut.readBytes("/nonexistent/file") }
-        assertTrue(result.isFailure)
-    }
+    fun `readBytes throws for missing path`() =
+        runTest {
+            val result = runCatching { sut.readBytes("/nonexistent/file") }
+            assertTrue(result.isFailure)
+        }
 
     @Test
-    fun `writeBytes and readBytes are round-trippable`() = runTest {
-        val path = tmpPath()
-        val data = "hello world".toByteArray()
-        sut.writeBytes(path, data)
-        assertContentEquals(data, sut.readBytes(path))
-        sut.delete(path)
-    }
+    fun `writeBytes and readBytes are round-trippable`() =
+        runTest {
+            val path = tmpPath()
+            val data = "hello world".toByteArray()
+            sut.writeBytes(path, data)
+            assertContentEquals(data, sut.readBytes(path))
+            sut.delete(path)
+        }
 
     @Test
-    fun `writeBytes creates parent directories`() = runTest {
-        val path = tmpPath("/subdir/file.txt")
-        val data = byteArrayOf(1, 2, 3)
-        sut.writeBytes(path, data)
-        assertTrue(sut.exists(path))
-        sut.delete(path)
-    }
+    fun `writeBytes creates parent directories`() =
+        runTest {
+            val path = tmpPath("/subdir/file.txt")
+            val data = byteArrayOf(1, 2, 3)
+            sut.writeBytes(path, data)
+            assertTrue(sut.exists(path))
+            sut.delete(path)
+        }
 
     /**
      * A move carries the bytes and takes the old name away.
@@ -87,143 +95,156 @@ abstract class FileSystemContract<F : FileSystem>(private val makeSut: () -> F) 
      * the old name is gone.
      */
     @Test
-    fun `a move carries the bytes and takes the old name away`() = runTest {
-        val from = tmpPath()
-        val to = tmpPath("/moved/file.txt")
-        sut.writeBytes(from, byteArrayOf(7, 8, 9))
+    fun `a move carries the bytes and takes the old name away`() =
+        runTest {
+            val from = tmpPath()
+            val to = tmpPath("/moved/file.txt")
+            sut.writeBytes(from, byteArrayOf(7, 8, 9))
 
-        sut.move(from, to)
+            sut.move(from, to)
 
-        assertContentEquals(byteArrayOf(7, 8, 9), sut.readBytes(to), "the bytes must arrive")
-        assertFalse(sut.exists(from), "the old name must be gone")
-        sut.delete(to)
-    }
+            assertContentEquals(byteArrayOf(7, 8, 9), sut.readBytes(to), "the bytes must arrive")
+            assertFalse(sut.exists(from), "the old name must be gone")
+            sut.delete(to)
+        }
 
     /** A move over a file that is already there replaces it. */
     @Test
-    fun `a move replaces what was at the target`() = runTest {
-        val from = tmpPath()
-        val to = tmpPath()
-        sut.writeBytes(from, byteArrayOf(1))
-        sut.writeBytes(to, byteArrayOf(2))
+    fun `a move replaces what was at the target`() =
+        runTest {
+            val from = tmpPath()
+            val to = tmpPath()
+            sut.writeBytes(from, byteArrayOf(1))
+            sut.writeBytes(to, byteArrayOf(2))
 
-        sut.move(from, to)
+            sut.move(from, to)
 
-        assertContentEquals(byteArrayOf(1), sut.readBytes(to), "the moved bytes win")
-        sut.delete(to)
-    }
-
-    @Test
-    fun `exists returns false for missing path`() = runTest {
-        assertFalse(sut.exists(missingPath()))
-    }
-
-    @Test
-    fun `exists returns true after writeBytes`() = runTest {
-        val path = tmpPath()
-        sut.writeBytes(path, byteArrayOf(0))
-        assertTrue(sut.exists(path))
-        sut.delete(path)
-    }
-
-    @Test
-    fun `delete returns true and removes existing file`() = runTest {
-        val path = tmpPath()
-        sut.writeBytes(path, byteArrayOf(0))
-        assertTrue(sut.delete(path))
-        assertFalse(sut.exists(path))
-    }
-
-    @Test
-    fun `delete returns false for missing path`() = runTest {
-        assertFalse(sut.delete(missingPath()))
-    }
-
-    @Test
-    fun `ensureDir is idempotent`() = runTest {
-        val dir = tmpPath()
-        // Asserting after *both* calls is what makes this a test of idempotence
-        // rather than of "ensureDir creates a directory". Without the assertion
-        // it passed even if ensureDir were an empty function, because nothing in
-        // the test observed the result.
-        sut.ensureDir(dir)
-        sut.ensureDir(dir)
-        assertTrue(sut.exists(dir), "ensureDir did not leave the directory behind")
-    }
-
-    @Test
-    fun `listDir returns empty for nonexistent dir`() = runTest {
-        assertTrue(sut.listDir(missingPath()).isEmpty())
-    }
-
-    @Test
-    fun `listDir returns children after writeBytes`() = runTest {
-        val dir = tmpPath()
-        val fileA = "$dir/a.txt"
-        val fileB = "$dir/b.txt"
-        sut.writeBytes(fileA, byteArrayOf(1))
-        sut.writeBytes(fileB, byteArrayOf(2))
-        val children = sut.listDir("$dir/")
-        assertEquals(2, children.size)
-        assertTrue(children.contains(fileA))
-        assertTrue(children.contains(fileB))
-        sut.delete(fileA)
-        sut.delete(fileB)
-    }
-
-    @Test
-    fun `stat returns null for missing path`() = runTest {
-        assertNull(sut.stat(missingPath()))
-    }
-
-    @Test
-    fun `stat returns correct metadata after writeBytes`() = runTest {
-        val path = tmpPath()
-        val data = "metadata test".toByteArray()
-        sut.writeBytes(path, data)
-        val stat = sut.stat(path)
-        assertNotNull(stat)
-        assertEquals(path, stat.path)
-        assertEquals(data.size.toLong(), stat.sizeBytes)
-        assertFalse(stat.isDirectory)
-        sut.delete(path)
-    }
-
-    @Test
-    fun `openRead hands out what openWrite wrote`() = runTest {
-        val path = tmpPath()
-        val data = "piece by piece".toByteArray()
-        val sink = sut.openWrite(path)
-        sink.write(data, 0, data.size)
-        sink.close()
-
-        val source = sut.openRead(path)
-        val read = source.readExactly(data.size)
-        source.close()
-
-        assertContentEquals(data, read)
-        sut.delete(path)
-    }
-
-    @Test
-    fun `openRead reads in pieces and says when it is done`() = runTest {
-        val path = tmpPath()
-        val data = "the whole archive".toByteArray()
-        sut.writeBytes(path, data)
-
-        val source = sut.openRead(path)
-        val buffer = ByteArray(4)
-        val collected = mutableListOf<Byte>()
-        while (true) {
-            val read = source.read(buffer, 0, buffer.size)
-            if (read < 0) break
-            collected.addAll(buffer.copyOfRange(0, read).toList())
+            assertContentEquals(byteArrayOf(1), sut.readBytes(to), "the moved bytes win")
+            sut.delete(to)
         }
-        source.close()
 
-        assertContentEquals(data, collected.toByteArray())
-        sut.delete(path)
-    }
+    @Test
+    fun `exists returns false for missing path`() =
+        runTest {
+            assertFalse(sut.exists(missingPath()))
+        }
+
+    @Test
+    fun `exists returns true after writeBytes`() =
+        runTest {
+            val path = tmpPath()
+            sut.writeBytes(path, byteArrayOf(0))
+            assertTrue(sut.exists(path))
+            sut.delete(path)
+        }
+
+    @Test
+    fun `delete returns true and removes existing file`() =
+        runTest {
+            val path = tmpPath()
+            sut.writeBytes(path, byteArrayOf(0))
+            assertTrue(sut.delete(path))
+            assertFalse(sut.exists(path))
+        }
+
+    @Test
+    fun `delete returns false for missing path`() =
+        runTest {
+            assertFalse(sut.delete(missingPath()))
+        }
+
+    @Test
+    fun `ensureDir is idempotent`() =
+        runTest {
+            val dir = tmpPath()
+            // Asserting after *both* calls is what makes this a test of idempotence
+            // rather than of "ensureDir creates a directory". Without the assertion
+            // it passed even if ensureDir were an empty function, because nothing in
+            // the test observed the result.
+            sut.ensureDir(dir)
+            sut.ensureDir(dir)
+            assertTrue(sut.exists(dir), "ensureDir did not leave the directory behind")
+        }
+
+    @Test
+    fun `listDir returns empty for nonexistent dir`() =
+        runTest {
+            assertTrue(sut.listDir(missingPath()).isEmpty())
+        }
+
+    @Test
+    fun `listDir returns children after writeBytes`() =
+        runTest {
+            val dir = tmpPath()
+            val fileA = "$dir/a.txt"
+            val fileB = "$dir/b.txt"
+            sut.writeBytes(fileA, byteArrayOf(1))
+            sut.writeBytes(fileB, byteArrayOf(2))
+            val children = sut.listDir("$dir/")
+            assertEquals(2, children.size)
+            assertTrue(children.contains(fileA))
+            assertTrue(children.contains(fileB))
+            sut.delete(fileA)
+            sut.delete(fileB)
+        }
+
+    @Test
+    fun `stat returns null for missing path`() =
+        runTest {
+            assertNull(sut.stat(missingPath()))
+        }
+
+    @Test
+    fun `stat returns correct metadata after writeBytes`() =
+        runTest {
+            val path = tmpPath()
+            val data = "metadata test".toByteArray()
+            sut.writeBytes(path, data)
+            val stat = sut.stat(path)
+            assertNotNull(stat)
+            assertEquals(path, stat.path)
+            assertEquals(data.size.toLong(), stat.sizeBytes)
+            assertFalse(stat.isDirectory)
+            sut.delete(path)
+        }
+
+    @Test
+    fun `openRead hands out what openWrite wrote`() =
+        runTest {
+            val path = tmpPath()
+            val data = "piece by piece".toByteArray()
+            val sink = sut.openWrite(path)
+            sink.write(data, 0, data.size)
+            sink.close()
+
+            val source = sut.openRead(path)
+            val read = source.readExactly(data.size)
+            source.close()
+
+            assertContentEquals(data, read)
+            sut.delete(path)
+        }
+
+    @Test
+    fun `openRead reads in pieces and says when it is done`() =
+        runTest {
+            val path = tmpPath()
+            val data = "the whole archive".toByteArray()
+            sut.writeBytes(path, data)
+
+            val source = sut.openRead(path)
+            val buffer = ByteArray(4)
+            val collected = mutableListOf<Byte>()
+            while (true) {
+                val read = source.read(buffer, 0, buffer.size)
+                if (read < 0) break
+                collected.addAll(buffer.copyOfRange(0, read).toList())
+            }
+            source.close()
+
+            assertContentEquals(data, collected.toByteArray())
+            sut.delete(path)
+        }
 }
 
 /** Contract test run against [JvmFileSystem] — real filesystem I/O. */

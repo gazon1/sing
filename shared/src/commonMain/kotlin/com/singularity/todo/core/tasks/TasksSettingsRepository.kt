@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.Flow
  * pattern used by other sections.
  */
 interface TasksSettingsRepository {
-
     /** Days after which an undated, incomplete task is considered stagnant. */
     val stalenessThresholdDays: Flow<Int>
 
@@ -31,5 +30,8 @@ interface TasksSettingsRepository {
      */
     fun recurringSeriesRepairVersion(profileScope: String): Flow<Int>
 
-    suspend fun setRecurringSeriesRepairVersion(profileScope: String, version: Int)
+    suspend fun setRecurringSeriesRepairVersion(
+        profileScope: String,
+        version: Int,
+    )
 }

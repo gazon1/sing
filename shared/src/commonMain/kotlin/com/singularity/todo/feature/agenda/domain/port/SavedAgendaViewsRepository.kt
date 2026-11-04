@@ -12,7 +12,6 @@ import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
  * cross-profile view copying.
  */
 interface SavedAgendaViewsRepository : GenericUserScopedRepository<SavedAgendaView, SavedAgendaViewId> {
-
     /** Returns the ambient userId string for this repository's scope. */
     suspend fun currentUserId(): String
 
@@ -44,7 +43,10 @@ interface SavedAgendaViewsRepository : GenericUserScopedRepository<SavedAgendaVi
      * Duplicates a [SavedAgendaView] into a different user profile.
      * Generates a fresh [SavedAgendaView.id], stamps [targetUserId], resets timestamps.
      */
-    suspend fun duplicateForProfile(view: SavedAgendaView, targetUserId: String): Result<SavedAgendaView>
+    suspend fun duplicateForProfile(
+        view: SavedAgendaView,
+        targetUserId: String,
+    ): Result<SavedAgendaView>
 
     /** Deletes a saved view. Idempotent — succeeds even if the view doesn't exist. */
     override suspend fun delete(id: SavedAgendaViewId): Result<Unit>

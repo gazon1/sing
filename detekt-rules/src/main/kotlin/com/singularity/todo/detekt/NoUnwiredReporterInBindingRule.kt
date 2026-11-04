@@ -55,7 +55,6 @@ import org.jetbrains.kotlin.psi.KtValueArgumentList
  * @see NoUnreportedFailurePathPolicy for the shared name list.
  */
 class NoUnwiredReporterInBindingRule(config: Config) : Rule(config, "", null) {
-
     override fun visitCallExpression(expression: KtCallExpression) {
         super.visitCallExpression(expression)
         if (!NoUnwiredReporterInBindingPolicy.isViewModelBinding(expression)) return
@@ -85,7 +84,6 @@ class NoUnwiredReporterInBindingRule(config: Config) : Rule(config, "", null) {
  * Split out so each branch is testable without a detekt harness.
  */
 internal object NoUnwiredReporterInBindingPolicy {
-
     /**
      * True when this call is a Koin `viewModel` registration.
      *

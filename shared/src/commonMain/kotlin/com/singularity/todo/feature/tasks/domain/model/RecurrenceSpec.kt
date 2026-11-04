@@ -31,7 +31,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed class RecurrenceSpec {
-
     /** The base used to compute the next occurrence. Subclasses must override. */
     abstract val base: RecurrenceBase
 
@@ -181,9 +180,10 @@ fun RecurrenceSpec.isExhaustedBy(nextDue: kotlinx.datetime.LocalDate): Boolean {
  * Passing `null` returns an equivalent unbounded rule, so callers can clear a
  * bound without a second code path.
  */
-fun RecurrenceSpec.withTermination(termination: RecurrenceTermination?): RecurrenceSpec = when (this) {
-    is RecurrenceSpec.Interval -> copy(termination = termination)
-    is RecurrenceSpec.Weekly -> copy(termination = termination)
-    is RecurrenceSpec.Monthly -> copy(termination = termination)
-    is RecurrenceSpec.Yearly -> copy(termination = termination)
-}
+fun RecurrenceSpec.withTermination(termination: RecurrenceTermination?): RecurrenceSpec =
+    when (this) {
+        is RecurrenceSpec.Interval -> copy(termination = termination)
+        is RecurrenceSpec.Weekly -> copy(termination = termination)
+        is RecurrenceSpec.Monthly -> copy(termination = termination)
+        is RecurrenceSpec.Yearly -> copy(termination = termination)
+    }

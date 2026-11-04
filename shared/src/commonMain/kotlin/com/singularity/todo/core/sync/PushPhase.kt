@@ -94,11 +94,12 @@ internal class PushPhase(
         try {
             while (batches < 1000) {
                 batches++
-                val plan = planPush().getOrElse { error ->
-                    phases.pushFailed(error.toAppError(), 0)
-                    phases.setPushStatus(isPushing = false)
-                    return PhaseResult.Failed(error.toAppError())
-                }
+                val plan =
+                    planPush().getOrElse { error ->
+                        phases.pushFailed(error.toAppError(), 0)
+                        phases.setPushStatus(isPushing = false)
+                        return PhaseResult.Failed(error.toAppError())
+                    }
                 val ready = (plan as? PushPlan.Ready) ?: break
 
                 // The rows are already claimed — [planPush] claims them before it
@@ -131,14 +132,15 @@ internal class PushPhase(
             if (batches >= 1000) {
                 log.w { "push loop reached the batch cap; unsent patches remain queued for the next cycle" }
             }
-            val summary = PushSummary(
-                processed = processed,
-                succeeded = succeeded,
-                failed = failed,
-                lost = lost,
-                superseded = superseded,
-                discarded = discarded,
-            )
+            val summary =
+                PushSummary(
+                    processed = processed,
+                    succeeded = succeeded,
+                    failed = failed,
+                    lost = lost,
+                    superseded = superseded,
+                    discarded = discarded,
+                )
             phases.recordPushResult(Result.success(summary))
             phases.setPushStatus(isPushing = false)
             return PhaseResult.Ok(summary)
@@ -179,7 +181,10 @@ internal class PushPhase(
      * patches in this plan — it is captured at plan-building time and used throughout
      * response processing rather than re-reading the current scope.
      */
-    private suspend fun pushWithPlan(ready: PushPlan.Ready, session: Session): PhaseResult<PushSummary> {
+    private suspend fun pushWithPlan(
+        ready: PushPlan.Ready,
+        session: Session,
+    ): PhaseResult<PushSummary> {
         val pending = ready.pending
         val activeScope = ready.scope
 
@@ -239,8 +244,9 @@ internal class PushPhase(
         val mPending = pending.toMutableList()
         api.onBeforeResponseLoop(mPending, response)
 
-        val patchesById = mPending
-            .associate { it.patchId to StableJson.decodeFromString<DeltaPatch>(it.payload) }
+        val patchesById =
+            mPending
+                .associate { it.patchId to StableJson.decodeFromString<DeltaPatch>(it.payload) }
 
         var succeeded = 0
         var failed = 0
@@ -252,7 +258,9 @@ internal class PushPhase(
 
             when {
                 // D1 — superseded: server confirmed the patch but the outbox row is gone.
-                patch == null -> superseded++
+                patch == null -> {
+                    superseded++
+                }
 
                 // `lost` is checked before `ok` because the server reports a lost race
                 // as `ok: true`. Branching on `ok` first is the original defect #203.
@@ -315,14 +323,15 @@ internal class PushPhase(
          * results the server sent. A discarded result is in neither: the server
          * answered, and the device declined to act on the answer.
          */
-        fun toSummary() = PushSummary(
-            processed = succeeded + failed + lost + superseded,
-            succeeded = succeeded,
-            failed = failed,
-            lost = lost,
-            superseded = superseded,
-            discarded = discarded,
-        )
+        fun toSummary() =
+            PushSummary(
+                processed = succeeded + failed + lost + superseded,
+                succeeded = succeeded,
+                failed = failed,
+                lost = lost,
+                superseded = superseded,
+                discarded = discarded,
+            )
     }
 
     /**

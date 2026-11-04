@@ -8,7 +8,6 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class ToneColorTest {
-
     @Test
     fun positiveToneMapsToGreen() {
         assertEquals(0xFF2E7D32.toInt(), toneColor(UiNode.Tone.Positive).toArgb())

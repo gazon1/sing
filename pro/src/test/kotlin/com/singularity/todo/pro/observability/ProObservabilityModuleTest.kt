@@ -9,12 +9,12 @@ package com.singularity.todo.pro.observability
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.observability.CrashReportingPort
-import org.koin.core.context.stopKoin
-import org.koin.dsl.koinApplication
-import org.koin.dsl.module
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
+import org.koin.core.context.stopKoin
+import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -45,7 +45,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ProObservabilityModuleTest {
-
     private val log = Logger.withTag("ProObservabilityModuleTest")
 
     /**
@@ -57,10 +56,11 @@ class ProObservabilityModuleTest {
      * `InstanceCreationException` on every case, which is a correct complaint
      * about the test, not about the module.
      */
-    private fun freeCoreGraph(): org.koin.core.module.Module = module {
-        single<co.touchlab.kermit.Logger> { log }
-        single<CrashReportingPort> { FreeStandInCrashReportingPort() }
-    }
+    private fun freeCoreGraph(): org.koin.core.module.Module =
+        module {
+            single<co.touchlab.kermit.Logger> { log }
+            single<CrashReportingPort> { FreeStandInCrashReportingPort() }
+        }
 
     @BeforeEach
     fun setUp() {
@@ -180,6 +180,10 @@ class ProObservabilityModuleTest {
  * different type, so that "did the override happen" has an answer.
  */
 private class FreeStandInCrashReportingPort : CrashReportingPort {
-    override fun report(error: Throwable, issueKey: String) = Unit
+    override fun report(
+        error: Throwable,
+        issueKey: String,
+    ) = Unit
+
     override fun addBreadcrumb(message: String) = Unit
 }

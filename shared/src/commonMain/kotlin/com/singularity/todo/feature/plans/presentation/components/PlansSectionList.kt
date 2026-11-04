@@ -5,9 +5,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -26,10 +26,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.plans.domain.model.TimelineSection
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.plans.domain.model.TimelineTask
-import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
 import com.singularity.todo.feature.plans.presentation.model.toTaskUi
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.datetime.LocalDate
@@ -69,9 +69,10 @@ fun PlansSectionList(
 ) {
     LazyColumn(
         state = listState,
-        modifier = modifier
-            .fillMaxSize()
-            .widthIn(max = 640.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .widthIn(max = 640.dp),
         contentPadding = PaddingValues(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
@@ -79,9 +80,10 @@ fun PlansSectionList(
             item(key = "header-${section.id}") {
                 PlansSectionHeader(
                     section = section,
-                    onAddClick = section.prefillDate?.let { date ->
-                        { onAddInSection(date) }
-                    },
+                    onAddClick =
+                        section.prefillDate?.let { date ->
+                            { onAddInSection(date) }
+                        },
                 )
             }
 
@@ -111,10 +113,11 @@ private fun PlansSectionHeader(
     onAddClick: (() -> Unit)?,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .testTag(TestTags.plansSection(section.id)),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .testTag(TestTags.plansSection(section.id)),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

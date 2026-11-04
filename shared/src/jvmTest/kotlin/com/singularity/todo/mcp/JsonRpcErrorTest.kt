@@ -18,7 +18,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class JsonRpcErrorTest {
-
     private val parser = Json
 
     @Test
@@ -37,7 +36,11 @@ class JsonRpcErrorTest {
         val parsed = parser.parseToJsonElement(body).jsonObject
         assertEquals(
             """He said "no" and left""",
-            parsed["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content,
+            parsed["error"]
+                ?.jsonObject
+                ?.get("message")
+                ?.jsonPrimitive
+                ?.content,
             "The message survives the quote",
         )
     }
@@ -49,7 +52,11 @@ class JsonRpcErrorTest {
         val parsed = parser.parseToJsonElement(body).jsonObject
         assertEquals(
             "first line\nsecond line",
-            parsed["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content,
+            parsed["error"]
+                ?.jsonObject
+                ?.get("message")
+                ?.jsonPrimitive
+                ?.content,
             "The message survives the newline",
         )
     }
@@ -61,7 +68,11 @@ class JsonRpcErrorTest {
         val parsed = parser.parseToJsonElement(body).jsonObject
         assertEquals(
             """a\b\c""",
-            parsed["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content,
+            parsed["error"]
+                ?.jsonObject
+                ?.get("message")
+                ?.jsonPrimitive
+                ?.content,
             "The message survives the backslash",
         )
     }
@@ -76,7 +87,11 @@ class JsonRpcErrorTest {
         val parsed = parser.parseToJsonElement(body).jsonObject
         assertEquals(
             "before\u0000\u0007after",
-            parsed["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content,
+            parsed["error"]
+                ?.jsonObject
+                ?.get("message")
+                ?.jsonPrimitive
+                ?.content,
             "The message survives the control character",
         )
     }
@@ -88,7 +103,12 @@ class JsonRpcErrorTest {
         val parsed = parser.parseToJsonElement(body).jsonObject
         assertEquals(
             -32001,
-            parsed["error"]?.jsonObject?.get("code")?.jsonPrimitive?.content?.toInt(),
+            parsed["error"]
+                ?.jsonObject
+                ?.get("code")
+                ?.jsonPrimitive
+                ?.content
+                ?.toInt(),
             "The code is not lost",
         )
     }

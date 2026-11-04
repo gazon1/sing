@@ -12,9 +12,10 @@ import io.ktor.client.engine.cio.CIO
  * engines match — the two behave the same over the wire, which is all this contract
  * promises, and dropping a dependency is worth more than the symmetry.
  */
-actual fun createHttpClient(): HttpClient = HttpClient(CIO) {
-    // Callers map status codes onto AppError. Google answers 410 for a dead sync token and
-    // 412 for a stale etag; both are ordinary branches here, not transport failures.
-    expectSuccess = false
-    installSharedTimeouts()
-}
+actual fun createHttpClient(): HttpClient =
+    HttpClient(CIO) {
+        // Callers map status codes onto AppError. Google answers 410 for a dead sync token and
+        // 412 for a stale etag; both are ordinary branches here, not transport failures.
+        expectSuccess = false
+        installSharedTimeouts()
+    }

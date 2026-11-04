@@ -31,9 +31,10 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ActiveProfileStateTest {
-
-    private fun store(dir: File, name: String): DataStore<Preferences> =
-        PreferenceDataStoreFactory.create { File(dir, name) }
+    private fun store(
+        dir: File,
+        name: String,
+    ): DataStore<Preferences> = PreferenceDataStoreFactory.create { File(dir, name) }
 
     @Test
     fun `a profile stored in the settings file is moved into its own file`(
@@ -87,7 +88,13 @@ class ActiveProfileStateTest {
         state.write(ProfileId(STORED_PROFILE))
 
         assertEquals(STORED_PROFILE, own.data.first()[ACTIVE_PROFILE_KEY], "the profile is stored where it belongs")
-        assertTrue(legacy.data.first().asMap().isEmpty(), "and the settings file says nothing about the profile")
+        assertTrue(
+            legacy.data
+                .first()
+                .asMap()
+                .isEmpty(),
+            "and the settings file says nothing about the profile",
+        )
     }
 
     @Test

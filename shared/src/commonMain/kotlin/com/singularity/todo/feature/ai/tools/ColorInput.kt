@@ -25,7 +25,10 @@ package com.singularity.todo.feature.ai.tools
  * @param raw value as provided by the JSON-RPC caller; null is treated as missing.
  * @param defaultColor returned when [raw] is null or unparseable.
  */
-fun parseColor(raw: String?, defaultColor: Int): Int {
+fun parseColor(
+    raw: String?,
+    defaultColor: Int,
+): Int {
     if (raw.isNullOrBlank()) return defaultColor
     val rawTrim = raw.trim()
     val hexOrEmpty = if (rawTrim.startsWith("0x") || rawTrim.startsWith("0X")) rawTrim.substring(2) else rawTrim
@@ -58,10 +61,14 @@ fun parseColor(raw: String?, defaultColor: Int): Int {
 }
 
 /** Convenience overload: parse to ARGB Int from any of [String], [Int], [Long]. */
-fun parseColor(raw: Any?, defaultColor: Int): Int = when (raw) {
-    null -> defaultColor
-    is Int -> raw
-    is Long -> raw.toInt()
-    is String -> parseColor(raw, defaultColor)
-    else -> defaultColor
-}
+fun parseColor(
+    raw: Any?,
+    defaultColor: Int,
+): Int =
+    when (raw) {
+        null -> defaultColor
+        is Int -> raw
+        is Long -> raw.toInt()
+        is String -> parseColor(raw, defaultColor)
+        else -> defaultColor
+    }

@@ -13,5 +13,4 @@ actual fun <T : NavKey> rememberNavBackStackTyped(
 
 /** Desktop: the nested graph's stack lives in memory — there is no process death here. */
 @Composable
-actual fun <T : NavKey> rememberAppNavBackStack(start: T): NavBackStack<T> =
-    rememberInMemoryNavBackStack(start)
+actual fun <T : NavKey> rememberAppNavBackStack(start: T): NavBackStack<T> = rememberInMemoryNavBackStack(start)

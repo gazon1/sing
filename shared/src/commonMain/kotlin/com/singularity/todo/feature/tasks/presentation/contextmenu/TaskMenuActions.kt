@@ -1,9 +1,9 @@
 package com.singularity.todo.feature.tasks.presentation.contextmenu
 
 import androidx.compose.runtime.Stable
+import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.core.ui.preview.noopClick
 
 /**
  * Callbacks for a task's context menu. Each action is nullable — a `null` value

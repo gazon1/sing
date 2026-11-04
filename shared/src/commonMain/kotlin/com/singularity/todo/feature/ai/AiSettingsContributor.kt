@@ -34,7 +34,6 @@ interface AiContributor : SettingsContributor<SettingsSection.Ai, SettingsIntent
  * [SettingsViewModel] discovers this contributor via `filterIsInstance<AiContributor>()`.
  */
 class AiSettingsContributor(private val store: AiSettingsStore) : AiContributor {
-
     override val section: SettingsSection.Ai = SettingsSection.Ai()
 
     override fun observe(): Flow<SettingsSection.Ai> = store.observe()

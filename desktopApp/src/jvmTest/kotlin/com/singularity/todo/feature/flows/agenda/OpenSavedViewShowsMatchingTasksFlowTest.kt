@@ -42,37 +42,39 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class OpenSavedViewShowsMatchingTasksFlowTest {
-
     @Test
-    fun tapping_a_saved_view_card_opens_the_results_screen() = runDesktopAppTest(checkA11y = true) { koin ->
-        // ── 1. Seed an active task (no due date) via repository ───────────────
-        tasks(koin).givenUndated(title = "Buy milk")
+    fun tapping_a_saved_view_card_opens_the_results_screen() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            // ── 1. Seed an active task (no due date) via repository ───────────────
+            tasks(koin).givenUndated(title = "Buy milk")
 
-        // ── 2. Persist a saved view directly ─────────────────────────────────
-        // The All preset contains the "No Date" section, which is what the
-        // undated task below matches when the results screen evaluates it.
-        val definition = AgendaDefinition("My Active Tasks", AgendaPresets.All.sections)
-        koin.get<SavedAgendaViewsRepository>().upsert(
-            SavedAgendaViewFactory.create(
-                userId = UserId.anonymous,
-                name = "My Active Tasks",
-                sectionsJson = definition.toSectionsJson(),
-                now = kotlin.time.Clock.System.now(),
-            ),
-        )
+            // ── 2. Persist a saved view directly ─────────────────────────────────
+            // The All preset contains the "No Date" section, which is what the
+            // undated task below matches when the results screen evaluates it.
+            val definition = AgendaDefinition("My Active Tasks", AgendaPresets.All.sections)
+            koin.get<SavedAgendaViewsRepository>().upsert(
+                SavedAgendaViewFactory.create(
+                    userId = UserId.anonymous,
+                    name = "My Active Tasks",
+                    sectionsJson = definition.toSectionsJson(),
+                    now =
+                        kotlin.time.Clock.System
+                            .now(),
+                ),
+            )
 
-        // ── 3. Open Saved Views list ─────────────────────────────────────────
-        tapTab("Inbox")
-        assertTagDisplayed(TestTags.taskItem("Buy milk"))
-        awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        // The list screen renders the seeded card — that is the on-screen proof
-        // ("Saved Views" is the title text, not a testTag, so it is not awaited).
-        assertTagDisplayed(TestTags.savedAgendaCard("My Active Tasks"))
+            // ── 3. Open Saved Views list ─────────────────────────────────────────
+            tapTab("Inbox")
+            assertTagDisplayed(TestTags.taskItem("Buy milk"))
+            awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
+            // The list screen renders the seeded card — that is the on-screen proof
+            // ("Saved Views" is the title text, not a testTag, so it is not awaited).
+            assertTagDisplayed(TestTags.savedAgendaCard("My Active Tasks"))
 
-        // ── 4. Tap the card → SavedAgendaResults screen (MR-11 new behaviour) ──
-        // Inbox's "No Date" section matches the seeded "Buy milk" task.
-        awaitTag(TestTags.savedAgendaCard("My Active Tasks")).performClick()
-        assertTagDisplayed(TestTags.agendaSection("No Date"))
-        assertTagDisplayed(TestTags.taskItem("Buy milk"))
-    }
+            // ── 4. Tap the card → SavedAgendaResults screen (MR-11 new behaviour) ──
+            // Inbox's "No Date" section matches the seeded "Buy milk" task.
+            awaitTag(TestTags.savedAgendaCard("My Active Tasks")).performClick()
+            assertTagDisplayed(TestTags.agendaSection("No Date"))
+            assertTagDisplayed(TestTags.taskItem("Buy milk"))
+        }
 }

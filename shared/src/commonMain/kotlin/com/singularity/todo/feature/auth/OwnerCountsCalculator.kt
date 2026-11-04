@@ -18,7 +18,6 @@ import com.singularity.todo.core.database.AppDatabase
  * @param database the Room database, providing access to all DAOs this class needs.
  */
 class OwnerCountsCalculator(private val database: AppDatabase) {
-
     /**
      * What an owner holds, as both the reassign option and the erase option.
      *
@@ -63,54 +62,57 @@ class OwnerCountsCalculator(private val database: AppDatabase) {
         val deadLetter = reassignDao.countDeadLetter(resolved.ownerId)
         val shadows = reassignDao.countShadows(resolved.ownerId)
 
-        val reassignCounts = ReassignCounts(
-            tasks = tasks,
-            notes = notes,
-            projects = projects,
-            tags = tags,
-            tagGroups = tagGroups,
-            taskReminders = taskReminders,
-            projectReminders = projectReminders,
-            timeEntries = timeEntries,
-            agendaViews = agendaViews,
-            profiles = profiles,
-            outbox = outbox,
-            deadLetter = deadLetter,
-            shadows = shadows,
-        )
+        val reassignCounts =
+            ReassignCounts(
+                tasks = tasks,
+                notes = notes,
+                projects = projects,
+                tags = tags,
+                tagGroups = tagGroups,
+                taskReminders = taskReminders,
+                projectReminders = projectReminders,
+                timeEntries = timeEntries,
+                agendaViews = agendaViews,
+                profiles = profiles,
+                outbox = outbox,
+                deadLetter = deadLetter,
+                shadows = shadows,
+            )
 
         // ── Erase-specific: child rows (requires parent ids) ─────────────────
         val tagRefs = if (taskIds.isEmpty()) 0 else eraseDao.countTagRefs(taskIds, scopes)
         val dependencies = if (taskIds.isEmpty()) 0 else eraseDao.countDependencies(taskIds, scopes)
         val checklists = if (taskIds.isEmpty()) 0 else eraseDao.countChecklistItems(taskIds, scopes)
-        val inherited = if (projectIds.isEmpty()) {
-            0
-        } else {
-            eraseDao.countInheritedTagGroups(projectIds, scopes)
-        }
+        val inherited =
+            if (projectIds.isEmpty()) {
+                0
+            } else {
+                eraseDao.countInheritedTagGroups(projectIds, scopes)
+            }
 
         val outboxSync = database.syncOutboxDao().countForOwner(resolved.ownerId)
         val deadLetterSync = database.syncDeadLetterDao().countForOwner(resolved.ownerId)
         val shadowSync = database.syncShadowDao().countForOwner(resolved.ownerId)
 
-        val eraseCounts = EraseCounts(
-            tasks = tasks,
-            notes = notes,
-            projects = projects,
-            tags = tags,
-            tagGroups = tagGroups,
-            taskReminders = taskReminders,
-            projectReminders = projectReminders,
-            timeEntries = timeEntries,
-            agendaViews = agendaViews,
-            outbox = outboxSync,
-            deadLetter = deadLetterSync,
-            shadows = shadowSync,
-            tagRefs = tagRefs,
-            dependencies = dependencies,
-            checklists = checklists,
-            inheritedTagGroups = inherited,
-        )
+        val eraseCounts =
+            EraseCounts(
+                tasks = tasks,
+                notes = notes,
+                projects = projects,
+                tags = tags,
+                tagGroups = tagGroups,
+                taskReminders = taskReminders,
+                projectReminders = projectReminders,
+                timeEntries = timeEntries,
+                agendaViews = agendaViews,
+                outbox = outboxSync,
+                deadLetter = deadLetterSync,
+                shadows = shadowSync,
+                tagRefs = tagRefs,
+                dependencies = dependencies,
+                checklists = checklists,
+                inheritedTagGroups = inherited,
+            )
 
         return CountsPair(reassignCounts, eraseCounts)
     }

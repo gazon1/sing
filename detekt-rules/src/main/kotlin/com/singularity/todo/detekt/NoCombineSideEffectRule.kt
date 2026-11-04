@@ -38,7 +38,6 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * @see singularity-todo-testable-vm — "side effects belong in collectors, not combines"
  */
 class NoCombineSideEffectRule(config: Config) : Rule(config, "", null) {
-
     override fun visitLambdaExpression(expression: org.jetbrains.kotlin.psi.KtLambdaExpression) {
         // Without super the traversal stops here and lambdas deeper in the file
         // would never be visited.
@@ -87,10 +86,11 @@ class NoCombineSideEffectRule(config: Config) : Rule(config, "", null) {
             )
             return
         }
-        val callee = (node as? KtCallExpression)
-            ?.calleeExpression
-            ?.let { it as? KtNameReferenceExpression }
-            ?.text
+        val callee =
+            (node as? KtCallExpression)
+                ?.calleeExpression
+                ?.let { it as? KtNameReferenceExpression }
+                ?.text
         if (callee != null && callee in SIDE_EFFECT_CALLS) {
             report(
                 node,
@@ -106,10 +106,16 @@ class NoCombineSideEffectRule(config: Config) : Rule(config, "", null) {
     private fun isStateFlowAssignment(node: PsiElement): Boolean {
         val binary = node as? KtBinaryExpression ?: return false
         if (binary.operationToken != KtTokens.EQ && binary.operationToken != KtTokens.PLUSEQ) return false
-        return binary.left?.text?.trim()?.endsWith(VALUE_SUFFIX) == true
+        return binary.left
+            ?.text
+            ?.trim()
+            ?.endsWith(VALUE_SUFFIX) == true
     }
 
-    private fun report(node: PsiElement, message: String) {
+    private fun report(
+        node: PsiElement,
+        message: String,
+    ) {
         report(
             Finding(
                 entity = Entity.from(node),
@@ -142,10 +148,12 @@ class NoCombineSideEffectRule(config: Config) : Rule(config, "", null) {
  */
 class NoCombineSideEffectProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-combine-side-effect")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoCombineSideEffect") to { cfg: Config -> NoCombineSideEffectRule(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoCombineSideEffect") to { cfg: Config -> NoCombineSideEffectRule(cfg) },
+            ),
+        )
 }

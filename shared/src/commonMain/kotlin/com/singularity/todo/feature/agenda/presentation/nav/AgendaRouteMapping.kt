@@ -46,64 +46,90 @@ fun AgendaNavContent(
     contextMenuHost: AgendaContextMenuHost = { _, _, _, _ -> },
 ) {
     when (route) {
-        is AgendaStartRoute.Inbox -> AgendaScreen(
-            definition = AgendaPresets.Inbox,
-            contextMenuHost = contextMenuHost,
-        )
+        is AgendaStartRoute.Inbox -> {
+            AgendaScreen(
+                definition = AgendaPresets.Inbox,
+                contextMenuHost = contextMenuHost,
+            )
+        }
 
-        is AgendaStartRoute.Today -> TodayAgendaContent(contextMenuHost = contextMenuHost)
+        is AgendaStartRoute.Today -> {
+            TodayAgendaContent(contextMenuHost = contextMenuHost)
+        }
 
-        is AgendaStartRoute.Upcoming -> AgendaScreen(
-            definition = AgendaPresets.Upcoming,
-            contextMenuHost = contextMenuHost,
-        )
+        is AgendaStartRoute.Upcoming -> {
+            AgendaScreen(
+                definition = AgendaPresets.Upcoming,
+                contextMenuHost = contextMenuHost,
+            )
+        }
 
-        is AgendaStartRoute.Project -> AgendaScreen(
-            definition = AgendaPresets.byProject(route.projectId),
-            contextMenuHost = contextMenuHost,
-        )
+        is AgendaStartRoute.Project -> {
+            AgendaScreen(
+                definition = AgendaPresets.byProject(route.projectId),
+                contextMenuHost = contextMenuHost,
+            )
+        }
 
-        is AgendaStartRoute.Tag -> AgendaScreen(
-            definition = AgendaPresets.byTag(route.tagId),
-            contextMenuHost = contextMenuHost,
-        )
+        is AgendaStartRoute.Tag -> {
+            AgendaScreen(
+                definition = AgendaPresets.byTag(route.tagId),
+                contextMenuHost = contextMenuHost,
+            )
+        }
 
-        is AgendaStartRoute.Tags -> AgendaScreen(
-            definition = AgendaPresets.byTags(route.tagIds),
-            contextMenuHost = contextMenuHost,
-        )
+        is AgendaStartRoute.Tags -> {
+            AgendaScreen(
+                definition = AgendaPresets.byTags(route.tagIds),
+                contextMenuHost = contextMenuHost,
+            )
+        }
 
-        is AgendaStartRoute.SavedAgendaList -> SavedAgendaListScreen()
+        is AgendaStartRoute.SavedAgendaList -> {
+            SavedAgendaListScreen()
+        }
 
-        is AgendaStartRoute.SavedAgendaResults -> SavedAgendaScreen(
-            mode = SavedAgendaScreenMode.View(route.viewId),
-            modeHint = "Saved view",
-        )
+        is AgendaStartRoute.SavedAgendaResults -> {
+            SavedAgendaScreen(
+                mode = SavedAgendaScreenMode.View(route.viewId),
+                modeHint = "Saved view",
+            )
+        }
 
-        is AgendaStartRoute.SavedAgendaEdit -> SavedAgendaScreen(
-            mode = SavedAgendaScreenMode.Edit(route.viewId),
-            modeHint = "Edit View",
-        )
+        is AgendaStartRoute.SavedAgendaEdit -> {
+            SavedAgendaScreen(
+                mode = SavedAgendaScreenMode.Edit(route.viewId),
+                modeHint = "Edit View",
+            )
+        }
 
-        AgendaStartRoute.SavedAgendaCreate -> SavedAgendaScreen(
-            mode = SavedAgendaScreenMode.Create(AgendaPresets.All),
-            modeHint = "Create View",
-        )
+        AgendaStartRoute.SavedAgendaCreate -> {
+            SavedAgendaScreen(
+                mode = SavedAgendaScreenMode.Create(AgendaPresets.All),
+                modeHint = "Create View",
+            )
+        }
 
-        AgendaStartRoute.Blocked -> AgendaScreen(
-            definition = AgendaPresets.byBlocked(),
-            contextMenuHost = contextMenuHost,
-        )
+        AgendaStartRoute.Blocked -> {
+            AgendaScreen(
+                definition = AgendaPresets.byBlocked(),
+                contextMenuHost = contextMenuHost,
+            )
+        }
 
-        AgendaStartRoute.Stagnant -> AgendaScreen(
-            definition = AgendaPresets.byStagnant(),
-            contextMenuHost = contextMenuHost,
-        )
+        AgendaStartRoute.Stagnant -> {
+            AgendaScreen(
+                definition = AgendaPresets.byStagnant(),
+                contextMenuHost = contextMenuHost,
+            )
+        }
 
-        AgendaStartRoute.Overdue -> AgendaScreen(
-            definition = AgendaPresets.byOverdue(),
-            contextMenuHost = contextMenuHost,
-        )
+        AgendaStartRoute.Overdue -> {
+            AgendaScreen(
+                definition = AgendaPresets.byOverdue(),
+                contextMenuHost = contextMenuHost,
+            )
+        }
     }
 }
 
@@ -155,22 +181,26 @@ private fun TodayAgendaContent(
         workingDays,
     ) {
         val allBoundsPositive = dayStart >= 0 && dayEnd >= 0 && lunchStart >= 0 && lunchEnd >= 0
-        val workDay = if (allBoundsPositive) {
-            AgendaPresets.workDayPreset(dayStart, dayEnd, lunchStart, lunchEnd)
-        } else {
-            AgendaPresets.Today
-        }
+        val workDay =
+            if (allBoundsPositive) {
+                AgendaPresets.workDayPreset(dayStart, dayEnd, lunchStart, lunchEnd)
+            } else {
+                AgendaPresets.Today
+            }
         // The work-day preset is a work-day preset: on a day the user marked
         // as not a working day it must not apply, whatever the time-of-day
         // bounds say. `AgendaPresets.forToday` owns that decision; this block
         // only supplies the day of week and the user's working days.
-        workDefinition = AgendaPresets.forToday(
-            dayOfWeek = Clock.System.now()
-                .toLocalDateTime(TimeZone.currentSystemDefault())
-                .dayOfWeek,
-            workingDays = workingDays,
-            workDay = workDay,
-        )
+        workDefinition =
+            AgendaPresets.forToday(
+                dayOfWeek =
+                    Clock.System
+                        .now()
+                        .toLocalDateTime(TimeZone.currentSystemDefault())
+                        .dayOfWeek,
+                workingDays = workingDays,
+                workDay = workDay,
+            )
     }
 
     // Show nothing until the preset is computed; DataStore is fast and this
@@ -188,33 +218,34 @@ private fun TodayAgendaContent(
  *
  * Use when you need the definition without the screen wrapper.
  */
-fun AgendaStartRoute.toDefinition(): AgendaDefinition = when (this) {
-    is AgendaStartRoute.Inbox -> AgendaPresets.Inbox
+fun AgendaStartRoute.toDefinition(): AgendaDefinition =
+    when (this) {
+        is AgendaStartRoute.Inbox -> AgendaPresets.Inbox
 
-    is AgendaStartRoute.Today -> AgendaPresets.Today
+        is AgendaStartRoute.Today -> AgendaPresets.Today
 
-    is AgendaStartRoute.Upcoming -> AgendaPresets.Upcoming
+        is AgendaStartRoute.Upcoming -> AgendaPresets.Upcoming
 
-    is AgendaStartRoute.Project -> AgendaPresets.byProject(projectId)
+        is AgendaStartRoute.Project -> AgendaPresets.byProject(projectId)
 
-    is AgendaStartRoute.Tag -> AgendaPresets.byTag(tagId)
+        is AgendaStartRoute.Tag -> AgendaPresets.byTag(tagId)
 
-    is AgendaStartRoute.Tags -> AgendaPresets.byTags(tagIds)
+        is AgendaStartRoute.Tags -> AgendaPresets.byTags(tagIds)
 
-    is AgendaStartRoute.SavedAgendaList -> AgendaPresets.All
+        is AgendaStartRoute.SavedAgendaList -> AgendaPresets.All
 
-    // Not used — results are loaded by SavedAgendaViewModel and rendered directly
-    is AgendaStartRoute.SavedAgendaResults -> AgendaPresets.All
+        // Not used — results are loaded by SavedAgendaViewModel and rendered directly
+        is AgendaStartRoute.SavedAgendaResults -> AgendaPresets.All
 
-    // Not used
-    is AgendaStartRoute.SavedAgendaEdit -> AgendaPresets.All
+        // Not used
+        is AgendaStartRoute.SavedAgendaEdit -> AgendaPresets.All
 
-    // Not used
-    AgendaStartRoute.SavedAgendaCreate -> AgendaPresets.All
+        // Not used
+        AgendaStartRoute.SavedAgendaCreate -> AgendaPresets.All
 
-    AgendaStartRoute.Blocked -> AgendaPresets.byBlocked()
+        AgendaStartRoute.Blocked -> AgendaPresets.byBlocked()
 
-    AgendaStartRoute.Stagnant -> AgendaPresets.byStagnant()
+        AgendaStartRoute.Stagnant -> AgendaPresets.byStagnant()
 
-    AgendaStartRoute.Overdue -> AgendaPresets.byOverdue()
-}
+        AgendaStartRoute.Overdue -> AgendaPresets.byOverdue()
+    }

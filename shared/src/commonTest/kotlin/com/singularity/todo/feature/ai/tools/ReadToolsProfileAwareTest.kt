@@ -5,6 +5,7 @@ package com.singularity.todo.feature.ai.tools
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.search.SearchUseCase
@@ -17,7 +18,6 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
@@ -56,7 +56,6 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class ReadToolsProfileAwareTest {
-
     private val now = Instant.parse("2026-01-01T00:00:00Z")
 
     /**
@@ -82,21 +81,22 @@ class ReadToolsProfileAwareTest {
         title: String,
         projectId: com.singularity.todo.feature.projects.domain.model.ProjectId? = null,
     ) {
-        val task = Task(
-            id = TaskId.generate(),
-            title = title,
-            description = null,
-            priority = TaskPriority.None,
-            kind = TaskKind.Task,
-            projectId = projectId,
-            parentTaskId = null,
-            tags = emptyList(),
-            dueDate = null,
-            dueTime = null,
-            createdAt = now,
-            updatedAt = now,
-            userId = userId,
-        )
+        val task =
+            Task(
+                id = TaskId.generate(),
+                title = title,
+                description = null,
+                priority = TaskPriority.None,
+                kind = TaskKind.Task,
+                projectId = projectId,
+                parentTaskId = null,
+                tags = emptyList(),
+                dueDate = null,
+                dueTime = null,
+                createdAt = now,
+                updatedAt = now,
+                userId = userId,
+            )
         repo.add(task)
     }
 
@@ -131,108 +131,123 @@ class ReadToolsProfileAwareTest {
         // That is now safe for reactive reads: `liveUserId` / `liveScopedUserId` are
         // derived from the session, so a read never observes the pre-collector
         // "anonymous" seed regardless of when the collector happens to run.
-        val currentUser = ProfileAwareCurrentUser(
-            currentUser = CurrentUser(auth, scope = scope),
-            profileRepository = profiles,
-            scope = scope,
-        )
+        val currentUser =
+            ProfileAwareCurrentUser(
+                currentUser = CurrentUser(auth, scope = scope),
+                profileRepository = profiles,
+                scope = scope,
+            )
         return Triple(currentUser, auth, profiles)
     }
 
     // ─── list_tasks ────────────────────────────────────────────────────────────
 
     @Test
-    fun list_tasks_uses_profile_scoped_userId_when_userId_is_blank() = runTest {
-        val (currentUser, auth, profiles) = buildProfileAware(
-            scope = backgroundScope,
-            authUserId = "u-1",
-        )
-        profiles.switchTo(ProfileId.fromString("ai-agent"))
-        val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
+    fun list_tasks_uses_profile_scoped_userId_when_userId_is_blank() =
+        runTest {
+            val (currentUser, auth, profiles) =
+                buildProfileAware(
+                    scope = backgroundScope,
+                    authUserId = "u-1",
+                )
+            profiles.switchTo(ProfileId.fromString("ai-agent"))
+            val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
 
-        // Seed a task under the scoped userId the ProfileAwareCurrentUser would
-        // actually emit for the AI Agent profile.
-        val scoped = resolveScopedUserId(currentUser, profiles)
-        seedTask(repo, scoped, "AI-Agent task A")
-        seedTask(repo, UserId("local-user"), "Personal-only task") // must NOT show up
+            // Seed a task under the scoped userId the ProfileAwareCurrentUser would
+            // actually emit for the AI Agent profile.
+            val scoped = resolveScopedUserId(currentUser, profiles)
+            seedTask(repo, scoped, "AI-Agent task A")
+            seedTask(repo, UserId("local-user"), "Personal-only task") // must NOT show up
 
-        val tool = ListTasksTool(repo, FakeChecklistRepository(), FakeClock(), UtcTimeZone, FakeSettingsRepository())
-        val output = tool.execute(ListTasksInput(limit = 50))
-        val parsed = Json.parseToJsonElement(output).jsonObject
-        val tasks = parsed["tasks"]!!.jsonArray
+            val tool =
+                ListTasksTool(repo, FakeChecklistRepository(), FakeClock(), UtcTimeZone, FakeSettingsRepository())
+            val output = tool.execute(ListTasksInput(limit = 50))
+            val parsed = Json.parseToJsonElement(output).jsonObject
+            val tasks = parsed["tasks"]!!.jsonArray
 
-        val titles = tasks.map { (it.jsonObject["title"] as kotlinx.serialization.json.JsonPrimitive).content }
-        assertEquals(listOf("AI-Agent task A"), titles, "only the AI Agent task should be returned")
-    }
+            val titles = tasks.map { (it.jsonObject["title"] as kotlinx.serialization.json.JsonPrimitive).content }
+            assertEquals(listOf("AI-Agent task A"), titles, "only the AI Agent task should be returned")
+        }
 
     // ─── list_linked_tasks ─────────────────────────────────────────────────────
 
     @Test
-    fun list_linked_tasks_uses_profile_scoped_userId_when_blank() = runTest {
-        val (currentUser, auth, profiles) = buildProfileAware(
-            scope = backgroundScope,
-            authUserId = "u-1",
-        )
-        profiles.switchTo(ProfileId.fromString("ai-agent"))
-        val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
-        val scoped = resolveScopedUserId(currentUser, profiles)
-        val projectId = com.singularity.todo.feature.projects.domain.model.ProjectId("p1")
-        seedTask(repo, scoped, "AI-Agent linked task", projectId = projectId)
-        seedTask(repo, UserId("local-user"), "Personal linked task", projectId = projectId)
+    fun list_linked_tasks_uses_profile_scoped_userId_when_blank() =
+        runTest {
+            val (currentUser, auth, profiles) =
+                buildProfileAware(
+                    scope = backgroundScope,
+                    authUserId = "u-1",
+                )
+            profiles.switchTo(ProfileId.fromString("ai-agent"))
+            val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
+            val scoped = resolveScopedUserId(currentUser, profiles)
+            val projectId =
+                com.singularity.todo.feature.projects.domain.model
+                    .ProjectId("p1")
+            seedTask(repo, scoped, "AI-Agent linked task", projectId = projectId)
+            seedTask(repo, UserId("local-user"), "Personal linked task", projectId = projectId)
 
-        val tool = ListLinkedTasksTool(repo)
-        val output = tool.execute(ListLinkedTasksInput(projectId = "p1"))
-        val parsed = Json.parseToJsonElement(output).jsonObject
-        val tasks = parsed["tasks"]!!.jsonArray
-        assertEquals(1, tasks.size)
-        val title = (tasks[0].jsonObject["title"] as kotlinx.serialization.json.JsonPrimitive).content
-        assertEquals("AI-Agent linked task", title)
-    }
+            val tool = ListLinkedTasksTool(repo)
+            val output = tool.execute(ListLinkedTasksInput(projectId = "p1"))
+            val parsed = Json.parseToJsonElement(output).jsonObject
+            val tasks = parsed["tasks"]!!.jsonArray
+            assertEquals(1, tasks.size)
+            val title = (tasks[0].jsonObject["title"] as kotlinx.serialization.json.JsonPrimitive).content
+            assertEquals("AI-Agent linked task", title)
+        }
 
     // ─── search_tasks ──────────────────────────────────────────────────────────
 
     @Test
-    fun search_tasks_uses_profile_scoped_userId_when_blank() = runTest {
-        val (currentUser, auth, profiles) = buildProfileAware(
-            scope = backgroundScope,
-            authUserId = "u-1",
-        )
-        profiles.switchTo(ProfileId.fromString("ai-agent"))
-        val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
-        val scoped = resolveScopedUserId(currentUser, profiles)
-        seedTask(repo, scoped, "Findable AI-Agent task")
-        seedTask(repo, UserId("local-user"), "Findable personal task")
+    fun search_tasks_uses_profile_scoped_userId_when_blank() =
+        runTest {
+            val (currentUser, auth, profiles) =
+                buildProfileAware(
+                    scope = backgroundScope,
+                    authUserId = "u-1",
+                )
+            profiles.switchTo(ProfileId.fromString("ai-agent"))
+            val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
+            val scoped = resolveScopedUserId(currentUser, profiles)
+            seedTask(repo, scoped, "Findable AI-Agent task")
+            seedTask(repo, UserId("local-user"), "Findable personal task")
 
-        val tool = searchTool(repo, currentUser)
-        val output = tool.execute(SearchTasksInput(query = "Findable", limit = 50))
-        val parsed = Json.parseToJsonElement(output).jsonObject
-        val tasks = parsed["tasks"]!!.jsonArray
-        assertEquals(1, tasks.size)
-        val title = (tasks[0].jsonObject["title"] as kotlinx.serialization.json.JsonPrimitive).content
-        assertEquals("Findable AI-Agent task", title)
-    }
+            val tool = searchTool(repo, currentUser)
+            val output = tool.execute(SearchTasksInput(query = "Findable", limit = 50))
+            val parsed = Json.parseToJsonElement(output).jsonObject
+            val tasks = parsed["tasks"]!!.jsonArray
+            assertEquals(1, tasks.size)
+            val title = (tasks[0].jsonObject["title"] as kotlinx.serialization.json.JsonPrimitive).content
+            assertEquals("Findable AI-Agent task", title)
+        }
 
     @Test
-    fun search_tasks_does_not_match_local_user_when_profile_is_agent() = runTest {
-        // Regression guard for the historical bug where blank userId silently
-        // resolved to "local-user" — leaking personal data into agent queries.
-        val (currentUser, auth, profiles) = buildProfileAware(
-            scope = backgroundScope,
-            authUserId = "u-1",
-        )
-        profiles.switchTo(ProfileId.fromString("ai-agent"))
-        val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
-        seedTask(repo, UserId("local-user"), "private personal task")
-        seedTask(repo, resolveScopedUserId(currentUser, profiles), "agent task")
+    fun search_tasks_does_not_match_local_user_when_profile_is_agent() =
+        runTest {
+            // Regression guard for the historical bug where blank userId silently
+            // resolved to "local-user" — leaking personal data into agent queries.
+            val (currentUser, auth, profiles) =
+                buildProfileAware(
+                    scope = backgroundScope,
+                    authUserId = "u-1",
+                )
+            profiles.switchTo(ProfileId.fromString("ai-agent"))
+            val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
+            seedTask(repo, UserId("local-user"), "private personal task")
+            seedTask(repo, resolveScopedUserId(currentUser, profiles), "agent task")
 
-        val tool = searchTool(repo, currentUser)
-        val output = tool.execute(SearchTasksInput(query = "task", limit = 50))
-        val parsed = Json.parseToJsonElement(output).jsonObject
-        val tasks = parsed["tasks"]!!.jsonArray
-        val titles = tasks.map { (it.jsonObject["title"] as kotlinx.serialization.json.JsonPrimitive).content }.toSet()
-        assertTrue("agent task" in titles)
-        assertTrue("private personal task" !in titles, "personal data must not leak into agent search")
-    }
+            val tool = searchTool(repo, currentUser)
+            val output = tool.execute(SearchTasksInput(query = "task", limit = 50))
+            val parsed = Json.parseToJsonElement(output).jsonObject
+            val tasks = parsed["tasks"]!!.jsonArray
+            val titles =
+                tasks
+                    .map { (it.jsonObject["title"] as kotlinx.serialization.json.JsonPrimitive).content }
+                    .toSet()
+            assertTrue("agent task" in titles)
+            assertTrue("private personal task" !in titles, "personal data must not leak into agent search")
+        }
 
     /**
      * The search tool wired the way production wires it.
@@ -250,29 +265,43 @@ class ReadToolsProfileAwareTest {
         val projects = FakeProjectsRepository()
         val tags = FakeTagsRepository()
         return SearchTasksTool(
-            search = SearchUseCase(
-                taskRepo = tasks,
-                noteRepo = notes,
-                projectRepo = projects,
-                tagRepo = tags,
-                textIndex = FakeSearchTextIndex(tasks, notes, projects, tags),
-                queryResolver = DefaultSearchQueryResolver(
-                    tagLookup = object : TagLookup {
-                        override suspend fun findByName(userId: String, name: String): TagLookupResult? =
-                            tags.observeAll().first()
-                                .firstOrNull { it.userId.value == userId && it.name == name }
-                                ?.let { TagLookupResult(it.id.value, it.userId.value, it.name) }
-                    },
-                    projectLookup = object : ProjectLookup {
-                        override suspend fun findByName(userId: String, name: String): ProjectLookupResult? =
-                            projects.observeAll().first()
-                                .firstOrNull { it.userId.value == userId && it.name == name }
-                                ?.let { ProjectLookupResult(it.id.value, it.userId.value, it.name) }
-                    },
-                    clock = FakeClock(now),
-                    timeZone = UtcTimeZone,
+            search =
+                SearchUseCase(
+                    taskRepo = tasks,
+                    noteRepo = notes,
+                    projectRepo = projects,
+                    tagRepo = tags,
+                    textIndex = FakeSearchTextIndex(tasks, notes, projects, tags),
+                    queryResolver =
+                        DefaultSearchQueryResolver(
+                            tagLookup =
+                                object : TagLookup {
+                                    override suspend fun findByName(
+                                        userId: String,
+                                        name: String,
+                                    ): TagLookupResult? =
+                                        tags
+                                            .observeAll()
+                                            .first()
+                                            .firstOrNull { it.userId.value == userId && it.name == name }
+                                            ?.let { TagLookupResult(it.id.value, it.userId.value, it.name) }
+                                },
+                            projectLookup =
+                                object : ProjectLookup {
+                                    override suspend fun findByName(
+                                        userId: String,
+                                        name: String,
+                                    ): ProjectLookupResult? =
+                                        projects
+                                            .observeAll()
+                                            .first()
+                                            .firstOrNull { it.userId.value == userId && it.name == name }
+                                            ?.let { ProjectLookupResult(it.id.value, it.userId.value, it.name) }
+                                },
+                            clock = FakeClock(now),
+                            timeZone = UtcTimeZone,
+                        ),
                 ),
-            ),
             currentUser = currentUser,
         )
     }

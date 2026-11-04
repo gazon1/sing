@@ -48,7 +48,6 @@ import org.jetbrains.kotlin.psi.KtNamedFunction
  * @see NoSwallowedCancellation
  */
 class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
-
     override fun visitCallExpression(expression: KtCallExpression) {
         super.visitCallExpression(expression)
         val callee = expression.calleeExpression as? KtNameReferenceExpression ?: return
@@ -58,9 +57,10 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
             report(
                 Finding(
                     entity = Entity.from(expression),
-                    message = "runCatching is not allowed inside a suspend context. " +
-                        "Use runCatchingCancellable { runCatching { ... } } instead, " +
-                        "or replace with try/catch that re-throws CancellationException.",
+                    message =
+                        "runCatching is not allowed inside a suspend context. " +
+                            "Use runCatchingCancellable { runCatching { ... } } instead, " +
+                            "or replace with try/catch that re-throws CancellationException.",
                     references = emptyList(),
                     suppressReasons = emptyList(),
                 ),
@@ -99,9 +99,13 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
                     return current.hasModifier(SUSPEND_KEYWORD)
                 }
 
-                is KtLambdaExpression -> return isSuspendLambda(current)
+                is KtLambdaExpression -> {
+                    return isSuspendLambda(current)
+                }
 
-                else -> current = current.parent
+                else -> {
+                    current = current.parent
+                }
             }
         }
         return false
@@ -137,22 +141,23 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
          * non-suspend call, while omitting one only loses a detection the rule did not
          * previously have.
          */
-        val SUSPEND_CALLS = setOf(
-            "launch",
-            "async",
-            "withContext",
-            "coroutineScope",
-            "supervisorScope",
-            "runInterruptible",
-            "produce",
-            "actor",
-            "channelFlow",
-            "collect",
-            "collectLatest",
-            "transform",
-            "mapLatest",
-            "launchIn",
-        )
+        val SUSPEND_CALLS =
+            setOf(
+                "launch",
+                "async",
+                "withContext",
+                "coroutineScope",
+                "supervisorScope",
+                "runInterruptible",
+                "produce",
+                "actor",
+                "channelFlow",
+                "collect",
+                "collectLatest",
+                "transform",
+                "mapLatest",
+                "launchIn",
+            )
 
         val SUSPEND_KEYWORD = KtTokens.SUSPEND_KEYWORD
     }
@@ -163,10 +168,12 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
  */
 class NoRunCatchingInSuspendProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-run-catching-in-suspend")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoRunCatchingInSuspend") to { cfg: Config -> NoRunCatchingInSuspend(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoRunCatchingInSuspend") to { cfg: Config -> NoRunCatchingInSuspend(cfg) },
+            ),
+        )
 }

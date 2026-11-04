@@ -21,13 +21,14 @@ enum class SingularityAccents(val displayName: String, val color: Color) {
     Teal("Teal", Color(0xFF009688)), ;
 
     companion object {
-        fun fromString(name: String): SingularityAccents = entries.find {
-            it.name.equals(
-                name,
-                ignoreCase = true,
-            )
-        }
-            ?: Blue
+        fun fromString(name: String): SingularityAccents =
+            entries.find {
+                it.name.equals(
+                    name,
+                    ignoreCase = true,
+                )
+            }
+                ?: Blue
     }
 }
 
@@ -42,6 +43,18 @@ val LocalAccentColor = compositionLocalOf { SingularityAccents.Blue }
  * desynchronises any theme-aware subtree from the palette actually in effect.
  */
 val LocalIsDarkTheme = compositionLocalOf { false }
+
+/**
+ * Resolves the mode to the dark flag the app paints with, reading the operating
+ * system's appearance only when the mode follows it.
+ *
+ * This is the **single point** where the operating system's appearance is read:
+ * every other part of the app derives its answer from the mode. The resolution
+ * itself lives on the mode ([ThemeMode.isDark]) — this function only supplies
+ * the system flag that the "follow the system" mode needs.
+ */
+@Composable
+fun ThemeMode.resolvedIsDark(): Boolean = isDark(isSystemInDarkTheme())
 
 /**
  * The Material 3 palette is derived at runtime from [SingularityTheme]'s `accent` seed color
@@ -69,21 +82,19 @@ fun SingularityTheme(
 ) {
     // Single resolution point: the tri-state is resolved to a boolean exactly once,
     // here, using the current system appearance only when the mode is System.
-    val isDark = when (themeMode) {
-        ThemeMode.System -> isSystemInDarkTheme()
-        ThemeMode.Light -> false
-        ThemeMode.Dark -> true
-    }
+    val isDark = themeMode.resolvedIsDark()
 
-    val colorScheme = rememberDynamicColorScheme(
-        seedColor = accent.color,
-        isDark = isDark,
-        contrastLevel = 0.5,
-    )
+    val colorScheme =
+        rememberDynamicColorScheme(
+            seedColor = accent.color,
+            isDark = isDark,
+            contrastLevel = 0.5,
+        )
 
-    val typography = remember(fontSizeScale) {
-        createTypography(fontSizeScale)
-    }
+    val typography =
+        remember(fontSizeScale) {
+            createTypography(fontSizeScale)
+        }
 
     CompositionLocalProvider(
         LocalAccentColor provides accent,

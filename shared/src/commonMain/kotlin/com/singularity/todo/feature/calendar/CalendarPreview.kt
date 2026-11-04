@@ -9,9 +9,9 @@ import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.components.calendar.groupedByDate
 import com.singularity.todo.feature.calendar.presentation.screen.CalendarContent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 
 /**
@@ -23,23 +23,48 @@ private object CalendarPreviewData {
 
     private fun d(day: Int) = LocalDate(2026, sep, day)
 
-    val sampleTasks: List<CalendarTaskUi> = listOf(
-        CalendarTaskUi(TaskId.generate(), "Выбрать куда пойду в fitmost", d(16), isAllDay = true, isRecurring = true),
-        CalendarTaskUi(TaskId.generate(), "Забрать заказ из озон", d(16), isAllDay = true),
-        CalendarTaskUi(TaskId.generate(), "Погулять полчаса быстрым шагом", d(16), isAllDay = true, isRecurring = true),
-        CalendarTaskUi(TaskId.generate(), "Ещё одна задача 16 числа", d(16), isAllDay = true),
-        CalendarTaskUi(TaskId.generate(), "Делаю пилинг перчаткой в душе", d(17), isAllDay = true, isRecurring = true),
-        CalendarTaskUi(TaskId.generate(), "Купить хлеб", d(18), isAllDay = true, isRecurring = true),
-        CalendarTaskUi(TaskId.generate(), "Накачать статей из miniflux", d(18), isAllDay = true, isRecurring = true),
-        CalendarTaskUi(
-            TaskId.generate(),
-            "Предложить олегу прокатиться на велах",
-            d(18),
-            isAllDay = true,
-            isRecurring = true,
-        ),
-        CalendarTaskUi(TaskId.generate(), "Позвонить родителям", d(19), isAllDay = true, isRecurring = true),
-    )
+    val sampleTasks: List<CalendarTaskUi> =
+        listOf(
+            CalendarTaskUi(
+                TaskId.generate(),
+                "Выбрать куда пойду в fitmost",
+                d(16),
+                isAllDay = true,
+                isRecurring = true,
+            ),
+            CalendarTaskUi(TaskId.generate(), "Забрать заказ из озон", d(16), isAllDay = true),
+            CalendarTaskUi(
+                TaskId.generate(),
+                "Погулять полчаса быстрым шагом",
+                d(16),
+                isAllDay = true,
+                isRecurring = true,
+            ),
+            CalendarTaskUi(TaskId.generate(), "Ещё одна задача 16 числа", d(16), isAllDay = true),
+            CalendarTaskUi(
+                TaskId.generate(),
+                "Делаю пилинг перчаткой в душе",
+                d(17),
+                isAllDay = true,
+                isRecurring = true,
+            ),
+            CalendarTaskUi(TaskId.generate(), "Купить хлеб", d(18), isAllDay = true, isRecurring = true),
+            CalendarTaskUi(
+                TaskId.generate(),
+                "Накачать статей из miniflux",
+                d(18),
+                isAllDay = true,
+                isRecurring = true,
+            ),
+            CalendarTaskUi(
+                TaskId.generate(),
+                "Предложить олегу прокатиться на велах",
+                d(18),
+                isAllDay = true,
+                isRecurring = true,
+            ),
+            CalendarTaskUi(TaskId.generate(), "Позвонить родителям", d(19), isAllDay = true, isRecurring = true),
+        )
 
     fun loadedState(
         viewMode: CalendarViewMode = CalendarViewMode.MONTH,
@@ -50,9 +75,11 @@ private object CalendarPreviewData {
             anchor = anchor,
             viewMode = viewMode,
             visibleDates = visibleRange(anchor, viewMode).toImmutableList(),
-            tasksByDate = sampleTasks.groupedByDate()
-                .mapValues { (_, tasks) -> tasks.toImmutableList() }
-                .toImmutableMap(),
+            tasksByDate =
+                sampleTasks
+                    .groupedByDate()
+                    .mapValues { (_, tasks) -> tasks.toImmutableList() }
+                    .toImmutableMap(),
             // A fixed date, not the host's today. A preview that highlights
             // "now" changes what it renders from one day to the next, which is
             // the same host-dependence #91 is about, in a file nobody thought to
@@ -83,30 +110,35 @@ private fun CalendarContentPreview(state: CalendarUiState = CalendarPreviewData.
 
 @Preview
 @Composable
-private fun CalendarPreviewMonth() = CalendarContentPreview(
-    state = CalendarPreviewData.loadedState(CalendarViewMode.MONTH),
-)
+private fun CalendarPreviewMonth() =
+    CalendarContentPreview(
+        state = CalendarPreviewData.loadedState(CalendarViewMode.MONTH),
+    )
 
 @Preview
 @Composable
-private fun CalendarPreviewWeek() = CalendarContentPreview(
-    state = CalendarPreviewData.loadedState(CalendarViewMode.WEEK),
-)
+private fun CalendarPreviewWeek() =
+    CalendarContentPreview(
+        state = CalendarPreviewData.loadedState(CalendarViewMode.WEEK),
+    )
 
 @Preview
 @Composable
-private fun CalendarPreview4Days() = CalendarContentPreview(
-    state = CalendarPreviewData.loadedState(CalendarViewMode.FOUR_DAYS),
-)
+private fun CalendarPreview4Days() =
+    CalendarContentPreview(
+        state = CalendarPreviewData.loadedState(CalendarViewMode.FOUR_DAYS),
+    )
 
 @Preview
 @Composable
-private fun CalendarPreviewDay() = CalendarContentPreview(
-    state = CalendarPreviewData.loadedState(CalendarViewMode.DAY),
-)
+private fun CalendarPreviewDay() =
+    CalendarContentPreview(
+        state = CalendarPreviewData.loadedState(CalendarViewMode.DAY),
+    )
 
 @Preview
 @Composable
-private fun CalendarPreviewMiniOpen() = CalendarContentPreview(
-    state = CalendarPreviewData.loadedState(CalendarViewMode.MONTH, isMiniOpen = true),
-)
+private fun CalendarPreviewMiniOpen() =
+    CalendarContentPreview(
+        state = CalendarPreviewData.loadedState(CalendarViewMode.MONTH, isMiniOpen = true),
+    )

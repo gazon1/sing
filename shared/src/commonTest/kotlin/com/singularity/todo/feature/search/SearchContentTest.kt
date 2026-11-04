@@ -4,12 +4,12 @@ import com.singularity.todo.core.search.IndexedRecord
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.TestUsers
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.time.Instant
-import kotlinx.collections.immutable.persistentListOf
 
 /**
  * The three states of the search screen.
@@ -25,7 +25,6 @@ import kotlinx.collections.immutable.persistentListOf
  */
 @Tag("fast")
 class SearchContentTest {
-
     @Test
     fun `an empty query shows the idle prompt`() {
         assertEquals(SearchContent.IdlePrompt, searchContent("", NO_RESULTS))
@@ -61,22 +60,24 @@ class SearchContentTest {
 
         val NO_RESULTS = SearchResults(emptyList(), emptyList(), emptyList(), emptyList())
 
-        val ONE_RESULT = SearchResults(
-            listOf(
-                IndexedRecord(
-                    record = Task(
-                        id = TaskId("t-milk"),
-                        title = "Buy milk",
-                        createdAt = NOW,
-                        updatedAt = NOW,
-                        userId = TestUsers.DEFAULT,
+        val ONE_RESULT =
+            SearchResults(
+                listOf(
+                    IndexedRecord(
+                        record =
+                            Task(
+                                id = TaskId("t-milk"),
+                                title = "Buy milk",
+                                createdAt = NOW,
+                                updatedAt = NOW,
+                                userId = TestUsers.DEFAULT,
+                            ),
+                        ranges = persistentListOf(),
                     ),
-                    ranges = persistentListOf(),
                 ),
-            ),
-            emptyList(),
-            emptyList(),
-            emptyList(),
-        )
+                emptyList(),
+                emptyList(),
+                emptyList(),
+            )
     }
 }

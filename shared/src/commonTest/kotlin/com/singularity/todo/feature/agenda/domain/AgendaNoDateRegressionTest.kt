@@ -3,11 +3,11 @@ package com.singularity.todo.feature.agenda.domain
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
-import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
+import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
@@ -46,40 +46,44 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AgendaNoDateRegressionTest {
-
     private val today: LocalDate = LocalDate(2026, Month.SEPTEMBER, 30)
 
-    private val context = SelectorContext(
-        today = today,
-        now = kotlin.time.Instant.fromEpochMilliseconds(0),
-        blockedIds = emptySet(),
-    )
+    private val context =
+        SelectorContext(
+            today = today,
+            now = kotlin.time.Instant.fromEpochMilliseconds(0),
+            blockedIds = emptySet(),
+        )
 
-    private fun undatedTask(id: String, title: String): Task = Task(
-        id = TaskId(id),
-        userId = UserId.anonymous,
-        title = title,
-        description = null,
-        priority = TaskPriority.None,
-        kind = TaskKind.Task,
-        projectId = null,
-        parentTaskId = null,
-        tags = emptyList(),
-        dueDate = null,
-        dueTime = null,
-        startDate = null,
-        startTime = null,
-        endDate = null,
-        endTime = null,
-        accentColor = null,
-        emoji = null,
-        completedAt = null,
-        someday = false,
-        archivedAt = null,
-        isPinned = false,
-        createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-        updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-    )
+    private fun undatedTask(
+        id: String,
+        title: String,
+    ): Task =
+        Task(
+            id = TaskId(id),
+            userId = UserId.anonymous,
+            title = title,
+            description = null,
+            priority = TaskPriority.None,
+            kind = TaskKind.Task,
+            projectId = null,
+            parentTaskId = null,
+            tags = emptyList(),
+            dueDate = null,
+            dueTime = null,
+            startDate = null,
+            startTime = null,
+            endDate = null,
+            endTime = null,
+            accentColor = null,
+            emoji = null,
+            completedAt = null,
+            someday = false,
+            archivedAt = null,
+            isPinned = false,
+            createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+        )
 
     @Test
     fun `undated task lands in the Inbox No Date section`() {
@@ -135,8 +139,9 @@ class AgendaNoDateRegressionTest {
      */
     @Test
     fun `a completed undated task is listed and marked as completed`() {
-        val task = undatedTask("t1", "Buy milk")
-            .copy(completedAt = kotlin.time.Instant.fromEpochMilliseconds(1))
+        val task =
+            undatedTask("t1", "Buy milk")
+                .copy(completedAt = kotlin.time.Instant.fromEpochMilliseconds(1))
 
         val sections = AgendaEvaluator.evaluate(listOf(task), AgendaPresets.Inbox, today, context.now)
 

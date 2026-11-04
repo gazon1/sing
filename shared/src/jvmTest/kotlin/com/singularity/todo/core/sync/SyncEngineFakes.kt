@@ -59,14 +59,20 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
             .filter { it.claimToken == null }
             .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
 
-    override suspend fun claim(ids: List<String>, token: String) {
+    override suspend fun claim(
+        ids: List<String>,
+        token: String,
+    ) {
         ids.forEach { id ->
             val index = rows.indexOfFirst { it.patchId == id && it.claimToken == null }
             if (index >= 0) rows[index] = rows[index].copy(claimToken = token)
         }
     }
 
-    override suspend fun release(ids: List<String>, token: String) {
+    override suspend fun release(
+        ids: List<String>,
+        token: String,
+    ) {
         ids.forEach { id ->
             val index = rows.indexOfFirst { it.patchId == id }
             if (index >= 0 && rows[index].claimToken == token) {
@@ -120,8 +126,7 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
         return doomed.size
     }
 
-    override suspend fun countForOwner(ownerId: String): Int =
-        rows.count { it.ownerId == ownerId }
+    override suspend fun countForOwner(ownerId: String): Int = rows.count { it.ownerId == ownerId }
 
     override suspend fun clearAll() {
         rows.clear()
@@ -159,8 +164,13 @@ class FakeSyncAuthRepository(session: Session) : AuthRepository {
     override suspend fun signOut(): Result<Unit> = notImplemented()
 
     override suspend fun updatePassword(newPassword: String): Result<Unit> = notImplemented()
+
     override suspend fun sendMagicLink(email: String): Result<Unit> = notImplemented()
-    override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> = notImplemented()
+
+    override suspend fun verifyMagicLink(
+        email: String,
+        token: String,
+    ): Result<Unit> = notImplemented()
 
     private fun notImplemented(): Result<Unit> =
         Result.failure(UnsupportedOperationException("not used by sync engine tests"))
@@ -232,8 +242,7 @@ class FakeSyncDeadLetterDao : SyncDeadLetterDao {
         return doomed.size
     }
 
-    override suspend fun countForOwner(ownerId: String): Int =
-        rows.count { it.ownerId == ownerId }
+    override suspend fun countForOwner(ownerId: String): Int = rows.count { it.ownerId == ownerId }
 
     override suspend fun clearAll() {
         rows.clear()
@@ -425,8 +434,7 @@ class FakeSyncShadowDao : SyncShadowDao {
         return keys.size
     }
 
-    override suspend fun countForOwner(ownerId: String): Int =
-        rows.count { it.key.ownerId == ownerId }
+    override suspend fun countForOwner(ownerId: String): Int = rows.count { it.key.ownerId == ownerId }
 
     override suspend fun clearScope(
         ownerId: String,

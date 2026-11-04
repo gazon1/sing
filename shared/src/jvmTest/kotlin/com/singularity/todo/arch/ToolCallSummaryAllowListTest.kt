@@ -16,20 +16,21 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ToolCallSummaryAllowListTest {
-
     @Test
     fun every_string_field_of_every_input_model_is_classified() {
-        val repoRoot = File(
-            System.getProperty("commonMain.root")
-                ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
-        ).parentFile.parentFile.parentFile.parentFile
+        val repoRoot =
+            File(
+                System.getProperty("commonMain.root")
+                    ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
+            ).parentFile.parentFile.parentFile.parentFile
         val toolsDir = File(repoRoot, "shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/tools")
         assertTrue(toolsDir.isDirectory, "tools dir missing: ${toolsDir.path}")
 
         val unclassified = mutableListOf<String>()
         var checked = 0
 
-        toolsDir.walkTopDown()
+        toolsDir
+            .walkTopDown()
             .filter { it.isFile && it.name.endsWith(".kt") }
             .forEach { file ->
                 val text = file.readText()

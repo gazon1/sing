@@ -19,8 +19,10 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class NavigationPolicyTest {
-
-    private fun resolve(from: AppNavKey, to: AppNavKey) = NavigationPolicy.resolve(from, to)
+    private fun resolve(
+        from: AppNavKey,
+        to: AppNavKey,
+    ) = NavigationPolicy.resolve(from, to)
 
     // ── Rule 2: top-level destination → SwitchTab ─────────────────────────
 
@@ -164,139 +166,140 @@ class NavigationPolicyTest {
     private val n1 = NoteId("n1")
     private val p1 = ProjectId("p1")
 
-    private val productionEmissions = listOf(
-        // TasksNavigator: openProject / openNote / openCreateNote (onExitGraph).
-        Emission(
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
-            AppDestination.ProjectDetail(p1),
-            OpenAction.ExitAndOpen,
-        ),
-        Emission(
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
-            AppDestination.NotesGraph(AppDestination.NotesStartRoute.Preview(n1)),
-            OpenAction.ExitAndOpen,
-        ),
-        Emission(
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
-            AppDestination.NotesGraph(AppDestination.NotesStartRoute.EditorForTask(t1)),
-            OpenAction.ExitAndOpen,
-        ),
-        // NotesNavigator: openTask.
-        Emission(
-            AppDestination.NotesGraph(AppDestination.NotesStartRoute.Preview(n1)),
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
-            OpenAction.ExitAndOpen,
-        ),
-        // ProjectsNavigator: openTasks (project → agenda) / openTask.
-        Emission(
-            AppDestination.ProjectsGraph(),
-            AppDestination.AgendaGraph(AgendaStartRoute.Project(p1)),
-            OpenAction.ExitAndOpen,
-        ),
-        Emission(
-            AppDestination.ProjectsGraph(),
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
-            OpenAction.ExitAndOpen,
-        ),
-        // CalendarNavigator: openTask / openCreateTask.
-        Emission(
-            AppDestination.Calendar,
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
-            OpenAction.ExitAndOpen,
-        ),
-        Emission(
-            AppDestination.Calendar,
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
-            OpenAction.ExitAndOpen,
-        ),
-        // AgendaNavigator: openTask / openCreateInSection.
-        Emission(
-            AppDestination.AgendaGraph(AgendaStartRoute.Today),
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
-            OpenAction.ExitAndOpen,
-        ),
-        Emission(
-            AppDestination.AgendaGraph(AgendaStartRoute.Today),
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create("section-1")),
-            OpenAction.ExitAndOpen,
-        ),
-        // SearchNavigator: openTask / openNote / openProject / openTag.
-        Emission(
-            AppDestination.Search,
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
-            OpenAction.ExitAndOpen,
-        ),
-        Emission(
-            AppDestination.Search,
-            AppDestination.NotesGraph(AppDestination.NotesStartRoute.Preview(n1)),
-            OpenAction.ExitAndOpen,
-        ),
-        Emission(AppDestination.Search, AppDestination.ProjectDetail(p1), OpenAction.ExitAndOpen),
-        Emission(
-            AppDestination.Search,
-            AppDestination.AgendaGraph(AgendaStartRoute.Tag(TagId("g1"))),
-            OpenAction.ExitAndOpen,
-        ),
-        // SettingsNavigator: openProfileSwitcher — the target is a menu entry,
-        // so rule 2 (activation) wins over the same-family Push.
-        Emission(Settings, AppDestination.ProfileSwitcher, OpenAction.SwitchTab),
-        // FabActionResolver: the plan tab creates a task (cross-family), and the
-        // project list creates a project (same family — a non-tab push).
-        Emission(
-            AppDestination.Plans,
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
-            OpenAction.ExitAndOpen,
-        ),
-        Emission(
-            AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.List),
-            AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()),
-            OpenAction.Push,
-        ),
-        // The menu's projects section opens the project list from whichever tab
-        // the user is on — cross-family, so the tab stays underneath.
-        Emission(
-            AppDestination.Plans,
-            AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.List),
-            OpenAction.ExitAndOpen,
-        ),
-        // ArchiveScreen: LocalAppNavigator.navigate → Navigator.open.
-        Emission(
-            AppDestination.Archive,
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
-            OpenAction.ExitAndOpen,
-        ),
-        // LoginScreen: NavigateToHome — the tab is re-activated, never pushed.
-        Emission(
-            AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
-            AppDestination.AgendaGraph(AgendaStartRoute.Today),
-            OpenAction.SwitchTab,
-        ),
-        // Shell tab bar (Android bottom bar / desktop drawer tabs).
-        Emission(AppDestination.Plans, AppDestination.AgendaGraph(AgendaStartRoute.Today), OpenAction.SwitchTab),
-        Emission(AppDestination.Plans, AppDestination.Pomodoro, OpenAction.SwitchTab),
-        Emission(AppDestination.Plans, AppDestination.Calendar, OpenAction.SwitchTab),
-        Emission(AppDestination.Plans, AppDestination.Plans, OpenAction.SwitchTab),
-        // Shell menu sheet / drawer entries (AndroidMenuBottomSheet, desktop).
-        Emission(AppDestination.Plans, AppDestination.Statistics, OpenAction.SwitchTab),
-        Emission(AppDestination.Plans, AppDestination.Notes, OpenAction.SwitchTab),
-        Emission(AppDestination.Plans, AppDestination.AiChat, OpenAction.SwitchTab),
-        Emission(AppDestination.Plans, AppDestination.Search, OpenAction.SwitchTab),
-        Emission(AppDestination.Plans, AppDestination.Archive, OpenAction.SwitchTab),
-        Emission(AppDestination.Plans, AppDestination.Settings, OpenAction.SwitchTab),
-        // Android deep link: singularity://agenda/{view} → edit saved view.
-        // Same family (Agenda), not a tab instance → Push, not ExitAndOpen.
-        Emission(
-            AppDestination.AgendaGraph(AgendaStartRoute.Today),
-            AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit(SavedAgendaViewId("v1"))),
-            OpenAction.Push,
-        ),
-        // Android deep link: singularity://task/{id} crosses into the tasks graph.
-        Emission(
-            AppDestination.AgendaGraph(AgendaStartRoute.Today),
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
-            OpenAction.ExitAndOpen,
-        ),
-    )
+    private val productionEmissions =
+        listOf(
+            // TasksNavigator: openProject / openNote / openCreateNote (onExitGraph).
+            Emission(
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
+                AppDestination.ProjectDetail(p1),
+                OpenAction.ExitAndOpen,
+            ),
+            Emission(
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
+                AppDestination.NotesGraph(AppDestination.NotesStartRoute.Preview(n1)),
+                OpenAction.ExitAndOpen,
+            ),
+            Emission(
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
+                AppDestination.NotesGraph(AppDestination.NotesStartRoute.EditorForTask(t1)),
+                OpenAction.ExitAndOpen,
+            ),
+            // NotesNavigator: openTask.
+            Emission(
+                AppDestination.NotesGraph(AppDestination.NotesStartRoute.Preview(n1)),
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
+                OpenAction.ExitAndOpen,
+            ),
+            // ProjectsNavigator: openTasks (project → agenda) / openTask.
+            Emission(
+                AppDestination.ProjectsGraph(),
+                AppDestination.AgendaGraph(AgendaStartRoute.Project(p1)),
+                OpenAction.ExitAndOpen,
+            ),
+            Emission(
+                AppDestination.ProjectsGraph(),
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
+                OpenAction.ExitAndOpen,
+            ),
+            // CalendarNavigator: openTask / openCreateTask.
+            Emission(
+                AppDestination.Calendar,
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
+                OpenAction.ExitAndOpen,
+            ),
+            Emission(
+                AppDestination.Calendar,
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
+                OpenAction.ExitAndOpen,
+            ),
+            // AgendaNavigator: openTask / openCreateInSection.
+            Emission(
+                AppDestination.AgendaGraph(AgendaStartRoute.Today),
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
+                OpenAction.ExitAndOpen,
+            ),
+            Emission(
+                AppDestination.AgendaGraph(AgendaStartRoute.Today),
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create("section-1")),
+                OpenAction.ExitAndOpen,
+            ),
+            // SearchNavigator: openTask / openNote / openProject / openTag.
+            Emission(
+                AppDestination.Search,
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
+                OpenAction.ExitAndOpen,
+            ),
+            Emission(
+                AppDestination.Search,
+                AppDestination.NotesGraph(AppDestination.NotesStartRoute.Preview(n1)),
+                OpenAction.ExitAndOpen,
+            ),
+            Emission(AppDestination.Search, AppDestination.ProjectDetail(p1), OpenAction.ExitAndOpen),
+            Emission(
+                AppDestination.Search,
+                AppDestination.AgendaGraph(AgendaStartRoute.Tag(TagId("g1"))),
+                OpenAction.ExitAndOpen,
+            ),
+            // SettingsNavigator: openProfileSwitcher — the target is a menu entry,
+            // so rule 2 (activation) wins over the same-family Push.
+            Emission(Settings, AppDestination.ProfileSwitcher, OpenAction.SwitchTab),
+            // FabActionResolver: the plan tab creates a task (cross-family), and the
+            // project list creates a project (same family — a non-tab push).
+            Emission(
+                AppDestination.Plans,
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
+                OpenAction.ExitAndOpen,
+            ),
+            Emission(
+                AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.List),
+                AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()),
+                OpenAction.Push,
+            ),
+            // The menu's projects section opens the project list from whichever tab
+            // the user is on — cross-family, so the tab stays underneath.
+            Emission(
+                AppDestination.Plans,
+                AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.List),
+                OpenAction.ExitAndOpen,
+            ),
+            // ArchiveScreen: LocalAppNavigator.navigate → Navigator.open.
+            Emission(
+                AppDestination.Archive,
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
+                OpenAction.ExitAndOpen,
+            ),
+            // LoginScreen: NavigateToHome — the tab is re-activated, never pushed.
+            Emission(
+                AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
+                AppDestination.AgendaGraph(AgendaStartRoute.Today),
+                OpenAction.SwitchTab,
+            ),
+            // Shell tab bar (Android bottom bar / desktop drawer tabs).
+            Emission(AppDestination.Plans, AppDestination.AgendaGraph(AgendaStartRoute.Today), OpenAction.SwitchTab),
+            Emission(AppDestination.Plans, AppDestination.Pomodoro, OpenAction.SwitchTab),
+            Emission(AppDestination.Plans, AppDestination.Calendar, OpenAction.SwitchTab),
+            Emission(AppDestination.Plans, AppDestination.Plans, OpenAction.SwitchTab),
+            // Shell menu sheet / drawer entries (AndroidMenuBottomSheet, desktop).
+            Emission(AppDestination.Plans, AppDestination.Statistics, OpenAction.SwitchTab),
+            Emission(AppDestination.Plans, AppDestination.Notes, OpenAction.SwitchTab),
+            Emission(AppDestination.Plans, AppDestination.AiChat, OpenAction.SwitchTab),
+            Emission(AppDestination.Plans, AppDestination.Search, OpenAction.SwitchTab),
+            Emission(AppDestination.Plans, AppDestination.Archive, OpenAction.SwitchTab),
+            Emission(AppDestination.Plans, AppDestination.Settings, OpenAction.SwitchTab),
+            // Android deep link: singularity://agenda/{view} → edit saved view.
+            // Same family (Agenda), not a tab instance → Push, not ExitAndOpen.
+            Emission(
+                AppDestination.AgendaGraph(AgendaStartRoute.Today),
+                AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit(SavedAgendaViewId("v1"))),
+                OpenAction.Push,
+            ),
+            // Android deep link: singularity://task/{id} crosses into the tasks graph.
+            Emission(
+                AppDestination.AgendaGraph(AgendaStartRoute.Today),
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
+                OpenAction.ExitAndOpen,
+            ),
+        )
 
     @Test
     fun `every production navigation emission resolves to its declared action`() {

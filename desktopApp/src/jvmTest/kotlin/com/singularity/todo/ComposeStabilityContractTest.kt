@@ -69,68 +69,70 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class ComposeStabilityContractTest {
+    @Test
+    fun `a row showing an equal but new task does not recompose`() =
+        runIsolatedComposeTest {
+            val task =
+                Task(
+                    id = TaskId.fromString("t-1"),
+                    title = "Ship the release",
+                    createdAt = Instant.fromEpochMilliseconds(0),
+                    updatedAt = Instant.fromEpochMilliseconds(0),
+                    userId = UserId.fromString("u-1"),
+                )
+            val current = mutableStateOf(task, referentialEqualityPolicy())
+            val rowRecompositions = mutableStateOf(0)
+
+            setContent {
+                ContractParent(task = current.value, counter = rowRecompositions)
+            }
+            waitForIdle()
+
+            val afterFirstComposition = rowRecompositions.value
+            assertTrue(afterFirstComposition > 0, "the row must have composed at least once")
+
+            // A new instance with the same contents — what the Room mapper hands
+            // over on every read.
+            current.value = task.copy()
+            waitForIdle()
+
+            assertEquals(
+                afterFirstComposition,
+                rowRecompositions.value,
+                "a row whose task did not change must not recompose; " +
+                    "if it did, Task is no longer stable — check " +
+                    "config/compose/stability_config.conf",
+            )
+        }
 
     @Test
-    fun `a row showing an equal but new task does not recompose`() = runIsolatedComposeTest {
-        val task = Task(
-            id = TaskId.fromString("t-1"),
-            title = "Ship the release",
-            createdAt = Instant.fromEpochMilliseconds(0),
-            updatedAt = Instant.fromEpochMilliseconds(0),
-            userId = UserId.fromString("u-1"),
-        )
-        val current = mutableStateOf(task, referentialEqualityPolicy())
-        val rowRecompositions = mutableStateOf(0)
+    fun `a row showing an equal but new unstable value does recompose`() =
+        runIsolatedComposeTest {
+            // The control: the same shape, with a type the compiler knows to be
+            // unstable. Its comparison falls back to identity, so an equal-but-new
+            // instance must recompose the row.
+            val value = UnstableValue(id = "v-1")
+            val current = mutableStateOf(value, referentialEqualityPolicy())
+            val rowRecompositions = mutableStateOf(0)
 
-        setContent {
-            ContractParent(task = current.value, counter = rowRecompositions)
+            setContent {
+                UnstableParent(value = current.value, counter = rowRecompositions)
+            }
+            waitForIdle()
+
+            val afterFirstComposition = rowRecompositions.value
+            assertTrue(afterFirstComposition > 0, "the row must have composed at least once")
+
+            current.value = UnstableValue(id = "v-1")
+            waitForIdle()
+
+            assertTrue(
+                rowRecompositions.value > afterFirstComposition,
+                "an unstable value is compared by identity, so an equal-but-new " +
+                    "instance must recompose the row — if it did not, this control " +
+                    "would prove nothing and the first test could pass vacuously",
+            )
         }
-        waitForIdle()
-
-        val afterFirstComposition = rowRecompositions.value
-        assertTrue(afterFirstComposition > 0, "the row must have composed at least once")
-
-        // A new instance with the same contents — what the Room mapper hands
-        // over on every read.
-        current.value = task.copy()
-        waitForIdle()
-
-        assertEquals(
-            afterFirstComposition,
-            rowRecompositions.value,
-            "a row whose task did not change must not recompose; " +
-                "if it did, Task is no longer stable — check " +
-                "config/compose/stability_config.conf",
-        )
-    }
-
-    @Test
-    fun `a row showing an equal but new unstable value does recompose`() = runIsolatedComposeTest {
-        // The control: the same shape, with a type the compiler knows to be
-        // unstable. Its comparison falls back to identity, so an equal-but-new
-        // instance must recompose the row.
-        val value = UnstableValue(id = "v-1")
-        val current = mutableStateOf(value, referentialEqualityPolicy())
-        val rowRecompositions = mutableStateOf(0)
-
-        setContent {
-            UnstableParent(value = current.value, counter = rowRecompositions)
-        }
-        waitForIdle()
-
-        val afterFirstComposition = rowRecompositions.value
-        assertTrue(afterFirstComposition > 0, "the row must have composed at least once")
-
-        current.value = UnstableValue(id = "v-1")
-        waitForIdle()
-
-        assertTrue(
-            rowRecompositions.value > afterFirstComposition,
-            "an unstable value is compared by identity, so an equal-but-new " +
-                "instance must recompose the row — if it did not, this control " +
-                "would prove nothing and the first test could pass vacuously",
-        )
-    }
 }
 
 /**
@@ -142,23 +144,35 @@ class ComposeStabilityContractTest {
  * the way the contract says it should be.
  */
 @Composable
-private fun ContractParent(task: Task, counter: MutableState<Int>) {
+private fun ContractParent(
+    task: Task,
+    counter: MutableState<Int>,
+) {
     ContractRow(task = task, counter = counter)
 }
 
 @Composable
-private fun ContractRow(task: Task, counter: MutableState<Int>) {
+private fun ContractRow(
+    task: Task,
+    counter: MutableState<Int>,
+) {
     SideEffect { counter.value++ }
     BasicText(task.title)
 }
 
 @Composable
-private fun UnstableParent(value: UnstableValue, counter: MutableState<Int>) {
+private fun UnstableParent(
+    value: UnstableValue,
+    counter: MutableState<Int>,
+) {
     UnstableRow(value = value, counter = counter)
 }
 
 @Composable
-private fun UnstableRow(value: UnstableValue, counter: MutableState<Int>) {
+private fun UnstableRow(
+    value: UnstableValue,
+    counter: MutableState<Int>,
+) {
     SideEffect { counter.value++ }
     BasicText(value.id)
 }

@@ -1,5 +1,6 @@
 package com.singularity.todo
 
+import android.app.Activity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,34 +10,31 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
-import com.singularity.todo.shell.ShellSearchButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import android.app.Activity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.ui.NavDisplay
-import org.koin.compose.koinInject
-import org.koin.compose.viewmodel.koinViewModel
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LocalScreenActions
 import com.singularity.todo.core.ui.components.ScreenActionsHolder
@@ -44,19 +42,21 @@ import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.LocalNav3State
-import com.singularity.todo.feature.nav.MenuButtonTitle
+import com.singularity.todo.feature.nav.MENU_BUTTON_TITLE
 import com.singularity.todo.feature.nav.Nav3State
-import com.singularity.todo.feature.nav.topMostRoute
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.createAppEntryProvider
 import com.singularity.todo.feature.nav.icon
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.feature.nav.topMostRoute
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsOpener
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeIntent
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeViewModel
 import com.singularity.todo.shell.MenuBottomSheet
+import com.singularity.todo.shell.ShellSearchButton
 import com.singularity.todo.shell.fabActionForNav3
+import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Navigation 3 Android shell — the actual implementation called by [PlatformShell].
@@ -97,11 +97,14 @@ fun androidShellNav3Root(
     val projectsTreeState by projectsTreeViewModel.stateFlow.collectAsStateWithLifecycle()
     val projectsOpener: ProjectsOpener = koinInject()
 
-    val showAttachAccount = com.singularity.todo.shell.rememberIsAnonymousSession()
+    val showAttachAccount =
+        com.singularity.todo.shell
+            .rememberIsAnonymousSession()
 
     // topLevelRoute is MutableState<NavKey>, getValue triggers recomposition on change
-    val current: AppDestination = state.topLevelRoute as? AppDestination
-        ?: AppDestination.AgendaGraph(AgendaStartRoute.Today)
+    val current: AppDestination =
+        state.topLevelRoute as? AppDestination
+            ?: AppDestination.AgendaGraph(AgendaStartRoute.Today)
 
     // Topmost route in the current stack — determines the FAB, mirroring desktop.
     val topMostRoute: NavKey = state.topMostRoute()
@@ -134,10 +137,10 @@ fun androidShellNav3Root(
                 icon = {
                     Icon(
                         Icons.Default.Menu,
-                        contentDescription = MenuButtonTitle,
+                        contentDescription = MENU_BUTTON_TITLE,
                     )
                 },
-                label = { Text(MenuButtonTitle) },
+                label = { Text(MENU_BUTTON_TITLE) },
                 modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
             )
         },
@@ -258,9 +261,10 @@ private fun ShellTopBar(
                 ShellSearchButton(navigator = navigator)
             }
         },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
+        colors =
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+            ),
     )
 }
 
@@ -272,7 +276,10 @@ private fun ShellTopBar(
  * than the word "Calendar".
  */
 @Composable
-private fun ShellBarTitle(screenActions: ScreenActionsHolder, destinationTitle: String) {
+private fun ShellBarTitle(
+    screenActions: ScreenActionsHolder,
+    destinationTitle: String,
+) {
     val selection = screenActions.selectionTitle
     val publishedTitle = screenActions.title
     when {
@@ -311,7 +318,9 @@ private fun ShellNavigationIcon(
             }
         }
 
-        publishedIcon != null -> publishedIcon.invoke()
+        publishedIcon != null -> {
+            publishedIcon.invoke()
+        }
 
         else -> {
             // Toggle between Back (nested screen or previous tab) and Menu
@@ -337,7 +346,7 @@ private fun ShellNavigationIcon(
                 ) {
                     Icon(
                         Icons.Default.Menu,
-                        contentDescription = MenuButtonTitle,
+                        contentDescription = MENU_BUTTON_TITLE,
                     )
                 }
             }

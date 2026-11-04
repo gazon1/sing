@@ -30,18 +30,18 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
-import java.io.File
-import java.nio.file.Files
-import kotlin.time.Clock
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import org.junit.jupiter.api.Tag
+import java.io.File
+import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 
 /**
  * The backup round-trip: what a task was, is what comes back.
@@ -59,10 +59,10 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class BackupRoundTripTest {
-
-    private val tempDirLazy = lazy {
-        Files.createTempDirectory("singularity-backup-round-trip-").toFile()
-    }
+    private val tempDirLazy =
+        lazy {
+            Files.createTempDirectory("singularity-backup-round-trip-").toFile()
+        }
     private val tempDir: File by tempDirLazy
 
     private val sourceDbLazy = lazy { buildDb("source.db") }
@@ -81,59 +81,62 @@ class BackupRoundTripTest {
         if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
     }
 
-    private fun buildDb(name: String): AppDatabase = AppDatabaseFactory.build(
-        driver = createSqlDriver(),
-        dbPath = File(tempDir, name).absolutePath,
-    )
+    private fun buildDb(name: String): AppDatabase =
+        AppDatabaseFactory.build(
+            driver = createSqlDriver(),
+            dbPath = File(tempDir, name).absolutePath,
+        )
 
     @Test
-    fun `a task survives export and restore`() = runTest {
-        val owner = UserId("backup-user")
-        seedTask(owner)
+    fun `a task survives export and restore`() =
+        runTest {
+            val owner = UserId("backup-user")
+            seedTask(owner)
 
-        val fs = JvmFileSystem()
-        val destPath = File(tempDir, "round-trip.zip").absolutePath
+            val fs = JvmFileSystem()
+            val destPath = File(tempDir, "round-trip.zip").absolutePath
 
-        val exported = exporter(fs).export(
-            exportOptions {
-                this.userId = owner
-                this.destPath = destPath
-                includeAttachments = true
-            },
-        )
-        assertTrue(exported.isSuccess, "export failed: ${exported.exceptionOrNull()}")
-        assertTrue(File(destPath).isFile, "the backup file was not written")
+            val exported =
+                exporter(fs).export(
+                    exportOptions {
+                        this.userId = owner
+                        this.destPath = destPath
+                        includeAttachments = true
+                    },
+                )
+            assertTrue(exported.isSuccess, "export failed: ${exported.exceptionOrNull()}")
+            assertTrue(File(destPath).isFile, "the backup file was not written")
 
-        // A profile that was already repaired must be visited again after a
-        // restore: the archive may carry rows from before the series model.
-        repairSettings.setRecurringSeriesRepairVersion(
-            owner.value,
-            com.singularity.todo.feature.tasks.domain.usecase.RepairRecurringSeriesUseCase.VERSION,
-        )
+            // A profile that was already repaired must be visited again after a
+            // restore: the archive may carry rows from before the series model.
+            repairSettings.setRecurringSeriesRepairVersion(
+                owner.value,
+                com.singularity.todo.feature.tasks.domain.usecase.RepairRecurringSeriesUseCase.VERSION,
+            )
 
-        val restored = importer(fs).import(
-            importOptions {
-                sourcePath = destPath
-                targetUserId = owner
-                overwriteExisting = true
-            },
-        )
-        assertTrue(restored.isSuccess, "import failed: ${restored.exceptionOrNull()}")
-        assertEquals(
-            0,
-            repairSettings.recurringSeriesRepairVersion(owner.value).first(),
-            "a restore must clear the repair marker so the next launch adopts legacy rows",
-        )
+            val restored =
+                importer(fs).import(
+                    importOptions {
+                        sourcePath = destPath
+                        targetUserId = owner
+                    },
+                )
+            assertTrue(restored.isSuccess, "import failed: ${restored.exceptionOrNull()}")
+            assertEquals(
+                0,
+                repairSettings.recurringSeriesRepairVersion(owner.value).first(),
+                "a restore must clear the repair marker so the next launch adopts legacy rows",
+            )
 
-        val restoredTasks = targetDb.taskDao().listAllForUser(owner.value)
-        assertEquals(1, restoredTasks.size, "the restored database holds ${restoredTasks.size} tasks")
-        assertEquals("Backup round trip", restoredTasks.first().title)
-        assertEquals(
-            "InProgress",
-            restoredTasks.first().workflowState,
-            "the state the user claimed for the task's work must survive the round trip",
-        )
-    }
+            val restoredTasks = targetDb.taskDao().listAllForUser(owner.value)
+            assertEquals(1, restoredTasks.size, "the restored database holds ${restoredTasks.size} tasks")
+            assertEquals("Backup round trip", restoredTasks.first().title)
+            assertEquals(
+                "InProgress",
+                restoredTasks.first().workflowState,
+                "the state the user claimed for the task's work must survive the round trip",
+            )
+        }
 
     /**
      * Exporting never reads the archive — or an attachment — back into memory.
@@ -146,41 +149,44 @@ class BackupRoundTripTest {
      * on a phone, where the same code simply costs the whole account in memory.
      */
     @Test
-    fun `exporting never reads a whole file into memory`() = runTest {
-        val owner = UserId("backup-user")
-        seedTask(owner)
+    fun `exporting never reads a whole file into memory`() =
+        runTest {
+            val owner = UserId("backup-user")
+            seedTask(owner)
 
-        val fs = NoWholeFileReads(JvmFileSystem())
-        val destPath = File(tempDir, "no-whole-reads.zip").absolutePath
+            val fs = NoWholeFileReads(JvmFileSystem())
+            val destPath = File(tempDir, "no-whole-reads.zip").absolutePath
 
-        val exported = exporter(fs).export(
-            exportOptions {
-                this.userId = owner
-                this.destPath = destPath
-                includeAttachments = true
-            },
-        )
+            val exported =
+                exporter(fs).export(
+                    exportOptions {
+                        this.userId = owner
+                        this.destPath = destPath
+                        includeAttachments = true
+                    },
+                )
 
-        assertTrue(
-            exported.isSuccess,
-            "the export read a whole file into memory: ${exported.exceptionOrNull()}",
-        )
-        assertTrue(File(destPath).isFile, "the backup file was not written")
-    }
+            assertTrue(
+                exported.isSuccess,
+                "the export read a whole file into memory: ${exported.exceptionOrNull()}",
+            )
+            assertTrue(File(destPath).isFile, "the backup file was not written")
+        }
 
     /** Writes the task the round-trip starts from into the source database. */
     private suspend fun seedTask(owner: UserId) {
         val auth = FakeAuthRepository(Session.Anonymous(owner))
         val currentUser = FakeProfileAwareCurrentUser(auth)
-        val repository = TaskRepositoryImpl(
-            taskDao = sourceDb.taskDao(),
-            textIndex = sourceDb.textIndex(currentUser),
-            clock = Clock.System,
-            currentUser = currentUser,
-            syncRepository = FakeSyncRepository(),
-            dependencyValidator = DependencyValidatorImpl(sourceDb.taskDao(), currentUser),
-            unitOfWork = FakeUnitOfWork(),
-        )
+        val repository =
+            TaskRepositoryImpl(
+                taskDao = sourceDb.taskDao(),
+                textIndex = sourceDb.textIndex(currentUser),
+                clock = Clock.System,
+                currentUser = currentUser,
+                syncRepository = FakeSyncRepository(),
+                dependencyValidator = DependencyValidatorImpl(sourceDb.taskDao(), currentUser),
+                unitOfWork = FakeUnitOfWork(),
+            )
         repository.create(
             Task(
                 id = TaskId("round-trip-task"),
@@ -197,39 +203,41 @@ class BackupRoundTripTest {
     }
 
     @Test
-    fun `a dependency edge keeps its verb through the round trip`() = runTest {
-        val owner = UserId("backup-user")
-        seedGraph(owner)
+    fun `a dependency edge keeps its verb through the round trip`() =
+        runTest {
+            val owner = UserId("backup-user")
+            seedGraph(owner)
 
-        val fs = JvmFileSystem()
-        val destPath = File(tempDir, "verbs.zip").absolutePath
+            val fs = JvmFileSystem()
+            val destPath = File(tempDir, "verbs.zip").absolutePath
 
-        val exported = exporter(fs).export(
-            exportOptions {
-                this.userId = owner
-                this.destPath = destPath
-                includeAttachments = false
-            },
-        )
-        assertTrue(exported.isSuccess, "export failed: ${exported.exceptionOrNull()}")
+            val exported =
+                exporter(fs).export(
+                    exportOptions {
+                        this.userId = owner
+                        this.destPath = destPath
+                        includeAttachments = false
+                    },
+                )
+            assertTrue(exported.isSuccess, "export failed: ${exported.exceptionOrNull()}")
 
-        val restored = importer(fs).import(
-            importOptions {
-                sourcePath = destPath
-                targetUserId = owner
-                overwriteExisting = true
-            },
-        )
-        assertTrue(restored.isSuccess, "import failed: ${restored.exceptionOrNull()}")
+            val restored =
+                importer(fs).import(
+                    importOptions {
+                        sourcePath = destPath
+                        targetUserId = owner
+                    },
+                )
+            assertTrue(restored.isSuccess, "import failed: ${restored.exceptionOrNull()}")
 
-        val edges = targetDb.taskDao().listAllDependenciesForUser(owner.value)
-        val verbs = edges.associate { it.taskId to it.verb }
-        assertEquals(
-            mapOf("blocks" to "BLOCKS", "follows" to "FOLLOWS_UP"),
-            verbs,
-            "a relation that only follows up must not come back as a block",
-        )
-    }
+            val edges = targetDb.taskDao().listAllDependenciesForUser(owner.value)
+            val verbs = edges.associate { it.taskId to it.verb }
+            assertEquals(
+                mapOf("blocks" to "BLOCKS", "follows" to "FOLLOWS_UP"),
+                verbs,
+                "a relation that only follows up must not come back as a block",
+            )
+        }
 
     /**
      * Writes a small graph with two kinds of edge into the source database.
@@ -242,15 +250,16 @@ class BackupRoundTripTest {
     private suspend fun seedGraph(owner: UserId) {
         val auth = FakeAuthRepository(Session.Anonymous(owner))
         val currentUser = FakeProfileAwareCurrentUser(auth)
-        val repository = TaskRepositoryImpl(
-            taskDao = sourceDb.taskDao(),
-            textIndex = sourceDb.textIndex(currentUser),
-            clock = Clock.System,
-            currentUser = currentUser,
-            syncRepository = FakeSyncRepository(),
-            dependencyValidator = DependencyValidatorImpl(sourceDb.taskDao(), currentUser),
-            unitOfWork = FakeUnitOfWork(),
-        )
+        val repository =
+            TaskRepositoryImpl(
+                taskDao = sourceDb.taskDao(),
+                textIndex = sourceDb.textIndex(currentUser),
+                clock = Clock.System,
+                currentUser = currentUser,
+                syncRepository = FakeSyncRepository(),
+                dependencyValidator = DependencyValidatorImpl(sourceDb.taskDao(), currentUser),
+                unitOfWork = FakeUnitOfWork(),
+            )
         val now = Clock.System.now()
         listOf("dep", "blocks", "follows").forEach { id ->
             repository.create(
@@ -268,53 +277,55 @@ class BackupRoundTripTest {
     }
 
     /** The exporter reads the source database. */
-    private fun exporter(fs: FileSystem) = BackupExporter(
-        taskDao = sourceDb.taskDao(),
-        noteDao = sourceDb.noteDao(),
-        projectDao = sourceDb.projectDao(),
-        tagDao = sourceDb.tagDao(),
-        reminderDao = sourceDb.reminderDao(),
-        projectReminderDao = sourceDb.projectReminderDao(),
-        checklistDao = sourceDb.checklistDao(),
-        tagGroupDao = sourceDb.tagGroupDao(),
-        projectTagGroupDao = sourceDb.projectInheritedTagGroupDao(),
-        savedSearchDao = sourceDb.savedSearchDao(),
-        timeEntryDao = sourceDb.timeEntryDao(),
-        profileDao = sourceDb.profileDao(),
-        attachmentDao = sourceDb.attachmentDao(),
-        annotationDao = sourceDb.annotationDao(),
-        agendaViewDao = sourceDb.agendaViewDao(),
-        codec = JvmBackupCodec(),
-        clock = Clock.System,
-        fs = fs,
-        cursors = BackupCursorStore(fs = fs, dir = File(tempDir, "cursor").absolutePath),
-        backupDir = tempDir.absolutePath,
-    )
+    private fun exporter(fs: FileSystem) =
+        BackupExporter(
+            taskDao = sourceDb.taskDao(),
+            noteDao = sourceDb.noteDao(),
+            projectDao = sourceDb.projectDao(),
+            tagDao = sourceDb.tagDao(),
+            reminderDao = sourceDb.reminderDao(),
+            projectReminderDao = sourceDb.projectReminderDao(),
+            checklistDao = sourceDb.checklistDao(),
+            tagGroupDao = sourceDb.tagGroupDao(),
+            projectTagGroupDao = sourceDb.projectInheritedTagGroupDao(),
+            savedSearchDao = sourceDb.savedSearchDao(),
+            timeEntryDao = sourceDb.timeEntryDao(),
+            profileDao = sourceDb.profileDao(),
+            attachmentDao = sourceDb.attachmentDao(),
+            annotationDao = sourceDb.annotationDao(),
+            agendaViewDao = sourceDb.agendaViewDao(),
+            codec = JvmBackupCodec(),
+            clock = Clock.System,
+            fs = fs,
+            cursors = BackupCursorStore(fs = fs, dir = File(tempDir, "cursor").absolutePath),
+            backupDir = tempDir.absolutePath,
+        )
 
     /** The importer writes into the empty target database. */
-    private fun importer(fs: JvmFileSystem) = BackupImporter(
-        log = Logger(loggerConfigInit(CommonWriter()), "backup-round-trip"),
-        taskDao = targetDb.taskDao(),
-        noteDao = targetDb.noteDao(),
-        projectDao = targetDb.projectDao(),
-        tagDao = targetDb.tagDao(),
-        reminderDao = targetDb.reminderDao(),
-        projectReminderDao = targetDb.projectReminderDao(),
-        checklistDao = targetDb.checklistDao(),
-        tagGroupDao = targetDb.tagGroupDao(),
-        projectTagGroupDao = targetDb.projectInheritedTagGroupDao(),
-        savedSearchDao = targetDb.savedSearchDao(),
-        timeEntryDao = targetDb.timeEntryDao(),
-        profileDao = targetDb.profileDao(),
-        agendaViewDao = targetDb.agendaViewDao(),
-        attachmentDao = targetDb.attachmentDao(),
-        annotationDao = targetDb.annotationDao(),
-        attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachments").absolutePath),
-        codec = JvmBackupCodec(),
-        clock = Clock.System,
-        createFileSource = JvmFileSourceFactory(),
-        tasksSettings = repairSettings,
-    )
+    private fun importer(fs: JvmFileSystem) =
+        BackupImporter(
+            log = Logger(loggerConfigInit(CommonWriter()), "backup-round-trip"),
+            taskDao = targetDb.taskDao(),
+            noteDao = targetDb.noteDao(),
+            projectDao = targetDb.projectDao(),
+            tagDao = targetDb.tagDao(),
+            reminderDao = targetDb.reminderDao(),
+            projectReminderDao = targetDb.projectReminderDao(),
+            checklistDao = targetDb.checklistDao(),
+            tagGroupDao = targetDb.tagGroupDao(),
+            projectTagGroupDao = targetDb.projectInheritedTagGroupDao(),
+            savedSearchDao = targetDb.savedSearchDao(),
+            timeEntryDao = targetDb.timeEntryDao(),
+            profileDao = targetDb.profileDao(),
+            agendaViewDao = targetDb.agendaViewDao(),
+            attachmentDao = targetDb.attachmentDao(),
+            annotationDao = targetDb.annotationDao(),
+            attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachments").absolutePath),
+            codec = JvmBackupCodec(),
+            clock = Clock.System,
+            createFileSource = JvmFileSourceFactory(),
+            tasksSettings = repairSettings,
+        )
 }
 
 /**
@@ -326,6 +337,5 @@ class BackupRoundTripTest {
  * memory — fails loudly instead of quietly costing the account's largest files.
  */
 private class NoWholeFileReads(private val delegate: FileSystem) : FileSystem by delegate {
-    override suspend fun readBytes(path: String): ByteArray =
-        error("a whole file was read into memory: $path")
+    override suspend fun readBytes(path: String): ByteArray = error("a whole file was read into memory: $path")
 }

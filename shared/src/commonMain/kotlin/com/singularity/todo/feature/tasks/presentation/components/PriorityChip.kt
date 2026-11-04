@@ -23,11 +23,13 @@ import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
  * waiting to happen — the compiler will not flag it and the reviewer will not
  * notice.
  */
-fun priorityChipColor(priority: TaskPriority): Color =
-    priorityMeta(priority, PriorityPalette.PriorityChip).color
+fun priorityChipColor(priority: TaskPriority): Color = priorityMeta(priority, PriorityPalette.PriorityChip).color
 
 @Composable
-fun PriorityChip(priority: TaskPriority, modifier: Modifier = Modifier) {
+fun PriorityChip(
+    priority: TaskPriority,
+    modifier: Modifier = Modifier,
+) {
     if (priority == TaskPriority.None) return
     val color = priorityChipColor(priority)
     Box(modifier = modifier.padding(start = 4.dp)) {
@@ -43,18 +45,21 @@ fun PriorityChip(priority: TaskPriority, modifier: Modifier = Modifier) {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun PriorityChipMediumPreview() = PreviewThemed(darkTheme = false) {
-    PriorityChip(priority = TaskPriority.Medium)
-}
+private fun PriorityChipMediumPreview() =
+    PreviewThemed(darkTheme = false) {
+        PriorityChip(priority = TaskPriority.Medium)
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun PriorityChipHighDarkPreview() = PreviewThemed(darkTheme = true) {
-    PriorityChip(priority = TaskPriority.High)
-}
+private fun PriorityChipHighDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        PriorityChip(priority = TaskPriority.High)
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun PriorityChipUrgentPreview() = PreviewThemed(darkTheme = false) {
-    PriorityChip(priority = TaskPriority.Urgent)
-}
+private fun PriorityChipUrgentPreview() =
+    PreviewThemed(darkTheme = false) {
+        PriorityChip(priority = TaskPriority.Urgent)
+    }

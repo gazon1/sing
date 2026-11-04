@@ -33,7 +33,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 @JvmInline
 value class NoteBody(val html: String) {
-
     /** True when the body contains no text content (blank or only HTML tags). */
     val isEmpty: Boolean get() = html.isBlank()
 
@@ -90,38 +89,40 @@ value class NoteBody(val html: String) {
 private fun stripTags(html: String): String = html.replace(Regex("<[^>]*>"), "")
 
 /** Decodes the most common HTML entities found in richeditor output. */
-private fun decodeHtmlEntities(html: String): String = buildString {
-    var i = 0
-    while (i < html.length) {
-        if (html[i] == '&') {
-            val semicolon = html.indexOf(';', i)
-            if (semicolon == -1) {
-                append('&')
-                i++
+private fun decodeHtmlEntities(html: String): String =
+    buildString {
+        var i = 0
+        while (i < html.length) {
+            if (html[i] == '&') {
+                val semicolon = html.indexOf(';', i)
+                if (semicolon == -1) {
+                    append('&')
+                    i++
+                } else {
+                    val entity = html.substring(i, semicolon + 1)
+                    append(decodeHtmlEntityToken(entity))
+                    i = semicolon + 1
+                }
             } else {
-                val entity = html.substring(i, semicolon + 1)
-                append(decodeHtmlEntityToken(entity))
-                i = semicolon + 1
+                append(html[i])
+                i++
             }
-        } else {
-            append(html[i])
-            i++
         }
     }
-}
 
 /** Decodes a single HTML entity token. */
-private fun decodeHtmlEntityToken(entity: String): String = when (entity) {
-    "&amp;" -> "&"
-    "&lt;" -> "<"
-    "&gt;" -> ">"
-    "&quot;" -> "\""
-    "&apos;" -> "'"
-    "&nbsp;" -> " "
-    "&#39;" -> "'"
-    "&#x27;" -> "'"
-    else -> entity
-}
+private fun decodeHtmlEntityToken(entity: String): String =
+    when (entity) {
+        "&amp;" -> "&"
+        "&lt;" -> "<"
+        "&gt;" -> ">"
+        "&quot;" -> "\""
+        "&apos;" -> "'"
+        "&nbsp;" -> " "
+        "&#39;" -> "'"
+        "&#x27;" -> "'"
+        else -> entity
+    }
 
 /**
  * Readable snippet for cards and list rows, truncated to [maxChars].

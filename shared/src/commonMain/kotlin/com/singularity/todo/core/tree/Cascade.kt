@@ -72,7 +72,10 @@ inline fun <T, K, V> List<T>.cascadeUp(
  * @param allTasks All tasks in the current context — used for ancestor lookup.
  * @param allProjects All projects — each project carries a colour value.
  */
-fun Task.cascadeProjectColor(allTasks: List<Task>, allProjects: List<Project>): Int? {
+fun Task.cascadeProjectColor(
+    allTasks: List<Task>,
+    allProjects: List<Project>,
+): Int? {
     val projectIndex = allProjects.associateBy { it.id }
     return allTasks.cascadeUp(
         startNode = this,

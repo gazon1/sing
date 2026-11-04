@@ -14,16 +14,17 @@ import com.singularity.todo.feature.tags.domain.model.TagGroupId
  * delete, and the search index reads tags through the same mapper — a tag
  * found by a search has to be the same tag a repository would return.
  */
-internal fun TagEntity.toTag(): Tag = Tag(
-    id = TagId.fromString(id),
-    name = name,
-    color = color,
-    createdAt = createdAt.toInstant(),
-    updatedAt = updatedAt.toInstant(),
-    groupId = groupId?.let { TagGroupId.fromString(it) },
-    sortOrder = sortOrder,
-    deletedAt = deletedAt.toInstantOrNull(),
-    userId = UserId(userId),
-    serverVersion = sync.serverVersion,
-    hlc = sync.hlc?.let { Hlc(it) },
-)
+internal fun TagEntity.toTag(): Tag =
+    Tag(
+        id = TagId.fromString(id),
+        name = name,
+        color = color,
+        createdAt = createdAt.toInstant(),
+        updatedAt = updatedAt.toInstant(),
+        groupId = groupId?.let { TagGroupId.fromString(it) },
+        sortOrder = sortOrder,
+        deletedAt = deletedAt.toInstantOrNull(),
+        userId = UserId(userId),
+        serverVersion = sync.serverVersion,
+        hlc = sync.hlc?.let { Hlc(it) },
+    )

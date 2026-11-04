@@ -1,10 +1,10 @@
 package com.singularity.todo.core.process
 
+import kotlinx.coroutines.delay
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.delay
 
 /**
  * Owns a spawned process and everything it started.
@@ -145,7 +145,8 @@ class ProcessTree(private val root: ProcessHandle, private val gracePeriod: Dura
      * root, not *how far down* they are, and "deepest first" needs the distance.
      */
     private fun descendantsDeepestFirst(): List<ProcessHandle> =
-        root.descendants()
+        root
+            .descendants()
             .toList()
             .map { handle -> handle to depthOf(handle) }
             .sortedByDescending { (_, depth) -> depth }
@@ -162,7 +163,10 @@ class ProcessTree(private val root: ProcessHandle, private val gracePeriod: Dura
     }
 
     /** Waits up to [limit] for every handle to die, and returns those that did not. */
-    private suspend fun awaitExit(handles: List<ProcessHandle>, limit: Duration): List<ProcessHandle> {
+    private suspend fun awaitExit(
+        handles: List<ProcessHandle>,
+        limit: Duration,
+    ): List<ProcessHandle> {
         if (handles.isEmpty()) return emptyList()
         val deadline = limit.inWholeMilliseconds
         var waited = 0L

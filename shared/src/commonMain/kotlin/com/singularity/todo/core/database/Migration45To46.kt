@@ -34,10 +34,9 @@ import androidx.sqlite.execSQL
  * which is exactly what "not part of a series" means. Nothing has to be
  * backfilled, and nothing can be lost.
  *
- * @see com.singularity.todo.docs.decisions.2026-10-22-task-series-materialized-copies
+ * @see `com.singularity.todo.docs.decisions.2026-10-22-task-series-materialized-copies`
  */
 class Migration45To46 : Migration(45, 46) {
-
     override suspend fun migrate(connection: SQLiteConnection) {
         connection.execSQL("ALTER TABLE `tasks` ADD COLUMN `series_id` TEXT")
         connection.execSQL(

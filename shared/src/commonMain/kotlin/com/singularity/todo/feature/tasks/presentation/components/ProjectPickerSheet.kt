@@ -38,14 +38,19 @@ import org.koin.compose.koinInject
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("FunctionSignature")
 @Composable
-fun ProjectPickerSheet(selectedId: ProjectId?, onSelect: (ProjectId?) -> Unit, onDismiss: () -> Unit) {
+fun ProjectPickerSheet(
+    selectedId: ProjectId?,
+    onSelect: (ProjectId?) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val projectsRepo: ProjectsRepository = koinInject()
     val allProjects by projectsRepo.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
 
     // Filter to only non-deleted projects, sorted by name
-    val activeProjects = allProjects
-        .filter { !it.isDeleted }
-        .sortedBy { it.name.lowercase() }
+    val activeProjects =
+        allProjects
+            .filter { !it.isDeleted }
+            .sortedBy { it.name.lowercase() }
 
     TaskEditorSheetHost(
         title = "Project",
@@ -53,31 +58,34 @@ fun ProjectPickerSheet(selectedId: ProjectId?, onSelect: (ProjectId?) -> Unit, o
     ) {
         // "No project" option
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onSelect(null) }
-                .padding(vertical = 12.dp, horizontal = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelect(null) }
+                    .padding(vertical = 12.dp, horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = if (selectedId == null) Icons.Filled.FolderOpen else Icons.Filled.Folder,
                 contentDescription = null,
-                tint = if (selectedId == null) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+                tint =
+                    if (selectedId == null) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 modifier = Modifier.size(24.dp),
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = "No project",
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (selectedId == null) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
+                color =
+                    if (selectedId == null) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
                 modifier = Modifier.weight(1f),
             )
             if (selectedId == null) {
@@ -114,9 +122,10 @@ fun ProjectPickerSheet(selectedId: ProjectId?, onSelect: (ProjectId?) -> Unit, o
         Spacer(modifier = Modifier.height(16.dp))
 
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.End,
         ) {
             TextButton(onClick = onDismiss) {
@@ -128,33 +137,40 @@ fun ProjectPickerSheet(selectedId: ProjectId?, onSelect: (ProjectId?) -> Unit, o
 
 @Suppress("FunctionSignature")
 @Composable
-private fun ProjectItem(project: Project, isSelected: Boolean, onSelect: () -> Unit) {
+private fun ProjectItem(
+    project: Project,
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onSelect() }
-            .padding(vertical = 12.dp, horizontal = 4.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable { onSelect() }
+                .padding(vertical = 12.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = if (isSelected) Icons.Filled.FolderOpen else Icons.Filled.Folder,
             contentDescription = null,
-            tint = if (isSelected) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+            tint =
+                if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             modifier = Modifier.size(24.dp),
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = project.name,
             style = MaterialTheme.typography.bodyLarge,
-            color = if (isSelected) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
+            color =
+                if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
             modifier = Modifier.weight(1f),
         )
         if (isSelected) {

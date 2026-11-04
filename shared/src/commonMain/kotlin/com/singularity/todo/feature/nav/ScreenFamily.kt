@@ -14,16 +14,27 @@ package com.singularity.todo.feature.nav
  */
 sealed interface ScreenFamily {
     data object Agenda : ScreenFamily
+
     data object Plans : ScreenFamily
+
     data object Tasks : ScreenFamily
+
     data object Projects : ScreenFamily
+
     data object Notes : ScreenFamily
+
     data object Calendar : ScreenFamily
+
     data object Pomodoro : ScreenFamily
+
     data object Statistics : ScreenFamily
+
     data object Search : ScreenFamily
+
     data object Settings : ScreenFamily
+
     data object AiChat : ScreenFamily
+
     data object Archive : ScreenFamily
 }
 
@@ -42,86 +53,88 @@ sealed interface ScreenFamily {
  * under the CyclomaticComplexMethod limit (16 destinations + 13 route kinds in one
  * `when` scores 24 > 20).
  */
-fun familyOf(key: AppNavKey): ScreenFamily = when (key) {
-    is AppDestination -> familyOfDestination(key)
+fun familyOf(key: AppNavKey): ScreenFamily =
+    when (key) {
+        is AppDestination -> familyOfDestination(key)
 
-    // Nested-but-AppNavKey start routes: declared inside AppDestination's body yet
-    // extending AppNavKey (not AppDestination), so `is AppDestination` does not cover them.
-    is AppDestination.TasksStartRoute -> ScreenFamily.Tasks
+        // Nested-but-AppNavKey start routes: declared inside AppDestination's body yet
+        // extending AppNavKey (not AppDestination), so `is AppDestination` does not cover them.
+        is AppDestination.TasksStartRoute -> ScreenFamily.Tasks
 
-    is AppDestination.ProjectsStartRoute -> ScreenFamily.Projects
+        is AppDestination.ProjectsStartRoute -> ScreenFamily.Projects
 
-    is AppDestination.NotesStartRoute -> ScreenFamily.Notes
+        is AppDestination.NotesStartRoute -> ScreenFamily.Notes
 
-    is AppDestination.CalendarStartRoute -> ScreenFamily.Calendar
+        is AppDestination.CalendarStartRoute -> ScreenFamily.Calendar
 
-    is AgendaStartRoute -> ScreenFamily.Agenda
+        is AgendaStartRoute -> ScreenFamily.Agenda
 
-    is TasksRoute -> ScreenFamily.Tasks
+        is TasksRoute -> ScreenFamily.Tasks
 
-    is ProjectsRoute -> ScreenFamily.Projects
+        is ProjectsRoute -> ScreenFamily.Projects
 
-    is NotesRoute -> ScreenFamily.Notes
+        is NotesRoute -> ScreenFamily.Notes
 
-    is CalendarRoute -> ScreenFamily.Calendar
+        is CalendarRoute -> ScreenFamily.Calendar
 
-    Settings -> ScreenFamily.Settings
+        Settings -> ScreenFamily.Settings
 
-    Search -> ScreenFamily.Search
-}
+        Search -> ScreenFamily.Search
+    }
 
 /** Classifies an [AppDestination] — see [familyOf]. Split out for method complexity. */
-private fun familyOfDestination(key: AppDestination): ScreenFamily = when (key) {
-    is AppDestination.ProjectEditor,
-    is AppDestination.ProjectDetail,
-    is AppDestination.ProjectsGraph,
-    -> ScreenFamily.Projects
+private fun familyOfDestination(key: AppDestination): ScreenFamily =
+    when (key) {
+        is AppDestination.ProjectEditor,
+        is AppDestination.ProjectDetail,
+        is AppDestination.ProjectsGraph,
+        -> ScreenFamily.Projects
 
-    is AppDestination.TasksGraph,
-    is AppDestination.TasksByProject,
-    // The attachment viewer is reached from the task detail screen, so it belongs to
-    // Tasks for navigation purposes: it is not a family of its own, because the viewer
-    // holds no list state and nothing in the shell renders chrome per family. A new
-    // family would add a case to every consumer of this function and buy nothing.
-    is AppDestination.AttachmentViewer,
-    -> ScreenFamily.Tasks
+        is AppDestination.TasksGraph,
+        is AppDestination.TasksByProject,
+        // The attachment viewer is reached from the task detail screen, so it belongs to
+        // Tasks for navigation purposes: it is not a family of its own, because the viewer
+        // holds no list state and nothing in the shell renders chrome per family. A new
+        // family would add a case to every consumer of this function and buy nothing.
+        is AppDestination.AttachmentViewer,
+        -> ScreenFamily.Tasks
 
-    // The timeline is its own feature: it is the plan of the work ahead, not a
-    // list of projects that happens to be arranged by date.
-    AppDestination.Plans -> ScreenFamily.Plans
+        // The timeline is its own feature: it is the plan of the work ahead, not a
+        // list of projects that happens to be arranged by date.
+        AppDestination.Plans -> ScreenFamily.Plans
 
-    AppDestination.Pomodoro -> ScreenFamily.Pomodoro
+        AppDestination.Pomodoro -> ScreenFamily.Pomodoro
 
-    AppDestination.Statistics -> ScreenFamily.Statistics
+        AppDestination.Statistics -> ScreenFamily.Statistics
 
-    AppDestination.Calendar,
-    is AppDestination.CalendarGraph,
-    -> ScreenFamily.Calendar
+        AppDestination.Calendar,
+        is AppDestination.CalendarGraph,
+        -> ScreenFamily.Calendar
 
-    AppDestination.Notes,
-    is AppDestination.NotesGraph,
-    -> ScreenFamily.Notes
+        AppDestination.Notes,
+        is AppDestination.NotesGraph,
+        -> ScreenFamily.Notes
 
-    // The review screen shows what the assistant proposed, so it belongs to the
-    // assistant's family: opening it from the chat is a push within one feature.
-    AppDestination.AiChat,
-    AppDestination.Proposals,
-    // The external agent is an assistant too: it hosts a conversation and shows what
-    // the agent did, so opening it from the chat is a push within one family.
-    AppDestination.ExternalAgent,
-    -> ScreenFamily.AiChat
+        // The review screen shows what the assistant proposed, so it belongs to the
+        // assistant's family: opening it from the chat is a push within one feature.
+        AppDestination.AiChat,
+        AppDestination.Proposals,
+        // The external agent is an assistant too: it hosts a conversation and shows what
+        // the agent did, so opening it from the chat is a push within one family.
+        AppDestination.ExternalAgent,
+        -> ScreenFamily.AiChat
 
-    AppDestination.Search -> ScreenFamily.Search
+        AppDestination.Search -> ScreenFamily.Search
 
-    AppDestination.Archive -> ScreenFamily.Archive
+        AppDestination.Archive -> ScreenFamily.Archive
 
-    AppDestination.Settings,
-    AppDestination.AiUsage,
-    AppDestination.ProfileSwitcher,
-    AppDestination.AttachAccount,
-    AppDestination.ChangePassword,
-    is AppDestination.MagicLinkConfirm,
-    -> ScreenFamily.Settings
+        AppDestination.Settings,
+        AppDestination.AiUsage,
+        AppDestination.ProfileSwitcher,
+        AppDestination.AttachAccount,
+        AppDestination.ChangePassword,
+        is AppDestination.MagicLinkConfirm,
+        -> ScreenFamily.Settings
 
-    is AppDestination.AgendaGraph -> ScreenFamily.Agenda
-}
+        is AppDestination.AgendaGraph -> ScreenFamily.Agenda
+    }

@@ -6,20 +6,20 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.entryProvider
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.ui.NavDisplay
-import org.koin.compose.koinInject
 import com.singularity.todo.feature.nav.AppDestination
-import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.ProjectsRoute
 import com.singularity.todo.feature.nav.SystemBackHandler
+import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.rememberAppNavBackStack
 import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.projects.presentation.screen.ProjectDetailScreen
 import com.singularity.todo.feature.projects.presentation.screen.ProjectEditorScreen
 import com.singularity.todo.feature.projects.presentation.screen.ProjectsScreen
+import org.koin.compose.koinInject
 
 /**
  * The nested navigation graph of the projects feature.
@@ -43,9 +43,10 @@ fun ProjectsNavGraph(
     backStack: NavBackStack<ProjectsRoute>? = null,
 ) {
     val stack: NavBackStack<ProjectsRoute> = backStack ?: rememberAppNavBackStack(start)
-    val navigator = remember(stack, onExitGraph) {
-        ProjectsNavigator(stack, onExitGraph)
-    }
+    val navigator =
+        remember(stack, onExitGraph) {
+            ProjectsNavigator(stack, onExitGraph)
+        }
 
     // The menu's tree asks for a project to be opened from outside the graph.
     // The request is picked up here, where the project's screen lives.
@@ -85,8 +86,9 @@ fun ProjectsNavGraph(
  * nested graph — the map from each [ProjectsRoute] variant to the screen that renders it.
  */
 @Composable
-internal fun projectsScreenEntryProvider() = entryProvider {
-    entry<ProjectsRoute.List>(clazzContentKey = { it.stableContentKey() }) { ProjectsScreen() }
-    entry<ProjectsRoute.Editor>(clazzContentKey = { it.stableContentKey() }) { ProjectEditorScreen(it.projectId) }
-    entry<ProjectsRoute.Detail>(clazzContentKey = { it.stableContentKey() }) { ProjectDetailScreen(it.projectId) }
-}
+internal fun projectsScreenEntryProvider() =
+    entryProvider {
+        entry<ProjectsRoute.List>(clazzContentKey = { it.stableContentKey() }) { ProjectsScreen() }
+        entry<ProjectsRoute.Editor>(clazzContentKey = { it.stableContentKey() }) { ProjectEditorScreen(it.projectId) }
+        entry<ProjectsRoute.Detail>(clazzContentKey = { it.stableContentKey() }) { ProjectDetailScreen(it.projectId) }
+    }

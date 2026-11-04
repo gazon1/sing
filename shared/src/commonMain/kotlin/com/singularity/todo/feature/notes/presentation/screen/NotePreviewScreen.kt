@@ -42,7 +42,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -60,15 +59,16 @@ import com.mohamedrejeb.richeditor.annotation.ExperimentalRichTextApi
 import com.mohamedrejeb.richeditor.model.rememberRichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichText
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.links.InternalLinkSchemes
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.refresh.RefreshableContent
-import com.singularity.todo.core.links.InternalLinkSchemes
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
+import com.singularity.todo.core.ui.detail.ConfirmationSheet
 import com.singularity.todo.core.ui.text.SelectableTextGroup
 import com.singularity.todo.core.ui.text.rememberAppUriHandler
-import com.singularity.todo.core.ui.detail.ConfirmationSheet
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
@@ -79,10 +79,10 @@ import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreviewIntent
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreviewState
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.debounce
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
@@ -92,6 +92,7 @@ import kotlin.time.Instant
 
 private sealed interface NotePreviewSheet {
     data object DeleteConfirm : NotePreviewSheet
+
     data object Backlinks : NotePreviewSheet
 }
 
@@ -99,7 +100,10 @@ private sealed interface NotePreviewSheet {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotePreviewScreen(route: NotesRoute.Preview, viewModel: NotePreview = koinViewModel()) {
+fun NotePreviewScreen(
+    route: NotesRoute.Preview,
+    viewModel: NotePreview = koinViewModel(),
+) {
     val navigator = LocalNotesNavigator.current
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val sheets = rememberOverlayState<NotePreviewSheet>()
@@ -187,16 +191,18 @@ fun NotePreviewScreenContent(
             if (state is NotePreviewState.Loaded) {
                 BottomAppBar {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         FilledTonalButton(
                             onClick = onEdit,
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag(TestTags.noteAction("edit")),
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .testTag(TestTags.noteAction("edit")),
                         ) {
                             Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
@@ -204,9 +210,10 @@ fun NotePreviewScreenContent(
                         }
                         OutlinedButton(
                             onClick = onDelete,
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag(TestTags.noteAction("delete")),
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .testTag(TestTags.noteAction("delete")),
                         ) {
                             Icon(
                                 Icons.Default.Delete,
@@ -226,9 +233,10 @@ fun NotePreviewScreenContent(
             when (state) {
                 NotePreviewState.Loading -> {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding),
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(padding),
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator()
@@ -237,9 +245,10 @@ fun NotePreviewScreenContent(
 
                 NotePreviewState.NotFound -> {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding),
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(padding),
                         contentAlignment = Alignment.Center,
                     ) {
                         EmptyState(title = "Note not found")
@@ -249,10 +258,11 @@ fun NotePreviewScreenContent(
                 is NotePreviewState.Loaded -> {
                     val note = state.note
                     Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
-                            .verticalScroll(rememberScrollState()),
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(padding)
+                                .verticalScroll(rememberScrollState()),
                     ) {
                         // Hero: title
                         Text(
@@ -305,7 +315,10 @@ fun NotePreviewScreenContent(
  * three of these.
  */
 @Composable
-private fun MetaChipsRow(note: Note, modifier: Modifier = Modifier) {
+private fun MetaChipsRow(
+    note: Note,
+    modifier: Modifier = Modifier,
+) {
     Row(
         modifier = modifier.padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -328,12 +341,12 @@ private fun MetaLabel(text: String) {
         text = text,
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier
-            .background(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = MaterialTheme.shapes.extraSmall,
-            )
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+        modifier =
+            Modifier
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = MaterialTheme.shapes.extraSmall,
+                ).padding(horizontal = 8.dp, vertical = 4.dp),
     )
 }
 
@@ -341,17 +354,22 @@ private fun MetaLabel(text: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BacklinksSheet(backlinks: ImmutableList<Note>, onNoteSelected: (NoteId) -> Unit, onDismiss: () -> Unit) {
+private fun BacklinksSheet(
+    backlinks: ImmutableList<Note>,
+    onNoteSelected: (NoteId) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .padding(bottom = 32.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .padding(bottom = 32.dp),
         ) {
             Text(
                 "Backlinks",
@@ -429,12 +447,13 @@ private fun NotePreviewBody(
     // is read by the app's own handler — which is given *this screen's* callbacks, not
     // the app-wide one: a note links to another note, and moving between the two
     // inside the notes graph is this screen's business.
-    val appUriHandler = rememberAppUriHandler { link ->
-        when (link.target.scheme) {
-            InternalLinkSchemes.NOTE -> onNavigateToNote(NoteId.fromString(link.target.id))
-            InternalLinkSchemes.TASK -> onNavigateToTask(TaskId.fromString(link.target.id))
+    val appUriHandler =
+        rememberAppUriHandler { link ->
+            when (link.target.scheme) {
+                InternalLinkSchemes.NOTE -> onNavigateToNote(NoteId.fromString(link.target.id))
+                InternalLinkSchemes.TASK -> onNavigateToTask(TaskId.fromString(link.target.id))
+            }
         }
-    }
 
     androidx.compose.runtime.CompositionLocalProvider(
         LocalUriHandler provides appUriHandler,
@@ -471,41 +490,45 @@ private fun formatRelativeShort(updatedAt: Instant): String {
 
 @Preview
 @Composable
-private fun NotePreviewLoadingPreview() = NotesPreviewWrapper {
-    NotePreviewScreenContent(
-        state = NotePreviewState.Loading,
-        onBack = {},
-        onEdit = {},
-        onDelete = {},
-        onBacklinksClick = {},
-        onNavigateToNote = {},
-        onNavigateToTask = {},
-    )
-}
+private fun NotePreviewLoadingPreview() =
+    NotesPreviewWrapper {
+        NotePreviewScreenContent(
+            state = NotePreviewState.Loading,
+            onBack = {},
+            onEdit = {},
+            onDelete = {},
+            onBacklinksClick = {},
+            onNavigateToNote = {},
+            onNavigateToTask = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun NotePreviewLoadedPreview() = NotesPreviewWrapper {
-    val note = Note(
-        id = NoteId.fromString("n1"),
-        userId = UserId.anonymous,
-        title = "Meeting Notes",
-        bodyHtml = "<p>Discussed <b>Q4 goals</b> with the team.</p>",
-        wordCount = 8,
-        charCount = 47,
-        createdAt = Clock.System.now(),
-        updatedAt = Clock.System.now(),
-    )
-    NotePreviewScreenContent(
-        state = NotePreviewState.Loaded(
-            note = note,
-            backlinks = persistentListOf(),
-        ),
-        onBack = {},
-        onEdit = {},
-        onDelete = {},
-        onBacklinksClick = {},
-        onNavigateToNote = {},
-        onNavigateToTask = {},
-    )
-}
+private fun NotePreviewLoadedPreview() =
+    NotesPreviewWrapper {
+        val note =
+            Note(
+                id = NoteId.fromString("n1"),
+                userId = UserId.anonymous,
+                title = "Meeting Notes",
+                bodyHtml = "<p>Discussed <b>Q4 goals</b> with the team.</p>",
+                wordCount = 8,
+                charCount = 47,
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
+            )
+        NotePreviewScreenContent(
+            state =
+                NotePreviewState.Loaded(
+                    note = note,
+                    backlinks = persistentListOf(),
+                ),
+            onBack = {},
+            onEdit = {},
+            onDelete = {},
+            onBacklinksClick = {},
+            onNavigateToNote = {},
+            onNavigateToTask = {},
+        )
+    }

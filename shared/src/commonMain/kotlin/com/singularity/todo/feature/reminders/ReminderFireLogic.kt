@@ -13,7 +13,6 @@ package com.singularity.todo.feature.reminders
  * after creating the reminder.
  */
 internal object ReminderFireLogic {
-
     /**
      * Result of firing a reminder.
      *
@@ -32,11 +31,15 @@ internal object ReminderFireLogic {
      * @param reminder The reminder that is firing.
      * @param taskTitle Fresh task title from Room DB (may be `null` if task was deleted).
      */
-    fun execute(reminder: Reminder, taskTitle: String?): Outcome = Outcome(
-        title = taskTitle?.let { "Reminder: $it" } ?: "Task Reminder",
-        body = "A reminder is due",
-        shouldDelete = shouldDeleteAfterFire(reminder),
-    )
+    fun execute(
+        reminder: Reminder,
+        taskTitle: String?,
+    ): Outcome =
+        Outcome(
+            title = taskTitle?.let { "Reminder: $it" } ?: "Task Reminder",
+            body = "A reminder is due",
+            shouldDelete = shouldDeleteAfterFire(reminder),
+        )
 
     /**
      * Whether [reminder] is retired once it has fired.

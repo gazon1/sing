@@ -13,7 +13,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class BackActionTest {
-
     @Test
     fun `the keyboard open means the keyboard is what back is for`() {
         assertEquals(

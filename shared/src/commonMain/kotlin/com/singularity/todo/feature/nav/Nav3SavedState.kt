@@ -39,13 +39,15 @@ import kotlinx.serialization.modules.subclassesOfSealed
  * `as NavBackStack<T>` cast. See `docs/decisions/2026-09-16-nav3-type-asymmetry-adr.md`.
  */
 @OptIn(ExperimentalSerializationApi::class)
-internal fun navSavedStateConfig(): SavedStateConfiguration = SavedStateConfiguration {
-    serializersModule = SerializersModule {
-        polymorphic(NavKey::class) {
-            subclassesOfSealed(AppNavKey.serializer())
-        }
+internal fun navSavedStateConfig(): SavedStateConfiguration =
+    SavedStateConfiguration {
+        serializersModule =
+            SerializersModule {
+                polymorphic(NavKey::class) {
+                    subclassesOfSealed(AppNavKey.serializer())
+                }
+            }
     }
-}
 
 /**
  * Creates an in-memory [NavBackStack] for use on JVM Desktop, where process-death

@@ -19,7 +19,6 @@ import kotlinx.serialization.json.jsonPrimitive
  * function has to be remembered in.
  */
 class A2uiFunctionRegistry(functions: Map<String, A2uiFunction> = BuiltinFunctions.ALL) {
-
     private val functions: Map<String, A2uiFunction> = functions
 
     /** Returns the function called [name], or null when this client has no such function. */
@@ -36,8 +35,11 @@ class A2uiFunctionRegistry(functions: Map<String, A2uiFunction> = BuiltinFunctio
      * plausible-looking wrong date is worse than returning nothing, and the model is told about
      * both cases by the parse-time check.
      */
-    fun call(name: String, args: List<JsonElement>, ctx: A2uiFunctionContext): JsonElement? =
-        resolve(name)?.call(args, ctx)
+    fun call(
+        name: String,
+        args: List<JsonElement>,
+        ctx: A2uiFunctionContext,
+    ): JsonElement? = resolve(name)?.call(args, ctx)
 }
 
 /**
@@ -53,7 +55,6 @@ class A2uiFunctionRegistry(functions: Map<String, A2uiFunction> = BuiltinFunctio
  * second copy in the catalogue would be a third.
  */
 object BuiltinFunctions {
-
     /** All built-ins by name, for [A2uiFunctionRegistry]. */
     val ALL: Map<String, A2uiFunction> = A2uiDateFunctions.ALL + A2uiTextFunctions.ALL
 }
@@ -66,38 +67,51 @@ object BuiltinFunctions {
  * one screen. Each one therefore calls an existing formatter rather than formatting anything itself.
  */
 internal object A2uiDateFunctions {
-
-    val ALL: Map<String, A2uiFunction> = mapOf(
-        "formatDate" to A2uiFunction { args, ctx -> formatDate(args, ctx) },
-        "formatRelative" to A2uiFunction { args, ctx -> formatRelative(args, ctx) },
-        "formatNumber" to A2uiFunction { args, _ -> formatNumber(args) },
-        "formatBytes" to A2uiFunction { args, _ -> formatBytes(args) },
-    )
+    val ALL: Map<String, A2uiFunction> =
+        mapOf(
+            "formatDate" to A2uiFunction { args, ctx -> formatDate(args, ctx) },
+            "formatRelative" to A2uiFunction { args, ctx -> formatRelative(args, ctx) },
+            "formatNumber" to A2uiFunction { args, _ -> formatNumber(args) },
+            "formatBytes" to A2uiFunction { args, _ -> formatBytes(args) },
+        )
 
     /** `formatDate(value, style)` with style one of absolute, relative, both. */
-    private fun formatDate(args: List<JsonElement>, ctx: A2uiFunctionContext): JsonElement? {
+    private fun formatDate(
+        args: List<JsonElement>,
+        ctx: A2uiFunctionContext,
+    ): JsonElement? {
         val date: LocalDate = localDate(args, 0) ?: return null
         val style: String = text(args, 1) ?: "absolute"
         return when (style) {
-            "relative" -> relative(date, ctx.today)?.let(::JsonPrimitive)
+            "relative" -> {
+                relative(date, ctx.today)?.let(::JsonPrimitive)
+            }
 
             "both" -> {
                 val relativeText: String = relative(date, ctx.today) ?: return null
-                val absoluteText: String = formatRussianDueDate(date) ?: return null
+                val absoluteText: String = formatRussianDueDate(date)
                 JsonPrimitive("$relativeText, $absoluteText")
             }
 
-            else -> JsonPrimitive(formatRussianDueDate(date) ?: date.toString())
+            else -> {
+                JsonPrimitive(formatRussianDueDate(date))
+            }
         }
     }
 
     /** `formatRelative(value)` — "Today", "Tomorrow", or a date. */
-    private fun formatRelative(args: List<JsonElement>, ctx: A2uiFunctionContext): JsonElement? {
+    private fun formatRelative(
+        args: List<JsonElement>,
+        ctx: A2uiFunctionContext,
+    ): JsonElement? {
         val date: LocalDate = localDate(args, 0) ?: return null
         return relative(date, ctx.today)?.let(::JsonPrimitive)
     }
 
-    private fun relative(date: LocalDate, today: LocalDate): String? = formatDueChip(date, null, today)?.text
+    private fun relative(
+        date: LocalDate,
+        today: LocalDate,
+    ): String? = formatDueChip(date, null, today)?.text
 
     /**
      * Groups thousands with spaces, the way the rest of the app writes them.
@@ -109,11 +123,13 @@ internal object A2uiDateFunctions {
     private fun formatNumber(args: List<JsonElement>): JsonElement? {
         val number: Double = args.firstOrNull()?.jsonPrimitive?.doubleOrNull ?: return null
         val rounded: Long = number.toLong()
-        val grouped: String = rounded.toString()
-            .reversed()
-            .chunked(3)
-            .joinToString(" ")
-            .reversed()
+        val grouped: String =
+            rounded
+                .toString()
+                .reversed()
+                .chunked(3)
+                .joinToString(" ")
+                .reversed()
         return JsonPrimitive(grouped)
     }
 
@@ -122,8 +138,10 @@ internal object A2uiDateFunctions {
         return JsonPrimitive(formatFileSize(number.toLong()))
     }
 
-    private fun localDate(args: List<JsonElement>, index: Int): LocalDate? =
-        text(args, index)?.let { raw -> runCatching { LocalDate.parse(raw.take(10)) }.getOrNull() }
+    private fun localDate(
+        args: List<JsonElement>,
+        index: Int,
+    ): LocalDate? = text(args, index)?.let { raw -> runCatching { LocalDate.parse(raw.take(10)) }.getOrNull() }
 }
 
 /**
@@ -136,14 +154,14 @@ internal object A2uiDateFunctions {
  * later would be a defect neither name would have pointed at.
  */
 internal object A2uiTextFunctions {
-
-    val ALL: Map<String, A2uiFunction> = mapOf(
-        "upper" to A2uiFunction { args, _ -> text(args, 0)?.uppercase()?.let(::JsonPrimitive) },
-        "lower" to A2uiFunction { args, _ -> text(args, 0)?.lowercase()?.let(::JsonPrimitive) },
-        "join" to A2uiFunction { args, _ -> join(args) },
-        "default" to A2uiFunction { args, _ -> firstOrFallback(args) },
-        "ifEmpty" to A2uiFunction { args, _ -> firstOrFallback(args) },
-    )
+    val ALL: Map<String, A2uiFunction> =
+        mapOf(
+            "upper" to A2uiFunction { args, _ -> text(args, 0)?.uppercase()?.let(::JsonPrimitive) },
+            "lower" to A2uiFunction { args, _ -> text(args, 0)?.lowercase()?.let(::JsonPrimitive) },
+            "join" to A2uiFunction { args, _ -> join(args) },
+            "default" to A2uiFunction { args, _ -> firstOrFallback(args) },
+            "ifEmpty" to A2uiFunction { args, _ -> firstOrFallback(args) },
+        )
 
     private fun join(args: List<JsonElement>): JsonElement? {
         val array: JsonArray = args.firstOrNull() as? JsonArray ?: return null
@@ -160,8 +178,10 @@ internal object A2uiTextFunctions {
 }
 
 /** The argument reader every function shares: a positional string, or nothing. */
-internal fun text(args: List<JsonElement>, index: Int): String? =
-    args.getOrNull(index)?.jsonPrimitive?.contentOrNull
+internal fun text(
+    args: List<JsonElement>,
+    index: Int,
+): String? = args.getOrNull(index)?.jsonPrimitive?.contentOrNull
 
 private fun JsonElement.asText(): String? = jsonPrimitive.contentOrNull
 

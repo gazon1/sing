@@ -41,45 +41,48 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class TestScopeSemanticsTest {
+    @Test
+    fun `advanceUntilIdle does not run background work when the foreground is idle`() =
+        runTest {
+            val hits = mutableListOf<String>()
+            backgroundScope.launch { hits += "bg" }
+
+            advanceUntilIdle()
+
+            assertEquals(emptyList(), hits, "advanceUntilIdle must not pump an idle foreground's background work")
+        }
 
     @Test
-    fun `advanceUntilIdle does not run background work when the foreground is idle`() = runTest {
-        val hits = mutableListOf<String>()
-        backgroundScope.launch { hits += "bg" }
+    fun `background work runs alongside pending foreground work`() =
+        runTest {
+            val hits = mutableListOf<String>()
+            backgroundScope.launch { hits += "bg" }
 
-        advanceUntilIdle()
+            launch { hits += "fg" }
+            advanceUntilIdle()
 
-        assertEquals(emptyList(), hits, "advanceUntilIdle must not pump an idle foreground's background work")
-    }
-
-    @Test
-    fun `background work runs alongside pending foreground work`() = runTest {
-        val hits = mutableListOf<String>()
-        backgroundScope.launch { hits += "bg" }
-
-        launch { hits += "fg" }
-        advanceUntilIdle()
-
-        assertEquals(listOf("bg", "fg"), hits)
-    }
+            assertEquals(listOf("bg", "fg"), hits)
+        }
 
     @Test
-    fun `runCurrent runs queued background work unconditionally`() = runTest {
-        val hits = mutableListOf<String>()
-        backgroundScope.launch { hits += "bg" }
+    fun `runCurrent runs queued background work unconditionally`() =
+        runTest {
+            val hits = mutableListOf<String>()
+            backgroundScope.launch { hits += "bg" }
 
-        runCurrent()
+            runCurrent()
 
-        assertEquals(listOf("bg"), hits)
-    }
+            assertEquals(listOf("bg"), hits)
+        }
 
     @Test
-    fun `foreground work is always advanced by advanceUntilIdle`() = runTest {
-        val hits = mutableListOf<String>()
-        launch { hits += "fg" }
+    fun `foreground work is always advanced by advanceUntilIdle`() =
+        runTest {
+            val hits = mutableListOf<String>()
+            launch { hits += "fg" }
 
-        advanceUntilIdle()
+            advanceUntilIdle()
 
-        assertEquals(listOf("fg"), hits)
-    }
+            assertEquals(listOf("fg"), hits)
+        }
 }

@@ -17,7 +17,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TaskComputedTest {
-
     private val testUserId = UserId("test-user")
     private val today = LocalDate(2026, Month.SEPTEMBER, 16)
 
@@ -30,32 +29,33 @@ class TaskComputedTest {
         endTime: LocalTime? = null,
         completedAt: kotlin.time.Instant? = null,
         archivedAt: kotlin.time.Instant? = null,
-    ): Task = Task(
-        id = TaskId.generate(),
-        title = "Test",
-        description = null,
-        priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.None,
-        kind = com.singularity.todo.feature.tasks.domain.model.TaskKind.Task,
-        projectId = null,
-        parentTaskId = null,
-        tags = emptyList(),
-        dueDate = dueDate,
-        dueTime = dueTime,
-        startDate = startDate,
-        startTime = startTime,
-        endDate = endDate,
-        endTime = endTime,
-        accentColor = null,
-        emoji = null,
-        completedAt = completedAt,
-        someday = false,
-        archivedAt = archivedAt,
-        isPinned = false,
-        blockedBy = emptySet(),
-        createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-        updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-        userId = testUserId,
-    )
+    ): Task =
+        Task(
+            id = TaskId.generate(),
+            title = "Test",
+            description = null,
+            priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.None,
+            kind = com.singularity.todo.feature.tasks.domain.model.TaskKind.Task,
+            projectId = null,
+            parentTaskId = null,
+            tags = emptyList(),
+            dueDate = dueDate,
+            dueTime = dueTime,
+            startDate = startDate,
+            startTime = startTime,
+            endDate = endDate,
+            endTime = endTime,
+            accentColor = null,
+            emoji = null,
+            completedAt = completedAt,
+            someday = false,
+            archivedAt = archivedAt,
+            isPinned = false,
+            blockedBy = emptySet(),
+            createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            userId = testUserId,
+        )
 
     // ─── isActive ────────────────────────────────────────────────────────────
 
@@ -103,28 +103,31 @@ class TaskComputedTest {
 
     @Test
     fun `isActive true when today is within startDate and endDate`() {
-        val t = task(
-            startDate = LocalDate(2026, Month.SEPTEMBER, 10),
-            endDate = LocalDate(2026, Month.SEPTEMBER, 20),
-        )
+        val t =
+            task(
+                startDate = LocalDate(2026, Month.SEPTEMBER, 10),
+                endDate = LocalDate(2026, Month.SEPTEMBER, 20),
+            )
         assertTrue(TaskComputed.isActive(t, today))
     }
 
     @Test
     fun `isActive false when today is before startDate even with endDate`() {
-        val t = task(
-            startDate = LocalDate(2026, Month.SEPTEMBER, 20),
-            endDate = LocalDate(2026, Month.SEPTEMBER, 30),
-        )
+        val t =
+            task(
+                startDate = LocalDate(2026, Month.SEPTEMBER, 20),
+                endDate = LocalDate(2026, Month.SEPTEMBER, 30),
+            )
         assertFalse(TaskComputed.isActive(t, today))
     }
 
     @Test
     fun `isActive false when today is after endDate even with startDate`() {
-        val t = task(
-            startDate = LocalDate(2026, Month.SEPTEMBER, 1),
-            endDate = LocalDate(2026, Month.SEPTEMBER, 10),
-        )
+        val t =
+            task(
+                startDate = LocalDate(2026, Month.SEPTEMBER, 1),
+                endDate = LocalDate(2026, Month.SEPTEMBER, 10),
+            )
         assertFalse(TaskComputed.isActive(t, today))
     }
 

@@ -11,8 +11,7 @@ tags:
   - negative
 ---
 - runFlow: ../../helpers/launch-clean.yaml
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 - scrollUntilVisible:
     element:
       id: menu_settings

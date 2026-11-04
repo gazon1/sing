@@ -3,10 +3,11 @@ package com.singularity.todo.core.backup
 import com.singularity.todo.core.database.ProfileEntity
 import kotlinx.serialization.Serializable
 
+// ─── ProfileDto (MR-2) ────────────────────────────────────────────────────────
+
 /**
  * The profile rows of a payload.
  */
-// ─── ProfileDto (MR-2) ────────────────────────────────────────────────────────
 
 @Serializable
 data class ProfileDto(

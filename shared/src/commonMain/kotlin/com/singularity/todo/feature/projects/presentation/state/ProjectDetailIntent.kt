@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.projects.presentation.state
 
 import com.singularity.todo.core.ui.MviIntent
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
  * Единая точка входа для [com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel].
@@ -16,23 +16,33 @@ import com.singularity.todo.feature.tags.domain.model.TagGroupId
  * @see com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent] — аналогичный паттерн для TaskDetailScreen.
  */
 sealed interface ProjectDetailIntent : MviIntent {
-
     // ── Routing: owned by screen ────────────────────────────────────────────
 
     sealed interface Routing : ProjectDetailIntent {
         // Sheet openers — screen sets activeSheet routing state
         data object OpenColorSheet : Routing
+
         data object OpenIconSheet : Routing
+
         data class OpenParentSheet(val currentParentId: com.singularity.todo.feature.projects.domain.model.ProjectId?) :
             Routing
+
         data object OpenDueDateSheet : Routing
+
         data object OpenChildrenSheet : Routing
+
         data object OpenInheritedTagGroupsSheet : Routing
+
         data object OpenDeleteSheet : Routing
+
         data object OpenArchiveSheet : Routing
+
         data object OpenCloseSheet : Routing
+
         data object OpenReminderSheet : Routing
+
         data object OpenAttachmentSheet : Routing
+
         data class NavigateToChild(val projectId: com.singularity.todo.feature.projects.domain.model.ProjectId) :
             Routing
     }
@@ -40,7 +50,6 @@ sealed interface ProjectDetailIntent : MviIntent {
     // ── Domain: owned by ViewModel ──────────────────────────────────────────
 
     sealed interface Domain : ProjectDetailIntent {
-
         // ── Visibility ─────────────────────────────────────────────────────
 
         data object ToggleHideCompleted : Domain
@@ -66,19 +75,25 @@ sealed interface ProjectDetailIntent : MviIntent {
         // ── Inline edits (debounced in VM) ────────────────────────────────
 
         data class UpdateName(val name: String) : Domain
+
         data class UpdateDescription(val description: String?) : Domain
 
         // ── Pickers ───────────────────────────────────────────────────────
 
         data class UpdateColor(val color: Int) : Domain
+
         data class UpdateIcon(val icon: String?) : Domain
+
         data class UpdateParent(val parentId: com.singularity.todo.feature.projects.domain.model.ProjectId?) : Domain
+
         data class UpdateInheritedTagGroups(val groupIds: Set<TagGroupId>) : Domain
+
         data class UpdateDueDate(val dueDate: kotlinx.datetime.LocalDate?) : Domain
 
         // ── Lifecycle ─────────────────────────────────────────────────────
 
         data object ToggleArchive : Domain
+
         data object Delete : Domain
 
         /**
@@ -108,9 +123,13 @@ sealed interface ProjectDetailIntent : MviIntent {
         // ── Tasks ─────────────────────────────────────────────────────────
 
         data class CreateTask(val title: String) : Domain
+
         data class MoveTaskToProject(val taskId: TaskId) : Domain
+
         data class ToggleTaskPin(val taskId: TaskId) : Domain
+
         data class DeleteTask(val taskId: TaskId) : Domain
+
         data class RestoreTask(val taskId: TaskId) : Domain
     }
 }

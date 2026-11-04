@@ -16,7 +16,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AgentActivityTest {
-
     @Test
     fun aTextDeltaChangesNothing() {
         val state = AgentActivityState() + AgentEvent.TextDelta("hello")
@@ -35,18 +34,20 @@ class AgentActivityTest {
 
     @Test
     fun aToolCallIsAddedOnce() {
-        val state = AgentActivityState() +
-            AgentEvent.ToolCallUpdated("c1", "list_tasks", ToolCallStatus.RUNNING) +
-            AgentEvent.ToolCallUpdated("c2", "get_task", ToolCallStatus.RUNNING)
+        val state =
+            AgentActivityState() +
+                AgentEvent.ToolCallUpdated("c1", "list_tasks", ToolCallStatus.RUNNING) +
+                AgentEvent.ToolCallUpdated("c2", "get_task", ToolCallStatus.RUNNING)
 
         assertEquals(2, state.calls.size, "Two calls, two cards")
     }
 
     @Test
     fun aKnownToolCallIsUpdatedInPlace() {
-        val state = AgentActivityState() +
-            AgentEvent.ToolCallUpdated("c1", "list_tasks", ToolCallStatus.RUNNING) +
-            AgentEvent.ToolCallUpdated("c1", "list_tasks", ToolCallStatus.COMPLETED, "3 tasks")
+        val state =
+            AgentActivityState() +
+                AgentEvent.ToolCallUpdated("c1", "list_tasks", ToolCallStatus.RUNNING) +
+                AgentEvent.ToolCallUpdated("c1", "list_tasks", ToolCallStatus.COMPLETED, "3 tasks")
 
         assertEquals(1, state.calls.size, "The same call is one card, not two")
         assertEquals(ToolCallStatus.COMPLETED, state.calls.single().status, "And it shows the outcome")
@@ -55,16 +56,17 @@ class AgentActivityTest {
 
     @Test
     fun aPlanUpdateReplacesThePreviousPlan() {
-        val state = AgentActivityState() +
-            AgentEvent.PlanUpdated(
-                listOf(
-                    AgentPlanStep("read the notes", PlanStepStatus.PENDING),
-                    AgentPlanStep("replan the week", PlanStepStatus.PENDING),
-                ),
-            ) +
-            AgentEvent.PlanUpdated(
-                listOf(AgentPlanStep("read the notes", PlanStepStatus.COMPLETED)),
-            )
+        val state =
+            AgentActivityState() +
+                AgentEvent.PlanUpdated(
+                    listOf(
+                        AgentPlanStep("read the notes", PlanStepStatus.PENDING),
+                        AgentPlanStep("replan the week", PlanStepStatus.PENDING),
+                    ),
+                ) +
+                AgentEvent.PlanUpdated(
+                    listOf(AgentPlanStep("read the notes", PlanStepStatus.COMPLETED)),
+                )
 
         assertEquals(1, state.plan.size, "A plan update is the plan as it is now")
         assertEquals(PlanStepStatus.COMPLETED, state.plan.single().status, "Not a patch to the old one")
@@ -72,10 +74,11 @@ class AgentActivityTest {
 
     @Test
     fun aFailedCallKeepsItsPlaceInTheList() {
-        val state = AgentActivityState() +
-            AgentEvent.ToolCallUpdated("c1", "a", ToolCallStatus.RUNNING) +
-            AgentEvent.ToolCallUpdated("c2", "b", ToolCallStatus.RUNNING) +
-            AgentEvent.ToolCallUpdated("c1", "a", ToolCallStatus.FAILED, "boom")
+        val state =
+            AgentActivityState() +
+                AgentEvent.ToolCallUpdated("c1", "a", ToolCallStatus.RUNNING) +
+                AgentEvent.ToolCallUpdated("c2", "b", ToolCallStatus.RUNNING) +
+                AgentEvent.ToolCallUpdated("c1", "a", ToolCallStatus.FAILED, "boom")
 
         assertEquals(listOf("c1", "c2"), state.calls.map { it.id }, "The order the calls were made")
         assertEquals(ToolCallStatus.FAILED, state.calls.first().status, "And the first call's outcome")
@@ -94,8 +97,9 @@ class AgentActivityTest {
         // Identifying fields (so the quoting rule does not shrink them first), each at the
         // value limit, so the summary is large enough for the length bound to bite.
         val value = "x".repeat(60)
-        val fields = listOf("title", "name", "label", "slug", "kind", "status", "tone", "verb")
-            .joinToString(",") { """"$it":"$value"""" }
+        val fields =
+            listOf("title", "name", "label", "slug", "kind", "status", "tone", "verb")
+                .joinToString(",") { """"$it":"$value"""" }
 
         val summary = toolCallSummary(toolName = "create_task", argumentsJson = "{$fields}")
 

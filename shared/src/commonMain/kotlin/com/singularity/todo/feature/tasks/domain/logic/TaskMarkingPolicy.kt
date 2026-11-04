@@ -82,14 +82,15 @@ fun computeTaskMarkings(
  * same markings look the same.
  */
 val TaskMarking.displayOrder: Int
-    get() = when (this) {
-        TaskMarking.InProgress -> 0
-        TaskMarking.NextUp -> 1
-        TaskMarking.Blocked -> 2
-        TaskMarking.FollowUp -> 3
-        TaskMarking.Overdue -> 4
-        TaskMarking.NoDate -> 5
-        TaskMarking.Pinned -> 6
-        TaskMarking.Recurring -> 7
-        TaskMarking.Completed -> 8
-    }
+    get() =
+        when (this) {
+            TaskMarking.InProgress -> 0
+            TaskMarking.NextUp -> 1
+            TaskMarking.Blocked -> 2
+            TaskMarking.FollowUp -> 3
+            TaskMarking.Overdue -> 4
+            TaskMarking.NoDate -> 5
+            TaskMarking.Pinned -> 6
+            TaskMarking.Recurring -> 7
+            TaskMarking.Completed -> 8
+        }

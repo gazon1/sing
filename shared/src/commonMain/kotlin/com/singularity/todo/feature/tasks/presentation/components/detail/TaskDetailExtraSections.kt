@@ -30,8 +30,8 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.feature.attachments.AttachmentTile
 import com.singularity.todo.core.ui.touchTarget
+import com.singularity.todo.feature.attachments.AttachmentTile
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.components.ChecklistItemRow
@@ -43,7 +43,10 @@ import kotlinx.collections.immutable.ImmutableList
 // ─── Recurrence ────────────────────────────────────────────────────────────────
 
 @Composable
-fun TaskDetailRecurrenceSection(recurrence: RecurrenceSpec, modifier: Modifier = Modifier) {
+fun TaskDetailRecurrenceSection(
+    recurrence: RecurrenceSpec,
+    modifier: Modifier = Modifier,
+) {
     ExtraSectionCard(
         icon = { Icon(Icons.Filled.Repeat, contentDescription = null) },
         label = "Repeats",
@@ -89,9 +92,10 @@ fun TaskDetailChecklistSection(
                 ) {
                     OutlinedTextField(
                         state = newTitleState,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag(TestTags.CHECKLIST_INLINE_ADD_INPUT),
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .testTag(TestTags.CHECKLIST_INLINE_ADD_INPUT),
                         placeholder = { Text("Add item...", style = MaterialTheme.typography.bodySmall) },
                         lineLimits = TextFieldLineLimits.SingleLine,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -111,10 +115,11 @@ fun TaskDetailChecklistSection(
                                 newTitleState.clearText()
                             }
                         },
-                        modifier = Modifier
-                            .touchTarget(TaskListSizes.MinTouchTarget)
-                            .size(40.dp)
-                            .testTag(TestTags.CHECKLIST_INLINE_ADD_BUTTON),
+                        modifier =
+                            Modifier
+                                .touchTarget(TaskListSizes.MinTouchTarget)
+                                .size(40.dp)
+                                .testTag(TestTags.CHECKLIST_INLINE_ADD_BUTTON),
                     ) {
                         Icon(
                             Icons.Filled.Add,
@@ -186,11 +191,12 @@ fun TaskDetailAttachmentsSection(
                         text = "+ Add file",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .touchTarget(TaskListSizes.MinTouchTarget)
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .clickable(onClick = onOpenAttachments)
-                            .testTag(TestTags.ATTACHMENTS_ADD_FILE_ROW),
+                        modifier =
+                            Modifier
+                                .touchTarget(TaskListSizes.MinTouchTarget)
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .clickable(onClick = onOpenAttachments)
+                                .testTag(TestTags.ATTACHMENTS_ADD_FILE_ROW),
                     )
                 }
             }

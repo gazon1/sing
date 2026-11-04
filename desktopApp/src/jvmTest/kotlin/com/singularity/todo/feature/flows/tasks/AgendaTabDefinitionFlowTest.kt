@@ -1,16 +1,16 @@
 package com.singularity.todo.feature.flows.tasks
 
-import com.singularity.todo.test.helpers.assertTagDisplayed
-import kotlinx.datetime.LocalDate
-import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.assertCurrentTab
+import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.countNodes
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
 import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -49,55 +49,58 @@ import kotlin.time.Instant
 @Tag("slow:compose")
 class AgendaTabDefinitionFlowTest {
     @Test
-    fun inbox_shows_the_no_date_section_the_today_tab_has_no_room_for() = runDesktopAppTest(
-        clock = CLOCK,
-        checkA11y = true,
-    ) { koin ->
-        tasks(koin).givenUndated("Call the dentist")
+    fun inbox_shows_the_no_date_section_the_today_tab_has_no_room_for() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            checkA11y = true,
+        ) { koin ->
+            tasks(koin).givenUndated("Call the dentist")
 
-        tapTab("Inbox")
-        assertCurrentTab("Inbox")
+            tapTab("Inbox")
+            assertCurrentTab("Inbox")
 
-        assertTagDisplayed(TestTags.agendaSection("No Date"))
-        assertTagDisplayed(TestTags.taskItem("Call the dentist"))
-    }
+            assertTagDisplayed(TestTags.agendaSection("No Date"))
+            assertTagDisplayed(TestTags.taskItem("Call the dentist"))
+        }
 
     @Test
-    fun upcoming_evaluates_tomorrow_which_the_inbox_preset_does_not_define() = runDesktopAppTest(
-        clock = CLOCK,
-        checkA11y = true,
-    ) { koin ->
-        val tomorrow = today.plus(1, DateTimeUnit.DAY)
-        tasks(koin).given(due = tomorrow, title = "Send the invoice")
+    fun upcoming_evaluates_tomorrow_which_the_inbox_preset_does_not_define() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            checkA11y = true,
+        ) { koin ->
+            val tomorrow = today.plus(1, DateTimeUnit.DAY)
+            tasks(koin).given(due = tomorrow, title = "Send the invoice")
 
-        tapTab("Upcoming")
+            tapTab("Upcoming")
 
-        assertTagDisplayed(TestTags.agendaSection("Tomorrow"))
-        assertTagDisplayed(TestTags.taskItem("Send the invoice"))
-    }
+            assertTagDisplayed(TestTags.agendaSection("Tomorrow"))
+            assertTagDisplayed(TestTags.taskItem("Send the invoice"))
+        }
 
     /**
      * The other direction of the same contract: the Inbox preset holds the undated
      * tasks and nothing else, so a dated task is not in it.
      */
     @Test
-    fun inbox_does_not_render_the_upcoming_tab_sections() = runDesktopAppTest(
-        clock = CLOCK,
-        checkA11y = true,
-    ) { koin ->
-        val tomorrow = today.plus(1, DateTimeUnit.DAY)
-        tasks(koin).given(due = tomorrow, title = "Send the invoice")
+    fun inbox_does_not_render_the_upcoming_tab_sections() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            checkA11y = true,
+        ) { koin ->
+            val tomorrow = today.plus(1, DateTimeUnit.DAY)
+            tasks(koin).given(due = tomorrow, title = "Send the invoice")
 
-        tapTab("Inbox")
-        assertCurrentTab("Inbox")
+            tapTab("Inbox")
+            assertCurrentTab("Inbox")
 
-        assertEquals(
-            0,
-            countNodes(TestTags.agendaSection("Tomorrow")),
-            "the inbox tab holds the undated tasks — the dated ones are in the Today " +
-                "and Upcoming tabs",
-        )
-    }
+            assertEquals(
+                0,
+                countNodes(TestTags.agendaSection("Tomorrow")),
+                "the inbox tab holds the undated tasks — the dated ones are in the Today " +
+                    "and Upcoming tabs",
+            )
+        }
 
     /**
      * The other direction of the same contract: Upcoming has no "No Date" section, so
@@ -105,28 +108,29 @@ class AgendaTabDefinitionFlowTest {
      * section name.
      */
     @Test
-    fun upcoming_does_not_render_the_inbox_no_date_section() = runDesktopAppTest(
-        clock = CLOCK,
-        checkA11y = true,
-    ) { koin ->
-        val tomorrow = today.plus(1, DateTimeUnit.DAY)
-        tasks(koin)
-            .givenUndated("Call the dentist")
-            .given(due = tomorrow, title = "Send the invoice")
+    fun upcoming_does_not_render_the_inbox_no_date_section() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            checkA11y = true,
+        ) { koin ->
+            val tomorrow = today.plus(1, DateTimeUnit.DAY)
+            tasks(koin)
+                .givenUndated("Call the dentist")
+                .given(due = tomorrow, title = "Send the invoice")
 
-        tapTab("Upcoming")
-        assertCurrentTab("Upcoming")
+            tapTab("Upcoming")
+            assertCurrentTab("Upcoming")
 
-        assertTagDisplayed(TestTags.agendaSection("Tomorrow"))
+            assertTagDisplayed(TestTags.agendaSection("Tomorrow"))
 
-        // The undated task is simply not part of this agenda — it must be absent,
-        // not relocated under a section name borrowed from the Inbox preset.
-        assertEquals(
-            0,
-            countNodes(TestTags.agendaSection("No Date")),
-            "Upcoming must not render an Inbox 'No Date' section",
-        )
-    }
+            // The undated task is simply not part of this agenda — it must be absent,
+            // not relocated under a section name borrowed from the Inbox preset.
+            assertEquals(
+                0,
+                countNodes(TestTags.agendaSection("No Date")),
+                "Upcoming must not render an Inbox 'No Date' section",
+            )
+        }
 
     private companion object {
         /** Mid-month, so no assertion in this file straddles a boundary. */

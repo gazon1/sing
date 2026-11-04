@@ -41,38 +41,39 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class ChatInputFieldTest {
+    @Test
+    fun the_typed_text_reaches_the_view_model() =
+        runIsolatedComposeTest {
+            setContent { ChatScreenUnderTest() }
+
+            typeIntoTag(TestTags.CHAT_INPUT, "What is on my agenda?")
+
+            // The field shows what was typed ...
+            assertTagTextEquals(TestTags.CHAT_INPUT, "What is on my agenda?")
+
+            // ... and the ViewModel received it: the reply only happens for a turn that
+            // carries a question. A text that stayed in the field would leave the ViewModel
+            // with an empty input, the turn would end before it started, and the screen
+            // would answer nothing.
+            clickContentDescription("Send")
+            awaitText(REPLY)
+        }
 
     @Test
-    fun the_typed_text_reaches_the_view_model() = runIsolatedComposeTest {
-        setContent { ChatScreenUnderTest() }
+    fun sending_a_message_empties_the_field() =
+        runIsolatedComposeTest {
+            setContent { ChatScreenUnderTest() }
 
-        typeIntoTag(TestTags.CHAT_INPUT, "What is on my agenda?")
+            typeIntoTag(TestTags.CHAT_INPUT, "What is on my agenda?")
+            assertTagTextEquals(TestTags.CHAT_INPUT, "What is on my agenda?")
 
-        // The field shows what was typed ...
-        assertTagTextEquals(TestTags.CHAT_INPUT, "What is on my agenda?")
+            clickContentDescription("Send")
 
-        // ... and the ViewModel received it: the reply only happens for a turn that
-        // carries a question. A text that stayed in the field would leave the ViewModel
-        // with an empty input, the turn would end before it started, and the screen
-        // would answer nothing.
-        clickContentDescription("Send")
-        awaitText(REPLY)
-    }
-
-    @Test
-    fun sending_a_message_empties_the_field() = runIsolatedComposeTest {
-        setContent { ChatScreenUnderTest() }
-
-        typeIntoTag(TestTags.CHAT_INPUT, "What is on my agenda?")
-        assertTagTextEquals(TestTags.CHAT_INPUT, "What is on my agenda?")
-
-        clickContentDescription("Send")
-
-        // The ViewModel emptied its copy of the input when the message went out, and the
-        // field followed it. A field that kept the text would send the same message
-        // twice on the next Enter.
-        awaitTagTextEquals(TestTags.CHAT_INPUT, "")
-    }
+            // The ViewModel emptied its copy of the input when the message went out, and the
+            // field followed it. A field that kept the text would send the same message
+            // twice on the next Enter.
+            awaitTagTextEquals(TestTags.CHAT_INPUT, "")
+        }
 
     /**
      * The chat screen with a local model behind it.
@@ -84,11 +85,12 @@ class ChatInputFieldTest {
      */
     @Composable
     private fun ChatScreenUnderTest() {
-        val viewModel = ChatViewModel(
-            log = Logger.withTag("ChatInputFieldTest"),
-            agent = FakeTextGen(success = REPLY),
-            idGen = FakeIdGenerator("msg"),
-        )
+        val viewModel =
+            ChatViewModel(
+                log = Logger.withTag("ChatInputFieldTest"),
+                agent = FakeTextGen(success = REPLY),
+                idGen = FakeIdGenerator("msg"),
+            )
         ScreenWithOwners {
             ChatScreenContent(vm = viewModel)
         }

@@ -8,7 +8,6 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class TasksFormattersTest {
-
     @Test
     fun refineTitleFormatsWithPrefix() {
         val result = formatAiResult(AiActionResult.RefineTitle(newTitle = "Buy milk"))

@@ -3,37 +3,37 @@ package com.singularity.todo
 import androidx.compose.material3.Surface
 import androidx.compose.ui.window.singleWindowApplication
 import androidx.navigation3.runtime.deeplink.DeepLinkRequest
+import co.touchlab.kermit.Logger
+import com.singularity.todo.core.coroutines.createBackgroundScope
+import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
 import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
-import com.singularity.todo.core.mcp.McpServerCommandProvider
-import com.singularity.todo.mcp.runToolServer
 import com.singularity.todo.core.log.initLogging
-import com.singularity.todo.core.coroutines.createBackgroundScope
-import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
-import com.singularity.todo.core.work.BackgroundWorkBootstrapper
-import com.singularity.todo.feature.auth.AuthLinkSpec
-import com.singularity.todo.feature.nav.deeplink.DeepLinkRegistry
-import com.singularity.todo.feature.nav.deeplink.DeepLinkTarget
-import com.singularity.todo.feature.profile.ProfileBootstrapper
-import com.singularity.todo.feature.tasks.domain.usecase.RepairRecurringSeriesUseCase
-import okio.Path
-import okio.Path.Companion.toPath
+import com.singularity.todo.core.mcp.McpServerCommandProvider
 import com.singularity.todo.core.version.appVersion
+import com.singularity.todo.core.work.BackgroundWorkBootstrapper
 import com.singularity.todo.feature.ai.acp.di.acpModule
+import com.singularity.todo.feature.auth.AuthLinkSpec
 import com.singularity.todo.feature.calendarSync.work.GOOGLE_SYNC_INTERVAL_MINUTES
 import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.gate.gateModule
-import co.touchlab.kermit.Logger
+import com.singularity.todo.feature.nav.deeplink.DeepLinkRegistry
+import com.singularity.todo.feature.nav.deeplink.DeepLinkTarget
+import com.singularity.todo.feature.profile.ProfileBootstrapper
 import com.singularity.todo.feature.reminders.JvmReminderFireCommand
 import com.singularity.todo.feature.reminders.JvmReminderFireRunner
 import com.singularity.todo.feature.reminders.JvmReminderRearm
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
+import com.singularity.todo.feature.tasks.domain.usecase.RepairRecurringSeriesUseCase
+import com.singularity.todo.mcp.runToolServer
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import okio.Path
+import okio.Path.Companion.toPath
 import org.koin.core.Koin
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
@@ -129,7 +129,10 @@ fun main(args: Array<String>) {
             // Android side too; without it a task that carried a rule and no series id —
             // the shape the old one-row roll-forward left behind — would never gain its
             // materialised future.
-            GlobalContext.get().get<RepairRecurringSeriesUseCase>().invoke()
+            GlobalContext
+                .get()
+                .get<RepairRecurringSeriesUseCase>()
+                .invoke()
                 .onFailure { error ->
                     Logger.withTag("repair-recurring-series").w(error) { "The recurring-series repair failed" }
                 }
@@ -146,7 +149,9 @@ fun main(args: Array<String>) {
         // on, there is no setting behind this one yet, so nothing else would ever arm it.
         // `start` is idempotent and the loop re-reads `isConfigured` each cycle, so a user who
         // connects an account later gets background sync without restarting the app.
-        GlobalContext.get().get<GoogleSyncPeriodicTrigger>()
+        GlobalContext
+            .get()
+            .get<GoogleSyncPeriodicTrigger>()
             .start(GOOGLE_SYNC_INTERVAL_MINUTES.minutes)
 
         // SingularityTheme (inside App()) already wraps MaterialTheme.
@@ -175,11 +180,13 @@ fun main(args: Array<String>) {
  * @return the target to open, or `null` when no link was given.
  */
 private fun resolveDeepLinkTarget(args: Array<String>): DeepLinkTarget? {
-    val uri = args.firstOrNull { it.startsWith("--deeplink=") }
-        ?.substringAfter("=")
-        ?.takeIf { it.isNotBlank() }
-        ?: legacyMagicLinkUri(args)
-        ?: return null
+    val uri =
+        args
+            .firstOrNull { it.startsWith("--deeplink=") }
+            ?.substringAfter("=")
+            ?.takeIf { it.isNotBlank() }
+            ?: legacyMagicLinkUri(args)
+            ?: return null
     val request = runCatching { DeepLinkRequest(uri) }.getOrNull() ?: return null
     return runCatching { GlobalContext.get().get<DeepLinkRegistry>().resolve(request) }.getOrNull()
 }
@@ -191,14 +198,18 @@ private fun resolveDeepLinkTarget(args: Array<String>): DeepLinkTarget? {
  * the same URI the registry matches, so both spellings take the same path.
  */
 private fun legacyMagicLinkUri(args: Array<String>): String? {
-    val email = args.firstOrNull { it.startsWith("--deeplink-magic-email=") }
-        ?.substringAfter("=")
-        ?.takeIf { it.isNotBlank() }
-        ?: return null
-    val token = args.firstOrNull { it.startsWith("--deeplink-magic-token=") }
-        ?.substringAfter("=")
-        ?.takeIf { it.isNotBlank() }
-        .orEmpty()
+    val email =
+        args
+            .firstOrNull { it.startsWith("--deeplink-magic-email=") }
+            ?.substringAfter("=")
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+    val token =
+        args
+            .firstOrNull { it.startsWith("--deeplink-magic-token=") }
+            ?.substringAfter("=")
+            ?.takeIf { it.isNotBlank() }
+            .orEmpty()
     return AuthLinkSpec.uri(email, token)
 }
 
@@ -216,19 +227,20 @@ private fun legacyMagicLinkUri(args: Array<String>): String? {
  */
 private suspend fun rearmReminders(koin: Koin) {
     val log = Logger.withTag("rearm-reminders")
-    val report = JvmReminderRearm.run(
-        scheduler = koin.get<ReminderScheduler>(),
-        // Cross-profile, like the Android catch-up: a reminder for a profile that is not
-        // active must still be armed, or it never fires until its owner switches to it.
-        reminders = koin.get<ReminderRepository>().observeAllProfiles().first(),
-        // The graph's clock, not `Clock.System`: every other time decision in this codebase
-        // reads it from DI so a test can drive it. A second time source in the same file is
-        // how the two drift.
-        nowEpochMs = koin.get<Clock>().now().toEpochMilliseconds(),
-        onFailure = { reminder, error ->
-            log.e(error) { "Failed to re-arm reminder ${reminder.id.value}" }
-        },
-    )
+    val report =
+        JvmReminderRearm.run(
+            scheduler = koin.get<ReminderScheduler>(),
+            // Cross-profile, like the Android catch-up: a reminder for a profile that is not
+            // active must still be armed, or it never fires until its owner switches to it.
+            reminders = koin.get<ReminderRepository>().observeAllProfiles().first(),
+            // The graph's clock, not `Clock.System`: every other time decision in this codebase
+            // reads it from DI so a test can drive it. A second time source in the same file is
+            // how the two drift.
+            nowEpochMs = koin.get<Clock>().now().toEpochMilliseconds(),
+            onFailure = { reminder, error ->
+                log.e(error) { "Failed to re-arm reminder ${reminder.id.value}" }
+            },
+        )
     log.i { report.describe() }
 }
 
@@ -251,28 +263,29 @@ private suspend fun rearmReminders(koin: Koin) {
  * reports `NotFound` for a reminder that exists.
  */
 @Suppress("NoRunBlocking") // see KDoc: this process exists only to run the block below
-private fun fireReminder(request: JvmReminderFireCommand.Request) = runBlocking {
-    prepareDataDirectory()
-    initLogging(
-        isDebug = System.getProperty("singularity.debug") == "true",
-        version = appVersion().name,
-        logDirectory = System.getProperty("user.home")!!.toPath() / ".singularity-todo" / "logs",
-    )
-    // Deliberately the same module list the GUI uses, minus `gateModule`: a fire is a
-    // database read and one notification, and reaching the release gate to do it would add
-    // a network call to the path a user is waiting on for an alarm.
-    startKoin {
-        modules(listOf(platformModule(), coreLoggingModule()) + domainModule())
-    }
+private fun fireReminder(request: JvmReminderFireCommand.Request) =
+    runBlocking {
+        prepareDataDirectory()
+        initLogging(
+            isDebug = System.getProperty("singularity.debug") == "true",
+            version = appVersion().name,
+            logDirectory = System.getProperty("user.home")!!.toPath() / ".singularity-todo" / "logs",
+        )
+        // Deliberately the same module list the GUI uses, minus `gateModule`: a fire is a
+        // database read and one notification, and reaching the release gate to do it would add
+        // a network call to the path a user is waiting on for an alarm.
+        startKoin {
+            modules(listOf(platformModule(), coreLoggingModule()) + domainModule())
+        }
 
-    val koin = GlobalContext.get()
-    val scope = createBackgroundScope(loggingBackgroundFailureHandler())
-    // The ordering inside the runner — resolve the profile, then fire — is load-bearing
-    // and lives where it can be tested, not in a file no test executes.
-    JvmReminderFireRunner.run(koin, request)
-    scope.cancel()
-    stopKoin()
-}
+        val koin = GlobalContext.get()
+        val scope = createBackgroundScope(loggingBackgroundFailureHandler())
+        // The ordering inside the runner — resolve the profile, then fire — is load-bearing
+        // and lives where it can be tested, not in a file no test executes.
+        JvmReminderFireRunner.run(koin, request)
+        scope.cancel()
+        stopKoin()
+    }
 
 /** Created before anything opens the database; both entry paths need the same three. */
 private fun prepareDataDirectory() {

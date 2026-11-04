@@ -12,7 +12,6 @@ package com.singularity.todo.feature.proposals.presentation
  * failure has to report it, because the scope's handler no longer sees it.
  */
 fun interface ProposalErrorSink {
-
     /**
      * Reports a failure of [label].
      *
@@ -21,5 +20,9 @@ fun interface ProposalErrorSink {
      * @param error the failure itself. A surface that reports failures further
      *   needs the failure, not only the sentence about it.
      */
-    suspend fun report(label: String, message: String, error: Throwable)
+    suspend fun report(
+        label: String,
+        message: String,
+        error: Throwable,
+    )
 }

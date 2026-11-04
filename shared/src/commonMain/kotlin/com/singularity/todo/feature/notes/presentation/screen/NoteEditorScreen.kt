@@ -4,19 +4,18 @@ package com.singularity.todo.feature.notes.presentation.screen
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,54 +30,58 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
+import com.singularity.todo.core.ids.ProposalId
+import com.singularity.todo.core.ids.ProposalItemId
+import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
-import com.singularity.todo.core.text.Revisioned
-import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.detail.SavedIndicator
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.notes.EditorSession
 import com.singularity.todo.feature.notes.EditorState
 import com.singularity.todo.feature.notes.LinkResult
+import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.components.EditorToolbar
 import com.singularity.todo.feature.notes.components.InternalLinkPickerSheet
 import com.singularity.todo.feature.notes.presentation.components.NoteAiActionSheet
 import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
-import com.singularity.todo.core.ids.ProposalId
-import com.singularity.todo.core.ids.ProposalItemId
-import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteProposalsIntent
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteProposalsUiEvent
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteProposalsViewModel
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.notes.rememberEditorSession
+import com.singularity.todo.feature.notes.urlFor
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.presentation.components.ProposalCardsSection
-import com.singularity.todo.feature.notes.urlFor
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.persistentMapOf
 
 // ─── Screen entry ──────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = koinViewModel()) {
+internal fun NoteEditorScreen(
+    route: NotesRoute.Editor,
+    viewModel: NoteEditor = koinViewModel(),
+) {
     val navigator = LocalNotesNavigator.current
     val editorState by viewModel.stateFlow.collectAsStateWithLifecycle()
 
@@ -104,9 +107,10 @@ internal fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = 
 
     // The AI's proposed changes to this note. A note that is being created has none
     // yet, so the ViewModel is asked about an empty id and shows nothing.
-    val proposalsViewModel: NoteProposalsViewModel = koinViewModel {
-        parametersOf(NoteId.fromString(route.noteId?.value.orEmpty()))
-    }
+    val proposalsViewModel: NoteProposalsViewModel =
+        koinViewModel {
+            parametersOf(NoteId.fromString(route.noteId?.value.orEmpty()))
+        }
     val proposalsState by proposalsViewModel.stateFlow.collectAsStateWithLifecycle()
 
     var showAiSheet by remember { mutableStateOf(false) }
@@ -153,16 +157,17 @@ internal fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = 
     // The proposals carry their own failures, on their own bus. They are merged into
     // the editor's notification stream rather than hosted separately: two hosts over
     // one editor would show two snackbars in the same place.
-    val notifications = remember(viewModel.events, proposalsViewModel.events) {
-        merge(
-            viewModel.events.map { it.toNotification() },
-            proposalsViewModel.events.map { event ->
-                when (event) {
-                    is NoteProposalsUiEvent.ShowError -> Notification.Error(event.message)
-                }
-            },
-        )
-    }
+    val notifications =
+        remember(viewModel.events, proposalsViewModel.events) {
+            merge(
+                viewModel.events.map { it.toNotification() },
+                proposalsViewModel.events.map { event ->
+                    when (event) {
+                        is NoteProposalsUiEvent.ShowError -> Notification.Error(event.message)
+                    }
+                },
+            )
+        }
 
     NotificationHost(
         events = notifications,
@@ -213,10 +218,11 @@ fun NoteEditorScreenContent(
     // owns the title, so the draft counts the replacements and the bridge lifts its
     // echo guard for the value that arrives with a new count. Without it the guard
     // treats the rewrite as a lagging upstream and drops it.
-    val titleState = rememberBridgedTextFieldState(
-        source = draft.titleSource,
-        onTextChanged = onTitleChange,
-    )
+    val titleState =
+        rememberBridgedTextFieldState(
+            source = draft.titleSource,
+            onTextChanged = onTitleChange,
+        )
 
     Scaffold(
         topBar = {
@@ -336,30 +342,36 @@ typealias DraftUiStateCompat = com.singularity.todo.core.ui.DraftUiState<EditorS
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EditorTitleAndBody(session: EditorSession, titleState: TextFieldState) {
+private fun EditorTitleAndBody(
+    session: EditorSession,
+    titleState: TextFieldState,
+) {
     val richTextState = session.richTextState
 
     Column(modifier = Modifier.fillMaxWidth()) {
         OutlinedTextField(
             state = titleState,
             placeholder = { Text("Title") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .testTag(TestTags.NOTE_EDITOR_TITLE_INPUT),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .testTag(TestTags.NOTE_EDITOR_TITLE_INPUT),
             lineLimits = TextFieldLineLimits.SingleLine,
         )
 
         RichTextEditor(
             state = richTextState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .padding(horizontal = 16.dp)
-                .testTag(TestTags.NOTE_EDITOR_BODY),
-            colors = RichTextEditorDefaults.richTextEditorColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-            ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(horizontal = 16.dp)
+                    .testTag(TestTags.NOTE_EDITOR_BODY),
+            colors =
+                RichTextEditorDefaults.richTextEditorColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                ),
             placeholder = { Text("Start writing...") },
         )
     }
@@ -369,52 +381,58 @@ private fun EditorTitleAndBody(session: EditorSession, titleState: TextFieldStat
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun NoteEditorScreenEditingPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    NotesPreviewWrapper {
-        NoteEditorScreenContent(
-            editorState = DraftUiStateCompat(
-                draft = EditorState.Editing(
-                    id = "n1",
-                    title = Revisioned.initial("Meeting Notes"),
-                    html = Revisioned.initial("<p>Discussed <b>Q4 goals</b> with the team.</p>"),
-                    isDirty = false,
-                ),
-            ),
-            onTitleChange = { },
-            onBodyChange = { },
-            onSaveNow = {},
-            onBack = {},
-            onShowAiSheet = {},
-            savedVisible = false,
-            onAiAction = null,
-            showAiSheet = false,
-            onDismissAiSheet = {},
-        )
+private fun NoteEditorScreenEditingPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        NotesPreviewWrapper {
+            NoteEditorScreenContent(
+                editorState =
+                    DraftUiStateCompat(
+                        draft =
+                            EditorState.Editing(
+                                id = "n1",
+                                title = Revisioned.initial("Meeting Notes"),
+                                html = Revisioned.initial("<p>Discussed <b>Q4 goals</b> with the team.</p>"),
+                                isDirty = false,
+                            ),
+                    ),
+                onTitleChange = { },
+                onBodyChange = { },
+                onSaveNow = {},
+                onBack = {},
+                onShowAiSheet = {},
+                savedVisible = false,
+                onAiAction = null,
+                showAiSheet = false,
+                onDismissAiSheet = {},
+            )
+        }
     }
-}
 
 @Preview
 @Composable
-private fun NoteEditorScreenDirtyPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    NotesPreviewWrapper {
-        NoteEditorScreenContent(
-            editorState = DraftUiStateCompat(
-                draft = EditorState.Editing(
-                    id = "n2",
-                    title = Revisioned.initial("Draft"),
-                    html = Revisioned.initial("<p>Work in progress...</p>"),
-                    isDirty = true,
-                ),
-            ),
-            onTitleChange = { },
-            onBodyChange = { },
-            onSaveNow = {},
-            onBack = {},
-            onShowAiSheet = {},
-            savedVisible = false,
-            onAiAction = null,
-            showAiSheet = false,
-            onDismissAiSheet = {},
-        )
+private fun NoteEditorScreenDirtyPreview() =
+    PreviewThemed(darkTheme = true, useSurface = false) {
+        NotesPreviewWrapper {
+            NoteEditorScreenContent(
+                editorState =
+                    DraftUiStateCompat(
+                        draft =
+                            EditorState.Editing(
+                                id = "n2",
+                                title = Revisioned.initial("Draft"),
+                                html = Revisioned.initial("<p>Work in progress...</p>"),
+                                isDirty = true,
+                            ),
+                    ),
+                onTitleChange = { },
+                onBodyChange = { },
+                onSaveNow = {},
+                onBack = {},
+                onShowAiSheet = {},
+                savedVisible = false,
+                onAiAction = null,
+                showAiSheet = false,
+                onDismissAiSheet = {},
+            )
+        }
     }
-}

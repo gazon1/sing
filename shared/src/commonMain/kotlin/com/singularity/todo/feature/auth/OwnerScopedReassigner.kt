@@ -41,7 +41,6 @@ import com.singularity.todo.core.log.Redaction
  * @param log records what moved, by count, with both owners redacted.
  */
 class OwnerScopedReassigner(private val database: AppDatabase, private val log: (String) -> Unit = {}) {
-
     /**
      * Re-files every scope in [mapping] onto its counterpart.
      *
@@ -90,23 +89,25 @@ class OwnerScopedReassigner(private val database: AppDatabase, private val log: 
 
         // ── Ownership, last ─────────────────────────────────────────────────────
         // Claim ownerless profiles so the account's export has an owner to scope by.
-        val profiles = dao.reassignProfiles(mapping.fromOwnerId, mapping.toOwnerId) +
-            database.profileDao().claimUnowned(mapping.toOwnerId)
-        val counts = ReassignCounts(
-            tasks = tasks,
-            notes = notes,
-            projects = projects,
-            tags = tags,
-            taskReminders = taskReminders,
-            projectReminders = projectReminders,
-            tagGroups = tagGroups,
-            timeEntries = timeEntries,
-            agendaViews = agendaViews,
-            profiles = profiles,
-            outbox = outbox,
-            deadLetter = deadLetter,
-            shadows = shadows,
-        )
+        val profiles =
+            dao.reassignProfiles(mapping.fromOwnerId, mapping.toOwnerId) +
+                database.profileDao().claimUnowned(mapping.toOwnerId)
+        val counts =
+            ReassignCounts(
+                tasks = tasks,
+                notes = notes,
+                projects = projects,
+                tags = tags,
+                taskReminders = taskReminders,
+                projectReminders = projectReminders,
+                tagGroups = tagGroups,
+                timeEntries = timeEntries,
+                agendaViews = agendaViews,
+                profiles = profiles,
+                outbox = outbox,
+                deadLetter = deadLetter,
+                shadows = shadows,
+            )
         log(
             "Moved local data ${Redaction.redactEmail(mapping.fromOwnerId)} → " +
                 "${Redaction.redactEmail(mapping.toOwnerId)}: $counts",
@@ -143,22 +144,24 @@ data class ReassignCounts(
 ) : OwnerOperationCounts {
     /** Whether anything at all changed hands. */
     override val isEmpty: Boolean
-        get() = tasks + notes + projects + tags + tagGroups +
-            taskReminders + projectReminders + timeEntries + agendaViews +
-            profiles + outbox + deadLetter + shadows == 0
+        get() =
+            tasks + notes + projects + tags + tagGroups +
+                taskReminders + projectReminders + timeEntries + agendaViews +
+                profiles + outbox + deadLetter + shadows == 0
 
-    override fun toString(): String = buildString {
-        append("{")
-        append("tasks=").append(tasks)
-        append(", notes=").append(notes)
-        append(", projects=").append(projects)
-        append(", tags=").append(tags)
-        append(", timeEntries=").append(timeEntries)
-        append(", agendaViews=").append(agendaViews)
-        append(", profiles=").append(profiles)
-        append(", sync=").append(syncTotal)
-        append("}")
-    }
+    override fun toString(): String =
+        buildString {
+            append("{")
+            append("tasks=").append(tasks)
+            append(", notes=").append(notes)
+            append(", projects=").append(projects)
+            append(", tags=").append(tags)
+            append(", timeEntries=").append(timeEntries)
+            append(", agendaViews=").append(agendaViews)
+            append(", profiles=").append(profiles)
+            append(", sync=").append(syncTotal)
+            append("}")
+        }
 }
 
 /**
@@ -174,13 +177,17 @@ data class LocalDataSummary(val tasks: Int, val notes: Int) {
 
     /** "3 tasks, 1 note" / "1 task" / "nothing yet" — one wording per singular and plural. */
     val describe: String
-        get() = when {
-            isEmpty -> "Nothing yet"
-            notes == 0 -> "$tasks ${tasks.plural("task", "tasks")}"
-            tasks == 0 -> "$notes ${notes.plural("note", "notes")}"
-            else -> "$tasks ${tasks.plural("task", "tasks")} and $notes ${notes.plural("note", "notes")}"
-        }
+        get() =
+            when {
+                isEmpty -> "Nothing yet"
+                notes == 0 -> "$tasks ${tasks.plural("task", "tasks")}"
+                tasks == 0 -> "$notes ${notes.plural("note", "notes")}"
+                else -> "$tasks ${tasks.plural("task", "tasks")} and $notes ${notes.plural("note", "notes")}"
+            }
 }
 
 /** "1 task" but "3 tasks" — the only place in this feature that guesses a noun's number. */
-private fun Int.plural(one: String, many: String): String = if (this == 1) one else many
+private fun Int.plural(
+    one: String,
+    many: String,
+): String = if (this == 1) one else many

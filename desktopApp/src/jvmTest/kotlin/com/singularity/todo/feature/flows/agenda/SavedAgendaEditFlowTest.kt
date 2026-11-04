@@ -16,17 +16,17 @@ import com.singularity.todo.feature.agenda.domain.model.toSectionsJson
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.test.helpers.assertNodeDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
-import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
 import kotlinx.coroutines.flow.first
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Tag
 
 /**
  * Desktop Compose UI test for editing an existing saved agenda view.
@@ -55,8 +55,10 @@ import org.junit.jupiter.api.Tag
 @Tag("slow:compose")
 @OptIn(ExperimentalTestApi::class)
 class SavedAgendaEditFlowTest {
-
-    private suspend fun createView(koin: org.koin.core.Koin, name: String) {
+    private suspend fun createView(
+        koin: org.koin.core.Koin,
+        name: String,
+    ) {
         val repo = koin.get<SavedAgendaViewsRepository>()
         val def = AgendaDefinition(name, AgendaPresets.All.sections)
         repo.upsert(
@@ -64,7 +66,9 @@ class SavedAgendaEditFlowTest {
                 userId = UserId.anonymous,
                 name = name,
                 sectionsJson = def.toSectionsJson(),
-                now = kotlin.time.Clock.System.now(),
+                now =
+                    kotlin.time.Clock.System
+                        .now(),
             ),
         )
     }
@@ -77,123 +81,128 @@ class SavedAgendaEditFlowTest {
      * first fetched is the editor LazyColumn (bounds (24,188)-(1000,744)).
      */
     @Test
-    fun card_tap_opens_results_not_editor() = runDesktopAppTest(checkA11y = true) { koin ->
-        tasks(koin).givenUndated(title = "Results task")
-        createView(koin, "My View")
+    fun card_tap_opens_results_not_editor() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            tasks(koin).givenUndated(title = "Results task")
+            createView(koin, "My View")
 
-        tapTab("Inbox")
-        awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        assertTagDisplayed(TestTags.savedAgendaCard("my_view"))
+            tapTab("Inbox")
+            awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
+            assertTagDisplayed(TestTags.savedAgendaCard("my_view"))
 
-        // Tapping the card opens Results — no name input should be visible
-        awaitTag(TestTags.savedAgendaCard("my_view")).performClick()
-        awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
-        // Results shows the agenda section for the view
-        assertTagDisplayed(TestTags.agendaSection("No Date"))
-    }
-
-    @Test
-    fun back_from_results_returns_to_list_with_card_intact() = runDesktopAppTest(checkA11y = true) { koin ->
-        tasks(koin).givenUndated(title = "Back task")
-        createView(koin, "Back Test View")
-
-        tapTab("Inbox")
-        awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        assertTagDisplayed(TestTags.savedAgendaCard("back_test_view"))
-
-        // Navigate to Results
-        awaitTag(TestTags.savedAgendaCard("back_test_view")).performClick()
-        assertTagDisplayed(TestTags.agendaSection("No Date"))
-
-        // Go back — should return to list with card
-        awaitTag(TestTags.TOP_BAR_BACK_BUTTON).performClick()
-        assertTagDisplayed(TestTags.savedAgendaCard("back_test_view"))
-    }
+            // Tapping the card opens Results — no name input should be visible
+            awaitTag(TestTags.savedAgendaCard("my_view")).performClick()
+            awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
+            // Results shows the agenda section for the view
+            assertTagDisplayed(TestTags.agendaSection("No Date"))
+        }
 
     @Test
-    fun overflow_menu_edit_opens_editor_pre_filled() = runDesktopAppTest(checkA11y = true) { koin ->
-        createView(koin, "Editable View")
+    fun back_from_results_returns_to_list_with_card_intact() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            tasks(koin).givenUndated(title = "Back task")
+            createView(koin, "Back Test View")
 
-        tapTab("Inbox")
-        awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        assertTagDisplayed(TestTags.savedAgendaCard("editable_view"))
+            tapTab("Inbox")
+            awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
+            assertTagDisplayed(TestTags.savedAgendaCard("back_test_view"))
 
-        // Open overflow menu (⋮) on the card — text-only, no testTag.
-        // The desktop AWT menu bar also renders a plain "Edit" label (no click
-        // action), so menu items are matched by text AND click action.
-        clickText("⋮")
-        assertNodeDisplayed(hasText("Edit") and hasClickAction(), "Edit action")
-        assertNodeDisplayed(hasText("Delete") and hasClickAction(), "Delete action")
-        onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
+            // Navigate to Results
+            awaitTag(TestTags.savedAgendaCard("back_test_view")).performClick()
+            assertTagDisplayed(TestTags.agendaSection("No Date"))
 
-        // Edit mode: name input is shown pre-filled
-        assertTagDisplayed(TestTags.SAVED_AGENDA_NAME_INPUT)
-        assertTextDisplayed("Editable View")
-    }
+            // Go back — should return to list with card
+            awaitTag(TestTags.TOP_BAR_BACK_BUTTON).performClick()
+            assertTagDisplayed(TestTags.savedAgendaCard("back_test_view"))
+        }
 
     @Test
-    fun renaming_and_saving_persists_the_new_name() = runDesktopAppTest(checkA11y = true) { koin ->
-        createView(koin, "Old Name")
+    fun overflow_menu_edit_opens_editor_pre_filled() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            createView(koin, "Editable View")
 
-        tapTab("Inbox")
-        awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        assertTagDisplayed(TestTags.savedAgendaCard("old_name"))
+            tapTab("Inbox")
+            awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
+            assertTagDisplayed(TestTags.savedAgendaCard("editable_view"))
 
-        // Open menu → Edit
-        clickText("⋮")
-        onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
+            // Open overflow menu (⋮) on the card — text-only, no testTag.
+            // The desktop AWT menu bar also renders a plain "Edit" label (no click
+            // action), so menu items are matched by text AND click action.
+            clickText("⋮")
+            assertNodeDisplayed(hasText("Edit") and hasClickAction(), "Edit action")
+            assertNodeDisplayed(hasText("Delete") and hasClickAction(), "Delete action")
+            onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
 
-        awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).performTextClearance()
-        awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).performTextInput("New Name")
-
-        // The action row is pinned below the scroll area, so Save is reachable
-        // without scrolling even with the Inbox preset's 8 sections. This line is
-        // the regression test: the row used to be the last LazyColumn item, and on
-        // a 1024x768 window the primary action of the form sat below the fold —
-        // `performClick()` on the off-screen node silently injected a click at
-        // out-of-window coordinates and the test then failed 5s later on an
-        // unrelated await. `assertIsDisplayed` before the click is what pins it.
-        assertTagDisplayed(TestTags.SAVED_AGENDA_SAVE_BUTTON)
-
-        awaitTag(TestTags.SAVED_AGENDA_SAVE_BUTTON).performClick()
-
-        // Save navigates back to list
-        awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
-
-        // Verify the new name is in the repo
-        val repo = koin.get<SavedAgendaViewsRepository>()
-        val names = repo.observeAll().first().map { it.name }
-        assertTrue("New Name" in names, "renamed view must be persisted")
-        assertTrue("Old Name" !in names, "old name must not remain")
-    }
+            // Edit mode: name input is shown pre-filled
+            assertTagDisplayed(TestTags.SAVED_AGENDA_NAME_INPUT)
+            assertTextDisplayed("Editable View")
+        }
 
     @Test
-    fun delete_from_edit_removes_view() = runDesktopAppTest(checkA11y = true) { koin ->
-        createView(koin, "To Delete")
+    fun renaming_and_saving_persists_the_new_name() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            createView(koin, "Old Name")
 
-        tapTab("Inbox")
-        awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        assertTagDisplayed(TestTags.savedAgendaCard("to_delete"))
+            tapTab("Inbox")
+            awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
+            assertTagDisplayed(TestTags.savedAgendaCard("old_name"))
 
-        // Open menu → Edit
-        clickText("⋮")
-        onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
+            // Open menu → Edit
+            clickText("⋮")
+            onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
 
-        assertTagDisplayed(TestTags.SAVED_AGENDA_NAME_INPUT)
+            awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).performTextClearance()
+            awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).performTextInput("New Name")
 
-        // No scroll needed: the action row is pinned below the list. The
-        // assertIsDisplayed below is the regression check — the row used to be
-        // the last item of the scrolling column.
-        // Delete button exists in edit mode
-        assertTagDisplayed(TestTags.SAVED_AGENDA_DELETE_BUTTON)
-        awaitTag(TestTags.SAVED_AGENDA_DELETE_BUTTON).performClick()
+            // The action row is pinned below the scroll area, so Save is reachable
+            // without scrolling even with the Inbox preset's 8 sections. This line is
+            // the regression test: the row used to be the last LazyColumn item, and on
+            // a 1024x768 window the primary action of the form sat below the fold —
+            // `performClick()` on the off-screen node silently injected a click at
+            // out-of-window coordinates and the test then failed 5s later on an
+            // unrelated await. `assertIsDisplayed` before the click is what pins it.
+            assertTagDisplayed(TestTags.SAVED_AGENDA_SAVE_BUTTON)
 
-        // ConfirmActionDialog confirm button (tagged dialog_confirm, label "Delete")
-        assertTagDisplayed(TestTags.Dialog.CONFIRM)
-        awaitTag(TestTags.Dialog.CONFIRM).performClick()
+            awaitTag(TestTags.SAVED_AGENDA_SAVE_BUTTON).performClick()
 
-        // Should navigate back to list and show empty state
-        awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
-        assertTextDisplayed("No saved views yet")
-    }
+            // Save navigates back to list
+            awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
+
+            // Verify the new name is in the repo
+            val repo = koin.get<SavedAgendaViewsRepository>()
+            val names = repo.observeAll().first().map { it.name }
+            assertTrue("New Name" in names, "renamed view must be persisted")
+            assertTrue("Old Name" !in names, "old name must not remain")
+        }
+
+    @Test
+    fun delete_from_edit_removes_view() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            createView(koin, "To Delete")
+
+            tapTab("Inbox")
+            awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
+            assertTagDisplayed(TestTags.savedAgendaCard("to_delete"))
+
+            // Open menu → Edit
+            clickText("⋮")
+            onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
+
+            assertTagDisplayed(TestTags.SAVED_AGENDA_NAME_INPUT)
+
+            // No scroll needed: the action row is pinned below the list. The
+            // assertIsDisplayed below is the regression check — the row used to be
+            // the last item of the scrolling column.
+            // Delete button exists in edit mode
+            assertTagDisplayed(TestTags.SAVED_AGENDA_DELETE_BUTTON)
+            awaitTag(TestTags.SAVED_AGENDA_DELETE_BUTTON).performClick()
+
+            // ConfirmActionDialog confirm button (tagged dialog_confirm, label "Delete")
+            assertTagDisplayed(TestTags.Dialog.CONFIRM)
+            awaitTag(TestTags.Dialog.CONFIRM).performClick()
+
+            // Should navigate back to list and show empty state
+            awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
+            assertTextDisplayed("No saved views yet")
+        }
 }

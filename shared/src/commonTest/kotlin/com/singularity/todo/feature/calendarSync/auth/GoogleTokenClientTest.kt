@@ -16,14 +16,14 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class GoogleTokenClientTest {
-
     @Test
     fun `a fresh grant yields an access token and a refresh token`() {
-        val parsed = parseTokenResponse(
-            """
-            {"access_token":"at","refresh_token":"rt","expires_in":3599,"token_type":"Bearer"}
-            """.trimIndent(),
-        )
+        val parsed =
+            parseTokenResponse(
+                """
+                {"access_token":"at","refresh_token":"rt","expires_in":3599,"token_type":"Bearer"}
+                """.trimIndent(),
+            )
 
         assertNotNull(parsed)
         assertEquals("at", parsed.accessToken)

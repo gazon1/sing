@@ -3,9 +3,9 @@ package com.singularity.todo.feature.settings.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -31,7 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
-import com.singularity.todo.core.ui.contrastingForeground
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.settings.SettingsIntent
@@ -39,13 +38,16 @@ import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.core.settings.ThemeMode
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ColorSwatch
-import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.ui.components.SettingsActionRow
 import com.singularity.todo.core.ui.components.SettingsSection
+import com.singularity.todo.core.ui.contrastingForeground
+import com.singularity.todo.core.ui.formatDecimal
+import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.feature.settings.SettingsUiState
 import kotlinx.coroutines.launch
+
 @Composable
 fun InterfaceSettingsScreen(
     state: SettingsUiState.Content,
@@ -55,9 +57,10 @@ fun InterfaceSettingsScreen(
 ) {
     val scope = rememberCoroutineScope()
     Column(
-        modifier = modifier
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+        modifier =
+            modifier
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SettingsSection(title = "Theme") {
@@ -100,17 +103,22 @@ fun InterfaceSettingsScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AccentColorPicker(selected: SingularityAccents, onSelect: (SingularityAccents) -> Unit) {
+private fun AccentColorPicker(
+    selected: SingularityAccents,
+    onSelect: (SingularityAccents) -> Unit,
+) {
     SettingsSection(title = "Accent Color") {
         // Live preview — mini task card showing the selected accent
         val currentAccent = selected
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+            colors =
+                CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                ),
         ) {
             Row(
                 modifier = Modifier.padding(12.dp),
@@ -118,10 +126,11 @@ private fun AccentColorPicker(selected: SingularityAccents, onSelect: (Singulari
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .clip(CircleShape)
-                        .background(currentAccent.color),
+                    modifier =
+                        Modifier
+                            .size(12.dp)
+                            .clip(CircleShape)
+                            .background(currentAccent.color),
                 )
                 Text(
                     "Sample task",
@@ -171,30 +180,35 @@ private fun AccentSwatch(
 }
 
 @Composable
-private fun FontSizeSlider(value: Float, onValueChange: (Float) -> Unit) {
+private fun FontSizeSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+) {
     SettingsSection(title = "Font Size") {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text("Scale", style = MaterialTheme.typography.bodyMedium)
-            Text("%.0f%%".format(value * 100), style = MaterialTheme.typography.bodyMedium)
+            Text(formatDecimal((value * 100).toDouble(), 0) + "%", style = MaterialTheme.typography.bodyMedium)
         }
         Slider(
             value = value,
             onValueChange = onValueChange,
             valueRange = 0.75f..1.5f,
             steps = 5,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TestTags.Settings.FONT_SIZE_SLIDER),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.Settings.FONT_SIZE_SLIDER),
         )
         // Live preview sample
         Text(
             "Sample task text",
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontSize = (14.sp * value),
-            ),
+            style =
+                MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = (14.sp * value),
+                ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -203,7 +217,10 @@ private fun FontSizeSlider(value: Float, onValueChange: (Float) -> Unit) {
 /** Three-way segmented button for theme mode selection (System / Light / Dark). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ThemeModeSelector(selected: ThemeMode, onSelect: (ThemeMode) -> Unit) {
+private fun ThemeModeSelector(
+    selected: ThemeMode,
+    onSelect: (ThemeMode) -> Unit,
+) {
     val modes = listOf(ThemeMode.System, ThemeMode.Light, ThemeMode.Dark)
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         modes.forEachIndexed { index, mode ->
@@ -218,40 +235,47 @@ private fun ThemeModeSelector(selected: ThemeMode, onSelect: (ThemeMode) -> Unit
     }
 }
 
-private fun themeModeLabel(mode: ThemeMode): String = when (mode) {
-    ThemeMode.System -> "System"
-    ThemeMode.Light -> "Light"
-    ThemeMode.Dark -> "Dark"
-}
+private fun themeModeLabel(mode: ThemeMode): String =
+    when (mode) {
+        ThemeMode.System -> "System"
+        ThemeMode.Light -> "Light"
+        ThemeMode.Dark -> "Dark"
+    }
 
 // ===== Preview =====
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun InterfaceSettingsScreenLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    InterfaceSettingsScreen(
-        state = SettingsUiState.Content(
-            appearance = SettingsSection.Appearance(
-                themeMode = ThemeMode.Light,
-                accentColor = SingularityAccents.Blue.name.lowercase(),
-                fontSizeScale = 1.0f,
-            ),
-        ),
-        onIntent = {},
-    )
-}
+private fun InterfaceSettingsScreenLightPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        InterfaceSettingsScreen(
+            state =
+                SettingsUiState.Content(
+                    appearance =
+                        SettingsSection.Appearance(
+                            themeMode = ThemeMode.Light,
+                            accentColor = SingularityAccents.Blue.name.lowercase(),
+                            fontSizeScale = 1.0f,
+                        ),
+                ),
+            onIntent = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun InterfaceSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    InterfaceSettingsScreen(
-        state = SettingsUiState.Content(
-            appearance = SettingsSection.Appearance(
-                themeMode = ThemeMode.Dark,
-                accentColor = SingularityAccents.Purple.name.lowercase(),
-                fontSizeScale = 1.25f,
-            ),
-        ),
-        onIntent = {},
-    )
-}
+private fun InterfaceSettingsScreenDarkPreview() =
+    PreviewThemed(darkTheme = true, useSurface = false) {
+        InterfaceSettingsScreen(
+            state =
+                SettingsUiState.Content(
+                    appearance =
+                        SettingsSection.Appearance(
+                            themeMode = ThemeMode.Dark,
+                            accentColor = SingularityAccents.Purple.name.lowercase(),
+                            fontSizeScale = 1.25f,
+                        ),
+                ),
+            onIntent = {},
+        )
+    }

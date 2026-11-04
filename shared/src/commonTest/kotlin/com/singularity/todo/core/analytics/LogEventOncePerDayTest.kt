@@ -20,7 +20,11 @@ import kotlin.test.assertTrue
 /** Records every event the port was asked to log. */
 private class RecordingAnalytics : Analytics {
     val events = mutableListOf<String>()
-    override fun logEvent(event: String, vararg params: Pair<String, Any>) {
+
+    override fun logEvent(
+        event: String,
+        vararg params: Pair<String, Any>,
+    ) {
         events += event
     }
 
@@ -34,7 +38,6 @@ private class RecordingAnalytics : Analytics {
  */
 @Tag("fast")
 class LogEventOncePerDayTest {
-
     private fun store(dir: File): DataStore<Preferences> =
         PreferenceDataStoreFactory.create { File(dir, "analytics.preferences_pb") }
 

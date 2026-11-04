@@ -44,9 +44,10 @@ enum class SyncSource(val showIndicator: Boolean, val immediate: Boolean) {
      * Priority: `showIndicator` beats non-indicator; otherwise `immediate` beats deferred.
      * This ensures the most user-visible trigger always wins.
      */
-    fun upgrade(other: SyncSource): SyncSource = when {
-        this.showIndicator && !other.showIndicator -> this
-        !this.showIndicator && other.showIndicator -> other
-        else -> if (this.immediate) this else other
-    }
+    fun upgrade(other: SyncSource): SyncSource =
+        when {
+            this.showIndicator && !other.showIndicator -> this
+            !this.showIndicator && other.showIndicator -> other
+            else -> if (this.immediate) this else other
+        }
 }

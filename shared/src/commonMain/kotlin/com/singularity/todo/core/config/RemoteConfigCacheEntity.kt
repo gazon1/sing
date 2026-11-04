@@ -34,7 +34,6 @@ data class RemoteConfigCacheEntity(
  */
 @Dao
 interface RemoteConfigCacheDao {
-
     @Query("SELECT * FROM remote_config_cache WHERE id = 'default'")
     fun watchDefault(): Flow<RemoteConfigCacheEntity?>
 

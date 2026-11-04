@@ -120,16 +120,19 @@ fun NotificationHost(
             }
 
             is Notification.Undo -> {
-                val result = snackbarHostState.showSnackbar(
-                    message = n.title,
-                    actionLabel = n.actionLabel,
-                    duration = SnackbarDuration.Short,
-                )
+                val result =
+                    snackbarHostState.showSnackbar(
+                        message = n.title,
+                        actionLabel = n.actionLabel,
+                        duration = SnackbarDuration.Short,
+                    )
                 if (result == SnackbarResult.ActionPerformed) n.onAction() else n.onDeclined()
                 notification = null
             }
 
-            else -> Unit
+            else -> {
+                Unit
+            }
         }
     }
 
@@ -175,11 +178,15 @@ fun NotificationHost(
 
         // The undo toast is presented by the LaunchedEffect above — that is where the
         // host state lives. This branch exists only to keep `when` exhaustive.
-        is Notification.Undo -> Unit
+        is Notification.Undo -> {
+            Unit
+        }
 
         // The plain notice is presented by the same effect and the same host
         // state, for the same reason.
-        is Notification.Toast -> Unit
+        is Notification.Toast -> {
+            Unit
+        }
 
         Notification.NavigateBack -> {
             notification = null
@@ -207,10 +214,11 @@ private class BottomCenterAnchorPositionProvider : PopupPositionProvider {
         windowSize: IntSize,
         layoutDirection: LayoutDirection,
         popupContentSize: IntSize,
-    ): IntOffset = IntOffset(
-        x = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2,
-        y = anchorBounds.bottom - popupContentSize.height,
-    )
+    ): IntOffset =
+        IntOffset(
+            x = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2,
+            y = anchorBounds.bottom - popupContentSize.height,
+        )
 }
 
 // ===== Preview =====
@@ -219,20 +227,22 @@ private class BottomCenterAnchorPositionProvider : PopupPositionProvider {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun NotificationHostTextDialogPreview() = PreviewThemed(darkTheme = false) {
-    ResultDialog(
-        title = "Task saved",
-        text = "Your changes have been saved successfully.",
-        onDismiss = {},
-    )
-}
+private fun NotificationHostTextDialogPreview() =
+    PreviewThemed(darkTheme = false) {
+        ResultDialog(
+            title = "Task saved",
+            text = "Your changes have been saved successfully.",
+            onDismiss = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun NotificationHostErrorDialogDarkPreview() = PreviewThemed(darkTheme = true) {
-    ResultDialog(
-        title = "Error",
-        text = "Failed to save task. Please try again.",
-        onDismiss = {},
-    )
-}
+private fun NotificationHostErrorDialogDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        ResultDialog(
+            title = "Error",
+            text = "Failed to save task. Please try again.",
+            onDismiss = {},
+        )
+    }

@@ -2,13 +2,13 @@ package com.singularity.todo.feature.calendarSync.domain.logic
 
 import com.singularity.todo.feature.calendarSync.domain.model.GoogleEvent
 import com.singularity.todo.feature.calendarSync.domain.model.GoogleEventId
-import kotlin.time.Instant
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * The shadow is the merge's common ancestor, so a lossy round trip does not merely lose
@@ -17,7 +17,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class EventShadowCodecTest {
-
     private val t0 = Instant.fromEpochMilliseconds(1_700_000_000_000)
     private val t1 = Instant.fromEpochMilliseconds(1_700_003_600_000)
 
@@ -26,15 +25,16 @@ class EventShadowCodecTest {
 
     @Test
     fun `a fully populated shadow round-trips`() {
-        val shadow = EventShadow(
-            title = "Dentist",
-            description = "bring the card",
-            startsAt = t0,
-            endsAt = t1,
-            allDay = false,
-            location = "12 High Street",
-            recurrenceRule = "FREQ=WEEKLY;INTERVAL=2;COUNT=10;UNTIL=20270101T000000Z",
-        )
+        val shadow =
+            EventShadow(
+                title = "Dentist",
+                description = "bring the card",
+                startsAt = t0,
+                endsAt = t1,
+                allDay = false,
+                location = "12 High Street",
+                recurrenceRule = "FREQ=WEEKLY;INTERVAL=2;COUNT=10;UNTIL=20270101T000000Z",
+            )
         assertEquals(shadow, roundTrip(shadow))
     }
 
@@ -103,17 +103,18 @@ class EventShadowCodecTest {
 
     @Test
     fun `the shadow of a written event is a fixed point`() {
-        val event = GoogleEvent(
-            id = GoogleEventId("evt_1"),
-            calendarId = "cal1",
-            title = "Standup",
-            description = null,
-            startsAt = t0,
-            endsAt = t1,
-            allDay = false,
-            location = "Room 2",
-            recurrenceRule = "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
-        )
+        val event =
+            GoogleEvent(
+                id = GoogleEventId("evt_1"),
+                calendarId = "cal1",
+                title = "Standup",
+                description = null,
+                startsAt = t0,
+                endsAt = t1,
+                allDay = false,
+                location = "Room 2",
+                recurrenceRule = "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
+            )
         val once = EventShadowCodec.shadowOf(event)
         val twice = EventShadowCodec.decodeOrEmpty(EventShadowCodec.encode(once))
         assertEquals(once, twice, "reading back a written event's shadow must not drift")

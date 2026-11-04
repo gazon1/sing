@@ -10,10 +10,10 @@ import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.test.fakes.AgendaSeed
 import kotlinx.datetime.LocalDate
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Tag
 
 /**
  * Pins the contract of the three bottom-bar agenda tabs: they are a **partition**
@@ -42,66 +42,75 @@ import org.junit.jupiter.api.Tag
  */
 @Tag("fast")
 class AgendaTabDisjointnessTest {
-
     /** Reference "today" — a Wednesday, so both ends of the week are in reach. */
     private val today: LocalDate = AgendaSeed.TODAY
 
     private val now = kotlin.time.Instant.fromEpochMilliseconds(0)
 
     /** The three bottom-bar tabs, in the order the bar shows them. */
-    private val tabs: List<Pair<String, AgendaDefinition>> = listOf(
-        "Inbox" to AgendaPresets.Inbox,
-        "Today" to AgendaPresets.Today,
-        "Upcoming" to AgendaPresets.Upcoming,
-    )
+    private val tabs: List<Pair<String, AgendaDefinition>> =
+        listOf(
+            "Inbox" to AgendaPresets.Inbox,
+            "Today" to AgendaPresets.Today,
+            "Upcoming" to AgendaPresets.Upcoming,
+        )
 
     // ─── Task factory ──────────────────────────────────────────────────────
 
-    private fun task(id: String, dueDate: LocalDate?): Task = Task(
-        id = TaskId(id),
-        title = "Task $id",
-        description = null,
-        priority = TaskPriority.None,
-        kind = TaskKind.Task,
-        projectId = null,
-        parentTaskId = null,
-        tags = emptyList(),
-        dueDate = dueDate,
-        dueTime = null,
-        startDate = null,
-        startTime = null,
-        endDate = null,
-        endTime = null,
-        accentColor = null,
-        emoji = null,
-        estimateMinutes = null,
-        completedAt = null,
-        someday = false,
-        archivedAt = null,
-        isPinned = false,
-        blockedBy = emptySet(),
-        aiSuppressedTagIds = emptySet(),
-        recurrence = null,
-        createdAt = now,
-        updatedAt = now,
-        userId = UserId(AgendaSeed.PERSONAL_USER_ID),
-        serverVersion = 0,
-        hlc = null,
-    )
+    private fun task(
+        id: String,
+        dueDate: LocalDate?,
+    ): Task =
+        Task(
+            id = TaskId(id),
+            title = "Task $id",
+            description = null,
+            priority = TaskPriority.None,
+            kind = TaskKind.Task,
+            projectId = null,
+            parentTaskId = null,
+            tags = emptyList(),
+            dueDate = dueDate,
+            dueTime = null,
+            startDate = null,
+            startTime = null,
+            endDate = null,
+            endTime = null,
+            accentColor = null,
+            emoji = null,
+            estimateMinutes = null,
+            completedAt = null,
+            someday = false,
+            archivedAt = null,
+            isPinned = false,
+            blockedBy = emptySet(),
+            aiSuppressedTagIds = emptySet(),
+            recurrence = null,
+            createdAt = now,
+            updatedAt = now,
+            userId = UserId(AgendaSeed.PERSONAL_USER_ID),
+            serverVersion = 0,
+            hlc = null,
+        )
 
     // ─── Helpers ───────────────────────────────────────────────────────────
 
     /** The names of the tabs whose rendered sections contain [task]. */
-    private fun tabsContaining(task: Task): List<String> = tabs
-        .filter { (_, definition) ->
-            AgendaEvaluator.evaluate(listOf(task), definition, today, now)
-                .any { section -> section.tasks.any { it.task.id == task.id } }
-        }
-        .map { (name, _) -> name }
+    private fun tabsContaining(task: Task): List<String> =
+        tabs
+            .filter { (_, definition) ->
+                AgendaEvaluator
+                    .evaluate(listOf(task), definition, today, now)
+                    .any { section -> section.tasks.any { it.task.id == task.id } }
+            }.map { (name, _) -> name }
 
     /** The names of the sections of [definition] that contain [task]. */
-    private fun sectionsContaining(definition: AgendaDefinition, task: Task): List<String> =
-        AgendaEvaluator.evaluate(listOf(task), definition, today, now)
+    private fun sectionsContaining(
+        definition: AgendaDefinition,
+        task: Task,
+    ): List<String> =
+        AgendaEvaluator
+            .evaluate(listOf(task), definition, today, now)
             .filter { section -> section.tasks.any { it.task.id == task.id } }
             .map { it.name }
 
@@ -111,11 +120,12 @@ class AgendaTabDisjointnessTest {
     fun `no two tabs declare the same section`() {
         val byTab = tabs.associate { (name, definition) -> name to definition.sections.map { it.name } }
 
-        val duplicates = byTab.entries
-            .flatMap { (tab, sections) -> sections.map { tab to it } }
-            .groupBy { (_, section) -> section }
-            .filterValues { it.size > 1 }
-            .map { (section, owners) -> "$section in ${owners.map { it.first }}" }
+        val duplicates =
+            byTab.entries
+                .flatMap { (tab, sections) -> sections.map { tab to it } }
+                .groupBy { (_, section) -> section }
+                .filterValues { it.size > 1 }
+                .map { (section, owners) -> "$section in ${owners.map { it.first }}" }
 
         assertEquals(
             emptyList(),
@@ -127,17 +137,18 @@ class AgendaTabDisjointnessTest {
 
     @Test
     fun `every task within the tabs' horizon appears in exactly one tab`() {
-        val cases = listOf(
-            Triple("undated", null, "Inbox"),
-            Triple("overdue", LocalDate(2026, 10, 9), "Today"),
-            Triple("yesterday", LocalDate(2026, 10, 13), "Today"),
-            Triple("today", LocalDate(2026, 10, 14), "Today"),
-            Triple("tomorrow", LocalDate(2026, 10, 15), "Upcoming"),
-            Triple("later this week", LocalDate(2026, 10, 16), "Upcoming"),
-            Triple("end of this week", LocalDate(2026, 10, 18), "Upcoming"),
-            Triple("start of next week", LocalDate(2026, 10, 19), "Upcoming"),
-            Triple("end of next week", LocalDate(2026, 10, 25), "Upcoming"),
-        )
+        val cases =
+            listOf(
+                Triple("undated", null, "Inbox"),
+                Triple("overdue", LocalDate(2026, 10, 9), "Today"),
+                Triple("yesterday", LocalDate(2026, 10, 13), "Today"),
+                Triple("today", LocalDate(2026, 10, 14), "Today"),
+                Triple("tomorrow", LocalDate(2026, 10, 15), "Upcoming"),
+                Triple("later this week", LocalDate(2026, 10, 16), "Upcoming"),
+                Triple("end of this week", LocalDate(2026, 10, 18), "Upcoming"),
+                Triple("start of next week", LocalDate(2026, 10, 19), "Upcoming"),
+                Triple("end of next week", LocalDate(2026, 10, 25), "Upcoming"),
+            )
 
         cases.forEachIndexed { index, (label, dueDate, expectedTab) ->
             val task = task("t$index", dueDate)
@@ -152,14 +163,15 @@ class AgendaTabDisjointnessTest {
 
     @Test
     fun `a task appears in exactly one section of its tab`() {
-        val cases = listOf(
-            Triple("undated", null, "Inbox"),
-            Triple("yesterday", LocalDate(2026, 10, 13), "Today"),
-            Triple("today", LocalDate(2026, 10, 14), "Today"),
-            Triple("tomorrow", LocalDate(2026, 10, 15), "Upcoming"),
-            Triple("later this week", LocalDate(2026, 10, 16), "Upcoming"),
-            Triple("end of next week", LocalDate(2026, 10, 25), "Upcoming"),
-        )
+        val cases =
+            listOf(
+                Triple("undated", null, "Inbox"),
+                Triple("yesterday", LocalDate(2026, 10, 13), "Today"),
+                Triple("today", LocalDate(2026, 10, 14), "Today"),
+                Triple("tomorrow", LocalDate(2026, 10, 15), "Upcoming"),
+                Triple("later this week", LocalDate(2026, 10, 16), "Upcoming"),
+                Triple("end of next week", LocalDate(2026, 10, 25), "Upcoming"),
+            )
 
         cases.forEachIndexed { index, (label, dueDate, tab) ->
             val definition = tabs.first { it.first == tab }.second

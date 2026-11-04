@@ -7,7 +7,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class ProjectIconResolverTest {
-
     @Test
     fun `null or blank resolves to None`() {
         assertEquals(ResolvedProjectIcon.None, resolveProjectIcon(null))

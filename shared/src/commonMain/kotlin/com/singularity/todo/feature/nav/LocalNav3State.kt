@@ -12,6 +12,7 @@ import androidx.compose.runtime.compositionLocalOf
  * [LocalAppNavigator] or the per-graph `LocalXxxNavigator` — reaching into [Nav3State] to
  * mutate `topLevelRoute` bypasses the back-stack bookkeeping [Navigator] performs.
  */
-val LocalNav3State = compositionLocalOf<Nav3State> {
-    error("Nav3State not provided — wrap with the shell (DesktopShellNav3 / AppShell)")
-}
+val LocalNav3State =
+    compositionLocalOf<Nav3State> {
+        error("Nav3State not provided — wrap with the shell (DesktopShellNav3 / AppShell)")
+    }

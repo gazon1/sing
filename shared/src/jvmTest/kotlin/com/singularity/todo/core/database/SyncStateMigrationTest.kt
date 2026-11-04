@@ -2,14 +2,14 @@ package com.singularity.todo.core.database
 
 import androidx.sqlite.SQLiteConnection
 import com.singularity.todo.core.database.contract.createSqlDriver
-import com.singularity.todo.test.fakes.SequenceIdGenerator
+import com.singularity.todo.core.sync.InMemorySyncPrefs
 import com.singularity.todo.core.sync.RoomSyncStateRepository
 import com.singularity.todo.core.sync.SyncScope
 import com.singularity.todo.core.sync.SyncStateEntity
 import com.singularity.todo.core.sync.SyncTrigger
-import com.singularity.todo.core.sync.InMemorySyncPrefs
-import kotlinx.coroutines.flow.first
+import com.singularity.todo.test.fakes.SequenceIdGenerator
 import com.singularity.todo.test.helpers.MutableClock
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import java.io.File
@@ -40,7 +40,6 @@ import kotlin.time.Duration.Companion.minutes
 @Tag("slow")
 @Tag("slow:migration")
 class SyncStateMigrationTest {
-
     private lateinit var tempDir: File
     private lateinit var dbPath: String
 
@@ -55,7 +54,11 @@ class SyncStateMigrationTest {
         tempDir.deleteRecursively()
     }
 
-    private fun rawStrings(connection: SQLiteConnection, sql: String, column: Int = 0): List<String> {
+    private fun rawStrings(
+        connection: SQLiteConnection,
+        sql: String,
+        column: Int = 0,
+    ): List<String> {
         val statement = connection.prepare(sql)
         val out = mutableListOf<String>()
         try {
@@ -72,188 +75,208 @@ class SyncStateMigrationTest {
     }
 
     @Test
-    fun `a v33 database upgrades to v34 with a usable sync_state table`() = runTest {
-        val db = openMigrated()
-        try {
-            val scope = SyncScope("owner-1", "profile-a")
-            db.syncStateDao().insertIfAbsent(
-                SyncStateEntity(ownerId = scope.ownerId, profileId = scope.profileId, lastLsn = 42),
-            )
-            assertEquals(42L, db.syncStateDao().get(scope.ownerId, scope.profileId)?.lastLsn)
-        } finally {
-            db.close()
-        }
-
-        createSqlDriver().open(dbPath).use { connection ->
-            assertTrue(
-                "sync_state" in rawStrings(connection, "SELECT name FROM sqlite_master WHERE type = 'table'"),
-                "the sync_state table must exist at v34",
-            )
-            val versions = mutableListOf<Int>()
-            connection.prepare("PRAGMA user_version").use { statement ->
-                while (statement.step()) versions += statement.getInt(0)
+    fun `a v33 database upgrades to v34 with a usable sync_state table`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val scope = SyncScope("owner-1", "profile-a")
+                db.syncStateDao().insertIfAbsent(
+                    SyncStateEntity(ownerId = scope.ownerId, profileId = scope.profileId, lastLsn = 42),
+                )
+                assertEquals(42L, db.syncStateDao().get(scope.ownerId, scope.profileId)?.lastLsn)
+            } finally {
+                db.close()
             }
-            assertEquals(
-                listOf(SCHEMA_VERSION),
-                versions,
-                "user_version must match the current schema version after upgrade",
-            )
-        }
-    }
 
-    @Test
-    fun `two scopes keep separate cursors`() = runTest {
-        val db = openMigrated()
-        try {
-            val repo = RoomSyncStateRepository(
-                dao = db.syncStateDao(),
-                legacyPrefs = InMemorySyncPrefs(MutableClock()),
-                idGenerator = SequenceIdGenerator("device"),
-            )
-            val a = SyncScope("owner-1", "profile-a")
-            val b = SyncScope("owner-1", "profile-b")
-
-            repo.setLastLsn(a, 10)
-            repo.setLastLsn(b, 99)
-
-            // The failure this whole table exists to prevent: one scope reading the
-            // other's position and resuming inside the wrong history. Nothing reports
-            // that — a pull that applies a hundred events looks identical either way.
-            assertEquals(10L, repo.get(a).lastLsn)
-            assertEquals(99L, repo.get(b).lastLsn)
-        } finally {
-            db.close()
-        }
-    }
-
-    @Test
-    fun `a scope that has never synced reads as a real scope with a zero cursor`() = runTest {
-        val db = openMigrated()
-        try {
-            val repo = RoomSyncStateRepository(
-                dao = db.syncStateDao(),
-                legacyPrefs = InMemorySyncPrefs(MutableClock()),
-                idGenerator = SequenceIdGenerator("device"),
-            )
-            val fresh = SyncScope("owner-new", "profile-new")
-
-            val state = repo.get(fresh)
-
-            // A null here would push a branch into every caller for the normal
-            // first-run case, which is not an exceptional state.
-            assertEquals(0L, state.lastLsn)
-            assertNull(state.lastSuccessfulSyncAt)
-            assertNotNull(state.deviceId, "a device id is generated so nothing syncs as an empty device")
-        } finally {
-            db.close()
-        }
-    }
-
-    @Test
-    fun `the legacy flat values are adopted once, and a reset cursor is not written back`() = runTest {
-        val db = openMigrated()
-        try {
-            val legacy = InMemorySyncPrefs(MutableClock()).apply {
-                setLastLsn(777)
-                setAutoSyncEnabled(false)
-                setScheduledInterval(45.minutes)
+            createSqlDriver().open(dbPath).use { connection ->
+                assertTrue(
+                    "sync_state" in rawStrings(connection, "SELECT name FROM sqlite_master WHERE type = 'table'"),
+                    "the sync_state table must exist at v34",
+                )
+                val versions = mutableListOf<Int>()
+                connection.prepare("PRAGMA user_version").use { statement ->
+                    while (statement.step()) versions += statement.getInt(0)
+                }
+                assertEquals(
+                    listOf(SCHEMA_VERSION),
+                    versions,
+                    "user_version must match the current schema version after upgrade",
+                )
             }
-            val repo = RoomSyncStateRepository(
-                dao = db.syncStateDao(),
-                legacyPrefs = legacy,
-                idGenerator = SequenceIdGenerator("device"),
-            )
-            val scope = SyncScope("owner-legacy", "profile-1")
-
-            // First use adopts the old values, so the device does not re-download
-            // its whole history on upgrade.
-            assertEquals(777L, repo.get(scope).lastLsn)
-            assertEquals(false, repo.get(scope).autoSyncEnabled)
-            assertEquals(45, repo.get(scope).scheduledInterval.inWholeMinutes.toInt())
-
-            // A scope that has genuinely reset its cursor keeps it: adoption is
-            // one-shot, not a rule that re-fires whenever the row looks empty.
-            repo.setLastLsn(scope, 0)
-            assertEquals(0L, repo.get(scope).lastLsn, "a deliberate reset must survive the legacy read")
-        } finally {
-            db.close()
         }
-    }
 
     @Test
-    fun `triggers round-trip through the stored csv`() = runTest {
-        val db = openMigrated()
-        try {
-            val repo = RoomSyncStateRepository(
-                dao = db.syncStateDao(),
-                legacyPrefs = InMemorySyncPrefs(MutableClock()),
-                idGenerator = SequenceIdGenerator("device"),
-            )
-            val scope = SyncScope("owner-1", "profile-a")
+    fun `two scopes keep separate cursors`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val repo =
+                    RoomSyncStateRepository(
+                        dao = db.syncStateDao(),
+                        legacyPrefs = InMemorySyncPrefs(MutableClock()),
+                        idGenerator = SequenceIdGenerator("device"),
+                    )
+                val a = SyncScope("owner-1", "profile-a")
+                val b = SyncScope("owner-1", "profile-b")
 
-            assertEquals(
-                SyncTrigger.entries.toSet(),
-                repo.get(scope).enabledTriggers,
-                "a fresh scope allows every trigger",
-            )
+                repo.setLastLsn(a, 10)
+                repo.setLastLsn(b, 99)
 
-            repo.setEnabledTriggers(scope, setOf(SyncTrigger.Created, SyncTrigger.NetworkConnected))
-
-            assertEquals(
-                setOf(SyncTrigger.Created, SyncTrigger.NetworkConnected),
-                repo.observe(scope).first().enabledTriggers,
-            )
-        } finally {
-            db.close()
+                // The failure this whole table exists to prevent: one scope reading the
+                // other's position and resuming inside the wrong history. Nothing reports
+                // that — a pull that applies a hundred events looks identical either way.
+                assertEquals(10L, repo.get(a).lastLsn)
+                assertEquals(99L, repo.get(b).lastLsn)
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `an unrecognised trigger name costs one trigger, not the whole sync`() = runTest {
-        val db = openMigrated()
-        try {
-            val scope = SyncScope("owner-1", "profile-a")
-            db.syncStateDao().insertIfAbsent(
-                SyncStateEntity(
-                    ownerId = scope.ownerId,
-                    profileId = scope.profileId,
-                    // A name from a newer build, or a hand-edited row.
-                    enabledTriggers = "Created,QuantumEntanglement,NetworkConnected",
-                ),
-            )
-            val repo = RoomSyncStateRepository(
-                dao = db.syncStateDao(),
-                legacyPrefs = InMemorySyncPrefs(MutableClock()),
-                idGenerator = SequenceIdGenerator("device"),
-            )
+    fun `a scope that has never synced reads as a real scope with a zero cursor`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val repo =
+                    RoomSyncStateRepository(
+                        dao = db.syncStateDao(),
+                        legacyPrefs = InMemorySyncPrefs(MutableClock()),
+                        idGenerator = SequenceIdGenerator("device"),
+                    )
+                val fresh = SyncScope("owner-new", "profile-new")
 
-            assertEquals(
-                setOf(SyncTrigger.Created, SyncTrigger.NetworkConnected),
-                repo.get(scope).enabledTriggers,
-            )
-        } finally {
-            db.close()
+                val state = repo.get(fresh)
+
+                // A null here would push a branch into every caller for the normal
+                // first-run case, which is not an exceptional state.
+                assertEquals(0L, state.lastLsn)
+                assertNull(state.lastSuccessfulSyncAt)
+                assertNotNull(state.deviceId, "a device id is generated so nothing syncs as an empty device")
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `clearAll wipes every scope, not just the current one`() = runTest {
-        val db = openMigrated()
-        try {
-            val repo = RoomSyncStateRepository(
-                dao = db.syncStateDao(),
-                legacyPrefs = InMemorySyncPrefs(MutableClock()),
-                idGenerator = SequenceIdGenerator("device"),
-            )
-            repo.setLastLsn(SyncScope("owner-1", "profile-a"), 10)
-            repo.setLastLsn(SyncScope("owner-2", "profile-b"), 20)
+    fun `the legacy flat values are adopted once, and a reset cursor is not written back`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val legacy =
+                    InMemorySyncPrefs(MutableClock()).apply {
+                        setLastLsn(777)
+                        setAutoSyncEnabled(false)
+                        setScheduledInterval(45.minutes)
+                    }
+                val repo =
+                    RoomSyncStateRepository(
+                        dao = db.syncStateDao(),
+                        legacyPrefs = legacy,
+                        idGenerator = SequenceIdGenerator("device"),
+                    )
+                val scope = SyncScope("owner-legacy", "profile-1")
 
-            repo.clearAll()
+                // First use adopts the old values, so the device does not re-download
+                // its whole history on upgrade.
+                assertEquals(777L, repo.get(scope).lastLsn)
+                assertEquals(false, repo.get(scope).autoSyncEnabled)
+                assertEquals(
+                    45,
+                    repo
+                        .get(scope)
+                        .scheduledInterval.inWholeMinutes
+                        .toInt(),
+                )
 
-            assertEquals(0L, db.syncStateDao().get("owner-1", "profile-a")?.lastLsn ?: 0L)
-            assertNull(db.syncStateDao().get("owner-2", "profile-b"))
-        } finally {
-            db.close()
+                // A scope that has genuinely reset its cursor keeps it: adoption is
+                // one-shot, not a rule that re-fires whenever the row looks empty.
+                repo.setLastLsn(scope, 0)
+                assertEquals(0L, repo.get(scope).lastLsn, "a deliberate reset must survive the legacy read")
+            } finally {
+                db.close()
+            }
         }
-    }
+
+    @Test
+    fun `triggers round-trip through the stored csv`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val repo =
+                    RoomSyncStateRepository(
+                        dao = db.syncStateDao(),
+                        legacyPrefs = InMemorySyncPrefs(MutableClock()),
+                        idGenerator = SequenceIdGenerator("device"),
+                    )
+                val scope = SyncScope("owner-1", "profile-a")
+
+                assertEquals(
+                    SyncTrigger.entries.toSet(),
+                    repo.get(scope).enabledTriggers,
+                    "a fresh scope allows every trigger",
+                )
+
+                repo.setEnabledTriggers(scope, setOf(SyncTrigger.Created, SyncTrigger.NetworkConnected))
+
+                assertEquals(
+                    setOf(SyncTrigger.Created, SyncTrigger.NetworkConnected),
+                    repo.observe(scope).first().enabledTriggers,
+                )
+            } finally {
+                db.close()
+            }
+        }
+
+    @Test
+    fun `an unrecognised trigger name costs one trigger, not the whole sync`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val scope = SyncScope("owner-1", "profile-a")
+                db.syncStateDao().insertIfAbsent(
+                    SyncStateEntity(
+                        ownerId = scope.ownerId,
+                        profileId = scope.profileId,
+                        // A name from a newer build, or a hand-edited row.
+                        enabledTriggers = "Created,QuantumEntanglement,NetworkConnected",
+                    ),
+                )
+                val repo =
+                    RoomSyncStateRepository(
+                        dao = db.syncStateDao(),
+                        legacyPrefs = InMemorySyncPrefs(MutableClock()),
+                        idGenerator = SequenceIdGenerator("device"),
+                    )
+
+                assertEquals(
+                    setOf(SyncTrigger.Created, SyncTrigger.NetworkConnected),
+                    repo.get(scope).enabledTriggers,
+                )
+            } finally {
+                db.close()
+            }
+        }
+
+    @Test
+    fun `clearAll wipes every scope, not just the current one`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val repo =
+                    RoomSyncStateRepository(
+                        dao = db.syncStateDao(),
+                        legacyPrefs = InMemorySyncPrefs(MutableClock()),
+                        idGenerator = SequenceIdGenerator("device"),
+                    )
+                repo.setLastLsn(SyncScope("owner-1", "profile-a"), 10)
+                repo.setLastLsn(SyncScope("owner-2", "profile-b"), 20)
+
+                repo.clearAll()
+
+                assertEquals(0L, db.syncStateDao().get("owner-1", "profile-a")?.lastLsn ?: 0L)
+                assertNull(db.syncStateDao().get("owner-2", "profile-b"))
+            } finally {
+                db.close()
+            }
+        }
 }

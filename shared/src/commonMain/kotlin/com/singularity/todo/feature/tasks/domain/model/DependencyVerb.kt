@@ -7,7 +7,7 @@ package com.singularity.todo.feature.tasks.domain.model
  * (the task that holds the dependency edge).
  *
  * @see TaskDependency
- * @see com.singularity.todo.docs.decisions.2026-10-01-typed-task-dependency-links
+ * @see `com.singularity.todo.docs.decisions.2026-10-01-typed-task-dependency-links`
  */
 enum class DependencyVerb {
     /** Default. The owner task is blocked by the dependency. */

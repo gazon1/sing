@@ -16,7 +16,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TaskCognitiveLoadTest {
-
     @Test
     fun `the load grows with the estimate`() {
         val small = TaskCognitiveLoadCalculator.loadOf(estimateMinutes = 30, stepCount = 0)
@@ -35,59 +34,64 @@ class TaskCognitiveLoadTest {
 
     @Test
     fun `the load does not depend on the priority`() {
-        val urgent = TaskCognitiveLoadCalculator.of(
-            estimateMinutes = 120,
-            stepCount = 2,
-            blocked = false,
-            staleDays = 0,
-            priority = TaskPriority.Urgent,
-        )
-        val unimportant = TaskCognitiveLoadCalculator.of(
-            estimateMinutes = 120,
-            stepCount = 2,
-            blocked = false,
-            staleDays = 0,
-            priority = TaskPriority.None,
-        )
+        val urgent =
+            TaskCognitiveLoadCalculator.of(
+                estimateMinutes = 120,
+                stepCount = 2,
+                blocked = false,
+                staleDays = 0,
+                priority = TaskPriority.Urgent,
+            )
+        val unimportant =
+            TaskCognitiveLoadCalculator.of(
+                estimateMinutes = 120,
+                stepCount = 2,
+                blocked = false,
+                staleDays = 0,
+                priority = TaskPriority.None,
+            )
 
         assertEquals(urgent.load, unimportant.load, "value is a separate axis")
     }
 
     @Test
     fun `a task nobody prioritised is not called a burden`() {
-        val reading = TaskCognitiveLoadCalculator.of(
-            estimateMinutes = 60,
-            stepCount = 0,
-            blocked = false,
-            staleDays = 60,
-            priority = TaskPriority.None,
-        )
+        val reading =
+            TaskCognitiveLoadCalculator.of(
+                estimateMinutes = 60,
+                stepCount = 0,
+                blocked = false,
+                staleDays = 60,
+                priority = TaskPriority.None,
+            )
 
         assertFalse(reading.isToxic, "an old task with no stated value is not a burden")
     }
 
     @Test
     fun `a blocked task that has sat and matters little is a burden`() {
-        val reading = TaskCognitiveLoadCalculator.of(
-            estimateMinutes = 120,
-            stepCount = 1,
-            blocked = true,
-            staleDays = 30,
-            priority = TaskPriority.Low,
-        )
+        val reading =
+            TaskCognitiveLoadCalculator.of(
+                estimateMinutes = 120,
+                stepCount = 1,
+                blocked = true,
+                staleDays = 30,
+                priority = TaskPriority.Low,
+            )
 
         assertTrue(reading.isToxic, "blocked, stale and of little value")
     }
 
     @Test
     fun `a heavy task that matters is not a burden`() {
-        val reading = TaskCognitiveLoadCalculator.of(
-            estimateMinutes = 600,
-            stepCount = 4,
-            blocked = true,
-            staleDays = 30,
-            priority = TaskPriority.Urgent,
-        )
+        val reading =
+            TaskCognitiveLoadCalculator.of(
+                estimateMinutes = 600,
+                stepCount = 4,
+                blocked = true,
+                staleDays = 30,
+                priority = TaskPriority.Urgent,
+            )
 
         assertFalse(reading.isToxic, "big is not the same as burdensome")
     }
@@ -97,22 +101,24 @@ class TaskCognitiveLoadTest {
         val lenient = TaskCognitiveLoadThresholds(toxicStress = 1000)
         val strict = TaskCognitiveLoadThresholds(toxicStress = 10)
 
-        val reading = TaskCognitiveLoadCalculator.of(
-            estimateMinutes = 60,
-            stepCount = 0,
-            blocked = false,
-            staleDays = 0,
-            priority = TaskPriority.Low,
-            thresholds = lenient,
-        )
-        val sameWithStrict = TaskCognitiveLoadCalculator.of(
-            estimateMinutes = 60,
-            stepCount = 0,
-            blocked = false,
-            staleDays = 0,
-            priority = TaskPriority.Low,
-            thresholds = strict,
-        )
+        val reading =
+            TaskCognitiveLoadCalculator.of(
+                estimateMinutes = 60,
+                stepCount = 0,
+                blocked = false,
+                staleDays = 0,
+                priority = TaskPriority.Low,
+                thresholds = lenient,
+            )
+        val sameWithStrict =
+            TaskCognitiveLoadCalculator.of(
+                estimateMinutes = 60,
+                stepCount = 0,
+                blocked = false,
+                staleDays = 0,
+                priority = TaskPriority.Low,
+                thresholds = strict,
+            )
 
         assertFalse(reading.isToxic, "the lenient threshold is not reached")
         assertTrue(sameWithStrict.isToxic, "the strict threshold is")

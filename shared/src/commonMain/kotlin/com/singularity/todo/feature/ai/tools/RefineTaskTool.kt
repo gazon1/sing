@@ -21,12 +21,12 @@ data class RefineTaskOutput(val newTitle: String)
 
 class RefineTaskTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
     SimpleTool<RefineTaskInput>(TypeToken.of(RefineTaskInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: RefineTaskInput): String {
-        val p = prompt(Prompt.Empty, KoogClock.System) {
-            system(Prompts.refineSystem)
-            user(Prompts.refineUser(args.currentTitle, args.description))
-        }
+        val p =
+            prompt(Prompt.Empty, KoogClock.System) {
+                system(Prompts.refineSystem)
+                user(Prompts.refineUser(args.currentTitle, args.description))
+            }
         val response = promptExecutor.execute(p, model, emptyList())
         val text = extractText(response)
         return Json.encodeToString(RefineTaskOutput.serializer(), RefineTaskOutput(text.trim()))
@@ -37,6 +37,9 @@ class RefineTaskTool(private val promptExecutor: PromptExecutor, private val mod
         const val DESCRIPTION = "Rewrite the task title to be clearer and more actionable."
 
         private fun extractText(response: Message.Assistant): String =
-            response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }.trim()
+            response.parts
+                .filterIsInstance<MessagePart.Text>()
+                .joinToString("") { it.text }
+                .trim()
     }
 }

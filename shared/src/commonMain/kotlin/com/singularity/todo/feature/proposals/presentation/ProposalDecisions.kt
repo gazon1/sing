@@ -57,7 +57,6 @@ class ProposalDecisions(
     private val userId: () -> UserId,
     private val withdrawProposal: (suspend (ProposalId, UserId) -> Result<Unit>)? = null,
 ) {
-
     /**
      * Where the reason a change failed lives.
      *
@@ -94,7 +93,10 @@ class ProposalDecisions(
      *   that does not store the reason drops it here, exactly where it dropped
      *   it before.
      */
-    suspend fun turnDownChange(itemId: ProposalItemId, reason: String?) {
+    suspend fun turnDownChange(
+        itemId: ProposalItemId,
+        reason: String?,
+    ) {
         val apply = applyProposalItem ?: return
         val stored = if (style.storesRejectionReason) reason else null
         decide(itemId, style.reject) { apply.reject(itemId, userId(), stored) }
@@ -107,7 +109,10 @@ class ProposalDecisions(
      * value, so a value that does not read is refused — and the refusal carries
      * the reason, which is what the user is shown under the change.
      */
-    suspend fun changeValue(itemId: ProposalItemId, text: String) {
+    suspend fun changeValue(
+        itemId: ProposalItemId,
+        text: String,
+    ) {
         val edit = editProposalItem ?: return
         decide(itemId, style.change) { edit.edit(itemId, text, userId()) }
     }
@@ -139,11 +144,12 @@ class ProposalDecisions(
     suspend fun dismiss(waiting: suspend () -> List<ProposalItem>) {
         val apply = applyProposalItem ?: return
         val label = style.dismiss
-        val outcome = outcome {
-            for (item in waiting()) {
-                turnDownWaiting(item)
+        val outcome =
+            outcome {
+                for (item in waiting()) {
+                    turnDownWaiting(item)
+                }
             }
-        }
         when (outcome) {
             is Outcome.Value -> Unit
             is Outcome.Thrown -> report(label, outcome.error)
@@ -167,7 +173,10 @@ class ProposalDecisions(
     }
 
     /** Keeps the reason a change failed next to the change it belongs to. */
-    fun recordFailure(itemId: ProposalItemId, message: String) {
+    fun recordFailure(
+        itemId: ProposalItemId,
+        message: String,
+    ) {
         failureStore.record(itemId, message)
     }
 
@@ -186,12 +195,16 @@ class ProposalDecisions(
         work: suspend () -> Result<*>,
     ) {
         when (val outcome = outcome(work)) {
-            is Outcome.Value -> outcome.value.fold(
-                onSuccess = { clearFailure(itemId) },
-                onFailure = { error -> fail(itemId, label, error) },
-            )
+            is Outcome.Value -> {
+                outcome.value.fold(
+                    onSuccess = { clearFailure(itemId) },
+                    onFailure = { error -> fail(itemId, label, error) },
+                )
+            }
 
-            is Outcome.Thrown -> report(label, outcome.error)
+            is Outcome.Thrown -> {
+                report(label, outcome.error)
+            }
         }
     }
 
@@ -232,7 +245,11 @@ class ProposalDecisions(
      * Keeps the reason a change failed next to the change it belongs to, and
      * tells the user about it.
      */
-    private suspend fun fail(itemId: ProposalItemId, label: String, error: Throwable) {
+    private suspend fun fail(
+        itemId: ProposalItemId,
+        label: String,
+        error: Throwable,
+    ) {
         recordFailure(itemId, style.failureText.text(label, error))
         report(label, error)
     }
@@ -240,7 +257,10 @@ class ProposalDecisions(
     /**
      * Reports a failure to the user, in the surface's own words.
      */
-    private suspend fun report(label: String, error: Throwable) {
+    private suspend fun report(
+        label: String,
+        error: Throwable,
+    ) {
         errors.report(label, style.failureText.text(label, error), error)
     }
 
@@ -271,6 +291,7 @@ class ProposalDecisions(
      */
     private sealed interface Outcome<out T> {
         data class Value<out T>(val value: T) : Outcome<T>
+
         data class Thrown(val error: Throwable) : Outcome<Nothing>
     }
 }

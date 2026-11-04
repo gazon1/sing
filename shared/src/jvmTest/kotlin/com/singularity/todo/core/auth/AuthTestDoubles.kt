@@ -36,7 +36,10 @@ class MapSecureStorage(private val failWrites: Boolean = false, private val fail
 
     override suspend fun read(key: String): String? = values[key]
 
-    override suspend fun write(key: String, value: String) {
+    override suspend fun write(
+        key: String,
+        value: String,
+    ) {
         writes++
         if (failWrites) error("keychain unavailable")
         if (failWriteNumber == writes) error("keychain unavailable on write $writes")
@@ -70,7 +73,10 @@ class GatedWriteSecureStorage : SecureStorage {
 
     override suspend fun read(key: String): String? = values[key]
 
-    override suspend fun write(key: String, value: String) {
+    override suspend fun write(
+        key: String,
+        value: String,
+    ) {
         writes++
         waiting.complete(Unit)
         gate.await()
@@ -107,7 +113,10 @@ class GatedDeleteSecureStorage : SecureStorage {
 
     override suspend fun read(key: String): String? = values[key]
 
-    override suspend fun write(key: String, value: String) {
+    override suspend fun write(
+        key: String,
+        value: String,
+    ) {
         values[key] = value
     }
 
@@ -128,6 +137,7 @@ class GatedDeleteSecureStorage : SecureStorage {
 
 class FixedIdGenerator(private val id: String = "dev") : IdGenerator {
     private var n = 0
+
     override fun next(): String = "$id-${n++}"
 }
 
@@ -147,7 +157,10 @@ class FixedIdGenerator(private val id: String = "dev") : IdGenerator {
 class HangingSecureStorage : SecureStorage {
     override suspend fun read(key: String): String? = awaitCancellation()
 
-    override suspend fun write(key: String, value: String) {
+    override suspend fun write(
+        key: String,
+        value: String,
+    ) {
         awaitCancellation()
     }
 
@@ -169,7 +182,10 @@ class HangingSecureStorage : SecureStorage {
 class ThrowingSecureStorage(private val failure: () -> Exception) : SecureStorage {
     override suspend fun read(key: String): String? = throw failure()
 
-    override suspend fun write(key: String, value: String): Unit = throw failure()
+    override suspend fun write(
+        key: String,
+        value: String,
+    ): Unit = throw failure()
 
     override suspend fun delete(key: String): Unit = throw failure()
 }
@@ -179,6 +195,7 @@ fun newPreferencesStore(): DataStore<Preferences> {
     val state = MutableStateFlow<Preferences>(emptyPreferences())
     return object : DataStore<Preferences> {
         override val data = state
+
         override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
             val next = transform(state.value)
             state.value = next
@@ -196,11 +213,13 @@ fun newPreferencesStore(): DataStore<Preferences> {
  * first screen: with no tokens stored, `restoreSession` decides between "offline"
  * and "signed out" by reading this.
  */
-fun hangingPreferencesStore(): DataStore<Preferences> = object : DataStore<Preferences> {
-    override val data = flow<Preferences> { awaitCancellation() }
-    override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences =
-        awaitCancellation()
-}
+fun hangingPreferencesStore(): DataStore<Preferences> =
+    object : DataStore<Preferences> {
+        override val data = flow<Preferences> { awaitCancellation() }
+
+        override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences =
+            awaitCancellation()
+    }
 
 /**
  * A [DataStore] that throws on read.
@@ -214,8 +233,8 @@ fun hangingPreferencesStore(): DataStore<Preferences> = object : DataStore<Prefe
 fun throwingPreferencesStore(failure: () -> Exception): DataStore<Preferences> =
     object : DataStore<Preferences> {
         override val data = flow<Preferences> { throw failure() }
-        override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences =
-            throw failure()
+
+        override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences = throw failure()
     }
 
 fun testLogger(tag: String = "auth-test") = Logger.withTag(tag)

@@ -18,7 +18,6 @@ import co.touchlab.kermit.Logger
  * the one nobody can reconstruct afterwards.
  */
 sealed interface AcpSessionEvent {
-
     /** The agent answered the handshake, and the session is open. */
     data class Connected(val agentName: String, val agentVersion: String, val protocolVersion: Int) :
         AcpSessionEvent
@@ -37,18 +36,28 @@ sealed interface AcpSessionEvent {
 }
 
 /** How an event reads in one line. */
-fun AcpSessionEvent.describe(): String = when (this) {
-    is AcpSessionEvent.Connected ->
-        "Connected to $agentName $agentVersion (protocol version $protocolVersion)"
+fun AcpSessionEvent.describe(): String =
+    when (this) {
+        is AcpSessionEvent.Connected -> {
+            "Connected to $agentName $agentVersion (protocol version $protocolVersion)"
+        }
 
-    is AcpSessionEvent.SessionOpened -> "Session $sessionId opened"
+        is AcpSessionEvent.SessionOpened -> {
+            "Session $sessionId opened"
+        }
 
-    is AcpSessionEvent.PermissionRequested -> "Permission requested for '$title' ($toolCallId)"
+        is AcpSessionEvent.PermissionRequested -> {
+            "Permission requested for '$title' ($toolCallId)"
+        }
 
-    is AcpSessionEvent.Disconnected -> "Disconnected: $reason"
+        is AcpSessionEvent.Disconnected -> {
+            "Disconnected: $reason"
+        }
 
-    is AcpSessionEvent.ProcessTreeTerminated -> "Process tree terminated: $processes process(es)"
-}
+        is AcpSessionEvent.ProcessTreeTerminated -> {
+            "Process tree terminated: $processes process(es)"
+        }
+    }
 
 /**
  * Where a session's lifecycle goes.

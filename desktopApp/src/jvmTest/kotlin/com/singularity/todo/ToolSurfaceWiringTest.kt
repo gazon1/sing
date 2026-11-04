@@ -40,20 +40,20 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ToolSurfaceWiringTest {
-
     @Test
     fun `the wired toolbox is the declared toolbox`() {
-        val app = koinApplication {
-            // KOIN-W003 is the same accepted tradeoff `DomainGraphResolutionTest`
-            // takes: the module set is composed at runtime, so the compile-time graph
-            // check cannot see it. This test is the runtime validation that replaces it.
-            @Suppress("KoinCompilationForInternal")
-            modules(
-                listOf(coreLoggingModule()) +
-                    domainModule() +
-                    listOf(testPlatformModule()),
-            )
-        }
+        val app =
+            koinApplication {
+                // KOIN-W003 is the same accepted tradeoff `DomainGraphResolutionTest`
+                // takes: the module set is composed at runtime, so the compile-time graph
+                // check cannot see it. This test is the runtime validation that replaces it.
+                @Suppress("KoinCompilationForInternal")
+                modules(
+                    listOf(coreLoggingModule()) +
+                        domainModule() +
+                        listOf(testPlatformModule()),
+                )
+            }
         try {
             val tools: List<Tool<*, *>> = app.koin.get()
             val declared = McpToolCatalog.catalog
@@ -98,19 +98,23 @@ class ToolSurfaceWiringTest {
             // cannot be added, and a direct write cannot be added without a reason.
             for (entry in declared) {
                 when (entry.writeBehavior) {
-                    WriteBehavior.DIRECT_WRITE_EXCEPTION -> assertTrue(
-                        !entry.exceptionReason.isNullOrBlank(),
-                        "${entry.name} writes directly and says nothing about why it sits " +
-                            "outside the proposal pipeline; an exception without a reason is " +
-                            "not an exception, it is a hole",
-                    )
+                    WriteBehavior.DIRECT_WRITE_EXCEPTION -> {
+                        assertTrue(
+                            !entry.exceptionReason.isNullOrBlank(),
+                            "${entry.name} writes directly and says nothing about why it sits " +
+                                "outside the proposal pipeline; an exception without a reason is " +
+                                "not an exception, it is a hole",
+                        )
+                    }
 
-                    else -> assertTrue(
-                        entry.exceptionReason == null,
-                        "${entry.name} is ${entry.writeBehavior} and still carries an " +
-                            "exception reason; a reason that does not apply is a reason " +
-                            "nobody will read",
-                    )
+                    else -> {
+                        assertTrue(
+                            entry.exceptionReason == null,
+                            "${entry.name} is ${entry.writeBehavior} and still carries an " +
+                                "exception reason; a reason that does not apply is a reason " +
+                                "nobody will read",
+                        )
+                    }
                 }
             }
 

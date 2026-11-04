@@ -16,7 +16,6 @@ import kotlin.test.assertTrue
  * `2026-10-04-ci-test-tag-filter-and-vacuous-gates`.
  */
 class PassThroughUseCaseRuleTest {
-
     private val rule = PassThroughUseCaseRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
@@ -26,7 +25,8 @@ class PassThroughUseCaseRuleTest {
         // receiver via `psiClass.declarations.filterIsInstance<KtProperty>()`, but a
         // primary-constructor property is a KtParameter, not a KtProperty, so the
         // lookup returned null and the rule bailed out before reporting.
-        val code = """
+        val code =
+            """
             package com.singularity.todo.feature.checklist
 
             class ArchiveItemUseCase(
@@ -34,7 +34,7 @@ class PassThroughUseCaseRuleTest {
             ) {
                 fun archive(id: ChecklistId): Result<Unit> = checklistRepository.archive(id)
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(1, findings.size, "expected the pass-through to be reported")
@@ -45,7 +45,8 @@ class PassThroughUseCaseRuleTest {
     fun `body-declared repository delegation is flagged`() {
         // The form the rule used to handle. Kept as a regression guard: fixing
         // the constructor case must not break the property case.
-        val code = """
+        val code =
+            """
             package com.singularity.todo.feature.checklist
 
             class ArchiveItemUseCase {
@@ -53,7 +54,7 @@ class PassThroughUseCaseRuleTest {
 
                 fun archive(id: ChecklistId): Result<Unit> = checklistRepository.archive(id)
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(1, findings.size)
@@ -61,7 +62,8 @@ class PassThroughUseCaseRuleTest {
 
     @Test
     fun `val-declared property delegation is flagged`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.feature.checklist
 
             class ArchiveItemUseCase {
@@ -69,7 +71,7 @@ class PassThroughUseCaseRuleTest {
 
                 fun archive(id: ChecklistId): Result<Unit> = checklistRepository.archive(id)
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(1, findings.size)
@@ -77,7 +79,8 @@ class PassThroughUseCaseRuleTest {
 
     @Test
     fun `block body is not flagged`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.feature.checklist
 
             class ArchiveItemUseCase(
@@ -88,14 +91,15 @@ class PassThroughUseCaseRuleTest {
                     return checklistRepository.archive(id)
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         assertEquals(0, rule.visitFile(ktFile, languageSettings).size)
     }
 
     @Test
     fun `clock delegation is not flagged`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.feature.checklist
 
             class StampUseCase(
@@ -103,14 +107,15 @@ class PassThroughUseCaseRuleTest {
             ) {
                 fun now(): Instant = clock.now()
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         assertEquals(0, rule.visitFile(ktFile, languageSettings).size)
     }
 
     @Test
     fun `private method is not flagged`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.feature.checklist
 
             class ArchiveItemUseCase(
@@ -118,14 +123,15 @@ class PassThroughUseCaseRuleTest {
             ) {
                 private fun archive(id: ChecklistId): Result<Unit> = checklistRepository.archive(id)
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         assertEquals(0, rule.visitFile(ktFile, languageSettings).size)
     }
 
     @Test
     fun `non-repository dependency is not flagged`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.feature.checklist
 
             class ArchiveItemUseCase(
@@ -133,7 +139,7 @@ class PassThroughUseCaseRuleTest {
             ) {
                 fun encode(id: ChecklistId): String = encoder.encode(id)
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         assertEquals(0, rule.visitFile(ktFile, languageSettings).size)
     }

@@ -4,9 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -18,41 +18,44 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ContentState
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
-import com.singularity.todo.core.ui.components.StatefulContent
-import com.singularity.todo.core.ui.components.ContentState
-import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.components.StatefulContent
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
-import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
-import kotlinx.collections.immutable.toImmutableSet
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
+import kotlinx.collections.immutable.toImmutableSet
 import org.koin.compose.viewmodel.koinViewModel
-import com.singularity.todo.core.ui.preview.noopClick
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @Suppress("LongMethod")
-fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel(), onBack: () -> Unit = {}) {
+fun ArchiveScreen(
+    viewModel: ArchiveViewModel = koinViewModel(),
+    onBack: () -> Unit = {},
+) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val navigator = LocalAppNavigator.current
 
@@ -69,10 +72,11 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel(), onBack: () -> U
         },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp),
         ) {
             val refreshing = state.let { it is ArchiveUiState.Content && it.refreshing }
             Button(
@@ -88,14 +92,18 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel(), onBack: () -> U
             }
             RefreshableContent {
                 when (val s = state) {
-                    ArchiveUiState.Loading -> LoadingIndicator()
+                    ArchiveUiState.Loading -> {
+                        LoadingIndicator()
+                    }
 
-                    is ArchiveUiState.Error -> StatefulContent(
-                        state = ContentState.Error(AppError.Unknown(s.message, code = "archive.load_failed")),
-                        emptyTitle = "",
-                        onRetry = { viewModel.onIntent(ArchiveIntent.Retry) },
-                        modifier = Modifier.fillMaxSize(),
-                    ) { _, _ -> }
+                    is ArchiveUiState.Error -> {
+                        StatefulContent(
+                            state = ContentState.Error(AppError.Unknown(s.message, code = "archive.load_failed")),
+                            emptyTitle = "",
+                            onRetry = { viewModel.onIntent(ArchiveIntent.Retry) },
+                            modifier = Modifier.fillMaxSize(),
+                        ) { _, _ -> }
+                    }
 
                     is ArchiveUiState.Content -> {
                         if (s.tasks.isEmpty()) {
@@ -123,15 +131,16 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel(), onBack: () -> U
                                                 ),
                                             )
                                         },
-                                        actions = TaskCardActions(
-                                            onAiClick = {
-                                                navigator.navigate(
-                                                    AppDestination.TasksGraph(
-                                                        AppDestination.TasksStartRoute.Detail(task.id),
-                                                    ),
-                                                )
-                                            },
-                                        ),
+                                        actions =
+                                            TaskCardActions(
+                                                onAiClick = {
+                                                    navigator.navigate(
+                                                        AppDestination.TasksGraph(
+                                                            AppDestination.TasksStartRoute.Detail(task.id),
+                                                        ),
+                                                    )
+                                                },
+                                            ),
                                     )
                                 }
                             }
@@ -149,10 +158,11 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel(), onBack: () -> U
     )
 }
 
-private fun ArchiveUiEvent.toNotification(): Notification = when (this) {
-    is ArchiveUiEvent.Archived -> Notification.Text(title = "Archived", text = message)
-    is ArchiveUiEvent.Error -> Notification.Error(message)
-}
+private fun ArchiveUiEvent.toNotification(): Notification =
+    when (this) {
+        is ArchiveUiEvent.Archived -> Notification.Text(title = "Archived", text = message)
+        is ArchiveUiEvent.Error -> Notification.Error(message)
+    }
 
 // ===== Preview =====
 
@@ -172,9 +182,13 @@ private fun ArchiveContentPreview(state: ArchiveUiState) {
                 }
             }
             when (state) {
-                ArchiveUiState.Loading -> LoadingIndicator()
+                ArchiveUiState.Loading -> {
+                    LoadingIndicator()
+                }
 
-                is ArchiveUiState.Error -> EmptyState(title = "Error", subtitle = state.message)
+                is ArchiveUiState.Error -> {
+                    EmptyState(title = "Error", subtitle = state.message)
+                }
 
                 is ArchiveUiState.Content -> {
                     if (state.tasks.isEmpty()) {
@@ -184,9 +198,10 @@ private fun ArchiveContentPreview(state: ArchiveUiState) {
                             testTag = TestTags.ARCHIVE_EMPTY,
                         )
                     } else {
-                        val blockedTaskIds = remember(state.tasks) {
-                            Blocking.blockedTaskIds(state.tasks).toImmutableSet()
-                        }
+                        val blockedTaskIds =
+                            remember(state.tasks) {
+                                Blocking.blockedTaskIds(state.tasks).toImmutableSet()
+                            }
                         LazyColumn(
                             modifier = Modifier.widthIn(max = 640.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -211,26 +226,30 @@ private fun ArchiveContentPreview(state: ArchiveUiState) {
 
 @Preview
 @Composable
-private fun ArchiveScreenContentPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    ArchiveContentPreview(
-        ArchiveUiState.Content(
-            tasks = listOf(
-                PreviewSamples.task("t1", "Completed task 1", completed = true),
-                PreviewSamples.task("t2", "Completed task 2", completed = true),
-                PreviewSamples.task("t3", "Another completed task", completed = true),
+private fun ArchiveScreenContentPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        ArchiveContentPreview(
+            ArchiveUiState.Content(
+                tasks =
+                    listOf(
+                        PreviewSamples.task("t1", "Completed task 1", completed = true),
+                        PreviewSamples.task("t2", "Completed task 2", completed = true),
+                        PreviewSamples.task("t3", "Another completed task", completed = true),
+                    ),
             ),
-        ),
-    )
-}
+        )
+    }
 
 @Preview
 @Composable
-private fun ArchiveScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    ArchiveContentPreview(ArchiveUiState.Content(tasks = emptyList()))
-}
+private fun ArchiveScreenEmptyPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        ArchiveContentPreview(ArchiveUiState.Content(tasks = emptyList()))
+    }
 
 @Preview
 @Composable
-private fun ArchiveScreenLoadingPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    ArchiveContentPreview(ArchiveUiState.Loading)
-}
+private fun ArchiveScreenLoadingPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        ArchiveContentPreview(ArchiveUiState.Loading)
+    }

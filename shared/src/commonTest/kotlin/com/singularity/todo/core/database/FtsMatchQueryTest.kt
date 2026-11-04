@@ -21,7 +21,6 @@ import kotlin.test.assertNull
  */
 @Tag("fast")
 class FtsMatchQueryTest {
-
     @Test
     fun `a term becomes a prefix lookup`() {
         assertEquals("\"quarter*\"", FtsMatchQuery.expression(TextMatchQuery(listOf("quarter"))))

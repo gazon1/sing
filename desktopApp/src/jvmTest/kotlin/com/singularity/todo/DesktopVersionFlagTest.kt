@@ -21,7 +21,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class DesktopVersionFlagTest {
-
     private fun captureStdout(block: () -> Unit): String {
         val original = System.out
         val buffer = ByteArrayOutputStream()

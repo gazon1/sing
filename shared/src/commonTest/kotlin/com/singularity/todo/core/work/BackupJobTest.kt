@@ -33,83 +33,88 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class BackupJobTest {
+    @Test
+    fun `nothing happens when the auto backup is off`() =
+        runTest {
+            val repository = FakeBackupRepository()
+            val settings = FakeSettingsRepository()
+
+            val outcome = BackupJob(repository, settings).run()
+
+            assertIs<JobOutcome.Success>(outcome)
+            assertEquals(0, repository.exportCount)
+            assertEquals(0, repository.scheduledPushCount)
+        }
 
     @Test
-    fun `nothing happens when the auto backup is off`() = runTest {
-        val repository = FakeBackupRepository()
-        val settings = FakeSettingsRepository()
+    fun `the local backup is made and the cloud is left alone when the device is not authorized`() =
+        runTest {
+            val repository = FakeBackupRepository()
+            repository.exportResult = Result.success(fakeBackupResult())
+            val settings = FakeSettingsRepository()
+            settings.setAutoBackupEnabled(true)
 
-        val outcome = BackupJob(repository, settings).run()
+            val outcome = BackupJob(repository, settings).run()
 
-        assertIs<JobOutcome.Success>(outcome)
-        assertEquals(0, repository.exportCount)
-        assertEquals(0, repository.scheduledPushCount)
-    }
-
-    @Test
-    fun `the local backup is made and the cloud is left alone when the device is not authorized`() = runTest {
-        val repository = FakeBackupRepository()
-        repository.exportResult = Result.success(fakeBackupResult())
-        val settings = FakeSettingsRepository()
-        settings.setAutoBackupEnabled(true)
-
-        val outcome = BackupJob(repository, settings).run()
-
-        assertIs<JobOutcome.Success>(outcome)
-        assertEquals(1, repository.exportCount)
-        assertEquals(
-            0,
-            repository.scheduledPushCount,
-            "a device with no key must not push: the archive would be sealed under nothing",
-        )
-    }
+            assertIs<JobOutcome.Success>(outcome)
+            assertEquals(1, repository.exportCount)
+            assertEquals(
+                0,
+                repository.scheduledPushCount,
+                "a device with no key must not push: the archive would be sealed under nothing",
+            )
+        }
 
     @Test
-    fun `the cloud gets the archive when the device is authorized`() = runTest {
-        val repository = FakeBackupRepository()
-        repository.exportResult = Result.success(fakeBackupResult())
-        repository.scheduledBackupAuthorized = true
-        val settings = FakeSettingsRepository()
-        settings.setAutoBackupEnabled(true)
+    fun `the cloud gets the archive when the device is authorized`() =
+        runTest {
+            val repository = FakeBackupRepository()
+            repository.exportResult = Result.success(fakeBackupResult())
+            repository.scheduledBackupAuthorized = true
+            val settings = FakeSettingsRepository()
+            settings.setAutoBackupEnabled(true)
 
-        val outcome = BackupJob(repository, settings).run()
+            val outcome = BackupJob(repository, settings).run()
 
-        assertIs<JobOutcome.Success>(outcome)
-        assertEquals(1, repository.exportCount)
-        assertEquals(1, repository.scheduledPushCount)
-    }
+            assertIs<JobOutcome.Success>(outcome)
+            assertEquals(1, repository.exportCount)
+            assertEquals(1, repository.scheduledPushCount)
+        }
 
     @Test
-    fun `a failed push is a failed run`() = runTest {
-        val repository = FakeBackupRepository()
-        repository.exportResult = Result.success(fakeBackupResult())
-        repository.scheduledBackupAuthorized = true
-        repository.pushScheduledResult = Result.failure(IllegalStateException("the bucket refused the write"))
-        val settings = FakeSettingsRepository()
-        settings.setAutoBackupEnabled(true)
+    fun `a failed push is a failed run`() =
+        runTest {
+            val repository = FakeBackupRepository()
+            repository.exportResult = Result.success(fakeBackupResult())
+            repository.scheduledBackupAuthorized = true
+            repository.pushScheduledResult = Result.failure(IllegalStateException("the bucket refused the write"))
+            val settings = FakeSettingsRepository()
+            settings.setAutoBackupEnabled(true)
 
-        val outcome = BackupJob(repository, settings).run()
+            val outcome = BackupJob(repository, settings).run()
 
-        assertIs<JobOutcome.Failed>(outcome)
-        assertTrue(
-            outcome.error.message?.contains("the bucket refused the write") == true,
-            "the failure must say what happened: ${outcome.error.message}",
-        )
-    }
+            assertIs<JobOutcome.Failed>(outcome)
+            assertTrue(
+                outcome.error.message?.contains("the bucket refused the write") == true,
+                "the failure must say what happened: ${outcome.error.message}",
+            )
+        }
 
     /** A result the fake hands back for a made archive. */
-    private fun fakeBackupResult(): BackupResult = BackupResult(
-        manifest = BackupManifest(
-            formatVersion = BackupFormat.FORMAT_VERSION,
-            appName = BackupFormat.APP_NAME,
-            appVersion = "1",
-            createdAtEpochMillis = 0L,
-            userIdHash = "hash",
-            schemaVersion = BackupFormat.SCHEMA_VERSION,
-            entityCounts = EntityCounts(),
-            payloadChecksum = "checksum",
-        ),
-        destPath = "/backups/singularity_backup_0.zip",
-        byteSize = 0L,
-    )
+    private fun fakeBackupResult(): BackupResult =
+        BackupResult(
+            manifest =
+                BackupManifest(
+                    formatVersion = BackupFormat.FORMAT_VERSION,
+                    appName = BackupFormat.APP_NAME,
+                    appVersion = "1",
+                    createdAtEpochMillis = 0L,
+                    userIdHash = "hash",
+                    schemaVersion = BackupFormat.SCHEMA_VERSION,
+                    entityCounts = EntityCounts(),
+                    payloadChecksum = "checksum",
+                ),
+            destPath = "/backups/singularity_backup_0.zip",
+            byteSize = 0L,
+        )
 }

@@ -55,19 +55,19 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:data")
 class CreateTaskFromDraftAtomicityTest {
-
     private val alice = UserId("alice")
     private val today = LocalDate(2026, 6, 15)
     private val clock = FakeClock(Instant.parse("2026-06-15T10:00:00Z"))
 
     private val tempDirLazy = lazy { Files.createTempDirectory("singularity-create-atomic-").toFile() }
     private val tempDir: File by tempDirLazy
-    private val dbLazy = lazy {
-        AppDatabaseFactory.build(
-            driver = createSqlDriver(),
-            dbPath = File(tempDir, "tasks.db").absolutePath,
-        )
-    }
+    private val dbLazy =
+        lazy {
+            AppDatabaseFactory.build(
+                driver = createSqlDriver(),
+                dbPath = File(tempDir, "tasks.db").absolutePath,
+            )
+        }
     private val db: AppDatabase by dbLazy
 
     @AfterTest
@@ -102,52 +102,60 @@ class CreateTaskFromDraftAtomicityTest {
     }
 
     @Test
-    fun `a failed window fill leaves neither a row nor its checklist behind`() = runTest {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val currentUser = FakeProfileAwareCurrentUser(auth)
-        val unitOfWork = RoomUnitOfWork(db)
-        val real = TaskRepositoryImpl(
-            taskDao = db.taskDao(),
-            textIndex = db.textIndex(currentUser),
-            clock = clock,
-            currentUser = currentUser,
-            syncRepository = FakeSyncRepository(),
-            dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
-            unitOfWork = unitOfWork,
-        )
-        val repo = FailSecondSeries(real)
-        val useCase = CreateTaskFromDraftUseCase(
-            repo = repo,
-            clock = clock,
-            timeZone = TEST_TZ,
-            currentUser = currentUser,
-            checklistRepository = ChecklistRepositoryImpl(db.checklistDao(), clock, currentUser),
-            attachmentRepository = FakeAttachmentRepository(),
-            unitOfWork = unitOfWork,
-            materialize = MaterializeRecurringSeriesUseCase(repo, unitOfWork, clock),
-        )
+    fun `a failed window fill leaves neither a row nor its checklist behind`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val currentUser = FakeProfileAwareCurrentUser(auth)
+            val unitOfWork = RoomUnitOfWork(db)
+            val real =
+                TaskRepositoryImpl(
+                    taskDao = db.taskDao(),
+                    textIndex = db.textIndex(currentUser),
+                    clock = clock,
+                    currentUser = currentUser,
+                    syncRepository = FakeSyncRepository(),
+                    dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
+                    unitOfWork = unitOfWork,
+                )
+            val repo = FailSecondSeries(real)
+            val useCase =
+                CreateTaskFromDraftUseCase(
+                    repo = repo,
+                    clock = clock,
+                    timeZone = TEST_TZ,
+                    currentUser = currentUser,
+                    checklistRepository = ChecklistRepositoryImpl(db.checklistDao(), clock, currentUser),
+                    attachmentRepository = FakeAttachmentRepository(),
+                    unitOfWork = unitOfWork,
+                    materialize = MaterializeRecurringSeriesUseCase(repo, unitOfWork, clock),
+                )
 
-        val weekly = RecurrenceSpec.Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
-        val result = useCase(
-            TaskDraft(
-                title = FieldOwnedText.empty().seeded("Buy bread"),
-                dueDate = DueDateOption.Custom(today, today.toString()),
-                recurrence = weekly,
-                checklist = listOf(DraftChecklistItem(id = "milk", text = "Milk")),
-            ),
-        )
+            val weekly = RecurrenceSpec.Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
+            val result =
+                useCase(
+                    TaskDraft(
+                        title = FieldOwnedText.empty().seeded("Buy bread"),
+                        dueDate = DueDateOption.Custom(today, today.toString()),
+                        recurrence = weekly,
+                        checklist = listOf(DraftChecklistItem(id = "milk", text = "Milk")),
+                    ),
+                )
 
-        assertTrue(result is Either.Left, "the failure is reported: $result")
-        assertEquals(2, repo.seriesWrites, "the current row was written, then the window fill failed")
-        advanceUntilIdle()
-        assertTrue(
-            real.observeAll().first().isEmpty(),
-            "nothing was committed: a transaction that swallowed the failure would leave the series of one",
-        )
-        val writtenId = requireNotNull(repo.writtenTaskId) { "the first write did not happen" }
-        assertTrue(
-            db.checklistDao().watchByTask(writtenId).first().isEmpty(),
-            "the checklist copy is in the same transaction: the failure rolls it back too",
-        )
-    }
+            assertTrue(result is Either.Left, "the failure is reported: $result")
+            assertEquals(2, repo.seriesWrites, "the current row was written, then the window fill failed")
+            advanceUntilIdle()
+            assertTrue(
+                real.observeAll().first().isEmpty(),
+                "nothing was committed: a transaction that swallowed the failure would leave the series of one",
+            )
+            val writtenId = requireNotNull(repo.writtenTaskId) { "the first write did not happen" }
+            assertTrue(
+                db
+                    .checklistDao()
+                    .watchByTask(writtenId)
+                    .first()
+                    .isEmpty(),
+                "the checklist copy is in the same transaction: the failure rolls it back too",
+            )
+        }
 }

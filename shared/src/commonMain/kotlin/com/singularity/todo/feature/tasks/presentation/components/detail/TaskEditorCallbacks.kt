@@ -11,10 +11,10 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.LocalTime
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 /**
  * Base callback bundle for a single-value attribute row (priority, project, tags, recurrence, dependencies).
@@ -145,7 +145,6 @@ data class TaskEditorCallbacks(
      * Parameters: (startedAtMs, endedAtMs, kind, note).
      */
     val onTimeEntrySave: ((startedAtMs: Long, endedAtMs: Long, kind: TimeEntryKind, note: String?) -> Unit)?,
-
     /**
      * Sections the editor does not know about — the checklist, the tags, the proposals,
      * the logbook — rendered under the fields. Null means the editor shows nothing else.

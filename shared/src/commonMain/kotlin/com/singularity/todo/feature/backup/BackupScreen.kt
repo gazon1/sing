@@ -35,7 +35,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,11 +52,12 @@ import com.singularity.todo.core.backup.BackupId
 import com.singularity.todo.core.backup.BackupMetadata
 import com.singularity.todo.core.backup.RemoteBackup
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.TaggedSnackbarHost
-import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.components.TaggedSnackbarHost
+import com.singularity.todo.core.ui.components.TopAppBar
+import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.formatFileSize
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -148,21 +148,24 @@ fun BackupScreen(
         events.collect { event ->
             when (event) {
                 is BackupUiEvent.SettingsSnapshotExported -> {
-                    val launched = snackbarHostState.showSnackbar(
-                        message = "Settings snapshot ready",
-                        actionLabel = "Share",
-                    )
+                    val launched =
+                        snackbarHostState.showSnackbar(
+                            message = "Settings snapshot ready",
+                            actionLabel = "Share",
+                        )
                     // If user tapped "Share", trigger share.
                     if (launched == SnackbarResult.ActionPerformed) {
                         onShareSettingsJson(event.json)
                     }
                 }
 
-                is BackupUiEvent.ShowSnackbar ->
+                is BackupUiEvent.ShowSnackbar -> {
                     snackbarHostState.showSnackbar(event.message)
+                }
 
-                is BackupUiEvent.Error ->
+                is BackupUiEvent.Error -> {
                     notificationChannel.send(Notification.Error(event.message))
+                }
             }
         }
     }
@@ -187,10 +190,11 @@ fun BackupScreen(
         snackbarHost = { TaggedSnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp),
         ) {
             // Action buttons
             Row(
@@ -256,9 +260,10 @@ fun BackupScreen(
             state.lastBackup?.let { summary ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
+                    colors =
+                        CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text("Last backup created", style = MaterialTheme.typography.labelMedium)
@@ -374,9 +379,10 @@ fun BackupScreen(
                             }
                             OutlinedButton(
                                 onClick = { overlay.show(BackupDialog.CloudRestore(remote)) },
-                                modifier = Modifier.testTag(
-                                    TestTags.backupRestoreFromCloud(remote.ref),
-                                ),
+                                modifier =
+                                    Modifier.testTag(
+                                        TestTags.backupRestoreFromCloud(remote.ref),
+                                    ),
                                 enabled = !state.isWorking,
                             ) {
                                 Text("Restore")
@@ -389,50 +395,61 @@ fun BackupScreen(
     }
 
     when (val dialog = overlay.sheet) {
-        is BackupDialog.Push -> BackupPasswordDialog(
-            title = "Push to cloud",
-            text = "The archive is encrypted with this password before it leaves the device. " +
-                "The server never sees it, and nobody can open the archive without it.",
-            confirmLabel = "Push",
-            onConfirm = { password ->
-                overlay.dismissSheet()
-                onPush(dialog.backupId, password)
-            },
-            onDismiss = { overlay.dismissSheet() },
-        )
+        is BackupDialog.Push -> {
+            BackupPasswordDialog(
+                title = "Push to cloud",
+                text =
+                    "The archive is encrypted with this password before it leaves the device. " +
+                        "The server never sees it, and nobody can open the archive without it.",
+                confirmLabel = "Push",
+                onConfirm = { password ->
+                    overlay.dismissSheet()
+                    onPush(dialog.backupId, password)
+                },
+                onDismiss = { overlay.dismissSheet() },
+            )
+        }
 
-        is BackupDialog.CloudRestore -> BackupPasswordDialog(
-            title = "Restore from cloud",
-            text = "Restore overwrites the current data with the archive ${dialog.remote.name}. " +
-                "The archive is encrypted — enter the password it was pushed with.",
-            confirmLabel = "Restore",
-            onConfirm = { password ->
-                overlay.dismissSheet()
-                onRestoreFromCloud(dialog.remote.ref, password)
-            },
-            onDismiss = { overlay.dismissSheet() },
-        )
+        is BackupDialog.CloudRestore -> {
+            BackupPasswordDialog(
+                title = "Restore from cloud",
+                text =
+                    "Restore overwrites the current data with the archive ${dialog.remote.name}. " +
+                        "The archive is encrypted — enter the password it was pushed with.",
+                confirmLabel = "Restore",
+                onConfirm = { password ->
+                    overlay.dismissSheet()
+                    onRestoreFromCloud(dialog.remote.ref, password)
+                },
+                onDismiss = { overlay.dismissSheet() },
+            )
+        }
 
-        is BackupDialog.Authorize -> BackupPasswordDialog(
-            title = "Back up on its own",
-            // The honest sentence about what the password does: it wraps the key
-            // this device uses from now on. The archives that are already in the
-            // cloud carry the password they were made with, and saying so here
-            // is better than letting the person find out at a restore.
-            text = "This device will keep a copy of your data in the cloud every day, " +
-                "with nobody here to type a password. Enter your backup password once: " +
-                "it wraps a key that stays on this device, and you will need the same " +
-                "password to restore an archive. Archives that are already in the cloud " +
-                "keep the password they were made with.",
-            confirmLabel = "Authorize",
-            onConfirm = { password ->
-                overlay.dismissSheet()
-                onAuthorizeScheduledBackup(password)
-            },
-            onDismiss = { overlay.dismissSheet() },
-        )
+        is BackupDialog.Authorize -> {
+            BackupPasswordDialog(
+                title = "Back up on its own",
+                // The honest sentence about what the password does: it wraps the key
+                // this device uses from now on. The archives that are already in the
+                // cloud carry the password they were made with, and saying so here
+                // is better than letting the person find out at a restore.
+                text =
+                    "This device will keep a copy of your data in the cloud every day, " +
+                        "with nobody here to type a password. Enter your backup password once: " +
+                        "it wraps a key that stays on this device, and you will need the same " +
+                        "password to restore an archive. Archives that are already in the cloud " +
+                        "keep the password they were made with.",
+                confirmLabel = "Authorize",
+                onConfirm = { password ->
+                    overlay.dismissSheet()
+                    onAuthorizeScheduledBackup(password)
+                },
+                onDismiss = { overlay.dismissSheet() },
+            )
+        }
 
-        null -> Unit
+        null -> {
+            Unit
+        }
     }
 }
 
@@ -450,9 +467,10 @@ fun BackupListItem(
 
     Card(modifier = modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -599,10 +617,11 @@ private fun BackupPasswordDialog(
                     label = { Text("Password") },
                     textObfuscationMode = TextObfuscationMode.Hidden,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag(TestTags.BACKUP_PASSWORD_FIELD)
-                        .mapTestTagsAsResourceIds(),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .testTag(TestTags.BACKUP_PASSWORD_FIELD)
+                            .mapTestTagsAsResourceIds(),
                 )
             }
         },
@@ -610,9 +629,10 @@ private fun BackupPasswordDialog(
             TextButton(
                 onClick = { onConfirm(passwordState.text.toString().toCharArray()) },
                 enabled = passwordState.text.isNotBlank(),
-                modifier = Modifier
-                    .testTag(TestTags.BACKUP_PASSWORD_CONFIRM)
-                    .mapTestTagsAsResourceIds(),
+                modifier =
+                    Modifier
+                        .testTag(TestTags.BACKUP_PASSWORD_CONFIRM)
+                        .mapTestTagsAsResourceIds(),
             ) {
                 Text(confirmLabel)
             }
@@ -627,7 +647,9 @@ private fun BackupPasswordDialog(
 
 private sealed interface BackupDialog {
     data class Push(val backupId: BackupId) : BackupDialog
+
     data class CloudRestore(val remote: RemoteBackup) : BackupDialog
+
     data object Authorize : BackupDialog
 }
 
@@ -650,10 +672,11 @@ private fun BackupScreenContentPreview(state: BackupUiState) {
         snackbarHost = { TaggedSnackbarHost(SnackbarHostState()) },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -693,9 +716,10 @@ private fun BackupScreenContentPreview(state: BackupUiState) {
             state.lastBackup?.let { summary ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
+                    colors =
+                        CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        ),
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text("Last backup created", style = MaterialTheme.typography.labelMedium)
@@ -738,65 +762,75 @@ private fun BackupScreenContentPreview(state: BackupUiState) {
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun BackupScreenContentPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    BackupScreenContentPreview(
-        state = BackupUiState(
-            isWorking = false,
-            backups = listOf(
-                BackupMetadata(
-                    id = BackupId("backup_2026-09-05_14-30-00.zip"),
-                    path = "/backups/backup_2026-09-05_14-30-00.zip",
-                    createdAtEpochMillis = System.currentTimeMillis() - 86400000,
-                    sizeBytes = 1_234_567,
-                    entityCounts = com.singularity.todo.core.backup.EntityCounts(
-                        tasks = 10,
-                        notes = 5,
-                        projects = 3,
-                    ),
+private fun BackupScreenContentPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        BackupScreenContentPreview(
+            state =
+                BackupUiState(
+                    isWorking = false,
+                    backups =
+                        listOf(
+                            BackupMetadata(
+                                id = BackupId("backup_2026-09-05_14-30-00.zip"),
+                                path = "/backups/backup_2026-09-05_14-30-00.zip",
+                                createdAtEpochMillis = System.currentTimeMillis() - 86400000,
+                                sizeBytes = 1_234_567,
+                                entityCounts =
+                                    com.singularity.todo.core.backup.EntityCounts(
+                                        tasks = 10,
+                                        notes = 5,
+                                        projects = 3,
+                                    ),
+                            ),
+                            BackupMetadata(
+                                id = BackupId("backup_2026-09-04_10-15-00.zip"),
+                                path = "/backups/backup_2026-09-04_10-15-00.zip",
+                                createdAtEpochMillis = System.currentTimeMillis() - 172800000,
+                                sizeBytes = 2_345_678,
+                                entityCounts =
+                                    com.singularity.todo.core.backup.EntityCounts(
+                                        tasks = 15,
+                                        notes = 8,
+                                        projects = 4,
+                                    ),
+                            ),
+                        ),
+                    lastBackup =
+                        BackupSummary(
+                            destPath = "/backups/backup_2026-09-05_14-30-00.zip",
+                            byteSize = 1_234_567,
+                            entityCount = 18,
+                        ),
                 ),
-                BackupMetadata(
-                    id = BackupId("backup_2026-09-04_10-15-00.zip"),
-                    path = "/backups/backup_2026-09-04_10-15-00.zip",
-                    createdAtEpochMillis = System.currentTimeMillis() - 172800000,
-                    sizeBytes = 2_345_678,
-                    entityCounts = com.singularity.todo.core.backup.EntityCounts(
-                        tasks = 15,
-                        notes = 8,
-                        projects = 4,
-                    ),
-                ),
-            ),
-            lastBackup = BackupSummary(
-                destPath = "/backups/backup_2026-09-05_14-30-00.zip",
-                byteSize = 1_234_567,
-                entityCount = 18,
-            ),
-        ),
-    )
-}
+        )
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun BackupScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    BackupScreenContentPreview(
-        state = BackupUiState(
-            isWorking = false,
-            backups = emptyList(),
-            lastBackup = null,
-        ),
-    )
-}
+private fun BackupScreenEmptyPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        BackupScreenContentPreview(
+            state =
+                BackupUiState(
+                    isWorking = false,
+                    backups = emptyList(),
+                    lastBackup = null,
+                ),
+        )
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun BackupScreenWorkingPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    BackupScreenContentPreview(
-        state = BackupUiState(
-            isWorking = true,
-            backups = emptyList(),
-            lastBackup = null,
-        ),
-    )
-}
+private fun BackupScreenWorkingPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        BackupScreenContentPreview(
+            state =
+                BackupUiState(
+                    isWorking = true,
+                    backups = emptyList(),
+                    lastBackup = null,
+                ),
+        )
+    }

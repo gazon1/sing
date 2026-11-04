@@ -57,7 +57,6 @@ import org.robolectric.annotation.Config
  */
 @RunWith(RobolectricTestRunner::class)
 class AndroidNotifierTest {
-
     private val context: Application get() = ApplicationProvider.getApplicationContext()
 
     // `AndroidNotifier` grew a `NotificationsSettingsRepository` and a `CoroutineScope`

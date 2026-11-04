@@ -22,9 +22,13 @@ sealed interface AttachmentsUiState {
 
 sealed interface AttachmentsIntent : MviIntent {
     data class AddUrl(val taskId: TaskId, val url: String, val title: String?) : AttachmentsIntent
+
     data class SaveFile(val taskId: TaskId, val sourcePath: String, val mimeType: String?) : AttachmentsIntent
+
     data class Delete(val attachmentId: AttachmentId) : AttachmentsIntent
+
     data class Restore(val attachmentId: AttachmentId) : AttachmentsIntent
+
     data class RestoreAttachment(val attachmentId: AttachmentId) : AttachmentsIntent
 }
 
@@ -49,7 +53,6 @@ class AttachmentsViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     val attachments: StateFlow<List<Attachment>> =
         repository.watchByTask(taskId).stateIn(scope, SharingStarted.WhileSubscribed(5000), emptyList())
 

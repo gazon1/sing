@@ -68,19 +68,20 @@ data class A2uiError(
      * Kept short and concrete on purpose: a correction prompt containing twenty stack-trace-shaped
      * lines gets the same reply as one naming the offending component and listing the legal values.
      */
-    fun asFeedback(): String = buildString {
-        append(code.name)
-        val id: String? = componentId
-        if (id != null) append(" on component '").append(id).append("'")
-        val where: String? = pointer
-        if (where != null) append(" at ").append(where)
-        append(": ")
-        append(message)
-        if (allowed.isNotEmpty()) {
-            append(" Allowed: ")
-            append(allowed.joinToString(", "))
+    fun asFeedback(): String =
+        buildString {
+            append(code.name)
+            val id: String? = componentId
+            if (id != null) append(" on component '").append(id).append("'")
+            val where: String? = pointer
+            if (where != null) append(" at ").append(where)
+            append(": ")
+            append(message)
+            if (allowed.isNotEmpty()) {
+                append(" Allowed: ")
+                append(allowed.joinToString(", "))
+            }
         }
-    }
 }
 
 /**

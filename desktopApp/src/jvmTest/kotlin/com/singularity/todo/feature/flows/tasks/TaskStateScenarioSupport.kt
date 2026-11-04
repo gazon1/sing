@@ -39,7 +39,6 @@ import kotlin.time.Instant
  */
 @OptIn(ExperimentalTestApi::class)
 internal object TaskStateScenarioSupport {
-
     const val TITLE = "Plan sprint"
     const val TIMEOUT_MS = 10_000L
 
@@ -56,18 +55,22 @@ internal object TaskStateScenarioSupport {
         completed: Boolean = false,
     ): TaskId {
         val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
-        val task = testTask(
-            id = TaskId(title),
-            title = title,
-            dueDate = due,
-            completedAt = if (completed) FIXED_NOW else null,
-            userId = userId,
-        ).copy(workflowState = workflowState)
+        val task =
+            testTask(
+                id = TaskId(title),
+                title = title,
+                dueDate = due,
+                completedAt = if (completed) FIXED_NOW else null,
+                userId = userId,
+            ).copy(workflowState = workflowState)
         koin.get<TaskRepository>().upsert(TaskDocument.of(task))
         return task.id
     }
 
-    fun openEditor(ui: DesktopComposeUiTest, title: String) {
+    fun openEditor(
+        ui: DesktopComposeUiTest,
+        title: String,
+    ) {
         ui.tapTab("Today")
         ui.awaitTag(TestTags.taskItem(title)).performClick()
         ui.awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
@@ -78,9 +81,14 @@ internal object TaskStateScenarioSupport {
         ui.assertTagDisplayed(TestTags.TASK_EDITOR_WORKFLOW_STATE_ROW)
     }
 
-    suspend fun storedState(koin: Koin, title: String): TaskWorkflowState? =
+    suspend fun storedState(
+        koin: Koin,
+        title: String,
+    ): TaskWorkflowState? =
         withTimeout(TIMEOUT_MS) {
-            koin.get<TaskRepository>().observeAll()
+            koin
+                .get<TaskRepository>()
+                .observeAll()
                 .first { tasks -> tasks.any { it.title == title } }
                 .first { it.title == title }
                 .workflowState

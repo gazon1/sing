@@ -121,7 +121,10 @@ sealed interface AnchorResolution {
  * otherwise match at offset 0 in every document, turning every such annotation into a
  * falsely-exact one.
  */
-fun resolveAnchor(range: TextRange, documentText: String): AnchorResolution {
+fun resolveAnchor(
+    range: TextRange,
+    documentText: String,
+): AnchorResolution {
     if (range.quote.isEmpty()) return AnchorResolution.Stale
     val found = documentText.indexOf(range.quote)
     if (found < 0) return AnchorResolution.Stale

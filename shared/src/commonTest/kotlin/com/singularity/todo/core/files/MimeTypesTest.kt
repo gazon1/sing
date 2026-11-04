@@ -7,7 +7,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class MimeTypesTest {
-
     @Test
     fun fromExtensionReturnsCorrectMimeForImageTypes() {
         assertEquals("image/png", MimeTypes.fromExtension("png"))

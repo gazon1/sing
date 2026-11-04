@@ -18,7 +18,6 @@ import com.singularity.todo.core.files.ByteSource
  * the JDK's providers, and neither adds a dependency.
  */
 interface ArchiveCrypto {
-
     /**
      * [count] bytes of unpredictable randomness.
      *
@@ -36,7 +35,10 @@ interface ArchiveCrypto {
      * cost is what makes guessing it expensive. The number of iterations is the
      * platform's, and it is named in the decision record that took this shape.
      */
-    fun deriveKey(password: CharArray, salt: ByteArray): ByteArray
+    fun deriveKey(
+        password: CharArray,
+        salt: ByteArray,
+    ): ByteArray
 
     /**
      * Encrypts [plaintext] under [key] with [nonce]; the result carries the GCM tag.
@@ -44,7 +46,12 @@ interface ArchiveCrypto {
      * [aad] is authenticated but not encrypted: it travels with the ciphertext and
      * cannot be changed without the tag failing.
      */
-    fun seal(key: ByteArray, nonce: ByteArray, plaintext: ByteArray, aad: ByteArray): ByteArray
+    fun seal(
+        key: ByteArray,
+        nonce: ByteArray,
+        plaintext: ByteArray,
+        aad: ByteArray,
+    ): ByteArray
 
     /**
      * The inverse of [seal].
@@ -52,7 +59,12 @@ interface ArchiveCrypto {
      * Throws when the ciphertext, the tag or the authenticated data does not match —
      * which is what a wrong password looks like from here.
      */
-    fun open(key: ByteArray, nonce: ByteArray, ciphertext: ByteArray, aad: ByteArray): ByteArray
+    fun open(
+        key: ByteArray,
+        nonce: ByteArray,
+        ciphertext: ByteArray,
+        aad: ByteArray,
+    ): ByteArray
 
     /**
      * Encrypts everything [source] yields into [sink], in pieces.
@@ -65,7 +77,13 @@ interface ArchiveCrypto {
      * [sink] receives the ciphertext and the tag; the tag is written when the
      * source ends, because the cipher can only compute it then.
      */
-    fun seal(source: ByteSource, sink: ByteSink, key: ByteArray, nonce: ByteArray, aad: ByteArray)
+    fun seal(
+        source: ByteSource,
+        sink: ByteSink,
+        key: ByteArray,
+        nonce: ByteArray,
+        aad: ByteArray,
+    )
 
     /**
      * The inverse of the streaming [seal].
@@ -76,7 +94,13 @@ interface ArchiveCrypto {
      * that cares writes into a temporary file and moves it into place only after
      * this call returned without throwing.
      */
-    fun open(source: ByteSource, sink: ByteSink, key: ByteArray, nonce: ByteArray, aad: ByteArray)
+    fun open(
+        source: ByteSource,
+        sink: ByteSink,
+        key: ByteArray,
+        nonce: ByteArray,
+        aad: ByteArray,
+    )
 }
 
 /**

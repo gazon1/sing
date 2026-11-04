@@ -29,7 +29,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class GoogleTokenExchangeWireTest {
-
     private val json = Json { ignoreUnknownKeys = true }
 
     /** A canned body, the way the server would send it. */
@@ -39,10 +38,11 @@ class GoogleTokenExchangeWireTest {
     /** The ordinary answer: a token and when it stops being valid. */
     @Test
     fun `the token and the expiry are read`() {
-        val answer = body(
-            "access_token" to "the-token",
-            "expires_at_ms" to "1700000000000",
-        ).jsonObject
+        val answer =
+            body(
+                "access_token" to "the-token",
+                "expires_at_ms" to "1700000000000",
+            ).jsonObject
 
         val credentials = answer.readGoogleCredentials()
 
@@ -78,9 +78,10 @@ class GoogleTokenExchangeWireTest {
     fun `a response without a token is refused`() {
         val answer = body("expires_at_ms" to "1700000000000").jsonObject
 
-        val failure = assertFailsWith<GoogleAuthorizationException> {
-            answer.readGoogleCredentials()
-        }
+        val failure =
+            assertFailsWith<GoogleAuthorizationException> {
+                answer.readGoogleCredentials()
+            }
 
         assertTrue(failure.message.orEmpty().contains("access token"), "got ${failure.message}")
     }

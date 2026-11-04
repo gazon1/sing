@@ -40,43 +40,48 @@ data class MenuEntry(val id: String, val label: String, val destination: AppDest
  * are the same either way, and the grouping is a matter of layout.
  */
 object AppMenu {
-
     /** The entries about the account. */
-    val account: List<MenuEntry> = listOf(
-        MenuEntry(
-            id = TestTags.MENU_SETTINGS,
-            label = "Profile & sync",
-            destination = AppDestination.Settings,
-            icon = AppDestination.Settings.icon,
-        ),
-        MenuEntry(
-            id = TestTags.MENU_PROFILES,
-            label = AppDestination.ProfileSwitcher.title,
-            destination = AppDestination.ProfileSwitcher,
-            icon = AppDestination.ProfileSwitcher.icon,
-        ),
-    ).map { entry -> if (entry.icon == null) entry.copy(icon = entry.destination.icon) else entry }
+    val account: List<MenuEntry> =
+        listOf(
+            MenuEntry(
+                id = TestTags.MENU_SETTINGS,
+                label = "Profile & sync",
+                destination = AppDestination.Settings,
+                icon = AppDestination.Settings.icon,
+            ),
+            MenuEntry(
+                id = TestTags.MENU_PROFILES,
+                label = AppDestination.ProfileSwitcher.title,
+                destination = AppDestination.ProfileSwitcher,
+                icon = AppDestination.ProfileSwitcher.icon,
+            ),
+        ).map { entry -> if (entry.icon == null) entry.copy(icon = entry.destination.icon) else entry }
 
     /** Account entries, including Attach account when the session is anonymous. */
-    fun accountEntries(anonymous: Boolean): List<MenuEntry> =
-        if (anonymous) account + attachAccount else account
+    fun accountEntries(anonymous: Boolean): List<MenuEntry> = if (anonymous) account + attachAccount else account
 
     /** The entry that opens the quick search. */
-    val search: List<MenuEntry> = listOf(
-        MenuEntry(
-            id = TestTags.MENU_QUICK_SEARCH,
-            label = "Quick search",
-            destination = AppDestination.Search,
-        ),
-    )
+    val search: List<MenuEntry> =
+        listOf(
+            MenuEntry(
+                id = TestTags.MENU_QUICK_SEARCH,
+                label = "Quick search",
+                destination = AppDestination.Search,
+                // The same icon the search action uses in the shell: an entry
+                // without one is laid out with its label in the icon column and
+                // reads like a section heading.
+                icon = AppDestination.Search.icon,
+            ),
+        )
 
     /** The entry that attaches the current anonymous session to an account. Only shown for anonymous sessions. */
-    val attachAccount: MenuEntry = MenuEntry(
-        id = TestTags.MENU_ATTACH_ACCOUNT,
-        label = AppDestination.AttachAccount.title,
-        destination = AppDestination.AttachAccount,
-        icon = AppDestination.AttachAccount.icon,
-    ).let { if (it.icon == null) it.copy(icon = it.destination.icon) else it }
+    val attachAccount: MenuEntry =
+        MenuEntry(
+            id = TestTags.MENU_ATTACH_ACCOUNT,
+            label = AppDestination.AttachAccount.title,
+            destination = AppDestination.AttachAccount,
+            icon = AppDestination.AttachAccount.icon,
+        ).let { if (it.icon == null) it.copy(icon = it.destination.icon) else it }
 
     /**
      * The destinations, in the order the drawer shows them.
@@ -84,15 +89,17 @@ object AppMenu {
      * This is [DestinationKind.menuEntries] — the declared set of the menu's
      * destinations — with a stable id for each.
      */
-    val destinations: List<MenuEntry> = DestinationKind.menuEntries.map { destination ->
-        val entry = MenuEntry(
-            id = menuItemId(destination),
-            label = destination.title,
-            destination = destination,
-            icon = destination.icon,
-        )
-        if (entry.icon == null) entry.copy(icon = entry.destination.icon) else entry
-    }
+    val destinations: List<MenuEntry> =
+        DestinationKind.menuEntries.map { destination ->
+            val entry =
+                MenuEntry(
+                    id = menuItemId(destination),
+                    label = destination.title,
+                    destination = destination,
+                    icon = destination.icon,
+                )
+            if (entry.icon == null) entry.copy(icon = entry.destination.icon) else entry
+        }
 
     /**
      * The destinations the sheet shows under "Destinations".
@@ -101,9 +108,10 @@ object AppMenu {
      * sections, so listing them again would put the same destination on the
      * screen twice.
      */
-    val sheetDestinations: List<MenuEntry> = destinations.filterNot { entry ->
-        entry.destination in account.map { it.destination } || entry.destination in search.map { it.destination }
-    }
+    val sheetDestinations: List<MenuEntry> =
+        destinations.filterNot { entry ->
+            entry.destination in account.map { it.destination } || entry.destination in search.map { it.destination }
+        }
 
     /**
      * Every destination the menu offers, on either platform.
@@ -128,32 +136,57 @@ object AppMenu {
      * the app opens rather than by a test that quietly stops finding the
      * entry.
      */
-    private fun menuItemId(destination: AppDestination): String = when (destination) {
-        AppDestination.Statistics -> TestTags.MENU_STATISTICS
+    private fun menuItemId(destination: AppDestination): String =
+        when (destination) {
+            AppDestination.Statistics -> {
+                TestTags.MENU_STATISTICS
+            }
 
-        AppDestination.Notes -> TestTags.MENU_NOTES
+            AppDestination.Notes -> {
+                TestTags.MENU_NOTES
+            }
 
-        AppDestination.AiChat -> TestTags.MENU_AI_CHAT
+            AppDestination.AiChat -> {
+                TestTags.MENU_AI_CHAT
+            }
 
-        AppDestination.Search -> TestTags.MENU_SEARCH
+            AppDestination.Search -> {
+                TestTags.MENU_SEARCH
+            }
 
-        AppDestination.Archive -> TestTags.MENU_ARCHIVE
+            AppDestination.Archive -> {
+                TestTags.MENU_ARCHIVE
+            }
 
-        AppDestination.Proposals -> TestTags.MENU_PROPOSALS
+            AppDestination.Proposals -> {
+                TestTags.MENU_PROPOSALS
+            }
 
-        AppDestination.Plans -> TestTags.MENU_PLANS
+            AppDestination.Plans -> {
+                TestTags.MENU_PLANS
+            }
 
-        AppDestination.Pomodoro -> TestTags.MENU_POMODORO
+            AppDestination.Pomodoro -> {
+                TestTags.MENU_POMODORO
+            }
 
-        AppDestination.AiUsage -> TestTags.MENU_AI_USAGE
+            AppDestination.AiUsage -> {
+                TestTags.MENU_AI_USAGE
+            }
 
-        AppDestination.ProfileSwitcher -> TestTags.MENU_PROFILES
+            AppDestination.ProfileSwitcher -> {
+                TestTags.MENU_PROFILES
+            }
 
-        AppDestination.Settings -> TestTags.MENU_SETTINGS
+            AppDestination.Settings -> {
+                TestTags.MENU_SETTINGS
+            }
 
-        else -> error(
-            "The destination '$destination' is in the menu but has no tag of its own. " +
-                "Add a MENU_* tag to TestTags and name it here.",
-        )
-    }
+            else -> {
+                error(
+                    "The destination '$destination' is in the menu but has no tag of its own. " +
+                        "Add a MENU_* tag to TestTags and name it here.",
+                )
+            }
+        }
 }

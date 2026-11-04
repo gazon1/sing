@@ -22,7 +22,6 @@ import com.agentclientprotocol.model.RequestPermissionOutcome
 import com.agentclientprotocol.model.RequestPermissionResponse
 import com.agentclientprotocol.model.SessionUpdate
 import com.agentclientprotocol.model.StopReason
-import com.agentclientprotocol.model.ToolCallStatus as AcpToolCallStatus
 import com.agentclientprotocol.protocol.Protocol
 import com.agentclientprotocol.transport.StdioTransport
 import com.singularity.todo.core.error.runCatchingCancellable
@@ -49,6 +48,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonElement
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import com.agentclientprotocol.model.ToolCallStatus as AcpToolCallStatus
 
 /**
  * What happened in a turn, as the application understands it.
@@ -58,7 +58,6 @@ import kotlin.time.Duration.Companion.seconds
  * mid-turn ends the stream, and a reader told "the agent finished" would be told a lie.
  */
 sealed interface AcpTurnEvent {
-
     /** Something the agent did. */
     data class Activity(val event: AgentEvent) : AcpTurnEvent
 
@@ -156,7 +155,6 @@ class AcpClient(
      */
     private val sessionEvents: AcpLifecycleSink = LoggingAcpLifecycle(),
 ) : AcpAgentSession {
-
     private val logger = Logger.withTag("acp-client")
 
     /**
@@ -262,82 +260,84 @@ class AcpClient(
      * @throws Exception when the agent cannot be reached, does not speak the protocol,
      *   or answers with a version this client does not speak. The message says which.
      */
-    override suspend fun connect(): AcpAgentInfo = lifecycle.withLock {
-        val ioTransport = StdioTransport(
-            parentScope = scope,
-            ioDispatcher = Dispatchers.IO,
-            input = process.stdoutLines(),
-            output = { line -> process.writeLine(line) },
-            name = "acp-stdio",
-        )
-        transport = ioTransport
-
-        // A connection that did not happen leaves nothing behind: the transport and
-        // the protocol this client has just built are closed, and the fields go back
-        // to null. Otherwise the client would be left holding half a connection — a
-        // transport with no session on it — and only the caller would know to close
-        // it. The flag is what says whether the connection happened, because the
-        // failure can be a cancellation, and a cancellation is not something to
-        // catch here.
-        //
-        // The block starts as soon as the transport exists, because the transport is
-        // the first thing that has to be given back. A close that arrived while this
-        // connect was waiting for the lock is noticed here — after the transport is
-        // built, so that the teardown has something to close — and a connect that
-        // throws for that reason must not leave the transport behind either.
-        var connected = false
-        try {
-            // The close may have arrived while this connect was waiting for the lock, and
-            // then the transport it closed was not this one. The request itself is what
-            // the connect has to notice, and it notices it here — after the transport is
-            // built, so that the teardown below has something to close.
-            if (ending) {
-                throw AgentUnavailable("The conversation ended before the agent answered.")
-            }
-
-            val ioProtocol = Protocol(scope, ioTransport)
-            protocol = ioProtocol
-            ioProtocol.start()
-
-            val ioClient = Client(ioProtocol)
-            client = ioClient
-
-            val handshake = handshakeWith(ioClient)
-            session = handshake.second
-            connected = true
-
-            val agentInfo = handshake.first
-            // The one comparison the app can make: the agent says which version of the
-            // protocol it speaks, and this client speaks one version. An agent that speaks
-            // another one may mean something different by the same words, so the connection
-            // is refused rather than continued on a guess.
-            if (agentInfo.protocolVersion != SUPPORTED_PROTOCOL_VERSION) {
-                throw AgentUnavailable(
-                    "The agent speaks protocol version ${agentInfo.protocolVersion}; " +
-                        "this client speaks version $SUPPORTED_PROTOCOL_VERSION.",
+    override suspend fun connect(): AcpAgentInfo =
+        lifecycle.withLock {
+            val ioTransport =
+                StdioTransport(
+                    parentScope = scope,
+                    ioDispatcher = Dispatchers.IO,
+                    input = process.stdoutLines(),
+                    output = { line -> process.writeLine(line) },
+                    name = "acp-stdio",
                 )
-            }
+            transport = ioTransport
 
-            AcpAgentInfo(
-                name = agentInfo.implementation?.name.orEmpty(),
-                version = agentInfo.implementation?.version.orEmpty(),
-                protocolVersion = agentInfo.protocolVersion,
-            ).also { info ->
-                sessionEvents.record(
-                    AcpSessionEvent.Connected(
-                        agentName = info.name,
-                        agentVersion = info.version,
-                        protocolVersion = info.protocolVersion,
-                    ),
-                )
-                sessionEvents.record(
-                    AcpSessionEvent.SessionOpened(sessionId = handshake.second.sessionId.value),
-                )
+            // A connection that did not happen leaves nothing behind: the transport and
+            // the protocol this client has just built are closed, and the fields go back
+            // to null. Otherwise the client would be left holding half a connection — a
+            // transport with no session on it — and only the caller would know to close
+            // it. The flag is what says whether the connection happened, because the
+            // failure can be a cancellation, and a cancellation is not something to
+            // catch here.
+            //
+            // The block starts as soon as the transport exists, because the transport is
+            // the first thing that has to be given back. A close that arrived while this
+            // connect was waiting for the lock is noticed here — after the transport is
+            // built, so that the teardown has something to close — and a connect that
+            // throws for that reason must not leave the transport behind either.
+            var connected = false
+            try {
+                // The close may have arrived while this connect was waiting for the lock, and
+                // then the transport it closed was not this one. The request itself is what
+                // the connect has to notice, and it notices it here — after the transport is
+                // built, so that the teardown below has something to close.
+                if (ending) {
+                    throw AgentUnavailable("The conversation ended before the agent answered.")
+                }
+
+                val ioProtocol = Protocol(scope, ioTransport)
+                protocol = ioProtocol
+                ioProtocol.start()
+
+                val ioClient = Client(ioProtocol)
+                client = ioClient
+
+                val handshake = handshakeWith(ioClient)
+                session = handshake.second
+                connected = true
+
+                val agentInfo = handshake.first
+                // The one comparison the app can make: the agent says which version of the
+                // protocol it speaks, and this client speaks one version. An agent that speaks
+                // another one may mean something different by the same words, so the connection
+                // is refused rather than continued on a guess.
+                if (agentInfo.protocolVersion != SUPPORTED_PROTOCOL_VERSION) {
+                    throw AgentUnavailable(
+                        "The agent speaks protocol version ${agentInfo.protocolVersion}; " +
+                            "this client speaks version $SUPPORTED_PROTOCOL_VERSION.",
+                    )
+                }
+
+                AcpAgentInfo(
+                    name = agentInfo.implementation?.name.orEmpty(),
+                    version = agentInfo.implementation?.version.orEmpty(),
+                    protocolVersion = agentInfo.protocolVersion,
+                ).also { info ->
+                    sessionEvents.record(
+                        AcpSessionEvent.Connected(
+                            agentName = info.name,
+                            agentVersion = info.version,
+                            protocolVersion = info.protocolVersion,
+                        ),
+                    )
+                    sessionEvents.record(
+                        AcpSessionEvent.SessionOpened(sessionId = handshake.second.sessionId.value),
+                    )
+                }
+            } finally {
+                if (!connected) dropConnection()
             }
-        } finally {
-            if (!connected) dropConnection()
         }
-    }
 
     /**
      * The handshake: the agent says who it is, and a session is opened on it.
@@ -351,48 +351,53 @@ class AcpClient(
      */
     @Suppress("NoSwallowedCancellation") // the protocol's cancellation is not the caller's
     private suspend fun handshakeWith(ioClient: Client): Pair<AgentInfo, ClientSession> {
-        val handshake = try {
-            withTimeoutOrNull(connectTimeout) {
-                val info = ioClient.initialize(
-                    ClientInfo(
-                        capabilities = ClientCapabilities(),
-                        implementation = Implementation(
-                            name = "singularity-todo",
-                            version = appVersionCode(),
-                            title = "Singularity Todo",
-                        ),
-                    ),
-                )
-                val ioSession = ioClient.newSession(
-                    SessionCreationParameters(
-                        cwd = workingDirectory,
-                        // An empty list means "no tool access" — the agent is connected,
-                        // and it is blind to the user's tasks. That is a state the screen
-                        // has to be able to show, so it is expressed here rather than faked.
-                        mcpServers = listOfNotNull(
-                            toolServer?.let { command ->
-                                McpServer.Stdio(
-                                    name = TOOL_SERVER_NAME,
-                                    command = command.command,
-                                    args = command.args,
-                                    env = emptyList(),
-                                )
-                            },
-                        ),
-                    ),
-                ) { _, _ -> SdkSessionOperations(permissions, sessionEvents) }
-                info to ioSession
+        val handshake =
+            try {
+                withTimeoutOrNull(connectTimeout) {
+                    val info =
+                        ioClient.initialize(
+                            ClientInfo(
+                                capabilities = ClientCapabilities(),
+                                implementation =
+                                    Implementation(
+                                        name = "singularity-todo",
+                                        version = appVersionCode(),
+                                        title = "Singularity Todo",
+                                    ),
+                            ),
+                        )
+                    val ioSession =
+                        ioClient.newSession(
+                            SessionCreationParameters(
+                                cwd = workingDirectory,
+                                // An empty list means "no tool access" — the agent is connected,
+                                // and it is blind to the user's tasks. That is a state the screen
+                                // has to be able to show, so it is expressed here rather than faked.
+                                mcpServers =
+                                    listOfNotNull(
+                                        toolServer?.let { command ->
+                                            McpServer.Stdio(
+                                                name = TOOL_SERVER_NAME,
+                                                command = command.command,
+                                                args = command.args,
+                                                env = emptyList(),
+                                            )
+                                        },
+                                    ),
+                            ),
+                        ) { _, _ -> SdkSessionOperations(permissions, sessionEvents) }
+                    info to ioSession
+                }
+            } catch (e: CancellationException) {
+                // The protocol closes its pending requests with a cancellation when the
+                // agent's process dies. That is the agent failing to answer — not the
+                // caller's cancellation — and the screen needs a failure it can show
+                // rather than a cancellation that would leave it loading for ever. The
+                // caller's own cancellation is an inactive job, and it is re-raised here.
+                logger.d(e) { "The agent stopped before the conversation began." }
+                currentCoroutineContext().ensureActive()
+                throw AgentUnavailable("The agent stopped before the conversation began.")
             }
-        } catch (e: CancellationException) {
-            // The protocol closes its pending requests with a cancellation when the
-            // agent's process dies. That is the agent failing to answer — not the
-            // caller's cancellation — and the screen needs a failure it can show
-            // rather than a cancellation that would leave it loading for ever. The
-            // caller's own cancellation is an inactive job, and it is re-raised here.
-            logger.d(e) { "The agent stopped before the conversation began." }
-            currentCoroutineContext().ensureActive()
-            throw AgentUnavailable("The agent stopped before the conversation began.")
-        }
         if (handshake == null) {
             // A timeout is a failure the reader can act on, not a cancellation: the
             // screen has to say "the agent did not answer" and offer a way back, and a
@@ -416,17 +421,19 @@ class AcpClient(
         val ioSession = session ?: error("The client is not connected")
         return flow {
             emitAll(
-                ioSession.prompt(listOf(ContentBlock.Text(message)))
+                ioSession
+                    .prompt(listOf(ContentBlock.Text(message)))
                     .map { event ->
                         when (event) {
-                            is Event.SessionUpdateEvent ->
+                            is Event.SessionUpdateEvent -> {
                                 AcpEventAdapter.adapt(event.update.toDomain())?.let { AcpTurnEvent.Activity(it) }
+                            }
 
-                            is Event.PromptResponseEvent ->
+                            is Event.PromptResponseEvent -> {
                                 AcpTurnEvent.Finished(AcpEventAdapter.outcomeFor(event.response.stopReason.toDomain()))
+                            }
                         }
-                    }
-                    .filterNotNull(),
+                    }.filterNotNull(),
             )
         }
     }
@@ -537,10 +544,11 @@ class AcpClient(
     @Suppress("NoSwallowedCancellation") // the protocol's own cancellation is not the caller's
     private suspend fun goodbye() {
         try {
-            val answered = withTimeoutOrNull(closeTimeout) {
-                session?.close()
-                true
-            }
+            val answered =
+                withTimeoutOrNull(closeTimeout) {
+                    session?.close()
+                    true
+                }
             if (answered == null) {
                 logger.d { "The agent did not answer the goodbye; the teardown continues." }
             }
@@ -669,7 +677,12 @@ class AgentUnavailable(message: String) : Exception(message)
 
 /** The version this application reports to the agent. */
 private fun appVersionCode(): String =
-    runCatching { com.singularity.todo.core.version.appVersion().code.toString() }.getOrDefault("0.0.0")
+    runCatching {
+        com.singularity.todo.core.version
+            .appVersion()
+            .code
+            .toString()
+    }.getOrDefault("0.0.0")
 
 /**
  * The protocol's client operations, in the application's vocabulary.
@@ -710,25 +723,33 @@ internal class SdkSessionOperations(
      */
     private val sessionEvents: AcpLifecycleSink,
 ) : ClientSessionOperations {
-
     override suspend fun requestPermissions(
         toolCall: SessionUpdate.ToolCallUpdate,
         permissions: List<PermissionOption>,
         _meta: JsonElement?,
     ): RequestPermissionResponse {
-        val request = AcpPermissionRequest(
-            toolCallId = toolCall.toolCallId.value,
-            title = toolCall.title.orEmpty(),
-            options = permissions.map { it.toOption() },
-        )
+        val request =
+            AcpPermissionRequest(
+                toolCallId = toolCall.toolCallId.value,
+                title = toolCall.title.orEmpty(),
+                options = permissions.map { it.toOption() },
+            )
         sessionEvents.record(
             AcpSessionEvent.PermissionRequested(toolCallId = request.toolCallId, title = request.title),
         )
         val decision = ask.requestPermission(request)
-        val outcome = when (decision) {
-            is PermissionDecision.Selected -> RequestPermissionOutcome.Selected(PermissionOptionId(decision.optionId))
-            PermissionDecision.Declined -> refusingOutcome(permissions)
-        }
+        val outcome =
+            when (decision) {
+                is PermissionDecision.Selected -> {
+                    RequestPermissionOutcome.Selected(
+                        PermissionOptionId(decision.optionId),
+                    )
+                }
+
+                PermissionDecision.Declined -> {
+                    refusingOutcome(permissions)
+                }
+            }
         return RequestPermissionResponse(outcome = outcome)
     }
 
@@ -739,7 +760,10 @@ internal class SdkSessionOperations(
      * This application has no surface for it, and inventing one would show the reader
      * text nobody asked for — so it is received and dropped.
      */
-    override suspend fun notify(notification: SessionUpdate, _meta: JsonElement?) {
+    override suspend fun notify(
+        notification: SessionUpdate,
+        _meta: JsonElement?,
+    ) {
         // Intentionally empty — see the KDoc above.
     }
 
@@ -756,11 +780,12 @@ internal class SdkSessionOperations(
             ?: RequestPermissionOutcome.Cancelled
     }
 
-    private fun PermissionOption.toOption(): AcpPermissionOption = AcpPermissionOption(
-        optionId = optionId.value,
-        label = name,
-        isRejection = kind.isRejection(),
-    )
+    private fun PermissionOption.toOption(): AcpPermissionOption =
+        AcpPermissionOption(
+            optionId = optionId.value,
+            label = name,
+            isRejection = kind.isRejection(),
+        )
 
     private fun PermissionOptionKind.isRejection(): Boolean =
         this == PermissionOptionKind.REJECT_ONCE || this == PermissionOptionKind.REJECT_ALWAYS
@@ -784,47 +809,65 @@ internal class SdkSessionOperations(
  * application's own "nothing" — that is what makes the adapter's ignore list
  * testable without the library.
  */
-internal fun SessionUpdate.toDomain(): AcpSessionUpdate = when (this) {
-    is SessionUpdate.AgentMessageChunk -> content.textOrNull()
-        ?.let { AcpSessionUpdate.TextDelta(it) }
-        ?: AcpSessionUpdate.Unrecognised
+internal fun SessionUpdate.toDomain(): AcpSessionUpdate =
+    when (this) {
+        is SessionUpdate.AgentMessageChunk -> {
+            content
+                .textOrNull()
+                ?.let { AcpSessionUpdate.TextDelta(it) }
+                ?: AcpSessionUpdate.Unrecognised
+        }
 
-    is SessionUpdate.ToolCall -> AcpSessionUpdate.ToolCall(
-        id = toolCallId.value,
-        name = title,
-        status = status.toDomain(),
-        summary = toolCallSummary(title, rawInput?.toString()),
-    )
+        is SessionUpdate.ToolCall -> {
+            AcpSessionUpdate.ToolCall(
+                id = toolCallId.value,
+                name = title,
+                status = status.toDomain(),
+                summary = toolCallSummary(title, rawInput?.toString()),
+            )
+        }
 
-    is SessionUpdate.ToolCallUpdate -> AcpSessionUpdate.ToolCall(
-        id = toolCallId.value,
-        name = title.orEmpty(),
-        status = status.toDomain(),
-        summary = title?.let { toolCallSummary(it, rawInput?.toString()) },
-    )
+        is SessionUpdate.ToolCallUpdate -> {
+            AcpSessionUpdate.ToolCall(
+                id = toolCallId.value,
+                name = title.orEmpty(),
+                status = status.toDomain(),
+                summary = title?.let { toolCallSummary(it, rawInput?.toString()) },
+            )
+        }
 
-    is SessionUpdate.PlanUpdate -> AcpSessionUpdate.Plan(
-        steps = entries.map { entry -> AcpPlanStep(title = entry.content, status = entry.status.toDomain()) },
-    )
+        is SessionUpdate.PlanUpdate -> {
+            AcpSessionUpdate.Plan(
+                steps = entries.map { entry -> AcpPlanStep(title = entry.content, status = entry.status.toDomain()) },
+            )
+        }
 
-    // The reader's own words, the agent's private reasoning, the session's settings,
-    // and anything this application does not recognise. None of them is activity —
-    // the adapter decides that, not this file.
-    is SessionUpdate.UserMessageChunk -> AcpSessionUpdate.UserMessage
+        // The reader's own words, the agent's private reasoning, the session's settings,
+        // and anything this application does not recognise. None of them is activity —
+        // the adapter decides that, not this file.
+        is SessionUpdate.UserMessageChunk -> {
+            AcpSessionUpdate.UserMessage
+        }
 
-    is SessionUpdate.AgentThoughtChunk -> AcpSessionUpdate.AgentThought
+        is SessionUpdate.AgentThoughtChunk -> {
+            AcpSessionUpdate.AgentThought
+        }
 
-    is SessionUpdate.PlanUpdateV2,
-    is SessionUpdate.PlanRemoved,
-    is SessionUpdate.AvailableCommandsUpdate,
-    is SessionUpdate.CurrentModeUpdate,
-    is SessionUpdate.ConfigOptionUpdate,
-    is SessionUpdate.SessionInfoUpdate,
-    is SessionUpdate.UsageUpdate,
-    -> AcpSessionUpdate.SessionSetting
+        is SessionUpdate.PlanUpdateV2,
+        is SessionUpdate.PlanRemoved,
+        is SessionUpdate.AvailableCommandsUpdate,
+        is SessionUpdate.CurrentModeUpdate,
+        is SessionUpdate.ConfigOptionUpdate,
+        is SessionUpdate.SessionInfoUpdate,
+        is SessionUpdate.UsageUpdate,
+        -> {
+            AcpSessionUpdate.SessionSetting
+        }
 
-    is SessionUpdate.UnknownSessionUpdate -> AcpSessionUpdate.Unrecognised
-}
+        is SessionUpdate.UnknownSessionUpdate -> {
+            AcpSessionUpdate.Unrecognised
+        }
+    }
 
 /**
  * The agent's four states, one for one.
@@ -832,28 +875,31 @@ internal fun SessionUpdate.toDomain(): AcpSessionUpdate = when (this) {
  * A missing status is a call that has not started: the protocol makes it optional,
  * and the only sensible reading of "no status yet" is "it has not finished".
  */
-private fun AcpToolCallStatus?.toDomain(): AcpToolCallState = when (this) {
-    AcpToolCallStatus.PENDING -> AcpToolCallState.PENDING
-    AcpToolCallStatus.IN_PROGRESS -> AcpToolCallState.IN_PROGRESS
-    AcpToolCallStatus.COMPLETED -> AcpToolCallState.COMPLETED
-    AcpToolCallStatus.FAILED -> AcpToolCallState.FAILED
-    null -> AcpToolCallState.PENDING
-}
+private fun AcpToolCallStatus?.toDomain(): AcpToolCallState =
+    when (this) {
+        AcpToolCallStatus.PENDING -> AcpToolCallState.PENDING
+        AcpToolCallStatus.IN_PROGRESS -> AcpToolCallState.IN_PROGRESS
+        AcpToolCallStatus.COMPLETED -> AcpToolCallState.COMPLETED
+        AcpToolCallStatus.FAILED -> AcpToolCallState.FAILED
+        null -> AcpToolCallState.PENDING
+    }
 
-private fun PlanEntryStatus.toDomain(): AcpPlanStepState = when (this) {
-    PlanEntryStatus.PENDING -> AcpPlanStepState.PENDING
-    PlanEntryStatus.IN_PROGRESS -> AcpPlanStepState.IN_PROGRESS
-    PlanEntryStatus.COMPLETED -> AcpPlanStepState.COMPLETED
-}
+private fun PlanEntryStatus.toDomain(): AcpPlanStepState =
+    when (this) {
+        PlanEntryStatus.PENDING -> AcpPlanStepState.PENDING
+        PlanEntryStatus.IN_PROGRESS -> AcpPlanStepState.IN_PROGRESS
+        PlanEntryStatus.COMPLETED -> AcpPlanStepState.COMPLETED
+    }
 
 /** The agent's reasons for stopping, one for one. */
-private fun StopReason.toDomain(): AcpStopReason = when (this) {
-    StopReason.END_TURN -> AcpStopReason.END_TURN
-    StopReason.MAX_TOKENS -> AcpStopReason.MAX_TOKENS
-    StopReason.MAX_TURN_REQUESTS -> AcpStopReason.MAX_TURN_REQUESTS
-    StopReason.REFUSAL -> AcpStopReason.REFUSAL
-    StopReason.CANCELLED -> AcpStopReason.CANCELLED
-}
+private fun StopReason.toDomain(): AcpStopReason =
+    when (this) {
+        StopReason.END_TURN -> AcpStopReason.END_TURN
+        StopReason.MAX_TOKENS -> AcpStopReason.MAX_TOKENS
+        StopReason.MAX_TURN_REQUESTS -> AcpStopReason.MAX_TURN_REQUESTS
+        StopReason.REFUSAL -> AcpStopReason.REFUSAL
+        StopReason.CANCELLED -> AcpStopReason.CANCELLED
+    }
 
 /**
  * The text of a content block, when it is text.

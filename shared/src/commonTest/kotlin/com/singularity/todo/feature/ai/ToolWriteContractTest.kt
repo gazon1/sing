@@ -10,11 +10,11 @@ import com.singularity.todo.feature.ai.tools.CreateTaskTool
 import com.singularity.todo.feature.ai.tools.DeleteTaskInput
 import com.singularity.todo.feature.ai.tools.DeleteTaskOutput
 import com.singularity.todo.feature.ai.tools.DeleteTaskTool
+import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
-import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -67,7 +67,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ToolWriteContractTest {
-
     private val clock = FakeClock()
     private val user: UserId = TestUsers.DEFAULT
 
@@ -82,15 +81,26 @@ class ToolWriteContractTest {
 
     private val currentUser = FakeProfileAwareCurrentUser(user)
 
-    private val apply = ApplyProposalItemUseCase(
-        proposals = proposals,
-        tasks = tasks,
-        notes = notes,
-        projects = projectsFake,
-        tags = tags,
-        planner = ProposalPlanner(clock),
-        dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, projectsFake, deleteProject, clock),
-    )
+    private val apply =
+        ApplyProposalItemUseCase(
+            proposals = proposals,
+            tasks = tasks,
+            notes = notes,
+            projects = projectsFake,
+            tags = tags,
+            planner = ProposalPlanner(clock),
+            dispatch =
+                ProposalDispatch(
+                    tasks,
+                    tags,
+                    checklist,
+                    timeTracking,
+                    notes,
+                    projectsFake,
+                    deleteProject,
+                    clock,
+                ),
+        )
 
     // ── The catalogue and the behaviour must agree ──────────────────────────────
 
@@ -114,90 +124,101 @@ class ToolWriteContractTest {
     // ── The creation: propose, confirm, write ──────────────────────────────────
 
     @Test
-    fun `calling a proposal-gated creation tool creates a proposal and writes nothing`() = runTest {
-        val output = decodeCreate(
-            CreateTaskTool(proposals, currentUser, clock).execute(CreateTaskInput(title = "Buy groceries")),
-        )
+    fun `calling a proposal-gated creation tool creates a proposal and writes nothing`() =
+        runTest {
+            val output =
+                decodeCreate(
+                    CreateTaskTool(proposals, currentUser, clock).execute(CreateTaskInput(title = "Buy groceries")),
+                )
 
-        assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
-        assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
-        assertTrue(tasks.tasks.value.isEmpty(), "nothing was written: ${tasks.tasks.value.keys}")
+            assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
+            assertTrue(output.proposalId.isNotBlank(), "the proposal is named, so the user can find it")
+            assertTrue(tasks.tasks.value.isEmpty(), "nothing was written: ${tasks.tasks.value.keys}")
 
-        val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
-        assertNotNull(stored, "the proposal is in the store")
-        assertEquals(1, stored.items.size, "the proposal holds one change")
-        assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
-    }
-
-    @Test
-    fun `confirming the proposal writes the task`() = runTest {
-        val output = decodeCreate(
-            CreateTaskTool(proposals, currentUser, clock).execute(CreateTaskInput(title = "Buy groceries")),
-        )
-        val itemId = singleItemId(output.proposalId)
-
-        val result = apply.confirm(itemId, user)
-        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
-
-        val created = tasks.tasks.value.values.singleOrNull()
-        assertNotNull(created, "the task exists")
-        assertEquals("Buy groceries", created.title)
-        assertEquals(user, created.userId)
-    }
+            val stored = proposals.watchProposal(ProposalId(output.proposalId)).first()
+            assertNotNull(stored, "the proposal is in the store")
+            assertEquals(1, stored.items.size, "the proposal holds one change")
+            assertEquals(ProposalItemStatus.Pending, stored.items.first().status, "the change waits for the user")
+        }
 
     @Test
-    fun `declining the proposal leaves the data unchanged`() = runTest {
-        val output = decodeCreate(
-            CreateTaskTool(proposals, currentUser, clock).execute(CreateTaskInput(title = "Buy groceries")),
-        )
-        val itemId = singleItemId(output.proposalId)
+    fun `confirming the proposal writes the task`() =
+        runTest {
+            val output =
+                decodeCreate(
+                    CreateTaskTool(proposals, currentUser, clock).execute(CreateTaskInput(title = "Buy groceries")),
+                )
+            val itemId = singleItemId(output.proposalId)
 
-        val result = apply.reject(itemId, user, reason = "not now")
-        assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+            val result = apply.confirm(itemId, user)
+            assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
 
-        assertTrue(tasks.tasks.value.isEmpty(), "nothing was written: ${tasks.tasks.value.keys}")
-        assertEquals(
-            ProposalItemStatus.Rejected,
-            proposals.getItem(itemId)?.status,
-            "the change was refused, not left pending",
-        )
-    }
+            val created =
+                tasks.tasks.value.values
+                    .singleOrNull()
+            assertNotNull(created, "the task exists")
+            assertEquals("Buy groceries", created.title)
+            assertEquals(user, created.userId)
+        }
+
+    @Test
+    fun `declining the proposal leaves the data unchanged`() =
+        runTest {
+            val output =
+                decodeCreate(
+                    CreateTaskTool(proposals, currentUser, clock).execute(CreateTaskInput(title = "Buy groceries")),
+                )
+            val itemId = singleItemId(output.proposalId)
+
+            val result = apply.reject(itemId, user, reason = "not now")
+            assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+
+            assertTrue(tasks.tasks.value.isEmpty(), "nothing was written: ${tasks.tasks.value.keys}")
+            assertEquals(
+                ProposalItemStatus.Rejected,
+                proposals.getItem(itemId)?.status,
+                "the change was refused, not left pending",
+            )
+        }
 
     // ── The destructive change: propose, decline, the thing is still there ─────
 
     @Test
-    fun `declining a deletion proposal leaves the task in place`() = runTest {
-        val task = Task(
-            id = TaskId.generate(),
-            title = "Buy groceries",
-            description = null,
-            priority = TaskPriority.None,
-            kind = TaskKind.Task,
-            createdAt = clock.now(),
-            updatedAt = clock.now(),
-            userId = user,
-        )
-        tasks.seed(task)
+    fun `declining a deletion proposal leaves the task in place`() =
+        runTest {
+            val task =
+                Task(
+                    id = TaskId.generate(),
+                    title = "Buy groceries",
+                    description = null,
+                    priority = TaskPriority.None,
+                    kind = TaskKind.Task,
+                    createdAt = clock.now(),
+                    updatedAt = clock.now(),
+                    userId = user,
+                )
+            tasks.seed(task)
 
-        val output = decodeDelete(
-            DeleteTaskTool(proposals, currentUser, clock).execute(DeleteTaskInput(taskId = task.id.value)),
-        )
-        assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
-        val stillThere = assertNotNull(tasks.tasks.value[task.id.value], "the task is still there")
-        assertFalse(stillThere.isTrashed, "the task is not archived")
+            val output =
+                decodeDelete(
+                    DeleteTaskTool(proposals, currentUser, clock).execute(DeleteTaskInput(taskId = task.id.value)),
+                )
+            assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
+            val stillThere = assertNotNull(tasks.tasks.value[task.id.value], "the task is still there")
+            assertFalse(stillThere.isTrashed, "the task is not archived")
 
-        val result = apply.reject(singleItemId(output.proposalId), user, reason = "keep it")
-        assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
+            val result = apply.reject(singleItemId(output.proposalId), user, reason = "keep it")
+            assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
 
-        val survivor = tasks.tasks.value[task.id.value]
-        assertNotNull(survivor, "the task survived the refusal")
-        assertFalse(survivor.isTrashed, "the task was not archived")
-        assertEquals(
-            ProposalItemStatus.Rejected,
-            proposals.getItem(singleItemId(output.proposalId))?.status,
-            "the change was refused, not left pending",
-        )
-    }
+            val survivor = tasks.tasks.value[task.id.value]
+            assertNotNull(survivor, "the task survived the refusal")
+            assertFalse(survivor.isTrashed, "the task was not archived")
+            assertEquals(
+                ProposalItemStatus.Rejected,
+                proposals.getItem(singleItemId(output.proposalId))?.status,
+                "the change was refused, not left pending",
+            )
+        }
 
     /**
      * The other half of the deletion's round trip.
@@ -210,28 +231,31 @@ class ToolWriteContractTest {
      * happen is a task the user asked to lose and still has.
      */
     @Test
-    fun `confirming a deletion proposal archives the task`() = runTest {
-        val task = Task(
-            id = TaskId.generate(),
-            title = "Buy groceries",
-            description = null,
-            priority = TaskPriority.None,
-            kind = TaskKind.Task,
-            createdAt = clock.now(),
-            updatedAt = clock.now(),
-            userId = user,
-        )
-        tasks.seed(task)
+    fun `confirming a deletion proposal archives the task`() =
+        runTest {
+            val task =
+                Task(
+                    id = TaskId.generate(),
+                    title = "Buy groceries",
+                    description = null,
+                    priority = TaskPriority.None,
+                    kind = TaskKind.Task,
+                    createdAt = clock.now(),
+                    updatedAt = clock.now(),
+                    userId = user,
+                )
+            tasks.seed(task)
 
-        val output = decodeDelete(
-            DeleteTaskTool(proposals, currentUser, clock).execute(DeleteTaskInput(taskId = task.id.value)),
-        )
-        val result = apply.confirm(singleItemId(output.proposalId), user)
-        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
+            val output =
+                decodeDelete(
+                    DeleteTaskTool(proposals, currentUser, clock).execute(DeleteTaskInput(taskId = task.id.value)),
+                )
+            val result = apply.confirm(singleItemId(output.proposalId), user)
+            assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
 
-        val archived = assertNotNull(tasks.tasks.value[task.id.value], "the task row is still readable")
-        assertTrue(archived.isTrashed, "the confirmed deletion archived the task")
-    }
+            val archived = assertNotNull(tasks.tasks.value[task.id.value], "the task row is still readable")
+            assertTrue(archived.isTrashed, "the confirmed deletion archived the task")
+        }
 
     // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -240,5 +264,11 @@ class ToolWriteContractTest {
     private fun decodeDelete(raw: String): DeleteTaskOutput = Json.decodeFromString(DeleteTaskOutput.serializer(), raw)
 
     private suspend fun singleItemId(proposalId: String) =
-        requireNotNull(proposals.watchProposal(ProposalId(proposalId)).first()?.items?.singleOrNull()).id
+        requireNotNull(
+            proposals
+                .watchProposal(ProposalId(proposalId))
+                .first()
+                ?.items
+                ?.singleOrNull(),
+        ).id
 }

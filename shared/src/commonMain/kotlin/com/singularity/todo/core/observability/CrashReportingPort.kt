@@ -26,7 +26,6 @@ package com.singularity.todo.core.observability
  * an exception text, an entity id, or anything else derived from user input.
  */
 interface CrashReportingPort {
-
     /**
      * Reports [error] as a non-fatal, grouped under [issueKey].
      *
@@ -35,7 +34,10 @@ interface CrashReportingPort {
      * message is the caller's concern, not this port's; see
      * `com.singularity.todo.core.log.redact`.
      */
-    fun report(error: Throwable, issueKey: String)
+    fun report(
+        error: Throwable,
+        issueKey: String,
+    )
 
     /**
      * Adds [message] to a bounded ring buffer that is attached to subsequent
@@ -56,6 +58,10 @@ interface CrashReportingPort {
  * ViewModel constructed in a test is silent without any global to reset.
  */
 class NoOpCrashReportingPort : CrashReportingPort {
-    override fun report(error: Throwable, issueKey: String) = Unit
+    override fun report(
+        error: Throwable,
+        issueKey: String,
+    ) = Unit
+
     override fun addBreadcrumb(message: String) = Unit
 }

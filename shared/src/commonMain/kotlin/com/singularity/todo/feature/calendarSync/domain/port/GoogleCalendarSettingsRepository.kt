@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.Flow
  * "connected" and this repository for "which calendar".
  */
 interface GoogleCalendarSettingsRepository {
-
     /**
      * The Google calendar the user chose to sync with, or null if none yet.
      *

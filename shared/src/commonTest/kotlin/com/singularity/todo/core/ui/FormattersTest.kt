@@ -18,7 +18,6 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class FormattersTest {
-
     @Test
     fun `elapsed under an hour is minutes and seconds`() {
         assertEquals("0:00", formatElapsed(0))
@@ -132,5 +131,50 @@ class FormattersTest {
         // CET, not CEST: November is an hour ahead, not two.
         assertEquals("Nov 6, 00:30", formatMonthDayTime(instant, TimeZone.of("Europe/Berlin")))
         assertEquals("Nov 5, 23:30", formatMonthDayTime(instant, TimeZone.UTC))
+    }
+
+    // ─── formatDecimal ───────────────────────────────────────────────────────────
+
+    /**
+     * The dot is always a dot: `"%.1f".format(x)` follows the *device* locale, so
+     * a Russian phone rendered "0,0" inside an English screen.
+     */
+    @Test
+    fun `decimal keeps the dot whatever the device locale says`() {
+        assertEquals("0.0", formatDecimal(0.0, 1))
+        assertEquals("1.5", formatDecimal(1.5, 1))
+        assertEquals("12.3", formatDecimal(12.34, 1))
+        assertEquals("0.1235", formatDecimal(0.12345, 4))
+    }
+
+    @Test
+    fun `decimal rounds half away from zero`() {
+        assertEquals("0.1", formatDecimal(0.05, 1))
+        assertEquals("1.3", formatDecimal(1.25, 1))
+        assertEquals("2", formatDecimal(1.5, 0))
+        assertEquals("3", formatDecimal(2.5, 0))
+    }
+
+    @Test
+    fun `decimal without decimals is an integer`() {
+        assertEquals("100", formatDecimal(99.6, 0))
+        assertEquals("0", formatDecimal(0.0, 0))
+    }
+
+    @Test
+    fun `decimal keeps the sign of a negative number`() {
+        assertEquals("-1.5", formatDecimal(-1.5, 1))
+        assertEquals("-2", formatDecimal(-1.5, 0))
+    }
+
+    /**
+     * A negative number that rounds to zero has no sign: "-0%" is a value the
+     * number does not contain, and the reader of the screen cannot read it.
+     */
+    @Test
+    fun `decimal does not print a minus sign in front of zero`() {
+        assertEquals("0.0", formatDecimal(-0.04, 1))
+        assertEquals("0.0", formatDecimal(-0.0, 1))
+        assertEquals("0", formatDecimal(-0.4, 0))
     }
 }

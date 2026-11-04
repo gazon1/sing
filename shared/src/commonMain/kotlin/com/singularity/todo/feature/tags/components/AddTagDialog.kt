@@ -94,21 +94,23 @@ fun AddTagDialog(
                 ) {
                     ProjectColorPalette.all.forEach { color ->
                         Box(
-                            modifier = Modifier
-                                .touchTarget(TaskListSizes.MinTouchTarget)
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(Color(color))
-                                .clickable { selectedColor = color },
+                            modifier =
+                                Modifier
+                                    .touchTarget(TaskListSizes.MinTouchTarget)
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(color))
+                                    .clickable { selectedColor = color },
                         ) {
                             if (color == selectedColor) {
                                 Icon(
                                     imageVector = Icons.Filled.Check,
                                     contentDescription = null,
                                     tint = Color.White,
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .padding(6.dp),
+                                    modifier =
+                                        Modifier
+                                            .size(36.dp)
+                                            .padding(6.dp),
                                 )
                             }
                         }
@@ -136,22 +138,24 @@ fun AddTagDialog(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AddTagDialogCreatePreview() = PreviewThemed(darkTheme = false) {
-    AddTagDialog(
-        onConfirm = { _, _ -> },
-        onDismiss = noopClick,
-    )
-}
+private fun AddTagDialogCreatePreview() =
+    PreviewThemed(darkTheme = false) {
+        AddTagDialog(
+            onConfirm = { _, _ -> },
+            onDismiss = noopClick,
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AddTagDialogRenamePreview() = PreviewThemed(darkTheme = true) {
-    AddTagDialog(
-        onConfirm = { _, _ -> },
-        onDismiss = noopClick,
-        title = "Rename Tag",
-        initialName = "work",
-        initialColor = 0xFFE91E63.toInt(),
-        confirmLabel = "Save",
-    )
-}
+private fun AddTagDialogRenamePreview() =
+    PreviewThemed(darkTheme = true) {
+        AddTagDialog(
+            onConfirm = { _, _ -> },
+            onDismiss = noopClick,
+            title = "Rename Tag",
+            initialName = "work",
+            initialColor = 0xFFE91E63.toInt(),
+            confirmLabel = "Save",
+        )
+    }

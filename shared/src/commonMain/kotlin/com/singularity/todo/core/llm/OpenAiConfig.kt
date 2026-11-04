@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.firstOrNull
 @JvmInline
 value class ApiKey(val value: String) {
     val isConfigured: Boolean get() = value.isNotBlank()
+
     companion object {
         val EMPTY = ApiKey("")
     }
@@ -42,12 +43,18 @@ data class OpenAiConfig(
          * auto-fill behaviour so that `Test connection` and `streamChat` hit
          * the URL the user actually intends.
          */
-        suspend fun resolve(secureStorage: SecureStoragePort, settings: SettingsReader): OpenAiConfig {
+        suspend fun resolve(
+            secureStorage: SecureStoragePort,
+            settings: SettingsReader,
+        ): OpenAiConfig {
             val provider = LlmProvider.fromId(settings.aiProvider.firstOrNull())
             val storedUrl = settings.aiBaseUrl.firstOrNull().orEmpty()
             val baseUrl = resolveBaseUrl(storedUrl, provider)
-            val modelId = settings.aiModel.firstOrNull().orEmpty()
-                .ifBlank { DEFAULT_MODEL }
+            val modelId =
+                settings.aiModel
+                    .firstOrNull()
+                    .orEmpty()
+                    .ifBlank { DEFAULT_MODEL }
             val apiKey = ApiKey(secureStorage.read(KEY_OPENAI).orEmpty())
             return OpenAiConfig(
                 provider = provider,
@@ -62,7 +69,10 @@ data class OpenAiConfig(
          * matches the default of *any* known provider, return the current
          * provider's default. Otherwise respect [storedUrl] verbatim.
          */
-        fun resolveBaseUrl(storedUrl: String, provider: LlmProvider): String {
+        fun resolveBaseUrl(
+            storedUrl: String,
+            provider: LlmProvider,
+        ): String {
             if (storedUrl.isBlank()) return provider.defaultBaseUrl
             val matchesAnyDefault = LlmProvider.entries.any { it.defaultBaseUrl == storedUrl }
             return if (matchesAnyDefault) provider.defaultBaseUrl else storedUrl

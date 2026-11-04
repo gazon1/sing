@@ -35,7 +35,6 @@ import org.jetbrains.kotlin.psi.KtTryExpression
  * @see NoRunCatchingInSuspend
  */
 class NoSwallowedCancellation(config: Config) : Rule(config, "", null) {
-
     // The forward scan below uses two `continue` branches, and they are not redundant:
     // one handles a non-suspend clause, the other skips a clause already protected by an
     // earlier rethrow. Flattening them to satisfy detekt's jump-count heuristic would
@@ -64,9 +63,10 @@ class NoSwallowedCancellation(config: Config) : Rule(config, "", null) {
                 report(
                     Finding(
                         entity = Entity.from(catchClause),
-                        message = "catch ($paramName) in a suspend function " +
-                            "must re-throw CancellationException before catching other exceptions. " +
-                            "Add: catch (e: CancellationException) { throw e }",
+                        message =
+                            "catch ($paramName) in a suspend function " +
+                                "must re-throw CancellationException before catching other exceptions. " +
+                                "Add: catch (e: CancellationException) { throw e }",
                         references = emptyList(),
                         suppressReasons = emptyList(),
                     ),
@@ -138,10 +138,12 @@ class NoSwallowedCancellation(config: Config) : Rule(config, "", null) {
  */
 class NoSwallowedCancellationProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-swallowed-cancellation")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoSwallowedCancellation") to { cfg: Config -> NoSwallowedCancellation(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoSwallowedCancellation") to { cfg: Config -> NoSwallowedCancellation(cfg) },
+            ),
+        )
 }

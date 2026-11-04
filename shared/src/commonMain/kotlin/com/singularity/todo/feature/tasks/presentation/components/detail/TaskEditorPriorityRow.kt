@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,12 +21,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import org.jetbrains.compose.resources.stringResource
 import singularity_todo.shared.generated.resources.Res
 import singularity_todo.shared.generated.resources.reset_priority
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
-import androidx.compose.material3.MaterialTheme
 
 /**
  * Renders the priority attribute row in the task editor.
@@ -45,24 +45,24 @@ fun TaskEditorPriorityRow(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
-            // No clickable() at all when the callback is null. `.clickable(onClick = {})
-            // would render the same ripple and the same pointer cursor over a row that
-            // does nothing — an affordance that promises an interaction and delivers
-            // none. The pattern is TaskChip's, not a new one.
-            .then(
-                if (onPriorityClick != null) {
-                    Modifier.clickable { onPriorityClick() }
-                } else {
-                    Modifier
-                },
-            )
-            .padding(
-                horizontal = TaskSpacing.cardPaddingHorizontal,
-                vertical = TaskSpacing.cardPaddingVertical,
-            ),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
+                // No clickable() at all when the callback is null. `.clickable(onClick = {})
+                // would render the same ripple and the same pointer cursor over a row that
+                // does nothing — an affordance that promises an interaction and delivers
+                // none. The pattern is TaskChip's, not a new one.
+                .then(
+                    if (onPriorityClick != null) {
+                        Modifier.clickable { onPriorityClick() }
+                    } else {
+                        Modifier
+                    },
+                ).padding(
+                    horizontal = TaskSpacing.cardPaddingHorizontal,
+                    vertical = TaskSpacing.cardPaddingVertical,
+                ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val hasPriority = priority != TaskPriority.None
@@ -99,10 +99,11 @@ fun TaskEditorPriorityRow(
 }
 
 private val TaskPriority.label: String
-    get() = when (this) {
-        TaskPriority.None -> "No priority"
-        TaskPriority.Low -> "Low priority"
-        TaskPriority.Medium -> "Medium priority"
-        TaskPriority.High -> "High priority"
-        TaskPriority.Urgent -> "Urgent"
-    }
+    get() =
+        when (this) {
+            TaskPriority.None -> "No priority"
+            TaskPriority.Low -> "Low priority"
+            TaskPriority.Medium -> "Medium priority"
+            TaskPriority.High -> "High priority"
+            TaskPriority.Urgent -> "Urgent"
+        }

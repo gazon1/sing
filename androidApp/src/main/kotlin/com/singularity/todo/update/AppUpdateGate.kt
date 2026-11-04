@@ -33,7 +33,6 @@ class AppUpdateGate(
     private val remoteConfigPort: RemoteConfigPort,
     private val prefs: AppUpdatePrefs,
 ) {
-
     companion object {
         const val SHOW_IMMEDIATELY_THRESHOLD = 4
         const val COOLDOWN_DAYS = 7L
@@ -77,17 +76,25 @@ class AppUpdateGate(
     private fun selectStore(
         snapshot: RemoteConfigSnapshot,
         activity: Activity,
-    ): UpdateStorePort = when (snapshot.updateStoreType) {
-        UpdateStoreType.GOOGLE_PLAY -> googlePlayStore
+    ): UpdateStorePort =
+        when (snapshot.updateStoreType) {
+            UpdateStoreType.GOOGLE_PLAY -> {
+                googlePlayStore
+            }
 
-        UpdateStoreType.RUSTORE -> ruStore
+            UpdateStoreType.RUSTORE -> {
+                ruStore
+            }
 
-        UpdateStoreType.SAMSUNG -> directUrlStore
+            UpdateStoreType.SAMSUNG -> {
+                directUrlStore
+            }
 
-        UpdateStoreType.DIRECT_URL -> {
-            val url = snapshot.updateStoreUrl
-                ?: "https://play.google.com/store/apps/details?id=${activity.packageName}"
-            DirectUrlUpdateStore(activity.applicationContext, url)
+            UpdateStoreType.DIRECT_URL -> {
+                val url =
+                    snapshot.updateStoreUrl
+                        ?: "https://play.google.com/store/apps/details?id=${activity.packageName}"
+                DirectUrlUpdateStore(activity.applicationContext, url)
+            }
         }
-    }
 }

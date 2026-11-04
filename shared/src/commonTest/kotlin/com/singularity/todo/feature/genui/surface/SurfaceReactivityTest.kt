@@ -25,105 +25,111 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SurfaceReactivityTest {
-
     private val controller = SurfaceController()
     private val surface = SurfaceId("s1")
 
     @Test
-    fun updatingOneComponentDoesNotEmitOnAnother() = runTest {
-        controller.apply(create(text = mapOf("a" to "one", "b" to "two")))
-        val seen: MutableList<UiNode?> = mutableListOf()
-        val job = launch { controller.component(surface, "b").collect { seen += it } }
-        testScheduler.runCurrent()
+    fun updatingOneComponentDoesNotEmitOnAnother() =
+        runTest {
+            controller.apply(create(text = mapOf("a" to "one", "b" to "two")))
+            val seen: MutableList<UiNode?> = mutableListOf()
+            val job = launch { controller.component(surface, "b").collect { seen += it } }
+            testScheduler.runCurrent()
 
-        controller.apply(update(text = mapOf("a" to "changed")))
-        testScheduler.runCurrent()
+            controller.apply(update(text = mapOf("a" to "changed")))
+            testScheduler.runCurrent()
 
-        assertEquals(1, seen.size, "The unrelated component emitted: $seen")
-        job.cancel()
-    }
-
-    @Test
-    fun updatingTheComponentEmits() = runTest {
-        controller.apply(create(text = mapOf("a" to "one", "b" to "two")))
-        val seen: MutableList<UiNode?> = mutableListOf()
-        val job = launch { controller.component(surface, "a").collect { seen += it } }
-        testScheduler.runCurrent()
-
-        controller.apply(update(text = mapOf("a" to "changed")))
-        testScheduler.runCurrent()
-
-        assertEquals(2, seen.size, "The changed component emitted: $seen")
-        assertEquals("changed", (seen.last() as UiNode.Text).value)
-        job.cancel()
-    }
+            assertEquals(1, seen.size, "The unrelated component emitted: $seen")
+            job.cancel()
+        }
 
     @Test
-    fun rewritingAnIdenticalComponentDoesNotEmit() = runTest {
-        controller.apply(create(text = mapOf("a" to "same")))
-        val seen: MutableList<UiNode?> = mutableListOf()
-        val job = launch { controller.component(surface, "a").collect { seen += it } }
-        testScheduler.runCurrent()
+    fun updatingTheComponentEmits() =
+        runTest {
+            controller.apply(create(text = mapOf("a" to "one", "b" to "two")))
+            val seen: MutableList<UiNode?> = mutableListOf()
+            val job = launch { controller.component(surface, "a").collect { seen += it } }
+            testScheduler.runCurrent()
 
-        controller.apply(update(text = mapOf("a" to "same")))
-        testScheduler.runCurrent()
+            controller.apply(update(text = mapOf("a" to "changed")))
+            testScheduler.runCurrent()
 
-        assertEquals(1, seen.size, "A no-op update is not a change: $seen")
-        job.cancel()
-    }
-
-    @Test
-    fun aDataUpdateEmitsOnlyOnThePathThatChanged() = runTest {
-        controller.apply(create(text = mapOf("a" to "one")))
-        val watched: MutableList<kotlinx.serialization.json.JsonElement?> = mutableListOf()
-        val untouched: MutableList<kotlinx.serialization.json.JsonElement?> = mutableListOf()
-        val job = launch { controller.value(surface, UiPath.parse("/name")).collect { watched += it } }
-        val other = launch { controller.value(surface, UiPath.parse("/other")).collect { untouched += it } }
-        testScheduler.runCurrent()
-
-        controller.apply(UiEvent.UpdateData(surface, UiPath.parse("/name"), JsonPrimitive("Ada")))
-        testScheduler.runCurrent()
-
-        assertEquals(2, watched.size, "The bound path emitted: $watched")
-        assertEquals(1, untouched.size, "An unrelated path stayed quiet: $untouched")
-        job.cancel()
-        other.cancel()
-    }
+            assertEquals(2, seen.size, "The changed component emitted: $seen")
+            assertEquals("changed", (seen.last() as UiNode.Text).value)
+            job.cancel()
+        }
 
     @Test
-    fun aSurfaceAppearingLaterStartsEmitting() = runTest {
-        val seen: MutableList<UiNode?> = mutableListOf()
-        val job = launch { controller.component(surface, "a").collect { seen += it } }
-        testScheduler.runCurrent()
-        assertTrue(seen.isEmpty())
+    fun rewritingAnIdenticalComponentDoesNotEmit() =
+        runTest {
+            controller.apply(create(text = mapOf("a" to "same")))
+            val seen: MutableList<UiNode?> = mutableListOf()
+            val job = launch { controller.component(surface, "a").collect { seen += it } }
+            testScheduler.runCurrent()
 
-        controller.apply(create(text = mapOf("a" to "late")))
-        testScheduler.runCurrent()
-        assertEquals(1, seen.size, "A component that arrives after the collector started: $seen")
-        job.cancel()
-    }
+            controller.apply(update(text = mapOf("a" to "same")))
+            testScheduler.runCurrent()
 
-    @Test
-    fun writingThroughTheControllerUpdatesTheDataModel() = runTest {
-        controller.apply(create(text = mapOf("a" to "one")))
-        controller.write(surface, UiPath.parse("/name"), JsonPrimitive("Bob"))
-        val value = controller.value(surface, UiPath.parse("/name")).first()
-        assertEquals("Bob", (assertNotNull(value) as JsonPrimitive).content)
-    }
+            assertEquals(1, seen.size, "A no-op update is not a change: $seen")
+            job.cancel()
+        }
 
     @Test
-    fun aComponentRemovedFromTheSurfaceStopsEmittingItsNode() = runTest {
-        controller.apply(create(text = mapOf("a" to "one")))
-        val seen: MutableList<UiNode?> = mutableListOf()
-        val job = launch { controller.component(surface, "a").collect { seen += it } }
-        testScheduler.runCurrent()
+    fun aDataUpdateEmitsOnlyOnThePathThatChanged() =
+        runTest {
+            controller.apply(create(text = mapOf("a" to "one")))
+            val watched: MutableList<kotlinx.serialization.json.JsonElement?> = mutableListOf()
+            val untouched: MutableList<kotlinx.serialization.json.JsonElement?> = mutableListOf()
+            val job = launch { controller.value(surface, UiPath.parse("/name")).collect { watched += it } }
+            val other = launch { controller.value(surface, UiPath.parse("/other")).collect { untouched += it } }
+            testScheduler.runCurrent()
 
-        controller.apply(UiEvent.DeleteSurface(surface))
-        testScheduler.runCurrent()
+            controller.apply(UiEvent.UpdateData(surface, UiPath.parse("/name"), JsonPrimitive("Ada")))
+            testScheduler.runCurrent()
 
-        assertNull(controller.snapshot(surface))
-        job.cancel()
-    }
+            assertEquals(2, watched.size, "The bound path emitted: $watched")
+            assertEquals(1, untouched.size, "An unrelated path stayed quiet: $untouched")
+            job.cancel()
+            other.cancel()
+        }
+
+    @Test
+    fun aSurfaceAppearingLaterStartsEmitting() =
+        runTest {
+            val seen: MutableList<UiNode?> = mutableListOf()
+            val job = launch { controller.component(surface, "a").collect { seen += it } }
+            testScheduler.runCurrent()
+            assertTrue(seen.isEmpty())
+
+            controller.apply(create(text = mapOf("a" to "late")))
+            testScheduler.runCurrent()
+            assertEquals(1, seen.size, "A component that arrives after the collector started: $seen")
+            job.cancel()
+        }
+
+    @Test
+    fun writingThroughTheControllerUpdatesTheDataModel() =
+        runTest {
+            controller.apply(create(text = mapOf("a" to "one")))
+            controller.write(surface, UiPath.parse("/name"), JsonPrimitive("Bob"))
+            val value = controller.value(surface, UiPath.parse("/name")).first()
+            assertEquals("Bob", (assertNotNull(value) as JsonPrimitive).content)
+        }
+
+    @Test
+    fun aComponentRemovedFromTheSurfaceStopsEmittingItsNode() =
+        runTest {
+            controller.apply(create(text = mapOf("a" to "one")))
+            val seen: MutableList<UiNode?> = mutableListOf()
+            val job = launch { controller.component(surface, "a").collect { seen += it } }
+            testScheduler.runCurrent()
+
+            controller.apply(UiEvent.DeleteSurface(surface))
+            testScheduler.runCurrent()
+
+            assertNull(controller.snapshot(surface))
+            job.cancel()
+        }
 
     // ─── Lifetime ─────────────────────────────────────────────────────────
 

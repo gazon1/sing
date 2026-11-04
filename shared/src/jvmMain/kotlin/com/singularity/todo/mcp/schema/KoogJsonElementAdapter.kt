@@ -19,21 +19,28 @@ import kotlinx.serialization.json.JsonPrimitive
  * tool expects its own tree. This is the only correct bridge — nulls, booleans, and
  * numbers must round-trip without coercion.
  */
-fun JsonElement.toKoog(): JSONElement = when (this) {
-    is JsonPrimitive -> {
-        when {
-            isString -> JSONLiteral(content, isString = true)
-            content == "true" -> JSONLiteral("true", isString = false)
-            content == "false" -> JSONLiteral("false", isString = false)
-            content == "null" -> JSONNull
-            content.toDoubleOrNull() != null -> JSONLiteral(content, isString = false)
-            else -> JSONLiteral(content, isString = true)
+fun JsonElement.toKoog(): JSONElement =
+    when (this) {
+        is JsonPrimitive -> {
+            when {
+                isString -> JSONLiteral(content, isString = true)
+                content == "true" -> JSONLiteral("true", isString = false)
+                content == "false" -> JSONLiteral("false", isString = false)
+                content == "null" -> JSONNull
+                content.toDoubleOrNull() != null -> JSONLiteral(content, isString = false)
+                else -> JSONLiteral(content, isString = true)
+            }
+        }
+
+        is JsonObject -> {
+            JSONObject(this.mapValues { (_, v) -> v.toKoog() })
+        }
+
+        is JsonArray -> {
+            JSONArray(this.map { it.toKoog() })
+        }
+
+        JsonNull -> {
+            JSONNull
         }
     }
-
-    is JsonObject -> JSONObject(this.mapValues { (_, v) -> v.toKoog() })
-
-    is JsonArray -> JSONArray(this.map { it.toKoog() })
-
-    JsonNull -> JSONNull
-}

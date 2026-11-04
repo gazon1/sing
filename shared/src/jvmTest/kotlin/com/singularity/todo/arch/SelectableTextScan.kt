@@ -39,7 +39,6 @@ internal enum class TextTreatment(val label: String) {
  * The scan itself: which files of `commonMain` use the text widgets, and how.
  */
 internal object SelectableTextScan {
-
     /**
      * Root of `commonMain`'s sources, as set by the `jvmTest` task.
      *
@@ -63,15 +62,17 @@ internal object SelectableTextScan {
      * registry uses.
      */
     fun treatments(): Map<String, Set<TextTreatment>> =
-        files.entries.mapNotNull { (path, file) ->
-            if (path.startsWith(WIDGETS_PACKAGE)) return@mapNotNull null
-            val imports = file.imports.map { it.name }
-            val treatments = buildSet {
-                if (imports.any { it in SELECTABLE_WIDGETS }) add(TextTreatment.SELECTABLE)
-                if (imports.any { it in LINKIFIED_WIDGETS }) add(TextTreatment.LINKIFIED)
-            }
-            if (treatments.isEmpty()) null else path to treatments
-        }.toMap()
+        files.entries
+            .mapNotNull { (path, file) ->
+                if (path.startsWith(WIDGETS_PACKAGE)) return@mapNotNull null
+                val imports = file.imports.map { it.name }
+                val treatments =
+                    buildSet {
+                        if (imports.any { it in SELECTABLE_WIDGETS }) add(TextTreatment.SELECTABLE)
+                        if (imports.any { it in LINKIFIED_WIDGETS }) add(TextTreatment.LINKIFIED)
+                    }
+                if (treatments.isEmpty()) null else path to treatments
+            }.toMap()
 
     /** The imports of the file at [path]. */
     fun imports(path: String): List<String> =
@@ -96,16 +97,18 @@ internal object SelectableTextScan {
     private const val WIDGETS_PACKAGE = "core/ui/text/"
 
     /** The widgets that make text selectable. */
-    private val SELECTABLE_WIDGETS = setOf(
-        "com.singularity.todo.core.ui.text.SelectableText",
-        "com.singularity.todo.core.ui.text.SelectableTextGroup",
-        "com.singularity.todo.core.ui.text.UnselectableContent",
-        "androidx.compose.foundation.text.selection.SelectionContainer",
-        "androidx.compose.foundation.text.selection.DisableSelection",
-    )
+    private val SELECTABLE_WIDGETS =
+        setOf(
+            "com.singularity.todo.core.ui.text.SelectableText",
+            "com.singularity.todo.core.ui.text.SelectableTextGroup",
+            "com.singularity.todo.core.ui.text.UnselectableContent",
+            "androidx.compose.foundation.text.selection.SelectionContainer",
+            "androidx.compose.foundation.text.selection.DisableSelection",
+        )
 
     /** The widgets that make text carry tappable links. */
-    private val LINKIFIED_WIDGETS = setOf(
-        "com.singularity.todo.core.ui.text.LinkifiedText",
-    )
+    private val LINKIFIED_WIDGETS =
+        setOf(
+            "com.singularity.todo.core.ui.text.LinkifiedText",
+        )
 }

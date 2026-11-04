@@ -14,10 +14,10 @@ import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionRequest
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionResolver
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import kotlin.time.Clock
-import kotlin.comparisons.nullsLast
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
+import kotlin.comparisons.nullsLast
+import kotlin.time.Clock
 
 /**
  * What to read.
@@ -78,22 +78,23 @@ class ListTasksTool(
     private val timeZoneProvider: TimeZoneProvider,
     private val tasksSettingsRepository: TasksSettingsRepository,
 ) : SimpleTool<ListTasksInput>(TypeToken.of(ListTasksInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: ListTasksInput): String {
-        val request = TaskSelectionRequest(
-            selection = args.selection,
-            projectId = args.projectId,
-            tagIds = args.tagIds,
-            priorities = args.priorities,
-        )
+        val request =
+            TaskSelectionRequest(
+                selection = args.selection,
+                projectId = args.projectId,
+                tagIds = args.tagIds,
+                priorities = args.priorities,
+            )
 
         val all = taskRepository.observeByFilter(TaskSelectionResolver.baseFilter()).first()
         val context = TaskToolSupport.context(all, clock, timeZoneProvider.current())
         val stalenessDays = tasksSettingsRepository.stalenessThresholdDays.first()
 
-        val selected = all
-            .filter { TaskSelectionResolver.matches(request, it, context) }
-            .sortedWith(ORDER)
+        val selected =
+            all
+                .filter { TaskSelectionResolver.matches(request, it, context) }
+                .sortedWith(ORDER)
 
         val fingerprint = TaskSelectionResolver.fingerprint(request)
         val start = startOffset(args.cursor, fingerprint)
@@ -101,23 +102,26 @@ class ListTasksTool(
         val limit = args.limit.coerceIn(1, MAX_LIMIT)
         val page = selected.drop(start.offset).take(limit)
 
-        val output = ListTasksOutput(
-            selection = args.selection.name.lowercase(),
-            total = selected.size,
-            nextCursor = nextCursor(start.offset, page.size, selected.size, fingerprint),
-            tasks = if (args.detail == TaskDetailLevel.SUMMARY) {
-                page.map { TaskToolSupport.summary(it, all, context, stalenessDays) }
-            } else {
-                emptyList()
-            },
-            details = if (args.detail == TaskDetailLevel.FULL) {
-                page.map { TaskToolSupport.detail(it, all, context, stalenessDays, checklistRepository) }
-            } else {
-                emptyList()
-            },
-            health = TaskToolSupport.health(selected, context, stalenessDays),
-            cursorWarning = start.warning,
-        )
+        val output =
+            ListTasksOutput(
+                selection = args.selection.name.lowercase(),
+                total = selected.size,
+                nextCursor = nextCursor(start.offset, page.size, selected.size, fingerprint),
+                tasks =
+                    if (args.detail == TaskDetailLevel.SUMMARY) {
+                        page.map { TaskToolSupport.summary(it, all, context, stalenessDays) }
+                    } else {
+                        emptyList()
+                    },
+                details =
+                    if (args.detail == TaskDetailLevel.FULL) {
+                        page.map { TaskToolSupport.detail(it, all, context, stalenessDays, checklistRepository) }
+                    } else {
+                        emptyList()
+                    },
+                health = TaskToolSupport.health(selected, context, stalenessDays),
+                cursorWarning = start.warning,
+            )
 
         return ToolOutputJson.encodeToString(ListTasksOutput.serializer(), output)
     }
@@ -129,11 +133,15 @@ class ListTasksTool(
      * it as one would hand the reader a page of something else without saying so. So
      * the read starts from the beginning and says why.
      */
-    private fun startOffset(cursor: String?, fingerprint: String): Start {
+    private fun startOffset(
+        cursor: String?,
+        fingerprint: String,
+    ): Start {
         if (cursor.isNullOrBlank()) return Start(0, null)
 
-        val decoded = cursor.decodeTaskPageCursor()
-            ?: return Start(0, "That cursor could not be read, so the list starts from the beginning.")
+        val decoded =
+            cursor.decodeTaskPageCursor()
+                ?: return Start(0, "That cursor could not be read, so the list starts from the beginning.")
 
         if (decoded.fingerprint != fingerprint) {
             return Start(
@@ -145,7 +153,12 @@ class ListTasksTool(
         return Start(decoded.offset.coerceAtLeast(0), null)
     }
 
-    private fun nextCursor(start: Int, pageSize: Int, total: Int, fingerprint: String): String? {
+    private fun nextCursor(
+        start: Int,
+        pageSize: Int,
+        total: Int,
+        fingerprint: String,
+    ): String? {
         val next = start + pageSize
         if (pageSize == 0 || next >= total) return null
         return TaskPageCursor(offset = next, fingerprint = fingerprint).encode()
@@ -199,9 +212,10 @@ class ListTasksTool(
          * same due date could swap places between two calls and the reader would see
          * one of them twice.
          */
-        private val ORDER: Comparator<Task> = compareByDescending<Task> { it.isPinned }
-            .thenBy(nullsLast()) { it.dueDate }
-            .thenByDescending { it.priority.ordinal }
-            .thenBy { it.id.value }
+        private val ORDER: Comparator<Task> =
+            compareByDescending<Task> { it.isPinned }
+                .thenBy(nullsLast()) { it.dueDate }
+                .thenByDescending { it.priority.ordinal }
+                .thenBy { it.id.value }
     }
 }

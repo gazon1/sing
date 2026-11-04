@@ -76,7 +76,6 @@ package com.singularity.todo.detekt
  * @see 2026-10-22-compose-stability-contract
  */
 internal object ComposeCollectionExemptions {
-
     /**
      * The known sites: a composable's qualified name, and under it the raw
      * collection parameters it still declares, with the type of each.

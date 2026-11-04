@@ -101,7 +101,6 @@ import kotlin.time.Instant
  * ```
  */
 object AgendaSeed {
-
     // ─── Time constants ─────────────────────────────────────────────────────────
 
     /** Wednesday 2026-10-14 — the reference "today" for this seed. */
@@ -112,113 +111,120 @@ object AgendaSeed {
 
     // ─── Profiles ───────────────────────────────────────────────────────────────
 
-    val PROFILE_PERSONAL = ProfileEntity(
-        id = "profile-personal",
-        name = "Personal",
-        emoji = "🏠",
-        colorIdx = 0,
-        isDefault = true,
-        createdAt = 0L,
-        updatedAt = 0L,
-    )
+    val PROFILE_PERSONAL =
+        ProfileEntity(
+            id = "profile-personal",
+            name = "Personal",
+            emoji = "🏠",
+            colorIdx = 0,
+            isDefault = true,
+            createdAt = 0L,
+            updatedAt = 0L,
+        )
 
-    val PROFILE_WORK = ProfileEntity(
-        id = "profile-work",
-        name = "Work",
-        emoji = "💼",
-        colorIdx = 1,
-        isDefault = false,
-        createdAt = 0L,
-        updatedAt = 0L,
-    )
+    val PROFILE_WORK =
+        ProfileEntity(
+            id = "profile-work",
+            name = "Work",
+            emoji = "💼",
+            colorIdx = 1,
+            isDefault = false,
+            createdAt = 0L,
+            updatedAt = 0L,
+        )
 
     // ─── Tags ─────────────────────────────────────────────────────────────────
 
-    val TAG_WORK = TagEntity(
-        id = "tag-work",
-        userId = PERSONAL_USER_ID,
-        name = "work",
-        nameNormalized = "work",
-        color = 0xFF2196F3.toInt(),
-        createdAt = 0L,
-        updatedAt = 0L,
-        groupId = null,
-        sortOrder = 0,
-        deletedAt = null,
-        sync = SyncColumns(),
-    )
+    val TAG_WORK =
+        TagEntity(
+            id = "tag-work",
+            userId = PERSONAL_USER_ID,
+            name = "work",
+            nameNormalized = "work",
+            color = 0xFF2196F3.toInt(),
+            createdAt = 0L,
+            updatedAt = 0L,
+            groupId = null,
+            sortOrder = 0,
+            deletedAt = null,
+            sync = SyncColumns(),
+        )
 
-    val TAG_URGENT = TagEntity(
-        id = "tag-urgent",
-        userId = PERSONAL_USER_ID,
-        name = "urgent",
-        nameNormalized = "urgent",
-        color = 0xFFF44336.toInt(),
-        createdAt = 0L,
-        updatedAt = 0L,
-        groupId = null,
-        sortOrder = 1,
-        deletedAt = null,
-        sync = SyncColumns(),
-    )
+    val TAG_URGENT =
+        TagEntity(
+            id = "tag-urgent",
+            userId = PERSONAL_USER_ID,
+            name = "urgent",
+            nameNormalized = "urgent",
+            color = 0xFFF44336.toInt(),
+            createdAt = 0L,
+            updatedAt = 0L,
+            groupId = null,
+            sortOrder = 1,
+            deletedAt = null,
+            sync = SyncColumns(),
+        )
 
-    val TAG_HOME = TagEntity(
-        id = "tag-home",
-        userId = PERSONAL_USER_ID,
-        name = "home",
-        nameNormalized = "home",
-        color = 0xFF4CAF50.toInt(),
-        createdAt = 0L,
-        updatedAt = 0L,
-        groupId = null,
-        sortOrder = 2,
-        deletedAt = null,
-        sync = SyncColumns(),
-    )
+    val TAG_HOME =
+        TagEntity(
+            id = "tag-home",
+            userId = PERSONAL_USER_ID,
+            name = "home",
+            nameNormalized = "home",
+            color = 0xFF4CAF50.toInt(),
+            createdAt = 0L,
+            updatedAt = 0L,
+            groupId = null,
+            sortOrder = 2,
+            deletedAt = null,
+            sync = SyncColumns(),
+        )
 
     // ─── Projects ──────────────────────────────────────────────────────────────
 
-    val PROJECT_ALPHA = ProjectEntity(
-        id = "proj-alpha",
-        userId = PERSONAL_USER_ID,
-        name = "Alpha",
-        color = 0xFF673AB7.toInt(),
-        icon = null,
-        description = null,
-        createdAt = 0L,
-        updatedAt = 0L,
-        isDefault = false,
-        dueDate = null,
-        team = null,
-        isDeleted = false,
-        deletedAt = null,
-        parentId = null,
-        sortOrder = 0,
-        idempotencyKey = null,
-        externalId = null,
-        sync = SyncColumns(),
-    )
+    val PROJECT_ALPHA =
+        ProjectEntity(
+            id = "proj-alpha",
+            userId = PERSONAL_USER_ID,
+            name = "Alpha",
+            color = 0xFF673AB7.toInt(),
+            icon = null,
+            description = null,
+            createdAt = 0L,
+            updatedAt = 0L,
+            isDefault = false,
+            dueDate = null,
+            team = null,
+            isDeleted = false,
+            deletedAt = null,
+            parentId = null,
+            sortOrder = 0,
+            idempotencyKey = null,
+            externalId = null,
+            sync = SyncColumns(),
+        )
 
-    val PROJECT_BETA = ProjectEntity(
-        id = "proj-beta",
-        userId = PERSONAL_USER_ID,
-        name = "Beta",
-        color = 0xFF03A9F4.toInt(),
-        icon = null,
-        description = null,
-        createdAt = 0L,
-        updatedAt = 0L,
-        isDefault = false,
-        dueDate = null,
-        team = null,
-        isDeleted = false,
-        deletedAt = null,
-        parentId = "proj-alpha",
-        sortOrder = 1,
-        idempotencyKey = null,
-        externalId = null,
-        sync = SyncColumns(),
-    )
+    val PROJECT_BETA =
+        ProjectEntity(
+            id = "proj-beta",
+            userId = PERSONAL_USER_ID,
+            name = "Beta",
+            color = 0xFF03A9F4.toInt(),
+            icon = null,
+            description = null,
+            createdAt = 0L,
+            updatedAt = 0L,
+            isDefault = false,
+            dueDate = null,
+            team = null,
+            isDeleted = false,
+            deletedAt = null,
+            parentId = "proj-alpha",
+            sortOrder = 1,
+            idempotencyKey = null,
+            externalId = null,
+            sync = SyncColumns(),
+        )
 
     // ─── Tasks ────────────────────────────────────────────────────────────────
 
@@ -236,35 +242,36 @@ object AgendaSeed {
         projectId: String? = null,
     ): Pair<TaskEntity, List<TaskTagCrossRef>> {
         val tags = tagIds.map { TaskTagCrossRef("task-$id", it) }
-        val ent = TaskEntity(
-            id = "task-$id",
-            title = title,
-            description = null,
-            priority = TaskPriority.None,
-            kind = TaskKind.Task,
-            projectId = projectId,
-            parentTaskId = null,
-            dueDate = dueDate?.toString(),
-            dueTime = null,
-            startDate = null,
-            startTime = null,
-            endDate = null,
-            endTime = null,
-            accentColor = null,
-            emoji = null,
-            estimateMinutes = null,
-            completedAt = completedAt,
-            someday = someday,
-            archivedAt = archivedAt,
-            isPinned = isPinned,
-            recurrenceRule = null,
-            outgoingLinks = "[]",
-            aiSuppressedTagIds = "[]",
-            createdAt = 0L,
-            updatedAt = 0L,
-            userId = U,
-            sync = SyncColumns(),
-        )
+        val ent =
+            TaskEntity(
+                id = "task-$id",
+                title = title,
+                description = null,
+                priority = TaskPriority.None,
+                kind = TaskKind.Task,
+                projectId = projectId,
+                parentTaskId = null,
+                dueDate = dueDate?.toString(),
+                dueTime = null,
+                startDate = null,
+                startTime = null,
+                endDate = null,
+                endTime = null,
+                accentColor = null,
+                emoji = null,
+                estimateMinutes = null,
+                completedAt = completedAt,
+                someday = someday,
+                archivedAt = archivedAt,
+                isPinned = isPinned,
+                recurrenceRule = null,
+                outgoingLinks = "[]",
+                aiSuppressedTagIds = "[]",
+                createdAt = 0L,
+                updatedAt = 0L,
+                userId = U,
+                sync = SyncColumns(),
+            )
         return ent to tags
     }
 
@@ -288,10 +295,27 @@ object AgendaSeed {
     private val T17 = task("T17", "Archived task", LocalDate(2026, 10, 14), archivedAt = 1L)
     private val T18 = task("T18", "Pinned today", LocalDate(2026, 10, 14), isPinned = true)
 
-    private val ALL_TASK_PAIRS: List<Pair<TaskEntity, List<TaskTagCrossRef>>> = listOf(
-        T01, T02, T03, T04, T05, T06, T07, T08, T09, T10,
-        T11, T12, T13, T14, T15, T16, T17, T18,
-    )
+    private val ALL_TASK_PAIRS: List<Pair<TaskEntity, List<TaskTagCrossRef>>> =
+        listOf(
+            T01,
+            T02,
+            T03,
+            T04,
+            T05,
+            T06,
+            T07,
+            T08,
+            T09,
+            T10,
+            T11,
+            T12,
+            T13,
+            T14,
+            T15,
+            T16,
+            T17,
+            T18,
+        )
 
     // ─── Aggregate collections ─────────────────────────────────────────────────
 
@@ -369,74 +393,67 @@ object AgendaSeed {
      * After [agendaSeed] is called, all seeded tasks are visible under
      * `profile-personal`.
      */
-    fun agendaSeedModule(): Module = module {
-        // Inline ProfileRepository that always reports ProfileId("personal") as active.
-        // GenericUserScopedRepository CRUD is stubbed — only activeProfileId matters
-        // for scopedUserId computation in ProfileAwareCurrentUser.
-        val personalProfileId = ProfileId("personal")
-        val personalProfile = Profile(
-            id = personalProfileId,
-            name = "Personal",
-            emoji = "🏠",
-            colorIdx = 0,
-            isDefault = true,
-            createdAt = Instant.fromEpochMilliseconds(0),
-            updatedAt = Instant.fromEpochMilliseconds(0),
-        )
-        val profileStore = MutableStateFlow<Map<ProfileId, Profile>>(mapOf(personalProfileId to personalProfile))
-        val activeProfileId = MutableStateFlow(personalProfileId)
+    fun agendaSeedModule(): Module =
+        module {
+            // Inline ProfileRepository that always reports ProfileId("personal") as active.
+            // GenericUserScopedRepository CRUD is stubbed — only activeProfileId matters
+            // for scopedUserId computation in ProfileAwareCurrentUser.
+            val personalProfileId = ProfileId("personal")
+            val personalProfile =
+                Profile(
+                    id = personalProfileId,
+                    name = "Personal",
+                    emoji = "🏠",
+                    colorIdx = 0,
+                    isDefault = true,
+                    createdAt = Instant.fromEpochMilliseconds(0),
+                    updatedAt = Instant.fromEpochMilliseconds(0),
+                )
+            val profileStore = MutableStateFlow<Map<ProfileId, Profile>>(mapOf(personalProfileId to personalProfile))
+            val activeProfileId = MutableStateFlow(personalProfileId)
 
-        single<ProfileRepository> {
-            object : ProfileRepository {
-                override fun observeAll(): Flow<List<Profile>> =
-                    profileStore.map { it.values.toList() }
+            single<ProfileRepository> {
+                object : ProfileRepository {
+                    override fun observeAll(): Flow<List<Profile>> = profileStore.map { it.values.toList() }
 
-                override fun observe(id: ProfileId): Flow<Profile?> =
-                    profileStore.map { it[id] }
+                    override fun observe(id: ProfileId): Flow<Profile?> = profileStore.map { it[id] }
 
-                override suspend fun get(id: ProfileId): Profile? =
-                    profileStore.value[id]
+                    override suspend fun get(id: ProfileId): Profile? = profileStore.value[id]
 
-                override suspend fun create(item: Profile): Result<Profile> =
-                    Result.success(item)
+                    override suspend fun create(item: Profile): Result<Profile> = Result.success(item)
 
-                override suspend fun update(item: Profile): Result<Profile> =
-                    Result.success(item)
+                    override suspend fun update(item: Profile): Result<Profile> = Result.success(item)
 
-                override suspend fun delete(id: ProfileId): Result<Unit> =
-                    Result.success(Unit)
+                    override suspend fun delete(id: ProfileId): Result<Unit> = Result.success(Unit)
 
-                override fun activeProfile(): Flow<Profile> =
-                    profileStore.map { it[activeProfileId.value]!! }
+                    override fun activeProfile(): Flow<Profile> = profileStore.map { it[activeProfileId.value]!! }
 
-                override val activeProfileId: StateFlow<ProfileId> = activeProfileId
+                    override val activeProfileId: StateFlow<ProfileId> = activeProfileId
 
-                override suspend fun switchTo(id: ProfileId): Result<Unit> {
-                    activeProfileId.value = id
-                    return Result.success(Unit)
-                }
+                    override suspend fun switchTo(id: ProfileId): Result<Unit> {
+                        activeProfileId.value = id
+                        return Result.success(Unit)
+                    }
 
-                override suspend fun findByName(name: String): Profile? =
-                    profileStore.value.values.find { it.name.equals(name, ignoreCase = true) }
+                    override suspend fun findByName(name: String): Profile? =
+                        profileStore.value.values.find { it.name.equals(name, ignoreCase = true) }
 
-                override suspend fun ensureDefaults(
-                    extraProfiles: List<Triple<String, String, Int>>,
-                ) {
-                    // no-op
+                    override suspend fun ensureDefaults(extraProfiles: List<Triple<String, String, Int>>) {
+                        // no-op
+                    }
                 }
             }
-        }
 
-        // FakeProfileAwareCurrentUser creates its own CurrentUser with FakeAuthRepository
-        // internally, and overrides scopedUserId to the desired value.
-        // We pass our ProfileRepository so profileId is also correct.
-        single<ProfileAwareCurrentUser> {
-            FakeProfileAwareCurrentUser(
-                initialUserId = UserId(PERSONAL_USER_ID),
-                profileRepository = get(),
-            )
+            // FakeProfileAwareCurrentUser creates its own CurrentUser with FakeAuthRepository
+            // internally, and overrides scopedUserId to the desired value.
+            // We pass our ProfileRepository so profileId is also correct.
+            single<ProfileAwareCurrentUser> {
+                FakeProfileAwareCurrentUser(
+                    initialUserId = UserId(PERSONAL_USER_ID),
+                    profileRepository = get(),
+                )
+            }
         }
-    }
 }
 
 /**

@@ -80,9 +80,10 @@ fun DependencyPickerSheet(
                 text = "No tasks available",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .testTag(TestTags.DEPENDENCY_PICKER_EMPTY)
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .testTag(TestTags.DEPENDENCY_PICKER_EMPTY)
+                        .padding(16.dp),
             )
         } else {
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
@@ -94,11 +95,12 @@ fun DependencyPickerSheet(
                         task = task,
                         verb = selected[task.id],
                         onToggle = { id ->
-                            selected = if (id in selected) {
-                                selected - id
-                            } else {
-                                selected + (id to DependencyVerb.BLOCKS)
-                            }.toImmutableMap()
+                            selected =
+                                if (id in selected) {
+                                    selected - id
+                                } else {
+                                    selected + (id to DependencyVerb.BLOCKS)
+                                }.toImmutableMap()
                         },
                         onVerbChange = { id, verb ->
                             if (id in selected) selected = (selected + (id to verb)).toImmutableMap()
@@ -118,11 +120,12 @@ private fun DependencyItem(
     onVerbChange: (TaskId, DependencyVerb) -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(TestTags.dependencyItem(task.id.value))
-            .clickable { onToggle(task.id) }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.dependencyItem(task.id.value))
+                .clickable { onToggle(task.id) }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(
@@ -154,9 +157,10 @@ private fun DependencyItem(
                             selected = verb == candidate,
                             onClick = { onVerbChange(task.id, candidate) },
                             label = { Text(candidate.label()) },
-                            modifier = Modifier.testTag(
-                                TestTags.dependencyVerb(task.id.value, candidate.name),
-                            ),
+                            modifier =
+                                Modifier.testTag(
+                                    TestTags.dependencyVerb(task.id.value, candidate.name),
+                                ),
                         )
                     }
                 }
@@ -171,13 +175,14 @@ private fun DependencyItem(
  * Keyed on the enum, never on its `name`: the wire name is stable and the label is
  * copy the app may translate.
  */
-private fun DependencyVerb.label(): String = when (this) {
-    DependencyVerb.BLOCKS -> "Blocks"
+private fun DependencyVerb.label(): String =
+    when (this) {
+        DependencyVerb.BLOCKS -> "Blocks"
 
-    DependencyVerb.FOLLOWS_UP -> "Follows up"
+        DependencyVerb.FOLLOWS_UP -> "Follows up"
 
-    DependencyVerb.DUPLICATES,
-    DependencyVerb.FIXES,
-    DependencyVerb.SUPERSEDES,
-    -> name.lowercase().replaceFirstChar { it.uppercase() }
-}
+        DependencyVerb.DUPLICATES,
+        DependencyVerb.FIXES,
+        DependencyVerb.SUPERSEDES,
+        -> name.lowercase().replaceFirstChar { it.uppercase() }
+    }

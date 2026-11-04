@@ -41,25 +41,31 @@ internal fun fabActionForNav3(
         // ── Modern routes (Desktop / future Android) ───────────────────────────
         is AppDestination.AgendaGraph -> {
             when (current.start) {
-                AgendaStartRoute.Today -> FabAction(
-                    label = "Add task",
-                    onClick = {
-                        navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create(), today))
-                    },
-                )
+                AgendaStartRoute.Today -> {
+                    FabAction(
+                        label = "Add task",
+                        onClick = {
+                            navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create(), today))
+                        },
+                    )
+                }
 
                 AgendaStartRoute.Inbox,
                 AgendaStartRoute.Blocked,
                 AgendaStartRoute.Stagnant,
                 AgendaStartRoute.Overdue,
-                -> FabAction(
-                    label = "Add task",
-                    onClick = {
-                        navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()))
-                    },
-                )
+                -> {
+                    FabAction(
+                        label = "Add task",
+                        onClick = {
+                            navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()))
+                        },
+                    )
+                }
 
-                else -> null
+                else -> {
+                    null
+                }
             }
         }
 
@@ -73,13 +79,17 @@ internal fun fabActionForNav3(
         // The plan tab creates a *task*, not a project: the timeline shows the
         // work that is ahead, and a task due today is the piece that belongs in
         // the first section of it.
-        AppDestination.Plans -> FabAction(
-            label = "Add task",
-            onClick = {
-                navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create(), today))
-            },
-        )
+        AppDestination.Plans -> {
+            FabAction(
+                label = "Add task",
+                onClick = {
+                    navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create(), today))
+                },
+            )
+        }
 
         // NotesNavGraph has its own note creation button — no shell FAB needed here.
-        else -> null
+        else -> {
+            null
+        }
     }

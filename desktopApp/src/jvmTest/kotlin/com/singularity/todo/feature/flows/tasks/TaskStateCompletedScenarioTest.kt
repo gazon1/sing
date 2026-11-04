@@ -33,18 +33,18 @@ import kotlin.test.assertEquals
 @Tag("slow")
 @Tag("slow:compose")
 class TaskStateCompletedScenarioTest {
-
     @Test
     @DisplayName("TASK-STATE-03 a completed task keeps its workflow state and cannot change it")
     fun a_completed_task_keeps_its_workflow_state_and_cannot_change_it() =
         runDesktopAppTest(clock = CLOCK) { koin ->
-            val id = seed(
-                koin,
-                TITLE,
-                due = today,
-                workflowState = TaskWorkflowState.InProgress,
-                completed = true,
-            )
+            val id =
+                seed(
+                    koin,
+                    TITLE,
+                    due = today,
+                    workflowState = TaskWorkflowState.InProgress,
+                    completed = true,
+                )
             openEditor(this, TITLE)
 
             // The state of the finished work is still readable.

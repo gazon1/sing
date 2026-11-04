@@ -16,7 +16,6 @@ import kotlin.test.assertNull
  */
 @Tag("fast")
 class SpotlightTourStateMachineTest {
-
     private fun bounds(): Rect = Rect(left = 10f, top = 10f, right = 90f, bottom = 90f)
 
     private fun steps() = SpotlightContent.STEPS
@@ -94,10 +93,11 @@ class SpotlightTourStateMachineTest {
         machine.startIfEligible(
             alreadySeen = false,
             force = false,
-            anchors = mapOf(
-                SpotlightAnchorId.SavedViews to bounds(),
-                SpotlightAnchorId.SaveCurrent to bounds(),
-            ),
+            anchors =
+                mapOf(
+                    SpotlightAnchorId.SavedViews to bounds(),
+                    SpotlightAnchorId.SaveCurrent to bounds(),
+                ),
         )
 
         machine.advance(

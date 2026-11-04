@@ -1,7 +1,7 @@
 package com.singularity.todo.core.process
 
-import java.io.StringReader
 import org.junit.jupiter.api.Tag
+import java.io.StringReader
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -24,7 +24,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class SubprocessLineReaderTest {
-
     @Test
     fun `a last line without a newline is still delivered`() {
         val lines = readCappedLines(StringReader("first\nsecond"), MAX_LINE).toList()

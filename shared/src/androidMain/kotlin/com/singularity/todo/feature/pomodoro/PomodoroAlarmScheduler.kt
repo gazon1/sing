@@ -18,7 +18,6 @@ import com.singularity.todo.feature.alarms.AlarmReceiver
  * Single shared alarm (requestCode = 1) — only one phase-end alarm can be active at a time.
  */
 open class PomodoroAlarmScheduler(private val context: Context) : PomodoroScheduler {
-
     private val alarmManager: AlarmManager =
         context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
@@ -36,7 +35,11 @@ open class PomodoroAlarmScheduler(private val context: Context) : PomodoroSchedu
      * @param taskId Optional task ID for display purposes (passed via PendingIntent extra).
      * @param phase Phase passed to [AlarmReceiver.handlePomodoroPhaseEnd].
      */
-    override fun schedulePhaseEnd(fireAtEpochMs: Long, taskId: String?, phase: PomodoroPhase) {
+    override fun schedulePhaseEnd(
+        fireAtEpochMs: Long,
+        taskId: String?,
+        phase: PomodoroPhase,
+    ) {
         try {
             alarmManager.setAlarmClock(
                 AlarmManager.AlarmClockInfo(fireAtEpochMs, null),
@@ -64,12 +67,16 @@ open class PomodoroAlarmScheduler(private val context: Context) : PomodoroSchedu
         alarmManager.cancel(buildPending(null, null))
     }
 
-    private fun buildPending(taskId: String?, phase: PomodoroPhase?): PendingIntent {
-        val intent = Intent(context, AlarmReceiver::class.java).apply {
-            action = AlarmReceiver.ACTION_POMODORO_PHASE_END
-            putExtra(AlarmContract.EXTRA_PHASE, phase?.name)
-            putExtra(AlarmContract.EXTRA_TASK_ID, taskId)
-        }
+    private fun buildPending(
+        taskId: String?,
+        phase: PomodoroPhase?,
+    ): PendingIntent {
+        val intent =
+            Intent(context, AlarmReceiver::class.java).apply {
+                action = AlarmReceiver.ACTION_POMODORO_PHASE_END
+                putExtra(AlarmContract.EXTRA_PHASE, phase?.name)
+                putExtra(AlarmContract.EXTRA_TASK_ID, taskId)
+            }
         return PendingIntent.getBroadcast(
             context,
             REQUEST_CODE,

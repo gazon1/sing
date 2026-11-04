@@ -59,7 +59,6 @@ import org.jetbrains.kotlin.psi.psiUtil.anyDescendantOfType
  * @see NonTaggedMaestroElementsPolicy for the policy functions tested in isolation.
  */
 class NonTaggedMaestroElementsRule(config: Config) : Rule(config, "", null) {
-
     override fun visitNamedFunction(function: KtNamedFunction) {
         super.visitNamedFunction(function)
         if (isCommonExempt(function)) return
@@ -71,11 +70,12 @@ class NonTaggedMaestroElementsRule(config: Config) : Rule(config, "", null) {
         if (hasEmptyTestTagAssignment(body)) {
             reportFinding(
                 entity = Entity.from(body),
-                message = buildString {
-                    append("`${function.name}` has `testTag = \"\"` — this element is ")
-                    append("permanently invisible to Maestro automation. ")
-                    append("Use a constant from `TestTags` (e.g. `TestTags.CHECKLIST_ADD_INPUT`).")
-                },
+                message =
+                    buildString {
+                        append("`${function.name}` has `testTag = \"\"` — this element is ")
+                        append("permanently invisible to Maestro automation. ")
+                        append("Use a constant from `TestTags` (e.g. `TestTags.CHECKLIST_ADD_INPUT`).")
+                    },
             )
             return
         }
@@ -89,12 +89,13 @@ class NonTaggedMaestroElementsRule(config: Config) : Rule(config, "", null) {
         if (handlers.isNotEmpty() && !hasTestTagModifier(body)) {
             reportFinding(
                 entity = Entity.from(function),
-                message = buildString {
-                    append("`${function.name}` handles events (${handlers.joinToString()}) ")
-                    append("but has no testTag. ")
-                    append("Maestro cannot interact with it. ")
-                    append("Add a `testTag = TestTags.*` modifier to the root composable.")
-                },
+                message =
+                    buildString {
+                        append("`${function.name}` handles events (${handlers.joinToString()}) ")
+                        append("but has no testTag. ")
+                        append("Maestro cannot interact with it. ")
+                        append("Add a `testTag = TestTags.*` modifier to the root composable.")
+                    },
             )
         }
     }
@@ -110,12 +111,14 @@ class NonTaggedMaestroElementsRule(config: Config) : Rule(config, "", null) {
     private fun hasEmptyTestTagAssignment(element: org.jetbrains.kotlin.psi.KtExpression): Boolean =
         element.anyDescendantOfType<KtCallExpression> { call ->
             val fn = (call.calleeExpression as? KtNameReferenceExpression)?.text
-            fn == "testTag" && call.valueArguments.any { arg ->
-                val expr = arg.getArgumentExpression()
-                expr is KtStringTemplateExpression && expr.entries.all {
-                    it is org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
-                } && expr.text == "\"\""
-            }
+            fn == "testTag" &&
+                call.valueArguments.any { arg ->
+                    val expr = arg.getArgumentExpression()
+                    expr is KtStringTemplateExpression &&
+                        expr.entries.all {
+                            it is org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
+                        } && expr.text == "\"\""
+                }
         }
 
     /**
@@ -128,12 +131,17 @@ class NonTaggedMaestroElementsRule(config: Config) : Rule(config, "", null) {
     private fun hasTestTagModifier(element: org.jetbrains.kotlin.psi.KtExpression): Boolean =
         element.anyDescendantOfType<KtDotQualifiedExpression> { expr ->
             when (val selector = expr.selectorExpression) {
-                is KtNameReferenceExpression -> selector.text == "testTag"
+                is KtNameReferenceExpression -> {
+                    selector.text == "testTag"
+                }
 
-                is KtCallExpression ->
+                is KtCallExpression -> {
                     (selector.calleeExpression as? KtNameReferenceExpression)?.text == "testTag"
+                }
 
-                else -> false
+                else -> {
+                    false
+                }
             }
         }
 
@@ -162,7 +170,10 @@ class NonTaggedMaestroElementsRule(config: Config) : Rule(config, "", null) {
         return !NonTaggedMaestroElementsPolicy.fileUsesTagSystem(function.containingKtFile.text)
     }
 
-    private fun reportFinding(entity: Entity, message: String) {
+    private fun reportFinding(
+        entity: Entity,
+        message: String,
+    ) {
         report(
             Finding(
                 entity = entity,
@@ -178,7 +189,6 @@ class NonTaggedMaestroElementsRule(config: Config) : Rule(config, "", null) {
  * Policy functions for [NonTaggedMaestroElementsRule], extracted for unit testing.
  */
 internal object NonTaggedMaestroElementsPolicy {
-
     private val TEST_SOURCE_SETS = listOf("commonTest", "jvmTest", "androidTest", "iosTest", "jsTest")
 
     /**
@@ -186,10 +196,12 @@ internal object NonTaggedMaestroElementsPolicy {
      * canonical [NoEmptyOnClickLambdaPolicy.isHandlerParameter] — the `on`+uppercase
      * shape plus the `Result.fold` label exclusion — so the two rules cannot drift.
      */
-    fun isHandlerParameter(paramName: String): Boolean =
-        NoEmptyOnClickLambdaPolicy.isHandlerParameter(paramName)
+    fun isHandlerParameter(paramName: String): Boolean = NoEmptyOnClickLambdaPolicy.isHandlerParameter(paramName)
 
-    fun isPreviewPath(fileName: String, filePath: String): Boolean =
+    fun isPreviewPath(
+        fileName: String,
+        filePath: String,
+    ): Boolean =
         fileName.lowercase().contains("preview") ||
             filePath.replace('\\', '/').contains("/preview/", ignoreCase = true)
 
@@ -217,8 +229,7 @@ internal object NonTaggedMaestroElementsPolicy {
      * would ask for tags nobody can act on yet. Once one composable in the file
      * is tagged, the rest of its interactive surface is in scope.
      */
-    fun fileUsesTagSystem(fileText: String): Boolean =
-        fileText.contains("TestTags.")
+    fun fileUsesTagSystem(fileText: String): Boolean = fileText.contains("TestTags.")
 
     fun isPreviewFunction(function: KtNamedFunction): Boolean =
         function.annotationEntries.any { it.shortName?.asString() == "Preview" } ||
@@ -230,12 +241,14 @@ internal object NonTaggedMaestroElementsPolicy {
  */
 class NonTaggedMaestroElementsProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("non-tagged-maestro-elements")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NonTaggedMaestroElements") to { cfg: Config ->
-                NonTaggedMaestroElementsRule(cfg)
-            },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NonTaggedMaestroElements") to { cfg: Config ->
+                    NonTaggedMaestroElementsRule(cfg)
+                },
+            ),
+        )
 }

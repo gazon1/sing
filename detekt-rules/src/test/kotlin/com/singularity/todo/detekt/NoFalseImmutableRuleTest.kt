@@ -31,7 +31,6 @@ import kotlin.test.assertTrue
  * exactly what a mis-compiled fixture produces.
  */
 class NoFalseImmutableRuleTest {
-
     private val rule = NoFalseImmutableRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 

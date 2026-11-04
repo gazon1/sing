@@ -54,7 +54,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
  * @see TaskSeriesShape
  */
 object TaskSeriesInvariants {
-
     /**
      * The shared fields of a task, as the values that must agree.
      *
@@ -62,11 +61,12 @@ object TaskSeriesInvariants {
      * [TaskSharedField] is covered here by construction — a list of names in
      * this file would be a second list to keep in step.
      */
-    fun sharedFieldsOf(task: Task): Map<TaskSharedField, Any?> = buildMap {
-        for (field in TaskSharedField.entries) {
-            put(field, valueOf(task, field))
+    fun sharedFieldsOf(task: Task): Map<TaskSharedField, Any?> =
+        buildMap {
+            for (field in TaskSharedField.entries) {
+                put(field, valueOf(task, field))
+            }
         }
-    }
 
     /**
      * The fields on which the members of a series disagree.
@@ -88,7 +88,10 @@ object TaskSeriesInvariants {
      * The occurrences keep what belongs to them — the date, the time, the
      * completion state — and take the work's fields from [source].
      */
-    fun alignedTo(members: List<Task>, source: Task): List<Task> {
+    fun alignedTo(
+        members: List<Task>,
+        source: Task,
+    ): List<Task> {
         val shared = sharedFieldsOf(source)
         return members.map { member ->
             var aligned = member
@@ -124,8 +127,7 @@ object TaskSeriesInvariants {
                 fields.any { field ->
                     valueOf(member, field) != shared.getValue(field)
                 }
-            }
-            .map { member ->
+            }.map { member ->
                 var aligned = member
                 for (field in fields) {
                     aligned = aligned.withSharedField(field, shared.getValue(field))
@@ -141,32 +143,40 @@ object TaskSeriesInvariants {
      * same tags, and a comparison that called them different would rewrite every
      * member of a series for nothing.
      */
-    private fun valueOf(task: Task, field: TaskSharedField): Any? = when (field) {
-        TaskSharedField.Title -> task.title
-        TaskSharedField.Description -> task.description
-        TaskSharedField.Priority -> task.priority
-        TaskSharedField.Project -> task.projectId
-        TaskSharedField.Tags -> task.tags.toSet()
-        TaskSharedField.AccentColor -> task.accentColor
-        TaskSharedField.Emoji -> task.emoji
-        TaskSharedField.Estimate -> task.estimateMinutes
-        TaskSharedField.Recurrence -> task.recurrence
-        TaskSharedField.WorkflowState -> task.workflowState
-    }
+    private fun valueOf(
+        task: Task,
+        field: TaskSharedField,
+    ): Any? =
+        when (field) {
+            TaskSharedField.Title -> task.title
+            TaskSharedField.Description -> task.description
+            TaskSharedField.Priority -> task.priority
+            TaskSharedField.Project -> task.projectId
+            TaskSharedField.Tags -> task.tags.toSet()
+            TaskSharedField.AccentColor -> task.accentColor
+            TaskSharedField.Emoji -> task.emoji
+            TaskSharedField.Estimate -> task.estimateMinutes
+            TaskSharedField.Recurrence -> task.recurrence
+            TaskSharedField.WorkflowState -> task.workflowState
+        }
 
     /**
      * A task with one shared field replaced.
      */
-    private fun Task.withSharedField(field: TaskSharedField, value: Any?): Task = when (field) {
-        TaskSharedField.Title -> copy(title = value as String)
-        TaskSharedField.Description -> copy(description = value as String?)
-        TaskSharedField.Priority -> copy(priority = value as TaskPriority)
-        TaskSharedField.Project -> copy(projectId = value as ProjectId?)
-        TaskSharedField.Tags -> copy(tags = (value as Set<TagId>).toList())
-        TaskSharedField.AccentColor -> copy(accentColor = value as Long?)
-        TaskSharedField.Emoji -> copy(emoji = value as String?)
-        TaskSharedField.Estimate -> copy(estimateMinutes = value as Int?)
-        TaskSharedField.Recurrence -> copy(recurrence = value as RecurrenceSpec?)
-        TaskSharedField.WorkflowState -> copy(workflowState = value as TaskWorkflowState)
-    }
+    private fun Task.withSharedField(
+        field: TaskSharedField,
+        value: Any?,
+    ): Task =
+        when (field) {
+            TaskSharedField.Title -> copy(title = value as String)
+            TaskSharedField.Description -> copy(description = value as String?)
+            TaskSharedField.Priority -> copy(priority = value as TaskPriority)
+            TaskSharedField.Project -> copy(projectId = value as ProjectId?)
+            TaskSharedField.Tags -> copy(tags = (value as Set<TagId>).toList())
+            TaskSharedField.AccentColor -> copy(accentColor = value as Long?)
+            TaskSharedField.Emoji -> copy(emoji = value as String?)
+            TaskSharedField.Estimate -> copy(estimateMinutes = value as Int?)
+            TaskSharedField.Recurrence -> copy(recurrence = value as RecurrenceSpec?)
+            TaskSharedField.WorkflowState -> copy(workflowState = value as TaskWorkflowState)
+        }
 }

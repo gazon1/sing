@@ -632,6 +632,18 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-test-tags-catalog.py"),
         script_args=("--quiet", "--check"),
     ),
+    # The catalogue of the skills, generated from the skills' own frontmatter:
+    # the index an agent chooses a skill from, and a stale line in it sends the
+    # reader to the wrong file. The generator's `--check` mode is the gate, and
+    # `docs/SKILLS-CATALOG.md` is its control — which is why the registry exempts
+    # the script from a sabotage control. The prose is in the placement.
+    GateSpec(
+        name="skills catalogue is current",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.SHELL,
+        script=Path("scripts/regen-skills-catalog.sh"),
+        script_args=("--check",),
+    ),
     # ── Lint-rule governance ──────────────────────────────────────────────────────
     GateSpec(
         name="detekt rules config is current",
@@ -888,11 +900,18 @@ _REGISTERED: tuple[GateSpec, ...] = (
     # The gate that checks the two registries against each other. It is a script
     # gate, so the registry entry names the script; the comparison itself reads
     # both registries, and its verdict is what keeps the gap from being invisible.
+    #
+    # `--strict` is part of the command, not an option of the dispatch: the
+    # shell registry's line for this gate is `python3 scripts/check-gate-registries.py
+    # --strict`, and the registry has to build the same command. Without the flag
+    # the two surfaces ran two different commands on one tree — the shell one
+    # failed on drift, this one passed — and the gate had two verdicts.
     GateSpec(
         name="gate registries agree",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-gate-registries.py"),
+        script_args=("--strict",),
     ),
     # The generated catalogue of this registry: which gates exist, and whether
     # each one blocks. `docs/scripts/gate-registry.md` is derived from GATES, so
@@ -1060,6 +1079,27 @@ _REGISTERED: tuple[GateSpec, ...] = (
             mode=GateMode.BLOCKING,
             cmd_type=CmdType.PYTHON3,
             script=Path("scripts/check-tools-catalog.py"),
+            script_args=("--check",),
+        ),
+        # The catalogue of the skills, generated from the frontmatter of every
+        # SKILL.md. It is the index an agent chooses a skill from, so a stale
+        # row — a line count or a description that no longer matches the file —
+        # sends it to the wrong file, and the drift announces itself nowhere.
+        #
+        # The generator grew a `--check` mode for exactly this and nothing
+        # called it: the catalogue was committed stale on a clean tree (three
+        # skills recorded 20 to 22 lines below their real size after the
+        # quality-tools split) and the check mode would have failed on that
+        # tree. This gate is that call.
+        #
+        # A shell gate, because the generator is a shell script and the gate
+        # must not re-implement either the comparison or the refusal it prints
+        # when a skill body stops parsing.
+        GateSpec(
+            name="the skills catalogue is current",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.SHELL,
+            script=Path("scripts/regen-skills-catalog.sh"),
             script_args=("--check",),
         ),
         GateSpec(
@@ -1492,7 +1532,7 @@ GATE_CONTROLS: dict[str, Control] = {
     # A different file from the member controls where one was available: two
     # controls that sabotage the same path can mask each other if one of them
     # fails to restore.
-    'ci-workflow-shape': Control(kind='sabotage', proves='scripts/check-ci-workflow-shape.py', argv=('{python}', 'scripts/check-ci-workflow-shape.py'), path='shared/build.gradle.kts', edit=Edit(kind='replace', old='        inputs.dir(layout.projectDirectory.dir("../Maestro"))\n            .withPropertyName("maestroFlows")\n            .withPathSensitivity(PathSensitivity.RELATIVE)\n', new='', count=1), why='the cluster reports every member that fails, so breaking one member must make the cluster fail — a cluster that swallowed a member failure would be one green row over three red checks'),
+    'ci-workflow-shape': Control(kind='sabotage', proves='scripts/check-ci-workflow-shape.py', argv=('{python}', 'scripts/check-ci-workflow-shape.py'), path='shared/build.gradle.kts', edit=Edit(kind='replace', old='        inputs\n            .dir(layout.projectDirectory.dir("../Maestro"))\n            .withPropertyName("maestroFlows")\n            .withPathSensitivity(PathSensitivity.RELATIVE)\n', new='', count=1), why='the cluster reports every member that fails, so breaking one member must make the cluster fail — a cluster that swallowed a member failure would be one green row over three red checks'),
     'detekt-governance': Control(kind='sabotage', proves='scripts/check-detekt-governance.py', argv=('{python}', 'scripts/check-detekt-governance.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>TotallyMadeUpRule:Probe.kt:1</ID>\n  </CurrentIssues>', count=1), why='the cluster reports every member that fails, so breaking one member must make the cluster fail — a cluster that swallowed a member failure would be one green row over six red checks'),
     # doc-links: the lychee gate. The sabotage appends a *Markdown link* to a
     # file that does not exist — the shape this gate checks and the other one
@@ -1599,7 +1639,7 @@ GATE_CONTROLS: dict[str, Control] = {
     ),
     'build-output-readers': Control(kind='sabotage', proves='scripts/check-build-output-readers.py', argv=('{python}', 'scripts/check-build-output-readers.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='      - name: Coverage floors\n        if: env.COVERAGE_ENABLED == \'true\'\n        run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"\n', new='      - name: Coverage floors\n        if: env.COVERAGE_ENABLED == \'true\'\n        run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"\n      - name: Late flake pass\n        run: |\n          python3 scripts/check-flaky-tests.py \\\n            --current shared/build/test-results/jvmTest \\\n            --previous /tmp/prev\n', count=1), why="a step that reads build output and runs after a second Gradle invocation may be reading a directory that invocation re-ran: the traceability step failed this way on run 38933517902, and the flake step would have done it silently. The probe reproduces exactly that ordering — a build/test-results reader placed after the job's second test-capable invocation — and nothing else. The previous probe appended a bare `./gradlew :koverVerify` to the end of the file, which landed in `nightly-alert`, a job with one test-capable invocation and no readers: the gate ignores such a job by design, so the probe passed a sabotaged input and certified nothing. Both halves of that probe need the parser to read a backslash-continued command as one command — the producing invocation's tasks and the reader's path each sit on continuation lines — so the probe also pins the parser fix.", tracked_by='.github/workflows/ci.yml#Coverage floors'),
     'gradle-test-population': Control(kind='sabotage', proves='scripts/check-gradle-test-population.py', argv=('{python}', 'scripts/check-gradle-test-population.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"', new='run: ./gradlew :koverVerify', count=1), why="a Gradle invocation that follows the test run without -Ptest.tags measures Gradle's default, excludeTags('slow'): the slow scenario classes are skipped rather than executed, the suite stays green, and every gate that reads build/test-results/ afterwards is measuring a population nobody ran (run 38933517902)", tracked_by='.github/workflows/ci.yml#Coverage floors'),
-    'test-task-inputs': Control(kind='sabotage', proves='scripts/check-test-task-inputs.py', argv=('{python}', 'scripts/check-test-task-inputs.py'), path='shared/build.gradle.kts', edit=Edit(kind='replace', old='        inputs.dir(layout.projectDirectory.dir("../Maestro"))\n            .withPropertyName("maestroFlows")\n            .withPathSensitivity(PathSensitivity.RELATIVE)\n', new='', count=1), why='a test task reading a tree outside its module reports a stale verdict when that tree is not an input'),
+    'test-task-inputs': Control(kind='sabotage', proves='scripts/check-test-task-inputs.py', argv=('{python}', 'scripts/check-test-task-inputs.py'), path='shared/build.gradle.kts', edit=Edit(kind='replace', old='        inputs\n            .dir(layout.projectDirectory.dir("../Maestro"))\n            .withPropertyName("maestroFlows")\n            .withPathSensitivity(PathSensitivity.RELATIVE)\n', new='', count=1), why='a test task reading a tree outside its module reports a stale verdict when that tree is not an input'),
     # The app coverage floor, declared where Kover reads it.
     #
     # The floors were declared in the root build script for months, in a
@@ -1766,6 +1806,29 @@ GATE_CONTROLS: dict[str, Control] = {
             ),
             why=(
                 'a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there'
+            ),
+        ),
+        # The catalogue of the skills. The probe changes the generated file
+        # itself, so what the generator produces and what the tree carries stop
+        # agreeing — which is the whole failure this gate exists to catch.
+        #
+        # The command is `bash`, not the script alone: the harness joins a
+        # control to its gate by the script path in the command, and a command
+        # of one element would name no gate.
+        'skills-catalog': Control(
+            kind='sabotage',
+            proves='scripts/regen-skills-catalog.sh',
+            argv=('bash', 'scripts/regen-skills-catalog.sh', '--check'),
+            path='docs/SKILLS-CATALOG.md',
+            edit=Edit(
+                kind='replace',
+                old='# Skills Catalog',
+                new='# Skills Catalog (sabotage probe)',
+                count=1,
+            ),
+            why=(
+                'the catalogue is the index an agent chooses a skill from, and a stale '
+                'line count or a stale description sends it to the wrong file'
             ),
         ),
         # SC-011 promised an automated check that did not exist: the guarantee that the mobile build carries no external-agent code held only by nobody having moved a file yet
@@ -1985,7 +2048,7 @@ GATE_EXEMPTIONS: dict[str, Control] = {
     'scripts/gen-detekt-rule-table.py': Control(kind='exempt', proves='scripts/gen-detekt-rule-table.py', tracked_by='.agents/skills/singularity-todo-detekt-rules-authoring/RULES.md', reason='auto-generator: sabotage is deleting the generated table and asserting the gate fails; equivalent to `rm docs/detekt/rule_table.md && gate detekt-rule-inventory` — the output-diff is the control'),
     'scripts/check-detekt-registrations.sh': Control(kind='exempt', proves='scripts/check-detekt-registrations.sh', tracked_by='config/detekt/detekt.yml', reason='shell-gate: the sabotage is removing a rule from the registrations file and asserting the gate fails; equivalent to `rm config/detekt/rule_registrations.toml && gate detekt-rule-registry` — but Part J cross-check itself is what catches it when the control goes missing'),
     'scripts/ci/validate-maestro-selectors.py': Control(kind='exempt', proves='scripts/ci/validate-maestro-selectors.py', tracked_by='shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt', reason='CI-only gate: runs in the Maestro flow job, not locally; sabotage would be corrupting the selector files and asserting the gate fails; Part J cross-check itself is the backstop when the control goes missing'),
-    'scripts/regen-skills-catalog.sh': Control(kind='exempt', proves='scripts/regen-skills-catalog.sh', tracked_by='docs/SKILLS-CATALOG.md', reason='shell-gate auto-generator: sabotage is removing the generated catalog and asserting the gate fails; equivalent to `rm docs/SKILLS-CATALOG.md && gate skills-catalog` — the output-diff is the control'),
+    'scripts/regen-skills-catalog.sh': Control(kind='exempt', proves='scripts/regen-skills-catalog.sh', tracked_by='docs/SKILLS-CATALOG.md', reason='shell-gate auto-generator: sabotage is removing the generated catalog and asserting the gate fails; equivalent to `rm docs/SKILLS-CATALOG.md && sgate skills_catalogue_is_current` — the output-diff is the control'),
     'traceability': Control(
         kind='exempt',
         proves='scripts/tests/test_traceability.py',

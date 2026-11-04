@@ -22,7 +22,6 @@ import kotlinx.datetime.LocalDate
  * subclasses are annotated with `@SerialName`. In MR1 all filtering happens in-process.
  */
 object AgendaPresets {
-
     /**
      * All active tasks, grouped by relative date bucket — the full agenda.
      *
@@ -39,94 +38,101 @@ object AgendaPresets {
      * [Upcoming], and they are disjoint; this one is the seed a new saved view
      * starts from.
      */
-    val All: AgendaDefinition = agenda("All") {
-        section(
-            "overdue",
-            "Overdue",
-            Selector.DateBucket(RelativeBucket.Overdue),
-            order = -1,
-            discard = true,
-            prefill = SectionPrefill("overdue", "Overdue task"),
-        )
-        section(
-            "today",
-            "Today",
-            Selector.DateBucket(RelativeBucket.Today),
-            order = 0,
-            discard = true,
-            prefill = SectionPrefill(
+    val All: AgendaDefinition =
+        agenda("All") {
+            section(
+                "overdue",
+                "Overdue",
+                Selector.DateBucket(RelativeBucket.Overdue),
+                order = -1,
+                discard = true,
+                prefill = SectionPrefill("overdue", "Overdue task"),
+            )
+            section(
                 "today",
-                "New task",
-                relativeDueDate = RelativeBucket.Today,
-            ),
-        )
-        section(
-            "yesterday",
-            "Yesterday",
-            Selector.DateBucket(RelativeBucket.Yesterday),
-            order = 1,
-            discard = true,
-            prefill = SectionPrefill(
+                "Today",
+                Selector.DateBucket(RelativeBucket.Today),
+                order = 0,
+                discard = true,
+                prefill =
+                    SectionPrefill(
+                        "today",
+                        "New task",
+                        relativeDueDate = RelativeBucket.Today,
+                    ),
+            )
+            section(
                 "yesterday",
-                "Task for yesterday",
-                relativeDueDate = RelativeBucket.Yesterday,
-            ),
-        )
-        section(
-            "tomorrow",
-            "Tomorrow",
-            Selector.DateBucket(RelativeBucket.Tomorrow),
-            order = 2,
-            discard = true,
-            prefill = SectionPrefill(
+                "Yesterday",
+                Selector.DateBucket(RelativeBucket.Yesterday),
+                order = 1,
+                discard = true,
+                prefill =
+                    SectionPrefill(
+                        "yesterday",
+                        "Task for yesterday",
+                        relativeDueDate = RelativeBucket.Yesterday,
+                    ),
+            )
+            section(
                 "tomorrow",
-                "Task for tomorrow",
-                relativeDueDate = RelativeBucket.Tomorrow,
-            ),
-        )
-        section(
-            "this_week",
-            "This Week",
-            Selector.DateBucket(RelativeBucket.ThisWeek),
-            order = 3,
-            discard = true,
-            prefill = SectionPrefill(
+                "Tomorrow",
+                Selector.DateBucket(RelativeBucket.Tomorrow),
+                order = 2,
+                discard = true,
+                prefill =
+                    SectionPrefill(
+                        "tomorrow",
+                        "Task for tomorrow",
+                        relativeDueDate = RelativeBucket.Tomorrow,
+                    ),
+            )
+            section(
                 "this_week",
-                "This week",
-                relativeDueDate = RelativeBucket.ThisWeek,
-            ),
-        )
-        section(
-            "next_week",
-            "Next Week",
-            Selector.DateBucket(RelativeBucket.NextWeek),
-            order = 4,
-            discard = true,
-            prefill = SectionPrefill(
+                "This Week",
+                Selector.DateBucket(RelativeBucket.ThisWeek),
+                order = 3,
+                discard = true,
+                prefill =
+                    SectionPrefill(
+                        "this_week",
+                        "This week",
+                        relativeDueDate = RelativeBucket.ThisWeek,
+                    ),
+            )
+            section(
                 "next_week",
-                "Next week",
-                relativeDueDate = RelativeBucket.NextWeek,
-            ),
-        )
-        section(
-            "this_month",
-            "This Month",
-            Selector.DateBucket(RelativeBucket.ThisMonth),
-            order = 5,
-            prefill = SectionPrefill(
+                "Next Week",
+                Selector.DateBucket(RelativeBucket.NextWeek),
+                order = 4,
+                discard = true,
+                prefill =
+                    SectionPrefill(
+                        "next_week",
+                        "Next week",
+                        relativeDueDate = RelativeBucket.NextWeek,
+                    ),
+            )
+            section(
                 "this_month",
-                "This month",
-                relativeDueDate = RelativeBucket.ThisMonth,
-            ),
-        )
-        section(
-            "no_date",
-            "No Date",
-            Selector.DateBucket(RelativeBucket.NoDate),
-            order = 6,
-            prefill = SectionPrefill("no_date", "No date"),
-        )
-    }
+                "This Month",
+                Selector.DateBucket(RelativeBucket.ThisMonth),
+                order = 5,
+                prefill =
+                    SectionPrefill(
+                        "this_month",
+                        "This month",
+                        relativeDueDate = RelativeBucket.ThisMonth,
+                    ),
+            )
+            section(
+                "no_date",
+                "No Date",
+                Selector.DateBucket(RelativeBucket.NoDate),
+                order = 6,
+                prefill = SectionPrefill("no_date", "No date"),
+            )
+        }
 
     /**
      * The tasks with no due date — the inbox.
@@ -140,15 +146,16 @@ object AgendaPresets {
      * A task with no due date therefore appears in exactly one bottom-bar tab:
      * this one.
      */
-    val Inbox: AgendaDefinition = agenda("Inbox") {
-        section(
-            "no_date",
-            "No Date",
-            Selector.DateBucket(RelativeBucket.NoDate),
-            order = 0,
-            prefill = SectionPrefill("no_date", "No date"),
-        )
-    }
+    val Inbox: AgendaDefinition =
+        agenda("Inbox") {
+            section(
+                "no_date",
+                "No Date",
+                Selector.DateBucket(RelativeBucket.NoDate),
+                order = 0,
+                prefill = SectionPrefill("no_date", "No date"),
+            )
+        }
 
     /**
      * Only today's tasks, with overdue shown at the top.
@@ -157,27 +164,29 @@ object AgendaPresets {
      * and [RelativeBucket.Today]. [Upcoming] leaves them alone, so a task lands in
      * exactly one of the two.
      */
-    val Today: AgendaDefinition = agenda("Today") {
-        section(
-            "overdue",
-            "Overdue",
-            Selector.DateBucket(RelativeBucket.Overdue),
-            order = 0,
-            discard = true,
-            prefill = SectionPrefill("overdue", "Overdue task"),
-        )
-        section(
-            "today",
-            "Today",
-            Selector.DateBucket(RelativeBucket.Today),
-            order = 1,
-            prefill = SectionPrefill(
+    val Today: AgendaDefinition =
+        agenda("Today") {
+            section(
+                "overdue",
+                "Overdue",
+                Selector.DateBucket(RelativeBucket.Overdue),
+                order = 0,
+                discard = true,
+                prefill = SectionPrefill("overdue", "Overdue task"),
+            )
+            section(
                 "today",
-                "New task",
-                relativeDueDate = RelativeBucket.Today,
-            ),
-        )
-    }
+                "Today",
+                Selector.DateBucket(RelativeBucket.Today),
+                order = 1,
+                prefill =
+                    SectionPrefill(
+                        "today",
+                        "New task",
+                        relativeDueDate = RelativeBucket.Today,
+                    ),
+            )
+        }
 
     /**
      * What is coming up: tomorrow, the rest of this week, and next week.
@@ -193,65 +202,70 @@ object AgendaPresets {
      * Week" are disjoint ranges, so the last of them needs no `discard`; the
      * narrower buckets above them do, for the same reason as [All].
      */
-    val Upcoming: AgendaDefinition = agenda("Upcoming") {
-        section(
-            "tomorrow",
-            "Tomorrow",
-            Selector.DateBucket(RelativeBucket.Tomorrow),
-            order = 0,
-            discard = true,
-            prefill = SectionPrefill(
+    val Upcoming: AgendaDefinition =
+        agenda("Upcoming") {
+            section(
                 "tomorrow",
-                "Task for tomorrow",
-                relativeDueDate = RelativeBucket.Tomorrow,
-            ),
-        )
-        section(
-            "this_week",
-            "This Week",
-            Selector.AllOf(
-                listOf(
-                    Selector.DateBucket(RelativeBucket.ThisWeek),
-                    // The week bucket spans Monday to Sunday, so it also holds
-                    // today and the days already gone — the days the Today tab
-                    // owns. Excluding them is what makes the two tabs disjoint.
-                    Selector.Not(
-                        Selector.AnyOf(
-                            listOf(
-                                Selector.DateBucket(RelativeBucket.Today),
-                                Selector.DateBucket(RelativeBucket.Overdue),
+                "Tomorrow",
+                Selector.DateBucket(RelativeBucket.Tomorrow),
+                order = 0,
+                discard = true,
+                prefill =
+                    SectionPrefill(
+                        "tomorrow",
+                        "Task for tomorrow",
+                        relativeDueDate = RelativeBucket.Tomorrow,
+                    ),
+            )
+            section(
+                "this_week",
+                "This Week",
+                Selector.AllOf(
+                    listOf(
+                        Selector.DateBucket(RelativeBucket.ThisWeek),
+                        // The week bucket spans Monday to Sunday, so it also holds
+                        // today and the days already gone — the days the Today tab
+                        // owns. Excluding them is what makes the two tabs disjoint.
+                        Selector.Not(
+                            Selector.AnyOf(
+                                listOf(
+                                    Selector.DateBucket(RelativeBucket.Today),
+                                    Selector.DateBucket(RelativeBucket.Overdue),
+                                ),
                             ),
                         ),
                     ),
                 ),
-            ),
-            order = 1,
-            prefill = SectionPrefill(
-                "this_week",
-                "This week",
-                relativeDueDate = RelativeBucket.ThisWeek,
-            ),
-        )
-        section(
-            "next_week",
-            "Next Week",
-            Selector.DateBucket(RelativeBucket.NextWeek),
-            order = 2,
-            prefill = SectionPrefill(
+                order = 1,
+                prefill =
+                    SectionPrefill(
+                        "this_week",
+                        "This week",
+                        relativeDueDate = RelativeBucket.ThisWeek,
+                    ),
+            )
+            section(
                 "next_week",
-                "Next week",
-                relativeDueDate = RelativeBucket.NextWeek,
-            ),
-        )
-    }
+                "Next Week",
+                Selector.DateBucket(RelativeBucket.NextWeek),
+                order = 2,
+                prefill =
+                    SectionPrefill(
+                        "next_week",
+                        "Next week",
+                        relativeDueDate = RelativeBucket.NextWeek,
+                    ),
+            )
+        }
 
     /**
      * All tasks for a specific project.
      * @param id The [ProjectId] to filter by.
      */
-    fun byProject(id: ProjectId): AgendaDefinition = agenda(id.value) {
-        section("project_tasks", "Project Tasks", Selector.Projects(setOf(id)), order = 0)
-    }
+    fun byProject(id: ProjectId): AgendaDefinition =
+        agenda(id.value) {
+            section("project_tasks", "Project Tasks", Selector.Projects(setOf(id)), order = 0)
+        }
 
     /**
      * All tasks with a specific tag.
@@ -264,9 +278,10 @@ object AgendaPresets {
      *
      * @param ids The set of tag IDs to filter by. A task matching any one of them is included.
      */
-    fun byTags(ids: Set<TagId>): AgendaDefinition = agenda("Tagged") {
-        section("tags", "Tags", Selector.Tags(ids), order = 0)
-    }
+    fun byTags(ids: Set<TagId>): AgendaDefinition =
+        agenda("Tagged") {
+            section("tags", "Tags", Selector.Tags(ids), order = 0)
+        }
 
     /**
      * All tasks within a date range (inclusive).
@@ -275,9 +290,13 @@ object AgendaPresets {
      * @param from Start of the range (inclusive).
      * @param to End of the range (inclusive).
      */
-    fun byDateRange(from: LocalDate, to: LocalDate): AgendaDefinition = agenda("Date Range") {
-        section("date_range", "Range", Selector.DateRange(from, to), order = 0)
-    }
+    fun byDateRange(
+        from: LocalDate,
+        to: LocalDate,
+    ): AgendaDefinition =
+        agenda("Date Range") {
+            section("date_range", "Range", Selector.DateRange(from, to), order = 0)
+        }
 
     /**
      * All tasks blocked by an unfinished dependency.
@@ -285,9 +304,10 @@ object AgendaPresets {
      * Used by the Statistics health drill-down.
      * The selector requires [SelectorContext.blockedIds] at evaluation time.
      */
-    fun byBlocked(): AgendaDefinition = agenda("Blocked") {
-        section("blocked", "Blocked", Selector.Blocked, order = 0)
-    }
+    fun byBlocked(): AgendaDefinition =
+        agenda("Blocked") {
+            section("blocked", "Blocked", Selector.Blocked, order = 0)
+        }
 
     /**
      * The tasks the user marked as being worked on now.
@@ -296,14 +316,15 @@ object AgendaPresets {
      * the selector: the state stays on the task after completion, but the view is a
      * list of work still to do.
      */
-    fun byInProgress(): AgendaDefinition = agenda("In progress") {
-        section(
-            "in_progress",
-            "In progress",
-            Selector.WorkflowState(TaskWorkflowState.InProgress),
-            order = 0,
-        )
-    }
+    fun byInProgress(): AgendaDefinition =
+        agenda("In progress") {
+            section(
+                "in_progress",
+                "In progress",
+                Selector.WorkflowState(TaskWorkflowState.InProgress),
+                order = 0,
+            )
+        }
 
     /**
      * The tasks that follow up on another task.
@@ -311,9 +332,10 @@ object AgendaPresets {
      * The other projection of the dependency table: an ordering relation, not a
      * reason to wait.
      */
-    fun byFollowUp(): AgendaDefinition = agenda("Follow-ups") {
-        section("follow_up", "Follow-ups", Selector.FollowUp, order = 0)
-    }
+    fun byFollowUp(): AgendaDefinition =
+        agenda("Follow-ups") {
+            section("follow_up", "Follow-ups", Selector.FollowUp, order = 0)
+        }
 
     /**
      * All stagnant tasks — undated, incomplete, and untouched for at least [threshold].
@@ -335,14 +357,15 @@ object AgendaPresets {
      * Unlike [Today], which shows today's tasks with overdue at the top, this preset
      * shows only the overdue tasks with no date prefill — matching the bucket exactly.
      */
-    fun byOverdue(): AgendaDefinition = agenda("Overdue") {
-        section(
-            "overdue",
-            "Overdue",
-            Selector.DateBucket(RelativeBucket.Overdue),
-            order = 0,
-        )
-    }
+    fun byOverdue(): AgendaDefinition =
+        agenda("Overdue") {
+            section(
+                "overdue",
+                "Overdue",
+                Selector.DateBucket(RelativeBucket.Overdue),
+                order = 0,
+            )
+        }
 
     /**
      * The agenda the Today tab shows on [dayOfWeek].
@@ -366,8 +389,7 @@ object AgendaPresets {
         workingDays: Set<DayOfWeek>,
         workDay: AgendaDefinition,
         offDay: AgendaDefinition = Today,
-    ): AgendaDefinition =
-        if (dayOfWeek in workingDays) workDay else offDay
+    ): AgendaDefinition = if (dayOfWeek in workingDays) workDay else offDay
 
     /**
      * Work-day agenda split into morning work, lunch, and afternoon work blocks.
@@ -390,24 +412,25 @@ object AgendaPresets {
         dayEndMinutes: Int,
         lunchStartMinutes: Int,
         lunchEndMinutes: Int,
-    ): AgendaDefinition = agenda("Work Day") {
-        section(
-            "work_morning",
-            "Work",
-            Selector.TimeOfDay(dayStartMinutes, lunchStartMinutes - 1),
-            order = 0,
-        )
-        section(
-            "lunch",
-            "Lunch",
-            Selector.TimeOfDay(lunchStartMinutes, lunchEndMinutes),
-            order = 1,
-        )
-        section(
-            "work_afternoon",
-            "Work",
-            Selector.TimeOfDay(lunchEndMinutes + 1, dayEndMinutes),
-            order = 2,
-        )
-    }
+    ): AgendaDefinition =
+        agenda("Work Day") {
+            section(
+                "work_morning",
+                "Work",
+                Selector.TimeOfDay(dayStartMinutes, lunchStartMinutes - 1),
+                order = 0,
+            )
+            section(
+                "lunch",
+                "Lunch",
+                Selector.TimeOfDay(lunchStartMinutes, lunchEndMinutes),
+                order = 1,
+            )
+            section(
+                "work_afternoon",
+                "Work",
+                Selector.TimeOfDay(lunchEndMinutes + 1, dayEndMinutes),
+                order = 2,
+            )
+        }
 }

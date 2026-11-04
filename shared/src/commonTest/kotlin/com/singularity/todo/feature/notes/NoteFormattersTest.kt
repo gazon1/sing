@@ -6,7 +6,6 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class NoteFormattersTest {
-
     @Test
     fun improvedResultShowsGreetingAndTitle() {
         val r = formatNoteAiResult(NoteAiResult.Improved(title = "New title", body = "<p>body</p>"))

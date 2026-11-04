@@ -1,9 +1,12 @@
 package com.singularity.todo.core.ui
 
+import com.singularity.todo.core.format.formatPadded
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.math.abs
+import kotlin.math.floor
 import kotlin.time.Instant
 
 /*
@@ -28,20 +31,34 @@ import kotlin.time.Instant
  * is unavailable off the JVM — it is that `"%.1f".format(x)` with no `Locale`
  * argument formats in the *device's* locale, so a user whose separator is a comma
  * saw "2,0 GB" on an attachment while the same value read "2.0 GB" everywhere
- * else, and the file-size column became unparseable. The zero-padding helpers below
- * cannot have a locale, so the question does not arise.
+ * else, and the file-size column became unparseable. The zero-padding helper in
+ * `core/format` cannot have a locale, so the question does not arise.
  */
 
 /**
- * Left-pads to two digits: `7` → `"07"`, `59` → `"59"`.
+ * A decimal number in the app's own format: `1.5`, `0.0`, `12.34`.
  *
- * Two overloads rather than a generic `T : Number` because [kotlin.String.padStart]
- * is the only operation involved and a generic would buy a `Number.toString()` that
- * has to be re-implemented per type anyway.
+ * `"%.1f".format(x)` has no locale on the JVM, so it follows the *device*: a
+ * phone set to Russian renders "0,0" inside an English screen. Formatting by
+ * hand keeps the output the same everywhere, for the same reason the padding
+ * helper does.
+ *
+ * [decimals] is the number of digits after the dot; `0` gives an integer.
+ * Rounds half away from zero, like `%.1f` does.
  */
-private fun Int.padded(): String = toString().padStart(2, '0')
-
-private fun Long.padded(): String = toString().padStart(2, '0')
+fun formatDecimal(
+    value: Double,
+    decimals: Int,
+): String {
+    var scale = 1L
+    repeat(decimals) { scale *= 10 }
+    val magnitude = floor(abs(value) * scale + 0.5).toLong()
+    // A negative number that rounds to zero has no minus sign: "-0%" is a
+    // value the number does not contain.
+    val sign = if (value < 0 && magnitude != 0L) "-" else ""
+    val fraction = (magnitude % scale).toString().padStart(decimals, '0')
+    return sign + (magnitude / scale) + if (decimals > 0) ".$fraction" else ""
+}
 
 /**
  * Elapsed milliseconds as a clock: "4:07", or "1:02:03" once past an hour.
@@ -60,9 +77,9 @@ fun formatElapsed(elapsedMs: Long): String {
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
     return if (hours > 0) {
-        "$hours:${minutes.padded()}:${seconds.padded()}"
+        "$hours:${formatPadded(minutes)}:${formatPadded(seconds)}"
     } else {
-        "$minutes:${seconds.padded()}"
+        "$minutes:${formatPadded(seconds)}"
     }
 }
 
@@ -99,18 +116,25 @@ private const val GIBIBYTE = 1024L * 1024 * 1024
  * and the remainder handled separately so `bytes * 10` cannot overflow a `Long`, and
  * `%10` on the result yields the fractional digit without a second division.
  */
-fun formatFileSize(bytes: Long): String = when {
-    bytes < 1024 -> "$bytes B"
+fun formatFileSize(bytes: Long): String =
+    when {
+        bytes < 1024 -> {
+            "$bytes B"
+        }
 
-    bytes < 1024 * 1024 -> "${bytes / 1024} KB"
+        bytes < 1024 * 1024 -> {
+            "${bytes / 1024} KB"
+        }
 
-    bytes < GIBIBYTE -> "${bytes / (1024 * 1024)} MB"
+        bytes < GIBIBYTE -> {
+            "${bytes / (1024 * 1024)} MB"
+        }
 
-    else -> {
-        val tenths = (bytes / GIBIBYTE) * 10 + ((bytes % GIBIBYTE) * 10 + GIBIBYTE / 2) / GIBIBYTE
-        "${tenths / 10}.${tenths % 10} GB"
+        else -> {
+            val tenths = (bytes / GIBIBYTE) * 10 + ((bytes % GIBIBYTE) * 10 + GIBIBYTE / 2) / GIBIBYTE
+            "${tenths / 10}.${tenths % 10} GB"
+        }
     }
-}
 
 /**
  * [month] as a short English name: "Jan" … "Dec".
@@ -123,7 +147,10 @@ fun formatFileSize(bytes: Long): String = when {
  * language would be the inconsistency.
  */
 fun monthAbbreviation(month: Month): String =
-    month.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
+    month.name
+        .take(3)
+        .lowercase()
+        .replaceFirstChar { it.uppercase() }
 
 /**
  * [month] as its full English name: "January" … "December".
@@ -132,8 +159,7 @@ fun monthAbbreviation(month: Month): String =
  * "Sep 2026" reads as a chip. Derived from the enum constant's name for the same
  * reason [monthAbbreviation] is: a month added to the enum cannot be missing here.
  */
-fun monthName(month: Month): String =
-    month.name.lowercase().replaceFirstChar { it.uppercase() }
+fun monthName(month: Month): String = month.name.lowercase().replaceFirstChar { it.uppercase() }
 
 /**
  * [day] as a short English name: "Mon" … "Sun".
@@ -142,7 +168,10 @@ fun monthName(month: Month): String =
  * table cannot fall behind the calendar it names.
  */
 fun weekdayAbbreviation(day: DayOfWeek): String =
-    day.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
+    day.name
+        .take(3)
+        .lowercase()
+        .replaceFirstChar { it.uppercase() }
 
 /**
  * [instant] as "Nov 5, 14:30" in [zone] — the shape a time-tracking entry list
@@ -153,5 +182,5 @@ fun formatMonthDayTime(
     zone: TimeZone = TimeZone.currentSystemDefault(),
 ): String {
     val local = instant.toLocalDateTime(zone)
-    return "${monthAbbreviation(local.month)} ${local.day}, ${local.hour.padded()}:${local.minute.padded()}"
+    return "${monthAbbreviation(local.month)} ${local.day}, ${formatPadded(local.hour)}:${formatPadded(local.minute)}"
 }

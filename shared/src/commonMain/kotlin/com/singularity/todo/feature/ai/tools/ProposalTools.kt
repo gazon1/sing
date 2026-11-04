@@ -35,21 +35,25 @@ internal suspend fun proposeChange(
     clock: Clock,
     items: List<ProposalItem>,
     targetId: String,
-): Result<AiProposal> = runCatchingCancellable {
-    val (proposal, _) = ProposalBuilder.multiForTarget(
-        items = items,
-        targetId = targetId,
-        userId = userId,
-        source = ProposalSource.Agent,
-        clock = clock,
-    )
-    proposals.save(proposal).getOrThrow()
-    proposal
-}
+): Result<AiProposal> =
+    runCatchingCancellable {
+        val (proposal, _) =
+            ProposalBuilder.multiForTarget(
+                items = items,
+                targetId = targetId,
+                userId = userId,
+                source = ProposalSource.Agent,
+                clock = clock,
+            )
+        proposals.save(proposal).getOrThrow()
+        proposal
+    }
 
 /**
  * One proposal item per change, with the summary the user reads and the
  * fingerprint the machinery compares.
  */
-internal fun proposalItems(kinds: List<ProposalItemKind>, targetId: String): List<ProposalItem> =
-    kinds.map { ProposalBuilder.item(it, targetId) }
+internal fun proposalItems(
+    kinds: List<ProposalItemKind>,
+    targetId: String,
+): List<ProposalItem> = kinds.map { ProposalBuilder.item(it, targetId) }

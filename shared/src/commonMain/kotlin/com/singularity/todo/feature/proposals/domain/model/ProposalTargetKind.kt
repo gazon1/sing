@@ -25,7 +25,6 @@ package com.singularity.todo.feature.proposals.domain.model
  * rewrites into something else.
  */
 sealed interface ProposalTargetKind {
-
     /**
      * The value the row carries.
      *
@@ -70,7 +69,6 @@ sealed interface ProposalTargetKind {
     }
 
     companion object {
-
         /** The kinds this build knows. */
         private val known: List<ProposalTargetKind> = listOf(Task, Note, Project, Tag)
 

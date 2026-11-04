@@ -17,6 +17,10 @@ import com.singularity.todo.test.fakes.FakeAppDatabase
 import com.singularity.todo.test.fakes.FakeDeviceKeyStore
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import java.io.File
 import java.nio.file.Files
 import kotlin.test.AfterTest
@@ -24,10 +28,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Tag
 import kotlin.time.Clock
 
 /**
@@ -52,7 +52,6 @@ import kotlin.time.Clock
  */
 @Tag("fast")
 class BackupChainTest {
-
     private val tempDirLazy = lazy { Files.createTempDirectory("singularity-backup-chain-").toFile() }
     private val tempDir: File by tempDirLazy
 
@@ -80,18 +79,24 @@ class BackupChainTest {
      * carried them would be a snapshot wearing a different name.
      */
     @Test
-    fun `the change carries the rows that changed and nothing else`() = runTest {
-        seedTask("t-1", "before")
-        seedTask("t-2", "untouched")
-        export("a.zip")
-        renameTask("t-1", "after")
+    fun `the change carries the rows that changed and nothing else`() =
+        runTest {
+            seedTask("t-1", "before")
+            seedTask("t-2", "untouched")
+            export("a.zip")
+            renameTask("t-1", "after")
 
-        export("b.zip")
+            export("b.zip")
 
-        val change = readChange("b.zip")
-        assertEquals(listOf("t-1"), change.payload.tasks.map { it.id }, "only the changed row travels")
-        assertEquals("after", change.payload.tasks.single().title)
-    }
+            val change = readChange("b.zip")
+            assertEquals(listOf("t-1"), change.payload.tasks.map { it.id }, "only the changed row travels")
+            assertEquals(
+                "after",
+                change.payload.tasks
+                    .single()
+                    .title,
+            )
+        }
 
     /**
      * The first export writes no change at all.
@@ -100,13 +105,14 @@ class BackupChainTest {
      * the chain and there is no change to carry.
      */
     @Test
-    fun `the first export writes no change`() = runTest {
-        seedTask("t-1", "before")
+    fun `the first export writes no change`() =
+        runTest {
+            seedTask("t-1", "before")
 
-        export("a.zip")
+            export("a.zip")
 
-        assertFalse(File("$backupDir/a.zip.delta").exists(), "there is nothing before the first export")
-    }
+            assertFalse(File("$backupDir/a.zip.delta").exists(), "there is nothing before the first export")
+        }
 
     /**
      * A removal travels in the change, and the chain keeps going.
@@ -117,27 +123,28 @@ class BackupChainTest {
      * deleted a task could not back up without starting over.
      */
     @Test
-    fun `a removal travels in the change instead of starting the chain again`() = runTest {
-        seedTask("t-1", "before")
-        export("a.zip")
-        sourceDb.taskDao().deleteAllForUser(owner.value)
+    fun `a removal travels in the change instead of starting the chain again`() =
+        runTest {
+            seedTask("t-1", "before")
+            export("a.zip")
+            sourceDb.taskDao().deleteAllForUser(owner.value)
 
-        export("b.zip")
+            export("b.zip")
 
-        assertTrue(
-            File("$backupDir/b.zip.delta").exists(),
-            "a removal is a change: it must be written beside the snapshot",
-        )
-        val change = readChange("b.zip")
-        assertEquals(
-            listOf("t-1"),
-            change.payload.removals[BackupEntityKind.TASKS],
-            "the change must name the row that is gone",
-        )
-        val state = cursors.load(owner)
-        assertEquals("$backupDir/a.zip", state.baseArchivePath, "the chain does not start again")
-        assertEquals(1, state.entries.size, "the change joins the chain")
-    }
+            assertTrue(
+                File("$backupDir/b.zip.delta").exists(),
+                "a removal is a change: it must be written beside the snapshot",
+            )
+            val change = readChange("b.zip")
+            assertEquals(
+                listOf("t-1"),
+                change.payload.removals[BackupEntityKind.TASKS],
+                "the change must name the row that is gone",
+            )
+            val state = cursors.load(owner)
+            assertEquals("$backupDir/a.zip", state.baseArchivePath, "the chain does not start again")
+            assertEquals(1, state.entries.size, "the change joins the chain")
+        }
 
     /**
      * A restore of a change that says a row is gone leaves the row out.
@@ -147,31 +154,32 @@ class BackupChainTest {
      * the account on the other device would keep a task the person deleted.
      */
     @Test
-    fun `a restore of a removal leaves the row out`() = runTest {
-        seedTask("t-1", "before")
-        export("a.zip")
-        sourceDb.taskDao().deleteAllForUser(owner.value)
-        export("b.zip")
+    fun `a restore of a removal leaves the row out`() =
+        runTest {
+            seedTask("t-1", "before")
+            export("a.zip")
+            sourceDb.taskDao().deleteAllForUser(owner.value)
+            export("b.zip")
 
-        val bucket = InMemoryBucket()
-        val repository = repository(bucket)
-        val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
-        assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
+            val bucket = InMemoryBucket()
+            val repository = repository(bucket)
+            val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
+            assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
 
-        val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
-        assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
+            val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
+            assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
 
-        val tasks = targetDb.taskDao().listAllForUser(owner.value)
-        assertTrue(
-            tasks.isEmpty(),
-            "the row the change says is gone must not come back: ${tasks.map { it.id }}",
-        )
-        assertEquals(
-            0,
-            restored.getOrThrow().entityCounts.tasks,
-            "the restore reports the merged account, and the merged account has no task",
-        )
-    }
+            val tasks = targetDb.taskDao().listAllForUser(owner.value)
+            assertTrue(
+                tasks.isEmpty(),
+                "the row the change says is gone must not come back: ${tasks.map { it.id }}",
+            )
+            assertEquals(
+                0,
+                restored.getOrThrow().entityCounts.tasks,
+                "the restore reports the merged account, and the merged account has no task",
+            )
+        }
 
     /**
      * A removal takes the task's links with it.
@@ -185,47 +193,52 @@ class BackupChainTest {
      * up: the tables have no foreign key to cascade.
      */
     @Test
-    fun `a removal takes the task's links with it`() = runTest {
-        seedTask("t-1", "before")
-        seedTag("g-1")
-        sourceDb.seedTagRefs(listOf(TaskTagCrossRef(taskId = "t-1", tagId = "g-1")))
-        export("a.zip")
+    fun `a removal takes the task's links with it`() =
+        runTest {
+            seedTask("t-1", "before")
+            seedTag("g-1")
+            sourceDb.seedTagRefs(listOf(TaskTagCrossRef(taskId = "t-1", tagId = "g-1")))
+            export("a.zip")
 
-        // The task is erased on the other device. The row is gone from the table,
-        // and the link it had goes with it — the export reads the links through
-        // the tasks that are still there.
-        sourceDb.taskDao().deleteForUser("t-1", owner.value)
-        export("b.zip")
+            // The task is erased on the other device. The row is gone from the table,
+            // and the link it had goes with it — the export reads the links through
+            // the tasks that are still there.
+            sourceDb.taskDao().deleteForUser("t-1", owner.value)
+            export("b.zip")
 
-        val change = readChange("b.zip")
-        assertEquals(
-            listOf("t-1"),
-            change.payload.removals[BackupEntityKind.TASKS],
-            "the change must name the task that is gone",
-        )
-        assertEquals(
-            listOf("t-1\u0000g-1"),
-            change.payload.removals[BackupEntityKind.TASK_TAGS],
-            "the link of a task that is gone is gone too",
-        )
+            val change = readChange("b.zip")
+            assertEquals(
+                listOf("t-1"),
+                change.payload.removals[BackupEntityKind.TASKS],
+                "the change must name the task that is gone",
+            )
+            assertEquals(
+                listOf("t-1\u0000g-1"),
+                change.payload.removals[BackupEntityKind.TASK_TAGS],
+                "the link of a task that is gone is gone too",
+            )
 
-        val bucket = InMemoryBucket()
-        val repository = repository(bucket)
-        val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
-        assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
+            val bucket = InMemoryBucket()
+            val repository = repository(bucket)
+            val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
+            assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
 
-        val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
-        assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
+            val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
+            assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
 
-        assertTrue(
-            targetDb.taskDao().listAllForUser(owner.value).none { it.id == "t-1" },
-            "the task the change says is gone must not come back",
-        )
-        assertTrue(
-            targetDb.taskDao().getTagIdsForTask("t-1").first().isEmpty(),
-            "the link must go with the task: an orphan points at a task that is not there",
-        )
-    }
+            assertTrue(
+                targetDb.taskDao().listAllForUser(owner.value).none { it.id == "t-1" },
+                "the task the change says is gone must not come back",
+            )
+            assertTrue(
+                targetDb
+                    .taskDao()
+                    .getTagIdsForTask("t-1")
+                    .first()
+                    .isEmpty(),
+                "the link must go with the task: an orphan points at a task that is not there",
+            )
+        }
 
     /**
      * An archived task travels as a changed row, not as a removal.
@@ -243,24 +256,25 @@ class BackupChainTest {
      * delete the person never asked for.
      */
     @Test
-    fun `an archived task travels as a changed row, not as a removal`() = runTest {
-        seedTask("t-1", "before")
-        export("a.zip")
+    fun `an archived task travels as a changed row, not as a removal`() =
+        runTest {
+            seedTask("t-1", "before")
+            export("a.zip")
 
-        sourceDb.taskDao().softDeleteForUser("t-1", 2L, owner.value)
-        export("b.zip")
+            sourceDb.taskDao().softDeleteForUser("t-1", 2L, owner.value)
+            export("b.zip")
 
-        val change = readChange("b.zip")
-        assertEquals(
-            listOf("t-1"),
-            change.payload.tasks.map { it.id },
-            "the archived task travels as a row that changed",
-        )
-        assertTrue(
-            change.payload.removals[BackupEntityKind.TASKS].isNullOrEmpty(),
-            "an archived task is not gone: it must not travel as a removal",
-        )
-    }
+            val change = readChange("b.zip")
+            assertEquals(
+                listOf("t-1"),
+                change.payload.tasks.map { it.id },
+                "the archived task travels as a row that changed",
+            )
+            assertTrue(
+                change.payload.removals[BackupEntityKind.TASKS].isNullOrEmpty(),
+                "an archived task is not gone: it must not travel as a removal",
+            )
+        }
 
     /**
      * A removal does not take out a profile that belongs to somebody else.
@@ -276,39 +290,40 @@ class BackupChainTest {
      * to another.
      */
     @Test
-    fun `a removal does not take out a profile that belongs to somebody else`() = runTest {
-        sourceDb.profileDao().upsert(profile("p-mine", owner.value))
-        sourceDb.profileDao().upsert(profile("p-theirs", "other-account"))
-        export("a.zip")
+    fun `a removal does not take out a profile that belongs to somebody else`() =
+        runTest {
+            sourceDb.profileDao().upsert(profile("p-mine", owner.value))
+            sourceDb.profileDao().upsert(profile("p-theirs", "other-account"))
+            export("a.zip")
 
-        // The other account's profile is gone from this device's export, so the
-        // change says so.
-        sourceDb.profileDao().deleteById("p-theirs")
-        export("b.zip")
+            // The other account's profile is gone from this device's export, so the
+            // change says so.
+            sourceDb.profileDao().deleteById("p-theirs")
+            export("b.zip")
 
-        val change = readChange("b.zip")
-        assertEquals(
-            listOf("p-theirs"),
-            change.payload.removals[BackupEntityKind.PROFILES],
-            "the change must name the profile that is gone",
-        )
+            val change = readChange("b.zip")
+            assertEquals(
+                listOf("p-theirs"),
+                change.payload.removals[BackupEntityKind.PROFILES],
+                "the change must name the profile that is gone",
+            )
 
-        // The device being restored holds that profile, owned by the other account.
-        targetDb.profileDao().upsert(profile("p-theirs", "other-account"))
+            // The device being restored holds that profile, owned by the other account.
+            targetDb.profileDao().upsert(profile("p-theirs", "other-account"))
 
-        val bucket = InMemoryBucket()
-        val repository = repository(bucket)
-        val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
-        assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
+            val bucket = InMemoryBucket()
+            val repository = repository(bucket)
+            val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
+            assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
 
-        val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
-        assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
+            val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
+            assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
 
-        assertTrue(
-            targetDb.profileDao().getById("p-theirs") != null,
-            "the removal belongs to the account being restored: another account's profile stays",
-        )
-    }
+            assertTrue(
+                targetDb.profileDao().getById("p-theirs") != null,
+                "the removal belongs to the account being restored: another account's profile stays",
+            )
+        }
 
     /**
      * A removed profile stays removed.
@@ -316,50 +331,51 @@ class BackupChainTest {
      * Export, delete the profile, export again, restore: the profile must be gone.
      */
     @Test
-    fun `a removed profile stays removed`() = runTest {
-        sourceDb.profileDao().upsert(
-            ProfileEntity(
-                id = "p-mine",
-                name = "p-mine",
-                emoji = "",
-                colorIdx = 0,
-                isDefault = false,
-                createdAt = 1L,
-                updatedAt = 1L,
-                userId = null,
-            ),
-        )
-        export("a.zip")
+    fun `a removed profile stays removed`() =
+        runTest {
+            sourceDb.profileDao().upsert(
+                ProfileEntity(
+                    id = "p-mine",
+                    name = "p-mine",
+                    emoji = "",
+                    colorIdx = 0,
+                    isDefault = false,
+                    createdAt = 1L,
+                    updatedAt = 1L,
+                    userId = null,
+                ),
+            )
+            export("a.zip")
 
-        sourceDb.profileDao().deleteById("p-mine")
-        export("b.zip")
+            sourceDb.profileDao().deleteById("p-mine")
+            export("b.zip")
 
-        targetDb.profileDao().upsert(
-            ProfileEntity(
-                id = "p-mine",
-                name = "p-mine",
-                emoji = "",
-                colorIdx = 0,
-                isDefault = false,
-                createdAt = 1L,
-                updatedAt = 1L,
-                userId = null,
-            ),
-        )
+            targetDb.profileDao().upsert(
+                ProfileEntity(
+                    id = "p-mine",
+                    name = "p-mine",
+                    emoji = "",
+                    colorIdx = 0,
+                    isDefault = false,
+                    createdAt = 1L,
+                    updatedAt = 1L,
+                    userId = null,
+                ),
+            )
 
-        val bucket = InMemoryBucket()
-        val repository = repository(bucket)
-        val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
-        assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
+            val bucket = InMemoryBucket()
+            val repository = repository(bucket)
+            val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
+            assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
 
-        val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
-        assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
+            val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
+            assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
 
-        assertTrue(
-            targetDb.profileDao().getById("p-mine") == null,
-            "the profile the change says is gone must not come back",
-        )
-    }
+            assertTrue(
+                targetDb.profileDao().getById("p-mine") == null,
+                "the profile the change says is gone must not come back",
+            )
+        }
 
     /**
      * A chain past its bound starts again.
@@ -369,25 +385,26 @@ class BackupChainTest {
      * writes a fresh base instead.
      */
     @Test
-    fun `a chain past its bound starts again`() = runTest {
-        seedTask("t-1", "before")
-        val exports = ArchiveFormat.MAX_CHAIN_ENTRIES + 2
-        repeat(exports) { index ->
-            renameTask("t-1", "title-$index")
-            export("archive-$index.zip")
-        }
+    fun `a chain past its bound starts again`() =
+        runTest {
+            seedTask("t-1", "before")
+            val exports = ArchiveFormat.MAX_CHAIN_ENTRIES + 2
+            repeat(exports) { index ->
+                renameTask("t-1", "title-$index")
+                export("archive-$index.zip")
+            }
 
-        val state = cursors.load(owner)
-        assertTrue(
-            state.entries.size <= ArchiveFormat.MAX_CHAIN_ENTRIES,
-            "the chain must not grow past its bound: ${state.entries.size}",
-        )
-        assertEquals(
-            "$backupDir/archive-${exports - 1}.zip",
-            state.baseArchivePath,
-            "the last snapshot is the base of the chain that started again",
-        )
-    }
+            val state = cursors.load(owner)
+            assertTrue(
+                state.entries.size <= ArchiveFormat.MAX_CHAIN_ENTRIES,
+                "the chain must not grow past its bound: ${state.entries.size}",
+            )
+            assertEquals(
+                "$backupDir/archive-${exports - 1}.zip",
+                state.baseArchivePath,
+                "the last snapshot is the base of the chain that started again",
+            )
+        }
 
     /**
      * A push carries the chain, and a restore brings back the merged account.
@@ -398,29 +415,30 @@ class BackupChainTest {
      * not what the base alone says.
      */
     @Test
-    fun `a push carries the chain and a restore brings back the merged account`() = runTest {
-        seedTask("t-1", "before")
-        export("a.zip")
-        renameTask("t-1", "after")
-        export("b.zip")
+    fun `a push carries the chain and a restore brings back the merged account`() =
+        runTest {
+            seedTask("t-1", "before")
+            export("a.zip")
+            renameTask("t-1", "after")
+            export("b.zip")
 
-        val bucket = InMemoryBucket()
-        val repository = repository(bucket)
-        val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
-        assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
+            val bucket = InMemoryBucket()
+            val repository = repository(bucket)
+            val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
+            assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
 
-        val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
-        assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
+            val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
+            assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
 
-        val tasks = targetDb.taskDao().listAllForUser(owner.value)
-        assertEquals(1, tasks.size, "the restored database holds ${tasks.size} tasks")
-        assertEquals("after", tasks.single().title, "the change must be applied on top of the base")
-        assertEquals(
-            1,
-            restored.getOrThrow().entityCounts.tasks,
-            "the restore reports the merged account, not the base",
-        )
-    }
+            val tasks = targetDb.taskDao().listAllForUser(owner.value)
+            assertEquals(1, tasks.size, "the restored database holds ${tasks.size} tasks")
+            assertEquals("after", tasks.single().title, "the change must be applied on top of the base")
+            assertEquals(
+                1,
+                restored.getOrThrow().entityCounts.tasks,
+                "the restore reports the merged account, not the base",
+            )
+        }
 
     /**
      * An archive from before the chain existed restores exactly as it always did.
@@ -429,20 +447,22 @@ class BackupChainTest {
      * restore says so.
      */
     @Test
-    fun `an archive without changes restores exactly as before`() = runTest {
-        seedTask("t-1", "before")
-        export("a.zip")
+    fun `an archive without changes restores exactly as before`() =
+        runTest {
+            seedTask("t-1", "before")
+            export("a.zip")
 
-        val restored = importer().import(
-            ImportOptions(sourcePath = "$backupDir/a.zip", targetUserId = owner),
-        )
+            val restored =
+                importer().import(
+                    ImportOptions(sourcePath = "$backupDir/a.zip", targetUserId = owner),
+                )
 
-        assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
-        val tasks = targetDb.taskDao().listAllForUser(owner.value)
-        assertEquals(1, tasks.size)
-        assertEquals("before", tasks.single().title)
-        assertEquals(1, restored.getOrThrow().entityCounts.tasks)
-    }
+            assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
+            val tasks = targetDb.taskDao().listAllForUser(owner.value)
+            assertEquals(1, tasks.size)
+            assertEquals("before", tasks.single().title)
+            assertEquals(1, restored.getOrThrow().entityCounts.tasks)
+        }
 
     /**
      * A corrupt change entry fails the whole import and leaves the database untouched.
@@ -451,25 +471,30 @@ class BackupChainTest {
      * is rejected before any row is written, so the previous data survives.
      */
     @Test
-    fun `a corrupt change entry fails the whole import and leaves the database untouched`() = runTest {
-        seedTask("t-1", "before")
-        export("a.zip")
+    fun `a corrupt change entry fails the whole import and leaves the database untouched`() =
+        runTest {
+            seedTask("t-1", "before")
+            export("a.zip")
 
-        targetDb.taskDao().upsert(task("sentinel", "sentinel"))
-        val before = targetDb.taskDao().listAllForUser(owner.value).size
+            targetDb.taskDao().upsert(task("sentinel", "sentinel"))
+            val before = targetDb.taskDao().listAllForUser(owner.value).size
 
-        val restored = importer().import(
-            ImportOptions(
-                sourcePath = "$backupDir/a.zip",
-                targetUserId = owner,
-                entries = listOf("this is not a valid delta".toByteArray()),
-            ),
-        )
+            val restored =
+                importer().import(
+                    ImportOptions(
+                        sourcePath = "$backupDir/a.zip",
+                        targetUserId = owner,
+                        entries = listOf("this is not a valid delta".toByteArray()),
+                    ),
+                )
 
-        assertFalse(restored.isSuccess, "a corrupt change entry must fail the import: ${restored.exceptionOrNull()}")
-        val after = targetDb.taskDao().listAllForUser(owner.value).size
-        assertEquals(before, after, "no row may be written when the chain is invalid")
-    }
+            assertFalse(
+                restored.isSuccess,
+                "a corrupt change entry must fail the import: ${restored.exceptionOrNull()}",
+            )
+            val after = targetDb.taskDao().listAllForUser(owner.value).size
+            assertEquals(before, after, "no row may be written when the chain is invalid")
+        }
 
     /**
      * A change that says nothing is not written.
@@ -478,17 +503,21 @@ class BackupChainTest {
      * nothing in it would only make the chain longer than the account.
      */
     @Test
-    fun `an export of an account that did not move writes no change`() = runTest {
-        seedTask("t-1", "before")
-        export("a.zip")
+    fun `an export of an account that did not move writes no change`() =
+        runTest {
+            seedTask("t-1", "before")
+            export("a.zip")
 
-        export("b.zip")
+            export("b.zip")
 
-        assertFalse(File("$backupDir/b.zip.delta").exists(), "there was nothing to change")
-    }
+            assertFalse(File("$backupDir/b.zip.delta").exists(), "there was nothing to change")
+        }
 
     /** Writes a task into the source database. */
-    private suspend fun seedTask(id: String, title: String) {
+    private suspend fun seedTask(
+        id: String,
+        title: String,
+    ) {
         sourceDb.taskDao().upsert(task(id, title))
     }
 
@@ -511,7 +540,10 @@ class BackupChainTest {
     }
 
     /** A profile, owned by the account named. */
-    private fun profile(id: String, userId: String) = ProfileEntity(
+    private fun profile(
+        id: String,
+        userId: String,
+    ) = ProfileEntity(
         id = id,
         name = id,
         emoji = "",
@@ -523,12 +555,18 @@ class BackupChainTest {
     )
 
     /** Changes the title of a task — a row that changed. */
-    private suspend fun renameTask(id: String, title: String) {
+    private suspend fun renameTask(
+        id: String,
+        title: String,
+    ) {
         sourceDb.taskDao().upsert(task(id, title))
     }
 
     /** The task, as the database holds it. */
-    private fun task(id: String, title: String) = TaskEntity(
+    private fun task(
+        id: String,
+        title: String,
+    ) = TaskEntity(
         id = id,
         title = title,
         description = null,
@@ -550,9 +588,10 @@ class BackupChainTest {
 
     /** Exports the source database into the backup directory. */
     private suspend fun export(name: String) {
-        val result = exporter().export(
-            ExportOptions(userId = owner, destPath = "$backupDir/$name"),
-        )
+        val result =
+            exporter().export(
+                ExportOptions(userId = owner, destPath = "$backupDir/$name"),
+            )
         assertTrue(result.isSuccess, "the export must succeed: ${result.exceptionOrNull()}")
     }
 
@@ -563,72 +602,76 @@ class BackupChainTest {
     }
 
     /** The exporter, writing into the backup directory. */
-    private fun exporter() = BackupExporter(
-        taskDao = sourceDb.taskDao(),
-        noteDao = sourceDb.noteDao(),
-        projectDao = sourceDb.projectDao(),
-        tagDao = sourceDb.tagDao(),
-        reminderDao = sourceDb.reminderDao(),
-        projectReminderDao = sourceDb.projectReminderDao(),
-        checklistDao = sourceDb.checklistDao(),
-        tagGroupDao = sourceDb.tagGroupDao(),
-        projectTagGroupDao = sourceDb.projectInheritedTagGroupDao(),
-        savedSearchDao = sourceDb.savedSearchDao(),
-        timeEntryDao = sourceDb.timeEntryDao(),
-        profileDao = sourceDb.profileDao(),
-        attachmentDao = sourceDb.attachmentDao(),
-        annotationDao = sourceDb.annotationDao(),
-        agendaViewDao = sourceDb.agendaViewDao(),
-        codec = JvmBackupCodec(),
-        clock = Clock.System,
-        fs = fs,
-        cursors = cursors,
-        backupDir = backupDir,
-    )
+    private fun exporter() =
+        BackupExporter(
+            taskDao = sourceDb.taskDao(),
+            noteDao = sourceDb.noteDao(),
+            projectDao = sourceDb.projectDao(),
+            tagDao = sourceDb.tagDao(),
+            reminderDao = sourceDb.reminderDao(),
+            projectReminderDao = sourceDb.projectReminderDao(),
+            checklistDao = sourceDb.checklistDao(),
+            tagGroupDao = sourceDb.tagGroupDao(),
+            projectTagGroupDao = sourceDb.projectInheritedTagGroupDao(),
+            savedSearchDao = sourceDb.savedSearchDao(),
+            timeEntryDao = sourceDb.timeEntryDao(),
+            profileDao = sourceDb.profileDao(),
+            attachmentDao = sourceDb.attachmentDao(),
+            annotationDao = sourceDb.annotationDao(),
+            agendaViewDao = sourceDb.agendaViewDao(),
+            codec = JvmBackupCodec(),
+            clock = Clock.System,
+            fs = fs,
+            cursors = cursors,
+            backupDir = backupDir,
+        )
 
     /** The importer, writing into the target database. */
-    private fun importer() = BackupImporter(
-        log = Logger.withTag("BackupChainTest"),
-        taskDao = targetDb.taskDao(),
-        noteDao = targetDb.noteDao(),
-        projectDao = targetDb.projectDao(),
-        tagDao = targetDb.tagDao(),
-        reminderDao = targetDb.reminderDao(),
-        projectReminderDao = targetDb.projectReminderDao(),
-        checklistDao = targetDb.checklistDao(),
-        tagGroupDao = targetDb.tagGroupDao(),
-        projectTagGroupDao = targetDb.projectInheritedTagGroupDao(),
-        savedSearchDao = targetDb.savedSearchDao(),
-        timeEntryDao = targetDb.timeEntryDao(),
-        profileDao = targetDb.profileDao(),
-        agendaViewDao = targetDb.agendaViewDao(),
-        attachmentDao = targetDb.attachmentDao(),
-        annotationDao = targetDb.annotationDao(),
-        attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachments").absolutePath),
-        codec = JvmBackupCodec(),
-        clock = Clock.System,
-        createFileSource = JvmFileSourceFactory(),
-        tasksSettings = FakeTasksSettingsRepository(),
-    )
+    private fun importer() =
+        BackupImporter(
+            log = Logger.withTag("BackupChainTest"),
+            taskDao = targetDb.taskDao(),
+            noteDao = targetDb.noteDao(),
+            projectDao = targetDb.projectDao(),
+            tagDao = targetDb.tagDao(),
+            reminderDao = targetDb.reminderDao(),
+            projectReminderDao = targetDb.projectReminderDao(),
+            checklistDao = targetDb.checklistDao(),
+            tagGroupDao = targetDb.tagGroupDao(),
+            projectTagGroupDao = targetDb.projectInheritedTagGroupDao(),
+            savedSearchDao = targetDb.savedSearchDao(),
+            timeEntryDao = targetDb.timeEntryDao(),
+            profileDao = targetDb.profileDao(),
+            agendaViewDao = targetDb.agendaViewDao(),
+            attachmentDao = targetDb.attachmentDao(),
+            annotationDao = targetDb.annotationDao(),
+            attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachments").absolutePath),
+            codec = JvmBackupCodec(),
+            clock = Clock.System,
+            createFileSource = JvmFileSourceFactory(),
+            tasksSettings = FakeTasksSettingsRepository(),
+        )
 
     /** The repository, with a bucket that keeps what was uploaded. */
-    private fun repository(bucket: BackupBucket) = BackupRepositoryImpl(
-        exporter = exporter(),
-        importer = importer(),
-        remoteService = RemoteBackupServiceImpl(
-            bucket = bucket,
+    private fun repository(bucket: BackupBucket) =
+        BackupRepositoryImpl(
+            exporter = exporter(),
+            importer = importer(),
+            remoteService =
+                RemoteBackupServiceImpl(
+                    bucket = bucket,
+                    fs = fs,
+                    archive = EncryptedArchive(FakeArchiveCrypto()),
+                    ioDispatcher = Dispatchers.Unconfined,
+                ),
             fs = fs,
-            archive = EncryptedArchive(FakeArchiveCrypto()),
+            backupDir = backupDir,
+            currentUser = FakeProfileAwareCurrentUser(initialUserId = owner),
+            clock = Clock.System,
+            deviceKeyStore = FakeDeviceKeyStore(EncryptedArchive(FakeArchiveCrypto())),
+            cursors = cursors,
             ioDispatcher = Dispatchers.Unconfined,
-        ),
-        fs = fs,
-        backupDir = backupDir,
-        currentUser = FakeProfileAwareCurrentUser(initialUserId = owner),
-        clock = Clock.System,
-        deviceKeyStore = FakeDeviceKeyStore(EncryptedArchive(FakeArchiveCrypto())),
-        cursors = cursors,
-        ioDispatcher = Dispatchers.Unconfined,
-    )
+        )
 
     /**
      * A bucket that keeps the objects in memory.
@@ -640,11 +683,18 @@ class BackupChainTest {
     private class InMemoryBucket : BackupBucket {
         private val objects = mutableMapOf<String, ByteArray>()
 
-        override suspend fun upload(path: String, source: ByteSource, sizeBytes: Long) {
+        override suspend fun upload(
+            path: String,
+            source: ByteSource,
+            sizeBytes: Long,
+        ) {
             objects[path] = readAll(source)
         }
 
-        override suspend fun download(path: String, sink: ByteSink) {
+        override suspend fun download(
+            path: String,
+            sink: ByteSink,
+        ) {
             val bytes = objects[path] ?: throw NoSuchElementException("no object at $path")
             sink.write(bytes, 0, bytes.size)
         }

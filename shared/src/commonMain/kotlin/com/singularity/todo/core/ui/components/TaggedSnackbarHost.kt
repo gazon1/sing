@@ -64,7 +64,10 @@ fun TaggedSnackbarHost(
 }
 
 @Composable
-private fun TaggedSnackbar(data: SnackbarData, countdownProgress: Float?) {
+private fun TaggedSnackbar(
+    data: SnackbarData,
+    countdownProgress: Float?,
+) {
     val animatedProgress by animateFloatAsState(
         targetValue = countdownProgress ?: 1f,
         label = "undo_countdown",
@@ -75,11 +78,12 @@ private fun TaggedSnackbar(data: SnackbarData, countdownProgress: Float?) {
         if (countdownProgress != null) {
             LinearProgressIndicator(
                 progress = { animatedProgress },
-                modifier = Modifier
-                    .width(300.dp)
-                    .height(3.dp)
-                    .padding(horizontal = 16.dp)
-                    .align(Alignment.BottomCenter),
+                modifier =
+                    Modifier
+                        .width(300.dp)
+                        .height(3.dp)
+                        .padding(horizontal = 16.dp)
+                        .align(Alignment.BottomCenter),
             )
         }
     }
@@ -95,9 +99,10 @@ private fun SnackbarWithAction(data: SnackbarData) {
                 // The message is addressable too, for the same reason the action
                 // button is: the copy is the translator's, and a flow that waits
                 // for "Backup created" waits forever on a Russian device.
-                modifier = Modifier
-                    .testTag(TestTags.SNACKBAR_MESSAGE)
-                    .mapTestTagsAsResourceIds(),
+                modifier =
+                    Modifier
+                        .testTag(TestTags.SNACKBAR_MESSAGE)
+                        .mapTestTagsAsResourceIds(),
             )
         }
         return
@@ -107,9 +112,10 @@ private fun SnackbarWithAction(data: SnackbarData) {
         action = {
             TextButton(
                 onClick = data::performAction,
-                modifier = Modifier
-                    .testTag(TestTags.SNACKBAR_ACTION)
-                    .mapTestTagsAsResourceIds(),
+                modifier =
+                    Modifier
+                        .testTag(TestTags.SNACKBAR_ACTION)
+                        .mapTestTagsAsResourceIds(),
             ) {
                 Text(actionLabel)
             }
@@ -117,9 +123,10 @@ private fun SnackbarWithAction(data: SnackbarData) {
     ) {
         Text(
             text = data.visuals.message,
-            modifier = Modifier
-                .testTag(TestTags.SNACKBAR_MESSAGE)
-                .mapTestTagsAsResourceIds(),
+            modifier =
+                Modifier
+                    .testTag(TestTags.SNACKBAR_MESSAGE)
+                    .mapTestTagsAsResourceIds(),
         )
     }
 }

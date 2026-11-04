@@ -4,15 +4,15 @@ import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.process.DuplexProcess
 import com.singularity.todo.core.process.ProcessTree
 import com.singularity.todo.core.process.Subprocess
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.io.FilterInputStream
-import java.io.InputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FilterInputStream
+import java.io.InputStream
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
@@ -99,7 +99,6 @@ private val DRAIN_POLL: Duration = 50.milliseconds
  * application owns.
  */
 object AcpBridgeProbe {
-
     /**
      * What the probe found.
      *
@@ -125,7 +124,10 @@ object AcpBridgeProbe {
      * @param command the bridge's command line — the program and its arguments.
      * @param workingDirectory the directory the session is opened in.
      */
-    suspend fun run(command: List<String>, workingDirectory: String): Report {
+    suspend fun run(
+        command: List<String>,
+        workingDirectory: String,
+    ): Report {
         val transcript = Transcript()
         // The child is started by `core/process`, because that is where spawning lives:
         // a spawn outside it is a spawn nobody's tests cover, and the defect that class
@@ -136,16 +138,18 @@ object AcpBridgeProbe {
         // taken *underneath* the protocol's reader, not a second reader of the stream:
         // two readers would race each other for a line, and the loser would be the
         // protocol.
-        val spawn = runCatchingCancellable {
-            Subprocess.spawnDuplex(
-                argv = command,
-                workingDirectory = File(workingDirectory),
-                // The bridge's diagnostics go to the person running the probe: "the
-                // agent refused to start" and "the agent printed the reason it
-                // refused to start" are different support questions.
-                stderrSink = { line -> System.err.println(line) },
-            ).process
-        }
+        val spawn =
+            runCatchingCancellable {
+                Subprocess
+                    .spawnDuplex(
+                        argv = command,
+                        workingDirectory = File(workingDirectory),
+                        // The bridge's diagnostics go to the person running the probe: "the
+                        // agent refused to start" and "the agent printed the reason it
+                        // refused to start" are different support questions.
+                        stderrSink = { line -> System.err.println(line) },
+                    ).process
+            }
         // Explicit rather than `getOrElse { return … }`: a non-local return inside an
         // inline lambda infers its result type from the constraint, and that is not
         // worth depending on in the one place that decides whether a bridge that
@@ -167,41 +171,43 @@ object AcpBridgeProbe {
         val scope = CoroutineScope(SupervisorJob())
 
         return try {
-            val client = AcpClient(
-                scope = scope,
-                process = process,
-                tree = tree,
-                permissions = AcpSessionPermissions { PermissionDecision.Declined },
-                toolServer = null,
-                workingDirectory = workingDirectory,
-                // The bridge may be an `npx` invocation that has never run on this
-                // machine, and the download is not the handshake. The deadline here is
-                // the probe's patience, not the client's contract.
-                connectTimeout = BRIDGE_TIMEOUT,
-            )
-            try {
-                val verdict = runCatchingCancellable { client.connect() }.fold(
-                    onSuccess = { info ->
-                        Report(
-                            connected = true,
-                            agentName = info.name,
-                            agentVersion = info.version,
-                            failure = null,
-                            methods = emptyList(),
-                            transcript = emptyList(),
-                        )
-                    },
-                    onFailure = { failure ->
-                        Report(
-                            connected = false,
-                            agentName = "",
-                            agentVersion = "",
-                            failure = failure.message ?: failure::class.simpleName.orEmpty(),
-                            methods = emptyList(),
-                            transcript = emptyList(),
-                        )
-                    },
+            val client =
+                AcpClient(
+                    scope = scope,
+                    process = process,
+                    tree = tree,
+                    permissions = AcpSessionPermissions { PermissionDecision.Declined },
+                    toolServer = null,
+                    workingDirectory = workingDirectory,
+                    // The bridge may be an `npx` invocation that has never run on this
+                    // machine, and the download is not the handshake. The deadline here is
+                    // the probe's patience, not the client's contract.
+                    connectTimeout = BRIDGE_TIMEOUT,
                 )
+            try {
+                val verdict =
+                    runCatchingCancellable { client.connect() }.fold(
+                        onSuccess = { info ->
+                            Report(
+                                connected = true,
+                                agentName = info.name,
+                                agentVersion = info.version,
+                                failure = null,
+                                methods = emptyList(),
+                                transcript = emptyList(),
+                            )
+                        },
+                        onFailure = { failure ->
+                            Report(
+                                connected = false,
+                                agentName = "",
+                                agentVersion = "",
+                                failure = failure.message ?: failure::class.simpleName.orEmpty(),
+                                methods = emptyList(),
+                                transcript = emptyList(),
+                            )
+                        },
+                    )
                 // The bridge keeps talking after the session it answered: its
                 // available commands come on a timer. A transcript read the moment the
                 // connect returned would miss that frame — and it is one of the frames
@@ -252,33 +258,43 @@ object AcpBridgeProbe {
         private val buffer = ByteArrayOutputStream()
         private var copied = 0
 
-        fun tee(source: InputStream): InputStream = object : FilterInputStream(source) {
-            override fun read(bytes: ByteArray, offset: Int, length: Int): Int {
-                val read = super.read(bytes, offset, length)
-                if (read > 0) copy(bytes, offset, read)
-                return read
-            }
+        fun tee(source: InputStream): InputStream =
+            object : FilterInputStream(source) {
+                override fun read(
+                    bytes: ByteArray,
+                    offset: Int,
+                    length: Int,
+                ): Int {
+                    val read = super.read(bytes, offset, length)
+                    if (read > 0) copy(bytes, offset, read)
+                    return read
+                }
 
-            // The single-byte read does not go through the bulk one: a reader that
-            // asks for one byte at a time would bypass the copy, and the transcript
-            // would quietly lose whatever it missed.
-            override fun read(): Int {
-                val read = super.read()
-                if (read >= 0) copy(byteArrayOf(read.toByte()), 0, 1)
-                return read
-            }
+                // The single-byte read does not go through the bulk one: a reader that
+                // asks for one byte at a time would bypass the copy, and the transcript
+                // would quietly lose whatever it missed.
+                override fun read(): Int {
+                    val read = super.read()
+                    if (read >= 0) copy(byteArrayOf(read.toByte()), 0, 1)
+                    return read
+                }
 
-            private fun copy(bytes: ByteArray, offset: Int, length: Int) {
-                synchronized(buffer) {
-                    buffer.write(bytes, offset, length)
-                    copied++
+                private fun copy(
+                    bytes: ByteArray,
+                    offset: Int,
+                    length: Int,
+                ) {
+                    synchronized(buffer) {
+                        buffer.write(bytes, offset, length)
+                        copied++
+                    }
                 }
             }
-        }
 
-        fun frames(): List<String> = synchronized(buffer) {
-            String(buffer.toByteArray(), Charsets.UTF_8).lines().filter { it.isNotBlank() }
-        }
+        fun frames(): List<String> =
+            synchronized(buffer) {
+                String(buffer.toByteArray(), Charsets.UTF_8).lines().filter { it.isNotBlank() }
+            }
 
         /**
          * Waits for the bytes to stop moving.
@@ -326,9 +342,10 @@ object AcpBridgeProbe {
 @Suppress("NoRunBlocking")
 fun main(args: Array<String>) {
     val workingDirectory = args.firstOrNull() ?: System.getProperty("user.dir") ?: "."
-    val command = args.drop(1).ifEmpty {
-        listOf("npx", "-y", "@agentclientprotocol/claude-agent-acp")
-    }
+    val command =
+        args.drop(1).ifEmpty {
+            listOf("npx", "-y", "@agentclientprotocol/claude-agent-acp")
+        }
     val report = runBlocking { AcpBridgeProbe.run(command, workingDirectory) }
 
     println("bridge: ${command.joinToString(" ")}")

@@ -23,7 +23,6 @@ internal class SyncAuthBridge(
     private val scope: AutoCloseableCoroutineScope,
     private val log: Logger = Logger.withTag("SyncAuthBridge"),
 ) : AutoCloseable {
-
     /**
      * The session collector.
      *
@@ -33,18 +32,19 @@ internal class SyncAuthBridge(
      * the invariant `NoCoroutineLaunchInInit` exists to protect, and the job is held
      * so [close] can be reasoned about from the field rather than from the scope.
      */
-    private val sessionWatch = scope.launch {
-        authRepository.currentSession.collect { session ->
-            when (session) {
-                is Session.SignedIn -> scheduler.enqueuePush()
+    private val sessionWatch =
+        scope.launch {
+            authRepository.currentSession.collect { session ->
+                when (session) {
+                    is Session.SignedIn -> scheduler.enqueuePush()
 
-                is Session.Anonymous,
-                is Session.SignedOut,
-                is Session.Loading,
-                -> scheduler.cancelPush()
+                    is Session.Anonymous,
+                    is Session.SignedOut,
+                    is Session.Loading,
+                    -> scheduler.cancelPush()
+                }
             }
         }
-    }
 
     /** Cancels the session collector, then the scope that owns it. */
     override fun close() {

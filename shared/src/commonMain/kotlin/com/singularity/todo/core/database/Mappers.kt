@@ -42,9 +42,11 @@ internal suspend fun projectWithInheritance(
     userId: String,
 ): Project? {
     val row = projectDao.getByIdForUser(projectId, userId) ?: return null
-    val inherited = inheritedDao.getByProject(projectId, userId)
-        .map(TagGroupId::fromString)
-        .toSet()
+    val inherited =
+        inheritedDao
+            .getByProject(projectId, userId)
+            .map(TagGroupId::fromString)
+            .toSet()
     return row.toProject().copy(inheritedTagGroupIds = inherited)
 }
 
@@ -73,14 +75,18 @@ internal suspend fun replaceInheritedTagGroups(
  * Epoch millis ↔ kotlinx.datetime types.
  */
 internal fun Long.toInstant(): Instant = Instant.fromEpochMilliseconds(this)
+
 internal fun Long?.toInstantOrNull(): Instant? = this?.toInstant()
+
 internal fun Instant.toEpochMillis(): Long = toEpochMilliseconds()
+
 internal fun Instant?.toEpochMillisOrNull(): Long? = this?.toEpochMillis()
 
 /**
  * ISO-8601 string ↔ kotlinx.datetime.LocalDate.
  */
 internal fun String?.toLocalDateOrNull(): LocalDate? = this?.let { LocalDate.parse(it) }
+
 internal fun LocalDate?.toIsoOrNull(): String? = this?.toString()
 
 /**
@@ -89,6 +95,7 @@ internal fun LocalDate?.toIsoOrNull(): String? = this?.toString()
  */
 internal fun String?.toLocalTimeOrNull(): LocalTime? =
     this?.takeIf { it.isNotBlank() }?.let { LocalTimeFormats.parse(it) }
+
 internal fun LocalTime?.toLocalTimeIsoOrNull(): String? = this?.let { LocalTimeFormats.format(it) }
 
 /**
@@ -96,14 +103,15 @@ internal fun LocalTime?.toLocalTimeIsoOrNull(): String? = this?.let { LocalTimeF
  * Use for Entity → Domain conversion.
  */
 @Suppress("UNCHECKED_CAST")
-internal inline fun <reified T : Any> String.toId(): T = when (T::class) {
-    TaskId::class -> TaskId.fromString(this) as T
-    NoteId::class -> NoteId.fromString(this) as T
-    ProjectId::class -> ProjectId.fromString(this) as T
-    TagId::class -> TagId.fromString(this) as T
-    UserId::class -> UserId.fromString(this) as T
-    else -> error("Unknown ID type: ${T::class}")
-}
+internal inline fun <reified T : Any> String.toId(): T =
+    when (T::class) {
+        TaskId::class -> TaskId.fromString(this) as T
+        NoteId::class -> NoteId.fromString(this) as T
+        ProjectId::class -> ProjectId.fromString(this) as T
+        TagId::class -> TagId.fromString(this) as T
+        UserId::class -> UserId.fromString(this) as T
+        else -> error("Unknown ID type: ${T::class}")
+    }
 
 /** Returns null if string is null or blank. */
 internal fun String?.toProjectIdOrNull(): ProjectId? =
@@ -129,96 +137,108 @@ internal fun TaskEntity.toTask(
     tags: List<TagId> = emptyList(),
     blockedBy: Set<TaskId> = emptySet(),
     followsUp: Set<TaskId> = emptySet(),
-): Task = Task(
-    id = id.toId(),
-    title = title,
-    description = description,
-    priority = priority,
-    kind = kind,
-    projectId = projectId.toProjectIdOrNull(),
-    parentTaskId = parentTaskId?.toId(),
-    tags = tags,
-    dueDate = dueDate.toLocalDateOrNull(),
-    dueTime = dueTime.toLocalTimeOrNull(),
-    startDate = startDate.toLocalDateOrNull(),
-    startTime = startTime.toLocalTimeOrNull(),
-    endDate = endDate.toLocalDateOrNull(),
-    endTime = endTime.toLocalTimeOrNull(),
-    accentColor = accentColor,
-    emoji = emoji,
-    completedAt = completedAt.toInstantOrNull(),
-    someday = someday,
-    archivedAt = archivedAt.toInstantOrNull(),
-    isPinned = isPinned,
-    blockedBy = blockedBy,
-    followsUp = followsUp,
-    aiSuppressedTagIds = StableJson.decodeFromString(
-        SetSerializer(String.serializer()),
-        aiSuppressedTagIds,
-    ).map { TagId.fromString(it) }.toSet(),
-    recurrence = recurrenceRule?.let {
-        StableJson.decodeFromString<RecurrenceSpec>(it)
-    },
-    seriesId = seriesId?.let { com.singularity.todo.feature.tasks.domain.model.TaskSeriesId.fromString(it) },
-    workflowState = workflowState.toWorkflowState(),
-    estimateMinutes = estimateMinutes,
-    createdAt = createdAt.toInstant(),
-    updatedAt = updatedAt.toInstant(),
-    userId = userId.toId(),
-    serverVersion = sync.serverVersion,
-    hlc = sync.hlc?.let { Hlc(it) },
-)
+): Task =
+    Task(
+        id = id.toId(),
+        title = title,
+        description = description,
+        priority = priority,
+        kind = kind,
+        projectId = projectId.toProjectIdOrNull(),
+        parentTaskId = parentTaskId?.toId(),
+        tags = tags,
+        dueDate = dueDate.toLocalDateOrNull(),
+        dueTime = dueTime.toLocalTimeOrNull(),
+        startDate = startDate.toLocalDateOrNull(),
+        startTime = startTime.toLocalTimeOrNull(),
+        endDate = endDate.toLocalDateOrNull(),
+        endTime = endTime.toLocalTimeOrNull(),
+        accentColor = accentColor,
+        emoji = emoji,
+        completedAt = completedAt.toInstantOrNull(),
+        someday = someday,
+        archivedAt = archivedAt.toInstantOrNull(),
+        isPinned = isPinned,
+        blockedBy = blockedBy,
+        followsUp = followsUp,
+        aiSuppressedTagIds =
+            StableJson
+                .decodeFromString(
+                    SetSerializer(String.serializer()),
+                    aiSuppressedTagIds,
+                ).map { TagId.fromString(it) }
+                .toSet(),
+        recurrence =
+            recurrenceRule?.let {
+                StableJson.decodeFromString<RecurrenceSpec>(it)
+            },
+        seriesId =
+            seriesId?.let {
+                com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
+                    .fromString(it)
+            },
+        workflowState = workflowState.toWorkflowState(),
+        estimateMinutes = estimateMinutes,
+        createdAt = createdAt.toInstant(),
+        updatedAt = updatedAt.toInstant(),
+        userId = userId.toId(),
+        serverVersion = sync.serverVersion,
+        hlc = sync.hlc?.let { Hlc(it) },
+    )
 
 /**
  * Converts a [ProjectEntity] to a domain [Project].
  */
-internal fun ProjectEntity.toProject(): Project = Project(
-    id = ProjectId.fromString(id),
-    name = name,
-    color = color,
-    icon = icon,
-    description = description,
-    createdAt = createdAt.toInstant(),
-    updatedAt = updatedAt.toInstant(),
-    isDefault = isDefault,
-    dueDate = dueDate.toLocalDateOrNull(),
-    team = team,
-    isDeleted = isDeleted,
-    deletedAt = deletedAt.toInstantOrNull(),
-    parentId = parentId?.toProjectIdOrNull(),
-    sortOrder = sortOrder,
-    idempotencyKey = idempotencyKey,
-    externalId = externalId,
-    userId = UserId(userId),
-    serverVersion = sync.serverVersion,
-    hlc = sync.hlc?.let { Hlc(it) },
-)
+internal fun ProjectEntity.toProject(): Project =
+    Project(
+        id = ProjectId.fromString(id),
+        name = name,
+        color = color,
+        icon = icon,
+        description = description,
+        createdAt = createdAt.toInstant(),
+        updatedAt = updatedAt.toInstant(),
+        isDefault = isDefault,
+        dueDate = dueDate.toLocalDateOrNull(),
+        team = team,
+        isDeleted = isDeleted,
+        deletedAt = deletedAt.toInstantOrNull(),
+        parentId = parentId?.toProjectIdOrNull(),
+        sortOrder = sortOrder,
+        idempotencyKey = idempotencyKey,
+        externalId = externalId,
+        userId = UserId(userId),
+        serverVersion = sync.serverVersion,
+        hlc = sync.hlc?.let { Hlc(it) },
+    )
 
 /**
  * Converts a [TagGroupEntity] to a domain [TagGroup].
  */
-internal fun TagGroupEntity.toTagGroup(): TagGroup = TagGroup(
-    id = TagGroupId.fromString(id),
-    name = name,
-    color = color,
-    createdAt = createdAt.toInstant(),
-    updatedAt = updatedAt.toInstant(),
-    userId = UserId(userId),
-    deletedAt = deletedAt.toInstantOrNull(),
-    serverVersion = sync.serverVersion,
-    hlc = sync.hlc?.let { Hlc(it) },
-)
+internal fun TagGroupEntity.toTagGroup(): TagGroup =
+    TagGroup(
+        id = TagGroupId.fromString(id),
+        name = name,
+        color = color,
+        createdAt = createdAt.toInstant(),
+        updatedAt = updatedAt.toInstant(),
+        userId = UserId(userId),
+        deletedAt = deletedAt.toInstantOrNull(),
+        serverVersion = sync.serverVersion,
+        hlc = sync.hlc?.let { Hlc(it) },
+    )
 
 /**
  * Converts a domain [TagGroup] to a [TagGroupEntity] for persistence.
  */
-internal fun TagGroup.toEntity(): TagGroupEntity = TagGroupEntity(
-    id = id.value,
-    userId = userId.value,
-    name = name,
-    color = color,
-    createdAt = createdAt.toEpochMilliseconds(),
-    updatedAt = updatedAt.toEpochMilliseconds(),
-    deletedAt = deletedAt.toEpochMillisOrNull(),
-    sync = SyncColumns(serverVersion = serverVersion, hlc = hlc?.encoded),
-)
+internal fun TagGroup.toEntity(): TagGroupEntity =
+    TagGroupEntity(
+        id = id.value,
+        userId = userId.value,
+        name = name,
+        color = color,
+        createdAt = createdAt.toEpochMilliseconds(),
+        updatedAt = updatedAt.toEpochMilliseconds(),
+        deletedAt = deletedAt.toEpochMillisOrNull(),
+        sync = SyncColumns(serverVersion = serverVersion, hlc = hlc?.encoded),
+    )

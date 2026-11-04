@@ -22,13 +22,13 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Instant
-import org.junit.jupiter.api.Tag
 
 /**
  * The ViewModel's own state machine, which was untested while the repository
@@ -43,7 +43,6 @@ import org.junit.jupiter.api.Tag
 @Tag("fast")
 @OptIn(ExperimentalCoroutinesApi::class)
 class TagGroupsViewModelTest {
-
     private val fakeRepo = FakeTagGroupRepository()
 
     /**
@@ -62,11 +61,12 @@ class TagGroupsViewModelTest {
         advanceUntilIdle()
         return TagGroupsViewModel(
             tagGroupRepo = fakeRepo,
-            createTagGroup = CreateTagGroupUseCase(
-                repo = fakeRepo,
-                clock = FakeClock(NOW),
-                currentUser = currentUser,
-            ),
+            createTagGroup =
+                CreateTagGroupUseCase(
+                    repo = fakeRepo,
+                    clock = FakeClock(NOW),
+                    currentUser = currentUser,
+                ),
             deleteTagGroup = DeleteTagGroupUseCase(fakeRepo),
             // backgroundScope owns the VM's lifecycle: runTest cancels it when
             // the body completes, which terminates the observeAll() collector —
@@ -79,68 +79,73 @@ class TagGroupsViewModelTest {
     }
 
     @Test
-    fun `an empty repository settles on Empty`() = runTest {
-        val vm = createVm()
-        runCurrent()
+    fun `an empty repository settles on Empty`() =
+        runTest {
+            val vm = createVm()
+            runCurrent()
 
-        assertIs<TagGroupsUiState.Empty>(vm.stateFlow.value)
-    }
+            assertIs<TagGroupsUiState.Empty>(vm.stateFlow.value)
+        }
 
     @Test
-    fun `a populated repository settles on Content`() = runTest {
-        fakeRepo.seed(group(id = "g1", name = "Work"))
-        fakeRepo.seed(group(id = "g2", name = "Home"))
+    fun `a populated repository settles on Content`() =
+        runTest {
+            fakeRepo.seed(group(id = "g1", name = "Work"))
+            fakeRepo.seed(group(id = "g2", name = "Home"))
 
-        val vm = createVm()
-        runCurrent()
+            val vm = createVm()
+            runCurrent()
 
-        val state = assertIs<TagGroupsUiState.Content>(vm.stateFlow.value)
-        assertEquals(listOf("g1", "g2"), state.groups.map { it.id.value })
-    }
+            val state = assertIs<TagGroupsUiState.Content>(vm.stateFlow.value)
+            assertEquals(listOf("g1", "g2"), state.groups.map { it.id.value })
+        }
 
     /**
      * The `catch` branch. Without it a failing stream ends the collection and
      * the screen stays on whatever state it last had — `Loading`, forever.
      */
     @Test
-    fun `a failing stream surfaces Error instead of staying on Loading`() = runTest {
-        fakeRepo.failWith(RuntimeException("db gone"))
+    fun `a failing stream surfaces Error instead of staying on Loading`() =
+        runTest {
+            fakeRepo.failWith(RuntimeException("db gone"))
 
-        val vm = createVm()
-        runCurrent()
+            val vm = createVm()
+            runCurrent()
 
-        val state = assertIs<TagGroupsUiState.Error>(vm.stateFlow.value)
-        assertTrue(
-            state.message.isNotBlank(),
-            "Error must carry a user-presentable message, got \"${state.message}\"",
-        )
-    }
-
-    @Test
-    fun `Create reaches the repository with the intent's arguments`() = runTest {
-        val vm = createVm()
-        runCurrent()
-
-        vm.onIntent(TagGroupsIntent.Create(name = "Work", color = 0xFF112233.toInt()))
-        runCurrent()
-
-        val created = fakeRepo.created
-        assertEquals(1, created.size, "expected exactly one create, got ${created.size}")
-        assertEquals("Work", created.single().name)
-        assertEquals(0xFF112233.toInt(), created.single().color)
-    }
+            val state = assertIs<TagGroupsUiState.Error>(vm.stateFlow.value)
+            assertTrue(
+                state.message.isNotBlank(),
+                "Error must carry a user-presentable message, got \"${state.message}\"",
+            )
+        }
 
     @Test
-    fun `Delete reaches the repository with the intent's id`() = runTest {
-        fakeRepo.seed(group(id = "g1", name = "Work"))
-        val vm = createVm()
-        runCurrent()
+    fun `Create reaches the repository with the intent's arguments`() =
+        runTest {
+            val vm = createVm()
+            runCurrent()
 
-        vm.onIntent(TagGroupsIntent.Delete(TagGroupId("g1")))
-        runCurrent()
+            vm.onIntent(TagGroupsIntent.Create(name = "Work", color = 0xFF112233.toInt()))
+            runCurrent()
 
-        assertEquals(listOf("g1"), fakeRepo.deleted)
-    }
+            val created = fakeRepo.created
+            assertEquals(1, created.size, "expected exactly one create, got ${created.size}")
+            assertEquals("Work", created.single().name)
+            assertEquals(0xFF112233.toInt(), created.single().color)
+        }
+
+    @Test
+    fun `Delete reaches the repository with the intent's id`() =
+        runTest {
+            fakeRepo.seed(group(id = "g1", name = "Work"))
+            val vm = createVm()
+            runCurrent()
+
+            vm.onIntent(TagGroupsIntent.Delete(TagGroupId("g1")))
+            runCurrent()
+
+            assertEquals(listOf("g1"), fakeRepo.deleted)
+        }
 
     /**
      * The ViewModel's contract is that a bad intent is a rejected write, not a
@@ -148,17 +153,21 @@ class TagGroupsViewModelTest {
      * VM's job is only to pass the argument through.
      */
     @Test
-    fun `an invalid Create is rejected without writing`() = runTest {
-        val vm = createVm()
-        runCurrent()
+    fun `an invalid Create is rejected without writing`() =
+        runTest {
+            val vm = createVm()
+            runCurrent()
 
-        vm.onIntent(TagGroupsIntent.Create(name = "  ", color = 1))
-        runCurrent()
+            vm.onIntent(TagGroupsIntent.Create(name = "  ", color = 1))
+            runCurrent()
 
-        assertTrue(fakeRepo.created.isEmpty(), "a blank name must not reach the repository")
-    }
+            assertTrue(fakeRepo.created.isEmpty(), "a blank name must not reach the repository")
+        }
 
-    private fun group(id: String, name: String) = TagGroup(
+    private fun group(
+        id: String,
+        name: String,
+    ) = TagGroup(
         id = TagGroupId(id),
         name = name,
         color = 0xFF445566.toInt(),
@@ -199,21 +208,23 @@ class TagGroupsViewModelTest {
                 failure = null
             }
 
-            override fun observeAll(): Flow<List<TagGroup>> = groups.map { list ->
-                failure?.let { throw it }
-                list
-            }
+            override fun observeAll(): Flow<List<TagGroup>> =
+                groups.map { list ->
+                    failure?.let { throw it }
+                    list
+                }
 
             override suspend fun create(input: CreateTagGroupInput): Result<TagGroup> {
                 created += input
-                val group = TagGroup(
-                    id = TagGroupId("created-${created.size}"),
-                    name = input.name,
-                    color = input.color,
-                    createdAt = NOW,
-                    updatedAt = NOW,
-                    userId = UserId("user-a"),
-                )
+                val group =
+                    TagGroup(
+                        id = TagGroupId("created-${created.size}"),
+                        name = input.name,
+                        color = input.color,
+                        createdAt = NOW,
+                        updatedAt = NOW,
+                        userId = UserId("user-a"),
+                    )
                 groups.value = groups.value + group
                 return Result.success(group)
             }
@@ -224,9 +235,10 @@ class TagGroupsViewModelTest {
                 return Result.success(Unit)
             }
 
-            override fun observe(id: TagGroupId): Flow<TagGroup?> = groups.map { list ->
-                list.find { it.id == id }
-            }
+            override fun observe(id: TagGroupId): Flow<TagGroup?> =
+                groups.map { list ->
+                    list.find { it.id == id }
+                }
 
             override suspend fun get(id: TagGroupId): TagGroup? = groups.value.find { it.id == id }
 
@@ -235,8 +247,7 @@ class TagGroupsViewModelTest {
 
             override suspend fun upsert(tagGroup: TagGroup): TagGroup = error("not used by TagGroupsViewModel")
 
-            override suspend fun deleteAllForCurrentProfile(): Result<Int> =
-                error("not used by TagGroupsViewModel")
+            override suspend fun deleteAllForCurrentProfile(): Result<Int> = error("not used by TagGroupsViewModel")
 
             override fun observeInheritedByProject(projectId: ProjectId): Flow<Set<TagGroupId>> =
                 error("not used by TagGroupsViewModel")

@@ -14,7 +14,6 @@ package com.singularity.todo.core.backup
  * which sent the person to their password when their password was fine.
  */
 sealed class BackupPayloadError(message: String, cause: Throwable? = null) : BackupError(message, cause) {
-
     /** The archive's own format version is newer than this build's. */
     class UnsupportedFormatVersion(val version: Int) : BackupPayloadError("formatVersion $version > current")
 

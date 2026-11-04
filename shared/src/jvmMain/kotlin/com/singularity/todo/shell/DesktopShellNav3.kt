@@ -40,9 +40,10 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.navigation3.runtime.NavKey
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.ui.NavDisplay
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.menu.ComposeTopMenuBar
 import com.singularity.todo.core.ui.menu.MenuNode
 import com.singularity.todo.core.ui.menu.buildMenuNodes
@@ -52,13 +53,12 @@ import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.LocalNav3State
 import com.singularity.todo.feature.nav.Nav3State
-import com.singularity.todo.feature.nav.topMostRoute
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.Settings
 import com.singularity.todo.feature.nav.createJvmEntryProvider
-import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.icon
+import com.singularity.todo.feature.nav.topMostRoute
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsOpener
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeIntent
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeViewModel
@@ -95,14 +95,16 @@ fun DesktopShellNav3Root(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    val current: AppDestination = state.topLevelRoute as? AppDestination
-        ?: AppDestination.AgendaGraph(AgendaStartRoute.Today)
+    val current: AppDestination =
+        state.topLevelRoute as? AppDestination
+            ?: AppDestination.AgendaGraph(AgendaStartRoute.Today)
 
     // Topmost route in the current stack — determines the FAB and back arrow.
     // When a nested screen (e.g. SavedAgendaEdit) is on top, use it instead of the tab.
     val topMostRoute: NavKey = state.topMostRoute()
-    val fabCurrent: AppDestination = topMostRoute as? AppDestination
-        ?: current
+    val fabCurrent: AppDestination =
+        topMostRoute as? AppDestination
+            ?: current
 
     val appEntryProvider = createJvmEntryProvider(navCallbacks, today)
 
@@ -118,67 +120,75 @@ fun DesktopShellNav3Root(
     var showAbout by remember { mutableStateOf(false) }
 
     // Window menu bar entries
-    val menuEntries = remember(navigator) {
-        val viewItems = DestinationKind.tabs.map { dest ->
-            MenuNode.Action(
-                id = "view_${
-                    dest.title.replace(" ", "_")
-                        .lowercase()
-                }",
-                label = dest.title,
-                onClick = { navigator.open(dest) },
-            )
+    val menuEntries =
+        remember(navigator) {
+            val viewItems =
+                DestinationKind.tabs.map { dest ->
+                    MenuNode.Action(
+                        id = "view_${
+                            dest.title.replace(" ", "_")
+                                .lowercase()
+                        }",
+                        label = dest.title,
+                        onClick = { navigator.open(dest) },
+                    )
+                }
+            buildMenuNodes {
+                subMenu(
+                    "file",
+                    "File",
+                    children =
+                        buildMenuNodes {
+                            item("new_task", "New Task", shortcut = "Ctrl+N") {
+                                navigator.open(
+                                    AppDestination.TasksGraph(start = AppDestination.TasksStartRoute.Create()),
+                                )
+                            }
+                            item("settings", "Settings…", shortcut = "Ctrl+,") {
+                                navigator.open(AppDestination.Settings)
+                            }
+                            divider()
+                            item("quit", "Quit", shortcut = "Ctrl+Q") {
+                                exitProcess(0)
+                            }
+                        },
+                )
+                subMenu(
+                    "edit",
+                    "Edit",
+                    children =
+                        buildMenuNodes {
+                            item("find", "Find", shortcut = "Ctrl+F") {
+                                navigator.open(AppDestination.Search)
+                            }
+                        },
+                )
+                subMenu(
+                    "agent",
+                    "Agent",
+                    children =
+                        buildMenuNodes {
+                            item("external_agent", "External Agent…") {
+                                navigator.open(AppDestination.ExternalAgent)
+                            }
+                        },
+                )
+                subMenu("view", "View", children = viewItems)
+                subMenu(
+                    "help",
+                    "Help",
+                    children =
+                        buildMenuNodes {
+                            item("about", "About Singularity Todo") {
+                                showAbout = true
+                            }
+                            item("github", "Open GitHub…") {
+                                openGitHub()
+                            }
+                        },
+                )
+            }
         }
-        buildMenuNodes {
-            subMenu(
-                "file",
-                "File",
-                children = buildMenuNodes {
-                    item("new_task", "New Task", shortcut = "Ctrl+N") {
-                        navigator.open(AppDestination.TasksGraph(start = AppDestination.TasksStartRoute.Create()))
-                    }
-                    item("settings", "Settings…", shortcut = "Ctrl+,") {
-                        navigator.open(AppDestination.Settings)
-                    }
-                    divider()
-                    item("quit", "Quit", shortcut = "Ctrl+Q") {
-                        exitProcess(0)
-                    }
-                },
-            )
-            subMenu(
-                "edit",
-                "Edit",
-                children = buildMenuNodes {
-                    item("find", "Find", shortcut = "Ctrl+F") {
-                        navigator.open(AppDestination.Search)
-                    }
-                },
-            )
-            subMenu(
-                "agent",
-                "Agent",
-                children = buildMenuNodes {
-                    item("external_agent", "External Agent…") {
-                        navigator.open(AppDestination.ExternalAgent)
-                    }
-                },
-            )
-            subMenu("view", "View", children = viewItems)
-            subMenu(
-                "help",
-                "Help",
-                children = buildMenuNodes {
-                    item("about", "About Singularity Todo") {
-                        showAbout = true
-                    }
-                    item("github", "Open GitHub…") {
-                        openGitHub()
-                    }
-                },
-            )
-        }
-    }
 
     // #445 blank-screen diagnostic — TEMPORARY: to be replaced with proper CI alerting.
     // Wraps NavDisplay so the composable call-chain includes toDecoratedEntries (a @Composable).
@@ -198,9 +208,10 @@ fun DesktopShellNav3Root(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .testTag(TestTags.DESKTOP_DRAWER),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .testTag(TestTags.DESKTOP_DRAWER),
             ) {
                 // Five tabs + a divider + eight menu entries is a fixed column that is
                 // taller than a 1024x768 window, so without a scroll the trailing entries —
@@ -259,9 +270,10 @@ fun DesktopShellNav3Root(
                                     contentDescription = entry.label,
                                 )
                             },
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp)
-                                .testTag(entry.id),
+                            modifier =
+                                Modifier
+                                    .padding(horizontal = 12.dp)
+                                    .testTag(entry.id),
                         )
                     }
 
@@ -280,9 +292,10 @@ fun DesktopShellNav3Root(
                                     contentDescription = entry.label,
                                 )
                             },
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp)
-                                .testTag(entry.id),
+                            modifier =
+                                Modifier
+                                    .padding(horizontal = 12.dp)
+                                    .testTag(entry.id),
                         )
                     }
 
@@ -320,10 +333,11 @@ fun DesktopShellNav3Root(
         },
         content = {
             Scaffold(
-                modifier = Modifier.onPreviewKeyEvent { event ->
-                    // shortcut: hotkey dispatch has no automated test yet; covered by manual smoke.
-                    handleDesktopShortcut(event, navigator)
-                },
+                modifier =
+                    Modifier.onPreviewKeyEvent { event ->
+                        // shortcut: hotkey dispatch has no automated test yet; covered by manual smoke.
+                        handleDesktopShortcut(event, navigator)
+                    },
                 floatingActionButton = {
                     // One `today` for the shell, as on Android (#91): the prefill and
                     // the tab it was tapped from must not disagree across a midnight.
@@ -375,7 +389,8 @@ private fun AboutDialog(onDismiss: () -> Unit) {
 
 private fun openGitHub() {
     try {
-        java.awt.Desktop.getDesktop()
+        java.awt.Desktop
+            .getDesktop()
             .browse(URI("https://github.com/singularity-todo"))
     } catch (_: Throwable) {
         // Desktop browsing not supported on this platform (including HeadlessException
@@ -383,7 +398,10 @@ private fun openGitHub() {
     }
 }
 
-internal fun handleDesktopShortcut(event: KeyEvent, navigator: Navigator): Boolean {
+internal fun handleDesktopShortcut(
+    event: KeyEvent,
+    navigator: Navigator,
+): Boolean {
     if (event.type != KeyEventType.KeyDown || !event.isCtrlPressed) return false
     return when (event.key) {
         Key.N -> {
@@ -406,6 +424,8 @@ internal fun handleDesktopShortcut(event: KeyEvent, navigator: Navigator): Boole
             true
         }
 
-        else -> false
+        else -> {
+            false
+        }
     }
 }

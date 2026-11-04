@@ -37,7 +37,8 @@ class TaskLogbookCollector(
 
     init {
         scope.launch {
-            taskFlow.filterNotNull()
+            taskFlow
+                .filterNotNull()
                 .flatMapLatest { task ->
                     combine(
                         notesRepo.watchForTask(task.id),
@@ -52,13 +53,13 @@ class TaskLogbookCollector(
                             }
                         }
                     }
-                }
-                .collect { mergedEntries ->
-                    _state.value = if (mergedEntries.isEmpty()) {
-                        TaskLogbookState.Empty
-                    } else {
-                        TaskLogbookState.Loaded(mergedEntries)
-                    }
+                }.collect { mergedEntries ->
+                    _state.value =
+                        if (mergedEntries.isEmpty()) {
+                            TaskLogbookState.Empty
+                        } else {
+                            TaskLogbookState.Loaded(mergedEntries)
+                        }
                 }
         }
     }

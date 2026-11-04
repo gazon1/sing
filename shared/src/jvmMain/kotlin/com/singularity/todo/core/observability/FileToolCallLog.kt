@@ -32,7 +32,6 @@ class JvmFileToolCallLog(
     private val processToken: String = ProcessHandle.current().pid().toString(),
     private val nowEpochMillis: () -> Long = { System.currentTimeMillis() },
 ) : ToolCallLog {
-
     private val dir = File(directory)
 
     override fun record(event: ToolCallEvent) {
@@ -61,9 +60,11 @@ class JvmFileToolCallLog(
     }
 
     private fun fileFor(epochMillis: Long): File {
-        val day = Instant.fromEpochMilliseconds(epochMillis)
-            .toLocalDateTime(TimeZone.currentSystemDefault())
-            .date
+        val day =
+            Instant
+                .fromEpochMilliseconds(epochMillis)
+                .toLocalDateTime(TimeZone.currentSystemDefault())
+                .date
         return File(dir, "$day-$processToken$SUFFIX")
     }
 

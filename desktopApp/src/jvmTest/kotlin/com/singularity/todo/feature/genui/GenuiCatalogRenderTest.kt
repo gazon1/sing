@@ -35,24 +35,25 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:compose")
 class GenuiCatalogRenderTest {
-
     @Test
-    fun aTaskListDrawsItsTaskCards() = runGenuiRenderTest(TASK_LIST) {
-        // Tagged by the title each card resolved, so this asserts both cards drew *and* that each
-        // one drew the right task.
-        nodeTagged(cardTag("Buy_groceries")).assertExists()
-        nodeTagged(cardTag("Send_the_invoice")).assertExists()
-    }
+    fun aTaskListDrawsItsTaskCards() =
+        runGenuiRenderTest(TASK_LIST) {
+            // Tagged by the title each card resolved, so this asserts both cards drew *and* that each
+            // one drew the right task.
+            nodeTagged(cardTag("Buy_groceries")).assertExists()
+            nodeTagged(cardTag("Send_the_invoice")).assertExists()
+        }
 
     /**
      * The title arrives after the components that bind it — the ordering a streaming response has —
      * so this also asserts the templates resolved against a data model that was empty at parse time.
      */
     @Test
-    fun theTitleTheDataModelCarriesIsTheTitleOnScreen() = runGenuiRenderTest(TASK_LIST) {
-        assertEquals(JsonPrimitive("Buy groceries"), valueAt("/t/0/title"))
-        nodeTagged(cardTag("Buy_groceries")).assertExists("The card is tagged by the title it resolved")
-    }
+    fun theTitleTheDataModelCarriesIsTheTitleOnScreen() =
+        runGenuiRenderTest(TASK_LIST) {
+            assertEquals(JsonPrimitive("Buy groceries"), valueAt("/t/0/title"))
+            nodeTagged(cardTag("Buy_groceries")).assertExists("The card is tagged by the title it resolved")
+        }
 
     /**
      * A press reaches the screen as the named action.
@@ -62,14 +63,15 @@ class GenuiCatalogRenderTest {
      * action identifiable, which is the only reason a surface's control carries one.
      */
     @Test
-    fun pressingATaskCardReportsTheActionItWasBoundTo() = runGenuiRenderTest(TASK_LIST) {
-        nodeTagged(cardTag("Buy_groceries")).performClick()
+    fun pressingATaskCardReportsTheActionItWasBoundTo() =
+        runGenuiRenderTest(TASK_LIST) {
+            nodeTagged(cardTag("Buy_groceries")).performClick()
 
-        assertEquals(1, presses.size, "The press reached the layer: $presses")
-        val press: GenuiPress = presses.first()
-        assertEquals("open_task", press.name, "Named by the model, not invented by the client")
-        assertEquals(SURFACE_ID, press.surfaceId)
-    }
+            assertEquals(1, presses.size, "The press reached the layer: $presses")
+            val press: GenuiPress = presses.first()
+            assertEquals("open_task", press.name, "Named by the model, not invented by the client")
+            assertEquals(SURFACE_ID, press.surfaceId)
+        }
 
     /**
      * Editing a field writes the data model *and* says so.
@@ -79,28 +81,30 @@ class GenuiCatalogRenderTest {
      * writes is invisible to the user; one that only notifies is a lie.
      */
     @Test
-    fun typingInAFieldWritesTheDataModelAndAnnouncesIt() = runGenuiRenderTest(ADD_TASK_FORM) {
-        node("textfield_What_needs_doing?").performTextClearance()
-        node("textfield_What_needs_doing?").performTextInput("Ship it")
-        // The field writes to the model through a coroutine, so the write lands a beat
-        // after the keystroke. Let it land before asking what the model holds.
-        settle()
+    fun typingInAFieldWritesTheDataModelAndAnnouncesIt() =
+        runGenuiRenderTest(ADD_TASK_FORM) {
+            node("textfield_What_needs_doing?").performTextClearance()
+            node("textfield_What_needs_doing?").performTextInput("Ship it")
+            // The field writes to the model through a coroutine, so the write lands a beat
+            // after the keystroke. Let it land before asking what the model holds.
+            settle()
 
-        assertEquals(JsonPrimitive("Ship it"), valueAt("/draft/title"), "The model holds what was typed")
-        // Clearing and typing are two edits, so two announcements — what matters is that each one
-        // arrived at the path the field is bound to, not that there was a single one.
-        assertTrue(writes.isNotEmpty(), "The screen is told: $writes")
-        assertTrue(
-            writes.all { it.path == UiPath.parse("/draft/title") },
-            "Every announcement names the bound path: $writes",
-        )
-    }
+            assertEquals(JsonPrimitive("Ship it"), valueAt("/draft/title"), "The model holds what was typed")
+            // Clearing and typing are two edits, so two announcements — what matters is that each one
+            // arrived at the path the field is bound to, not that there was a single one.
+            assertTrue(writes.isNotEmpty(), "The screen is told: $writes")
+            assertTrue(
+                writes.all { it.path == UiPath.parse("/draft/title") },
+                "Every announcement names the bound path: $writes",
+            )
+        }
 
     /** A field shows what an earlier message wrote, rather than falling back to its own initial. */
     @Test
-    fun aFieldShowsTheValueAnEarlierMessageSent() = runGenuiRenderTest(ADD_TASK_FORM) {
-        node("textfield_What_needs_doing?").assertTextContains("Water the plants")
-    }
+    fun aFieldShowsTheValueAnEarlierMessageSent() =
+        runGenuiRenderTest(ADD_TASK_FORM) {
+            node("textfield_What_needs_doing?").assertTextContains("Water the plants")
+        }
 
     /**
      * A server rewrite wins over the field's own text — even when the value is one the field sent.
@@ -114,20 +118,21 @@ class GenuiCatalogRenderTest {
      * kinds being two types.
      */
     @Test
-    fun aServerRewriteReplacesAValueTheFieldHadSent() = runGenuiRenderTest(ADD_TASK_FORM) {
-        node("textfield_What_needs_doing?").performTextClearance()
-        node("textfield_What_needs_doing?").performTextInput("seedx")
-        settle()
-        node("textfield_What_needs_doing?").performTextInput("y")
-        settle()
-        assertFieldText("textfield_What_needs_doing?", "seedxy")
+    fun aServerRewriteReplacesAValueTheFieldHadSent() =
+        runGenuiRenderTest(ADD_TASK_FORM) {
+            node("textfield_What_needs_doing?").performTextClearance()
+            node("textfield_What_needs_doing?").performTextInput("seedx")
+            settle()
+            node("textfield_What_needs_doing?").performTextInput("y")
+            settle()
+            assertFieldText("textfield_What_needs_doing?", "seedxy")
 
-        // The server rewrites the field to a value the field itself sent.
-        serverWrites("/draft/title", "seedx")
-        settle()
+            // The server rewrites the field to a value the field itself sent.
+            serverWrites("/draft/title", "seedx")
+            settle()
 
-        assertFieldText("textfield_What_needs_doing?", "seedx")
-    }
+            assertFieldText("textfield_What_needs_doing?", "seedx")
+        }
 
     /**
      * A surface draws before its data arrives.
@@ -137,10 +142,11 @@ class GenuiCatalogRenderTest {
      * observing it would show nothing at all.
      */
     @Test
-    fun aSurfaceDrawsBeforeItsDataArrives() = runGenuiRenderTest(listOf(TASK_LIST.first())) {
-        nodes("task_card").assertCountEquals(2)
-        assertTrue(presses.isEmpty(), "Nothing was pressed")
-    }
+    fun aSurfaceDrawsBeforeItsDataArrives() =
+        runGenuiRenderTest(listOf(TASK_LIST.first())) {
+            nodes("task_card").assertCountEquals(2)
+            assertTrue(presses.isEmpty(), "Nothing was pressed")
+        }
 
     /**
      * A form round trip: type into fields, press submit, and the payload carries what was typed.
@@ -152,53 +158,57 @@ class GenuiCatalogRenderTest {
      * catalog.
      */
     @Test
-    fun aSubmitCarriesWhatTheUserTyped() = runGenuiRenderTest(SUBMITTABLE_FORM) {
-        node("textfield_Title").performTextClearance()
-        node("textfield_Title").performTextInput("Ship it")
-        node("textfield_When").performTextClearance()
-        node("textfield_When").performTextInput("tomorrow")
-        settle()
-        node("btn_Add").performClick()
+    fun aSubmitCarriesWhatTheUserTyped() =
+        runGenuiRenderTest(SUBMITTABLE_FORM) {
+            node("textfield_Title").performTextClearance()
+            node("textfield_Title").performTextInput("Ship it")
+            node("textfield_When").performTextClearance()
+            node("textfield_When").performTextInput("tomorrow")
+            settle()
+            node("btn_Add").performClick()
 
-        assertEquals(1, presses.size, "One press: $presses")
-        val press: GenuiPress = presses.first()
-        assertEquals("create_task", press.name)
-        val payload: JsonObject = press.data ?: error("The payload is what the form exists to send")
-        assertEquals(JsonPrimitive("Ship it"), payload["title"])
-        assertEquals(JsonPrimitive("tomorrow"), payload["when"])
-    }
+            assertEquals(1, presses.size, "One press: $presses")
+            val press: GenuiPress = presses.first()
+            assertEquals("create_task", press.name)
+            val payload: JsonObject = press.data ?: error("The payload is what the form exists to send")
+            assertEquals(JsonPrimitive("Ship it"), payload["title"])
+            assertEquals(JsonPrimitive("tomorrow"), payload["when"])
+        }
 
     /** A literal payload with no templates in it is passed through unchanged. */
     @Test
-    fun aPayloadWithoutTemplatesIsUntouched() = runGenuiRenderTest(SUBMITTABLE_FORM) {
-        node("btn_Fixed").performClick()
+    fun aPayloadWithoutTemplatesIsUntouched() =
+        runGenuiRenderTest(SUBMITTABLE_FORM) {
+            node("btn_Fixed").performClick()
 
-        assertEquals(JsonPrimitive("carried"), presses.single().data?.get("kind"))
-    }
+            assertEquals(JsonPrimitive("carried"), presses.single().data?.get("kind"))
+        }
 
     private companion object {
         /** The tag a task card carries for [title]; the renderer builds it from the title it drew. */
         fun cardTag(title: String): String = TestTags.genUi("task_card_$title")
 
         /** The corpus screen, unchanged. */
-        val TASK_LIST: List<String> = listOf(
-            """{"createSurface":{"surfaceId":"s1","rootId":"root","components":[""" +
-                """{"id":"root","kind":"column","children":["head","list"]},""" +
-                """{"id":"head","kind":"heading","text":"Today","level":2},""" +
-                """{"id":"list","kind":"list","children":["c1","c2"],"direction":"Vertical"},""" +
-                """{"id":"c1","kind":"task_card","title":"${'$'}{/t/0/title}","action":"open_task"},""" +
-                """{"id":"c2","kind":"task_card","title":"${'$'}{/t/1/title}"}]}}""",
-            """{"updateData":{"surfaceId":"s1","path":"/t/0/title","value":"Buy groceries"}}""",
-            """{"updateData":{"surfaceId":"s1","path":"/t/1/title","value":"Send the invoice"}}""",
-        )
+        val TASK_LIST: List<String> =
+            listOf(
+                """{"createSurface":{"surfaceId":"s1","rootId":"root","components":[""" +
+                    """{"id":"root","kind":"column","children":["head","list"]},""" +
+                    """{"id":"head","kind":"heading","text":"Today","level":2},""" +
+                    """{"id":"list","kind":"list","children":["c1","c2"],"direction":"Vertical"},""" +
+                    """{"id":"c1","kind":"task_card","title":"${'$'}{/t/0/title}","action":"open_task"},""" +
+                    """{"id":"c2","kind":"task_card","title":"${'$'}{/t/1/title}"}]}}""",
+                """{"updateData":{"surfaceId":"s1","path":"/t/0/title","value":"Buy groceries"}}""",
+                """{"updateData":{"surfaceId":"s1","path":"/t/1/title","value":"Send the invoice"}}""",
+            )
 
-        val ADD_TASK_FORM: List<String> = listOf(
-            """{"createSurface":{"surfaceId":"form","rootId":"root","components":[""" +
-                """{"id":"root","kind":"column","children":["title","submit"]},""" +
-                """{"id":"title","kind":"text_field","label":"What needs doing?","path":"/draft/title"},""" +
-                """{"id":"submit","kind":"button","label":"Add","action":"create_task"}]}}""",
-            """{"updateData":{"surfaceId":"form","path":"/draft/title","value":"Water the plants"}}""",
-        )
+        val ADD_TASK_FORM: List<String> =
+            listOf(
+                """{"createSurface":{"surfaceId":"form","rootId":"root","components":[""" +
+                    """{"id":"root","kind":"column","children":["title","submit"]},""" +
+                    """{"id":"title","kind":"text_field","label":"What needs doing?","path":"/draft/title"},""" +
+                    """{"id":"submit","kind":"button","label":"Add","action":"create_task"}]}}""",
+                """{"updateData":{"surfaceId":"form","path":"/draft/title","value":"Water the plants"}}""",
+            )
 
         /**
          * A form a user can actually fill in and submit.
@@ -208,16 +218,17 @@ class GenuiCatalogRenderTest {
          * screen never had to know what a form is — it draws two fields and two buttons, and the
          * wiring is entirely in the model's messages.
          */
-        val SUBMITTABLE_FORM: List<String> = listOf(
-            """{"createSurface":{"surfaceId":"form","rootId":"root","components":[""" +
-                """{"id":"root","kind":"column","children":["t","w","add","fixed"]},""" +
-                """{"id":"t","kind":"text_field","label":"Title","path":"/draft/title"},""" +
-                """{"id":"w","kind":"text_field","label":"When","path":"/draft/when"},""" +
-                """{"id":"add","kind":"button","label":"Add","action":"create_task",""" +
-                """"data":{"title":"${'$'}{/draft/title}","when":"${'$'}{/draft/when}"}},""" +
-                """{"id":"fixed","kind":"button","label":"Fixed","action":"noop",""" +
-                """"data":{"kind":"carried"}}]}}""",
-        )
+        val SUBMITTABLE_FORM: List<String> =
+            listOf(
+                """{"createSurface":{"surfaceId":"form","rootId":"root","components":[""" +
+                    """{"id":"root","kind":"column","children":["t","w","add","fixed"]},""" +
+                    """{"id":"t","kind":"text_field","label":"Title","path":"/draft/title"},""" +
+                    """{"id":"w","kind":"text_field","label":"When","path":"/draft/when"},""" +
+                    """{"id":"add","kind":"button","label":"Add","action":"create_task",""" +
+                    """"data":{"title":"${'$'}{/draft/title}","when":"${'$'}{/draft/when}"}},""" +
+                    """{"id":"fixed","kind":"button","label":"Fixed","action":"noop",""" +
+                    """"data":{"kind":"carried"}}]}}""",
+            )
 
         val SURFACE_ID: SurfaceId = GenuiSurfaceId
     }

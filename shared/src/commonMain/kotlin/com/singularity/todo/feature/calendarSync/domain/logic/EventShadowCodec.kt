@@ -31,7 +31,6 @@ import kotlin.time.Instant
  * distinguishable on the way back in.
  */
 object EventShadowCodec {
-
     private const val KEY_TITLE = "title"
     private const val KEY_DESCRIPTION = "description"
     private const val KEY_STARTS_AT = "startsAt"
@@ -41,15 +40,16 @@ object EventShadowCodec {
     private const val KEY_RECURRENCE = "recurrenceRule"
 
     /** Encodes [shadow] for storage. [decodeOrEmpty] of the result equals the input. */
-    fun encode(shadow: EventShadow): String = buildJsonObject {
-        put(KEY_TITLE, shadow.title.toJsonElement())
-        put(KEY_DESCRIPTION, shadow.description.toJsonElement())
-        put(KEY_STARTS_AT, shadow.startsAt?.toEpochMilliseconds().toJsonElement())
-        put(KEY_ENDS_AT, shadow.endsAt?.toEpochMilliseconds().toJsonElement())
-        put(KEY_ALL_DAY, shadow.allDay.toJsonElement())
-        put(KEY_LOCATION, shadow.location.toJsonElement())
-        put(KEY_RECURRENCE, shadow.recurrenceRule.toJsonElement())
-    }.toString()
+    fun encode(shadow: EventShadow): String =
+        buildJsonObject {
+            put(KEY_TITLE, shadow.title.toJsonElement())
+            put(KEY_DESCRIPTION, shadow.description.toJsonElement())
+            put(KEY_STARTS_AT, shadow.startsAt?.toEpochMilliseconds().toJsonElement())
+            put(KEY_ENDS_AT, shadow.endsAt?.toEpochMilliseconds().toJsonElement())
+            put(KEY_ALL_DAY, shadow.allDay.toJsonElement())
+            put(KEY_LOCATION, shadow.location.toJsonElement())
+            put(KEY_RECURRENCE, shadow.recurrenceRule.toJsonElement())
+        }.toString()
 
     /**
      * Decodes a stored shadow, or returns [EventShadow.emptyShadow] when it cannot be read.
@@ -61,8 +61,9 @@ object EventShadowCodec {
      */
     fun decodeOrEmpty(json: String?): EventShadow {
         if (json.isNullOrBlank()) return EventShadow.emptyShadow()
-        val obj = runCatching { StableJson.parseToJsonElement(json).jsonObject }.getOrNull()
-            ?: return EventShadow.emptyShadow()
+        val obj =
+            runCatching { StableJson.parseToJsonElement(json).jsonObject }.getOrNull()
+                ?: return EventShadow.emptyShadow()
         return EventShadow(
             title = obj.readString(KEY_TITLE),
             description = obj.readString(KEY_DESCRIPTION),
@@ -77,14 +78,11 @@ object EventShadowCodec {
     /** The shadow to store after writing [event] to the provider. */
     fun shadowOf(event: GoogleEvent): EventShadow = event.toShadow()
 
-    private fun String?.toJsonElement(): JsonPrimitive =
-        this?.let(::JsonPrimitive) ?: JsonNull
+    private fun String?.toJsonElement(): JsonPrimitive = this?.let(::JsonPrimitive) ?: JsonNull
 
-    private fun Long?.toJsonElement(): JsonPrimitive =
-        this?.let(::JsonPrimitive) ?: JsonNull
+    private fun Long?.toJsonElement(): JsonPrimitive = this?.let(::JsonPrimitive) ?: JsonNull
 
-    private fun Boolean?.toJsonElement(): JsonPrimitive =
-        this?.let(::JsonPrimitive) ?: JsonNull
+    private fun Boolean?.toJsonElement(): JsonPrimitive = this?.let(::JsonPrimitive) ?: JsonNull
 
     private fun JsonObject.primitiveOrNull(key: String): JsonPrimitive? =
         (this[key] as? JsonPrimitive)?.takeUnless { it is JsonNull }

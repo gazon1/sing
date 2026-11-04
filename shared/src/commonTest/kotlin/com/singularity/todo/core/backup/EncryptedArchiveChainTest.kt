@@ -28,7 +28,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class EncryptedArchiveChainTest {
-
     private val crypto = FakeArchiveCrypto()
     private val archive = EncryptedArchive(crypto)
     private val password = "correct horse".toCharArray()
@@ -83,9 +82,10 @@ class EncryptedArchiveChainTest {
             password = password,
         )
 
-        val error = assertFailsWith<ArchiveEnvelopeError.BrokenChain> {
-            archive.open(sealed.bytes(), password)
-        }
+        val error =
+            assertFailsWith<ArchiveEnvelopeError.BrokenChain> {
+                archive.open(sealed.bytes(), password)
+            }
         assertTrue(
             error.message?.contains("cannot apply") == true,
             "the message must say what the call could not do: ${error.message}",
@@ -112,9 +112,10 @@ class EncryptedArchiveChainTest {
 
         val truncated = sealed.bytes().copyOfRange(0, ArchiveFormat.HEADER_BYTES_V2)
 
-        val error = assertFailsWith<ArchiveEnvelopeError.BrokenChain> {
-            archive.openChain(ByteArraySource(truncated), ByteArraySink(), password) { _, _ -> }
-        }
+        val error =
+            assertFailsWith<ArchiveEnvelopeError.BrokenChain> {
+                archive.openChain(ByteArraySource(truncated), ByteArraySink(), password) { _, _ -> }
+            }
         assertTrue(
             error.message?.contains("ends before") == true,
             "the message must say the chain ends early: ${error.message}",
@@ -142,11 +143,12 @@ class EncryptedArchiveChainTest {
 
         // The head sits right after the prefix: count (4) then total length (8).
         val entriesLength = whole.longAfter(ArchiveFormat.PREFIX_BYTES + 4)
-        val withoutChanges = whole.copyOfRange(0, ArchiveFormat.HEADER_BYTES_V2) +
-            whole.copyOfRange(
-                (ArchiveFormat.HEADER_BYTES_V2 + entriesLength).toInt(),
-                whole.size,
-            )
+        val withoutChanges =
+            whole.copyOfRange(0, ArchiveFormat.HEADER_BYTES_V2) +
+                whole.copyOfRange(
+                    (ArchiveFormat.HEADER_BYTES_V2 + entriesLength).toInt(),
+                    whole.size,
+                )
 
         assertFailsWith<ArchiveEnvelopeError.BrokenChain> {
             archive.openChain(ByteArraySource(withoutChanges), ByteArraySink(), password) { _, _ -> }
@@ -183,14 +185,16 @@ class EncryptedArchiveChainTest {
     /** A version this build does not read is refused, and the message says which. */
     @Test
     fun `an unknown version is refused by name`() {
-        val container = ArchiveFormat.MAGIC.encodeToByteArray() +
-            byteArrayOf(99) +
-            ByteArray(ArchiveFormat.SALT_BYTES) +
-            ByteArray(ArchiveFormat.NONCE_BYTES)
+        val container =
+            ArchiveFormat.MAGIC.encodeToByteArray() +
+                byteArrayOf(99) +
+                ByteArray(ArchiveFormat.SALT_BYTES) +
+                ByteArray(ArchiveFormat.NONCE_BYTES)
 
-        val error = assertFailsWith<ArchiveEnvelopeError.UnsupportedArchiveVersion> {
-            archive.open(container, password)
-        }
+        val error =
+            assertFailsWith<ArchiveEnvelopeError.UnsupportedArchiveVersion> {
+                archive.open(container, password)
+            }
         assertEquals(99, error.version, "the message must name the version the archive has")
         assertTrue(ArchiveFormat.LATEST_VERSION in error.readableVersions, "and the one this build writes")
     }
@@ -207,16 +211,18 @@ class EncryptedArchiveChainTest {
      */
     @Test
     fun `a head that promises too many changes is refused before the password is proven`() {
-        val container = ArchiveFormat.MAGIC.encodeToByteArray() +
-            byteArrayOf(ArchiveFormat.CHAIN_VERSION.toByte()) +
-            ByteArray(ArchiveFormat.SALT_BYTES) +
-            ByteArray(ArchiveFormat.NONCE_BYTES) +
-            intBytes(Int.MAX_VALUE) +
-            longBytes(0L)
+        val container =
+            ArchiveFormat.MAGIC.encodeToByteArray() +
+                byteArrayOf(ArchiveFormat.CHAIN_VERSION.toByte()) +
+                ByteArray(ArchiveFormat.SALT_BYTES) +
+                ByteArray(ArchiveFormat.NONCE_BYTES) +
+                intBytes(Int.MAX_VALUE) +
+                longBytes(0L)
 
-        val error = assertFailsWith<ArchiveEnvelopeError.ChainTooLong> {
-            archive.openChain(ByteArraySource(container), ByteArraySink(), password) { _, _ -> }
-        }
+        val error =
+            assertFailsWith<ArchiveEnvelopeError.ChainTooLong> {
+                archive.openChain(ByteArraySource(container), ByteArraySink(), password) { _, _ -> }
+            }
         assertTrue(
             error.message?.contains("promises") == true,
             "the message must say what the head promised: ${error.message}",
@@ -225,12 +231,10 @@ class EncryptedArchiveChainTest {
 }
 
 /** The big-endian int at the head of a container. */
-private fun intBytes(value: Int): ByteArray =
-    ByteArray(4) { index -> (value ushr (8 * (3 - index))).toByte() }
+private fun intBytes(value: Int): ByteArray = ByteArray(4) { index -> (value ushr (8 * (3 - index))).toByte() }
 
 /** The big-endian long at the head of a container. */
-private fun longBytes(value: Long): ByteArray =
-    ByteArray(8) { index -> (value ushr (8 * (7 - index))).toByte() }
+private fun longBytes(value: Long): ByteArray = ByteArray(8) { index -> (value ushr (8 * (7 - index))).toByte() }
 
 /** The big-endian long at [offset] — the head's `entriesLength` is written that way. */
 private fun ByteArray.longAfter(offset: Int): Long {

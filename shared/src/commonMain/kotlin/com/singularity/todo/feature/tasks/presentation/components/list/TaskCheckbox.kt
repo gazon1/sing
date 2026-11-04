@@ -42,8 +42,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.core.ui.touchTarget
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
@@ -86,10 +86,11 @@ fun TaskCheckbox(
         popScale.snapTo(0.85f)
         popScale.animateTo(
             targetValue = 1f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessMedium,
-            ),
+            animationSpec =
+                spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
         )
     }
 
@@ -107,44 +108,46 @@ fun TaskCheckbox(
     )
 
     Box(
-        modifier = modifier
-            .touchTarget(TaskListSizes.MinTouchTarget)
-            .size(TaskListSizes.Checkbox)
-            .scale(popScale.value * pressScale)
-            // toggleable, not clickable: clickable alone leaves the node without a
-            // ToggleableState, so assistive tech (and UI automation) cannot read whether
-            // the box is actually checked — only the stateDescription string. The press
-            // animation and null indication are preserved from the previous clickable.
-            .toggleable(
-                value = isChecked,
-                interactionSource = interactionSource,
-                indication = null,
-                role = Role.Checkbox,
-                onValueChange = onCheckedChange,
-            )
-            .semantics {
-                role = Role.Checkbox
-                stateDescription = if (isChecked) "Выполнено" else "Не выполнено"
-            },
+        modifier =
+            modifier
+                .touchTarget(TaskListSizes.MinTouchTarget)
+                .size(TaskListSizes.Checkbox)
+                .scale(popScale.value * pressScale)
+                // toggleable, not clickable: clickable alone leaves the node without a
+                // ToggleableState, so assistive tech (and UI automation) cannot read whether
+                // the box is actually checked — only the stateDescription string. The press
+                // animation and null indication are preserved from the previous clickable.
+                .toggleable(
+                    value = isChecked,
+                    interactionSource = interactionSource,
+                    indication = null,
+                    role = Role.Checkbox,
+                    onValueChange = onCheckedChange,
+                ).semantics {
+                    role = Role.Checkbox
+                    stateDescription = if (isChecked) "Выполнено" else "Не выполнено"
+                },
         contentAlignment = Alignment.Center,
     ) {
         // Обводка — всегда видна, интерполируем цвет от серой к акцентной
         Box(
-            modifier = Modifier
-                .size(TaskListSizes.Checkbox)
-                .border(
-                    width = 1.8.dp,
-                    color = lerpColor(mutedTextColor(), accentColor, fillProgress),
-                    shape = CircleShape,
-                ),
+            modifier =
+                Modifier
+                    .size(TaskListSizes.Checkbox)
+                    .border(
+                        width = 1.8.dp,
+                        color = lerpColor(mutedTextColor(), accentColor, fillProgress),
+                        shape = CircleShape,
+                    ),
         )
 
         // Заливка — растёт от центра, создавая эффект "заполнения"
         Box(
-            modifier = Modifier
-                .size(TaskListSizes.Checkbox)
-                .scale(fillProgress)
-                .background(accentColor, CircleShape),
+            modifier =
+                Modifier
+                    .size(TaskListSizes.Checkbox)
+                    .scale(fillProgress)
+                    .background(accentColor, CircleShape),
         )
 
         AnimatedVisibility(
@@ -163,12 +166,17 @@ fun TaskCheckbox(
 }
 
 /** Линейная интерполяция цвета — Compose не имеет её в public API до 1.7. */
-private fun lerpColor(start: Color, end: Color, fraction: Float): Color = Color(
-    red = start.red + (end.red - start.red) * fraction,
-    green = start.green + (end.green - start.green) * fraction,
-    blue = start.blue + (end.blue - start.blue) * fraction,
-    alpha = start.alpha + (end.alpha - start.alpha) * fraction,
-)
+private fun lerpColor(
+    start: Color,
+    end: Color,
+    fraction: Float,
+): Color =
+    Color(
+        red = start.red + (end.red - start.red) * fraction,
+        green = start.green + (end.green - start.green) * fraction,
+        blue = start.blue + (end.blue - start.blue) * fraction,
+        alpha = start.alpha + (end.alpha - start.alpha) * fraction,
+    )
 
 @Preview(showBackground = true)
 @Composable

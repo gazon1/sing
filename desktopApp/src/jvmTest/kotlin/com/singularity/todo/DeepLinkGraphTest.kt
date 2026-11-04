@@ -27,21 +27,21 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class DeepLinkGraphTest {
-
     @Test
     fun `the registry resolves a link from the domain graph`() {
-        val app = koinApplication {
-            // KOIN-W003 here is an accepted, documented tradeoff — the same one
-            // `DomainGraphResolutionTest` takes: the module set is computed at
-            // runtime, so the compile-time graph check cannot see it. This test
-            // is the runtime validation that replaces it.
-            @Suppress("KoinCompilationForInternal")
-            modules(
-                listOf(coreLoggingModule()) +
-                    domainModule() +
-                    listOf(testPlatformModule()),
-            )
-        }
+        val app =
+            koinApplication {
+                // KOIN-W003 here is an accepted, documented tradeoff — the same one
+                // `DomainGraphResolutionTest` takes: the module set is computed at
+                // runtime, so the compile-time graph check cannot see it. This test
+                // is the runtime validation that replaces it.
+                @Suppress("KoinCompilationForInternal")
+                modules(
+                    listOf(coreLoggingModule()) +
+                        domainModule() +
+                        listOf(testPlatformModule()),
+                )
+            }
         try {
             val registry = app.koin.get<DeepLinkRegistry>()
 

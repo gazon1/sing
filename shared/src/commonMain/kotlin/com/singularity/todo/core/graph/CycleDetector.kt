@@ -72,13 +72,16 @@ sealed class CycleError : Exception() {
  * @see CycleError for the two failure cases.
  */
 object CycleDetector {
-
     /**
      * Detects whether adding the directed edge `node → newParent` would create a cycle.
      *
      * @return [Result.success] if the edge is safe; [Result.failure] with [CycleError] otherwise.
      */
-    fun detect(node: String, newParent: String, edges: (String) -> Iterable<String>): Result<Unit> {
+    fun detect(
+        node: String,
+        newParent: String,
+        edges: (String) -> Iterable<String>,
+    ): Result<Unit> {
         if (node == newParent) {
             return Result.failure(CycleError.SelfLoop(node))
         }

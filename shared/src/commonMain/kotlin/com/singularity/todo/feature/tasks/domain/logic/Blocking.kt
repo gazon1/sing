@@ -48,7 +48,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  * @see com.singularity.todo.feature.tasks.domain.model.Task.blockedBy
  */
 object Blocking {
-
     /**
      * The prerequisites that are still standing in the way of [task].
      *
@@ -56,7 +55,10 @@ object Blocking {
      * @param allTasks every task of the current user — the list the prerequisites
      *   are resolved against. A prerequisite missing from it is not a blocker.
      */
-    fun activeBlockers(task: Task, allTasks: List<Task>): List<Task> {
+    fun activeBlockers(
+        task: Task,
+        allTasks: List<Task>,
+    ): List<Task> {
         if (task.blockedBy.isEmpty()) return emptyList()
         val byId = allTasks.associateBy { it.id }
         return task.blockedBy
@@ -81,9 +83,10 @@ object Blocking {
         val blockers = mutableMapOf<TaskId, List<Task>>()
         allTasks.forEach { task ->
             if (task.blockedBy.isEmpty()) return@forEach
-            val active = task.blockedBy
-                .mapNotNull { byId[it] }
-                .filter { !it.isCompleted && !it.isTrashed }
+            val active =
+                task.blockedBy
+                    .mapNotNull { byId[it] }
+                    .filter { !it.isCompleted && !it.isTrashed }
             if (active.isNotEmpty()) {
                 blockers[task.id] = active
             }
@@ -97,8 +100,10 @@ object Blocking {
      * @param task the task to judge.
      * @param allTasks every task of the current user.
      */
-    fun isBlocked(task: Task, allTasks: List<Task>): Boolean =
-        Blocking.activeBlockers(task, allTasks).isNotEmpty()
+    fun isBlocked(
+        task: Task,
+        allTasks: List<Task>,
+    ): Boolean = Blocking.activeBlockers(task, allTasks).isNotEmpty()
 
     /**
      * The ids of every blocked task in [allTasks].
@@ -118,6 +123,5 @@ object Blocking {
      *
      * @param allTasks every task of the current user.
      */
-    fun blockedTaskIds(allTasks: List<Task>): Set<TaskId> =
-        Blocking.activeBlockersByTask(allTasks).keys
+    fun blockedTaskIds(allTasks: List<Task>): Set<TaskId> = Blocking.activeBlockersByTask(allTasks).keys
 }

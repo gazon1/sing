@@ -40,7 +40,6 @@ import java.io.RandomAccessFile
  * all, and the fingerprint is the difference between claiming that and knowing it.
  */
 internal object AdrUpgrade {
-
     /**
      * What an upgrade did, in the form the command surface prints it.
      *
@@ -62,7 +61,11 @@ internal object AdrUpgrade {
 
     private const val GRADLE_TASK = ":adr-cli:installDist"
 
-    fun run(root: File, force: Boolean, check: Boolean): Report {
+    fun run(
+        root: File,
+        force: Boolean,
+        check: Boolean,
+    ): Report {
         // Split in two so neither half exceeds the return-count limit: the
         // preflight answers "is there anything to do at all", and only a real
         // rebuild reaches the second. Merged, the function had seven exits, and
@@ -76,10 +79,15 @@ internal object AdrUpgrade {
     /** What the preflight concluded: report this, or go rebuild. */
     private sealed interface Decision {
         data class Stop(val report: Report) : Decision
+
         data class Go(val wasStale: Boolean) : Decision
     }
 
-    private fun preflight(root: File, force: Boolean, check: Boolean): Decision {
+    private fun preflight(
+        root: File,
+        force: Boolean,
+        check: Boolean,
+    ): Decision {
         val gradlew = File(root, "gradlew")
         if (!gradlew.exists()) {
             return Decision.Stop(
@@ -124,18 +132,22 @@ internal object AdrUpgrade {
         }
     }
 
-    private fun rebuild(root: File, wasStale: Boolean): Report {
+    private fun rebuild(
+        root: File,
+        wasStale: Boolean,
+    ): Report {
         val gradlew = File(root, "gradlew")
         val dist = distributionLauncher(root)
         val sha = AdrProvenance.gitSha
         val corpusBefore = corpusFingerprint(root)
         val startedAt = System.nanoTime()
 
-        val failure = try {
-            runLocked(root) { installDist(root, gradlew) }
-        } catch (e: CliFailure) {
-            e.message ?: GRADLE_TASK
-        }
+        val failure =
+            try {
+                runLocked(root) { installDist(root, gradlew) }
+            } catch (e: CliFailure) {
+                e.message ?: GRADLE_TASK
+            }
         if (failure.isNotBlank()) return failureReport(sha, wasStale, failure)
 
         val seconds = (System.nanoTime() - startedAt) / 1_000_000_000.0
@@ -171,8 +183,11 @@ internal object AdrUpgrade {
         )
     }
 
-    private fun failureReport(sha: String, wasStale: Boolean, message: String): Report =
-        Report("failed", wasStale, sha, 0.0, null, message, 1)
+    private fun failureReport(
+        sha: String,
+        wasStale: Boolean,
+        message: String,
+    ): Report = Report("failed", wasStale, sha, 0.0, null, message, 1)
 
     /**
      * Whether the built distribution predates something it is built from.
@@ -181,21 +196,26 @@ internal object AdrUpgrade {
      * explicitly rather than globbed: it is not a `.kt` file, and a glob that missed
      * it would let a changed dependency version pass as fresh.
      */
-    fun isStale(root: File, dist: File): Boolean {
+    fun isStale(
+        root: File,
+        dist: File,
+    ): Boolean {
         if (!dist.canExecute()) return true
         val stamp = dist.lastModified()
         if (stamp == 0L) return true
 
-        val newestSource = listOf("adr-cli/src", "adr-core/src", "core-base/src")
-            .map { File(root, it) }
-            .filter { it.isDirectory }
-            .flatMap { it.walkTopDown().filter { f -> f.isFile && f.name.endsWith(".kt") } }
-            .maxOfOrNull { it.lastModified() } ?: 0L
+        val newestSource =
+            listOf("adr-cli/src", "adr-core/src", "core-base/src")
+                .map { File(root, it) }
+                .filter { it.isDirectory }
+                .flatMap { it.walkTopDown().filter { f -> f.isFile && f.name.endsWith(".kt") } }
+                .maxOfOrNull { it.lastModified() } ?: 0L
 
-        val newestDeclared = listOf("adr-cli/build.gradle.kts", "gradle/libs.versions.toml")
-            .map { File(root, it) }
-            .filter { it.isFile }
-            .maxOfOrNull { it.lastModified() } ?: 0L
+        val newestDeclared =
+            listOf("adr-cli/build.gradle.kts", "gradle/libs.versions.toml")
+                .map { File(root, it) }
+                .filter { it.isFile }
+                .maxOfOrNull { it.lastModified() } ?: 0L
 
         return maxOf(newestSource, newestDeclared) > stamp
     }
@@ -203,11 +223,15 @@ internal object AdrUpgrade {
     private fun distributionLauncher(root: File): File =
         File(root, "adr-cli/build/install/singularity-adr/bin/singularity-adr")
 
-    private fun installDist(root: File, gradlew: File): String {
-        val process = ProcessBuilder(gradlew.absolutePath, "-p", root.absolutePath, GRADLE_TASK, "--quiet")
-            .directory(root)
-            .redirectErrorStream(true)
-            .start()
+    private fun installDist(
+        root: File,
+        gradlew: File,
+    ): String {
+        val process =
+            ProcessBuilder(gradlew.absolutePath, "-p", root.absolutePath, GRADLE_TASK, "--quiet")
+                .directory(root)
+                .redirectErrorStream(true)
+                .start()
         val output = process.inputStream.bufferedReader().readText()
         return if (process.waitFor() == 0) "" else output
     }
@@ -248,7 +272,10 @@ internal object AdrUpgrade {
      * upgrade in a *different* worktree takes a different lock and is never made to
      * wait.
      */
-    private fun <T> runLocked(root: File, block: () -> T): T {
+    private fun <T> runLocked(
+        root: File,
+        block: () -> T,
+    ): T {
         val lockFile = File(root, "adr-cli/build/.upgrade.lock")
         lockFile.parentFile?.mkdirs()
         RandomAccessFile(lockFile, "rw").use { raf ->

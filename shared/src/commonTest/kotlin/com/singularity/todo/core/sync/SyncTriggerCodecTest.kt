@@ -13,7 +13,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SyncTriggerCodecTest {
-
     private fun roundTrip(triggers: Set<SyncTrigger>): Set<SyncTrigger> =
         SyncTrigger.parseCsv(SyncTrigger.toCsv(triggers))
 

@@ -16,7 +16,6 @@ import kotlin.test.assertNull
 
 @Tag("fast")
 class DataModelTest {
-
     @Test
     fun getReturnsRootObjectForRootPath() {
         val model = DataModel()
@@ -50,12 +49,13 @@ class DataModelTest {
     }
 
     @Test
-    fun flowEmitsOnSet(): Unit = runTest {
-        val model = DataModel()
-        model.set(UiPath.of("name"), JsonPrimitive("Alice"))
-        val flow = model.flow(UiPath.of("name"))
-        assertEquals(JsonPrimitive("Alice"), flow.first())
-    }
+    fun flowEmitsOnSet(): Unit =
+        runTest {
+            val model = DataModel()
+            model.set(UiPath.of("name"), JsonPrimitive("Alice"))
+            val flow = model.flow(UiPath.of("name"))
+            assertEquals(JsonPrimitive("Alice"), flow.first())
+        }
 
     @Test
     fun snapshotReturnsCurrentState() {

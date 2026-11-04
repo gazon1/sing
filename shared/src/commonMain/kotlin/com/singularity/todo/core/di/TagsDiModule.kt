@@ -19,55 +19,56 @@ import org.koin.dsl.module
 /**
  * Tags feature DI: repositories, use cases, ViewModels.
  */
-fun tagsModule(): org.koin.core.module.Module = module {
-    // ─── Repository ─────────────────────────────────────────────────────
+fun tagsModule(): org.koin.core.module.Module =
+    module {
+        // ─── Repository ─────────────────────────────────────────────────────
 
-    single<TagsRepository> {
-        TagsRepositoryImpl(
-            tagDao = get(),
-            clock = get(),
-            currentUser = get(),
-            syncRepository = get(),
-            unitOfWork = get(),
+        single<TagsRepository> {
+            TagsRepositoryImpl(
+                tagDao = get(),
+                clock = get(),
+                currentUser = get(),
+                syncRepository = get(),
+                unitOfWork = get(),
+            )
+        }
+
+        // Named resolution: the repository takes three distinct DAOs, and the group
+        // delete writes through TagDao to release member tags. Positional get() would
+        // silently misbind if the constructor order ever changes.
+        single<TagGroupRepository> {
+            TagGroupRepositoryImpl(
+                tagGroupDao = get(),
+                inheritedTagGroupDao = get(),
+                projectDao = get(),
+                tagDao = get(),
+                clock = get(),
+                currentUser = get(),
+                syncRepository = get(),
+                unitOfWork = get(),
+            )
+        }
+
+        // ─── Use Cases ───────────────────────────────────── // ────────────────
+
+        factoryOf(
+            ::CreateTagUseCase,
         )
+        factoryOf(::UpdateTagUseCase)
+        factoryOf(::CreateTagGroupUseCase)
+        factoryOf(::DeleteTagGroupUseCase)
+        factoryOf(::EffectiveTagsResolver)
+
+        // ─── ViewModels ─────────────────────────────────────────────────────
+
+        viewModel {
+            TagsViewModel(
+                tagRepo = get(),
+                createTag = get(),
+                updateTag = get(),
+                currentUser = get(),
+                crashReporter = get(),
+            )
+        }
+        viewModelOf(::TagGroupsViewModel)
     }
-
-    // Named resolution: the repository takes three distinct DAOs, and the group
-    // delete writes through TagDao to release member tags. Positional get() would
-    // silently misbind if the constructor order ever changes.
-    single<TagGroupRepository> {
-        TagGroupRepositoryImpl(
-            tagGroupDao = get(),
-            inheritedTagGroupDao = get(),
-            projectDao = get(),
-            tagDao = get(),
-            clock = get(),
-            currentUser = get(),
-            syncRepository = get(),
-            unitOfWork = get(),
-        )
-    }
-
-    // ─── Use Cases ───────────────────────────────────── // ────────────────
-
-    factoryOf(
-        ::CreateTagUseCase,
-    )
-    factoryOf(::UpdateTagUseCase)
-    factoryOf(::CreateTagGroupUseCase)
-    factoryOf(::DeleteTagGroupUseCase)
-    factoryOf(::EffectiveTagsResolver)
-
-    // ─── ViewModels ─────────────────────────────────────────────────────
-
-    viewModel {
-        TagsViewModel(
-            tagRepo = get(),
-            createTag = get(),
-            updateTag = get(),
-            currentUser = get(),
-            crashReporter = get(),
-        )
-    }
-    viewModelOf(::TagGroupsViewModel)
-}

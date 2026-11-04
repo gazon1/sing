@@ -17,7 +17,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class AgendaTabRouteMappingTest {
-
     @Test
     fun `the Inbox tab opens the Inbox preset`() {
         assertEquals(AgendaPresets.Inbox, AgendaStartRoute.Inbox.toDefinition())

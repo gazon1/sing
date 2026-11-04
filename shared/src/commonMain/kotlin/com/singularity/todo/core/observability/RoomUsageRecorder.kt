@@ -25,43 +25,51 @@ import kotlin.time.Instant
  * in `todayInSystemZone()`.
  */
 class RoomUsageRecorder(private val llmUsageDao: LlmUsageDao, private val clock: Clock) {
-
     suspend fun record(event: ToolUsageEvent) {
-        val entity = LlmUsageEntity(
-            id = "${event.profileId}_${event.toolName}_${event.timestamp.epochSeconds}_${nextId()}",
-            profileId = event.profileId,
-            toolName = event.toolName,
-            modelId = event.modelId,
-            inputTokens = event.inputTokens,
-            outputTokens = event.outputTokens,
-            totalTokens = event.totalTokens,
-            costUsdMicros = event.costUsdMicros,
-            durationMs = event.durationMs,
-            createdAt = event.timestamp.toEpochMilliseconds(),
-            error = event.error,
-        )
+        val entity =
+            LlmUsageEntity(
+                id = "${event.profileId}_${event.toolName}_${event.timestamp.epochSeconds}_${nextId()}",
+                profileId = event.profileId,
+                toolName = event.toolName,
+                modelId = event.modelId,
+                inputTokens = event.inputTokens,
+                outputTokens = event.outputTokens,
+                totalTokens = event.totalTokens,
+                costUsdMicros = event.costUsdMicros,
+                durationMs = event.durationMs,
+                createdAt = event.timestamp.toEpochMilliseconds(),
+                error = event.error,
+            )
         llmUsageDao.upsert(entity)
     }
 
-    fun observeRecent(profileId: String, limit: Int = 100): Flow<List<ToolUsageEvent>> =
+    fun observeRecent(
+        profileId: String,
+        limit: Int = 100,
+    ): Flow<List<ToolUsageEvent>> =
         llmUsageDao.observeRecent(profileId, limit).map { rows ->
             rows.map { it.toEvent() }
         }
 
-    fun observeByDay(profileId: String, days: Int = 30): Flow<List<DailyUsage>> {
+    fun observeByDay(
+        profileId: String,
+        days: Int = 30,
+    ): Flow<List<DailyUsage>> {
         val sinceEpochMs = clock.now().toEpochMilliseconds() - (days.toLong() * TimeConstants.MILLIS_PER_DAY)
         return llmUsageDao.observeByDay(profileId, sinceEpochMs).map { rows ->
             rows.map { it.toDailyUsage() }
         }
     }
 
-    fun observeByTool(profileId: String): Flow<List<ToolUsage>> = llmUsageDao.observeByTool(profileId).map { rows ->
-        rows.map { it.toToolUsage() }
-    }
+    fun observeByTool(profileId: String): Flow<List<ToolUsage>> =
+        llmUsageDao.observeByTool(profileId).map { rows ->
+            rows.map { it.toToolUsage() }
+        }
 
-    fun observeByModel(profileId: String): Flow<List<ModelUsage>> = llmUsageDao.observeByModel(profileId).map { rows ->
-        rows.map { it.toModelUsage() }
-    }
+    fun observeByModel(profileId: String): Flow<List<ModelUsage>> =
+        llmUsageDao.observeByModel(profileId).map { rows ->
+            rows.map { it.toModelUsage() }
+        }
 
     suspend fun prune(olderThanDays: Int = 90) {
         val cutoff = clock.now().toEpochMilliseconds() - (olderThanDays.toLong() * TimeConstants.MILLIS_PER_DAY)
@@ -70,37 +78,41 @@ class RoomUsageRecorder(private val llmUsageDao: LlmUsageDao, private val clock:
 
     // ─── Mapping helpers ───────────────────────────────────────────────────────
 
-    private fun LlmUsageEntity.toEvent(): ToolUsageEvent = ToolUsageEvent(
-        toolName = toolName,
-        modelId = modelId,
-        inputTokens = inputTokens,
-        outputTokens = outputTokens,
-        totalTokens = totalTokens,
-        costUsdMicros = costUsdMicros,
-        durationMs = durationMs,
-        profileId = profileId,
-        error = error,
-        timestamp = Instant.fromEpochMilliseconds(createdAt),
-    )
+    private fun LlmUsageEntity.toEvent(): ToolUsageEvent =
+        ToolUsageEvent(
+            toolName = toolName,
+            modelId = modelId,
+            inputTokens = inputTokens,
+            outputTokens = outputTokens,
+            totalTokens = totalTokens,
+            costUsdMicros = costUsdMicros,
+            durationMs = durationMs,
+            profileId = profileId,
+            error = error,
+            timestamp = Instant.fromEpochMilliseconds(createdAt),
+        )
 
-    private fun DailyUsageRow.toDailyUsage(): DailyUsage = DailyUsage(
-        date = date,
-        totalTokens = totalTokens,
-        totalCostUsdMicros = totalCostMicros,
-        requestCount = callCount,
-    )
+    private fun DailyUsageRow.toDailyUsage(): DailyUsage =
+        DailyUsage(
+            date = date,
+            totalTokens = totalTokens,
+            totalCostUsdMicros = totalCostMicros,
+            requestCount = callCount,
+        )
 
-    private fun ToolUsageRow.toToolUsage(): ToolUsage = ToolUsage(
-        toolName = toolName,
-        totalTokens = totalTokens,
-        totalCostUsdMicros = totalCostMicros,
-        callCount = callCount,
-    )
+    private fun ToolUsageRow.toToolUsage(): ToolUsage =
+        ToolUsage(
+            toolName = toolName,
+            totalTokens = totalTokens,
+            totalCostUsdMicros = totalCostMicros,
+            callCount = callCount,
+        )
 
-    private fun ModelUsageRow.toModelUsage(): ModelUsage = ModelUsage(
-        modelId = modelId,
-        totalTokens = totalTokens,
-        totalCostUsdMicros = totalCostMicros,
-        callCount = callCount,
-    )
+    private fun ModelUsageRow.toModelUsage(): ModelUsage =
+        ModelUsage(
+            modelId = modelId,
+            totalTokens = totalTokens,
+            totalCostUsdMicros = totalCostMicros,
+            callCount = callCount,
+        )
 }

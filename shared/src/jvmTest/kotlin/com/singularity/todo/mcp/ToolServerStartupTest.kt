@@ -34,7 +34,6 @@ import kotlin.test.assertNull
  */
 @Tag("fast")
 class ToolServerStartupTest {
-
     @Test
     fun `both profile arguments are a refusal, not a guess`() {
         val refusal = refusalFor(ProfileSelection.Ambiguous(label = "ai-agent", id = "abc-123"))
@@ -70,37 +69,41 @@ class ToolServerStartupTest {
     }
 
     @Test
-    fun `a profile id nobody owns is a refusal, not a fallback`() = runTest {
-        val refusal = refusalForUnknownProfile("abc-123") { false }
+    fun `a profile id nobody owns is a refusal, not a fallback`() =
+        runTest {
+            val refusal = refusalForUnknownProfile("abc-123") { false }
 
-        assertEquals(
-            ToolServerStartup.Refused(
-                code = -32002,
-                message = "No profile with that id exists.",
-                exitCode = 2,
-            ),
-            refusal,
-        )
-    }
-
-    @Test
-    fun `a profile id somebody owns is served`() = runTest {
-        assertNull(refusalForUnknownProfile("abc-123") { true })
-    }
-
-    @Test
-    fun `a process without a profile id is never refused for one`() = runTest {
-        // The stored profile is the application's business, and this process does not
-        // question it: the lookup is not even asked.
-        var asked = false
-        val refusal = refusalForUnknownProfile(null) {
-            asked = true
-            true
+            assertEquals(
+                ToolServerStartup.Refused(
+                    code = -32002,
+                    message = "No profile with that id exists.",
+                    exitCode = 2,
+                ),
+                refusal,
+            )
         }
 
-        assertNull(refusal)
-        assertFalse(asked, "And the lookup was never made")
-    }
+    @Test
+    fun `a profile id somebody owns is served`() =
+        runTest {
+            assertNull(refusalForUnknownProfile("abc-123") { true })
+        }
+
+    @Test
+    fun `a process without a profile id is never refused for one`() =
+        runTest {
+            // The stored profile is the application's business, and this process does not
+            // question it: the lookup is not even asked.
+            var asked = false
+            val refusal =
+                refusalForUnknownProfile(null) {
+                    asked = true
+                    true
+                }
+
+            assertNull(refusal)
+            assertFalse(asked, "And the lookup was never made")
+        }
 
     @Test
     fun `the legacy label activates the profile it always activated`() {

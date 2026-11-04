@@ -7,25 +7,6 @@ import com.singularity.todo.core.serialization.StableJson
 import kotlinx.serialization.Serializable
 
 /**
- * Where in the backup's own history an export stands.
- *
- * ## Why the backup has a cursor of its own
- *
- * The sync engine keeps one too — `sync_state.lastLsn`, the position in the
- * server's event feed — and it looks free to read it. It is not: the sync state
- * moves when the profile changes and when it is cleared, and neither of those has
- * anything to do with the backup's position. A backup that follows the sync
- * engine's cursor writes a delta that claims to follow a base it does not follow,
- * and the failure that produces is the worst kind: a restore that succeeds and is
- * wrong.
- *
- * So the backup keeps its own, in its own file, and nobody else's bookkeeping
- * moves it.
- */
-@JvmInline
-value class BackupCursor(val epochMillis: Long)
-
-/**
  * One change in the chain: the delta that follows the base, and the archive it
  * belongs to.
  *
@@ -53,7 +34,22 @@ data class BackupChainEntry(
  */
 @Serializable
 data class BackupCursorState(
-    /** When the last export stood. */
+    /**
+     * When the last export stood.
+     *
+     * ## Why the backup has a cursor of its own
+     *
+     * The sync engine keeps one too — `sync_state.lastLsn`, the position in the
+     * server's event feed — and it looks free to read it. It is not: the sync state
+     * moves when the profile changes and when it is cleared, and neither of those has
+     * anything to do with the backup's position. A backup that follows the sync
+     * engine's cursor writes a delta that claims to follow a base it does not follow,
+     * and the failure that produces is the worst kind: a restore that succeeds and is
+     * wrong.
+     *
+     * So the backup keeps its own, in its own file, and nobody else's bookkeeping
+     * moves it.
+     */
     val cursor: Long = 0L,
     /** The snapshot the current chain starts from. */
     val baseArchivePath: String? = null,
@@ -117,7 +113,10 @@ class BackupCursorStore(private val fs: FileSystem, private val dir: String) {
      * state that cannot be read, which costs the chain and makes the next export
      * write a fresh base.
      */
-    suspend fun save(userId: UserId, state: BackupCursorState) {
+    suspend fun save(
+        userId: UserId,
+        state: BackupCursorState,
+    ) {
         fs.ensureDir(dir)
         val path = pathFor(userId)
         val temporary = "$path$TEMPORARY_SUFFIX"

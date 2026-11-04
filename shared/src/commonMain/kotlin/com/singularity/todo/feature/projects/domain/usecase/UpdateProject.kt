@@ -10,18 +10,24 @@ import kotlin.time.Clock
 // Keep: has domain timestamp update
 class UpdateProjectUseCase(private val repo: ProjectsRepository, private val clock: Clock) {
     /** Full-entity update. */
-    suspend operator fun invoke(project: Project): Result<Unit> = runCatchingResult {
-        repo.update(project.copy(updatedAt = clock.now())).getOrThrow()
-    }
+    suspend operator fun invoke(project: Project): Result<Unit> =
+        runCatchingResult {
+            repo.update(project.copy(updatedAt = clock.now())).getOrThrow()
+        }
 
     /**
      * Read-modify-write update.
      * Enables atomic partial updates without a prior read in the caller.
      */
-    suspend operator fun invoke(id: ProjectId, transform: (Project) -> Project): Result<Unit> = runCatchingResult {
-        val current = repo.get(id)
-            ?: throw AppError.NotFound("Project $id not found", code = "project.not_found")
-        val updated = transform(current).copy(updatedAt = clock.now())
-        repo.update(updated).getOrThrow()
-    }
+    suspend operator fun invoke(
+        id: ProjectId,
+        transform: (Project) -> Project,
+    ): Result<Unit> =
+        runCatchingResult {
+            val current =
+                repo.get(id)
+                    ?: throw AppError.NotFound("Project $id not found", code = "project.not_found")
+            val updated = transform(current).copy(updatedAt = clock.now())
+            repo.update(updated).getOrThrow()
+        }
 }

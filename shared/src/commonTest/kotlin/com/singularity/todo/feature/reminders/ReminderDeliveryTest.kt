@@ -33,7 +33,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ReminderDeliveryTest {
-
     private fun reminder(
         taskId: TaskId = TaskId("t1"),
         recurring: String? = null,
@@ -61,23 +60,24 @@ class ReminderDeliveryTest {
      * change what the notification says.
      */
     @Test
-    fun `the notification carries the task title as it is at fire time`() = runTest {
-        val reminderRepo = FakeReminderRepository()
-        val taskRepo = FakeTaskRepository()
-        val notifier = FakeNotifier()
-        val reminder = reminder()
-        reminderRepo.seed(reminder)
-        taskRepo.seed(testTask(id = reminder.taskId, title = "Renamed after arming"))
+    fun `the notification carries the task title as it is at fire time`() =
+        runTest {
+            val reminderRepo = FakeReminderRepository()
+            val taskRepo = FakeTaskRepository()
+            val notifier = FakeNotifier()
+            val reminder = reminder()
+            reminderRepo.seed(reminder)
+            taskRepo.seed(testTask(id = reminder.taskId, title = "Renamed after arming"))
 
-        val outcome = delivery(reminderRepo, taskRepo, notifier).fire(reminder.id, reminder.userId)
+            val outcome = delivery(reminderRepo, taskRepo, notifier).fire(reminder.id, reminder.userId)
 
-        assertEquals(ReminderDelivery.Outcome.Posted, outcome)
-        assertEquals(
-            "Reminder: Renamed after arming",
-            notifier.posts.single().title,
-            "a stale title here is the defect the launcher's database read exists to avoid",
-        )
-    }
+            assertEquals(ReminderDelivery.Outcome.Posted, outcome)
+            assertEquals(
+                "Reminder: Renamed after arming",
+                notifier.posts.single().title,
+                "a stale title here is the defect the launcher's database read exists to avoid",
+            )
+        }
 
     /**
      * A deleted task still produces a notification, with the generic title.
@@ -86,33 +86,35 @@ class ReminderDeliveryTest {
      * reminded about something, and "Task Reminder" is more use than silence.
      */
     @Test
-    fun `a reminder whose task is gone falls back to the generic title`() = runTest {
-        val reminderRepo = FakeReminderRepository()
-        val notifier = FakeNotifier()
-        val reminder = reminder()
-        reminderRepo.seed(reminder)
+    fun `a reminder whose task is gone falls back to the generic title`() =
+        runTest {
+            val reminderRepo = FakeReminderRepository()
+            val notifier = FakeNotifier()
+            val reminder = reminder()
+            reminderRepo.seed(reminder)
 
-        delivery(reminderRepo, taskRepo = FakeTaskRepository(), notifier = notifier)
-            .fire(reminder.id, reminder.userId)
+            delivery(reminderRepo, taskRepo = FakeTaskRepository(), notifier = notifier)
+                .fire(reminder.id, reminder.userId)
 
-        assertEquals("Task Reminder", notifier.posts.single().title)
-    }
+            assertEquals("Task Reminder", notifier.posts.single().title)
+        }
 
     /** The tag is the same one every other reminder uses, so nothing can double-post. */
     @Test
-    fun `the notification is tagged by the firing profile`() = runTest {
-        val reminderRepo = FakeReminderRepository()
-        val notifier = FakeNotifier()
-        val reminder = reminder()
-        reminderRepo.seed(reminder)
+    fun `the notification is tagged by the firing profile`() =
+        runTest {
+            val reminderRepo = FakeReminderRepository()
+            val notifier = FakeNotifier()
+            val reminder = reminder()
+            reminderRepo.seed(reminder)
 
-        delivery(reminderRepo, notifier = notifier).fire(reminder.id, reminder.userId)
+            delivery(reminderRepo, notifier = notifier).fire(reminder.id, reminder.userId)
 
-        assertEquals(
-            "reminder:${reminder.userId.value}:${reminder.id.value}",
-            notifier.posts.single().tag,
-        )
-    }
+            assertEquals(
+                "reminder:${reminder.userId.value}:${reminder.id.value}",
+                notifier.posts.single().tag,
+            )
+        }
 
     /**
      * A one-shot is retired; a recurring one is kept for its caller to re-arm.
@@ -122,32 +124,34 @@ class ReminderDeliveryTest {
      * armed again forever.
      */
     @Test
-    fun `a one-shot reminder is deleted after it fires`() = runTest {
-        val reminderRepo = FakeReminderRepository()
-        val reminder = reminder(recurring = null)
-        reminderRepo.seed(reminder)
+    fun `a one-shot reminder is deleted after it fires`() =
+        runTest {
+            val reminderRepo = FakeReminderRepository()
+            val reminder = reminder(recurring = null)
+            reminderRepo.seed(reminder)
 
-        delivery(reminderRepo).fire(reminder.id, reminder.userId)
+            delivery(reminderRepo).fire(reminder.id, reminder.userId)
 
-        assertNull(
-            reminderRepo.reminders.value[reminder.id.value],
-            "a one-shot that is not deleted is re-armed on every launch, forever",
-        )
-    }
+            assertNull(
+                reminderRepo.reminders.value[reminder.id.value],
+                "a one-shot that is not deleted is re-armed on every launch, forever",
+            )
+        }
 
     @Test
-    fun `a recurring reminder survives its fire`() = runTest {
-        val reminderRepo = FakeReminderRepository()
-        val reminder = reminder(recurring = "FREQ=DAILY")
-        reminderRepo.seed(reminder)
+    fun `a recurring reminder survives its fire`() =
+        runTest {
+            val reminderRepo = FakeReminderRepository()
+            val reminder = reminder(recurring = "FREQ=DAILY")
+            reminderRepo.seed(reminder)
 
-        delivery(reminderRepo).fire(reminder.id, reminder.userId)
+            delivery(reminderRepo).fire(reminder.id, reminder.userId)
 
-        assertTrue(
-            reminderRepo.reminders.value.containsKey(reminder.id.value),
-            "the caller re-arms a recurring reminder; deleting it here would end the series",
-        )
-    }
+            assertTrue(
+                reminderRepo.reminders.value.containsKey(reminder.id.value),
+                "the caller re-arms a recurring reminder; deleting it here would end the series",
+            )
+        }
 
     /**
      * A host that cannot display anything says so instead of pretending.
@@ -158,32 +162,34 @@ class ReminderDeliveryTest {
      * ever appear.
      */
     @Test
-    fun `nothing is posted and the row is kept when the host cannot display`() = runTest {
-        val reminderRepo = FakeReminderRepository()
-        val notifier = FakeNotifier(supported = false)
-        val reminder = reminder()
-        reminderRepo.seed(reminder)
+    fun `nothing is posted and the row is kept when the host cannot display`() =
+        runTest {
+            val reminderRepo = FakeReminderRepository()
+            val notifier = FakeNotifier(supported = false)
+            val reminder = reminder()
+            reminderRepo.seed(reminder)
 
-        val outcome = delivery(reminderRepo, notifier = notifier).fire(reminder.id, reminder.userId)
+            val outcome = delivery(reminderRepo, notifier = notifier).fire(reminder.id, reminder.userId)
 
-        assertEquals(ReminderDelivery.Outcome.NoNotifier, outcome)
-        assertTrue(notifier.posts.isEmpty())
-        assertTrue(
-            reminderRepo.reminders.value.containsKey(reminder.id.value),
-            "the row must survive so the reminder can fire once the host can display again",
-        )
-    }
+            assertEquals(ReminderDelivery.Outcome.NoNotifier, outcome)
+            assertTrue(notifier.posts.isEmpty())
+            assertTrue(
+                reminderRepo.reminders.value.containsKey(reminder.id.value),
+                "the row must survive so the reminder can fire once the host can display again",
+            )
+        }
 
     /** A row that is gone, or belongs to another profile, is not an error worth shouting about. */
     @Test
-    fun `a missing reminder reports NotFound without posting anything`() = runTest {
-        val notifier = FakeNotifier()
+    fun `a missing reminder reports NotFound without posting anything`() =
+        runTest {
+            val notifier = FakeNotifier()
 
-        val outcome = delivery(notifier = notifier).fire(ReminderId("never-existed"), TestUsers.DEFAULT)
+            val outcome = delivery(notifier = notifier).fire(ReminderId("never-existed"), TestUsers.DEFAULT)
 
-        assertEquals(ReminderDelivery.Outcome.NotFound, outcome)
-        assertTrue(notifier.posts.isEmpty())
-    }
+            assertEquals(ReminderDelivery.Outcome.NotFound, outcome)
+            assertTrue(notifier.posts.isEmpty())
+        }
 
     /**
      * The boot catch-up path, which enumerates rows instead of looking each one up.
@@ -195,33 +201,35 @@ class ReminderDeliveryTest {
      * "tidied up" into a bug.
      */
     @Test
-    fun `fireKnown posts and retires a row the caller already holds`() = runTest {
-        val reminderRepo = FakeReminderRepository()
-        val notifier = FakeNotifier()
-        val reminder = reminder()
-        reminderRepo.seed(reminder)
+    fun `fireKnown posts and retires a row the caller already holds`() =
+        runTest {
+            val reminderRepo = FakeReminderRepository()
+            val notifier = FakeNotifier()
+            val reminder = reminder()
+            reminderRepo.seed(reminder)
 
-        val outcome = delivery(reminderRepo, notifier = notifier).fireKnown(reminder)
+            val outcome = delivery(reminderRepo, notifier = notifier).fireKnown(reminder)
 
-        assertEquals(ReminderDelivery.Outcome.Posted, outcome)
-        assertEquals(
-            "reminder:${reminder.userId.value}:${reminder.id.value}",
-            notifier.posts.single().tag,
-            "an enumerated row is charged to its own profile",
-        )
-        assertNull(reminderRepo.reminders.value[reminder.id.value])
-    }
+            assertEquals(ReminderDelivery.Outcome.Posted, outcome)
+            assertEquals(
+                "reminder:${reminder.userId.value}:${reminder.id.value}",
+                notifier.posts.single().tag,
+                "an enumerated row is charged to its own profile",
+            )
+            assertNull(reminderRepo.reminders.value[reminder.id.value])
+        }
 
     @Test
-    fun `fireKnown keeps a recurring row`() = runTest {
-        val reminderRepo = FakeReminderRepository()
-        val reminder = reminder(recurring = "FREQ=DAILY")
-        reminderRepo.seed(reminder)
+    fun `fireKnown keeps a recurring row`() =
+        runTest {
+            val reminderRepo = FakeReminderRepository()
+            val reminder = reminder(recurring = "FREQ=DAILY")
+            reminderRepo.seed(reminder)
 
-        delivery(reminderRepo).fireKnown(reminder)
+            delivery(reminderRepo).fireKnown(reminder)
 
-        assertTrue(reminderRepo.reminders.value.containsKey(reminder.id.value))
-    }
+            assertTrue(reminderRepo.reminders.value.containsKey(reminder.id.value))
+        }
 
     /**
      * The ordering invariant, made observable.
@@ -241,25 +249,28 @@ class ReminderDeliveryTest {
      * reproduce, this test is what tells them they broke profile isolation instead.
      */
     @Test
-    fun `a reminder owned by another profile is not found`() = runTest {
-        val notifier = FakeNotifier()
-        val reminder = reminder()
-        // Seeded regardless of who is active: `seed` writes the store directly.
-        val reminderRepo = FakeReminderRepository(
-            currentUser = FakeProfileAwareCurrentUser(UserId("someone-else")),
-        ).apply { seed(reminder) }
+    fun `a reminder owned by another profile is not found`() =
+        runTest {
+            val notifier = FakeNotifier()
+            val reminder = reminder()
+            // Seeded regardless of who is active: `seed` writes the store directly.
+            val reminderRepo =
+                FakeReminderRepository(
+                    currentUser = FakeProfileAwareCurrentUser(UserId("someone-else")),
+                ).apply { seed(reminder) }
 
-        val outcome = ReminderDelivery(reminderRepo, FakeTaskRepository(), notifier)
-            .fire(reminder.id, reminder.userId)
+            val outcome =
+                ReminderDelivery(reminderRepo, FakeTaskRepository(), notifier)
+                    .fire(reminder.id, reminder.userId)
 
-        assertEquals(
-            ReminderDelivery.Outcome.NotFound,
-            outcome,
-            "get() is scoped to the active profile, so this is what a caller sees when it " +
-                "fires before resolving one",
-        )
-        assertTrue(notifier.posts.isEmpty(), "another profile's reminder must not be posted")
-    }
+            assertEquals(
+                ReminderDelivery.Outcome.NotFound,
+                outcome,
+                "get() is scoped to the active profile, so this is what a caller sees when it " +
+                    "fires before resolving one",
+            )
+            assertTrue(notifier.posts.isEmpty(), "another profile's reminder must not be posted")
+        }
 
     /**
      * A failed delete must not un-post the notification.
@@ -270,17 +281,19 @@ class ReminderDeliveryTest {
      * no shared code and could have disagreed about whether a failed delete is a failure.
      */
     @Test
-    fun `a failed delete still reports Posted`() = runTest {
-        val reminderRepo = FakeReminderRepository().apply {
-            deleteWithUserIdOverride = Result.failure(IllegalStateException("db gone"))
+    fun `a failed delete still reports Posted`() =
+        runTest {
+            val reminderRepo =
+                FakeReminderRepository().apply {
+                    deleteWithUserIdOverride = Result.failure(IllegalStateException("db gone"))
+                }
+            val notifier = FakeNotifier()
+            val reminder = reminder()
+            reminderRepo.seed(reminder)
+
+            val outcome = delivery(reminderRepo, notifier = notifier).fire(reminder.id, reminder.userId)
+
+            assertEquals(ReminderDelivery.Outcome.Posted, outcome)
+            assertEquals(1, notifier.posts.size)
         }
-        val notifier = FakeNotifier()
-        val reminder = reminder()
-        reminderRepo.seed(reminder)
-
-        val outcome = delivery(reminderRepo, notifier = notifier).fire(reminder.id, reminder.userId)
-
-        assertEquals(ReminderDelivery.Outcome.Posted, outcome)
-        assertEquals(1, notifier.posts.size)
-    }
 }

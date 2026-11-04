@@ -29,7 +29,6 @@ package com.singularity.todo.core.backup
  * use.
  */
 sealed interface ArchiveSealer {
-
     /**
      * The chain, sealed under the person's password.
      *

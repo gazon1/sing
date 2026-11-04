@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,15 +40,14 @@ import com.singularity.todo.feature.calendar.domain.logic.toLocalDate
 import com.singularity.todo.feature.calendar.domain.logic.toYearMonth
 import com.singularity.todo.feature.calendar.domain.logic.yearMonthForPage
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
+import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
+import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
-import kotlinx.collections.immutable.persistentSetOf
-import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
-import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
-import kotlinx.datetime.LocalDate
-import androidx.compose.runtime.remember
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.datetime.LocalDate
 
 /**
  * Swipeable month grid. Hosts a [HorizontalPager] of [MonthGridPage]s, one per
@@ -89,23 +89,28 @@ fun MonthGridView(
     val weekdayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
     Column(
-        modifier = modifier.fillMaxSize()
-            .background(palette.background),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(palette.background),
     ) {
         // Fixed weekday header — does not scroll with pages.
         Row(
-            modifier = Modifier.fillMaxWidth()
-                .padding(vertical = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
         ) {
             weekdayLabels.forEach { label ->
                 Text(
                     text = label,
                     color = palette.textSecondary,
                     fontSize = 13.sp,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 12.dp)
-                        .testTag(TestTags.calendarWeekdayHeader(label)),
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .padding(start = 12.dp)
+                            .testTag(TestTags.calendarWeekdayHeader(label)),
                 )
             }
         }
@@ -174,8 +179,10 @@ private fun MonthGridPage(
     Column(modifier = modifier.fillMaxSize()) {
         weeks.forEach { week ->
             Row(
-                modifier = Modifier.fillMaxWidth()
-                    .weight(1f),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
             ) {
                 week.forEach { date ->
                     MonthDayCell(
@@ -189,8 +196,10 @@ private fun MonthGridPage(
                         onTaskClick = onTaskClick,
                         onEmptyCellLongPress = onEmptyCellLongPress,
                         onDayLongPress = onDayLongPress,
-                        modifier = Modifier.weight(1f)
-                            .fillMaxHeight(),
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
                     )
                 }
             }
@@ -220,38 +229,39 @@ private fun MonthDayCell(
     val hasNoTasks = tasks.isEmpty() && isCurrentMonth
 
     Box(
-        modifier = modifier.testTag(
-            TestTags.calendarDay(isoLocalDate(date)),
-        )
-            .border(width = 0.5.dp, color = palette.divider)
-            .let { box ->
-                when {
-                    isDateSelected -> box.background(palette.accent.copy(alpha = 0.25f))
-                    isSelected -> box.background(palette.surface)
-                    else -> box
-                }
-            }
-            .combinedClickable(
-                onClick = onClick,
-                // The long press answers on every cell. An empty day keeps its
-                // old meaning — create one task on that day — and a day that
-                // already holds tasks enters the date-selection mode. Before
-                // this, the long press was wired only on empty cells, so the
-                // gesture that starts a multi-selection could not be performed
-                // on the days a user is most likely to pick.
-                onLongClick = {
-                    if (hasNoTasks) onEmptyCellLongPress(date) else onDayLongPress(date)
-                },
-            )
-            .padding(6.dp),
+        modifier =
+            modifier
+                .testTag(
+                    TestTags.calendarDay(isoLocalDate(date)),
+                ).border(width = 0.5.dp, color = palette.divider)
+                .let { box ->
+                    when {
+                        isDateSelected -> box.background(palette.accent.copy(alpha = 0.25f))
+                        isSelected -> box.background(palette.surface)
+                        else -> box
+                    }
+                }.combinedClickable(
+                    onClick = onClick,
+                    // The long press answers on every cell. An empty day keeps its
+                    // old meaning — create one task on that day — and a day that
+                    // already holds tasks enters the date-selection mode. Before
+                    // this, the long press was wired only on empty cells, so the
+                    // gesture that starts a multi-selection could not be performed
+                    // on the days a user is most likely to pick.
+                    onLongClick = {
+                        if (hasNoTasks) onEmptyCellLongPress(date) else onDayLongPress(date)
+                    },
+                ).padding(6.dp),
     ) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (isToday) {
                     Box(
-                        modifier = Modifier.size(20.dp)
-                            .clip(CircleShape)
-                            .background(palette.todayBadge),
+                        modifier =
+                            Modifier
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(palette.todayBadge),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(

@@ -78,31 +78,36 @@ import kotlin.test.fail
 @Tag("fast")
 @Suppress("VariableNaming", "PropertyName") // UPPER_CASE names are intentional for regex/pattern constants
 class SharedHarnessConventionsTest {
-
     /** Scans both jvmTest (production harness tests) and commonTest (shared helpers tests). */
     private val allTestSources: List<File> by lazy {
         // Injected by the jvmTest task config in `shared/build.gradle.kts`.
         // Falls back to relative paths for local runs outside Gradle.
-        val jvmTestRoot: File = System.getProperty("jvmTest.root")?.let { File(it, "com/singularity/todo") }
-            ?: File("src/jvmTest/kotlin/com/singularity/todo")
-        val commonTestRoot: File = System.getProperty("commonTest.root")?.let { File(it, "com/singularity/todo") }
-            ?: File("src/commonTest/kotlin/com/singularity/todo")
+        val jvmTestRoot: File =
+            System.getProperty("jvmTest.root")?.let { File(it, "com/singularity/todo") }
+                ?: File("src/jvmTest/kotlin/com/singularity/todo")
+        val commonTestRoot: File =
+            System.getProperty("commonTest.root")?.let { File(it, "com/singularity/todo") }
+                ?: File("src/commonTest/kotlin/com/singularity/todo")
 
-        val jvmSources = jvmTestRoot.walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .filter { it.parentFile?.name != "helpers" }
-            .filter { it.name != "SharedHarnessConventionsTest.kt" }
-            .filter { !it.name.endsWith("Fakes.kt") }
-            .filter { !it.name.endsWith("Fake.kt") }
-            .toList()
+        val jvmSources =
+            jvmTestRoot
+                .walkTopDown()
+                .filter { it.isFile && it.extension == "kt" }
+                .filter { it.parentFile?.name != "helpers" }
+                .filter { it.name != "SharedHarnessConventionsTest.kt" }
+                .filter { !it.name.endsWith("Fakes.kt") }
+                .filter { !it.name.endsWith("Fake.kt") }
+                .toList()
 
         // commonTest test helpers (AwaitState, RunVmTest, testVm) are defined here and
         // are allowed to use delay/advanceUntilIdle internally — but test files (if any)
         // in commonTest must also follow the same rules. Exclude the helpers themselves.
-        val commonSources = commonTestRoot.walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .filter { it.parentFile?.name != "helpers" }
-            .toList()
+        val commonSources =
+            commonTestRoot
+                .walkTopDown()
+                .filter { it.isFile && it.extension == "kt" }
+                .filter { it.parentFile?.name != "helpers" }
+                .toList()
 
         jvmSources + commonSources
     }
@@ -137,30 +142,33 @@ class SharedHarnessConventionsTest {
      * across nested `{` inside the constructor call (DOT_MATCHES_ALL makes `.` match
      * `{` too, so `[^}]` is necessary to stop at the right boundary).
      */
-    private val VM_SCOPE_PATTERN = Regex(
-        """runTest\s*\{[^}]*?(?:val\s+)?\w+Scope\s*=\s*AutoCloseableCoroutineScope""",
-        RegexOption.DOT_MATCHES_ALL,
-    )
+    private val VM_SCOPE_PATTERN =
+        Regex(
+            """runTest\s*\{[^}]*?(?:val\s+)?\w+Scope\s*=\s*AutoCloseableCoroutineScope""",
+            RegexOption.DOT_MATCHES_ALL,
+        )
 
     @Test
     fun `awaitState is used instead of raw advanceUntilIdle polling loops`() {
         // A bare `while (!predicate) { advanceUntilIdle() }` has no spin guard and can
         // hang the suite. `awaitState` wraps the same logic with a wall-clock backstop.
-        val VIOLATION_PATTERN = Regex(
-            """while\s*\(\s*!\s*\w+\s*\)\s*\{[^}]*?advanceUntilIdle\s*\(\s*\)""",
-            RegexOption.DOT_MATCHES_ALL,
-        )
+        val VIOLATION_PATTERN =
+            Regex(
+                """while\s*\(\s*!\s*\w+\s*\)\s*\{[^}]*?advanceUntilIdle\s*\(\s*\)""",
+                RegexOption.DOT_MATCHES_ALL,
+            )
 
-        val violations = allTestSources
-            .mapNotNull { file ->
-                val body = file.readText()
-                val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) {
-                    null
-                } else {
-                    "${file.name}: ${matches.size} raw advanceUntilIdle loop(s)"
+        val violations =
+            allTestSources
+                .mapNotNull { file ->
+                    val body = file.readText()
+                    val matches = VIOLATION_PATTERN.findAll(body).toList()
+                    if (matches.isEmpty()) {
+                        null
+                    } else {
+                        "${file.name}: ${matches.size} raw advanceUntilIdle loop(s)"
+                    }
                 }
-            }
 
         if (violations.isEmpty()) return
         fail(
@@ -176,18 +184,19 @@ class SharedHarnessConventionsTest {
     fun `runVmTest is used for ViewModel tests`() {
         // `runVmTest` wires AutoCloseableCoroutineScope + clock advance + state assertions.
         // Hand-rolled `runTest { ... }` + manual scope creation misses one of these.
-        val violations = allTestSources
-            .mapNotNull { file ->
-                val body = file.readText()
-                val matches = VM_SCOPE_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) {
-                    null
-                } else if (file.name in EXEMPT_VM_TEST) {
-                    null
-                } else {
-                    "${file.name}: hand-rolled TestScope + AutoCloseableCoroutineScope"
+        val violations =
+            allTestSources
+                .mapNotNull { file ->
+                    val body = file.readText()
+                    val matches = VM_SCOPE_PATTERN.findAll(body).toList()
+                    if (matches.isEmpty()) {
+                        null
+                    } else if (file.name in EXEMPT_VM_TEST) {
+                        null
+                    } else {
+                        "${file.name}: hand-rolled TestScope + AutoCloseableCoroutineScope"
+                    }
                 }
-            }
 
         if (violations.isEmpty()) return
         fail(
@@ -212,11 +221,12 @@ class SharedHarnessConventionsTest {
         // anywhere in the file body. A file that genuinely migrates to testVm { } or
         // eliminates AutoCloseableCoroutineScope entirely will stop matching and be flagged.
         val STALE_CHECK_PATTERN = Regex("""AutoCloseableCoroutineScope\s*\(""")
-        val stale = EXEMPT_VM_TEST.filter { (fileName, _) ->
-            val file = allTestSources.find { it.name == fileName }
-            if (file == null) return@filter true // file removed = stale
-            !STALE_CHECK_PATTERN.containsMatchIn(file.readText())
-        }
+        val stale =
+            EXEMPT_VM_TEST.filter { (fileName, _) ->
+                val file = allTestSources.find { it.name == fileName }
+                if (file == null) return@filter true // file removed = stale
+                !STALE_CHECK_PATTERN.containsMatchIn(file.readText())
+            }
         if (stale.isEmpty()) return
         fail(
             "EXEMPT_VM_TEST entries with no hand-rolled scope (stale exemptions):\n" +
@@ -232,19 +242,23 @@ class SharedHarnessConventionsTest {
         // explicit scope.launch { }.collect {} instead.
         val VIOLATION_PATTERN = Regex("""\.stateIn\s*\(""")
 
-        val violations = allTestSources
-            .mapNotNull { file ->
-                val body = file.readLines().filterNot { line ->
-                    val t = line.trimStart()
-                    t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
-                }.joinToString("\n")
-                val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) {
-                    null
-                } else {
-                    "${file.name}: ${matches.size} stateIn() call(s)"
+        val violations =
+            allTestSources
+                .mapNotNull { file ->
+                    val body =
+                        file
+                            .readLines()
+                            .filterNot { line ->
+                                val t = line.trimStart()
+                                t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
+                            }.joinToString("\n")
+                    val matches = VIOLATION_PATTERN.findAll(body).toList()
+                    if (matches.isEmpty()) {
+                        null
+                    } else {
+                        "${file.name}: ${matches.size} stateIn() call(s)"
+                    }
                 }
-            }
 
         if (violations.isEmpty()) return
         fail(
@@ -262,19 +276,23 @@ class SharedHarnessConventionsTest {
         // `koinViewModel { parametersOf(p) }` for ViewModels.
         val VIOLATION_PATTERN = Regex("""koinInject\s*\(\s*\)""")
 
-        val violations = allTestSources
-            .mapNotNull { file ->
-                val body = file.readLines().filterNot { line ->
-                    val t = line.trimStart()
-                    t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
-                }.joinToString("\n")
-                val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) {
-                    null
-                } else {
-                    "${file.name}: ${matches.size} koinInject() call(s)"
+        val violations =
+            allTestSources
+                .mapNotNull { file ->
+                    val body =
+                        file
+                            .readLines()
+                            .filterNot { line ->
+                                val t = line.trimStart()
+                                t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
+                            }.joinToString("\n")
+                    val matches = VIOLATION_PATTERN.findAll(body).toList()
+                    if (matches.isEmpty()) {
+                        null
+                    } else {
+                        "${file.name}: ${matches.size} koinInject() call(s)"
+                    }
                 }
-            }
 
         if (violations.isEmpty()) return
         fail(
@@ -288,27 +306,32 @@ class SharedHarnessConventionsTest {
     fun `MockK is not used in test code`() {
         // MockK mocking couples tests to implementation details and makes them brittle.
         // All test doubles must use `Fake*` implementations from `test/fakes/`.
-        val VIOLATION_PATTERNS = listOf(
-            Regex("""mockkObject\s*\("""),
-            Regex("""mockkClass\s*\("""),
-            Regex("""mockk<\s*\w+[^>]*>\s*\("""),
-            Regex("""every\s*\{"""),
-            Regex("""verify\s*\{"""),
-        )
+        val VIOLATION_PATTERNS =
+            listOf(
+                Regex("""mockkObject\s*\("""),
+                Regex("""mockkClass\s*\("""),
+                Regex("""mockk<\s*\w+[^>]*>\s*\("""),
+                Regex("""every\s*\{"""),
+                Regex("""verify\s*\{"""),
+            )
 
-        val violations = allTestSources
-            .mapNotNull { file ->
-                val body = file.readLines().filterNot { line ->
-                    val t = line.trimStart()
-                    t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
-                }.joinToString("\n")
-                val found = VIOLATION_PATTERNS.flatMap { it.findAll(body).toList() }
-                if (found.isEmpty()) {
-                    null
-                } else {
-                    "${file.name}: ${found.size} MockK call(s)"
+        val violations =
+            allTestSources
+                .mapNotNull { file ->
+                    val body =
+                        file
+                            .readLines()
+                            .filterNot { line ->
+                                val t = line.trimStart()
+                                t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
+                            }.joinToString("\n")
+                    val found = VIOLATION_PATTERNS.flatMap { it.findAll(body).toList() }
+                    if (found.isEmpty()) {
+                        null
+                    } else {
+                        "${file.name}: ${found.size} MockK call(s)"
+                    }
                 }
-            }
 
         if (violations.isEmpty()) return
         fail(
@@ -325,31 +348,34 @@ class SharedHarnessConventionsTest {
         // If this test fails, the violation scanners have regressed and are silently
         // passing. Each scanner is applied to a synthetic snippet that is known to
         // contain exactly one violation; a passing scanner must find it.
-        val syntheticSources = mapOf(
-            "advanceUntilIdle loop" to """
+        val syntheticSources =
+            mapOf(
+                "advanceUntilIdle loop" to """
                 class BadTest {
                     fun test() = runTest {
                         while (!predicate) { advanceUntilIdle() }
                     }
                 }
             """,
-            "AutoCloseableCoroutineScope" to """
+                "AutoCloseableCoroutineScope" to """
                 class BadTest {
                     fun test() = runTest {
                         val vmScope = AutoCloseableCoroutineScope()
                     }
                 }
             """,
-        )
+            )
 
-        val advanceUntilIdlePattern = Regex(
-            """while\s*\(\s*!\s*\w+\s*\)\s*\{[^}]*?advanceUntilIdle\s*\(\s*\)""",
-            RegexOption.DOT_MATCHES_ALL,
-        )
-        val scopePattern = Regex(
-            """runTest\s*\{[^}]*?val\s+\w+Scope\s*=\s*AutoCloseableCoroutineScope""",
-            RegexOption.DOT_MATCHES_ALL,
-        )
+        val advanceUntilIdlePattern =
+            Regex(
+                """while\s*\(\s*!\s*\w+\s*\)\s*\{[^}]*?advanceUntilIdle\s*\(\s*\)""",
+                RegexOption.DOT_MATCHES_ALL,
+            )
+        val scopePattern =
+            Regex(
+                """runTest\s*\{[^}]*?val\s+\w+Scope\s*=\s*AutoCloseableCoroutineScope""",
+                RegexOption.DOT_MATCHES_ALL,
+            )
 
         val failures = mutableListOf<String>()
 
@@ -377,19 +403,23 @@ class SharedHarnessConventionsTest {
         // to observe events as they arrive.
         val VIOLATION_PATTERN = Regex("""expectMostRecentItem\s*\(""")
 
-        val violations = allTestSources
-            .mapNotNull { file ->
-                val body = file.readLines().filterNot { line ->
-                    val t = line.trimStart()
-                    t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
-                }.joinToString("\n")
-                val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) {
-                    null
-                } else {
-                    "${file.name}: ${matches.size} expectMostRecentItem() call(s)"
+        val violations =
+            allTestSources
+                .mapNotNull { file ->
+                    val body =
+                        file
+                            .readLines()
+                            .filterNot { line ->
+                                val t = line.trimStart()
+                                t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
+                            }.joinToString("\n")
+                    val matches = VIOLATION_PATTERN.findAll(body).toList()
+                    if (matches.isEmpty()) {
+                        null
+                    } else {
+                        "${file.name}: ${matches.size} expectMostRecentItem() call(s)"
+                    }
                 }
-            }
 
         if (violations.isEmpty()) return
         fail(

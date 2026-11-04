@@ -29,7 +29,11 @@ expect fun App(deepLinkTarget: DeepLinkTarget?)
  * Each platform actual calls its shell function with the passed state.
  */
 @Composable
-expect fun PlatformShell(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks)
+expect fun PlatformShell(
+    state: Nav3State,
+    navigator: Navigator,
+    navCallbacks: NavCallbacks,
+)
 
 /**
  * Shared app content composable — state setup, navigation, and theme wrapper.

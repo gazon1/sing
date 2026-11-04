@@ -20,7 +20,6 @@ import com.singularity.todo.core.sync.SyncRepository
  * [SyncRepository] instead of the engine.
  */
 class SyncPushJob(private val syncRepository: SyncRepository) : BackgroundJob {
-
     override val id: String = ID
 
     override suspend fun run(): JobOutcome {
@@ -43,11 +42,15 @@ class SyncPushJob(private val syncRepository: SyncRepository) : BackgroundJob {
 
             // NothingToDo means no active sync scope (signed out or no profile), or the
             // coordinator was closed. The work is intact; the scheduler decides what to do.
-            is SyncOutcome.NothingToDo -> JobOutcome.Skipped("nothing to do")
+            is SyncOutcome.NothingToDo -> {
+                JobOutcome.Skipped("nothing to do")
+            }
 
             // The cycle could not start — in practice a local read failed, so the patches
             // are still queued and nothing has been lost. The work is intact, not lost.
-            is SyncOutcome.CouldNotStart -> JobOutcome.Failed(outcome.error)
+            is SyncOutcome.CouldNotStart -> {
+                JobOutcome.Failed(outcome.error)
+            }
         }
     }
 
@@ -65,6 +68,8 @@ class SyncPushJob(private val syncRepository: SyncRepository) : BackgroundJob {
 
     companion object {
         const val ID = "sync-push"
-        private val logger = co.touchlab.kermit.Logger.withTag("SyncPushJob")
+        private val logger =
+            co.touchlab.kermit.Logger
+                .withTag("SyncPushJob")
     }
 }

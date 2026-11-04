@@ -9,18 +9,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
-import androidx.compose.material3.MaterialTheme
 
 /**
  * Карточка-строка для основных атрибутов задачи (проект, приоритет, дата и т.д.).
@@ -65,17 +65,18 @@ fun TaskAttributeCard(
     Surface(
         color = containerColor,
         shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
-        modifier = modifier
-            .fillMaxWidth()
-            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
     ) {
         Row(
-            modifier = Modifier
-                .padding(
-                    horizontal = TaskSpacing.cardPaddingHorizontal,
-                    vertical = TaskSpacing.cardPaddingVertical,
-                )
-                .fillMaxWidth(),
+            modifier =
+                Modifier
+                    .padding(
+                        horizontal = TaskSpacing.cardPaddingHorizontal,
+                        vertical = TaskSpacing.cardPaddingVertical,
+                    ).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -90,9 +91,10 @@ fun TaskAttributeCard(
                 color = textColor,
                 fontSize = 16.sp,
                 fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal,
-                modifier = Modifier
-                    .weight(1f)
-                    .then(if (testTag != null) Modifier.testTag(testTag) else Modifier),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .then(if (testTag != null) Modifier.testTag(testTag) else Modifier),
             )
             if (trailingContent != null) {
                 trailingContent()

@@ -7,8 +7,8 @@ import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
-import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import com.singularity.todo.core.sync.work.FakeHlcFactory
+import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -51,7 +51,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SyncEngineOutboxOwnershipTest {
-
     private val clock = MutableClock()
     private val log = Logger.withTag("SyncEngineOutboxOwnershipTest")
 
@@ -62,6 +61,7 @@ class SyncEngineOutboxOwnershipTest {
         override val docType: DocType = DocType.Task
         override val syncServerVersion: Long = 0
         override val syncHlc: Hlc? = null
+
         override fun toJson() = buildJsonObject { put("title", JsonPrimitive("edited $syncId")) }
     }
 
@@ -90,40 +90,43 @@ class SyncEngineOutboxOwnershipTest {
         retryPolicy: PatchRetryPolicy = PatchRetryPolicy(),
     ): Harness {
         val api = FakeSyncApiClient()
-        val auth = FakeSyncAuthRepository(
-            Session.SignedIn(UserId.fromString(activeOwner), "a@x.com", "access", "refresh"),
-        )
+        val auth =
+            FakeSyncAuthRepository(
+                Session.SignedIn(UserId.fromString(activeOwner), "a@x.com", "access", "refresh"),
+            )
         val outbox = FakeSyncOutboxDao()
         val shadow = FakeSyncShadowDao()
         val dead = FakeSyncDeadLetterDao()
         val scopes = FakeSyncScopeProvider(SyncScope(activeOwner, "profile-1"))
-        val engine = SyncEngine(
-            log = log,
-            api = api,
-            authRepository = auth,
-            idGenerator = SequentialIdGenerator(),
-            stateRepository = FakeSyncStateRepository(),
-            scopeProvider = scopes,
-            shadowDao = shadow,
-            patchBuilder = fakeSyncPatchBuilder(shadow),
-            outboxService = OutboxService(
-                outboxDao = outbox,
-                patchBuilder = fakeSyncPatchBuilder(shadow),
+        val engine =
+            SyncEngine(
+                log = log,
+                api = api,
+                authRepository = auth,
+                idGenerator = SequentialIdGenerator(),
+                stateRepository = FakeSyncStateRepository(),
                 scopeProvider = scopes,
-                engineState = SyncEngineState(log, NoOpCrashReportingPort()),
-                monoNow = { clock.now().toEpochMilliseconds() },
-            ),
-            _outboxDao = outbox,
-            _deadLetterDao = dead,
-            syncAuthBridge = fakeSyncAuthBridge(auth),
-            writerProvider = { fakeSyncDocumentWriter() },
-            scheduler = FakeSyncWorkScheduler(),
-            retryPolicy = retryPolicy,
-            clock = clock,
-            scope = testScope(scope.backgroundScope),
-            crashReporter = NoOpCrashReportingPort(),
-            hlcFactory = FakeHlcFactory(),
-        )
+                shadowDao = shadow,
+                patchBuilder = fakeSyncPatchBuilder(shadow),
+                outboxService =
+                    OutboxService(
+                        outboxDao = outbox,
+                        patchBuilder = fakeSyncPatchBuilder(shadow),
+                        scopeProvider = scopes,
+                        engineState = SyncEngineState(log, NoOpCrashReportingPort()),
+                        monoNow = { clock.now().toEpochMilliseconds() },
+                    ),
+                _outboxDao = outbox,
+                _deadLetterDao = dead,
+                syncAuthBridge = fakeSyncAuthBridge(auth),
+                writerProvider = { fakeSyncDocumentWriter() },
+                scheduler = FakeSyncWorkScheduler(),
+                retryPolicy = retryPolicy,
+                clock = clock,
+                scope = testScope(scope.backgroundScope),
+                crashReporter = NoOpCrashReportingPort(),
+                hlcFactory = FakeHlcFactory(),
+            )
         // One response per request, carrying a result for every patch in it — the
         // server answers a batch with one batch, and a per-patch response queue would
         // leave the second patch's result to be consumed by the *next* push.
@@ -136,142 +139,170 @@ class SyncEngineOutboxOwnershipTest {
     }
 
     @Test
-    fun `no active scope means no request at all`() = runTest {
-        // The scope is what says whose queue this push is, so without one there is no
-        // owner to send for. The tempting alternative — read the queue anyway and send
-        // what is there — is the leak this requirement exists to close: the row would go
-        // out under a session that has no profile id and no account behind it.
-        val h = harness(this, activeOwner = ownerA)
-        assertTrue(h.engine.enqueue(TestEntity("from-a")).isSuccess)
+    fun `no active scope means no request at all`() =
+        runTest {
+            // The scope is what says whose queue this push is, so without one there is no
+            // owner to send for. The tempting alternative — read the queue anyway and send
+            // what is there — is the leak this requirement exists to close: the row would go
+            // out under a session that has no profile id and no account behind it.
+            val h = harness(this, activeOwner = ownerA)
+            assertTrue(h.engine.enqueue(TestEntity("from-a")).isSuccess)
 
-        h.scopes.set(null)
-        h.engine.push()
+            h.scopes.set(null)
+            h.engine.push()
 
-        assertEquals(
-            emptyList(),
-            h.api.pushCalls.map { call -> call.patches.map { it.entityId } },
-            "with no scope there is nothing this request may claim to be",
-        )
-        assertEquals(1, h.outbox.rows.size, "and the work is still queued for whoever signs in")
-    }
-
-    @Test
-    fun `work queued by another account is not sent in this account's request`() = runTest {
-        val h = harness(this, activeOwner = ownerB)
-
-        // Queue work while A is the active scope.
-        h.scopes.set(SyncScope(ownerA, "profile-1"))
-        assertTrue(h.engine.enqueue(TestEntity("from-a")).isSuccess)
-        assertEquals(1, h.outbox.rows.size, "the work must be queued, or nothing is being tested")
-
-        // B signs in. The queue still holds A's row, which is the whole point.
-        h.scopes.set(SyncScope(ownerB, "profile-1"))
-        assertEquals(1, h.outbox.rows.size, "REQ-UA-006 keeps one account's queue across another sign-in")
-
-        h.engine.push()
-
-        assertEquals(
-            emptyList(),
-            h.api.pushCalls.map { call -> call.patches.map { it.entityId } },
-            "B's push must not carry A's patch — and with nothing of its own to send, " +
-                "B should make no request at all",
-        )
-        assertEquals(
-            1,
-            h.outbox.rows.size,
-            "A's patch must still be queued — it is A's to send, not discarded",
-        )
-    }
+            assertEquals(
+                emptyList(),
+                h.api.pushCalls.map { call -> call.patches.map { it.entityId } },
+                "with no scope there is nothing this request may claim to be",
+            )
+            assertEquals(1, h.outbox.rows.size, "and the work is still queued for whoever signs in")
+        }
 
     @Test
-    fun `work queued by this account goes out`() = runTest {
-        // The negative case. Without it, a push() that sent nothing at all would pass
-        // every test above and the queue would never drain.
-        val h = harness(this, activeOwner = ownerA)
-        assertTrue(h.engine.enqueue(TestEntity("from-a")).isSuccess)
+    fun `work queued by another account is not sent in this account's request`() =
+        runTest {
+            val h = harness(this, activeOwner = ownerB)
 
-        h.engine.push()
+            // Queue work while A is the active scope.
+            h.scopes.set(SyncScope(ownerA, "profile-1"))
+            assertTrue(h.engine.enqueue(TestEntity("from-a")).isSuccess)
+            assertEquals(1, h.outbox.rows.size, "the work must be queued, or nothing is being tested")
 
-        assertEquals(
-            listOf("from-a"),
-            h.api.pushCalls.single().patches.map { it.entityId },
-        )
-        assertTrue(h.outbox.rows.isEmpty(), "a delivered patch leaves the queue")
-    }
+            // B signs in. The queue still holds A's row, which is the whole point.
+            h.scopes.set(SyncScope(ownerB, "profile-1"))
+            assertEquals(1, h.outbox.rows.size, "REQ-UA-006 keeps one account's queue across another sign-in")
 
-    @Test
-    fun `two accounts' work queues side by side and each sends only its own`() = runTest {
-        // Both queues in one table at once, which is the state the outbox could not
-        // previously represent at all.
-        val h = harness(this, activeOwner = ownerA)
-        assertTrue(h.engine.enqueue(TestEntity("from-a")).isSuccess)
+            h.engine.push()
 
-        h.scopes.set(SyncScope(ownerB, "profile-1"))
-        assertTrue(h.engine.enqueue(TestEntity("from-b")).isSuccess)
-
-        assertEquals(2, h.outbox.rows.size)
-        assertEquals(1, h.outbox.countPendingFor(ownerA))
-        assertEquals(1, h.outbox.countPendingFor(ownerB))
-
-        h.scopes.set(SyncScope(ownerA, "profile-1"))
-        h.engine.push()
-        assertEquals(listOf("from-a"), h.api.pushCalls.single().patches.map { it.entityId })
-
-        h.scopes.set(SyncScope(ownerB, "profile-1"))
-        h.engine.push()
-        assertEquals(2, h.api.pushCalls.size)
-        assertEquals(listOf("from-b"), h.api.pushCalls.last().patches.map { it.entityId })
-        assertTrue(h.outbox.rows.isEmpty(), "both are delivered once each has had its turn")
-    }
+            assertEquals(
+                emptyList(),
+                h.api.pushCalls.map { call -> call.patches.map { it.entityId } },
+                "B's push must not carry A's patch — and with nothing of its own to send, " +
+                    "B should make no request at all",
+            )
+            assertEquals(
+                1,
+                h.outbox.rows.size,
+                "A's patch must still be queued — it is A's to send, not discarded",
+            )
+        }
 
     @Test
-    fun `editing one account's entity does not drop the other account's queued patch`() = runTest {
-        // The other direction of the same rule. Coalescing deletes by entity before it
-        // inserts, and an unscoped delete would let one account's enqueue discard
-        // another's unsent work — the same loss REQ-UA-019 forbids, reached from the
-        // other side.
-        val h = harness(this, activeOwner = ownerA)
-        assertTrue(h.engine.enqueue(TestEntity("shared-id")).isSuccess)
-        val aPatchId = h.outbox.rows.single().patchId
+    fun `work queued by this account goes out`() =
+        runTest {
+            // The negative case. Without it, a push() that sent nothing at all would pass
+            // every test above and the queue would never drain.
+            val h = harness(this, activeOwner = ownerA)
+            assertTrue(h.engine.enqueue(TestEntity("from-a")).isSuccess)
 
-        h.scopes.set(SyncScope(ownerB, "profile-1"))
-        assertTrue(h.engine.enqueue(TestEntity("shared-id")).isSuccess)
+            h.engine.push()
 
-        assertEquals(
-            2,
-            h.outbox.rows.size,
-            "B's edit must not have coalesced away A's queued patch",
-        )
-        assertTrue(h.outbox.rows.any { it.patchId == aPatchId })
-    }
+            assertEquals(
+                listOf("from-a"),
+                h.api.pushCalls
+                    .single()
+                    .patches
+                    .map { it.entityId },
+            )
+            assertTrue(h.outbox.rows.isEmpty(), "a delivered patch leaves the queue")
+        }
 
     @Test
-    fun `a patch set aside for later keeps its owner`() = runTest {
-        // The dead letter is a queue too, and it is where work nobody can attribute
-        // would otherwise pile up unseen — so it needs the owner as much as the outbox
-        // does, and for the same reason.
-        //
-        // Reaching it takes a *retriable* refusal with the attempts exhausted. A
-        // terminal refusal is a different branch: it deletes the row outright and
-        // releases the shadow marker instead. The first version of this test accepted
-        // everything and so never reached the shelf at all.
-        val h = harness(
-            scope = this,
-            activeOwner = ownerA,
-            retryPolicy = PatchRetryPolicy(maxAttempts = 1),
-            answer = { PatchResult(it.patchId, ok = false, error = "server busy") },
-        )
-        assertTrue(h.engine.enqueue(TestEntity("doomed")).isSuccess)
-        val patchId = h.outbox.rows.single().patchId
+    fun `two accounts' work queues side by side and each sends only its own`() =
+        runTest {
+            // Both queues in one table at once, which is the state the outbox could not
+            // previously represent at all.
+            val h = harness(this, activeOwner = ownerA)
+            assertTrue(h.engine.enqueue(TestEntity("from-a")).isSuccess)
 
-        h.engine.push()
+            h.scopes.set(SyncScope(ownerB, "profile-1"))
+            assertTrue(h.engine.enqueue(TestEntity("from-b")).isSuccess)
 
-        assertEquals(
-            listOf("doomed"),
-            h.dead.rows.map { it.entityId },
-            "the shelved patch is A's, not whoever signs in next",
-        )
-        assertEquals(listOf(ownerA), h.dead.rows.map { it.ownerId })
-        assertTrue(h.outbox.rows.none { it.patchId == patchId }, "and it left the outbox")
-    }
+            assertEquals(2, h.outbox.rows.size)
+            assertEquals(1, h.outbox.countPendingFor(ownerA))
+            assertEquals(1, h.outbox.countPendingFor(ownerB))
+
+            h.scopes.set(SyncScope(ownerA, "profile-1"))
+            h.engine.push()
+            assertEquals(
+                listOf("from-a"),
+                h.api.pushCalls
+                    .single()
+                    .patches
+                    .map { it.entityId },
+            )
+
+            h.scopes.set(SyncScope(ownerB, "profile-1"))
+            h.engine.push()
+            assertEquals(2, h.api.pushCalls.size)
+            assertEquals(
+                listOf("from-b"),
+                h.api.pushCalls
+                    .last()
+                    .patches
+                    .map { it.entityId },
+            )
+            assertTrue(h.outbox.rows.isEmpty(), "both are delivered once each has had its turn")
+        }
+
+    @Test
+    fun `editing one account's entity does not drop the other account's queued patch`() =
+        runTest {
+            // The other direction of the same rule. Coalescing deletes by entity before it
+            // inserts, and an unscoped delete would let one account's enqueue discard
+            // another's unsent work — the same loss REQ-UA-019 forbids, reached from the
+            // other side.
+            val h = harness(this, activeOwner = ownerA)
+            assertTrue(h.engine.enqueue(TestEntity("shared-id")).isSuccess)
+            val aPatchId =
+                h.outbox.rows
+                    .single()
+                    .patchId
+
+            h.scopes.set(SyncScope(ownerB, "profile-1"))
+            assertTrue(h.engine.enqueue(TestEntity("shared-id")).isSuccess)
+
+            assertEquals(
+                2,
+                h.outbox.rows.size,
+                "B's edit must not have coalesced away A's queued patch",
+            )
+            assertTrue(h.outbox.rows.any { it.patchId == aPatchId })
+        }
+
+    @Test
+    fun `a patch set aside for later keeps its owner`() =
+        runTest {
+            // The dead letter is a queue too, and it is where work nobody can attribute
+            // would otherwise pile up unseen — so it needs the owner as much as the outbox
+            // does, and for the same reason.
+            //
+            // Reaching it takes a *retriable* refusal with the attempts exhausted. A
+            // terminal refusal is a different branch: it deletes the row outright and
+            // releases the shadow marker instead. The first version of this test accepted
+            // everything and so never reached the shelf at all.
+            val h =
+                harness(
+                    scope = this,
+                    activeOwner = ownerA,
+                    retryPolicy = PatchRetryPolicy(maxAttempts = 1),
+                    answer = { PatchResult(it.patchId, ok = false, error = "server busy") },
+                )
+            assertTrue(h.engine.enqueue(TestEntity("doomed")).isSuccess)
+            val patchId =
+                h.outbox.rows
+                    .single()
+                    .patchId
+
+            h.engine.push()
+
+            assertEquals(
+                listOf("doomed"),
+                h.dead.rows.map { it.entityId },
+                "the shelved patch is A's, not whoever signs in next",
+            )
+            assertEquals(listOf(ownerA), h.dead.rows.map { it.ownerId })
+            assertTrue(h.outbox.rows.none { it.patchId == patchId }, "and it left the outbox")
+        }
 }

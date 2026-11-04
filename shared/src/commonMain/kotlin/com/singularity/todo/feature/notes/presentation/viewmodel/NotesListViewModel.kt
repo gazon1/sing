@@ -7,8 +7,8 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.search.SearchMode
-import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteFilter
 import com.singularity.todo.feature.notes.NoteId
@@ -18,6 +18,8 @@ import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.NotesUiState
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.notes.presentation.NotesIntent
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -35,8 +37,6 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
-import kotlinx.collections.immutable.toImmutableList
-import kotlinx.collections.immutable.toImmutableSet
 
 /**
  * Notes list screen ViewModel.
@@ -63,15 +63,15 @@ class NotesListViewModel(
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<NotesUiState, NotesIntent, NotesUiEvent>(
-        initialState = NotesUiState.Loading(
-            filter = NoteFilter.All,
-            sortOrder = NoteSortOrder.UpdatedDesc,
-            searchQuery = FieldOwnedText.empty(),
-        ),
+        initialState =
+            NotesUiState.Loading(
+                filter = NoteFilter.All,
+                sortOrder = NoteSortOrder.UpdatedDesc,
+                searchQuery = FieldOwnedText.empty(),
+            ),
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     /**
      * Local reference for use in suspend contexts where the parent class's
      * private `crashReporter` is not accessible.
@@ -130,9 +130,10 @@ class NotesListViewModel(
      * held hostage by the debounce — otherwise the screen would sit on `Loading`
      * for 200 ms on every launch. Only real keystrokes wait.
      */
-    private val debouncedQueryFlow = searchQueryFlow
-        .debounce { query -> if (query.text.isEmpty()) 0L else SEARCH_DEBOUNCE_MS }
-        .distinctUntilChanged()
+    private val debouncedQueryFlow =
+        searchQueryFlow
+            .debounce { query -> if (query.text.isEmpty()) 0L else SEARCH_DEBOUNCE_MS }
+            .distinctUntilChanged()
 
     private val _selectedIds = MutableStateFlow<Set<NoteId>>(emptySet())
     private val _isSelectionMode = MutableStateFlow(false)
@@ -151,21 +152,24 @@ class NotesListViewModel(
         scope.launch {
             // Combine five flows: notes + templates + daily notes + sort order + search.
             val templatesFlow = repo.watchTemplates()
-            val dailyNotesFlow = todayFlow(clock, timeZone.current()).flatMapLatest { today ->
-                val from = today.minus(7, DateTimeUnit.DAY).toString()
-                val to = today.plus(30, DateTimeUnit.DAY).toString()
-                repo.watchDailyNotesInRange(from, to)
-            }
-            val notesFlow = combine(filterFlow, debouncedQueryFlow, retryTrigger) { f, query, _ -> f to query }
-                .flatMapLatest { (f, query) ->
-                    val flow = when {
-                        query.text.isNotBlank() -> repo.search(query.text, NOTE_SEARCH_MODE)
-                        f == NoteFilter.All -> repo.observeAll()
-                        f == NoteFilter.Pinned -> repo.watchPinned()
-                        else -> repo.watchArchived()
-                    }
-                    flow.map { notes -> Triple(f, query, notes) }
+            val dailyNotesFlow =
+                todayFlow(clock, timeZone.current()).flatMapLatest { today ->
+                    val from = today.minus(7, DateTimeUnit.DAY).toString()
+                    val to = today.plus(30, DateTimeUnit.DAY).toString()
+                    repo.watchDailyNotesInRange(from, to)
                 }
+            val notesFlow =
+                combine(filterFlow, debouncedQueryFlow, retryTrigger) { f, query, _ -> f to query }
+                    .flatMapLatest { (f, query) ->
+                        val flow =
+                            when {
+                                query.text.isNotBlank() -> repo.search(query.text, NOTE_SEARCH_MODE)
+                                f == NoteFilter.All -> repo.observeAll()
+                                f == NoteFilter.Pinned -> repo.watchPinned()
+                                else -> repo.watchArchived()
+                            }
+                        flow.map { notes -> Triple(f, query, notes) }
+                    }
             // Typed as [NotesUiState]: the error path below emits an `Error`, and an
             // inferred type of `Content` would make that emission a type error.
             val listStateFlow: Flow<NotesUiState> =
@@ -179,14 +183,15 @@ class NotesListViewModel(
                     val pinned = sorted.filter { it.isPinned }
                     val unpinned = sorted.filter { !it.isPinned }
                     NotesUiState.Content(
-                        list = NotesListState(
-                            pinned = pinned.toImmutableList(),
-                            unpinned = unpinned.toImmutableList(),
-                            templates = templates.toImmutableList(),
-                            dailyNotes = dailyNotes.toImmutableList(),
-                            selectedIds = _selectedIds.value.toImmutableSet(),
-                            isSelectionMode = _isSelectionMode.value,
-                        ),
+                        list =
+                            NotesListState(
+                                pinned = pinned.toImmutableList(),
+                                unpinned = unpinned.toImmutableList(),
+                                templates = templates.toImmutableList(),
+                                dailyNotes = dailyNotes.toImmutableList(),
+                                selectedIds = _selectedIds.value.toImmutableSet(),
+                                isSelectionMode = _isSelectionMode.value,
+                            ),
                         filter = filter,
                         sortOrder = sortOrder,
                         searchQuery = query,
@@ -208,51 +213,82 @@ class NotesListViewModel(
                             searchQuery = searchQueryFlow.value,
                         ),
                     )
-                }
-                .collect { state -> setState(state) }
+                }.collect { state -> setState(state) }
         }
     }
 
-    private fun sortNotes(notes: List<Note>, order: NoteSortOrder): List<Note> = when (order) {
-        NoteSortOrder.UpdatedDesc -> notes.sortedByDescending { it.updatedAt }
-        NoteSortOrder.UpdatedAsc -> notes.sortedBy { it.updatedAt }
-        NoteSortOrder.TitleAsc -> notes.sortedBy { it.title.lowercase() }
-        NoteSortOrder.TitleDesc -> notes.sortedByDescending { it.title.lowercase() }
-    }
+    private fun sortNotes(
+        notes: List<Note>,
+        order: NoteSortOrder,
+    ): List<Note> =
+        when (order) {
+            NoteSortOrder.UpdatedDesc -> notes.sortedByDescending { it.updatedAt }
+            NoteSortOrder.UpdatedAsc -> notes.sortedBy { it.updatedAt }
+            NoteSortOrder.TitleAsc -> notes.sortedBy { it.title.lowercase() }
+            NoteSortOrder.TitleDesc -> notes.sortedByDescending { it.title.lowercase() }
+        }
 
     override fun onIntent(intent: NotesIntent) {
         when (intent) {
-            is NotesIntent.Delete -> handleDelete(intent.id)
+            is NotesIntent.Delete -> {
+                handleDelete(intent.id)
+            }
 
-            is NotesIntent.TogglePin -> togglePin(intent.id)
+            is NotesIntent.TogglePin -> {
+                togglePin(intent.id)
+            }
 
-            is NotesIntent.Archive -> archive(intent.id)
+            is NotesIntent.Archive -> {
+                archive(intent.id)
+            }
 
-            is NotesIntent.Unarchive -> unarchive(intent.id)
+            is NotesIntent.Unarchive -> {
+                unarchive(intent.id)
+            }
 
-            is NotesIntent.SetFilter -> setFilter(intent.filter)
+            is NotesIntent.SetFilter -> {
+                setFilter(intent.filter)
+            }
 
-            is NotesIntent.SetSortOrder -> setSortOrder(intent.order)
+            is NotesIntent.SetSortOrder -> {
+                setSortOrder(intent.order)
+            }
 
-            is NotesIntent.SearchQueryChanged -> setSearchQuery(intent.query)
+            is NotesIntent.SearchQueryChanged -> {
+                setSearchQuery(intent.query)
+            }
 
-            is NotesIntent.EnterSelection -> enterSelectionMode(intent.id)
+            is NotesIntent.EnterSelection -> {
+                enterSelectionMode(intent.id)
+            }
 
-            is NotesIntent.ToggleSelection -> toggleSelection(intent.id)
+            is NotesIntent.ToggleSelection -> {
+                toggleSelection(intent.id)
+            }
 
-            NotesIntent.ExitSelection -> exitSelectionMode()
+            NotesIntent.ExitSelection -> {
+                exitSelectionMode()
+            }
 
-            NotesIntent.DeleteSelected -> deleteSelected()
+            NotesIntent.DeleteSelected -> {
+                deleteSelected()
+            }
 
             NotesIntent.Retry -> {
                 retryTrigger.value += 1
             }
 
-            is NotesIntent.CreateNote -> createNoteWithTitle(intent.title)
+            is NotesIntent.CreateNote -> {
+                createNoteWithTitle(intent.title)
+            }
 
-            is NotesIntent.DeleteNote -> handleDelete(intent.id)
+            is NotesIntent.DeleteNote -> {
+                handleDelete(intent.id)
+            }
 
-            is NotesIntent.UndoDelete -> scope.launch { handleUndoDeleteTapped() }
+            is NotesIntent.UndoDelete -> {
+                scope.launch { handleUndoDeleteTapped() }
+            }
         }
     }
 
@@ -300,10 +336,12 @@ class NotesListViewModel(
     // ─── Pin ───────────────────────────────────────────────────────────────
 
     private fun togglePin(id: NoteId) {
-        val current = currentState as? NotesUiState.Content
-            ?: return
-        val note = (current.list.pinned + current.list.unpinned).firstOrNull { it.id == id }
-            ?: return
+        val current =
+            currentState as? NotesUiState.Content
+                ?: return
+        val note =
+            (current.list.pinned + current.list.unpinned).firstOrNull { it.id == id }
+                ?: return
         emitError("Pin failed", { msg -> NotesUiEvent.Error("Pin failed: $msg") }) {
             repo.setPinned(id, !note.isPinned)
         }
@@ -332,15 +370,17 @@ class NotesListViewModel(
     // so the checkboxes stayed unchecked; a test now pins that.
 
     /** The one place selection is written into the state the screen renders. */
-    private fun updateSelection(selected: Set<NoteId>) = updateState { current ->
-        val content = current as? NotesUiState.Content ?: return@updateState current
-        content.copy(
-            list = content.list.copy(
-                selectedIds = selected.toImmutableSet(),
-                isSelectionMode = selected.isNotEmpty(),
-            ),
-        )
-    }
+    private fun updateSelection(selected: Set<NoteId>) =
+        updateState { current ->
+            val content = current as? NotesUiState.Content ?: return@updateState current
+            content.copy(
+                list =
+                    content.list.copy(
+                        selectedIds = selected.toImmutableSet(),
+                        isSelectionMode = selected.isNotEmpty(),
+                    ),
+            )
+        }
 
     private fun enterSelectionMode(id: NoteId) {
         _isSelectionMode.value = true
@@ -394,7 +434,8 @@ class NotesListViewModel(
      */
     fun createNoteWithTitle(title: String) {
         scope.launch {
-            repo.createNoteWithTitle(title)
+            repo
+                .createNoteWithTitle(title)
                 .onSuccess { emit(NotesUiEvent.NavigateToEditor(it)) }
                 .onFailure { emit(NotesUiEvent.Error(it.toMessage("Create note failed"))) }
         }
@@ -438,10 +479,11 @@ class NotesListViewModel(
             _pendingDelete.value = PendingDelete(noteId, noteTitle)
             emit(NotesUiEvent.UndoDelete(noteId, noteTitle))
 
-            pendingDeleteJob = scope.launch {
-                delay(UNDO_WINDOW_MS)
-                _pendingDelete.value = null
-            }
+            pendingDeleteJob =
+                scope.launch {
+                    delay(UNDO_WINDOW_MS)
+                    _pendingDelete.value = null
+                }
         }
     }
 
@@ -455,12 +497,12 @@ class NotesListViewModel(
      */
     private suspend fun handleUndoDeleteTapped() {
         val pending = _pendingDelete.value ?: return
-        repo.restore(pending.noteId)
+        repo
+            .restore(pending.noteId)
             .onSuccess {
                 pendingDeleteJob?.cancel()
                 _pendingDelete.value = null
-            }
-            .onFailure {
+            }.onFailure {
                 crashReporter.report(it, RESTORE_FAILED)
                 emit(NotesUiEvent.Error("Could not restore"))
             }
@@ -468,11 +510,12 @@ class NotesListViewModel(
 
     private fun findNoteTitle(noteId: NoteId): String {
         val current = currentState as? NotesUiState.Content ?: return "Note"
-        val note = current.list.pinned
-            .plus(current.list.unpinned)
-            .plus(current.list.templates)
-            .plus(current.list.dailyNotes)
-            .firstOrNull { it.id == noteId }
+        val note =
+            current.list.pinned
+                .plus(current.list.unpinned)
+                .plus(current.list.templates)
+                .plus(current.list.dailyNotes)
+                .firstOrNull { it.id == noteId }
         return note?.title?.ifEmpty { "Note" } ?: "Note"
     }
 }
@@ -492,19 +535,21 @@ data class PendingDelete(val noteId: NoteId, val title: String)
  * state itself: a variant that kept the old filter would show a chip that no longer
  * matches what the list is filtered by.
  */
-private fun NotesUiState.withFilter(filter: NoteFilter): NotesUiState = when (this) {
-    is NotesUiState.Content -> copy(filter = filter)
-    is NotesUiState.Error -> copy(filter = filter)
-    is NotesUiState.Loading -> copy(filter = filter)
-}
+private fun NotesUiState.withFilter(filter: NoteFilter): NotesUiState =
+    when (this) {
+        is NotesUiState.Content -> copy(filter = filter)
+        is NotesUiState.Error -> copy(filter = filter)
+        is NotesUiState.Loading -> copy(filter = filter)
+    }
 
 /**
  * Copies a new sort order into every variant of the state.
  *
  * @see withFilter
  */
-private fun NotesUiState.withSortOrder(order: NoteSortOrder): NotesUiState = when (this) {
-    is NotesUiState.Content -> copy(sortOrder = order)
-    is NotesUiState.Error -> copy(sortOrder = order)
-    is NotesUiState.Loading -> copy(sortOrder = order)
-}
+private fun NotesUiState.withSortOrder(order: NoteSortOrder): NotesUiState =
+    when (this) {
+        is NotesUiState.Content -> copy(sortOrder = order)
+        is NotesUiState.Error -> copy(sortOrder = order)
+        is NotesUiState.Loading -> copy(sortOrder = order)
+    }

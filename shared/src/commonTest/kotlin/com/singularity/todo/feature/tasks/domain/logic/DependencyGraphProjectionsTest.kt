@@ -40,7 +40,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class DependencyGraphProjectionsTest {
-
     private val user = UserId("graph-user")
 
     private suspend fun dao(vararg entries: Triple<String, String, String>): InMemoryTaskDao {
@@ -51,49 +50,57 @@ class DependencyGraphProjectionsTest {
         return dao
     }
 
-    private fun currentUser() = FakeProfileAwareCurrentUser(
-        authRepository = FakeAuthRepository(Session.Anonymous(user)),
-    )
-
-    @Test
-    fun `the ordering graph holds every edge`() = runTest {
-        val deps = dao(
-            Triple("t-a", "t-b", DependencyVerb.BLOCKS.name),
-            Triple("t-a", "t-c", DependencyVerb.FOLLOWS_UP.name),
+    private fun currentUser() =
+        FakeProfileAwareCurrentUser(
+            authRepository = FakeAuthRepository(Session.Anonymous(user)),
         )
 
-        val ordering = deps.getOrderingEdgeIdsForUser("t-a", user.value).first()
+    @Test
+    fun `the ordering graph holds every edge`() =
+        runTest {
+            val deps =
+                dao(
+                    Triple("t-a", "t-b", DependencyVerb.BLOCKS.name),
+                    Triple("t-a", "t-c", DependencyVerb.FOLLOWS_UP.name),
+                )
 
-        assertEquals(setOf("t-b", "t-c"), ordering.toSet(), "the order of the work is every edge")
-    }
+            val ordering = deps.getOrderingEdgeIdsForUser("t-a", user.value).first()
+
+            assertEquals(setOf("t-b", "t-c"), ordering.toSet(), "the order of the work is every edge")
+        }
 
     @Test
-    fun `the blocking graph holds the blocking edges only`() = runTest {
-        val deps = dao(
-            Triple("t-a", "t-b", DependencyVerb.BLOCKS.name),
-            Triple("t-a", "t-c", DependencyVerb.FOLLOWS_UP.name),
-        )
+    fun `the blocking graph holds the blocking edges only`() =
+        runTest {
+            val deps =
+                dao(
+                    Triple("t-a", "t-b", DependencyVerb.BLOCKS.name),
+                    Triple("t-a", "t-c", DependencyVerb.FOLLOWS_UP.name),
+                )
 
-        val blocking = deps.getBlockingEdgeIdsForUser("t-a", user.value, DependencyVerb.BLOCKS.name).first()
+            val blocking = deps.getBlockingEdgeIdsForUser("t-a", user.value, DependencyVerb.BLOCKS.name).first()
 
-        assertEquals(listOf("t-b"), blocking, "only a block makes a task wait")
-    }
+            assertEquals(listOf("t-b"), blocking, "only a block makes a task wait")
+        }
 
     @Test
-    fun `a relation that only follows up is in the cycle and not in the blockers`() = runTest {
-        val deps = dao(
-            Triple("t-a", "t-b", DependencyVerb.FOLLOWS_UP.name),
-            Triple("t-b", "t-a", DependencyVerb.FOLLOWS_UP.name),
-        )
+    fun `a relation that only follows up is in the cycle and not in the blockers`() =
+        runTest {
+            val deps =
+                dao(
+                    Triple("t-a", "t-b", DependencyVerb.FOLLOWS_UP.name),
+                    Triple("t-b", "t-a", DependencyVerb.FOLLOWS_UP.name),
+                )
 
-        // The ordering graph: two tasks that follow up on each other are a cycle.
-        val analysis = DependencyValidatorImpl(deps, currentUser())
-            .analyzeDependencies(TaskId("t-a"))
-        assertTrue(analysis.containsCycle, "the order of the work has a cycle here")
-        assertEquals(DependencyVerb.FOLLOWS_UP, analysis.cycleEdges.first().verb)
+            // The ordering graph: two tasks that follow up on each other are a cycle.
+            val analysis =
+                DependencyValidatorImpl(deps, currentUser())
+                    .analyzeDependencies(TaskId("t-a"))
+            assertTrue(analysis.containsCycle, "the order of the work has a cycle here")
+            assertEquals(DependencyVerb.FOLLOWS_UP, analysis.cycleEdges.first().verb)
 
-        // The blocking graph: neither of them waits for the other.
-        val blocking = deps.getBlockingEdgeIdsForUser("t-a", user.value, DependencyVerb.BLOCKS.name).first()
-        assertTrue(blocking.isEmpty(), "a follow-up is not a block")
-    }
+            // The blocking graph: neither of them waits for the other.
+            val blocking = deps.getBlockingEdgeIdsForUser("t-a", user.value, DependencyVerb.BLOCKS.name).first()
+            assertTrue(blocking.isEmpty(), "a follow-up is not a block")
+        }
 }

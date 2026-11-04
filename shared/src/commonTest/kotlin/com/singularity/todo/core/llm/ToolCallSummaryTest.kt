@@ -17,7 +17,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ToolCallSummaryTest {
-
     @Test
     fun aToolWithNoArgumentsIsNamed() {
         assertEquals("list_tasks", toolCallSummary("list_tasks", null))
@@ -66,10 +65,11 @@ class ToolCallSummaryTest {
 
     @Test
     fun anIdentifyingValueIsQuotedWhenShortAndSingleLine() {
-        val summary = toolCallSummary(
-            "update_task",
-            """{"taskId":"t-42","status":"Completed","priority":2,"isPinned":true}""",
-        )
+        val summary =
+            toolCallSummary(
+                "update_task",
+                """{"taskId":"t-42","status":"Completed","priority":2,"isPinned":true}""",
+            )
 
         assertTrue(summary.contains("taskId=t-42"), summary)
         assertTrue(summary.contains("status=Completed"), summary)
@@ -100,8 +100,9 @@ class ToolCallSummaryTest {
         // Identifying fields with values at the length limit, so the quoting rule does not
         // shrink the summary before the length bound can apply.
         val value = "v".repeat(60)
-        val many = listOf("title", "name", "label", "slug", "kind", "status", "tone", "verb")
-            .joinToString(",") { """"$it":"$value"""" }
+        val many =
+            listOf("title", "name", "label", "slug", "kind", "status", "tone", "verb")
+                .joinToString(",") { """"$it":"$value"""" }
         val summary = toolCallSummary("update_task", "{$many}")
 
         assertTrue(

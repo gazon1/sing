@@ -568,17 +568,25 @@ not one nobody had noticed for a year. That judgement is the review's work.
 ## Touch targets meet the minimum and the order is correct
 
 Material's minimum interactive size is 48 dp. A fixed visual size applied
-before `minimumInteractiveComponentSize()` caps the hit area — the order is
-the bug.
+before the expansion caps the hit area — the order is the bug.
 
-- **Put `minimumInteractiveComponentSize()` before `size()`.** When a
-  control has a smaller visual size (e.g. 22 dp, 14 dp, 8 dp), call
-  `minimumInteractiveComponentSize()` first, then constrain the visual size
-  with `size(...)`. For controls that must follow the task-list minimum use
-  `minimumInteractiveComponentSize(TaskListSizes.MinTouchTarget)`.
+- **Expand with `touchTarget()`, before `size()`.** When a control has a
+  smaller visual size (e.g. 22 dp, 14 dp, 8 dp), expand the hit area with
+  `Modifier.touchTarget(...)` first, then constrain the visual size with
+  `size(...)`: `Modifier.touchTarget().size(20.dp)` keeps a 48 dp hit area
+  around a 20 dp icon, while `Modifier.size(20.dp).touchTarget()` is capped
+  back to 20 dp.
+- **Material's own `minimumInteractiveComponentSize()` is not the call to
+  write.** In the pinned material3 it takes no size argument — the minimum
+  comes from the `LocalMinimumInteractiveComponentSize` composition local —
+  so the size it applies cannot be chosen at the call site. The shared
+  `touchTarget(minSize)` helper (`core/ui/TouchTarget.kt`) is what enforces
+  the size in this project.
 - **Use the token.** `TaskListSizes.MinTouchTarget = 48.dp` is the source of
-  truth for task-list controls. Prefer passing it explicitly rather than
-  relying on the default when the control is in scope of that token.
+  truth for task-list controls; `TouchTarget.MinSize` is the 48 dp minimum
+  the helper defaults to. Prefer passing the token explicitly rather than
+  relying on the default when the control is in scope of that token:
+  `Modifier.touchTarget(TaskListSizes.MinTouchTarget)`.
 - **A touch target is still a control.** Padding and hit expansion do not
   replace a real hit area. A `clickable`/`toggleable`/`IconButton` on a small
   node needs expansion, and the expansion must not be clipped by a
@@ -604,6 +612,7 @@ re-deriving them.
 | `catch (CancellationException)` before a general `catch` | detekt |
 | A swallowed exception keeps its cause | detekt `SwallowedException` |
 | Room schema changes bump `SCHEMA_VERSION` and add a migration | `scripts/check-room-schema-integrity.py` |
+| A chain that fixes a size below 48 dp expands the target before that size | `scripts/check-touch-targets.py` |
 | New ports bind in both `PlatformModule.*.kt` | `scripts/check-platform-reference-ports.py` |
 
 ---

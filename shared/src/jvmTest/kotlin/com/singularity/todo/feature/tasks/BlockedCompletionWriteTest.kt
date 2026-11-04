@@ -45,18 +45,18 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class BlockedCompletionWriteTest {
-
     private val alice = UserId("alice")
 
     private val tempDirLazy = lazy { Files.createTempDirectory("singularity-blocked-write-").toFile() }
     private val tempDir: File by tempDirLazy
 
-    private val dbLazy = lazy {
-        AppDatabaseFactory.build(
-            driver = createSqlDriver(),
-            dbPath = File(tempDir, "tasks.db").absolutePath,
-        )
-    }
+    private val dbLazy =
+        lazy {
+            AppDatabaseFactory.build(
+                driver = createSqlDriver(),
+                dbPath = File(tempDir, "tasks.db").absolutePath,
+            )
+        }
     private val db: AppDatabase by dbLazy
 
     @AfterTest
@@ -65,7 +65,10 @@ class BlockedCompletionWriteTest {
         if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
     }
 
-    private fun task(id: String, title: String = "Task $id") = Task(
+    private fun task(
+        id: String,
+        title: String = "Task $id",
+    ) = Task(
         id = TaskId(id),
         title = title,
         createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
@@ -73,110 +76,119 @@ class BlockedCompletionWriteTest {
         userId = alice,
     )
 
-    private fun repository() = run {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val currentUser = FakeProfileAwareCurrentUser(auth)
-        TaskRepositoryImpl(
-            taskDao = db.taskDao(),
-            textIndex = db.textIndex(currentUser),
-            clock = kotlin.time.Clock.System,
-            currentUser = currentUser,
-            syncRepository = FakeSyncRepository(),
-            dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
-            unitOfWork = FakeUnitOfWork(),
-        )
-    }
+    private fun repository() =
+        run {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val currentUser = FakeProfileAwareCurrentUser(auth)
+            TaskRepositoryImpl(
+                taskDao = db.taskDao(),
+                textIndex = db.textIndex(currentUser),
+                clock = kotlin.time.Clock.System,
+                currentUser = currentUser,
+                syncRepository = FakeSyncRepository(),
+                dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
+                unitOfWork = FakeUnitOfWork(),
+            )
+        }
 
     @Test
-    fun `the write refuses while a prerequisite is open`() = runTest {
-        val repo = repository()
-        repo.create(task("dep", "Dependency"))
-        repo.create(task("t1", "Blocked"))
-        repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+    fun `the write refuses while a prerequisite is open`() =
+        runTest {
+            val repo = repository()
+            repo.create(task("dep", "Dependency"))
+            repo.create(task("t1", "Blocked"))
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
 
-        val completed = repo.complete(TaskId("t1")).getOrThrow()
+            val completed = repo.complete(TaskId("t1")).getOrThrow()
 
-        assertFalse(completed, "the statement must refuse the completion")
-        assertNull(repo.observe(TaskId("t1")).first()?.completedAt, "nothing may be written")
-    }
-
-    @Test
-    fun `a forced write goes through`() = runTest {
-        val repo = repository()
-        repo.create(task("dep", "Dependency"))
-        repo.create(task("t1", "Blocked"))
-        repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
-
-        val completed = repo.complete(TaskId("t1"), force = true).getOrThrow()
-
-        assertTrue(completed, "the confirmed completion must land")
-        assertEquals(true, repo.observe(TaskId("t1")).first()?.completedAt != null)
-    }
+            assertFalse(completed, "the statement must refuse the completion")
+            assertNull(repo.observe(TaskId("t1")).first()?.completedAt, "nothing may be written")
+        }
 
     @Test
-    fun `a prerequisite that is finished no longer blocks the write`() = runTest {
-        val repo = repository()
-        repo.create(task("dep", "Dependency"))
-        repo.create(task("t1", "Blocked"))
-        repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
-        repo.complete(TaskId("dep")).getOrThrow()
+    fun `a forced write goes through`() =
+        runTest {
+            val repo = repository()
+            repo.create(task("dep", "Dependency"))
+            repo.create(task("t1", "Blocked"))
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
 
-        val completed = repo.complete(TaskId("t1")).getOrThrow()
+            val completed = repo.complete(TaskId("t1"), force = true).getOrThrow()
 
-        assertTrue(completed, "the work it waited for is done")
-    }
-
-    @Test
-    fun `an edge of another kind does not block the write`() = runTest {
-        val repo = repository()
-        repo.create(task("dep", "Dependency"))
-        repo.create(task("t1", "Follower"))
-        repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.FOLLOWS_UP, enabled = true)
-
-        val completed = repo.complete(TaskId("t1")).getOrThrow()
-
-        assertTrue(completed, "a task that follows up on another is not waiting for it")
-    }
+            assertTrue(completed, "the confirmed completion must land")
+            assertEquals(true, repo.observe(TaskId("t1")).first()?.completedAt != null)
+        }
 
     @Test
-    fun `the blocked-task read names only the tasks that are blocked`() = runTest {
-        val repo = repository()
-        repo.create(task("dep", "Dependency"))
-        repo.create(task("blocked", "Blocked"))
-        repo.create(task("follower", "Follower"))
-        repo.create(task("free", "Free"))
-        repo.setDependency(TaskId("blocked"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
-        repo.setDependency(TaskId("follower"), TaskId("dep"), DependencyVerb.FOLLOWS_UP, enabled = true)
+    fun `a prerequisite that is finished no longer blocks the write`() =
+        runTest {
+            val repo = repository()
+            repo.create(task("dep", "Dependency"))
+            repo.create(task("t1", "Blocked"))
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+            repo.complete(TaskId("dep")).getOrThrow()
 
-        val blocked = repo.blockedTaskIds(
-            listOf(TaskId("blocked"), TaskId("follower"), TaskId("free")),
-        )
+            val completed = repo.complete(TaskId("t1")).getOrThrow()
 
-        assertEquals(setOf(TaskId("blocked")), blocked)
-    }
+            assertTrue(completed, "the work it waited for is done")
+        }
 
     @Test
-    fun `a finished prerequisite is not a blocker`() = runTest {
-        val repo = repository()
-        repo.create(task("dep", "Dependency"))
-        repo.create(task("t1", "Blocked"))
-        repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
-        repo.complete(TaskId("dep")).getOrThrow()
+    fun `an edge of another kind does not block the write`() =
+        runTest {
+            val repo = repository()
+            repo.create(task("dep", "Dependency"))
+            repo.create(task("t1", "Follower"))
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.FOLLOWS_UP, enabled = true)
 
-        val blocked = repo.blockedTaskIds(listOf(TaskId("t1")))
+            val completed = repo.complete(TaskId("t1")).getOrThrow()
 
-        assertTrue(blocked.isEmpty(), "the prerequisite is done: $blocked")
-    }
+            assertTrue(completed, "a task that follows up on another is not waiting for it")
+        }
 
     @Test
-    fun `reopening a task is never refused`() = runTest {
-        val repo = repository()
-        repo.create(task("dep", "Dependency"))
-        repo.create(task("t1", "Blocked"))
-        repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+    fun `the blocked-task read names only the tasks that are blocked`() =
+        runTest {
+            val repo = repository()
+            repo.create(task("dep", "Dependency"))
+            repo.create(task("blocked", "Blocked"))
+            repo.create(task("follower", "Follower"))
+            repo.create(task("free", "Free"))
+            repo.setDependency(TaskId("blocked"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+            repo.setDependency(TaskId("follower"), TaskId("dep"), DependencyVerb.FOLLOWS_UP, enabled = true)
 
-        repo.reopen(TaskId("t1")).getOrThrow()
+            val blocked =
+                repo.blockedTaskIds(
+                    listOf(TaskId("blocked"), TaskId("follower"), TaskId("free")),
+                )
 
-        assertNull(repo.observe(TaskId("t1")).first()?.completedAt)
-    }
+            assertEquals(setOf(TaskId("blocked")), blocked)
+        }
+
+    @Test
+    fun `a finished prerequisite is not a blocker`() =
+        runTest {
+            val repo = repository()
+            repo.create(task("dep", "Dependency"))
+            repo.create(task("t1", "Blocked"))
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+            repo.complete(TaskId("dep")).getOrThrow()
+
+            val blocked = repo.blockedTaskIds(listOf(TaskId("t1")))
+
+            assertTrue(blocked.isEmpty(), "the prerequisite is done: $blocked")
+        }
+
+    @Test
+    fun `reopening a task is never refused`() =
+        runTest {
+            val repo = repository()
+            repo.create(task("dep", "Dependency"))
+            repo.create(task("t1", "Blocked"))
+            repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+
+            repo.reopen(TaskId("t1")).getOrThrow()
+
+            assertNull(repo.observe(TaskId("t1")).first()?.completedAt)
+        }
 }

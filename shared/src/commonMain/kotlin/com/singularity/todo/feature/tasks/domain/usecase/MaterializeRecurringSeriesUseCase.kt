@@ -41,7 +41,6 @@ class MaterializeRecurringSeriesUseCase(
     private val unitOfWork: UnitOfWork,
     private val clock: Clock,
 ) {
-
     /**
      * Fills [seriesId]'s window from [anchor], and returns the plan that was
      * written.
@@ -56,34 +55,39 @@ class MaterializeRecurringSeriesUseCase(
         template: Task,
         rule: RecurrenceSpec,
         anchor: LocalDate,
-    ): Result<SeriesMaterialisationPlan> = runCatchingCancellable {
-        val seriesId = template.seriesId
-            ?: throw IllegalArgumentException("A recurring series is materialised around a row with a series id")
-        val members = repo.getSeries(seriesId)
-        val now = clock.now()
-        val plan = RecurringSeriesPlanner.plan(
-            template = template,
-            rule = rule,
-            anchor = anchor,
-            members = members,
-            now = now,
-        )
-        if (plan.isEmpty) return@runCatchingCancellable plan
+    ): Result<SeriesMaterialisationPlan> =
+        runCatchingCancellable {
+            val seriesId =
+                template.seriesId
+                    ?: throw IllegalArgumentException(
+                        "A recurring series is materialised around a row with a series id",
+                    )
+            val members = repo.getSeries(seriesId)
+            val now = clock.now()
+            val plan =
+                RecurringSeriesPlanner.plan(
+                    template = template,
+                    rule = rule,
+                    anchor = anchor,
+                    members = members,
+                    now = now,
+                )
+            if (plan.isEmpty) return@runCatchingCancellable plan
 
-        unitOfWork.write {
-            val batch = plan.toCreate + plan.toMove
-            if (batch.isNotEmpty()) {
-                repo.createSeries(batch).getOrThrow()
+            unitOfWork.write {
+                val batch = plan.toCreate + plan.toMove
+                if (batch.isNotEmpty()) {
+                    repo.createSeries(batch).getOrThrow()
+                }
+                // The rows that leave the series are written on their own: they carry
+                // no series id, and a batch that mixed them with the members would be
+                // the two-series-ids write `createSeries` refuses.
+                plan.toDetach.forEach { detached ->
+                    repo.update(detached).getOrThrow()
+                }
             }
-            // The rows that leave the series are written on their own: they carry
-            // no series id, and a batch that mixed them with the members would be
-            // the two-series-ids write `createSeries` refuses.
-            plan.toDetach.forEach { detached ->
-                repo.update(detached).getOrThrow()
-            }
+            plan
         }
-        plan
-    }
 
     /**
      * Creates a recurring series around a task that stands alone — the rule was
@@ -98,7 +102,11 @@ class MaterializeRecurringSeriesUseCase(
      * @param today used as the anchor only when the task carries no due date.
      * @return the series id, or a failure.
      */
-    suspend fun startSeries(task: Task, rule: RecurrenceSpec, today: LocalDate): Result<TaskSeriesId> =
+    suspend fun startSeries(
+        task: Task,
+        rule: RecurrenceSpec,
+        today: LocalDate,
+    ): Result<TaskSeriesId> =
         runCatchingCancellable {
             val seriesId = TaskSeriesId.generate()
             val current = task.copy(seriesId = seriesId, recurrence = rule, updatedAt = clock.now())

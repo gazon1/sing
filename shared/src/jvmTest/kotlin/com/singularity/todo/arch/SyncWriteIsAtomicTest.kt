@@ -63,17 +63,17 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class SyncWriteIsAtomicTest {
-
     @Test
     fun `every patch enqueue is inside a unit of work`() {
         val files = repositoryFiles()
         assertTrue(files.isNotEmpty(), "no repository file found — the path this test reads has moved")
 
-        val offenders = files.flatMap { file ->
-            sitesIn(file)
-                .filter { it.kind != Kind.HELPER_BODY && !it.insideWrite }
-                .map { "${file.name}:${it.line}: ${it.text} is not inside a unitOfWork.write" }
-        }
+        val offenders =
+            files.flatMap { file ->
+                sitesIn(file)
+                    .filter { it.kind != Kind.HELPER_BODY && !it.insideWrite }
+                    .map { "${file.name}:${it.line}: ${it.text} is not inside a unitOfWork.write" }
+            }
 
         if (offenders.isNotEmpty()) {
             fail(
@@ -93,14 +93,15 @@ class SyncWriteIsAtomicTest {
         // writes nothing itself, so its body needs no transaction — but a caller that is not
         // wrapped is exactly the split this ADR describes, reached through a function call
         // rather than a visible pair of statements.
-        val offenders = repositoryFiles().flatMap { file ->
-            sitesIn(file)
-                .filter { it.kind == Kind.HELPER_CALL && !it.insideWrite }
-                .map {
-                    "${file.name}:${it.line}: ${it.text} calls the enqueue helper outside a " +
-                        "unitOfWork.write"
-                }
-        }
+        val offenders =
+            repositoryFiles().flatMap { file ->
+                sitesIn(file)
+                    .filter { it.kind == Kind.HELPER_CALL && !it.insideWrite }
+                    .map {
+                        "${file.name}:${it.line}: ${it.text} calls the enqueue helper outside a " +
+                            "unitOfWork.write"
+                    }
+            }
 
         if (offenders.isNotEmpty()) {
             fail(
@@ -131,25 +132,26 @@ class SyncWriteIsAtomicTest {
         // The synthetic control below is the second case, and it is the one that bit this
         // file first: its own control source declared no constructor, so the vocabulary was
         // empty, so the walk found nothing — and the two checks above passed on it.
-        val problems = repositoryFiles().flatMap { file ->
-            val source = file.readText()
-            val enqueues = ".enqueue(" in source
-            val readable = vocabulary(source).receiver.isNotEmpty()
+        val problems =
+            repositoryFiles().flatMap { file ->
+                val source = file.readText()
+                val enqueues = ".enqueue(" in source
+                val readable = vocabulary(source).receiver.isNotEmpty()
 
-            // Only files that actually enqueue are in scope. A file that merely imports
-            // SyncRepository, or mentions it in a KDoc, is a repository this rule has
-            // nothing to say about — and saying something about it would train everyone to
-            // ignore the message.
-            if (enqueues && !readable) {
-                listOf(
-                    "${file.name}: calls .enqueue( but exposes no readable " +
-                        "`private val …: SyncRepository`, so this rule cannot attribute the " +
-                        "call — and neither can a reader",
-                )
-            } else {
-                emptyList()
+                // Only files that actually enqueue are in scope. A file that merely imports
+                // SyncRepository, or mentions it in a KDoc, is a repository this rule has
+                // nothing to say about — and saying something about it would train everyone to
+                // ignore the message.
+                if (enqueues && !readable) {
+                    listOf(
+                        "${file.name}: calls .enqueue( but exposes no readable " +
+                            "`private val …: SyncRepository`, so this rule cannot attribute the " +
+                            "call — and neither can a reader",
+                    )
+                } else {
+                    emptyList()
+                }
             }
-        }
 
         if (problems.isNotEmpty()) {
             fail(
@@ -181,39 +183,40 @@ class SyncWriteIsAtomicTest {
         // so the answer is known before it is asked for — and it covers all three cases,
         // because the first version of this walk reported a wrapped call and passed a tree
         // that had an unwrapped one.
-        val found = walkOn(
-            """
-            class RepositoryImpl(
-                private val syncRepository: SyncRepository,
-            ) {
-                override suspend fun wrappedInline(a: Int) {
-                    unitOfWork.write {
+        val found =
+            walkOn(
+                """
+                class RepositoryImpl(
+                    private val syncRepository: SyncRepository,
+                ) {
+                    override suspend fun wrappedInline(a: Int) {
+                        unitOfWork.write {
+                            syncRepository.enqueue(inlineCall)
+                        }
+                    }
+
+                    override suspend fun unwrappedInline(a: Int) {
+                        dao.upsert(a)
                         syncRepository.enqueue(inlineCall)
                     }
-                }
 
-                override suspend fun unwrappedInline(a: Int) {
-                    dao.upsert(a)
-                    syncRepository.enqueue(inlineCall)
-                }
+                    override suspend fun wrappedHelper(a: Int) {
+                        unitOfWork.write {
+                            enqueueFresh(id)
+                        }
+                    }
 
-                override suspend fun wrappedHelper(a: Int) {
-                    unitOfWork.write {
+                    override suspend fun unwrappedHelper(a: Int) {
                         enqueueFresh(id)
                     }
-                }
 
-                override suspend fun unwrappedHelper(a: Int) {
-                    enqueueFresh(id)
+                    private suspend fun enqueueFresh(id: Int) {
+                        val row = dao.get(id) ?: return
+                        syncRepository.enqueue(row)
+                    }
                 }
-
-                private suspend fun enqueueFresh(id: Int) {
-                    val row = dao.get(id) ?: return
-                    syncRepository.enqueue(row)
-                }
-            }
-            """.trimIndent(),
-        )
+                """.trimIndent(),
+            )
 
         val inline = found.filter { it.kind == Kind.INLINE_ENQUEUE && !it.insideWrite }
         val helper = found.filter { it.kind == Kind.HELPER_CALL && !it.insideWrite }
@@ -241,7 +244,8 @@ class SyncWriteIsAtomicTest {
         // `syncRepository.enqueue` and `enqueueFresh(` reports a clean tree the day a
         // repository renames either — and `SyncRepositoryImpl` already writes `engine.enqueue`,
         // which is what made the gap demonstrable instead of theoretical.
-        val source = """
+        val source =
+            """
             class RepositoryImpl(
                 private val outbound: SyncRepository,
             ) {
@@ -257,7 +261,7 @@ class SyncWriteIsAtomicTest {
                     outbound.enqueue(row)
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
 
         assertEquals("outbound", vocabulary(source).receiver, "receiver not derived from the constructor")
 
@@ -292,8 +296,9 @@ class SyncWriteIsAtomicTest {
     private data class Vocabulary(val receiver: String, val helpers: Set<String>)
 
     private fun repositoryFiles(): List<File> {
-        val root = System.getProperty("commonMain.root")
-            ?: error("commonMain.root system property is not set — see the jvmTest task config")
+        val root =
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root system property is not set — see the jvmTest task config")
         return File(root, "com/singularity/todo/feature")
             .walkTopDown()
             .filter { it.isFile && it.name.endsWith("RepositoryImpl.kt") }
@@ -309,28 +314,35 @@ class SyncWriteIsAtomicTest {
      * rule has anything to say about, so it gets an empty vocabulary rather than a guess.
      */
     private fun vocabulary(source: String): Vocabulary {
-        val receiver = Regex("""private val (\w+)\s*:\s*SyncRepository""")
-            .find(source)?.groupValues?.get(1)
-            ?: return Vocabulary("", emptySet())
+        val receiver =
+            Regex("""private val (\w+)\s*:\s*SyncRepository""")
+                .find(source)
+                ?.groupValues
+                ?.get(1)
+                ?: return Vocabulary("", emptySet())
 
         val enqueueCall = "$receiver.enqueue("
         val lines = source.split("\n")
-        val helpers = lines.mapIndexedNotNull { index, raw ->
-            val match = Regex("""private .*fun (\w+)\(""").find(raw.trim()) ?: return@mapIndexedNotNull null
-            // The body runs to the next line that closes at the declaration's own
-            // indentation. That is the same shape the walk's exemption already assumes, so
-            // the two cannot disagree about where a function ends.
-            val indent = raw.takeWhile { it == ' ' }
-            val end = lines.indexOfFirstFrom(index + 1) { it == "$indent}" }
-            val body = lines.subList(index + 1, if (end < 0) lines.size else end)
-            if (body.any { enqueueCall in it }) match.groupValues[1] else null
-        }.toSet()
+        val helpers =
+            lines
+                .mapIndexedNotNull { index, raw ->
+                    val match = Regex("""private .*fun (\w+)\(""").find(raw.trim()) ?: return@mapIndexedNotNull null
+                    // The body runs to the next line that closes at the declaration's own
+                    // indentation. That is the same shape the walk's exemption already assumes, so
+                    // the two cannot disagree about where a function ends.
+                    val indent = raw.takeWhile { it == ' ' }
+                    val end = lines.indexOfFirstFrom(index + 1) { it == "$indent}" }
+                    val body = lines.subList(index + 1, if (end < 0) lines.size else end)
+                    if (body.any { enqueueCall in it }) match.groupValues[1] else null
+                }.toSet()
 
         return Vocabulary(receiver, helpers)
     }
 
-    private inline fun <T> List<T>.indexOfFirstFrom(start: Int, predicate: (T) -> Boolean): Int =
-        indices.firstOrNull { it >= start && predicate(this[it]) } ?: -1
+    private inline fun <T> List<T>.indexOfFirstFrom(
+        start: Int,
+        predicate: (T) -> Boolean,
+    ): Int = indices.firstOrNull { it >= start && predicate(this[it]) } ?: -1
 
     /**
      * LIFO over open braces, asking whether any open block is a `unitOfWork.write`.
@@ -361,7 +373,10 @@ class SyncWriteIsAtomicTest {
      * nothing — which is exactly the failure mode this file exists to prevent, arrived at
      * through the fix for it. One derivation, passed in, cannot disagree with itself.
      */
-    private fun walk(source: String, vocabulary: Vocabulary): List<Site> {
+    private fun walk(
+        source: String,
+        vocabulary: Vocabulary,
+    ): List<Site> {
         // Concatenated rather than templated. Written as `"$vocabulary.receiver.enqueue("`
         // first, and that string did not match the call it was meant to match: the walk
         // classified every helper call and no inline enqueue at all, on real files and on
@@ -402,12 +417,13 @@ class SyncWriteIsAtomicTest {
             }
 
             if (!inHelperBody || isHelperDeclaration) {
-                val kind = when {
-                    isHelperDeclaration -> Kind.HELPER_BODY
-                    vocabulary.helpers.any { "$it(" in trimmed } -> Kind.HELPER_CALL
-                    enqueueCall in trimmed -> Kind.INLINE_ENQUEUE
-                    else -> null
-                }
+                val kind =
+                    when {
+                        isHelperDeclaration -> Kind.HELPER_BODY
+                        vocabulary.helpers.any { "$it(" in trimmed } -> Kind.HELPER_CALL
+                        enqueueCall in trimmed -> Kind.INLINE_ENQUEUE
+                        else -> null
+                    }
                 if (kind != null && kind != Kind.HELPER_BODY) {
                     sites += Site(kind, index + 1, trimmed, openBlocks.any { it })
                 }

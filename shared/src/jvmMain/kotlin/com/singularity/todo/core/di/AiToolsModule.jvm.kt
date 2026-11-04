@@ -11,6 +11,7 @@ import com.singularity.todo.feature.ai.KoogAgentService
 import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.ai.chat.ChatViewModel
 import com.singularity.todo.feature.ai.chat.UsageRecordingTextGen
+import com.singularity.todo.feature.ai.tools.AdrStorage
 import com.singularity.todo.feature.ai.tools.ClusterNotesTool
 import com.singularity.todo.feature.ai.tools.ClusterTasksTool
 import com.singularity.todo.feature.ai.tools.CreateNoteTool
@@ -32,7 +33,6 @@ import com.singularity.todo.feature.ai.tools.GetNoteTool
 import com.singularity.todo.feature.ai.tools.GetProjectTool
 import com.singularity.todo.feature.ai.tools.GetTaskTool
 import com.singularity.todo.feature.ai.tools.ImproveNoteTool
-import com.singularity.todo.feature.ai.tools.AdrStorage
 import com.singularity.todo.feature.ai.tools.ListAdrsTool
 import com.singularity.todo.feature.ai.tools.ListLinkedTasksTool
 import com.singularity.todo.feature.ai.tools.ListOpenDeferredTool
@@ -41,30 +41,30 @@ import com.singularity.todo.feature.ai.tools.ListTasksTool
 import com.singularity.todo.feature.ai.tools.PickTimeTool
 import com.singularity.todo.feature.ai.tools.ProjectReviewTool
 import com.singularity.todo.feature.ai.tools.ReadAdrTool
-import com.singularity.todo.feature.ai.tools.SearchDecisionsTool
-import com.singularity.todo.feature.ai.tools.SearchDocsTool
 import com.singularity.todo.feature.ai.tools.RefineTaskTool
 import com.singularity.todo.feature.ai.tools.RewriteNoteTool
+import com.singularity.todo.feature.ai.tools.SearchDecisionsTool
+import com.singularity.todo.feature.ai.tools.SearchDocsTool
 import com.singularity.todo.feature.ai.tools.SearchTasksTool
 import com.singularity.todo.feature.ai.tools.SmartRewriteTool
 import com.singularity.todo.feature.ai.tools.SuggestTagsTool
 import com.singularity.todo.feature.ai.tools.SummarizeNoteTool
+import com.singularity.todo.feature.ai.tools.UpdateAdrTool
 import com.singularity.todo.feature.ai.tools.UpdateNoteTool
 import com.singularity.todo.feature.ai.tools.UpdateProjectTool
 import com.singularity.todo.feature.ai.tools.UpdateTaskTool
 import com.singularity.todo.feature.ai.tools.WeeklyPlanTool
-import com.singularity.todo.feature.ai.tools.UpdateAdrTool
 import com.singularity.todo.feature.ai.tools.WriteAdrTool
 import com.singularity.todo.feature.ai.tools.WriteTaskProposalTool
 import com.singularity.todo.feature.ai.usage.AiUsageViewModel
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.ExtractActionsUseCase
+import com.singularity.todo.feature.ai.use_cases.FirstStepUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
-import com.singularity.todo.feature.ai.use_cases.FirstStepUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.RewriteNoteUseCase
 import com.singularity.todo.feature.ai.use_cases.SuggestTagsUseCase
@@ -73,8 +73,8 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileSwitcherViewModel
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
-import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel
+import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.factoryOf
@@ -90,209 +90,211 @@ import kotlin.time.Clock
  * Koog executor and LLM into a single module (no `includes()` to avoid child-scope
  * isolation in Koin 4).
  */
-actual fun aiToolsModule(): Module = module {
-    // ─── Profile-aware secure storage for AI ────────────────────────────────
+actual fun aiToolsModule(): Module =
+    module {
+        // ─── Profile-aware secure storage for AI ────────────────────────────────
 
-    // Interface bindings stay as explicit lambdas: `factoryOf(::Impl)` binds the concrete
-    // type, so it cannot express `factory<ProfileAwareSecureStorage> { … }` or
-    // `factory<ProfileAwareSecureStorage> { … }` below. `ImproveNoteUseCase(tool = …)` keeps its
-    // named argument for the same reason — `factoryOf` passes positionally only.
-    factory<ProfileAwareSecureStorage> {
-        ProfileAwareSecureStorage(get(), get())
-    }
+        // Interface bindings stay as explicit lambdas: `factoryOf(::Impl)` binds the concrete
+        // type, so it cannot express `factory<ProfileAwareSecureStorage> { … }` or
+        // `factory<ProfileAwareSecureStorage> { … }` below. `ImproveNoteUseCase(tool = …)` keeps its
+        // named argument for the same reason — `factoryOf` passes positionally only.
+        factory<ProfileAwareSecureStorage> {
+            ProfileAwareSecureStorage(get(), get())
+        }
 
-    // ─── AI Service ───
+        // ─── AI Service ───
 
-    single<TextGenPort> {
-        val delegate = KoogAgentService(
-            secureStorage = get<ProfileAwareSecureStorage>(),
-            settings = get(),
-            promptExecutor = get<PromptExecutorPort>().executor,
-            streamingExecutor = get(),
-            allTools = get(),
-            remoteConfigPort = get(),
-            // The recorder is optional so that a graph without a platform module — the
-            // shared test harness — still resolves. In the application the platform
-            // module binds it, and the in-app agent records every tool it calls.
-            toolCallRecorder = getOrNull(),
-        )
-        UsageRecordingTextGen(
-            delegate = delegate,
-            usageRecorder = get<RoomUsageRecorder>(),
-            currentUser = get<ProfileAwareCurrentUser>(),
-            clock = get<Clock>(),
-        )
-    }
+        single<TextGenPort> {
+            val delegate =
+                KoogAgentService(
+                    secureStorage = get<ProfileAwareSecureStorage>(),
+                    settings = get(),
+                    promptExecutor = get<PromptExecutorPort>().executor,
+                    streamingExecutor = get(),
+                    allTools = get(),
+                    remoteConfigPort = get(),
+                    // The recorder is optional so that a graph without a platform module — the
+                    // shared test harness — still resolves. In the application the platform
+                    // module binds it, and the in-app agent records every tool it calls.
+                    toolCallRecorder = getOrNull(),
+                )
+            UsageRecordingTextGen(
+                delegate = delegate,
+                usageRecorder = get<RoomUsageRecorder>(),
+                currentUser = get<ProfileAwareCurrentUser>(),
+                clock = get<Clock>(),
+            )
+        }
 
-    // ─── Token Usage Tracking ───
+        // ─── Token Usage Tracking ───
 
-    singleOf(::RoomUsageRecorder)
-    @Suppress("NoDirectClockSystem") // Clock.System wrapped for injectability
-    single<Clock> { Clock.System }
+        singleOf(::RoomUsageRecorder)
+        @Suppress("NoDirectClockSystem") // Clock.System wrapped for injectability
+        single<Clock> { Clock.System }
 
-    viewModel {
-        ChatViewModel(
-            log = Logger.withTag("ChatViewModel"),
-            agent = get(),
-            idGen = get(),
-            crashReporter = get(),
-            surfaces = get(),
-        )
-    }
-    viewModel { AiUsageViewModel(usageRecorder = get(), profileRepository = get(), crashReporter = get()) }
-    viewModel { ProfileSwitcherViewModel(profileRepository = get(), crashReporter = get(), clock = get()) }
+        viewModel {
+            ChatViewModel(
+                log = Logger.withTag("ChatViewModel"),
+                agent = get(),
+                idGen = get(),
+                crashReporter = get(),
+                surfaces = get(),
+            )
+        }
+        viewModel { AiUsageViewModel(usageRecorder = get(), profileRepository = get(), crashReporter = get()) }
+        viewModel { ProfileSwitcherViewModel(profileRepository = get(), crashReporter = get(), clock = get()) }
 
-    // ─── AI Use Cases ───
+        // ─── AI Use Cases ───
 
-    factoryOf(::RefineTaskUseCase)
-    factoryOf(::FirstStepUseCase)
-    factoryOf(::GenerateDescriptionUseCase)
-    factoryOf(::DecomposeTaskUseCase)
-    factoryOf(::GenerateChecklistUseCase)
-    factoryOf(::PickTimeUseCase)
-    factory { ImproveNoteUseCase(tool = get<ImproveNoteTool>()) }
-    factoryOf(::SummarizeNoteUseCase)
-    factoryOf(::ExtractActionsUseCase)
-    // Explicit lambda, not `factoryOf(::RewriteNoteUseCase)`: the use case takes the
-    // `TypedTool` *interface*, and `factoryOf` resolves a constructor parameter by its
-    // declared type — which erases to the raw `TypedTool`, for which nothing is bound.
-    // The definition therefore threw `NoDefinitionFoundException` every time the note
-    // editor was opened, and `getOrNull` does not swallow that: it swallows a missing
-    // *definition*, not a definition that fails to be created. Same shape as
-    // `ImproveNoteUseCase` above.
-    factory { RewriteNoteUseCase(tool = get<RewriteNoteTool>()) }
-    factoryOf(::SuggestTagsUseCase)
-    factoryOf(::ProjectReviewUseCase)
+        factoryOf(::RefineTaskUseCase)
+        factoryOf(::FirstStepUseCase)
+        factoryOf(::GenerateDescriptionUseCase)
+        factoryOf(::DecomposeTaskUseCase)
+        factoryOf(::GenerateChecklistUseCase)
+        factoryOf(::PickTimeUseCase)
+        factory { ImproveNoteUseCase(tool = get<ImproveNoteTool>()) }
+        factoryOf(::SummarizeNoteUseCase)
+        factoryOf(::ExtractActionsUseCase)
+        // Explicit lambda, not `factoryOf(::RewriteNoteUseCase)`: the use case takes the
+        // `TypedTool` *interface*, and `factoryOf` resolves a constructor parameter by its
+        // declared type — which erases to the raw `TypedTool`, for which nothing is bound.
+        // The definition therefore threw `NoDefinitionFoundException` every time the note
+        // editor was opened, and `getOrNull` does not swallow that: it swallows a missing
+        // *definition*, not a definition that fails to be created. Same shape as
+        // `ImproveNoteUseCase` above.
+        factory { RewriteNoteUseCase(tool = get<RewriteNoteTool>()) }
+        factoryOf(::SuggestTagsUseCase)
+        factoryOf(::ProjectReviewUseCase)
 
-    // ─── AI Tools ───
+        // ─── AI Tools ───
 
-    factoryOf(::RefineTaskTool)
-    factoryOf(::SmartRewriteTool)
-    factoryOf(::GenerateDescriptionTool)
-    factoryOf(::DecomposeTaskTool)
-    factoryOf(::FirstStepTool)
-    factoryOf(::DecomposeAndCreateTool)
-    factoryOf(::GenerateChecklistTool)
-    factoryOf(::PickTimeTool)
-    factoryOf(::ClusterTasksTool)
-    factoryOf(::ClusterNotesTool)
-    factoryOf(::ProjectReviewTool)
-    factoryOf(::WeeklyPlanTool)
-    factoryOf(::ImproveNoteTool)
-    factoryOf(::SummarizeNoteTool)
-    factoryOf(::ExtractActionsTool)
-    factoryOf(::RewriteNoteTool)
-    factoryOf(::SuggestTagsTool)
-    factoryOf(::GetNoteTool)
-    factoryOf(::GetDailyNoteTool)
-    factoryOf(::GetProjectTool)
-    factoryOf(::GetTaskTool)
-    factoryOf(::ListLinkedTasksTool)
-    factoryOf(::ListTasksTool)
-    factoryOf(::WriteTaskProposalTool)
-    factoryOf(::SearchTasksTool)
-    factoryOf(::CreateTaskTool)
-    factoryOf(::UpdateTaskTool)
-    factory { DeleteTaskTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
-    factoryOf(::CreateNoteTool)
-    factoryOf(::UpdateNoteTool)
-    factory { DeleteNoteTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
-    factoryOf(::CreateProjectTool)
-    factoryOf(::UpdateProjectTool)
-    factory { DeleteProjectTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
-    factoryOf(::ListProjectsTool)
-    factoryOf(::CreateTagTool)
-    factory { DeleteTagTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
-    // Stateless and shared: it resolves its decisions directory once, at construction.
-    single { AdrStorage(get(), get(), get()) }
-    factory { ListAdrsTool(get()) }
-    factory { ReadAdrTool(get()) }
-    factory { WriteAdrTool(get()) }
-    factory { UpdateAdrTool(get()) }
-    factory { SearchDecisionsTool(get()) }
-    factory { SearchDocsTool(get()) }
-    factory { ListOpenDeferredTool(get()) }
+        factoryOf(::RefineTaskTool)
+        factoryOf(::SmartRewriteTool)
+        factoryOf(::GenerateDescriptionTool)
+        factoryOf(::DecomposeTaskTool)
+        factoryOf(::FirstStepTool)
+        factoryOf(::DecomposeAndCreateTool)
+        factoryOf(::GenerateChecklistTool)
+        factoryOf(::PickTimeTool)
+        factoryOf(::ClusterTasksTool)
+        factoryOf(::ClusterNotesTool)
+        factoryOf(::ProjectReviewTool)
+        factoryOf(::WeeklyPlanTool)
+        factoryOf(::ImproveNoteTool)
+        factoryOf(::SummarizeNoteTool)
+        factoryOf(::ExtractActionsTool)
+        factoryOf(::RewriteNoteTool)
+        factoryOf(::SuggestTagsTool)
+        factoryOf(::GetNoteTool)
+        factoryOf(::GetDailyNoteTool)
+        factoryOf(::GetProjectTool)
+        factoryOf(::GetTaskTool)
+        factoryOf(::ListLinkedTasksTool)
+        factoryOf(::ListTasksTool)
+        factoryOf(::WriteTaskProposalTool)
+        factoryOf(::SearchTasksTool)
+        factoryOf(::CreateTaskTool)
+        factoryOf(::UpdateTaskTool)
+        factory { DeleteTaskTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
+        factoryOf(::CreateNoteTool)
+        factoryOf(::UpdateNoteTool)
+        factory { DeleteNoteTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
+        factoryOf(::CreateProjectTool)
+        factoryOf(::UpdateProjectTool)
+        factory { DeleteProjectTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
+        factoryOf(::ListProjectsTool)
+        factoryOf(::CreateTagTool)
+        factory { DeleteTagTool(get<ProposalRepository>(), get<ProfileAwareCurrentUser>(), get<Clock>()) }
+        // Stateless and shared: it resolves its decisions directory once, at construction.
+        single { AdrStorage(get(), get(), get()) }
+        factory { ListAdrsTool(get()) }
+        factory { ReadAdrTool(get()) }
+        factory { WriteAdrTool(get()) }
+        factory { UpdateAdrTool(get()) }
+        factory { SearchDecisionsTool(get()) }
+        factory { SearchDocsTool(get()) }
+        factory { ListOpenDeferredTool(get()) }
 
-    // ─── AI tools list for KoogAgentService ───
+        // ─── AI tools list for KoogAgentService ───
 
-    single<List<ai.koog.agents.core.tools.Tool<*, *>>> {
-        listOf(
-            get<RefineTaskTool>(),
-            get<SmartRewriteTool>(),
-            get<GenerateDescriptionTool>(),
-            get<DecomposeTaskTool>(),
-            get<FirstStepTool>(),
-            get<GenerateChecklistTool>(),
-            get<PickTimeTool>(),
-            get<ClusterTasksTool>(),
-            get<ClusterNotesTool>(),
-            get<ProjectReviewTool>(),
-            get<WeeklyPlanTool>(),
-            get<ImproveNoteTool>(),
-            get<SummarizeNoteTool>(),
-            get<ExtractActionsTool>(),
-            get<RewriteNoteTool>(),
-            get<SuggestTagsTool>(),
-            get<GetNoteTool>(),
-            get<GetDailyNoteTool>(),
-            get<GetProjectTool>(),
-            get<GetTaskTool>(),
-            get<ListLinkedTasksTool>(),
-            get<ListTasksTool>(),
-            get<WriteTaskProposalTool>(),
-            get<SearchTasksTool>(),
-            get<CreateTaskTool>(),
-            get<UpdateTaskTool>(),
-            get<DeleteTaskTool>(),
-            get<CreateNoteTool>(),
-            get<UpdateNoteTool>(),
-            get<DeleteNoteTool>(),
-            get<CreateProjectTool>(),
-            get<UpdateProjectTool>(),
-            get<DeleteProjectTool>(),
-            get<ListProjectsTool>(),
-            get<CreateTagTool>(),
-            get<DeleteTagTool>(),
-            get<ListAdrsTool>(),
-            get<ReadAdrTool>(),
-            get<WriteAdrTool>(),
-            get<UpdateAdrTool>(),
-            get<SearchDecisionsTool>(),
-            get<SearchDocsTool>(),
-            get<ListOpenDeferredTool>(),
-            get<DecomposeAndCreateTool>(),
-        )
-    }
+        single<List<ai.koog.agents.core.tools.Tool<*, *>>> {
+            listOf(
+                get<RefineTaskTool>(),
+                get<SmartRewriteTool>(),
+                get<GenerateDescriptionTool>(),
+                get<DecomposeTaskTool>(),
+                get<FirstStepTool>(),
+                get<GenerateChecklistTool>(),
+                get<PickTimeTool>(),
+                get<ClusterTasksTool>(),
+                get<ClusterNotesTool>(),
+                get<ProjectReviewTool>(),
+                get<WeeklyPlanTool>(),
+                get<ImproveNoteTool>(),
+                get<SummarizeNoteTool>(),
+                get<ExtractActionsTool>(),
+                get<RewriteNoteTool>(),
+                get<SuggestTagsTool>(),
+                get<GetNoteTool>(),
+                get<GetDailyNoteTool>(),
+                get<GetProjectTool>(),
+                get<GetTaskTool>(),
+                get<ListLinkedTasksTool>(),
+                get<ListTasksTool>(),
+                get<WriteTaskProposalTool>(),
+                get<SearchTasksTool>(),
+                get<CreateTaskTool>(),
+                get<UpdateTaskTool>(),
+                get<DeleteTaskTool>(),
+                get<CreateNoteTool>(),
+                get<UpdateNoteTool>(),
+                get<DeleteNoteTool>(),
+                get<CreateProjectTool>(),
+                get<UpdateProjectTool>(),
+                get<DeleteProjectTool>(),
+                get<ListProjectsTool>(),
+                get<CreateTagTool>(),
+                get<DeleteTagTool>(),
+                get<ListAdrsTool>(),
+                get<ReadAdrTool>(),
+                get<WriteAdrTool>(),
+                get<UpdateAdrTool>(),
+                get<SearchDecisionsTool>(),
+                get<SearchDocsTool>(),
+                get<ListOpenDeferredTool>(),
+                get<DecomposeAndCreateTool>(),
+            )
+        }
 
-    // ─── ViewModels with nullable AI deps ───────────────────────────────
+        // ─── ViewModels with nullable AI deps ───────────────────────────────
 
-    viewModel {
-        ProjectsViewModel(
-            projectRepo = get<ProjectsRepository>(),
-            taskRepository = get<TaskRepository>(),
-            projectReview = getOrNull(),
-            deleteProject = get<DeleteProjectUseCase>(),
-            clock = get(),
-            crashReporter = get(),
-        )
-    }
+        viewModel {
+            ProjectsViewModel(
+                projectRepo = get<ProjectsRepository>(),
+                taskRepository = get<TaskRepository>(),
+                projectReview = getOrNull(),
+                deleteProject = get<DeleteProjectUseCase>(),
+                clock = get(),
+                crashReporter = get(),
+            )
+        }
 
-    // ─── JVM-specific bindings ───────────────────────────────────────────────
+        // ─── JVM-specific bindings ───────────────────────────────────────────────
 
-    // Default LLM. Built via the public LLModel constructor rather than
-    // OpenAIModels.Chat.GPT4oMini to avoid triggering OpenAIModels.<clinit>
-    // in the JVM-test classpath.
-    single<LLModel> { KnownModels.GPT4oMini }
+        // Default LLM. Built via the public LLModel constructor rather than
+        // OpenAIModels.Chat.GPT4oMini to avoid triggering OpenAIModels.<clinit>
+        // in the JVM-test classpath.
+        single<LLModel> { KnownModels.GPT4oMini }
 
-    // Real Koog executor on JVM
-    single<PromptExecutorPort> {
-        koinBridge {
-            createKoogPromptExecutor(get<SecureStoragePort>(), get<SettingsRepository>())
+        // Real Koog executor on JVM
+        single<PromptExecutorPort> {
+            koinBridge {
+                createKoogPromptExecutor(get<SecureStoragePort>(), get<SettingsRepository>())
+            }
+        }
+
+        // Raw Koog executor for AI tools
+        single<ai.koog.prompt.executor.model.PromptExecutor> {
+            get<PromptExecutorPort>().executor
         }
     }
-
-    // Raw Koog executor for AI tools
-    single<ai.koog.prompt.executor.model.PromptExecutor> {
-        get<PromptExecutorPort>().executor
-    }
-}

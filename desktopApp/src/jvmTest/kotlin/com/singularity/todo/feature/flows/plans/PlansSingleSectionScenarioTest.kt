@@ -29,22 +29,22 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class PlansSingleSectionScenarioTest {
-
     @Test
     @DisplayName("PLANS-02 a task appears in exactly one section at every granularity")
-    fun a_task_appears_once_at_every_granularity() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        tasks(koin).given(due = TODAY, title = "Only once")
+    fun a_task_appears_once_at_every_granularity() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            tasks(koin).given(due = TODAY, title = "Only once")
 
-        tapTab("Plans")
-        assertTagDisplayed(TestTags.taskItem("Only once"))
-        assertOneRow("Only once")
+            tapTab("Plans")
+            assertTagDisplayed(TestTags.taskItem("Only once"))
+            assertOneRow("Only once")
 
-        clickTag(TestTags.PLANS_GRANULARITY_WEEK)
-        awaitTag(TestTags.plansSection("week:2026-09-14"))
-        assertOneRow("Only once")
+            clickTag(TestTags.PLANS_GRANULARITY_WEEK)
+            awaitTag(TestTags.plansSection("week:2026-09-14"))
+            assertOneRow("Only once")
 
-        clickTag(TestTags.PLANS_GRANULARITY_MONTH)
-        awaitTag(TestTags.plansSection("month:2026-9"))
-        assertOneRow("Only once")
-    }
+            clickTag(TestTags.PLANS_GRANULARITY_MONTH)
+            awaitTag(TestTags.plansSection("month:2026-9"))
+            assertOneRow("Only once")
+        }
 }

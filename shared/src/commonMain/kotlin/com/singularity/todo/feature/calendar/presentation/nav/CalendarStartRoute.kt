@@ -9,7 +9,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface CalendarStartRoute : NavKey {
-
     /** Start at the current month (anchor = today). */
     @Serializable
     data class Month(val anchor: String) : CalendarStartRoute

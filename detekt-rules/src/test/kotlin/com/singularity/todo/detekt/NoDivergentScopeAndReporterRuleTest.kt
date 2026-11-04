@@ -31,12 +31,15 @@ import kotlin.test.assertTrue
  * could not fire for any input shipped registered, referenced by an ADR, and green.
  */
 class NoDivergentScopeAndReporterRuleTest {
-
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
-    private fun findingsFor(classBody: String, bindingBody: String = ""): List<dev.detekt.api.Finding> {
+    private fun findingsFor(
+        classBody: String,
+        bindingBody: String = "",
+    ): List<dev.detekt.api.Finding> {
         val rule = NoDivergentScopeAndReporterRule(TestConfig())
-        val code = """
+        val code =
+            """
             package com.example
 
             import com.singularity.todo.core.observability.CrashReportingPort
@@ -49,7 +52,7 @@ class NoDivergentScopeAndReporterRuleTest {
             fun coreModule() = module {
                 $bindingBody
             }
-        """.trimIndent()
+            """.trimIndent()
         return rule.visitFile(compileContentForTest(code, "com.example"), languageSettings)
     }
 
@@ -57,15 +60,16 @@ class NoDivergentScopeAndReporterRuleTest {
 
     @Test
     fun `a scope parameter with no default is reported`() {
-        val findings = findingsFor(
-            """
-            class SomeViewModel(
-                private val repo: Repo,
-                crashReporter: CrashReportingPort,
-                scope: AutoCloseableCoroutineScope,
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope,
+                )
+                """.trimIndent(),
             )
-            """.trimIndent(),
-        )
         assertEquals(1, findings.size, "a required scope beside a reporter forces a binding to choose it")
     }
 
@@ -89,15 +93,16 @@ class NoDivergentScopeAndReporterRuleTest {
 
     @Test
     fun `a scope default derived from the reporter is accepted`() {
-        val findings = findingsFor(
-            """
-            class SomeViewModel(
-                private val repo: Repo,
-                crashReporter: CrashReportingPort,
-                scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                )
+                """.trimIndent(),
             )
-            """.trimIndent(),
-        )
         assertTrue(findings.isEmpty(), "one destination by construction — nothing to report, got $findings")
     }
 
@@ -106,27 +111,29 @@ class NoDivergentScopeAndReporterRuleTest {
         // The legitimate shape: a component that reports through its scope's handler and holds
         // no reporter of its own. Demanding a reporter here would be manufacturing a dependency
         // to satisfy a check, which the background-handler ADR explicitly rejects.
-        val findings = findingsFor(
-            """
-            class SomeViewModel(
-                private val repo: Repo,
-                scope: AutoCloseableCoroutineScope,
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    scope: AutoCloseableCoroutineScope,
+                )
+                """.trimIndent(),
             )
-            """.trimIndent(),
-        )
         assertTrue(findings.isEmpty(), "no reporter means nothing to diverge from, got $findings")
     }
 
     @Test
     fun `a class with no scope parameter at all is not reported`() {
-        val findings = findingsFor(
-            """
-            class SomeViewModel(
-                private val repo: Repo,
-                crashReporter: CrashReportingPort,
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                )
+                """.trimIndent(),
             )
-            """.trimIndent(),
-        )
         assertTrue(findings.isEmpty(), "got $findings")
     }
 
@@ -134,16 +141,17 @@ class NoDivergentScopeAndReporterRuleTest {
     fun `a class with an unrelated property named scope is not a parameter`() {
         // Matches less than intended if it fires. The rule reads the *primary constructor's
         // parameters*, not any member called `scope`.
-        val findings = findingsFor(
-            """
-            class SomeViewModel(
-                private val repo: Repo,
-                crashReporter: CrashReportingPort,
-            ) {
-                private val scope = computeScope()
-            }
-            """.trimIndent(),
-        )
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                ) {
+                    private val scope = computeScope()
+                }
+                """.trimIndent(),
+            )
         assertTrue(findings.isEmpty(), "a body property is not a constructor parameter, got $findings")
     }
 
@@ -159,18 +167,19 @@ class NoDivergentScopeAndReporterRuleTest {
         // A reviewer reading only the binding would have called this consistent. I did, and
         // wrote it into issue #143 as "consistent by construction". The rule disagreed, which is
         // the whole argument for having the rule.
-        val findings = findingsFor(
-            """
-            class SomeViewModel(
-                private val repo: Repo,
-                crashReporter: CrashReportingPort,
-                private val scope: AutoCloseableCoroutineScope,
-            ) {
-                constructor(repo: Repo, crashReporter: CrashReportingPort) :
-                    this(repo, crashReporter, reportingScope(crashReporter))
-            }
-            """.trimIndent(),
-        )
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    private val scope: AutoCloseableCoroutineScope,
+                ) {
+                    constructor(repo: Repo, crashReporter: CrashReportingPort) :
+                        this(repo, crashReporter, reportingScope(crashReporter))
+                }
+                """.trimIndent(),
+            )
         assertEquals(
             1,
             findings.size,
@@ -180,31 +189,33 @@ class NoDivergentScopeAndReporterRuleTest {
 
     @Test
     fun `a primary with a derived default is accepted even with a secondary`() {
-        val findings = findingsFor(
-            """
-            class SomeViewModel(
-                private val repo: Repo,
-                crashReporter: CrashReportingPort,
-                scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
-            ) {
-                constructor(repo: Repo) : this(repo, crashReporter, reportingScope(crashReporter))
-            }
-            """.trimIndent(),
-        )
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                ) {
+                    constructor(repo: Repo) : this(repo, crashReporter, reportingScope(crashReporter))
+                }
+                """.trimIndent(),
+            )
         assertTrue(findings.isEmpty(), "got $findings")
     }
 
     @Test
     fun `NotePreview and NoteEditor are covered by role not by name`() {
-        val findings = findingsFor(
-            """
-            class NoteEditor(
-                private val repo: Repo,
-                crashReporter: CrashReportingPort,
-                scope: AutoCloseableCoroutineScope,
+        val findings =
+            findingsFor(
+                """
+                class NoteEditor(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope,
+                )
+                """.trimIndent(),
             )
-            """.trimIndent(),
-        )
         assertEquals(1, findings.size, "a name-based rule would exempt exactly these two")
     }
 
@@ -212,18 +223,20 @@ class NoDivergentScopeAndReporterRuleTest {
 
     @Test
     fun `a binding passing both crashReporter and scope is reported`() {
-        val findings = findingsFor(
-            """
-            class SomeViewModel(
-                private val repo: Repo,
-                crashReporter: CrashReportingPort,
-                scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                )
+                """.trimIndent(),
+                bindingBody =
+                    """
+                    viewModel { SomeViewModel(repo = get(), crashReporter = get(), scope = get()) }
+                    """.trimIndent(),
             )
-            """.trimIndent(),
-            bindingBody = """
-                viewModel { SomeViewModel(repo = get(), crashReporter = get(), scope = get()) }
-            """.trimIndent(),
-        )
         assertEquals(1, findings.size, "a correct default overridden by the binding is still a divergence")
     }
 
@@ -232,35 +245,39 @@ class NoDivergentScopeAndReporterRuleTest {
         // This is `SettingsViewModel` on `main` before the fix. The class is correct; the
         // binding replaces its derivation with a scope from the graph. A constructor-only check
         // passes it forever, which is why the binding is a separate finding.
-        val findings = findingsFor(
-            """
-            class SettingsViewModel(
-                private val repo: Repo,
-                crashReporter: CrashReportingPort,
-                scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+        val findings =
+            findingsFor(
+                """
+                class SettingsViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                )
+                """.trimIndent(),
+                bindingBody =
+                    """
+                    viewModel { SettingsViewModel(repo = get(), scope = get(), crashReporter = get()) }
+                    """.trimIndent(),
             )
-            """.trimIndent(),
-            bindingBody = """
-                viewModel { SettingsViewModel(repo = get(), scope = get(), crashReporter = get()) }
-            """.trimIndent(),
-        )
         assertEquals(1, findings.size, "expected the binding finding, got $findings")
     }
 
     @Test
     fun `a binding passing only the reporter is accepted`() {
-        val findings = findingsFor(
-            """
-            class SomeViewModel(
-                private val repo: Repo,
-                crashReporter: CrashReportingPort,
-                scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                )
+                """.trimIndent(),
+                bindingBody =
+                    """
+                    viewModel { SomeViewModel(repo = get(), crashReporter = get()) }
+                    """.trimIndent(),
             )
-            """.trimIndent(),
-            bindingBody = """
-                viewModel { SomeViewModel(repo = get(), crashReporter = get()) }
-            """.trimIndent(),
-        )
         assertTrue(findings.isEmpty(), "the shape the fix produces, got $findings")
     }
 
@@ -269,34 +286,38 @@ class NoDivergentScopeAndReporterRuleTest {
         // `SyncRunner` and `SyncRepositoryImpl`, both live. The binding finding is conditional
         // on the reporter being passed, so a scope here is the only way to get a scope and is
         // not a divergence.
-        val findings = findingsFor(
-            """
-            class SomeRunner(
-                private val repo: Repo,
-                scope: AutoCloseableCoroutineScope,
+        val findings =
+            findingsFor(
+                """
+                class SomeRunner(
+                    private val repo: Repo,
+                    scope: AutoCloseableCoroutineScope,
+                )
+                """.trimIndent(),
+                bindingBody =
+                    """
+                    single { SomeRunner(repo = get(), scope = get()) }
+                    """.trimIndent(),
             )
-            """.trimIndent(),
-            bindingBody = """
-                single { SomeRunner(repo = get(), scope = get()) }
-            """.trimIndent(),
-        )
         assertTrue(findings.isEmpty(), "got $findings")
     }
 
     @Test
     fun `a non-viewModel binding is not this rule's business`() {
-        val findings = findingsFor(
-            """
-            class SomeViewModel(
-                private val repo: Repo,
-                crashReporter: CrashReportingPort,
-                scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+        val findings =
+            findingsFor(
+                """
+                class SomeViewModel(
+                    private val repo: Repo,
+                    crashReporter: CrashReportingPort,
+                    scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
+                )
+                """.trimIndent(),
+                bindingBody =
+                    """
+                    single { SomeViewModel(repo = get(), crashReporter = get(), scope = get()) }
+                    """.trimIndent(),
             )
-            """.trimIndent(),
-            bindingBody = """
-                single { SomeViewModel(repo = get(), crashReporter = get(), scope = get()) }
-            """.trimIndent(),
-        )
         assertTrue(findings.isEmpty(), "a factory-shaped binding is NoFactoryViewModel's finding, got $findings")
     }
 }

@@ -30,27 +30,45 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class ChecklistReadIsolationTest {
-
     private val currentUserId = UserId("u1")
     private val otherUserId = UserId("u2")
 
-    private suspend fun setup() = FakeAppDatabase().also { db ->
-        db.seedTasks(listOf(task("t-mine", currentUserId), task("t-theirs", otherUserId)))
-        db.checklistDao().upsert(item("c-mine", "t-mine"))
-        db.checklistDao().upsert(item("c-theirs", "t-theirs"))
-    }
+    private suspend fun setup() =
+        FakeAppDatabase().also { db ->
+            db.seedTasks(listOf(task("t-mine", currentUserId), task("t-theirs", otherUserId)))
+            db.checklistDao().upsert(item("c-mine", "t-mine"))
+            db.checklistDao().upsert(item("c-theirs", "t-theirs"))
+        }
 
-    private fun task(id: String, userId: UserId) = TaskEntity(
-        id = id, title = "T", description = null, projectId = null,
-        dueDate = null, dueTime = null,
-        startDate = null, startTime = null, endDate = null, endTime = null,
-        accentColor = null, emoji = null,
-        completedAt = null, someday = false,
-        archivedAt = null, isPinned = false, createdAt = 1_000_000_000L, updatedAt = 1_000_000_000L,
+    private fun task(
+        id: String,
+        userId: UserId,
+    ) = TaskEntity(
+        id = id,
+        title = "T",
+        description = null,
+        projectId = null,
+        dueDate = null,
+        dueTime = null,
+        startDate = null,
+        startTime = null,
+        endDate = null,
+        endTime = null,
+        accentColor = null,
+        emoji = null,
+        completedAt = null,
+        someday = false,
+        archivedAt = null,
+        isPinned = false,
+        createdAt = 1_000_000_000L,
+        updatedAt = 1_000_000_000L,
         userId = userId.value,
     )
 
-    private fun item(id: String, taskId: String) = ChecklistItemEntity(
+    private fun item(
+        id: String,
+        taskId: String,
+    ) = ChecklistItemEntity(
         id = id,
         taskId = taskId,
         title = id,
@@ -63,25 +81,29 @@ class ChecklistReadIsolationTest {
         rowVersion = 1,
     )
 
-    private fun repository(db: FakeAppDatabase) = ChecklistRepositoryImpl(
-        dao = db.checklistDao(),
-        clock = FakeClock(),
-        currentUser = FakeProfileAwareCurrentUser(
-            authRepository = FakeAuthRepository(Session.Anonymous(currentUserId)),
-        ),
-    )
+    private fun repository(db: FakeAppDatabase) =
+        ChecklistRepositoryImpl(
+            dao = db.checklistDao(),
+            clock = FakeClock(),
+            currentUser =
+                FakeProfileAwareCurrentUser(
+                    authRepository = FakeAuthRepository(Session.Anonymous(currentUserId)),
+                ),
+        )
 
     @Test
-    fun `another profile's checklist items are not read`() = runTest {
-        val repo = repository(setup())
+    fun `another profile's checklist items are not read`() =
+        runTest {
+            val repo = repository(setup())
 
-        assertEquals(emptyList(), repo.watchByTask("t-theirs").first().map { it.title })
-    }
+            assertEquals(emptyList(), repo.watchByTask("t-theirs").first().map { it.title })
+        }
 
     @Test
-    fun `the current profile's own items are still read`() = runTest {
-        val repo = repository(setup())
+    fun `the current profile's own items are still read`() =
+        runTest {
+            val repo = repository(setup())
 
-        assertEquals(listOf("c-mine"), repo.watchByTask("t-mine").first().map { it.title })
-    }
+            assertEquals(listOf("c-mine"), repo.watchByTask("t-mine").first().map { it.title })
+        }
 }

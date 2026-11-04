@@ -30,7 +30,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class RecurrenceSpecTest {
-
     private val today = LocalDate(2026, 6, 15)
     private val weekly = RecurrenceSpec.Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
 
@@ -55,12 +54,13 @@ class RecurrenceSpecTest {
     @Test
     fun `every variant carries a termination`() {
         val term = RecurrenceTermination(today)
-        val specs = listOf(
-            RecurrenceSpec.Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK, term),
-            RecurrenceSpec.Weekly(RecurrenceBase.FROM_DUE, setOf(1), term),
-            RecurrenceSpec.Monthly(RecurrenceBase.FROM_DUE, 15, term),
-            RecurrenceSpec.Yearly(RecurrenceBase.FROM_DUE, 6, 15, term),
-        )
+        val specs =
+            listOf(
+                RecurrenceSpec.Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK, term),
+                RecurrenceSpec.Weekly(RecurrenceBase.FROM_DUE, setOf(1), term),
+                RecurrenceSpec.Monthly(RecurrenceBase.FROM_DUE, 15, term),
+                RecurrenceSpec.Yearly(RecurrenceBase.FROM_DUE, 6, 15, term),
+            )
         specs.forEach { assertEquals(term, it.termination, "${it::class.simpleName} lost its termination") }
         assertTrue(specs.all { it.isExhaustedBy(today.plus(1, DateTimeUnit.DAY)) })
     }
@@ -69,8 +69,9 @@ class RecurrenceSpecTest {
 
     @Test
     fun `a rule written before this field decodes with no termination`() {
-        val legacy = """{"_type":"com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval",""" +
-            """"base":"FROM_DUE","amount":1,"unit":{"_type":"kotlinx.datetime.DayBased","days":7}}"""
+        val legacy =
+            """{"_type":"com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval",""" +
+                """"base":"FROM_DUE","amount":1,"unit":{"_type":"kotlinx.datetime.DayBased","days":7}}"""
 
         val decoded = StableJson.decodeFromString(RecurrenceSpec.serializer(), legacy)
 

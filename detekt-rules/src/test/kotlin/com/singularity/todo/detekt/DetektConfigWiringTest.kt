@@ -30,7 +30,6 @@ import kotlin.test.fail
  * tests standalone.
  */
 class DetektConfigWiringTest {
-
     private val configFile: File? = repoRoot().resolve("config/detekt/detekt.yml").takeIf { it.isFile }
 
     private fun repoRoot(): File {
@@ -62,10 +61,14 @@ class DetektConfigWiringTest {
     }
 
     /** Rule set id -> rule names the registered providers actually supply. */
-    private fun providedRules(): Map<String, Set<String>> = PROVIDERS.associate { provider ->
-        val set = provider.instance()
-        provider.ruleSetId.value to set.rules.keys.map { it.value }.toSet()
-    }
+    private fun providedRules(): Map<String, Set<String>> =
+        PROVIDERS.associate { provider ->
+            val set = provider.instance()
+            provider.ruleSetId.value to
+                set.rules.keys
+                    .map { it.value }
+                    .toSet()
+        }
 
     @Test
     fun `every configured rule name is supplied by a registered provider`() {
@@ -134,29 +137,30 @@ class DetektConfigWiringTest {
         val EMPTY_CONFIG = dev.detekt.test.TestConfig()
 
         /** Mirrors META-INF/services/dev.detekt.api.RuleSetProvider. */
-        val PROVIDERS: List<RuleSetProvider> = listOf(
-            AppErrorCodeProvider(),
-            KDocEnforcementRulesProvider(),
-            MviViewModelRulesProvider(),
-            NoCombineSideEffectProvider(),
-            NoDirectClockSystemProvider(),
-            NoDirectDispatchersRuleProvider(),
-            NoEmptyOnClickLambdaProvider(),
-            NoFactoryViewModelProvider(),
-            NoOpUpdateStateProvider(),
-            NoRealDelayInTestRuleProvider(),
-            NoRunBlockingProvider(),
-            NoRunCatchingInSuspendProvider(),
-            NoStateInRuleProvider(),
-            NoStaticProfileAwareCurrentUserProvider(),
-            NoSwallowedCancellationProvider(),
-            NoDivergentScopeAndReporterProvider(),
-            NoViewModelScopeInProductionProvider(),
-            NoUnstableCollectionParamProvider(),
-            NoMutableCollectionCastProvider(),
-            NoFalseImmutableProvider(),
-            PassThroughUseCaseProvider(),
-            UserScopedRepositoryRulesProvider(),
-        )
+        val PROVIDERS: List<RuleSetProvider> =
+            listOf(
+                AppErrorCodeProvider(),
+                KDocEnforcementRulesProvider(),
+                MviViewModelRulesProvider(),
+                NoCombineSideEffectProvider(),
+                NoDirectClockSystemProvider(),
+                NoDirectDispatchersRuleProvider(),
+                NoEmptyOnClickLambdaProvider(),
+                NoFactoryViewModelProvider(),
+                NoOpUpdateStateProvider(),
+                NoRealDelayInTestRuleProvider(),
+                NoRunBlockingProvider(),
+                NoRunCatchingInSuspendProvider(),
+                NoStateInRuleProvider(),
+                NoStaticProfileAwareCurrentUserProvider(),
+                NoSwallowedCancellationProvider(),
+                NoDivergentScopeAndReporterProvider(),
+                NoViewModelScopeInProductionProvider(),
+                NoUnstableCollectionParamProvider(),
+                NoMutableCollectionCastProvider(),
+                NoFalseImmutableProvider(),
+                PassThroughUseCaseProvider(),
+                UserScopedRepositoryRulesProvider(),
+            )
     }
 }

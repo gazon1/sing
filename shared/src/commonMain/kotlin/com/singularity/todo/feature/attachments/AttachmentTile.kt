@@ -44,35 +44,40 @@ fun AttachmentTile(
     onOpen: (() -> Unit)? = null,
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(
-                if (onOpen != null) {
-                    Modifier.clickable(onClick = onOpen)
-                } else {
-                    Modifier
-                },
-            )
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .then(
+                    if (onOpen != null) {
+                        Modifier.clickable(onClick = onOpen)
+                    } else {
+                        Modifier
+                    },
+                ).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Icon/thumbnail
         when {
-            attachment.isImage -> AttachmentThumbnail(
-                localPath = attachment.localPath,
-                remoteUrl = attachment.remoteUrl,
-                modifier = Modifier.size(40.dp),
-            )
+            attachment.isImage -> {
+                AttachmentThumbnail(
+                    localPath = attachment.localPath,
+                    remoteUrl = attachment.remoteUrl,
+                    modifier = Modifier.size(40.dp),
+                )
+            }
 
-            else -> Icon(
-                imageVector = when {
-                    attachment.isUrl -> Icons.Default.Link
-                    else -> Icons.Default.Description
-                },
-                contentDescription = null,
-                modifier = Modifier.size(40.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            else -> {
+                Icon(
+                    imageVector =
+                        when {
+                            attachment.isUrl -> Icons.Default.Link
+                            else -> Icons.Default.Description
+                        },
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -127,39 +132,45 @@ fun AttachmentTile(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AttachmentTileFileLightPreview() = PreviewThemed(darkTheme = false) {
-    AttachmentTile(
-        attachment = PreviewSamples.attachment(
-            type = com.singularity.todo.core.attachments.AttachmentType.File,
-            title = "quarterly-report.pdf",
-        ),
-        onDelete = {},
-    )
-}
+private fun AttachmentTileFileLightPreview() =
+    PreviewThemed(darkTheme = false) {
+        AttachmentTile(
+            attachment =
+                PreviewSamples.attachment(
+                    type = com.singularity.todo.core.attachments.AttachmentType.File,
+                    title = "quarterly-report.pdf",
+                ),
+            onDelete = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AttachmentTileUrlDarkPreview() = PreviewThemed(darkTheme = true) {
-    AttachmentTile(
-        attachment = PreviewSamples.attachment(
-            type = com.singularity.todo.core.attachments.AttachmentType.Url,
-            title = "https://example.com/article",
-        ),
-        onDelete = {},
-    )
-}
+private fun AttachmentTileUrlDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        AttachmentTile(
+            attachment =
+                PreviewSamples.attachment(
+                    type = com.singularity.todo.core.attachments.AttachmentType.Url,
+                    title = "https://example.com/article",
+                ),
+            onDelete = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AttachmentTileImagePurpleDarkPreview() = PreviewThemed(
-    darkTheme = true,
-    accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple,
-) {
-    AttachmentTile(
-        attachment = PreviewSamples.attachment(
-            type = com.singularity.todo.core.attachments.AttachmentType.Image,
-            title = "screenshot.png",
-        ),
-        onDelete = {},
-    )
-}
+private fun AttachmentTileImagePurpleDarkPreview() =
+    PreviewThemed(
+        darkTheme = true,
+        accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple,
+    ) {
+        AttachmentTile(
+            attachment =
+                PreviewSamples.attachment(
+                    type = com.singularity.todo.core.attachments.AttachmentType.Image,
+                    title = "screenshot.png",
+                ),
+            onDelete = {},
+        )
+    }

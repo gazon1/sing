@@ -19,7 +19,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AppMenuTest {
-
     @Test
     fun everyMenuDestinationHasAnIdOfItsOwn() {
         // The model's ids are built when the model is touched, so a destination
@@ -48,7 +47,11 @@ class AppMenuTest {
                 "The id of '${entry.destination}' is not a menu id: ${entry.id}",
             )
             assertTrue(
-                entry.id != entry.label.lowercase().replace(" ", "").replace("-", "_"),
+                entry.id !=
+                    entry.label
+                        .lowercase()
+                        .replace(" ", "")
+                        .replace("-", "_"),
                 "The id of '${entry.destination}' is derived from its label: ${entry.id}",
             )
         }
@@ -66,5 +69,22 @@ class AppMenuTest {
     fun attachAccountEntryPointsToAttachAccountDestination() {
         assertEquals(TestTags.MENU_ATTACH_ACCOUNT, AppMenu.attachAccount.id)
         assertEquals(AppDestination.AttachAccount, AppMenu.attachAccount.destination)
+    }
+
+    @Test
+    fun everyMenuEntryHasAnIcon() {
+        // An entry without an icon is laid out with its label in the icon
+        // column, so on the phone it reads like a section heading.
+        val entries =
+            AppMenu.accountEntries(anonymous = true) +
+                AppMenu.search +
+                AppMenu.sheetDestinations
+
+        val withoutIcon = entries.filter { it.icon == null }.map { it.id }
+
+        assertTrue(
+            withoutIcon.isEmpty(),
+            "Menu entries without an icon: $withoutIcon",
+        )
     }
 }

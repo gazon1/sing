@@ -75,12 +75,13 @@ class CreateTaskFromDraftUseCase(
         // non-deterministic between machines even with a fixed clock.
         val today: LocalDate = todayAt(clock, timeZone.current())
 
-        fun resolveDate(option: DueDateOption): LocalDate? = when (option) {
-            is DueDateOption.Custom -> option.date
-            DueDateOption.Today -> today
-            DueDateOption.Tomorrow -> today.plus(1, DateTimeUnit.DAY)
-            DueDateOption.None -> null
-        }
+        fun resolveDate(option: DueDateOption): LocalDate? =
+            when (option) {
+                is DueDateOption.Custom -> option.date
+                DueDateOption.Today -> today
+                DueDateOption.Tomorrow -> today.plus(1, DateTimeUnit.DAY)
+                DueDateOption.None -> null
+            }
 
         // The primary date keeps its relative form until this moment: a draft
         // restored the next morning still says "today", not "yesterday". The extra
@@ -98,27 +99,30 @@ class CreateTaskFromDraftUseCase(
             )
         }
 
-        val validated: Either<AppError.Validation, CreateTaskInput> = TaskDomain.createInput(
-            title = draft.title.text,
-            description = draft.description.text.ifBlank { null },
-            priority = draft.priority,
-            kind = TaskKind.Task,
-            projectId = draft.projectId?.let { ProjectId.fromString(it) },
-            parentTaskId = null,
-            tagIds = draft.tagIds.map { TagId.fromString(it) },
-            dueDate = primaryDate,
-            dueTime = draft.dueTime,
-            startDate = resolveDate(draft.startDate),
-            startTime = draft.startTime,
-            endDate = resolveDate(draft.endDate),
-            endTime = draft.endTime,
-            accentColor = draft.accentColor,
-            emoji = draft.emoji,
-            someday = false,
-            recurrence = draft.recurrence,
-        )
+        val validated: Either<AppError.Validation, CreateTaskInput> =
+            TaskDomain.createInput(
+                title = draft.title.text,
+                description = draft.description.text.ifBlank { null },
+                priority = draft.priority,
+                kind = TaskKind.Task,
+                projectId = draft.projectId?.let { ProjectId.fromString(it) },
+                parentTaskId = null,
+                tagIds = draft.tagIds.map { TagId.fromString(it) },
+                dueDate = primaryDate,
+                dueTime = draft.dueTime,
+                startDate = resolveDate(draft.startDate),
+                startTime = draft.startTime,
+                endDate = resolveDate(draft.endDate),
+                endTime = draft.endTime,
+                accentColor = draft.accentColor,
+                emoji = draft.emoji,
+                someday = false,
+                recurrence = draft.recurrence,
+            )
         return when (validated) {
-            is Either.Left -> Either.Left(validated.error)
+            is Either.Left -> {
+                Either.Left(validated.error)
+            }
 
             is Either.Right -> {
                 val userId = currentUser.scopedUserId.value
@@ -147,13 +151,14 @@ class CreateTaskFromDraftUseCase(
                 // A single date produces an ordinary task that carries no id, so
                 // nothing downstream has to special-case it.
                 val seriesId = if (dates.size > 1) TaskSeriesId.generate() else null
-                val tasks = TaskSeriesPlanner.plan(
-                    base = validated.value,
-                    dates = dates,
-                    seriesId = seriesId,
-                    now = now,
-                    userId = userId,
-                )
+                val tasks =
+                    TaskSeriesPlanner.plan(
+                        base = validated.value,
+                        dates = dates,
+                        seriesId = seriesId,
+                        now = now,
+                        userId = userId,
+                    )
                 if (tasks.isEmpty()) {
                     // The planner never returns an empty list: a draft without
                     // dates is one undated task. Kept as a guard so a future
@@ -200,13 +205,15 @@ class CreateTaskFromDraftUseCase(
         materializer: MaterializeRecurringSeriesUseCase,
     ): Either<AppError, TaskId> {
         val seriesId = TaskSeriesId.generate()
-        val current = TaskDomain.buildTask(
-            input = input.copy(dueDate = date, someday = false),
-            id = TaskId.generate(),
-            createdAt = now,
-            updatedAt = now,
-            userId = userId,
-        ).copy(seriesId = seriesId)
+        val current =
+            TaskDomain
+                .buildTask(
+                    input = input.copy(dueDate = date, someday = false),
+                    id = TaskId.generate(),
+                    createdAt = now,
+                    updatedAt = now,
+                    userId = userId,
+                ).copy(seriesId = seriesId)
 
         // The failure has to leave the block rather than be turned into a value
         // inside it: catching it here would return normally and let the
@@ -239,18 +246,23 @@ class CreateTaskFromDraftUseCase(
         keepDraftIds: Boolean,
     ) {
         if (draft.checklist.isNotEmpty()) {
-            val items = draft.checklist.map { draftItem ->
-                ChecklistItem(
-                    id = if (keepDraftIds) {
-                        ChecklistItemId.fromString(draftItem.id)
-                    } else {
-                        ChecklistItemId.fromString(com.singularity.todo.core.ids.nextId())
-                    },
-                    taskId = taskId.value,
-                    title = draftItem.text,
-                    isCompleted = draftItem.isChecked,
-                )
-            }
+            val items =
+                draft.checklist.map { draftItem ->
+                    ChecklistItem(
+                        id =
+                            if (keepDraftIds) {
+                                ChecklistItemId.fromString(draftItem.id)
+                            } else {
+                                ChecklistItemId.fromString(
+                                    com.singularity.todo.core.ids
+                                        .nextId(),
+                                )
+                            },
+                        taskId = taskId.value,
+                        title = draftItem.text,
+                        isCompleted = draftItem.isChecked,
+                    )
+                }
             checklistRepository.createBatch(taskId.value, items)
         }
         for (draftAtt in draft.attachments) {
@@ -264,9 +276,10 @@ class CreateTaskFromDraftUseCase(
      * save failure undiagnosable: the screen showed a generic message, the failure
      * bundle had no stack, and the cause was a lateinit that naming alone did not locate.
      */
-    private fun persistenceFailure(e: Throwable): AppError.Persistence = AppError.Persistence(
-        message = e.toMessage(),
-        code = "task.draft.persist_failed",
-        cause = e,
-    )
+    private fun persistenceFailure(e: Throwable): AppError.Persistence =
+        AppError.Persistence(
+            message = e.toMessage(),
+            code = "task.draft.persist_failed",
+            cause = e,
+        )
 }

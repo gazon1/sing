@@ -93,14 +93,15 @@ fun Celebration(
 
         if (glowAlpha > 0f && animationsEnabled) {
             Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .scale(scale)
-                    .alpha(glowAlpha * 0.3f)
-                    .background(
-                        color = Color(0xFF4CAF50), // success green
-                        shape = CircleShape,
-                    ),
+                modifier =
+                    Modifier
+                        .matchParentSize()
+                        .scale(scale)
+                        .alpha(glowAlpha * 0.3f)
+                        .background(
+                            color = Color(0xFF4CAF50), // success green
+                            shape = CircleShape,
+                        ),
             )
         }
     }

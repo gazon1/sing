@@ -69,7 +69,6 @@ class RepairRecurringSeriesUseCase(
     private val settings: TasksSettingsRepository,
     private val currentUser: ProfileAwareCurrentUser,
 ) {
-
     companion object {
         /**
          * The shape this pass knows how to adopt.
@@ -92,35 +91,36 @@ class RepairRecurringSeriesUseCase(
      *   writes are the whole pass; a row that cannot be repaired is a failure
      *   of the pass, not a row to skip silently.
      */
-    suspend operator fun invoke(): Result<Int> = runCatchingCancellable {
-        val scope = currentUser.liveScopedUserId.first().value
-        if (settings.recurringSeriesRepairVersion(scope).first() >= VERSION) {
-            return@runCatchingCancellable 0
-        }
-        val candidates = repo.legacyRecurringTasks()
-        var repaired = 0
-        val errors = mutableListOf<Throwable>()
-        for (row in candidates) {
-            runCatching { repairOne(row) }
-                .onSuccess { result -> if (result != null) repaired++ }
-                .onFailure { error -> errors += error }
-        }
-        if (errors.isNotEmpty()) {
-            // One unreadable row must not stop the others from being repaired,
-            // and it must not declare the profile clean: the marker stays unset so
-            // the next launch visits the remaining rows again.
-            co.touchlab.kermit.Logger.withTag("RepairRecurringSeries").w {
-                "Skipped ${errors.size} of ${candidates.size} legacy rows; " +
-                    "marker left unset. First error: ${errors.first().message}"
+    suspend operator fun invoke(): Result<Int> =
+        runCatchingCancellable {
+            val scope = currentUser.liveScopedUserId.first().value
+            if (settings.recurringSeriesRepairVersion(scope).first() >= VERSION) {
+                return@runCatchingCancellable 0
             }
-            return@runCatchingCancellable repaired
+            val candidates = repo.legacyRecurringTasks()
+            var repaired = 0
+            val errors = mutableListOf<Throwable>()
+            for (row in candidates) {
+                runCatching { repairOne(row) }
+                    .onSuccess { result -> if (result != null) repaired++ }
+                    .onFailure { error -> errors += error }
+            }
+            if (errors.isNotEmpty()) {
+                // One unreadable row must not stop the others from being repaired,
+                // and it must not declare the profile clean: the marker stays unset so
+                // the next launch visits the remaining rows again.
+                co.touchlab.kermit.Logger.withTag("RepairRecurringSeries").w {
+                    "Skipped ${errors.size} of ${candidates.size} legacy rows; " +
+                        "marker left unset. First error: ${errors.first().message}"
+                }
+                return@runCatchingCancellable repaired
+            }
+            // Only after a pass that ran to the end: a failure above leaves the marker
+            // unset, so the next launch tries again instead of declaring the profile
+            // clean.
+            settings.setRecurringSeriesRepairVersion(scope, VERSION)
+            repaired
         }
-        // Only after a pass that ran to the end: a failure above leaves the marker
-        // unset, so the next launch tries again instead of declaring the profile
-        // clean.
-        settings.setRecurringSeriesRepairVersion(scope, VERSION)
-        repaired
-    }
 
     /**
      * Adopts one legacy row into a series, or returns `null` when it cannot be.
@@ -162,8 +162,7 @@ class RepairRecurringSeriesUseCase(
     }
 
     /** The row's own date, or today when it carries none. */
-    private fun anchorOf(row: Task): LocalDate =
-        row.dueDate ?: today()
+    private fun anchorOf(row: Task): LocalDate = row.dueDate ?: today()
 
     /** Today, in the same zone the rest of the app resolves dates in. */
     private fun today(): LocalDate = clock.now().toLocalDateTime(kotlinx.datetime.TimeZone.UTC).date

@@ -16,13 +16,18 @@ tags:
 ---
 # Seed three tasks with different due dates. The titles are fixed and the seed
 # replaces, so each run asserts on the same three rows.
-- openLink: "todo-debug://seed?task=YesterdayTask&due=-1d"
-- openLink: "todo-debug://seed?task=TodayTask&due=today"
-- openLink: "todo-debug://seed?task=TomorrowTask&due=tomorrow"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=YesterdayTask&due=-1d"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=TodayTask&due=today"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=TomorrowTask&due=tomorrow"
 
 # Navigate to agenda.
 - tapOn:

@@ -14,7 +14,6 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,6 +21,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.feature.plans.domain.model.PlansGranularity
 import com.singularity.todo.feature.plans.presentation.components.PlansSectionList
 import com.singularity.todo.feature.plans.presentation.viewmodel.PlansIntent
@@ -71,13 +71,17 @@ fun PlansContent(
     ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
             when (state) {
-                is PlansUiState.Loading -> PlansLoading()
+                is PlansUiState.Loading -> {
+                    PlansLoading()
+                }
 
-                is PlansUiState.Error -> PlansMessage(
-                    text = state.message,
-                    tag = TestTags.PLANS_ERROR,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                is PlansUiState.Error -> {
+                    PlansMessage(
+                        text = state.message,
+                        tag = TestTags.PLANS_ERROR,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
 
                 is PlansUiState.Loaded -> {
                     PlansGranularityControl(
@@ -119,27 +123,30 @@ private fun PlansGranularityControl(
     onGranularityChange: (PlansGranularity) -> Unit,
 ) {
     SingleChoiceSegmentedButtonRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
-        val options = listOf(
-            PlansGranularity.Day to "Day",
-            PlansGranularity.Week to "Week",
-            PlansGranularity.Month to "Month",
-        )
+        val options =
+            listOf(
+                PlansGranularity.Day to "Day",
+                PlansGranularity.Week to "Week",
+                PlansGranularity.Month to "Month",
+            )
         options.forEachIndexed { index, (value, label) ->
             SegmentedButton(
                 selected = granularity == value,
                 onClick = { onGranularityChange(value) },
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
-                modifier = Modifier.testTag(
-                    when (value) {
-                        PlansGranularity.Day -> TestTags.PLANS_GRANULARITY_DAY
-                        PlansGranularity.Week -> TestTags.PLANS_GRANULARITY_WEEK
-                        PlansGranularity.Month -> TestTags.PLANS_GRANULARITY_MONTH
-                    },
-                ),
+                modifier =
+                    Modifier.testTag(
+                        when (value) {
+                            PlansGranularity.Day -> TestTags.PLANS_GRANULARITY_DAY
+                            PlansGranularity.Week -> TestTags.PLANS_GRANULARITY_WEEK
+                            PlansGranularity.Month -> TestTags.PLANS_GRANULARITY_MONTH
+                        },
+                    ),
             ) {
                 Text(label)
             }
@@ -165,7 +172,11 @@ private fun PlansLoading() {
  * nothing scheduled", and the user has to be told it.
  */
 @Composable
-private fun PlansMessage(text: String, tag: String, modifier: Modifier = Modifier) {
+private fun PlansMessage(
+    text: String,
+    tag: String,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier.padding(PaddingValues(32.dp)),
         horizontalAlignment = Alignment.CenterHorizontally,

@@ -91,24 +91,25 @@ class RefreshCoordinator(
      */
     suspend fun request(): RefreshOutcome {
         if (closed) return nothingHappened()
-        val run = mutex.withLock {
-            if (closed) return nothingHappened()
-            // A run is in progress: join it rather than starting a second one.
-            currentRun?.let { return@withLock it }
-            CompletableDeferred<RefreshOutcome>().also { fresh ->
-                currentRun = fresh
-                // The run is started here, inside the lock, so that no second
-                // request can slip between "there is no run" and "there is".
-                // It runs in this coordinator's scope, not the caller's.
-                //
-                // ATOMIC: the coroutine starts even if the scope has already
-                // been cancelled, so the body always reaches the `finally` in
-                // runAndComplete and the waiters are released. Without it, a
-                // scope that died first would leave every waiter suspended
-                // forever.
-                scope.launch(start = CoroutineStart.ATOMIC) { runAndComplete(fresh) }
+        val run =
+            mutex.withLock {
+                if (closed) return nothingHappened()
+                // A run is in progress: join it rather than starting a second one.
+                currentRun?.let { return@withLock it }
+                CompletableDeferred<RefreshOutcome>().also { fresh ->
+                    currentRun = fresh
+                    // The run is started here, inside the lock, so that no second
+                    // request can slip between "there is no run" and "there is".
+                    // It runs in this coordinator's scope, not the caller's.
+                    //
+                    // ATOMIC: the coroutine starts even if the scope has already
+                    // been cancelled, so the body always reaches the `finally` in
+                    // runAndComplete and the waiters are released. Without it, a
+                    // scope that died first would leave every waiter suspended
+                    // forever.
+                    scope.launch(start = CoroutineStart.ATOMIC) { runAndComplete(fresh) }
+                }
             }
-        }
         return run.await()
     }
 
@@ -150,14 +151,15 @@ class RefreshCoordinator(
      * down.
      */
     @Suppress("TooGenericExceptionCaught") // a step may throw anything; the run must still report
-    private suspend fun runRefreshCatching(): RefreshOutcome = try {
-        runRefresh()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        log.e(e) { "Refresh threw; reporting the failure" }
-        RefreshOutcome(archived = Result.failure(e), sync = SyncOutcome.CouldNotStart(e.toAppError()))
-    }
+    private suspend fun runRefreshCatching(): RefreshOutcome =
+        try {
+            runRefresh()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.e(e) { "Refresh threw; reporting the failure" }
+            RefreshOutcome(archived = Result.failure(e), sync = SyncOutcome.CouldNotStart(e.toAppError()))
+        }
 
     /**
      * The archive step, then the synchronisation step.
@@ -175,26 +177,28 @@ class RefreshCoordinator(
      * synchronisation that follows it.
      */
     @Suppress("TooGenericExceptionCaught") // a repository may throw anything
-    private suspend fun archiveStep(): Result<Int> = try {
-        archiver.archiveCompletedTasks()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        Result.failure(e)
-    }
+    private suspend fun archiveStep(): Result<Int> =
+        try {
+            archiver.archiveCompletedTasks()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
 
     /**
      * The synchronisation step, isolated: a failure here must not undo the
      * archive that came before it.
      */
     @Suppress("TooGenericExceptionCaught") // a repository may throw anything
-    private suspend fun syncStep(): SyncOutcome = try {
-        syncRepository.syncOnce()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        SyncOutcome.CouldNotStart(e.toAppError())
-    }
+    private suspend fun syncStep(): SyncOutcome =
+        try {
+            syncRepository.syncOnce()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            SyncOutcome.CouldNotStart(e.toAppError())
+        }
 
     /**
      * The outcome of a refresh that did not happen. Nothing moved and there

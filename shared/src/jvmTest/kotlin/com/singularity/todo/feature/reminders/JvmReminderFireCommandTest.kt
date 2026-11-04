@@ -34,7 +34,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class JvmReminderFireCommandTest {
-
     /** The path systemd executes; `args[0]` in `fun main(args)`. */
     private val launcher = "/usr/bin/singularity-todo"
 
@@ -61,9 +60,10 @@ class JvmReminderFireCommandTest {
      */
     @Test
     fun `a fire request parses into the reminder and user it was asked for`() {
-        val parsed = JvmReminderFireCommand.parse(
-            arrayOf(launcher, "fire-reminder", "r1", "u1"),
-        )
+        val parsed =
+            JvmReminderFireCommand.parse(
+                arrayOf(launcher, "fire-reminder", "r1", "u1"),
+            )
 
         assertEquals(ReminderId("r1"), parsed?.reminderId)
         assertEquals(UserId("u1"), parsed?.userId)
@@ -125,38 +125,41 @@ class JvmReminderFireCommandTest {
      * visible; asserting on a hand-built array is what let it through.
      */
     @Test
-    fun `the argv the scheduler emits parses back to the same ids`() = runTest {
-        val reminderId = ReminderId.generate()
-        val userId = TestUsers.DEFAULT
-        val runner = RecordingRunner()
-        val scheduler = JvmReminderScheduler(
-            clock = FakeClock(),
-            reminderRepo = FakeReminderRepository(),
-            notifier = FakeNotifier(supported = true),
-            sessionBusAddress = null,
-            launcherPath = REMINDER_LAUNCHER_PATH,
-            runCommand = { argv -> runner.run(argv) },
-            userSystemdAvailable = { true },
-        )
-        val reminder = Reminder(
-            id = reminderId,
-            taskId = TaskId("t1"),
-            userId = userId,
-            type = ReminderType.Gentle,
-            offsetMinutes = 15,
-            fireAt = FakeClock().now().toEpochMilliseconds() + 3_600_000L,
-            recurringPattern = null,
-        )
+    fun `the argv the scheduler emits parses back to the same ids`() =
+        runTest {
+            val reminderId = ReminderId.generate()
+            val userId = TestUsers.DEFAULT
+            val runner = RecordingRunner()
+            val scheduler =
+                JvmReminderScheduler(
+                    clock = FakeClock(),
+                    reminderRepo = FakeReminderRepository(),
+                    notifier = FakeNotifier(supported = true),
+                    sessionBusAddress = null,
+                    launcherPath = REMINDER_LAUNCHER_PATH,
+                    runCommand = { argv -> runner.run(argv) },
+                    userSystemdAvailable = { true },
+                )
+            val reminder =
+                Reminder(
+                    id = reminderId,
+                    taskId = TaskId("t1"),
+                    userId = userId,
+                    type = ReminderType.Gentle,
+                    offsetMinutes = 15,
+                    fireAt = FakeClock().now().toEpochMilliseconds() + 3_600_000L,
+                    recurringPattern = null,
+                )
 
-        scheduler.schedule(reminder)
-        val argv = runner.calls.single()
-        val separator = argv.indexOf("--")
-        assertTrue(separator > 0, "systemd option parsing must be terminated before the ids: $argv")
+            scheduler.schedule(reminder)
+            val argv = runner.calls.single()
+            val separator = argv.indexOf("--")
+            assertTrue(separator > 0, "systemd option parsing must be terminated before the ids: $argv")
 
-        // The launcher receives `argv` including its own path, exactly as `main` gets it.
-        val parsed = JvmReminderFireCommand.parse(argv.drop(separator).toTypedArray())
+            // The launcher receives `argv` including its own path, exactly as `main` gets it.
+            val parsed = JvmReminderFireCommand.parse(argv.drop(separator).toTypedArray())
 
-        assertEquals(reminderId, parsed?.reminderId, "the reminder id must survive the round trip")
-        assertEquals(userId, parsed?.userId, "the profile id must survive the round trip")
-    }
+            assertEquals(reminderId, parsed?.reminderId, "the reminder id must survive the round trip")
+            assertEquals(userId, parsed?.userId, "the profile id must survive the round trip")
+        }
 }

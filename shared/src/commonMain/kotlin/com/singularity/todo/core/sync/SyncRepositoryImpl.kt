@@ -24,7 +24,6 @@ internal class SyncRepositoryImpl(
     private val authRepository: AuthRepository,
     private val log: Logger = Logger.withTag("SyncRepository"),
 ) : SyncRepository {
-
     override val status: StateFlow<SyncEngineStatus> = runner.status
     override val lastPush: StateFlow<Result<PushSummary>?> = runner.lastPush
     override val lastPull: StateFlow<Result<PullSummary>?> = runner.lastPull

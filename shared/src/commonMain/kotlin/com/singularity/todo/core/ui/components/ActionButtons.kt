@@ -17,7 +17,10 @@ import com.singularity.todo.core.ui.preview.noopClick
  * (TaskCard, ProjectCard, NoteEditor toolbar).
  */
 @Composable
-fun AiActionButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun AiActionButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     IconButton(onClick = onClick, modifier = modifier) {
         Icon(
             Icons.Filled.AutoAwesome,
@@ -29,7 +32,10 @@ fun AiActionButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 
 /** Trash-icon button used by every deletable list item. */
 @Composable
-fun DeleteActionButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun DeleteActionButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     IconButton(onClick = onClick, modifier = modifier) {
         Icon(
             Icons.Filled.Delete,
@@ -47,7 +53,10 @@ fun DeleteActionButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
  * back.
  */
 @Composable
-fun ReopenActionButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ReopenActionButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     IconButton(onClick = onClick, modifier = modifier) {
         Icon(
             Icons.Filled.LockOpen,
@@ -61,24 +70,28 @@ fun ReopenActionButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AiActionButtonLightPreview() = PreviewThemed(darkTheme = false) {
-    AiActionButton(onClick = noopClick)
-}
+private fun AiActionButtonLightPreview() =
+    PreviewThemed(darkTheme = false) {
+        AiActionButton(onClick = noopClick)
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AiActionButtonDarkPreview() = PreviewThemed(darkTheme = true) {
-    AiActionButton(onClick = noopClick)
-}
+private fun AiActionButtonDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        AiActionButton(onClick = noopClick)
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun DeleteActionButtonLightPreview() = PreviewThemed(darkTheme = false) {
-    DeleteActionButton(onClick = noopClick)
-}
+private fun DeleteActionButtonLightPreview() =
+    PreviewThemed(darkTheme = false) {
+        DeleteActionButton(onClick = noopClick)
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun DeleteActionButtonDarkPreview() = PreviewThemed(darkTheme = true) {
-    DeleteActionButton(onClick = noopClick)
-}
+private fun DeleteActionButtonDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        DeleteActionButton(onClick = noopClick)
+    }

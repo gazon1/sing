@@ -8,6 +8,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,12 +30,10 @@ import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
-import kotlinx.coroutines.flow.map
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.coroutines.flow.map
 import org.koin.compose.koinInject
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
 
 /**
  * Second step of "add section": choose the values a [SelectorTemplate] needs.
@@ -72,15 +72,17 @@ internal fun SelectorParameterSheet(
 
     MultiSelectSheet(
         title = template.label,
-        items = remember(options) {
-            options.map { option ->
-                MultiSelectItem(
-                    key = option.id,
-                    label = option.label,
-                    testTag = TestTags.agendaSelectorOption(option.id),
-                )
-            }.toImmutableList()
-        },
+        items =
+            remember(options) {
+                options
+                    .map { option ->
+                        MultiSelectItem(
+                            key = option.id,
+                            label = option.label,
+                            testTag = TestTags.agendaSelectorOption(option.id),
+                        )
+                    }.toImmutableList()
+            },
         selectedKeys = selectedKeys,
         onToggle = { id ->
             if (id in selected) selected.remove(id) else selected.add(id)
@@ -93,27 +95,28 @@ internal fun SelectorParameterSheet(
         confirmLabel = "Add section",
         confirmTestTag = TestTags.SAVED_AGENDA_ADD_SECTION_CONFIRM,
         emptyMessage = "No ${template.label.lowercase()} available yet",
-        footer = if (template is SelectorTemplate.ByTags) {
-            {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Checkbox(
-                        checked = matchAll.value,
-                        onCheckedChange = { checked -> matchAll.value = checked },
-                        modifier = Modifier.testTag(TestTags.AGENDA_TAG_MATCH_ALL),
-                    )
-                    Text(
-                        text = "Match all of these tags",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+        footer =
+            if (template is SelectorTemplate.ByTags) {
+                {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Checkbox(
+                            checked = matchAll.value,
+                            onCheckedChange = { checked -> matchAll.value = checked },
+                            modifier = Modifier.testTag(TestTags.AGENDA_TAG_MATCH_ALL),
+                        )
+                        Text(
+                            text = "Match all of these tags",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                 }
-            }
-        } else {
-            null
-        },
+            } else {
+                null
+            },
     )
 }
 
@@ -122,19 +125,28 @@ internal fun selectorOptionsFor(
     template: SelectorTemplate,
     tags: List<Tag> = emptyList(),
     projects: List<Project> = emptyList(),
-): List<SelectorOption> = when (template) {
-    is SelectorTemplate.ByTags -> tags.map { SelectorOption(it.id.value, it.name) }
+): List<SelectorOption> =
+    when (template) {
+        is SelectorTemplate.ByTags -> {
+            tags.map { SelectorOption(it.id.value, it.name) }
+        }
 
-    is SelectorTemplate.ByProjects -> {
-        val live = projects.filterNot { it.isDeleted }
-        live.map { SelectorOption(it.id.value, it.name) }
+        is SelectorTemplate.ByProjects -> {
+            val live = projects.filterNot { it.isDeleted }
+            live.map { SelectorOption(it.id.value, it.name) }
+        }
+
+        is SelectorTemplate.ByPriority -> {
+            TaskPriority.entries.map { SelectorOption(it.name, it.name) }
+        }
+
+        is SelectorTemplate.ByStatus -> {
+            TaskStatus.entries.map { SelectorOption(it.name, it.name) }
+        }
+
+        // Fixed templates never open this sheet; the catalogue is the fallback so a
+        // future parameterized type cannot resolve to a silently empty picker.
+        else -> {
+            emptyList()
+        }
     }
-
-    is SelectorTemplate.ByPriority -> TaskPriority.entries.map { SelectorOption(it.name, it.name) }
-
-    is SelectorTemplate.ByStatus -> TaskStatus.entries.map { SelectorOption(it.name, it.name) }
-
-    // Fixed templates never open this sheet; the catalogue is the fallback so a
-    // future parameterized type cannot resolve to a silently empty picker.
-    else -> emptyList()
-}

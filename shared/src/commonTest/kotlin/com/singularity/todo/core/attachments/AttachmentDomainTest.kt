@@ -4,12 +4,11 @@ import com.singularity.todo.core.ui.formatFileSize
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 @Tag("fast")
 class AttachmentDomainTest {
-
     @Test
     fun generateAttachmentIdCreatesValidFormat() {
         val id = AttachmentDomain.generateAttachmentId()

@@ -15,7 +15,6 @@ import com.singularity.todo.feature.tasks.domain.model.Task
  * and one that keeps the fine-grained rules file about one thing.
  */
 object TaskSeriesKinds {
-
     /** The two kinds a series can be. */
     enum class Kind { PickedDates, Recurring }
 
@@ -42,7 +41,10 @@ object TaskSeriesKinds {
      * series with different rules would leave the members disagreeing about the
      * work. The refusal names the reason (FR-050).
      */
-    fun joinRefusal(target: List<Task>, other: List<Task>): String? {
+    fun joinRefusal(
+        target: List<Task>,
+        other: List<Task>,
+    ): String? {
         val targetKind = of(target) ?: return "The series being joined into is not one series"
         val otherKind = of(other) ?: return "The series being joined is not one series"
         if (targetKind != otherKind) {

@@ -4,29 +4,29 @@ package com.singularity.todo.feature.notes.data
 
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.NoteEntity
+import com.singularity.todo.core.database.UnitOfWork
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.repository.assertCanWrite
+import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.search.SearchTextIndex
 import com.singularity.todo.core.search.TextMatchPlan
-import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteColor
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NoteKind
-import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.notes.toEntity
 import com.singularity.todo.feature.notes.toLinksJson
 import com.singularity.todo.feature.notes.toNote
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
-import com.singularity.todo.core.error.runCatchingCancellable
-import com.singularity.todo.core.database.UnitOfWork
 
 /**
  * Room-backed production [NotesRepository].
@@ -39,46 +39,49 @@ class NotesRepositoryImpl(
     private val syncRepository: SyncRepository,
     private val unitOfWork: UnitOfWork,
 ) : NotesRepository {
-
     // ─── GenericUserScopedRepository ───────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<Note>> = currentUser.observeForCurrentUser { uid ->
-        noteDao.watchAll(uid.value).map { list -> list.map { it.toNote() } }
-    }
+    override fun observeAll(): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchAll(uid.value).map { list -> list.map { it.toNote() } }
+        }
 
-    override fun observe(id: NoteId): Flow<Note?> = currentUser.observeForCurrentUser { uid ->
-        noteDao.watchByIdForUser(id.value, uid.value).map { it?.toNote() }
-    }
+    override fun observe(id: NoteId): Flow<Note?> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchByIdForUser(id.value, uid.value).map { it?.toNote() }
+        }
 
     override suspend fun get(id: NoteId): Note? {
         val uid = currentUser.scopedUserId.value
         return noteDao.getByIdForUser(id.value, uid.value)?.toNote()
     }
 
-    override suspend fun create(item: Note): Result<Note> = runCatchingCancellable {
-        unitOfWork.write {
-            currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
-            noteDao.upsert(item.toEntity())
-            item.also { syncRepository.enqueue(it).getOrThrow() }
+    override suspend fun create(item: Note): Result<Note> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+                noteDao.upsert(item.toEntity())
+                item.also { syncRepository.enqueue(it).getOrThrow() }
+            }
         }
-    }
 
-    override suspend fun update(item: Note): Result<Note> = runCatchingCancellable {
-        unitOfWork.write {
-            currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
-            // Read-before-write guard: reject updates to non-existent entities.
-            // Prevents silent data loss from upsert-on-missing.
-            noteDao.getByIdForUser(item.id.value, currentUser.scopedUserId.value.value)
-                ?: throw IllegalArgumentException("Note not found: ${item.id.value}")
-            // Re-stamp after the guard, exactly as `create` does: the guard has just
-            // established that userId is either current or anonymous, so normalising
-            // anonymous -> current cannot lose information, whereas upserting the
-            // caller's anonymous id verbatim would orphan the row.
-            val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
-            noteDao.upsert(toUpdate.toEntity())
-            toUpdate.also { syncRepository.enqueue(it).getOrThrow() }
+    override suspend fun update(item: Note): Result<Note> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+                // Read-before-write guard: reject updates to non-existent entities.
+                // Prevents silent data loss from upsert-on-missing.
+                noteDao.getByIdForUser(item.id.value, currentUser.scopedUserId.value.value)
+                    ?: throw IllegalArgumentException("Note not found: ${item.id.value}")
+                // Re-stamp after the guard, exactly as `create` does: the guard has just
+                // established that userId is either current or anonymous, so normalising
+                // anonymous -> current cannot lose information, whereas upserting the
+                // caller's anonymous id verbatim would orphan the row.
+                val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
+                noteDao.upsert(toUpdate.toEntity())
+                toUpdate.also { syncRepository.enqueue(it).getOrThrow() }
+            }
         }
-    }
 
     private suspend fun enqueueFresh(id: NoteId) {
         val row = noteDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value) ?: return
@@ -87,22 +90,25 @@ class NotesRepositoryImpl(
 
     // ─── Remote apply (pull handler) ────────────────────────────────────────────
 
-    override suspend fun upsert(note: Note): Note = unitOfWork.write {
-        noteDao.upsert(note.toEntity())
-        note
-    }
-
-    override suspend fun delete(id: NoteId): Result<Unit> = runCatchingCancellable {
+    override suspend fun upsert(note: Note): Note =
         unitOfWork.write {
-            val rows = noteDao.softDeleteForUser(
-                id.value,
-                clock.now().toEpochMilliseconds(),
-                currentUser.scopedUserId.value.value,
-            )
-            require(rows > 0) { "Note $id not found or not owned by current user" }
-            enqueueFresh(id)
+            noteDao.upsert(note.toEntity())
+            note
         }
-    }
+
+    override suspend fun delete(id: NoteId): Result<Unit> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val rows =
+                    noteDao.softDeleteForUser(
+                        id.value,
+                        clock.now().toEpochMilliseconds(),
+                        currentUser.scopedUserId.value.value,
+                    )
+                require(rows > 0) { "Note $id not found or not owned by current user" }
+                enqueueFresh(id)
+            }
+        }
 
     // ─── SoftDeletable ────────────────────────────────────────────────────────
 
@@ -122,45 +128,51 @@ class NotesRepositoryImpl(
      * The snapshot is taken *before* the delete: afterwards the rows are gone and
      * there is nothing left to describe.
      */
-    override suspend fun deleteAllForCurrentProfile(): Result<Int> = runCatchingCancellable {
-        unitOfWork.write {
-            val uid = currentUser.scopedUserId.value.value
-            val doomed = noteDao.listAllForUser(uid)
-            val now = clock.now()
-            val removed = noteDao.deleteAllForUser(uid)
-            doomed.forEach { row ->
-                val note = row.toNote()
-                syncRepository.enqueue(note.copy(deletedAt = note.deletedAt ?: now)).getOrThrow()
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val uid = currentUser.scopedUserId.value.value
+                val doomed = noteDao.listAllForUser(uid)
+                val now = clock.now()
+                val removed = noteDao.deleteAllForUser(uid)
+                doomed.forEach { row ->
+                    val note = row.toNote()
+                    syncRepository.enqueue(note.copy(deletedAt = note.deletedAt ?: now)).getOrThrow()
+                }
+                removed
             }
-            removed
         }
-    }
 
-    override suspend fun restore(id: NoteId): Result<Unit> = runCatchingCancellable {
-        unitOfWork.write {
-            val rows = noteDao.restoreForUser(
-                id.value,
-                clock.now().toEpochMilliseconds(),
-                currentUser.scopedUserId.value.value,
-            )
-            require(rows > 0) { "Note $id not found or not owned by current user" }
-            enqueueFresh(id)
+    override suspend fun restore(id: NoteId): Result<Unit> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val rows =
+                    noteDao.restoreForUser(
+                        id.value,
+                        clock.now().toEpochMilliseconds(),
+                        currentUser.scopedUserId.value.value,
+                    )
+                require(rows > 0) { "Note $id not found or not owned by current user" }
+                enqueueFresh(id)
+            }
         }
-    }
 
     // ─── Domain methods ───────────────────────────────────────────────────────
 
-    override fun watchPinned(): Flow<List<Note>> = currentUser.observeForCurrentUser { uid ->
-        noteDao.watchPinned(uid.value).map { list -> list.map { it.toNote() } }
-    }
+    override fun watchPinned(): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchPinned(uid.value).map { list -> list.map { it.toNote() } }
+        }
 
-    override fun watchArchived(): Flow<List<Note>> = currentUser.observeForCurrentUser { uid ->
-        noteDao.watchArchived(uid.value).map { list -> list.map { it.toNote() } }
-    }
+    override fun watchArchived(): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchArchived(uid.value).map { list -> list.map { it.toNote() } }
+        }
 
-    override fun watchRootNotes(): Flow<List<Note>> = currentUser.observeForCurrentUser { uid ->
-        noteDao.watchRootNotes(uid.value).map { list -> list.map { it.toNote() } }
-    }
+    override fun watchRootNotes(): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchRootNotes(uid.value).map { list -> list.map { it.toNote() } }
+        }
 
     /**
      * The notes that carry the text, in the mode the caller states.
@@ -171,20 +183,29 @@ class NotesRepositoryImpl(
      * the notes are read and matched in memory, the same answer the search
      * screen gives.
      */
-    override fun search(query: String, mode: SearchMode): Flow<List<Note>> {
+    override fun search(
+        query: String,
+        mode: SearchMode,
+    ): Flow<List<Note>> {
         val rule = FreeTextRule.singleTerm(query)
         return when (rule.plan(mode)) {
-            is TextMatchPlan.Narrowed -> textIndex.observeNotes(rule.indexQuery(mode))
-                .map { rows -> rows.map { it.record } }
+            is TextMatchPlan.Narrowed -> {
+                textIndex
+                    .observeNotes(rule.indexQuery(mode))
+                    .map { rows -> rows.map { it.record } }
+            }
 
-            TextMatchPlan.BroadScan -> currentUser.observeForCurrentUser { uid ->
-                noteDao.watchAll(uid.value).map { notes ->
-                    notes.map { it.toNote() }
-                        .filter { note -> mode.matches(note, query) }
-                        // The same order the index answers in: the most recently
-                        // updated first. The two modes answer the same question,
-                        // and they answer it in the same order.
-                        .sortedByDescending { note -> note.updatedAt }
+            TextMatchPlan.BroadScan -> {
+                currentUser.observeForCurrentUser { uid ->
+                    noteDao.watchAll(uid.value).map { notes ->
+                        notes
+                            .map { it.toNote() }
+                            .filter { note -> mode.matches(note, query) }
+                            // The same order the index answers in: the most recently
+                            // updated first. The two modes answer the same question,
+                            // and they answer it in the same order.
+                            .sortedByDescending { note -> note.updatedAt }
+                    }
                 }
             }
         }
@@ -195,9 +216,10 @@ class NotesRepositoryImpl(
         title: String,
         bodyMarkdown: String,
         bodyHtml: String,
-    ): Result<NoteId> = runCatchingCancellable {
-        createNoteRow(newNoteEntity(id, title, bodyMarkdown, bodyHtml, taskId = null))
-    }
+    ): Result<NoteId> =
+        runCatchingCancellable {
+            createNoteRow(newNoteEntity(id, title, bodyMarkdown, bodyHtml, taskId = null))
+        }
 
     /**
      * The row of a brand-new note.
@@ -250,153 +272,191 @@ class NotesRepositoryImpl(
         return id
     }
 
-    override suspend fun createNoteWithTitle(title: String): Result<NoteId> = runCatchingCancellable {
-        unitOfWork.write {
-            val uid = currentUser.scopedUserId.value
-            val id = NoteId(com.singularity.todo.core.ids.nextId())
-            val now = clock.now().toEpochMilliseconds()
-            noteDao.upsert(
-                NoteEntity(
-                    id = id.value,
-                    userId = uid.value,
-                    title = title,
-                    bodyMarkdown = null,
-                    bodyHtml = null,
-                    kind = NoteKind.Plain,
-                    parentNoteId = null,
-                    isPinned = false,
-                    pinnedAt = null,
-                    color = null,
-                    sortOrder = 0,
-                    wordCount = 0,
-                    charCount = 0,
-                    createdAt = now,
-                    updatedAt = now,
-                    deletedAt = null,
-                    archivedAt = null,
-                ),
-            )
-            enqueueFresh(id)
-            id
+    override suspend fun createNoteWithTitle(title: String): Result<NoteId> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val uid = currentUser.scopedUserId.value
+                val id =
+                    NoteId(
+                        com.singularity.todo.core.ids
+                            .nextId(),
+                    )
+                val now = clock.now().toEpochMilliseconds()
+                noteDao.upsert(
+                    NoteEntity(
+                        id = id.value,
+                        userId = uid.value,
+                        title = title,
+                        bodyMarkdown = null,
+                        bodyHtml = null,
+                        kind = NoteKind.Plain,
+                        parentNoteId = null,
+                        isPinned = false,
+                        pinnedAt = null,
+                        color = null,
+                        sortOrder = 0,
+                        wordCount = 0,
+                        charCount = 0,
+                        createdAt = now,
+                        updatedAt = now,
+                        deletedAt = null,
+                        archivedAt = null,
+                    ),
+                )
+                enqueueFresh(id)
+                id
+            }
         }
-    }
 
     override suspend fun updateContent(
         id: NoteId,
         title: String,
         bodyMarkdown: String,
         bodyHtml: String,
-    ): Result<Unit> = runCatchingCancellable {
-        unitOfWork.write {
-            val wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() }
-            val rows = noteDao.updateContentForUser(
-                id = id.value,
-                title = title,
-                markdown = bodyMarkdown,
-                html = bodyHtml,
-                wordCount = wordCount,
-                charCount = bodyMarkdown.length,
-                updatedAt = clock.now().toEpochMilliseconds(),
-                userId = currentUser.scopedUserId.value.value,
-            )
-            require(rows > 0) { "Note $id not found or not owned by current user" }
-            enqueueFresh(id)
+    ): Result<Unit> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() }
+                val rows =
+                    noteDao.updateContentForUser(
+                        id = id.value,
+                        title = title,
+                        markdown = bodyMarkdown,
+                        html = bodyHtml,
+                        wordCount = wordCount,
+                        charCount = bodyMarkdown.length,
+                        updatedAt = clock.now().toEpochMilliseconds(),
+                        userId = currentUser.scopedUserId.value.value,
+                    )
+                require(rows > 0) { "Note $id not found or not owned by current user" }
+                enqueueFresh(id)
+            }
         }
-    }
 
-    override suspend fun archive(id: NoteId): Result<Unit> = runCatchingCancellable {
-        unitOfWork.write {
-            val rows = noteDao.archiveForUser(
-                id.value,
-                clock.now().toEpochMilliseconds(),
-                currentUser.scopedUserId.value.value,
-            )
-            require(rows > 0) { "Note $id not found or not owned by current user" }
-            enqueueFresh(id)
+    override suspend fun archive(id: NoteId): Result<Unit> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val rows =
+                    noteDao.archiveForUser(
+                        id.value,
+                        clock.now().toEpochMilliseconds(),
+                        currentUser.scopedUserId.value.value,
+                    )
+                require(rows > 0) { "Note $id not found or not owned by current user" }
+                enqueueFresh(id)
+            }
         }
-    }
 
-    override suspend fun unarchive(id: NoteId): Result<Unit> = runCatchingCancellable {
-        unitOfWork.write {
-            val rows = noteDao.unarchiveForUser(
-                id.value,
-                clock.now().toEpochMilliseconds(),
-                currentUser.scopedUserId.value.value,
-            )
-            require(rows > 0) { "Note $id not found or not owned by current user" }
-            enqueueFresh(id)
+    override suspend fun unarchive(id: NoteId): Result<Unit> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val rows =
+                    noteDao.unarchiveForUser(
+                        id.value,
+                        clock.now().toEpochMilliseconds(),
+                        currentUser.scopedUserId.value.value,
+                    )
+                require(rows > 0) { "Note $id not found or not owned by current user" }
+                enqueueFresh(id)
+            }
         }
-    }
 
-    override suspend fun setPinned(id: NoteId, pinned: Boolean): Result<Unit> = runCatchingCancellable {
-        unitOfWork.write {
-            val now = clock.now().toEpochMilliseconds()
-            val rows = noteDao.setPinnedForUser(
-                id = id.value,
-                pinned = pinned,
-                pinnedAt = if (pinned) now else null,
-                ts = now,
-                userId = currentUser.scopedUserId.value.value,
-            )
-            require(rows > 0) { "Note $id not found or not owned by current user" }
-            enqueueFresh(id)
+    override suspend fun setPinned(
+        id: NoteId,
+        pinned: Boolean,
+    ): Result<Unit> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val now = clock.now().toEpochMilliseconds()
+                val rows =
+                    noteDao.setPinnedForUser(
+                        id = id.value,
+                        pinned = pinned,
+                        pinnedAt = if (pinned) now else null,
+                        ts = now,
+                        userId = currentUser.scopedUserId.value.value,
+                    )
+                require(rows > 0) { "Note $id not found or not owned by current user" }
+                enqueueFresh(id)
+            }
         }
-    }
 
-    override suspend fun setColor(id: NoteId, color: NoteColor?): Result<Unit> = runCatchingCancellable {
-        unitOfWork.write {
-            val rows = noteDao.setColorForUser(
-                id = id.value,
-                color = color?.value,
-                ts = clock.now().toEpochMilliseconds(),
-                userId = currentUser.scopedUserId.value.value,
-            )
-            require(rows > 0) { "Note $id not found or not owned by current user" }
-            enqueueFresh(id)
+    override suspend fun setColor(
+        id: NoteId,
+        color: NoteColor?,
+    ): Result<Unit> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val rows =
+                    noteDao.setColorForUser(
+                        id = id.value,
+                        color = color?.value,
+                        ts = clock.now().toEpochMilliseconds(),
+                        userId = currentUser.scopedUserId.value.value,
+                    )
+                require(rows > 0) { "Note $id not found or not owned by current user" }
+                enqueueFresh(id)
+            }
         }
-    }
 
-    override suspend fun setSortOrder(id: NoteId, sortOrder: Int): Result<Unit> = runCatchingCancellable {
-        unitOfWork.write {
-            val rows = noteDao.setSortOrderForUser(
-                id = id.value,
-                sortOrder = sortOrder,
-                ts = clock.now().toEpochMilliseconds(),
-                userId = currentUser.scopedUserId.value.value,
-            )
-            require(rows > 0) { "Note $id not found or not owned by current user" }
-            enqueueFresh(id)
+    override suspend fun setSortOrder(
+        id: NoteId,
+        sortOrder: Int,
+    ): Result<Unit> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val rows =
+                    noteDao.setSortOrderForUser(
+                        id = id.value,
+                        sortOrder = sortOrder,
+                        ts = clock.now().toEpochMilliseconds(),
+                        userId = currentUser.scopedUserId.value.value,
+                    )
+                require(rows > 0) { "Note $id not found or not owned by current user" }
+                enqueueFresh(id)
+            }
         }
-    }
 
-    override suspend fun setOutgoingLinks(id: NoteId, links: List<String>): Result<Unit> = runCatchingCancellable {
-        unitOfWork.write {
-            // Structural guard: DAO filter already restricts to current user's note (by scopedUserId).
-            // assertCanWrite is called for consistency with the write-pipeline audit checklist.
-            currentUser.assertCanWrite(entityId = id.value, entityUserId = currentUser.scopedUserId.value)
-            val rows = noteDao.setOutgoingLinksForUser(
-                id = id.value,
-                linksJson = links.toLinksJson(),
-                updatedAt = clock.now().toEpochMilliseconds(),
-                userId = currentUser.scopedUserId.value.value,
-            )
-            require(rows > 0) { "Note $id not found or not owned by current user" }
-            enqueueFresh(id)
+    override suspend fun setOutgoingLinks(
+        id: NoteId,
+        links: List<String>,
+    ): Result<Unit> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                // Structural guard: DAO filter already restricts to current user's note (by scopedUserId).
+                // assertCanWrite is called for consistency with the write-pipeline audit checklist.
+                currentUser.assertCanWrite(entityId = id.value, entityUserId = currentUser.scopedUserId.value)
+                val rows =
+                    noteDao.setOutgoingLinksForUser(
+                        id = id.value,
+                        linksJson = links.toLinksJson(),
+                        updatedAt = clock.now().toEpochMilliseconds(),
+                        userId = currentUser.scopedUserId.value.value,
+                    )
+                require(rows > 0) { "Note $id not found or not owned by current user" }
+                enqueueFresh(id)
+            }
         }
-    }
 
     // ─── Templates and daily notes ────────────────────────────────────────────────
 
-    override fun watchTemplates(): Flow<List<Note>> = currentUser.observeForCurrentUser { uid ->
-        noteDao.watchTemplates(uid.value).map { list -> list.map { it.toNote() } }
-    }
+    override fun watchTemplates(): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao.watchTemplates(uid.value).map { list -> list.map { it.toNote() } }
+        }
 
-    override fun watchDailyNotesInRange(from: String, to: String): Flow<List<Note>> =
+    override fun watchDailyNotesInRange(
+        from: String,
+        to: String,
+    ): Flow<List<Note>> =
         currentUser.observeForCurrentUser { uid ->
             noteDao.watchDailyNotesInRange(uid.value, from, to).map { list -> list.map { it.toNote() } }
         }
 
-    override suspend fun getDailyNote(dateKey: String, projectId: ProjectId?): Note? {
+    override suspend fun getDailyNote(
+        dateKey: String,
+        projectId: ProjectId?,
+    ): Note? {
         val uid = currentUser.scopedUserId.value
         return noteDao.getDailyNoteForProject(uid.value, dateKey, projectId?.value)?.toNote()
     }
@@ -405,105 +465,120 @@ class NotesRepositoryImpl(
         templateId: NoteId,
         targetTitle: String,
         targetDateKey: String?,
-    ): Result<NoteId> = runCatchingCancellable {
-        unitOfWork.write {
-            val uid = currentUser.scopedUserId.value
-            val template = noteDao.getByIdForUser(templateId.value, uid.value)
-                ?: throw IllegalArgumentException("Template not found: $templateId")
-            val now = clock.now().toEpochMilliseconds()
-            val newId = NoteId(com.singularity.todo.core.ids.nextId())
-            val finalTitle = targetDateKey?.let { "$it — $targetTitle" } ?: targetTitle
-            noteDao.upsert(
-                NoteEntity(
-                    id = newId.value,
-                    userId = uid.value,
-                    title = finalTitle,
-                    bodyMarkdown = template.bodyMarkdown,
-                    bodyHtml = template.bodyHtml,
-                    isFolder = false,
-                    kind = if (targetDateKey != null) NoteKind.Daily else NoteKind.Plain,
-                    parentNoteId = null,
-                    isPinned = false,
-                    pinnedAt = null,
-                    color = template.color,
-                    sortOrder = 0,
-                    wordCount = template.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
-                    charCount = template.bodyMarkdown?.length ?: 0,
-                    createdAt = now,
-                    updatedAt = now,
-                    deletedAt = null,
-                    archivedAt = null,
-                ),
-            )
-            enqueueFresh(newId)
-            newId
+    ): Result<NoteId> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val uid = currentUser.scopedUserId.value
+                val template =
+                    noteDao.getByIdForUser(templateId.value, uid.value)
+                        ?: throw IllegalArgumentException("Template not found: $templateId")
+                val now = clock.now().toEpochMilliseconds()
+                val newId =
+                    NoteId(
+                        com.singularity.todo.core.ids
+                            .nextId(),
+                    )
+                val finalTitle = targetDateKey?.let { "$it — $targetTitle" } ?: targetTitle
+                noteDao.upsert(
+                    NoteEntity(
+                        id = newId.value,
+                        userId = uid.value,
+                        title = finalTitle,
+                        bodyMarkdown = template.bodyMarkdown,
+                        bodyHtml = template.bodyHtml,
+                        isFolder = false,
+                        kind = if (targetDateKey != null) NoteKind.Daily else NoteKind.Plain,
+                        parentNoteId = null,
+                        isPinned = false,
+                        pinnedAt = null,
+                        color = template.color,
+                        sortOrder = 0,
+                        wordCount = template.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
+                        charCount = template.bodyMarkdown?.length ?: 0,
+                        createdAt = now,
+                        updatedAt = now,
+                        deletedAt = null,
+                        archivedAt = null,
+                    ),
+                )
+                enqueueFresh(newId)
+                newId
+            }
         }
-    }
 
-    override suspend fun saveAsTemplate(id: NoteId): Result<Unit> = runCatchingCancellable {
-        unitOfWork.write {
-            val rows = noteDao.setKindForUser(
-                id = id.value,
-                kind = NoteKind.Template.name,
-                ts = clock.now().toEpochMilliseconds(),
-                userId = currentUser.scopedUserId.value.value,
-            )
-            require(rows > 0) { "Note $id not found or not owned by current user" }
-            enqueueFresh(id)
+    override suspend fun saveAsTemplate(id: NoteId): Result<Unit> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val rows =
+                    noteDao.setKindForUser(
+                        id = id.value,
+                        kind = NoteKind.Template.name,
+                        ts = clock.now().toEpochMilliseconds(),
+                        userId = currentUser.scopedUserId.value.value,
+                    )
+                require(rows > 0) { "Note $id not found or not owned by current user" }
+                enqueueFresh(id)
+            }
         }
-    }
 
     override suspend fun getOrCreateDailyNote(
         dateKey: String,
         projectId: ProjectId?,
         fromTemplateId: NoteId?,
-    ): Result<NoteId> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value
-        // Read before the transaction opens. This branch returns without writing
-        // anything, and an early return from inside the unit of work would have to
-        // cross a non-inline boundary — so the check stays out here.
-        val existing = noteDao.getDailyNoteForProject(uid.value, dateKey, projectId?.value)
-        if (existing != null) {
-            return@runCatchingCancellable NoteId.fromString(existing.id)
+    ): Result<NoteId> =
+        runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value
+            // Read before the transaction opens. This branch returns without writing
+            // anything, and an early return from inside the unit of work would have to
+            // cross a non-inline boundary — so the check stays out here.
+            val existing = noteDao.getDailyNoteForProject(uid.value, dateKey, projectId?.value)
+            if (existing != null) {
+                return@runCatchingCancellable NoteId.fromString(existing.id)
+            }
+            unitOfWork.write {
+                val now = clock.now().toEpochMilliseconds()
+                val newId =
+                    NoteId(
+                        com.singularity.todo.core.ids
+                            .nextId(),
+                    )
+                val template = fromTemplateId?.let { noteDao.getByIdForUser(it.value, uid.value) }
+                noteDao.upsert(
+                    NoteEntity(
+                        id = newId.value,
+                        userId = uid.value,
+                        title = dateKey,
+                        bodyMarkdown = template?.bodyMarkdown,
+                        bodyHtml = template?.bodyHtml,
+                        isFolder = false,
+                        kind = NoteKind.Daily,
+                        parentNoteId = null,
+                        isPinned = false,
+                        pinnedAt = null,
+                        color = template?.color,
+                        sortOrder = 0,
+                        wordCount = template?.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
+                        charCount = template?.bodyMarkdown?.length ?: 0,
+                        projectId = projectId?.value,
+                        createdAt = now,
+                        updatedAt = now,
+                        deletedAt = null,
+                        archivedAt = null,
+                    ),
+                )
+                enqueueFresh(newId)
+                newId
+            }
         }
-        unitOfWork.write {
-            val now = clock.now().toEpochMilliseconds()
-            val newId = NoteId(com.singularity.todo.core.ids.nextId())
-            val template = fromTemplateId?.let { noteDao.getByIdForUser(it.value, uid.value) }
-            noteDao.upsert(
-                NoteEntity(
-                    id = newId.value,
-                    userId = uid.value,
-                    title = dateKey,
-                    bodyMarkdown = template?.bodyMarkdown,
-                    bodyHtml = template?.bodyHtml,
-                    isFolder = false,
-                    kind = NoteKind.Daily,
-                    parentNoteId = null,
-                    isPinned = false,
-                    pinnedAt = null,
-                    color = template?.color,
-                    sortOrder = 0,
-                    wordCount = template?.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
-                    charCount = template?.bodyMarkdown?.length ?: 0,
-                    projectId = projectId?.value,
-                    createdAt = now,
-                    updatedAt = now,
-                    deletedAt = null,
-                    archivedAt = null,
-                ),
-            )
-            enqueueFresh(newId)
-            newId
-        }
-    }
 
     // ─── Task-logbook ───────────────────────────────────────────────────────────────
 
-    override fun watchForTask(taskId: TaskId): Flow<List<Note>> = currentUser.observeForCurrentUser { uid ->
-        noteDao.watchByTaskForUser(taskId.value, uid.value)
-            .map { list -> list.map { it.toNote() } }
-    }
+    override fun watchForTask(taskId: TaskId): Flow<List<Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            noteDao
+                .watchByTaskForUser(taskId.value, uid.value)
+                .map { list -> list.map { it.toNote() } }
+        }
 
     override suspend fun createForTask(
         id: NoteId,
@@ -511,10 +586,11 @@ class NotesRepositoryImpl(
         title: String,
         bodyMarkdown: String?,
         bodyHtml: String?,
-    ): Result<NoteId> = runCatchingCancellable {
-        // The attachment is written once, here, with the row that carries the content.
-        // A later content save touches the content columns only, so the note stays in
-        // the task's logbook.
-        createNoteRow(newNoteEntity(id, title, bodyMarkdown, bodyHtml, taskId))
-    }
+    ): Result<NoteId> =
+        runCatchingCancellable {
+            // The attachment is written once, here, with the row that carries the content.
+            // A later content save touches the content columns only, so the note stays in
+            // the task's logbook.
+            createNoteRow(newNoteEntity(id, title, bodyMarkdown, bodyHtml, taskId))
+        }
 }

@@ -59,16 +59,20 @@ class ProjectDetailDraftState(initial: ProjectDetailDraft = ProjectDetailDraft.e
      * @param name the project's name as the repository holds it.
      * @param description the project's description as the repository holds it.
      */
-    fun seed(name: String, description: String) {
+    fun seed(
+        name: String,
+        description: String,
+    ) {
         val current = _state.value
         if (!current.initialized) {
-            _state.value = ProjectDetailDraft(
-                name = Revisioned.initial(name),
-                description = Revisioned.initial(description),
-                originalName = name,
-                originalDescription = description,
-                initialized = true,
-            )
+            _state.value =
+                ProjectDetailDraft(
+                    name = Revisioned.initial(name),
+                    description = Revisioned.initial(description),
+                    originalName = name,
+                    originalDescription = description,
+                    initialized = true,
+                )
             return
         }
         if (current.name.value == name && current.description.value == description) {
@@ -81,17 +85,19 @@ class ProjectDetailDraftState(initial: ProjectDetailDraft = ProjectDetailDraft.e
         // The user is typing: their text wins over the other writer's.
         if (current.isDirty) return
         // A rewrite from outside: take it, and say that it happened.
-        _state.value = current.copy(
-            name = current.name.replacedBy(name),
-            description = current.description.replacedBy(description),
-            originalName = name,
-            originalDescription = description,
-        )
+        _state.value =
+            current.copy(
+                name = current.name.replacedBy(name),
+                description = current.description.replacedBy(description),
+                originalName = name,
+                originalDescription = description,
+            )
     }
 
     fun setName(name: String) {
         _state.value = _state.value.copy(name = _state.value.name.typed(name))
     }
+
     fun setDescription(description: String) {
         _state.value = _state.value.copy(description = _state.value.description.typed(description))
     }
@@ -116,13 +122,15 @@ data class ProjectDetailDraft(
     val initialized: Boolean = false,
 ) {
     companion object {
-        fun empty() = ProjectDetailDraft(
-            name = Revisioned.initial(""),
-            description = Revisioned.initial(""),
-            originalName = "",
-            originalDescription = "",
-        )
+        fun empty() =
+            ProjectDetailDraft(
+                name = Revisioned.initial(""),
+                description = Revisioned.initial(""),
+                originalName = "",
+                originalDescription = "",
+            )
     }
+
     val isDirty: Boolean get() =
         name.value != originalName || description.value != originalDescription
 

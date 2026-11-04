@@ -16,16 +16,17 @@ tags:
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 # The task the note links to.
-- openLink: "todo-debug://seed?task=Buy%20milk"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Buy%20milk"
 # The note that links to the task. The link target is named, not addressed by
 # id: the task was seeded a moment ago and the flow cannot know its id.
-- openLink: "todo-debug://seed?note=Link%20source&linkTo=Buy%20milk"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
-- tapOn:
-    id: nav_menu_button
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "note=Link%20source&linkTo=Buy%20milk"
+- runFlow: ../../helpers/open-app-menu.yaml
 - scrollUntilVisible:
     element:
       id: menu_notes

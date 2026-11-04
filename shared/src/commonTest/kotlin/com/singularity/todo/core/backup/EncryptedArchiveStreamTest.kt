@@ -4,12 +4,12 @@ import com.singularity.todo.core.files.ByteArraySink
 import com.singularity.todo.core.files.ByteArraySource
 import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.security.FakeArchiveCrypto
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Tag
 
 /**
  * The container, sealed and opened in pieces.
@@ -30,7 +30,6 @@ import org.junit.jupiter.api.Tag
  */
 @Tag("fast")
 class EncryptedArchiveStreamTest {
-
     private val archive = EncryptedArchive(FakeArchiveCrypto())
     private val password = "correct horse".toCharArray()
 
@@ -108,9 +107,10 @@ class EncryptedArchiveStreamTest {
         val sealed = ByteArraySink()
         archive.seal(ByteArraySource("the-archive-bytes".encodeToByteArray()), sealed, password)
 
-        val error = assertFailsWith<ArchiveEnvelopeError.Unusable> {
-            archive.open(brokenAfterHeader(sealed.bytes()), ByteArraySink(), password)
-        }
+        val error =
+            assertFailsWith<ArchiveEnvelopeError.Unusable> {
+                archive.open(brokenAfterHeader(sealed.bytes()), ByteArraySink(), password)
+            }
         assertTrue(
             error.message?.contains("read") == true,
             "the message must name the reading, not the password: ${error.message}",
@@ -128,9 +128,10 @@ class EncryptedArchiveStreamTest {
      */
     @Test
     fun `a source that breaks before the header is read is unreadable`() {
-        val error = assertFailsWith<ArchiveEnvelopeError.Unusable> {
-            archive.open(failingOnFirstRead(), ByteArraySink(), password)
-        }
+        val error =
+            assertFailsWith<ArchiveEnvelopeError.Unusable> {
+                archive.open(failingOnFirstRead(), ByteArraySink(), password)
+            }
         assertTrue(
             error.message?.contains("read") == true,
             "the message must name the reading, not the password: ${error.message}",
@@ -148,12 +149,16 @@ class EncryptedArchiveStreamTest {
      */
     @Test
     fun `a cancellation while the header is read is not reported as a bad archive`() {
-        val cancelled = object : ByteSource {
-            override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
-                throw kotlinx.coroutines.CancellationException("the screen went away")
+        val cancelled =
+            object : ByteSource {
+                override fun read(
+                    buffer: ByteArray,
+                    offset: Int,
+                    length: Int,
+                ): Int = throw kotlinx.coroutines.CancellationException("the screen went away")
 
-            override fun close() = Unit
-        }
+                override fun close() = Unit
+            }
 
         assertFailsWith<kotlinx.coroutines.CancellationException> {
             archive.open(cancelled, ByteArraySink(), password)
@@ -170,8 +175,11 @@ class EncryptedArchiveStreamTest {
      */
     private fun failingOnFirstRead(): ByteSource =
         object : ByteSource {
-            override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
-                throw java.io.IOException("the disk fell over")
+            override fun read(
+                buffer: ByteArray,
+                offset: Int,
+                length: Int,
+            ): Int = throw java.io.IOException("the disk fell over")
 
             override fun close() = Unit
         }
@@ -186,7 +194,11 @@ class EncryptedArchiveStreamTest {
     private fun brokenAfterHeader(container: ByteArray): ByteSource {
         var served = false
         return object : ByteSource {
-            override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            override fun read(
+                buffer: ByteArray,
+                offset: Int,
+                length: Int,
+            ): Int {
                 if (served) throw IllegalStateException("the disk fell over")
                 served = true
                 val count = minOf(length, container.size)

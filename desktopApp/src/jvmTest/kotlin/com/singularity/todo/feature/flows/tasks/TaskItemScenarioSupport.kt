@@ -34,7 +34,6 @@ import kotlin.time.Instant
  * be asserted.
  */
 internal object TaskItemScenarioSupport {
-
     const val PARENT = "Parent task"
     const val MILK = "Milk"
     const val BREAD = "Bread"
@@ -63,12 +62,13 @@ internal object TaskItemScenarioSupport {
         koin: Koin,
         parentId: TaskId,
         title: String,
-    ): Task = seedTask(
-        koin = koin,
-        id = TaskId("item-child"),
-        title = title,
-        parent = parentId,
-    )
+    ): Task =
+        seedTask(
+            koin = koin,
+            id = TaskId("item-child"),
+            title = title,
+            parent = parentId,
+        )
 
     suspend fun seedTask(
         koin: Koin,
@@ -81,19 +81,24 @@ internal object TaskItemScenarioSupport {
         // `testTask`'s `overrides` is a receiver lambda whose return value is
         // ignored: `copy(...)` inside it would build a task and throw it away.
         // Build the copy here instead.
-        val task = testTask(
-            id = id,
-            title = title,
-            dueDate = dueDate,
-            userId = userId,
-            createdAt = EPOCH,
-            updatedAt = EPOCH,
-        ).copy(parentTaskId = parent)
+        val task =
+            testTask(
+                id = id,
+                title = title,
+                dueDate = dueDate,
+                userId = userId,
+                createdAt = EPOCH,
+                updatedAt = EPOCH,
+            ).copy(parentTaskId = parent)
         koin.get<TaskRepository>().upsert(TaskDocument.of(task))
         return task
     }
 
-    suspend fun seedChecklistItem(koin: Koin, taskId: TaskId, title: String) {
+    suspend fun seedChecklistItem(
+        koin: Koin,
+        taskId: TaskId,
+        title: String,
+    ) {
         koin.get<ChecklistRepository>().addItem(taskId.value, title)
     }
 }

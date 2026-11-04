@@ -10,10 +10,10 @@ import ai.koog.prompt.message.MessagePart
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
 import co.touchlab.kermit.Logger
-import com.singularity.todo.feature.ai.prompts.Prompts
-import kotlinx.serialization.Serializable
-import kotlinx.coroutines.CancellationException
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.feature.ai.prompts.Prompts
+import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.Serializable
 
 @Serializable
 data class SuggestTagsInput(val title: String, val body: String)
@@ -23,29 +23,31 @@ data class SuggestTagsOutput(val tags: List<String>)
 
 class SuggestTagsTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
     SimpleTool<SuggestTagsInput>(TypeToken.of(SuggestTagsInput::class.java), NAME, DESCRIPTION) {
-
     private val logger = Logger.withTag("SuggestTags")
 
     override suspend fun execute(args: SuggestTagsInput): String {
-        val p = prompt(Prompt.Empty, KoogClock.System) {
-            system(Prompts.suggestTagsSystem)
-            user(Prompts.suggestTagsUser(args.title, args.body))
-        }
+        val p =
+            prompt(Prompt.Empty, KoogClock.System) {
+                system(Prompts.suggestTagsSystem)
+                user(Prompts.suggestTagsUser(args.title, args.body))
+            }
         val response = promptExecutor.execute(p, model, emptyList())
         val text = extractText(response)
         return try {
             kotlinx.serialization.json.Json.decodeFromString<SuggestTagsOutput>(text).let { out ->
-                kotlinx.serialization.json.Json.encodeToString(SuggestTagsOutput.serializer(), out)
+                kotlinx.serialization.json.Json
+                    .encodeToString(SuggestTagsOutput.serializer(), out)
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             logger.w(e) { "failed" }
-            val tags = runCatchingCancellable {
-                kotlinx.serialization.json.Json.decodeFromString<List<String>>(
-                    text,
-                )
-            }.getOrNull() ?: emptyList()
+            val tags =
+                runCatchingCancellable {
+                    kotlinx.serialization.json.Json.decodeFromString<List<String>>(
+                        text,
+                    )
+                }.getOrNull() ?: emptyList()
             kotlinx.serialization.json.Json.encodeToString(
                 SuggestTagsOutput.serializer(),
                 SuggestTagsOutput(tags),
@@ -58,6 +60,9 @@ class SuggestTagsTool(private val promptExecutor: PromptExecutor, private val mo
         const val DESCRIPTION = "Suggest tags for a note."
 
         private fun extractText(response: Message.Assistant): String =
-            response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }.trim()
+            response.parts
+                .filterIsInstance<MessagePart.Text>()
+                .joinToString("") { it.text }
+                .trim()
     }
 }

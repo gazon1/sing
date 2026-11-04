@@ -44,15 +44,15 @@ import kotlin.test.fail
 @Tag("slow")
 @Tag("slow:data")
 class TestTagsWiringTest {
-
     /**
      * The `shared/` module directory. `commonMain.root` points at
      * `shared/src/commonMain/kotlin`, so three levels up is `shared/`.
      */
-    private val moduleRoot: File = File(
-        System.getProperty("commonMain.root")
-            ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
-    ).parentFile.parentFile.parentFile
+    private val moduleRoot: File =
+        File(
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
+        ).parentFile.parentFile.parentFile
 
     private val testTagsFile = File(moduleRoot, "src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt")
 
@@ -63,26 +63,27 @@ class TestTagsWiringTest {
      * the registry — deleting the constant without wiring the composable would
      * leave the same trap, just undocumented.
      */
-    private val knownUnapplied = mapOf(
-        "TASKS_LIST" to
-            "the Android bottom-bar list tag; the desktop shell has no bottom bar, " +
-            "so no JVM counterpart applies it",
-        // EditorOverflow.DELETE / ARCHIVE / RESTORE used to sit here as debt. They were
-        // applied when the task-detail overflow menu gained stable per-row test tags
-        // (see `docs/decisions/2026-10-04-undo-snackbar-and-popup-testtags.md`), which
-        // is exactly what this test demands: drop the entry in the same change that
-        // wires the tag.
-        "EditorOverflow.PIN" to
-            "the pin/unpin overflow rows are rendered through " +
-            "TestTags.taskAction(action), so these constants have no call site yet",
-        "EditorOverflow.UNPIN" to "same as EditorOverflow.PIN",
-        // Static weekday-header constants used only in Maestro month-view flows.
-        // No production composable renders these — the calendar grid uses dynamic
-        // `calendarWeekdayHeader(label)` instead.
-        "CALENDAR_WEEKDAY_MON" to
-            "used only in Maestro/flows/calendar/01-month-view.yaml, not in production UI",
-        "CALENDAR_WEEKDAY_SUN" to "same as CALENDAR_WEEKDAY_MON",
-    )
+    private val knownUnapplied =
+        mapOf(
+            "TASKS_LIST" to
+                "the Android bottom-bar list tag; the desktop shell has no bottom bar, " +
+                "so no JVM counterpart applies it",
+            // EditorOverflow.DELETE / ARCHIVE / RESTORE used to sit here as debt. They were
+            // applied when the task-detail overflow menu gained stable per-row test tags
+            // (see `docs/decisions/2026-10-04-undo-snackbar-and-popup-testtags.md`), which
+            // is exactly what this test demands: drop the entry in the same change that
+            // wires the tag.
+            "EditorOverflow.PIN" to
+                "the pin/unpin overflow rows are rendered through " +
+                "TestTags.taskAction(action), so these constants have no call site yet",
+            "EditorOverflow.UNPIN" to "same as EditorOverflow.PIN",
+            // Static weekday-header constants used only in Maestro month-view flows.
+            // No production composable renders these — the calendar grid uses dynamic
+            // `calendarWeekdayHeader(label)` instead.
+            "CALENDAR_WEEKDAY_MON" to
+                "used only in Maestro/flows/calendar/01-month-view.yaml, not in production UI",
+            "CALENDAR_WEEKDAY_SUN" to "same as CALENDAR_WEEKDAY_MON",
+        )
 
     @Test
     fun every_declared_test_tag_is_applied_to_a_composable() {
@@ -95,20 +96,23 @@ class TestTagsWiringTest {
         // carries NAV_MENU_BUTTON and TASKS_FAB lives in androidMain, and a tag is
         // a tag wherever its composable does. Scanning commonMain alone reported
         // both as unapplied.
-        val sourceRoots = listOf("commonMain", "androidMain", "jvmMain")
-            .map { File(moduleRoot, "src/$it/kotlin") }
-            .filter { it.isDirectory }
+        val sourceRoots =
+            listOf("commonMain", "androidMain", "jvmMain")
+                .map { File(moduleRoot, "src/$it/kotlin") }
+                .filter { it.isDirectory }
 
-        val productionSources = sourceRoots
-            .flatMap { root -> root.walkTopDown().filter { it.isFile && it.extension == "kt" } }
-            .filter { it != testTagsFile }
+        val productionSources =
+            sourceRoots
+                .flatMap { root -> root.walkTopDown().filter { it.isFile && it.extension == "kt" } }
+                .filter { it != testTagsFile }
         val sourceText = productionSources.map { it.readText() }
 
-        val unapplied = declared
-            // A *_PREFIX constant is a building block for a generated tag
-            // (PROFILE_ITEM_PREFIX feeds profileItem()), not a tag in itself.
-            .filterNot { it.first.endsWith("_PREFIX") }
-            .filter { (qualified, _) -> sourceText.none { qualified.isAppliedIn(it) } }
+        val unapplied =
+            declared
+                // A *_PREFIX constant is a building block for a generated tag
+                // (PROFILE_ITEM_PREFIX feeds profileItem()), not a tag in itself.
+                .filterNot { it.first.endsWith("_PREFIX") }
+                .filter { (qualified, _) -> sourceText.none { qualified.isAppliedIn(it) } }
 
         val undocumented = unapplied.map { it.first }.filterNot { it in knownUnapplied }
         if (undocumented.isNotEmpty()) {

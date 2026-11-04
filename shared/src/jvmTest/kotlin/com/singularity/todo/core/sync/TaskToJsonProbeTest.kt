@@ -19,24 +19,25 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class TaskSyncSerializationTest {
-
     @Test
     fun `toJson serializes userId as plain string`() {
-        val task = Task(
-            id = TaskId("t1"),
-            title = "T",
-            kind = TaskKind.Task,
-            priority = TaskPriority.None,
-            createdAt = Instant.fromEpochMilliseconds(0),
-            updatedAt = Instant.fromEpochMilliseconds(0),
-            userId = UserId("test-user"),
-        )
+        val task =
+            Task(
+                id = TaskId("t1"),
+                title = "T",
+                kind = TaskKind.Task,
+                priority = TaskPriority.None,
+                createdAt = Instant.fromEpochMilliseconds(0),
+                updatedAt = Instant.fromEpochMilliseconds(0),
+                userId = UserId("test-user"),
+            )
 
         val json = task.toJson()
 
         assertEquals(
             "test-user",
-            json["userId"]?.toString()
+            json["userId"]
+                ?.toString()
                 ?.trim('"'),
         )
         assertTrue(json.containsKey("title"))

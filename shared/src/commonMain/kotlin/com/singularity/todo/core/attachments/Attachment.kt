@@ -37,11 +37,12 @@ data class Attachment(
 
     val hasRemote: Boolean get() = remoteUrl != null
 
-    val displayTitle: String get() = title.ifBlank {
-        when {
-            isUrl -> url?.takeLast(50) ?: "Link"
-            localPath != null -> localPath.substringAfterLast('/').substringAfterLast('\\')
-            else -> "Attachment"
+    val displayTitle: String get() =
+        title.ifBlank {
+            when {
+                isUrl -> url?.takeLast(50) ?: "Link"
+                localPath != null -> localPath.substringAfterLast('/').substringAfterLast('\\')
+                else -> "Attachment"
+            }
         }
-    }
 }

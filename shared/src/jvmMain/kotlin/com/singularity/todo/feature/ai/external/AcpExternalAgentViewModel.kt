@@ -22,8 +22,8 @@ import com.singularity.todo.feature.ai.acp.AcpPermissionRequest
 import com.singularity.todo.feature.ai.acp.PermissionDecision
 import com.singularity.todo.feature.ai.acp.SubprocessAcpAgentLauncher
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
-import kotlin.time.Duration
 import kotlinx.coroutines.launch
+import kotlin.time.Duration
 
 /**
  * The state of a conversation with an external agent.
@@ -70,6 +70,7 @@ data class AcpExternalAgentUiState(
 /** Whether the conversation is running, and why not when it is not. */
 sealed interface AcpConnection {
     data object Disconnected : AcpConnection
+
     data object Connecting : AcpConnection
 
     /**
@@ -167,7 +168,6 @@ class AcpExternalAgentViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     /**
      * The conversation: the agent's process and the session on top of it.
      *
@@ -185,13 +185,14 @@ class AcpExternalAgentViewModel(
      * The ViewModel keeps the state the screen draws; the turn's clock belongs to
      * [AcpTurnRunner].
      */
-    private val turnRunner = AcpTurnRunner(
-        scope = vmScope,
-        onActivity = { assistantId, event -> applyActivity(assistantId, event) },
-        onOutcome = { outcome -> setOutcome(outcome) },
-        onSessionLost = { reason -> onSessionLost(reason) },
-        awaitingReader = { permissions.hasPending },
-    )
+    private val turnRunner =
+        AcpTurnRunner(
+            scope = vmScope,
+            onActivity = { assistantId, event -> applyActivity(assistantId, event) },
+            onOutcome = { outcome -> setOutcome(outcome) },
+            onSessionLost = { reason -> onSessionLost(reason) },
+            awaitingReader = { permissions.hasPending },
+        )
 
     sealed interface Intent : MviIntent {
         /** The user picked a different agent. */
@@ -259,45 +260,54 @@ class AcpExternalAgentViewModel(
 
             val toolAccess = resolveToolAccess()
             when (
-                val outcome = conversation.connect(
-                    agent = agent,
-                    toolServer = toolServerCommand() as? ToolServerCommand.Available,
-                    askForPermission = ::askForPermission,
-                )
+                val outcome =
+                    conversation.connect(
+                        agent = agent,
+                        toolServer = toolServerCommand() as? ToolServerCommand.Available,
+                        askForPermission = ::askForPermission,
+                    )
             ) {
-                is AcpConversationOutcome.Connected ->
+                is AcpConversationOutcome.Connected -> {
                     updateState {
                         it.copy(
-                            connection = AcpConnection.Connected(
-                                agentName = outcome.agentName,
-                                protocolVersion = outcome.protocolVersion,
-                                toolServerBuild = outcome.toolServerBuild,
-                            ),
+                            connection =
+                                AcpConnection.Connected(
+                                    agentName = outcome.agentName,
+                                    protocolVersion = outcome.protocolVersion,
+                                    toolServerBuild = outcome.toolServerBuild,
+                                ),
                             toolAccess = toolAccess,
                         )
                     }
+                }
 
-                is AcpConversationOutcome.LaunchFailed ->
+                is AcpConversationOutcome.LaunchFailed -> {
                     updateState {
                         it.copy(
                             connection = AcpConnection.Failed(outcome.reason),
-                            toolAccess = AcpToolAccess.Unavailable(
-                                "The agent did not start, so it cannot reach your tasks.",
-                            ),
+                            toolAccess =
+                                AcpToolAccess.Unavailable(
+                                    "The agent did not start, so it cannot reach your tasks.",
+                                ),
                         )
                     }
+                }
 
-                is AcpConversationOutcome.HandshakeFailed ->
+                is AcpConversationOutcome.HandshakeFailed -> {
                     updateState {
                         it.copy(
                             connection = AcpConnection.Failed(outcome.reason),
-                            toolAccess = AcpToolAccess.Unavailable(
-                                "The agent did not connect, so it cannot reach your tasks.",
-                            ),
+                            toolAccess =
+                                AcpToolAccess.Unavailable(
+                                    "The agent did not connect, so it cannot reach your tasks.",
+                                ),
                         )
                     }
+                }
 
-                AcpConversationOutcome.Closed -> Unit
+                AcpConversationOutcome.Closed -> {
+                    Unit
+                }
             }
         }
     }
@@ -345,7 +355,9 @@ class AcpExternalAgentViewModel(
     // ── A turn ──────────────────────────────────────────────────────────────────
 
     private fun send() {
-        val text = _state.value.input.text.trim()
+        val text =
+            _state.value.input.text
+                .trim()
         if (text.isEmpty()) return
         val openSession = conversation.openSession ?: return
         if (_state.value.isRunning) {
@@ -363,9 +375,10 @@ class AcpExternalAgentViewModel(
                 isRunning = true,
                 activity = AgentActivityState(),
                 turnOutcome = null,
-                messages = it.messages +
-                    AcpExternalMessage(idGen.next(), fromUser = true, text = text) +
-                    AcpExternalMessage(assistantId, fromUser = false, text = ""),
+                messages =
+                    it.messages +
+                        AcpExternalMessage(idGen.next(), fromUser = true, text = text) +
+                        AcpExternalMessage(assistantId, fromUser = false, text = ""),
             )
         }
 
@@ -408,9 +421,10 @@ class AcpExternalAgentViewModel(
         updateState {
             it.copy(
                 connection = AcpConnection.Failed(reason),
-                toolAccess = AcpToolAccess.Unavailable(
-                    "The connection was lost, so the agent cannot reach your tasks.",
-                ),
+                toolAccess =
+                    AcpToolAccess.Unavailable(
+                        "The connection was lost, so the agent cannot reach your tasks.",
+                    ),
                 permission = null,
             )
         }
@@ -422,22 +436,40 @@ class AcpExternalAgentViewModel(
      * The runner has already decided that this activity belongs to the turn on screen;
      * all that is left is to show it.
      */
-    private fun applyActivity(assistantId: String, event: AgentEvent) {
+    private fun applyActivity(
+        assistantId: String,
+        event: AgentEvent,
+    ) {
         when (event) {
-            is AgentEvent.TextDelta -> updateState { state ->
-                state.copy(
-                    activity = state.activity + event,
-                    messages = state.messages.map { message ->
-                        if (message.id == assistantId) message.copy(text = message.text + event.text) else message
-                    },
-                )
+            is AgentEvent.TextDelta -> {
+                updateState { state ->
+                    state.copy(
+                        activity = state.activity + event,
+                        messages =
+                            state.messages.map { message ->
+                                if (message.id ==
+                                    assistantId
+                                ) {
+                                    message.copy(text = message.text + event.text)
+                                } else {
+                                    message
+                                }
+                            },
+                    )
+                }
             }
 
-            is AgentEvent.ToolCallUpdated -> updateState { it.copy(activity = it.activity + event) }
+            is AgentEvent.ToolCallUpdated -> {
+                updateState { it.copy(activity = it.activity + event) }
+            }
 
-            is AgentEvent.PlanUpdated -> updateState { it.copy(activity = it.activity + event) }
+            is AgentEvent.PlanUpdated -> {
+                updateState { it.copy(activity = it.activity + event) }
+            }
 
-            AgentEvent.TurnCompleted -> Unit
+            AgentEvent.TurnCompleted -> {
+                Unit
+            }
         }
     }
 

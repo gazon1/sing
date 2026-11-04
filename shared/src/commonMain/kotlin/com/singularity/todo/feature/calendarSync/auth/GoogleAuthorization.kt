@@ -41,22 +41,23 @@ object GoogleAuthorization {
         codeChallenge: String,
         state: String,
     ): String =
-        URLBuilder(ENDPOINT).apply {
-            parameters.append("client_id", clientId)
-            parameters.append("redirect_uri", redirectUri)
-            parameters.append("response_type", "code")
-            parameters.append("scope", scopes.joinToString(" "))
-            parameters.append("code_challenge", codeChallenge)
-            parameters.append("code_challenge_method", "S256")
-            parameters.append("state", state)
-            // The parameter that makes the grant renewable. Without it Google
-            // hands back an access token and no refresh token, and the account
-            // stops working after an hour — which for a background sync means
-            // the next scheduled run fails with no way to recover.
-            parameters.append("access_type", "offline")
-            // Without this, a second consent while a grant is still live
-            // silently omits the refresh token: the user has agreed, and gets
-            // nothing they can keep.
-            parameters.append("prompt", "consent")
-        }.buildString()
+        URLBuilder(ENDPOINT)
+            .apply {
+                parameters.append("client_id", clientId)
+                parameters.append("redirect_uri", redirectUri)
+                parameters.append("response_type", "code")
+                parameters.append("scope", scopes.joinToString(" "))
+                parameters.append("code_challenge", codeChallenge)
+                parameters.append("code_challenge_method", "S256")
+                parameters.append("state", state)
+                // The parameter that makes the grant renewable. Without it Google
+                // hands back an access token and no refresh token, and the account
+                // stops working after an hour — which for a background sync means
+                // the next scheduled run fails with no way to recover.
+                parameters.append("access_type", "offline")
+                // Without this, a second consent while a grant is still live
+                // silently omits the refresh token: the user has agreed, and gets
+                // nothing they can keep.
+                parameters.append("prompt", "consent")
+            }.buildString()
 }

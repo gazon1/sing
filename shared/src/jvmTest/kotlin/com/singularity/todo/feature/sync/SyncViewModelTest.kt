@@ -36,7 +36,6 @@ import kotlin.time.Duration.Companion.minutes
  */
 @Tag("fast")
 class SyncViewModelTest {
-
     private val scopeA = SyncScope("owner-1", "profile-a")
     private val scopeB = SyncScope("owner-1", "profile-b")
 
@@ -64,100 +63,106 @@ class SyncViewModelTest {
     // Debounce guard: if (isLoading || status.isRunning()) return@launch
 
     @Test
-    fun `syncNow while first sync is suspended calls syncOnce exactly once`() = runTest {
-        val repo = FakeSyncRepository().apply { syncOnceYields = true }
-        val (vm, vmScope) = createVm(repo, scope = this)
+    fun `syncNow while first sync is suspended calls syncOnce exactly once`() =
+        runTest {
+            val repo = FakeSyncRepository().apply { syncOnceYields = true }
+            val (vm, vmScope) = createVm(repo, scope = this)
 
-        vm.onIntent(SyncIntent.SyncNow)
-        runCurrent() // first launch runs: sets isLoading, syncOnce suspends in delay(10)
-        vm.onIntent(SyncIntent.SyncNow) // second launch sees isLoading=true → debounced
-        advanceTimeBy(1_000)
-        runCurrent() // let the first (yielding) syncOnce() finish
+            vm.onIntent(SyncIntent.SyncNow)
+            runCurrent() // first launch runs: sets isLoading, syncOnce suspends in delay(10)
+            vm.onIntent(SyncIntent.SyncNow) // second launch sees isLoading=true → debounced
+            advanceTimeBy(1_000)
+            runCurrent() // let the first (yielding) syncOnce() finish
 
-        assertEquals(1, repo.syncOnceCallCount)
-        vmScope.job?.cancel()
-    }
+            assertEquals(1, repo.syncOnceCallCount)
+            vmScope.job?.cancel()
+        }
 
     // ─── Test 2: syncNow debounce when status is already running ───────────────
     //
     // Status starts as Pulling (isRunning=true). The guard blocks the call.
 
     @Test
-    fun `syncNow when status is running is debounced`() = runTest {
-        val repo = FakeSyncRepository()
-        repo.setStatus(SyncEngineStatus.Pulling)
-        val (vm, vmScope) = createVm(repo, scope = this)
+    fun `syncNow when status is running is debounced`() =
+        runTest {
+            val repo = FakeSyncRepository()
+            repo.setStatus(SyncEngineStatus.Pulling)
+            val (vm, vmScope) = createVm(repo, scope = this)
 
-        vm.onIntent(SyncIntent.SyncNow)
-        advanceTimeBy(1_000)
-        runCurrent()
+            vm.onIntent(SyncIntent.SyncNow)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        assertEquals(0, repo.syncOnceCallCount)
-        vmScope.job?.cancel()
-    }
+            assertEquals(0, repo.syncOnceCallCount)
+            vmScope.job?.cancel()
+        }
 
     // ─── Test 3: AcknowledgeError clears errorMessage and connectionTestResult ─
     //
     // Verify that AcknowledgeError sets both fields to null directly in state.
 
     @Test
-    fun `AcknowledgeError clears errorMessage and connectionTestResult`() = runTest {
-        val repo = FakeSyncRepository()
-        val (vm, vmScope) = createVm(repo, scope = this)
+    fun `AcknowledgeError clears errorMessage and connectionTestResult`() =
+        runTest {
+            val repo = FakeSyncRepository()
+            val (vm, vmScope) = createVm(repo, scope = this)
 
-        // Trigger a successful sync so the VM's state is populated.
-        vm.onIntent(SyncIntent.SyncNow)
-        advanceTimeBy(1_000)
-        runCurrent()
+            // Trigger a successful sync so the VM's state is populated.
+            vm.onIntent(SyncIntent.SyncNow)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        // Call AcknowledgeError — it should clear both fields unconditionally.
-        vm.onIntent(SyncIntent.AcknowledgeError)
+            // Call AcknowledgeError — it should clear both fields unconditionally.
+            vm.onIntent(SyncIntent.AcknowledgeError)
 
-        assertNull(vm.stateFlow.value.errorMessage)
-        assertNull(vm.stateFlow.value.connectionTestResult)
-        vmScope.job?.cancel()
-    }
+            assertNull(vm.stateFlow.value.errorMessage)
+            assertNull(vm.stateFlow.value.connectionTestResult)
+            vmScope.job?.cancel()
+        }
 
     // ─── Test 4: TestConnection → Success ─────────────────────────────────────
     //
     // After TestConnection completes, isTestingConnection=false and result=Success.
 
     @Test
-    fun `TestConnection final state is isTestingConnection=false and Success result`() = runTest {
-        val repo = FakeSyncRepository()
-        val (vm, vmScope) = createVm(repo, scope = this)
+    fun `TestConnection final state is isTestingConnection=false and Success result`() =
+        runTest {
+            val repo = FakeSyncRepository()
+            val (vm, vmScope) = createVm(repo, scope = this)
 
-        vm.onIntent(SyncIntent.TestConnection)
-        advanceTimeBy(1_000)
-        runCurrent()
+            vm.onIntent(SyncIntent.TestConnection)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        assertFalse(vm.stateFlow.value.isTestingConnection)
-        assertEquals(ConnectionTestResult.Success, vm.stateFlow.value.connectionTestResult)
-        vmScope.job?.cancel()
-    }
+            assertFalse(vm.stateFlow.value.isTestingConnection)
+            assertEquals(ConnectionTestResult.Success, vm.stateFlow.value.connectionTestResult)
+            vmScope.job?.cancel()
+        }
 
     // ─── Test 5: TestConnection → Failure ─────────────────────────────────────
     //
     // Override testConnection() to return a failure; verify the error message.
 
     @Test
-    fun `TestConnection Failure maps to ConnectionTestResult_Failure with correct message`() = runTest {
-        val repo = object : FakeSyncRepository() {
-            override suspend fun testConnection(): ConnectionTestResult =
-                ConnectionTestResult.Failure(AppError.Validation("Invalid token"))
+    fun `TestConnection Failure maps to ConnectionTestResult_Failure with correct message`() =
+        runTest {
+            val repo =
+                object : FakeSyncRepository() {
+                    override suspend fun testConnection(): ConnectionTestResult =
+                        ConnectionTestResult.Failure(AppError.Validation("Invalid token"))
+                }
+            val (vm, vmScope) = createVm(repo, scope = this)
+
+            vm.onIntent(SyncIntent.TestConnection)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertFalse(vm.stateFlow.value.isTestingConnection)
+            val result = vm.stateFlow.value.connectionTestResult
+            assertTrue(result is ConnectionTestResult.Failure)
+            assertEquals("Invalid token", result.error.message)
+            vmScope.job?.cancel()
         }
-        val (vm, vmScope) = createVm(repo, scope = this)
-
-        vm.onIntent(SyncIntent.TestConnection)
-        advanceTimeBy(1_000)
-        runCurrent()
-
-        assertFalse(vm.stateFlow.value.isTestingConnection)
-        val result = vm.stateFlow.value.connectionTestResult
-        assertTrue(result is ConnectionTestResult.Failure)
-        assertEquals("Invalid token", result.error.message)
-        vmScope.job?.cancel()
-    }
 
     // ─── Per-scope settings ─────────────────────────────────────────────────
     //
@@ -166,75 +171,79 @@ class SyncViewModelTest {
     // landed in the one global slot. These are the tests that would have failed.
 
     @Test
-    fun `the screen shows the settings of the current scope`() = runTest {
-        val state = FakeSyncStateRepository()
-        state.seed(
-            scopeA,
-            SyncState(
-                autoSyncEnabled = false,
-                scheduledInterval = 15.minutes,
-                lastSuccessfulSyncAt = 999L,
-            ),
-        )
-        val (vm, vmScope) = createVm(stateRepository = state, scope = this)
+    fun `the screen shows the settings of the current scope`() =
+        runTest {
+            val state = FakeSyncStateRepository()
+            state.seed(
+                scopeA,
+                SyncState(
+                    autoSyncEnabled = false,
+                    scheduledInterval = 15.minutes,
+                    lastSuccessfulSyncAt = 999L,
+                ),
+            )
+            val (vm, vmScope) = createVm(stateRepository = state, scope = this)
 
-        assertFalse(vm.stateFlow.value.autoSyncEnabled)
-        assertEquals(15, vm.stateFlow.value.intervalMinutes)
-        assertEquals(999L, vm.stateFlow.value.lastSyncedAt)
-        vmScope.job?.cancel()
-    }
-
-    @Test
-    fun `switching scope re-reads the settings instead of keeping the old ones`() = runTest {
-        val state = FakeSyncStateRepository()
-        state.seed(scopeA, SyncState(autoSyncEnabled = false, scheduledInterval = 15.minutes))
-        state.seed(scopeB, SyncState(autoSyncEnabled = true, scheduledInterval = 45.minutes))
-        val provider = FakeSyncScopeProvider(scopeA)
-        val (vm, vmScope) = createVm(stateRepository = state, scopeProvider = provider, scope = this)
-        assertEquals(15, vm.stateFlow.value.intervalMinutes)
-
-        provider.set(scopeB)
-        runCurrent()
-
-        assertEquals(45, vm.stateFlow.value.intervalMinutes)
-        assertTrue(vm.stateFlow.value.autoSyncEnabled)
-        vmScope.job?.cancel()
-    }
+            assertFalse(vm.stateFlow.value.autoSyncEnabled)
+            assertEquals(15, vm.stateFlow.value.intervalMinutes)
+            assertEquals(999L, vm.stateFlow.value.lastSyncedAt)
+            vmScope.job?.cancel()
+        }
 
     @Test
-    fun `toggling auto-sync writes to the current scope only`() = runTest {
-        val state = FakeSyncStateRepository()
-        state.seed(scopeA, SyncState(autoSyncEnabled = true))
-        state.seed(scopeB, SyncState(autoSyncEnabled = true))
-        val provider = FakeSyncScopeProvider(scopeA)
-        val (vm, vmScope) = createVm(stateRepository = state, scopeProvider = provider, scope = this)
+    fun `switching scope re-reads the settings instead of keeping the old ones`() =
+        runTest {
+            val state = FakeSyncStateRepository()
+            state.seed(scopeA, SyncState(autoSyncEnabled = false, scheduledInterval = 15.minutes))
+            state.seed(scopeB, SyncState(autoSyncEnabled = true, scheduledInterval = 45.minutes))
+            val provider = FakeSyncScopeProvider(scopeA)
+            val (vm, vmScope) = createVm(stateRepository = state, scopeProvider = provider, scope = this)
+            assertEquals(15, vm.stateFlow.value.intervalMinutes)
 
-        vm.onIntent(SyncIntent.SetAutoSync(false))
-        runCurrent()
+            provider.set(scopeB)
+            runCurrent()
 
-        assertFalse(state.snapshot().getValue(scopeA).autoSyncEnabled, "the edited scope must change")
-        assertTrue(
-            state.snapshot().getValue(scopeB).autoSyncEnabled,
-            "the other profile's setting must be untouched",
-        )
-        vmScope.job?.cancel()
-    }
+            assertEquals(45, vm.stateFlow.value.intervalMinutes)
+            assertTrue(vm.stateFlow.value.autoSyncEnabled)
+            vmScope.job?.cancel()
+        }
 
     @Test
-    fun `a settings change with no scope is dropped rather than applied to a later one`() = runTest {
-        val state = FakeSyncStateRepository()
-        val provider = FakeSyncScopeProvider(null)
-        val (vm, vmScope) = createVm(stateRepository = state, scopeProvider = provider, scope = this)
+    fun `toggling auto-sync writes to the current scope only`() =
+        runTest {
+            val state = FakeSyncStateRepository()
+            state.seed(scopeA, SyncState(autoSyncEnabled = true))
+            state.seed(scopeB, SyncState(autoSyncEnabled = true))
+            val provider = FakeSyncScopeProvider(scopeA)
+            val (vm, vmScope) = createVm(stateRepository = state, scopeProvider = provider, scope = this)
 
-        vm.onIntent(SyncIntent.SetAutoSync(true))
-        runCurrent()
+            vm.onIntent(SyncIntent.SetAutoSync(false))
+            runCurrent()
 
-        // Nothing was written, and nothing is waiting: the scope that appears next is
-        // a different subject, and inheriting this toggle would change a profile the
-        // user never touched.
-        assertTrue(state.snapshot().isEmpty(), "no row may be created for a scope that does not exist")
-        vmScope.job?.cancel()
-    }
+            assertFalse(state.snapshot().getValue(scopeA).autoSyncEnabled, "the edited scope must change")
+            assertTrue(
+                state.snapshot().getValue(scopeB).autoSyncEnabled,
+                "the other profile's setting must be untouched",
+            )
+            vmScope.job?.cancel()
+        }
+
+    @Test
+    fun `a settings change with no scope is dropped rather than applied to a later one`() =
+        runTest {
+            val state = FakeSyncStateRepository()
+            val provider = FakeSyncScopeProvider(null)
+            val (vm, vmScope) = createVm(stateRepository = state, scopeProvider = provider, scope = this)
+
+            vm.onIntent(SyncIntent.SetAutoSync(true))
+            runCurrent()
+
+            // Nothing was written, and nothing is waiting: the scope that appears next is
+            // a different subject, and inheriting this toggle would change a profile the
+            // user never touched.
+            assertTrue(state.snapshot().isEmpty(), "no row may be created for a scope that does not exist")
+            vmScope.job?.cancel()
+        }
 
     // ─── Attachment sync preference ────────────────────────────────────────────
     //
@@ -244,41 +253,43 @@ class SyncViewModelTest {
     // fail if someone adds an intent that appears to enable a sync that cannot happen.
 
     @Test
-    fun `the attachment preference is read from the current scope, not from a local field`() = runTest {
-        val state = FakeSyncStateRepository()
-        val provider = FakeSyncScopeProvider(scopeA)
-        val (vm, vmScope) = createVm(stateRepository = state, scopeProvider = provider, scope = this)
+    fun `the attachment preference is read from the current scope, not from a local field`() =
+        runTest {
+            val state = FakeSyncStateRepository()
+            val provider = FakeSyncScopeProvider(scopeA)
+            val (vm, vmScope) = createVm(stateRepository = state, scopeProvider = provider, scope = this)
 
-        state.setAttachmentsSyncEnabled(scopeA, true)
-        state.setAttachmentsSyncEnabled(scopeB, false)
-        runCurrent()
+            state.setAttachmentsSyncEnabled(scopeA, true)
+            state.setAttachmentsSyncEnabled(scopeB, false)
+            runCurrent()
 
-        assertTrue(
-            vm.stateFlow.value.attachmentsSyncEnabled,
-            "the screen must show the preference belonging to the scope it is editing",
-        )
+            assertTrue(
+                vm.stateFlow.value.attachmentsSyncEnabled,
+                "the screen must show the preference belonging to the scope it is editing",
+            )
 
-        // Switching profile must swap the displayed value, which is what "per scope"
-        // means from the user's side. A local field could not do this.
-        provider.set(scopeB)
-        runCurrent()
+            // Switching profile must swap the displayed value, which is what "per scope"
+            // means from the user's side. A local field could not do this.
+            provider.set(scopeB)
+            runCurrent()
 
-        assertFalse(
-            vm.stateFlow.value.attachmentsSyncEnabled,
-            "the previous profile's preference must not follow the user to the next tab",
-        )
-        vmScope.job?.cancel()
-    }
+            assertFalse(
+                vm.stateFlow.value.attachmentsSyncEnabled,
+                "the previous profile's preference must not follow the user to the next tab",
+            )
+            vmScope.job?.cancel()
+        }
 
     @Test
-    fun `the attachment preference defaults to off for a scope that never set one`() = runTest {
-        val state = FakeSyncStateRepository()
-        val (vm, vmScope) = createVm(stateRepository = state, scope = this)
+    fun `the attachment preference defaults to off for a scope that never set one`() =
+        runTest {
+            val state = FakeSyncStateRepository()
+            val (vm, vmScope) = createVm(stateRepository = state, scope = this)
 
-        assertFalse(
-            vm.stateFlow.value.attachmentsSyncEnabled,
-            "an untouched scope must not appear to have asked for attachment sync",
-        )
-        vmScope.job?.cancel()
-    }
+            assertFalse(
+                vm.stateFlow.value.attachmentsSyncEnabled,
+                "an untouched scope must not appear to have asked for attachment sync",
+            )
+            vmScope.job?.cancel()
+        }
 }

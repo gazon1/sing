@@ -34,7 +34,6 @@ import com.singularity.todo.core.error.runCatchingCancellable
  * radius.
  */
 object JvmReminderRearm {
-
     /**
      * What one re-arm pass did.
      *
@@ -58,15 +57,21 @@ object JvmReminderRearm {
          * because "armed nothing" and "cannot arm anything" are different states and only
          * one of them is a problem.
          */
-        fun describe(): String = when {
-            !supported -> "reminders not armed: this platform cannot schedule them"
+        fun describe(): String =
+            when {
+                !supported -> {
+                    "reminders not armed: this platform cannot schedule them"
+                }
 
-            failed.isNotEmpty() ->
-                "re-armed $armed reminder(s); ${failed.size} FAILED: " +
-                    failed.joinToString { it.value }
+                failed.isNotEmpty() -> {
+                    "re-armed $armed reminder(s); ${failed.size} FAILED: " +
+                        failed.joinToString { it.value }
+                }
 
-            else -> "re-armed $armed reminder(s); $skippedPastDue already past due"
-        }
+                else -> {
+                    "re-armed $armed reminder(s); $skippedPastDue already past due"
+                }
+            }
     }
 
     /**

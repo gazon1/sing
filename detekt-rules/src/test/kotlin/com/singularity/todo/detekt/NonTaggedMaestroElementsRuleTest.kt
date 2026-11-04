@@ -12,7 +12,6 @@ import kotlin.test.assertTrue
  * Tests for [NonTaggedMaestroElementsRule].
  */
 class NonTaggedMaestroElementsRuleTest {
-
     private val rule = NonTaggedMaestroElementsRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
@@ -304,30 +303,32 @@ class NonTaggedMaestroElementsRuleTest {
 
     @Test
     fun `isHandlerParameter matches on-A-Z shape`() {
-        val handlers = listOf(
-            "onClick",
-            "onConfirm",
-            "onDismiss",
-            "onDelete",
-            "onCheckedChange",
-            // Typed input is Maestro-interactable (typeText needs a tag), so a text
-            // field's callback counts — the project's own Maestro skill says so.
-            "onValueChange",
-            "onRetry",
-            "onSave",
-            "onBack",
-            "onToggle",
-            "onEdit",
-        )
-        val nonHandlers = listOf(
-            // The two Result.fold labels the canonical policy excludes.
-            "onSuccess",
-            "onFailure",
-            // Word shapes that are not callbacks.
-            "once",
-            "only",
-            "onward",
-        )
+        val handlers =
+            listOf(
+                "onClick",
+                "onConfirm",
+                "onDismiss",
+                "onDelete",
+                "onCheckedChange",
+                // Typed input is Maestro-interactable (typeText needs a tag), so a text
+                // field's callback counts — the project's own Maestro skill says so.
+                "onValueChange",
+                "onRetry",
+                "onSave",
+                "onBack",
+                "onToggle",
+                "onEdit",
+            )
+        val nonHandlers =
+            listOf(
+                // The two Result.fold labels the canonical policy excludes.
+                "onSuccess",
+                "onFailure",
+                // Word shapes that are not callbacks.
+                "once",
+                "only",
+                "onward",
+            )
         handlers.forEach {
             assertTrue(
                 NonTaggedMaestroElementsPolicy.isHandlerParameter(it),

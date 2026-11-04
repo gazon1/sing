@@ -19,7 +19,6 @@ open class AgendaNavigator(
     private val backStack: NavBackStack<AgendaStartRoute>,
     protected val onExitGraph: (AppDestination?) -> Unit,
 ) {
-
     /**
      * Navigate to the task detail screen in the outer tasks graph.
      *
@@ -43,11 +42,12 @@ open class AgendaNavigator(
      * person reads the list, and the editor is where they change it. A task opened
      * from either was opened from that view.
      */
-    private fun currentSavedViewId(): SavedAgendaViewId? = when (val top = backStack.lastOrNull()) {
-        is AgendaStartRoute.SavedAgendaResults -> top.viewId
-        is AgendaStartRoute.SavedAgendaEdit -> top.viewId
-        else -> null
-    }
+    private fun currentSavedViewId(): SavedAgendaViewId? =
+        when (val top = backStack.lastOrNull()) {
+            is AgendaStartRoute.SavedAgendaResults -> top.viewId
+            is AgendaStartRoute.SavedAgendaEdit -> top.viewId
+            else -> null
+        }
 
     /** Show the task context menu (bottom sheet or popup). */
     open fun showTaskContextMenu(taskId: TaskId) {

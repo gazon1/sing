@@ -15,7 +15,6 @@ import kotlinx.serialization.json.JsonObject
  * same interface — see `docs/decisions/2026-10-05-genui-catalog-as-contract.md`.
  */
 object SingularityCatalog : A2uiCatalog {
-
     override val id: String = "singularity.todo/genui"
 
     override val protocolVersion: Int = 1

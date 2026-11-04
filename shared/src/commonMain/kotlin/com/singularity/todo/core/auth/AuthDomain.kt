@@ -81,8 +81,10 @@ object AuthDomain {
      * the other to retype it — and a single "invalid email" would send both to the
      * same guess. `Nothing` because every branch above it is an exit.
      */
-    private fun reject(code: String, message: String): Nothing =
-        throw AppError.Validation(message, code = code)
+    private fun reject(
+        code: String,
+        message: String,
+    ): Nothing = throw AppError.Validation(message, code = code)
 
     /**
      * @throws AppError.Validation if the password is shorter than the minimum or
@@ -115,11 +117,12 @@ object AuthDomain {
      * For SignedIn and Anonymous — returns their userId.
      * For Loading and SignedOut — returns anonymous.
      */
-    fun effectiveUserId(session: Session): UserId = when (session) {
-        is Session.SignedIn -> session.userId
-        is Session.Anonymous -> session.userId
-        Session.Loading, Session.SignedOut -> UserId.anonymous
-    }
+    fun effectiveUserId(session: Session): UserId =
+        when (session) {
+            is Session.SignedIn -> session.userId
+            is Session.Anonymous -> session.userId
+            Session.Loading, Session.SignedOut -> UserId.anonymous
+        }
 
     /**
      * Returns true if the session requires authentication (i.e., user must sign in).

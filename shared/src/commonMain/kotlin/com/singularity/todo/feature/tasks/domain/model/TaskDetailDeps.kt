@@ -3,10 +3,10 @@ package com.singularity.todo.feature.tasks.domain.model
 import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
+import com.singularity.todo.feature.ai.use_cases.FirstStepUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
-import com.singularity.todo.feature.ai.use_cases.FirstStepUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
@@ -20,10 +20,10 @@ import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
-import com.singularity.todo.feature.tasks.domain.usecase.DetachTaskFromSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
-import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.DetachTaskFromSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.StartRecurringSeriesUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
@@ -78,7 +78,6 @@ data class TaskCoreDeps(
      * open, and a task that comes back to work brings its project with it.
      */
     val completion: TaskReopenUseCase,
-
     /**
      * Writes one change to every member of a series.
      *
@@ -86,7 +85,6 @@ data class TaskCoreDeps(
      * of them, and doing that from the slots would put the rule in two places.
      */
     val updateSeries: UpdateTaskSeriesUseCase,
-
     /**
      * Takes one occurrence out of its series.
      *
@@ -94,7 +92,6 @@ data class TaskCoreDeps(
      * occurrence keeps its date and stops claiming to be one of several.
      */
     val detachFromSeries: DetachTaskFromSeriesUseCase,
-
     /**
      * Turns a task that stands alone into a recurring series.
      *

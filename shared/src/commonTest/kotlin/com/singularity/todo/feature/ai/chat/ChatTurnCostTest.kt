@@ -37,41 +37,42 @@ import kotlin.time.Clock
  */
 @Tag("fast")
 class ChatTurnCostTest {
-
     private val clock = Clock.System
     private val profileId: String = TestUsers.DEFAULT.value
 
     /** One call, one row — even when the call ends in failure. */
     @Test
-    fun aFailedStreamIsRecordedOnce() = runTest {
-        val db = FakeAppDatabase()
+    fun aFailedStreamIsRecordedOnce() =
+        runTest {
+            val db = FakeAppDatabase()
 
-        // The failure reaches the collector; the ledger is written on the way out.
-        runCatching {
-            decorator(FailingTextGen(), db, backgroundScope).streamChat("hello", instructions = "").toList()
+            // The failure reaches the collector; the ledger is written on the way out.
+            runCatching {
+                decorator(FailingTextGen(), db, backgroundScope).streamChat("hello", instructions = "").toList()
+            }
+
+            val rows = rows(db)
+            assertEquals(1, rows.size, "One call is one row, failure or not: $rows")
+            assertEquals("chat_stream", rows.single().toolName)
+            assertTrue(rows.single().error != null, "And the row says the call failed: ${rows.single()}")
         }
-
-        val rows = rows(db)
-        assertEquals(1, rows.size, "One call is one row, failure or not: $rows")
-        assertEquals("chat_stream", rows.single().toolName)
-        assertTrue(rows.single().error != null, "And the row says the call failed: ${rows.single()}")
-    }
 
     /** A stream that ends normally is one row, too. */
     @Test
-    fun aCompletedStreamIsRecordedOnce() = runTest {
-        val db = FakeAppDatabase()
+    fun aCompletedStreamIsRecordedOnce() =
+        runTest {
+            val db = FakeAppDatabase()
 
-        decorator(
-            AnsweringTextGen(flowOf(AgentEvent.TextDelta("hi"), AgentEvent.TurnCompleted)),
-            db,
-            backgroundScope,
-        ).streamChat("hello", instructions = "").toList()
+            decorator(
+                AnsweringTextGen(flowOf(AgentEvent.TextDelta("hi"), AgentEvent.TurnCompleted)),
+                db,
+                backgroundScope,
+            ).streamChat("hello", instructions = "").toList()
 
-        val rows = rows(db)
-        assertEquals(1, rows.size, "One call, one row: $rows")
-        assertTrue(rows.single().error == null, "And it succeeded: ${rows.single()}")
-    }
+            val rows = rows(db)
+            assertEquals(1, rows.size, "One call, one row: $rows")
+            assertTrue(rows.single().error == null, "And it succeeded: ${rows.single()}")
+        }
 
     private fun decorator(
         delegate: TextGenPort,
@@ -81,10 +82,11 @@ class ChatTurnCostTest {
         UsageRecordingTextGen(
             delegate = delegate,
             usageRecorder = RoomUsageRecorder(db.llmUsageDao(), clock),
-            currentUser = FakeProfileAwareCurrentUser(
-                authRepository = FakeAuthRepository(),
-                scope = scope,
-            ),
+            currentUser =
+                FakeProfileAwareCurrentUser(
+                    authRepository = FakeAuthRepository(),
+                    scope = scope,
+                ),
             clock = clock,
         )
 
@@ -95,25 +97,42 @@ class ChatTurnCostTest {
 
 /** A model whose stream fails: the failure is what the ledger must still hold once. */
 private class FailingTextGen : TextGenPort {
-    override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> =
-        Result.success("unused")
+    override suspend fun generate(
+        prompt: String,
+        systemPrompt: String?,
+        model: String?,
+    ): Result<String> = Result.success("unused")
 
-    override fun streamChat(message: String, instructions: String): Flow<AgentEvent> = flow {
-        emit(AgentEvent.TextDelta("half an ans"))
-        error("the provider fell over")
-    }
+    override fun streamChat(
+        message: String,
+        instructions: String,
+    ): Flow<AgentEvent> =
+        flow {
+            emit(AgentEvent.TextDelta("half an ans"))
+            error("the provider fell over")
+        }
 
-    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> =
-        Result.success(emptyList())
+    override suspend fun listModels(
+        baseUrl: String,
+        apiKey: String,
+    ): Result<List<String>> = Result.success(emptyList())
 }
 
 /** A model that answers and finishes. */
 private class AnsweringTextGen(private val scripted: Flow<AgentEvent>) : TextGenPort {
-    override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> =
-        Result.success("unused")
+    override suspend fun generate(
+        prompt: String,
+        systemPrompt: String?,
+        model: String?,
+    ): Result<String> = Result.success("unused")
 
-    override fun streamChat(message: String, instructions: String): Flow<AgentEvent> = scripted
+    override fun streamChat(
+        message: String,
+        instructions: String,
+    ): Flow<AgentEvent> = scripted
 
-    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> =
-        Result.success(emptyList())
+    override suspend fun listModels(
+        baseUrl: String,
+        apiKey: String,
+    ): Result<List<String>> = Result.success(emptyList())
 }

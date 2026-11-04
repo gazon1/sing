@@ -24,7 +24,6 @@ import com.singularity.todo.core.error.AppError
  */
 @JvmInline
 value class SyncIdentity(val encoded: String) {
-
     init {
         require(encoded.isNotBlank()) { "sync identity must not be blank" }
         require(encoded.count { it == SEPARATOR } == 1) {
@@ -68,7 +67,6 @@ value class SyncIdentity(val encoded: String) {
  * checks on the way back.
  */
 class SyncIdentityMapper {
-
     /**
      * Parses [encoded] into a scope.
      *
@@ -76,17 +74,18 @@ class SyncIdentityMapper {
      *   stored identity is either one this build wrote or it is corruption; there
      *   is no third reading, and neither is worth a default.
      */
-    fun toScope(encoded: String): SyncScope = try {
-        SyncIdentity(encoded).toScope()
-    } catch (e: IllegalArgumentException) {
-        throw AppError.Validation(
-            "Stored sync identity '$encoded' is not an 'owner/profile' pair. Refusing to " +
-                "guess a scope: a wrong one attributes data to an account or profile that does " +
-                "not exist, and reads back to a row that was never written.",
-            code = "sync.malformed_identity",
-            cause = e,
-        )
-    }
+    fun toScope(encoded: String): SyncScope =
+        try {
+            SyncIdentity(encoded).toScope()
+        } catch (e: IllegalArgumentException) {
+            throw AppError.Validation(
+                "Stored sync identity '$encoded' is not an 'owner/profile' pair. Refusing to " +
+                    "guess a scope: a wrong one attributes data to an account or profile that does " +
+                    "not exist, and reads back to a row that was never written.",
+                code = "sync.malformed_identity",
+                cause = e,
+            )
+        }
 
     /** Encodes [scope] for storage. */
     fun encode(scope: SyncScope): SyncIdentity = SyncIdentity.of(scope)

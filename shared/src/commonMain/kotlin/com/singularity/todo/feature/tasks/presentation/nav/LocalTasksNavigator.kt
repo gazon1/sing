@@ -11,14 +11,16 @@ import com.singularity.todo.feature.nav.TasksRoute
  * Screens MUST NOT access [LocalNavBackStack] directly — use [TasksNavigator]
  * to preserve back semantics (size <= 1 → onExitGraph).
  */
-val LocalTasksNavigator = compositionLocalOf<TasksNavigator> {
-    error("TasksNavigator not provided — wrap with TasksNavGraph")
-}
+val LocalTasksNavigator =
+    compositionLocalOf<TasksNavigator> {
+        error("TasksNavigator not provided — wrap with TasksNavGraph")
+    }
 
 /**
  * Internal back stack accessor for use within the nav package only.
  * Not accessible outside `feature/tasks/presentation/nav/`.
  */
-internal val LocalNavBackStack = compositionLocalOf<NavBackStack<TasksRoute>> {
-    error("NavBackStack<TasksRoute> not provided")
-}
+internal val LocalNavBackStack =
+    compositionLocalOf<NavBackStack<TasksRoute>> {
+        error("NavBackStack<TasksRoute> not provided")
+    }

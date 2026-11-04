@@ -17,7 +17,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class FreeTextRuleTest {
-
     @Test
     fun `a rule with no terms selects nothing`() {
         val rule = FreeTextRule()
@@ -38,10 +37,11 @@ class FreeTextRuleTest {
 
     @Test
     fun `any term may match when the query makes them alternatives`() {
-        val rule = FreeTextRule(
-            terms = listOf(FreeTextRule.Term("alpha"), FreeTextRule.Term("beta")),
-            combinesWithOr = true,
-        )
+        val rule =
+            FreeTextRule(
+                terms = listOf(FreeTextRule.Term("alpha"), FreeTextRule.Term("beta")),
+                combinesWithOr = true,
+            )
 
         assertTrue(rule.selects { it == "alpha" })
         assertTrue(rule.selects { it == "beta" })
@@ -58,9 +58,10 @@ class FreeTextRuleTest {
 
     @Test
     fun `a negated term is a requirement in a conjunction`() {
-        val rule = FreeTextRule(
-            terms = listOf(FreeTextRule.Term("alpha"), FreeTextRule.Term("beta", negated = true)),
-        )
+        val rule =
+            FreeTextRule(
+                terms = listOf(FreeTextRule.Term("alpha"), FreeTextRule.Term("beta", negated = true)),
+            )
 
         assertTrue(rule.selects { it == "alpha" })
         assertFalse(rule.selects { it == "alpha" || it == "beta" }, "beta is present, so the record is ruled out")
@@ -82,12 +83,14 @@ class FreeTextRuleTest {
 
     @Test
     fun `the positives and the negations are two halves of the rule`() {
-        val rule = FreeTextRule(
-            terms = listOf(
-                FreeTextRule.Term("alpha"),
-                FreeTextRule.Term("beta", negated = true),
-            ),
-        )
+        val rule =
+            FreeTextRule(
+                terms =
+                    listOf(
+                        FreeTextRule.Term("alpha"),
+                        FreeTextRule.Term("beta", negated = true),
+                    ),
+            )
 
         assertEquals(listOf("alpha"), rule.positives.map { it.text })
         assertEquals(listOf("beta"), rule.negations.map { it.text })
@@ -103,12 +106,14 @@ class FreeTextRuleTest {
 
     @Test
     fun `a record that carries the negated term does not satisfy the negations`() {
-        val rule = FreeTextRule(
-            terms = listOf(
-                FreeTextRule.Term("alpha"),
-                FreeTextRule.Term("beta", negated = true),
-            ),
-        )
+        val rule =
+            FreeTextRule(
+                terms =
+                    listOf(
+                        FreeTextRule.Term("alpha"),
+                        FreeTextRule.Term("beta", negated = true),
+                    ),
+            )
 
         assertFalse(rule.satisfiesNegations { it == "beta" }, "the negated term is there, so the record is ruled out")
         assertTrue(rule.satisfiesNegations { it == "alpha" })
@@ -130,12 +135,14 @@ class FreeTextRuleTest {
 
     @Test
     fun `a candidate the index found is still held against the negated terms`() {
-        val rule = FreeTextRule(
-            terms = listOf(
-                FreeTextRule.Term("alpha"),
-                FreeTextRule.Term("beta", negated = true),
-            ),
-        )
+        val rule =
+            FreeTextRule(
+                terms =
+                    listOf(
+                        FreeTextRule.Term("alpha"),
+                        FreeTextRule.Term("beta", negated = true),
+                    ),
+            )
         val plan = rule.plan(SearchMode.Word)
 
         assertFalse(rule.accepts(plan) { it == "beta" }, "the negated term is the rule's business")
@@ -169,10 +176,11 @@ class FreeTextRuleTest {
 
     @Test
     fun `the question keeps the alternatives of an OR apart`() {
-        val rule = FreeTextRule(
-            terms = listOf(FreeTextRule.Term("alpha"), FreeTextRule.Term("beta")),
-            combinesWithOr = true,
-        )
+        val rule =
+            FreeTextRule(
+                terms = listOf(FreeTextRule.Term("alpha"), FreeTextRule.Term("beta")),
+                combinesWithOr = true,
+            )
 
         assertEquals(
             TextMatchQuery(terms = listOf("alpha", "beta"), combinesWithOr = true),
@@ -183,9 +191,10 @@ class FreeTextRuleTest {
 
     @Test
     fun `the question holds no negated term`() {
-        val rule = FreeTextRule(
-            terms = listOf(FreeTextRule.Term("alpha"), FreeTextRule.Term("beta", negated = true)),
-        )
+        val rule =
+            FreeTextRule(
+                terms = listOf(FreeTextRule.Term("alpha"), FreeTextRule.Term("beta", negated = true)),
+            )
 
         assertEquals(
             TextMatchQuery(terms = listOf("alpha")),

@@ -19,7 +19,6 @@ import org.koin.android.ext.android.inject
  * guaranteed single initialization before any Activity or Service.
  */
 class MainActivity : ComponentActivity() {
-
     private val appUpdateGate: AppUpdateGate by inject()
 
     /**

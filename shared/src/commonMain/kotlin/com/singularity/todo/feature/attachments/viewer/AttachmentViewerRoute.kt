@@ -9,8 +9,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,7 +69,9 @@ fun AttachmentViewerRoute(
     }.collectAsState(initial = ViewerEntry.Loading)
 
     when (val e = entry) {
-        ViewerEntry.Loading -> CenteredSpinner(modifier)
+        ViewerEntry.Loading -> {
+            CenteredSpinner(modifier)
+        }
 
         is ViewerEntry.Resolved -> {
             val attachment = e.attachment
@@ -90,7 +92,10 @@ fun AttachmentViewerRoute(
 }
 
 @Composable
-private fun MissingAttachmentScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+private fun MissingAttachmentScreen(
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

@@ -1,3 +1,7 @@
+import dev.detekt.gradle.Detekt
+import dev.detekt.gradle.extensions.DetektExtension
+import java.io.File
+
 plugins {
     // this is necessary to avoid the plugins to be loaded multiple times
     // in each subproject's classloader
@@ -20,10 +24,6 @@ plugins {
     // on the classpath and the ID resolves; Gradle deduplicates it silently.
 }
 
-import dev.detekt.gradle.Detekt
-import dev.detekt.gradle.extensions.DetektExtension
-import java.io.File
-
 allprojects {
     // Version constants from gradle.properties (not catalog) — avoids catalog accessor shadowing
     // caused by library keys like jvm-test that generate nested accessors colliding with version keys.
@@ -39,7 +39,8 @@ allprojects {
             if (requested.group == "org.jetbrains.kotlinx") {
                 if (requested.name == "kotlinx-serialization-json" ||
                     requested.name == "kotlinx-serialization-core" ||
-                    requested.name == "kotlinx-serialization-bom") {
+                    requested.name == "kotlinx-serialization-bom"
+                ) {
                     useVersion(serializationVersion)
                 }
                 if (requested.name == "kotlinx-collections-immutable") {
@@ -71,16 +72,17 @@ allprojects {
 // run that wants a selection no population names. What does NOT work is
 // passing both — two spellings of one selection is how they drift apart.
 subprojects {
-    val populations = java.util.Properties().apply {
-        rootProject.file("config/test-populations.properties").inputStream().use { load(it) }
-    }
+    val populations =
+        java.util.Properties().apply {
+            rootProject.file("config/test-populations.properties").inputStream().use { load(it) }
+        }
     val population = providers.gradleProperty("test.population").orNull
     val explicitTags = providers.gradleProperty("test.tags").orNull
 
     if (population != null && explicitTags != null) {
         throw GradleException(
             "-Ptest.population=$population and -Ptest.tags=$explicitTags were both given. " +
-                "One selection, one spelling: name a population, or spell the tags."
+                "One selection, one spelling: name a population, or spell the tags.",
         )
     }
     if (population != null) {
@@ -89,7 +91,7 @@ subprojects {
             throw GradleException(
                 "unknown test population '$population' — the known ones are: " +
                     populations.stringPropertyNames().sorted().joinToString(", ") +
-                    " (config/test-populations.properties)"
+                    " (config/test-populations.properties)",
             )
         }
         // The modules read `project.findProperty("test.tags")`. Handing them the
@@ -116,14 +118,16 @@ subprojects {
     // the gate is `scripts/check-memory-budget.py`, which checks that every
     // module's heap is the recorded one and that gradle.properties carries the
     // recorded daemon heap.
-    val memoryBudget = java.util.Properties().apply {
-        rootProject.file("config/docs/gradle-memory-budget.properties").inputStream().use { load(it) }
-    }
-    val defaultTestHeap = memoryBudget.getProperty("test.heap.default")
-        ?: throw GradleException(
-            "config/docs/gradle-memory-budget.properties declares no test.heap.default — " +
-                "the heap of a test task has to be recorded somewhere."
-        )
+    val memoryBudget =
+        java.util.Properties().apply {
+            rootProject.file("config/docs/gradle-memory-budget.properties").inputStream().use { load(it) }
+        }
+    val defaultTestHeap =
+        memoryBudget.getProperty("test.heap.default")
+            ?: throw GradleException(
+                "config/docs/gradle-memory-budget.properties declares no test.heap.default — " +
+                    "the heap of a test task has to be recorded somewhere.",
+            )
     // The default is applied to EVERY test task in the build. A module that
     // names a budget of its own overrides it, because its own configuration
     // runs after this one.
@@ -162,8 +166,12 @@ subprojects {
         doLast {
             val filters = filter.includePatterns
             val partial = filters.isNotEmpty()
-            val executed = runDir.get().asFile.listFiles()
-                ?.count { it.name.startsWith("TEST-") && it.name.endsWith(".xml") } ?: 0
+            val executed =
+                runDir
+                    .get()
+                    .asFile
+                    .listFiles()
+                    ?.count { it.name.startsWith("TEST-") && it.name.endsWith(".xml") } ?: 0
             runDir.get().asFile.resolve("run-manifest.properties").writeText(
                 """
                 # Written by the root build script. Read by scripts/check-test-runs.py.
@@ -246,22 +254,23 @@ subprojects {
 val changedFilesFileProperty: String = providers.gradleProperty("detektChangedFilesFile").orNull ?: ""
 val changedFilesProperty: String = providers.gradleProperty("detektChangedFiles").orNull ?: ""
 
-val changedPaths: List<String> = (
-    if (changedFilesFileProperty.isNotEmpty()) {
-        project.file(changedFilesFileProperty).readLines()
-    } else {
-        changedFilesProperty.split(',')
-    }
-    )
-    .map { it.trim() }
-    .filter { it.isNotEmpty() }
+val changedPaths: List<String> =
+    (
+        if (changedFilesFileProperty.isNotEmpty()) {
+            project.file(changedFilesFileProperty).readLines()
+        } else {
+            changedFilesProperty.split(',')
+        }
+    ).map { it.trim() }
+        .filter { it.isNotEmpty() }
 
 // The changed Kotlin files of the repository. The file types are the ones detekt
 // includes by default (`*.kt`, `*.kts`); anything else is not a file CI would
 // analyse either.
-val changedKotlinFiles: List<File> = changedPaths
-    .map { project.file(it).canonicalFile }
-    .filter { it.isFile && (it.name.endsWith(".kt") || it.name.endsWith(".kts")) }
+val changedKotlinFiles: List<File> =
+    changedPaths
+        .map { project.file(it).canonicalFile }
+        .filter { it.isFile && (it.name.endsWith(".kt") || it.name.endsWith(".kts")) }
 
 subprojects {
     plugins.withId("dev.detekt") {
@@ -272,14 +281,16 @@ subprojects {
             // the same source directories the module's own detekt task scans. A
             // file outside them is not analysed by the whole-module run either,
             // so analysing it here would report a finding CI never reports.
-            val moduleSourceDirs: List<File> = extension.source
-                .filter { it.exists() }
-                .files
-                .map { it.canonicalFile }
+            val moduleSourceDirs: List<File> =
+                extension.source
+                    .filter { it.exists() }
+                    .files
+                    .map { it.canonicalFile }
 
-            val moduleFiles: List<File> = changedKotlinFiles.filter { file ->
-                moduleSourceDirs.any { dir -> file.toPath().startsWith(dir.toPath()) }
-            }
+            val moduleFiles: List<File> =
+                changedKotlinFiles.filter { file ->
+                    moduleSourceDirs.any { dir -> file.toPath().startsWith(dir.toPath()) }
+                }
 
             tasks.register<Detekt>("detektChanged") {
                 group = "verification"
@@ -393,8 +404,8 @@ tasks.register("koverReport") {
         ":desktopApp:test",
         ":mcp-server:test",
         ":androidApp:test",
-        ":adr-core:jvmTest",    // app code in the denominator (feature.ai.tools): its own tests measure it
-        ":detekt-rules:test",   // rule-coverage measurement: koverXmlReport needs test data
+        ":adr-core:jvmTest", // app code in the denominator (feature.ai.tools): its own tests measure it
+        ":detekt-rules:test", // rule-coverage measurement: koverXmlReport needs test data
         ":koverXmlReport",
     )
 }
@@ -438,14 +449,16 @@ tasks.matching { it.name == "koverVerify" }.configureEach {
     // Configuration time, not action time: the configuration cache forbids
     // reaching for `project` at execution time, and the population is a
     // property of the invocation, not of the run.
-    val coveragePopulation = (project.findProperty("test.population") as String?)?.takeIf { it.isNotEmpty() }
-        ?: "fast"
+    val coveragePopulation =
+        (project.findProperty("test.population") as String?)?.takeIf { it.isNotEmpty() }
+            ?: "fast"
     doFirst {
-        val costs = java.util.Properties().apply {
-            if (coverageCostFile.isFile) {
-                coverageCostFile.inputStream().use { load(it) }
+        val costs =
+            java.util.Properties().apply {
+                if (coverageCostFile.isFile) {
+                    coverageCostFile.inputStream().use { load(it) }
+                }
             }
-        }
         val population = coveragePopulation
         val millis = costs.getProperty("$population.ms")
         val measuredAt = costs.getProperty("measuredAt") ?: "an unrecorded date"
@@ -453,7 +466,7 @@ tasks.matching { it.name == "koverVerify" }.configureEach {
             logger.lifecycle(
                 "koverVerify: no recorded cost for the '$population' population " +
                     "(${coverageCostFile.name}) — this run is instrumented and takes " +
-                    "tens of minutes."
+                    "tens of minutes.",
             )
         } else {
             val minutes = millis.toLong() / 60_000
@@ -461,7 +474,7 @@ tasks.matching { it.name == "koverVerify" }.configureEach {
                 "koverVerify: the instrumented coverage run of the '$population' population " +
                     "takes about $minutes min (measured $measuredAt; " +
                     "${costs.getProperty("machine") ?: "an unnamed machine"}) — " +
-                    "see docs/testing/gate-costs.md"
+                    "see docs/testing/gate-costs.md",
             )
         }
     }
@@ -494,7 +507,6 @@ tasks.register("koverHtml") {
 // is absent, which replaces a message that names the fix (":koverReport first")
 // with one that does not.
 abstract class KoverMarkdownTableTask : DefaultTask() {
-
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val reportsDir: ConfigurableFileCollection
@@ -506,14 +518,16 @@ abstract class KoverMarkdownTableTask : DefaultTask() {
         if (!xmlFile.exists()) {
             throw GradleException(
                 "kover-markdown-table: ${xmlFile.absolutePath} not found. " +
-                "Run ':koverReport' first."
+                    "Run ':koverReport' first.",
             )
         }
 
         val rows = mutableListOf<ModuleCoverage>()
-        val doc = javax.xml.parsers.DocumentBuilderFactory.newInstance()
-            .newDocumentBuilder()
-            .parse(xmlFile)
+        val doc =
+            javax.xml.parsers.DocumentBuilderFactory
+                .newInstance()
+                .newDocumentBuilder()
+                .parse(xmlFile)
 
         // Kover may emit <project name="..."> elements. The <counter> elements
         // appear nested inside them. getElementsByTagName finds elements at ANY depth,
@@ -545,16 +559,34 @@ abstract class KoverMarkdownTableTask : DefaultTask() {
         printTable(rows)
     }
 
-    private fun updateModuleFromCounter(mod: ModuleCoverage, el: org.w3c.dom.Element) {
+    private fun updateModuleFromCounter(
+        mod: ModuleCoverage,
+        el: org.w3c.dom.Element,
+    ) {
         val type = el.getAttribute("type")
         if (type !in listOf("LINE", "BRANCH", "INSTRUCTION", "CLASS")) return
-        val missed  = el.getAttribute("missed").toIntOrNull()  ?: 0
+        val missed = el.getAttribute("missed").toIntOrNull() ?: 0
         val covered = el.getAttribute("covered").toIntOrNull() ?: 0
         when (type) {
-            "LINE"        -> { mod.lineMissed   = missed;  mod.lineCovered   = covered }
-            "BRANCH"      -> { mod.branchMissed = missed;  mod.branchCovered = covered }
-            "INSTRUCTION" -> { mod.instrMissed  = missed;  mod.instrCovered  = covered }
-            "CLASS"       -> { mod.classMissed  = missed;  mod.classCovered  = covered }
+            "LINE" -> {
+                mod.lineMissed = missed
+                mod.lineCovered = covered
+            }
+
+            "BRANCH" -> {
+                mod.branchMissed = missed
+                mod.branchCovered = covered
+            }
+
+            "INSTRUCTION" -> {
+                mod.instrMissed = missed
+                mod.instrCovered = covered
+            }
+
+            "CLASS" -> {
+                mod.classMissed = missed
+                mod.classCovered = covered
+            }
         }
     }
 
@@ -573,17 +605,24 @@ abstract class KoverMarkdownTableTask : DefaultTask() {
         // instructions — was the sum of every INSTRUCTION counter in the XML,
         // so five times the report's own denominator. The percentages were
         // unaffected: the ratio is the same at every level.)
-        println("| Module | CLASS (covered/total) | LINE (covered/total) | BRANCH (covered/total) | INSTRUCTION (covered/total) |")
+        println(
+            "| Module | CLASS (covered/total) | LINE (covered/total) | BRANCH (covered/total) | INSTRUCTION (covered/total) |",
+        )
         println("|---|---|---|---|---|")
         for (r in rows) {
-            println("| ${r.name} | ${cell(r.classCovered,  r.classMissed)} " +
-                    "| ${cell(r.lineCovered,   r.lineMissed)} " +
+            println(
+                "| ${r.name} | ${cell(r.classCovered, r.classMissed)} " +
+                    "| ${cell(r.lineCovered, r.lineMissed)} " +
                     "| ${cell(r.branchCovered, r.branchMissed)} " +
-                    "| ${cell(r.instrCovered,  r.instrMissed)} |")
+                    "| ${cell(r.instrCovered, r.instrMissed)} |",
+            )
         }
     }
 
-    private fun cell(covered: Int, missed: Int): String {
+    private fun cell(
+        covered: Int,
+        missed: Int,
+    ): String {
         val total = covered + missed
         if (total == 0) return "—"
         return "$covered/$total (${String.format("%.1f", covered * 100.0 / total)}%)"
@@ -591,10 +630,14 @@ abstract class KoverMarkdownTableTask : DefaultTask() {
 }
 
 private data class ModuleCoverage(val name: String) {
-    var instrCovered = 0; var instrMissed = 0
-    var lineCovered  = 0; var lineMissed  = 0
-    var branchCovered = 0; var branchMissed = 0
-    var classCovered = 0; var classMissed = 0
+    var instrCovered = 0
+    var instrMissed = 0
+    var lineCovered = 0
+    var lineMissed = 0
+    var branchCovered = 0
+    var branchMissed = 0
+    var classCovered = 0
+    var classMissed = 0
 }
 
 tasks.register<KoverMarkdownTableTask>("koverMarkdownTable") {

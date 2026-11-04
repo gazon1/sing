@@ -12,7 +12,6 @@ import com.singularity.todo.feature.genui.parser.UiEvent
  * impossible to build on an absent value, because the reason is the payload.
  */
 sealed interface A2uiParseOutcome {
-
     /**
      * A well-formed message, ready for validation.
      *
@@ -36,17 +35,19 @@ sealed interface A2uiParseOutcome {
 
     /** The message this outcome carries, or null when there is none. */
     val eventOrNull: UiEvent?
-        get() = when (this) {
-            is Parsed -> event
-            is Skipped -> null
-            is Failed -> null
-        }
+        get() =
+            when (this) {
+                is Parsed -> event
+                is Skipped -> null
+                is Failed -> null
+            }
 
     /** The rejection this outcome carries, or null when there is none. */
     val errorOrNull: A2uiError?
-        get() = when (this) {
-            is Parsed -> null
-            is Skipped -> null
-            is Failed -> error
-        }
+        get() =
+            when (this) {
+                is Parsed -> null
+                is Skipped -> null
+                is Failed -> error
+            }
 }

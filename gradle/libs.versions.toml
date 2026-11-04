@@ -1,8 +1,8 @@
 [versions]
 # Kotlin / Build
-agp = "9.4.1"
+agp = "9.5.0"
 kotlin = "2.4.10"
-ksp = "2.3.12"
+ksp = "2.3.13"
 kotlin-serialization = "1.12.0"
 
 # Android SDK — "android" prefix avoided: library keys like androidx-android-* would shadow
@@ -26,7 +26,7 @@ composeMultiplatform = "1.12.2"
 # 1.13.0-beta01 needs compileSdk 37.1, and this project compiles against 37.0
 # (no android-37.1 platform is installed), so the newer line does not build
 # here at all. The bump was merged with a red CI; this is the pin back.
-material3 = "1.12.0-alpha03"
+material3 = "1.13.0-beta01"
 
 # Coroutines / DateTime
 coroutines = "1.11.0"
@@ -39,7 +39,7 @@ sqlite = "2.7.0"
 sqliteJdbc = "3.47.0.0"
 
 # Networking / Ktor
-ktor = "3.6.0"
+ktor = "3.6.1"
 
 # DI / Koin
 koin = "4.2.2"
@@ -57,13 +57,13 @@ kermit = "2.2.0"
 
 # AppTracer (ru.ok.tracer) — crash / ANR / non-fatal reporting, Android only.
 # BOM-aligned: modules below carry no version of their own.
-tracer = "1.5.1"
+tracer = "1.6.0"
 
 # Markdown
 markdown-renderer = "0.46.0"
 
 # AI / OpenAI
-openai-client = "4.1.0"
+openai-client = "4.2.0"
 
 # Theme / MaterialKolor
 # 5.0.1 is built against Compose Multiplatform 1.12.0 + material3 1.12.0-alpha03,
@@ -102,7 +102,7 @@ atomicfu = "0.23.1"
 kotlinxCollectionsImmutable = "0.5.2"
 
 # FileKit
-filekit = "0.16.0"
+filekit = "0.17.0"
 
 # Rich Text Editor
 rich-editor = "1.2.1"
@@ -148,8 +148,8 @@ detekt = "2.0.0-alpha.6"
 kover = "0.9.11"
 
 # MCP server
-kotlinSdk = "0.15.0"
-kotlinxIo = "0.9.1"
+kotlinSdk = "0.16.0"
+kotlinxIo = "0.9.2"
 
 [libraries]
 # Kotlin / Build
@@ -178,6 +178,7 @@ junit-jupiter-params = { module = "org.junit.jupiter:junit-jupiter-params", vers
 androidx-testExt-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-testExt" }
 androidx-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "androidx-espresso" }
 androidx-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "androidx-uiautomator" }
+androidx-activity = { module = "androidx.activity:activity", version.ref = "androidx-activity" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 
 # Lifecycle
@@ -342,7 +343,6 @@ kotlinx-io-core-jvm = { module = "org.jetbrains.kotlinx:kotlinx-io-core-jvm", ve
 ktor-io-jvm = { module = "io.ktor:ktor-io-jvm", version.ref = "ktor" }
 
 # Lint / Quality tools
-detekt-formatting = { module = "dev.detekt:detekt-rules-ktlint-wrapper", version.ref = "detekt" }
 detekt-api = { module = "dev.detekt:detekt-api", version.ref = "detekt" }
 detekt-test = { module = "dev.detekt:detekt-test", version.ref = "detekt" }
 detekt-test-utils = { module = "dev.detekt:detekt-test-utils", version.ref = "detekt" }

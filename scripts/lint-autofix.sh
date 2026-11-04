@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # lint-autofix.sh — apply detekt's own corrections to the working tree.
 #
-# detekt rewrites the rules it knows how to fix (formatting, spacing, unused
-# imports, and the ktlint rules bundled via the detekt-formatting plugin).
-# ktlint is NOT a separate Gradle plugin in this project, so there is no
-# `ktlintFormat` task — detekt --auto-correct is the single correction entry
-# point and it already covers ktlint formatting.
+# detekt rewrites the rules it knows how to fix (unused imports, redundant
+# code, and the semantic rules detekt owns).
+#
+# The LAYOUT is not detekt's any more: ktlint is a separate CLI, and the
+# formatting is corrected by `scripts/ktlint-lint.py --format` — the same
+# script the gate and the pre-push hook run. Two commands, two tools, and
+# neither one is a Gradle plugin of the other.
 #
 # One Gradle invocation per module. This is not tidiness: `--auto-correct` is
 # an option of the `detekt` *task*, and a task option given on the command line

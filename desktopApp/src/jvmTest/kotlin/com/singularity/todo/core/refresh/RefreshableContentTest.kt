@@ -38,7 +38,6 @@ import kotlin.test.assertEquals
 @Tag("slow")
 @Tag("slow:compose")
 class RefreshableContentTest {
-
     private fun scope() = AutoCloseableCoroutineScope(Dispatchers.Unconfined + SupervisorJob())
 
     @Test
@@ -46,19 +45,21 @@ class RefreshableContentTest {
         runIsolatedComposeTest {
             val archiver = FakeCompletedTaskArchiver(outcome = Result.success(2))
             val sync = FakeSyncRepository()
-            val vm = RefreshViewModel(
-                coordinator = RefreshCoordinator(archiver, sync, scope()),
-                scope = scope(),
-            )
+            val vm =
+                RefreshViewModel(
+                    coordinator = RefreshCoordinator(archiver, sync, scope()),
+                    scope = scope(),
+                )
 
             setContent {
                 ScreenWithOwners {
                     RefreshableContent(viewModel = vm) {
                         Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
-                                .testTag(CONTENT_TAG),
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState())
+                                    .testTag(CONTENT_TAG),
                         ) {
                             repeat(40) { Text("row $it") }
                         }

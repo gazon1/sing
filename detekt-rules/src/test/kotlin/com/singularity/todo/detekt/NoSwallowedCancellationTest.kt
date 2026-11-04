@@ -9,13 +9,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class NoSwallowedCancellationTest {
-
     private val rule = NoSwallowedCancellation(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
     @Test
     fun `catch with CancellationException rethrow is not flagged`() {
-        val code = """
+        val code =
+            """
             package com.example
             import kotlin.coroutines.CancellationException
             suspend fun doWork() {
@@ -25,7 +25,7 @@ class NoSwallowedCancellationTest {
                     throw e
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(0, findings.size, "CE rethrow should not be flagged")
@@ -33,7 +33,8 @@ class NoSwallowedCancellationTest {
 
     @Test
     fun `catch Exception without CE guard is flagged`() {
-        val code = """
+        val code =
+            """
             package com.example
             suspend fun doWork() {
                 try {
@@ -42,7 +43,7 @@ class NoSwallowedCancellationTest {
                     handleError(e)
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(1, findings.size)
@@ -51,7 +52,8 @@ class NoSwallowedCancellationTest {
 
     @Test
     fun `catch Throwable in non-suspend is not flagged`() {
-        val code = """
+        val code =
+            """
             package com.example
             fun doWork() {
                 try {
@@ -60,7 +62,7 @@ class NoSwallowedCancellationTest {
                     handleError(e)
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(0, findings.size, "Non-suspend functions are not checked")
@@ -68,7 +70,8 @@ class NoSwallowedCancellationTest {
 
     @Test
     fun `catch CE then catch Throwable is safe when CE guard comes first`() {
-        val code = """
+        val code =
+            """
             package com.example
             import kotlin.coroutines.CancellationException
             suspend fun doWork() {
@@ -80,7 +83,7 @@ class NoSwallowedCancellationTest {
                     handleError(e)
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(0, findings.size, "CE guard protects subsequent catches in same try")
@@ -88,13 +91,14 @@ class NoSwallowedCancellationTest {
 
     @Test
     fun `runCatchingCancellable is safe`() {
-        val code = """
+        val code =
+            """
             package com.example
             import kotlin.coroutines.CancellationException
             suspend fun doWork() {
                 runCatchingCancellable { riskyCall() }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(0, findings.size, "runCatchingCancellable is safe")

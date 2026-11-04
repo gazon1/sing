@@ -1,8 +1,8 @@
 package com.singularity.todo.arch
 
 import com.singularity.todo.feature.reminders.data.CrossProfileReadRegistry
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -55,7 +55,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ScopedReadQueryIsolationTest {
-
     @Test
     fun `rule accepts a scoped read`() {
         assertTrue(
@@ -110,13 +109,14 @@ class ScopedReadQueryIsolationTest {
 
     @Test
     fun `every unscoped read in the DAOs is sanctioned, scoped, or exempt`() {
-        val violations = daosUnscopedReads().filter { read ->
-            read.table in scopedTables() &&
-                read.table !in EXEMPT_TABLES &&
-                !mentionsScopingColumn(read.sql) &&
-                read.entry() !in CrossProfileReadRegistry.sanctioned &&
-                !isPrimaryKeyHydration(read.sql)
-        }
+        val violations =
+            daosUnscopedReads().filter { read ->
+                read.table in scopedTables() &&
+                    read.table !in EXEMPT_TABLES &&
+                    !mentionsScopingColumn(read.sql) &&
+                    read.entry() !in CrossProfileReadRegistry.sanctioned &&
+                    !isPrimaryKeyHydration(read.sql)
+            }
 
         assertTrue(
             violations.isEmpty(),
@@ -133,21 +133,23 @@ class ScopedReadQueryIsolationTest {
         // The shape this allows is "hydrate the row whose id a scoped query already
         // returned". It stops being that the moment the DAO stops offering a scoped way
         // to do the same lookup, which is when the by-PK read becomes the only way in.
-        val hydrations = daosUnscopedReads().filter { read ->
-            read.table in scopedTables() &&
-                read.table !in EXEMPT_TABLES &&
-                !mentionsScopingColumn(read.sql) &&
-                read.entry() !in CrossProfileReadRegistry.sanctioned &&
-                isPrimaryKeyHydration(read.sql)
-        }
-        val orphans = hydrations.filter { read ->
-            allReads().none { sibling ->
-                sibling.iface == read.iface &&
-                    sibling.table == read.table &&
-                    mentionsScopingColumn(sibling.sql) &&
-                    sharesIdPredicate(sibling.sql)
+        val hydrations =
+            daosUnscopedReads().filter { read ->
+                read.table in scopedTables() &&
+                    read.table !in EXEMPT_TABLES &&
+                    !mentionsScopingColumn(read.sql) &&
+                    read.entry() !in CrossProfileReadRegistry.sanctioned &&
+                    isPrimaryKeyHydration(read.sql)
             }
-        }
+        val orphans =
+            hydrations.filter { read ->
+                allReads().none { sibling ->
+                    sibling.iface == read.iface &&
+                        sibling.table == read.table &&
+                        mentionsScopingColumn(sibling.sql) &&
+                        sharesIdPredicate(sibling.sql)
+                }
+            }
 
         assertTrue(
             hydrations.isNotEmpty(),
@@ -196,7 +198,10 @@ class ScopedReadQueryIsolationTest {
 
     // ─── the rule ────────────────────────────────────────────────────────────────
 
-    private fun crossesProfiles(sql: String, scopedTables: Map<String, Set<String>>): Boolean {
+    private fun crossesProfiles(
+        sql: String,
+        scopedTables: Map<String, Set<String>>,
+    ): Boolean {
         val table = tableOf(sql)
         return table != null &&
             table in scopedTables &&
@@ -213,8 +218,11 @@ class ScopedReadQueryIsolationTest {
 
     private fun sharesIdPredicate(sql: String): Boolean = "id = :id" in sql || "id = :taskId" in sql
 
-    private fun tableOf(sql: String): String? = Regex("""FROM\s+(\w+)""", RegexOption.IGNORE_CASE)
-        .find(sql)?.groupValues?.get(1)
+    private fun tableOf(sql: String): String? =
+        Regex("""FROM\s+(\w+)""", RegexOption.IGNORE_CASE)
+            .find(sql)
+            ?.groupValues
+            ?.get(1)
 
     // ─── the corpus ──────────────────────────────────────────────────────────────
 
@@ -242,13 +250,17 @@ class ScopedReadQueryIsolationTest {
         var iface = ""
         lines.forEachIndexed { index, line ->
             Regex("""interface\s+(\w+)""").find(line)?.let { iface = it.groupValues[1] }
-            val sql = Regex("""@Query\("([^"]+)"\)""").find(line)?.groupValues?.get(1)
-                ?: return@forEachIndexed
+            val sql =
+                Regex("""@Query\("([^"]+)"\)""").find(line)?.groupValues?.get(1)
+                    ?: return@forEachIndexed
             if (!sql.trimStart().startsWith("SELECT", ignoreCase = true)) return@forEachIndexed
             val table = tableOf(sql) ?: return@forEachIndexed
-            val method = lines.drop(index + 1).take(4)
-                .firstNotNullOfOrNull { Regex("""fun\s+(\w+)\s*\(""").find(it)?.groupValues?.get(1) }
-                ?: "<unresolved>"
+            val method =
+                lines
+                    .drop(index + 1)
+                    .take(4)
+                    .firstNotNullOfOrNull { Regex("""fun\s+(\w+)\s*\(""").find(it)?.groupValues?.get(1) }
+                    ?: "<unresolved>"
             reads += Read(iface.ifEmpty { "<unknown>" }, method, table, sql)
         }
         return reads
@@ -264,8 +276,11 @@ class ScopedReadQueryIsolationTest {
     private fun scopedTables(): Map<String, Set<String>> {
         val scoped = mutableMapOf<String, Set<String>>()
         KotlinText.stripComments(entitiesSource().readText()).split("@Entity").forEach { block ->
-            val table = Regex("""tableName\s*=\s*"(\w+)"""")
-                .find(block)?.groupValues?.get(1) ?: return@forEach
+            val table =
+                Regex("""tableName\s*=\s*"(\w+)"""")
+                    .find(block)
+                    ?.groupValues
+                    ?.get(1) ?: return@forEach
             val columns = buildSet { collectScopingColumns(block, this) }
             if (columns.isNotEmpty()) scoped[table] = columns
         }
@@ -279,11 +294,16 @@ class ScopedReadQueryIsolationTest {
      * or as a bare property (`val userId`). Only reading one of the two is how a rename
      * silently exempts a table from this gate.
      */
-    private fun collectScopingColumns(block: String, into: MutableSet<String>) {
+    private fun collectScopingColumns(
+        block: String,
+        into: MutableSet<String>,
+    ) {
         Regex("""name\s*=\s*"(user_id|owner_id|profile_id)"""")
-            .findAll(block).forEach { into += it.groupValues[1] }
+            .findAll(block)
+            .forEach { into += it.groupValues[1] }
         Regex("""val\s+(userId|ownerId|profileId)\s*:""")
-            .findAll(block).forEach { into += it.groupValues[1] }
+            .findAll(block)
+            .forEach { into += it.groupValues[1] }
     }
 
     /**

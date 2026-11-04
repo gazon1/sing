@@ -14,15 +14,16 @@ data class GetProjectOutput(val id: String, val name: String, val description: S
 
 class GetProjectTool(private val projectsRepository: ProjectsRepository) :
     SimpleTool<GetProjectInput>(TypeToken.of(GetProjectInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: GetProjectInput): String {
         val project = projectsRepository.get(ProjectId(args.projectId))
-        val output = if (project != null) {
-            GetProjectOutput(project.id.value, project.name, project.description)
-        } else {
-            GetProjectOutput(args.projectId, "(not found)", null)
-        }
-        return kotlinx.serialization.json.Json.encodeToString(GetProjectOutput.serializer(), output)
+        val output =
+            if (project != null) {
+                GetProjectOutput(project.id.value, project.name, project.description)
+            } else {
+                GetProjectOutput(args.projectId, "(not found)", null)
+            }
+        return kotlinx.serialization.json.Json
+            .encodeToString(GetProjectOutput.serializer(), output)
     }
 
     companion object {

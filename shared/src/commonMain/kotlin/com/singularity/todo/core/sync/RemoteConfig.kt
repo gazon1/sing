@@ -49,7 +49,13 @@ interface RemoteConfigDao {
  */
 interface RemoteConfigRepository {
     val defaultConfig: Flow<RemoteConfigEntity?>
+
     suspend fun getConfig(): RemoteConfigEntity?
-    suspend fun saveConfig(supabaseUrl: String, anonKey: String)
+
+    suspend fun saveConfig(
+        supabaseUrl: String,
+        anonKey: String,
+    )
+
     suspend fun deleteConfig()
 }

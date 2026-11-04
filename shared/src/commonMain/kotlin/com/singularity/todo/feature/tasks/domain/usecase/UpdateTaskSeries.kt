@@ -94,7 +94,10 @@ class UpdateTaskSeriesUseCase(
      * The clock is the last resort, for a series whose rows all carry no date;
      * it is never replaced by an epoch default, which is a date nobody chose.
      */
-    private fun anchorOf(members: List<Task>, fallback: Task): LocalDate {
+    private fun anchorOf(
+        members: List<Task>,
+        fallback: Task,
+    ): LocalDate {
         val open = members.filter { it.completedAt == null && !it.isTrashed }
         return open.mapNotNull { it.dueDate }.minOrNull()
             ?: members.mapNotNull { it.dueDate }.maxOrNull()

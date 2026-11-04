@@ -51,7 +51,6 @@ import kotlin.time.Clock
 @Tag("slow")
 @Tag("slow:data")
 class SearchSurfacesStateTheirModeTest {
-
     private val user = UserId("u1")
 
     private lateinit var tempDir: File
@@ -62,37 +61,42 @@ class SearchSurfacesStateTheirModeTest {
     private val clock = MutableClock()
 
     @BeforeTest
-    fun setUp() = runTest {
-        tempDir = Files.createTempDirectory("singularity-search-modes-").toFile()
-        db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
-        val currentUser = FakeProfileAwareCurrentUser(
-            FakeAuthRepository(Session.Anonymous(user)),
-            scope = backgroundScope,
-        )
-        notes = NotesRepositoryImpl(
-            noteDao = db.noteDao(),
-            textIndex = db.textIndex(currentUser),
-            clock = clock,
-            currentUser = currentUser,
-            syncRepository = FakeSyncRepository(this),
-            unitOfWork = FakeUnitOfWork(),
-        )
-        tasks = TaskRepositoryImpl(
-            taskDao = db.taskDao(),
-            textIndex = db.textIndex(currentUser),
-            clock = Clock.System,
-            currentUser = currentUser,
-            syncRepository = FakeSyncRepository(this),
-            dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
-            unitOfWork = FakeUnitOfWork(),
-        )
-        links = InternalLinkRepositoryImpl(
-            noteDao = db.noteDao(),
-            taskDao = db.taskDao(),
-            textIndex = db.textIndex(currentUser),
-            currentUser = currentUser,
-        )
-    }
+    fun setUp() =
+        runTest {
+            tempDir = Files.createTempDirectory("singularity-search-modes-").toFile()
+            db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
+            val currentUser =
+                FakeProfileAwareCurrentUser(
+                    FakeAuthRepository(Session.Anonymous(user)),
+                    scope = backgroundScope,
+                )
+            notes =
+                NotesRepositoryImpl(
+                    noteDao = db.noteDao(),
+                    textIndex = db.textIndex(currentUser),
+                    clock = clock,
+                    currentUser = currentUser,
+                    syncRepository = FakeSyncRepository(this),
+                    unitOfWork = FakeUnitOfWork(),
+                )
+            tasks =
+                TaskRepositoryImpl(
+                    taskDao = db.taskDao(),
+                    textIndex = db.textIndex(currentUser),
+                    clock = Clock.System,
+                    currentUser = currentUser,
+                    syncRepository = FakeSyncRepository(this),
+                    dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
+                    unitOfWork = FakeUnitOfWork(),
+                )
+            links =
+                InternalLinkRepositoryImpl(
+                    noteDao = db.noteDao(),
+                    taskDao = db.taskDao(),
+                    textIndex = db.textIndex(currentUser),
+                    currentUser = currentUser,
+                )
+        }
 
     @AfterTest
     fun tearDown() {
@@ -101,108 +105,118 @@ class SearchSurfacesStateTheirModeTest {
     }
 
     @Test
-    fun `the note search answers in the mode it is given`() = runTest {
-        notes.createWithContent(NoteId("n1"), "Airport transfer", "# body", "<p>body</p>")
+    fun `the note search answers in the mode it is given`() =
+        runTest {
+            notes.createWithContent(NoteId("n1"), "Airport transfer", "# body", "<p>body</p>")
 
-        assertEquals(
-            listOf("n1"),
-            notes.search("air", SearchMode.Word).first().map { it.id.value },
-            "the word mode finds the beginning of a word — that is the index's rule",
-        )
-        assertEquals(
-            emptyList(),
-            notes.search("port", SearchMode.Word).first().map { it.id.value },
-            "the word mode does not find a word by its middle — that is what the contains mode is for",
-        )
-        assertEquals(
-            listOf("n1"),
-            notes.search("port", SearchMode.Contains).first().map { it.id.value },
-            "the contains mode finds the term wherever it occurs",
-        )
-    }
-
-    @Test
-    fun `the task filter answers in the mode it is given`() = runTest {
-        tasks.create(task("t1", title = "Airport transfer"))
-
-        assertEquals(
-            listOf("t1"),
-            tasks.observeByFilter(TaskFilter.Search("air", SearchMode.Word)).first().map { it.id.value },
-            "the word mode finds the beginning of a word",
-        )
-        assertEquals(
-            emptyList(),
-            tasks.observeByFilter(TaskFilter.Search("port", SearchMode.Word)).first().map { it.id.value },
-            "the word mode does not find a word by its middle",
-        )
-        assertEquals(
-            listOf("t1"),
-            tasks.observeByFilter(TaskFilter.Search("port", SearchMode.Contains)).first().map { it.id.value },
-            "the contains mode finds the term wherever it occurs",
-        )
-    }
+            assertEquals(
+                listOf("n1"),
+                notes.search("air", SearchMode.Word).first().map { it.id.value },
+                "the word mode finds the beginning of a word — that is the index's rule",
+            )
+            assertEquals(
+                emptyList(),
+                notes.search("port", SearchMode.Word).first().map { it.id.value },
+                "the word mode does not find a word by its middle — that is what the contains mode is for",
+            )
+            assertEquals(
+                listOf("n1"),
+                notes.search("port", SearchMode.Contains).first().map { it.id.value },
+                "the contains mode finds the term wherever it occurs",
+            )
+        }
 
     @Test
-    fun `a task is searched by its title and its description in either mode`() = runTest {
-        tasks.create(task("t1", title = "Trip", description = "Airport transfer"))
+    fun `the task filter answers in the mode it is given`() =
+        runTest {
+            tasks.create(task("t1", title = "Airport transfer"))
 
-        assertEquals(
-            emptyList(),
-            tasks.observeByFilter(TaskFilter.Search("port", SearchMode.Word)).first().map { it.id.value },
-            "the word mode does not find the middle of a word",
-        )
-        assertEquals(
-            listOf("t1"),
-            tasks.observeByFilter(TaskFilter.Search("port", SearchMode.Contains)).first().map { it.id.value },
-            "the contains mode finds the term in the description as well as in the title",
-        )
-        assertTrue(
-            tasks.observeByFilter(TaskFilter.Search("port", SearchMode.Contains)).first().isNotEmpty(),
-            "the task is found by the surface it is searched by (F3)",
-        )
-    }
-
-    @Test
-    fun `the link autocomplete answers in the mode it is given`() = runTest {
-        tasks.create(task("t1", title = "Trip", description = "Airport transfer"))
-
-        assertEquals(
-            emptyList(),
-            links.searchTasks("port", SearchMode.Word).map { it.id.value },
-            "the word mode does not find the middle of a word",
-        )
-        assertEquals(
-            listOf("t1"),
-            links.searchTasks("port", SearchMode.Contains).map { it.id.value },
-            "the contains mode finds the term in the description as well as in the title",
-        )
-    }
+            assertEquals(
+                listOf("t1"),
+                tasks.observeByFilter(TaskFilter.Search("air", SearchMode.Word)).first().map { it.id.value },
+                "the word mode finds the beginning of a word",
+            )
+            assertEquals(
+                emptyList(),
+                tasks.observeByFilter(TaskFilter.Search("port", SearchMode.Word)).first().map { it.id.value },
+                "the word mode does not find a word by its middle",
+            )
+            assertEquals(
+                listOf("t1"),
+                tasks.observeByFilter(TaskFilter.Search("port", SearchMode.Contains)).first().map { it.id.value },
+                "the contains mode finds the term wherever it occurs",
+            )
+        }
 
     @Test
-    fun `the notes of the contains mode come back newest first`() = runTest {
-        notes.createWithContent(NoteId("n1"), "Airport transfer", "# body", "<p>body</p>")
-        clock.advanceBy(1_000)
-        notes.createWithContent(NoteId("n2"), "Airport transfer", "# body", "<p>body</p>")
-        // The manual order of the notes is the list's own order, and the
-        // list puts the note with the lower sort order first — the older one.
-        // Without the sort the search would answer in that order, and the
-        // answer would not be the index's.
-        clock.advanceBy(1_000)
-        notes.setSortOrder(NoteId("n2"), 5)
+    fun `a task is searched by its title and its description in either mode`() =
+        runTest {
+            tasks.create(task("t1", title = "Trip", description = "Airport transfer"))
 
-        assertEquals(
-            listOf("n2", "n1"),
-            notes.search("port", SearchMode.Contains).first().map { it.id.value },
-            "the contains mode answers in the same order as the index does",
+            assertEquals(
+                emptyList(),
+                tasks.observeByFilter(TaskFilter.Search("port", SearchMode.Word)).first().map { it.id.value },
+                "the word mode does not find the middle of a word",
+            )
+            assertEquals(
+                listOf("t1"),
+                tasks.observeByFilter(TaskFilter.Search("port", SearchMode.Contains)).first().map { it.id.value },
+                "the contains mode finds the term in the description as well as in the title",
+            )
+            assertTrue(
+                tasks.observeByFilter(TaskFilter.Search("port", SearchMode.Contains)).first().isNotEmpty(),
+                "the task is found by the surface it is searched by (F3)",
+            )
+        }
+
+    @Test
+    fun `the link autocomplete answers in the mode it is given`() =
+        runTest {
+            tasks.create(task("t1", title = "Trip", description = "Airport transfer"))
+
+            assertEquals(
+                emptyList(),
+                links.searchTasks("port", SearchMode.Word).map { it.id.value },
+                "the word mode does not find the middle of a word",
+            )
+            assertEquals(
+                listOf("t1"),
+                links.searchTasks("port", SearchMode.Contains).map { it.id.value },
+                "the contains mode finds the term in the description as well as in the title",
+            )
+        }
+
+    @Test
+    fun `the notes of the contains mode come back newest first`() =
+        runTest {
+            notes.createWithContent(NoteId("n1"), "Airport transfer", "# body", "<p>body</p>")
+            clock.advanceBy(1_000)
+            notes.createWithContent(NoteId("n2"), "Airport transfer", "# body", "<p>body</p>")
+            // The manual order of the notes is the list's own order, and the
+            // list puts the note with the lower sort order first — the older one.
+            // Without the sort the search would answer in that order, and the
+            // answer would not be the index's.
+            clock.advanceBy(1_000)
+            notes.setSortOrder(NoteId("n2"), 5)
+
+            assertEquals(
+                listOf("n2", "n1"),
+                notes.search("port", SearchMode.Contains).first().map { it.id.value },
+                "the contains mode answers in the same order as the index does",
+            )
+        }
+
+    private fun task(
+        id: String,
+        title: String,
+        description: String? = null,
+    ): Task =
+        Task(
+            id = TaskId(id),
+            title = title,
+            description = description,
+            createdAt = Clock.System.now(),
+            updatedAt = Clock.System.now(),
+            userId = user,
         )
-    }
-
-    private fun task(id: String, title: String, description: String? = null): Task = Task(
-        id = TaskId(id),
-        title = title,
-        description = description,
-        createdAt = Clock.System.now(),
-        updatedAt = Clock.System.now(),
-        userId = user,
-    )
 }

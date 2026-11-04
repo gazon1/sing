@@ -36,7 +36,6 @@ sealed interface ProjectsTreeUiState {
 
 /** What the user can ask the tree to do. */
 sealed interface ProjectsTreeIntent : MviIntent {
-
     /**
      * Fold a project's children away, or unfold them.
      *
@@ -81,28 +80,25 @@ class ProjectsTreeViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     init {
         vmScope.launch {
             combine(repo.observeAll(), settings.collapsedProjectIds) { projects, collapsed ->
                 projects to collapsed
+            }.catch { throwable ->
+                crashReporter.report(throwable, LOAD_FAILED)
+                setState(ProjectsTreeUiState.Loaded(persistentListOf()))
+                emit(
+                    ProjectsTreeUiEvent.ShowError(
+                        throwable.message ?: "Could not load the projects",
+                    ),
+                )
+            }.collect { (projects, collapsed) ->
+                setState(
+                    ProjectsTreeUiState.Loaded(
+                        ProjectTreeBuilder.build(projects, collapsed).toImmutableList(),
+                    ),
+                )
             }
-                .catch { throwable ->
-                    crashReporter.report(throwable, LOAD_FAILED)
-                    setState(ProjectsTreeUiState.Loaded(persistentListOf()))
-                    emit(
-                        ProjectsTreeUiEvent.ShowError(
-                            throwable.message ?: "Could not load the projects",
-                        ),
-                    )
-                }
-                .collect { (projects, collapsed) ->
-                    setState(
-                        ProjectsTreeUiState.Loaded(
-                            ProjectTreeBuilder.build(projects, collapsed).toImmutableList(),
-                        ),
-                    )
-                }
         }
     }
 

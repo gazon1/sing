@@ -1,5 +1,6 @@
 package com.singularity.todo.core.backup
 
+import androidx.room3.withWriteTransaction
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.attachments.AttachmentDao
 import com.singularity.todo.core.attachments.AttachmentStorage
@@ -22,7 +23,6 @@ import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.serialization.StableJson
-import androidx.room3.withWriteTransaction
 import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.timetracking.data.TimeEntryDao
 import kotlinx.coroutines.CancellationException
@@ -38,7 +38,6 @@ import kotlin.time.Clock
  * repository whose decisions nobody checks.
  */
 interface ArchiveImporter {
-
     /** Restores the archive at [options]'s source path. */
     suspend fun import(options: ImportOptions): Result<RestoreResult>
 }
@@ -119,10 +118,11 @@ class BackupImporter(
             // shortcut: validation is structural/decode only; per-row constraints
             // are still enforced at apply time, upgrade when per-row pre-checks
             // become a requirement.
-            val decodedChanges = options.entries.map { entry ->
-                val delta = json.decodeFromString(BackupDelta.serializer(), entry.decodeToString())
-                migrate(delta.payload, json.encodeToString(delta.payload).encodeToByteArray())
-            }
+            val decodedChanges =
+                options.entries.map { entry ->
+                    val delta = json.decodeFromString(BackupDelta.serializer(), entry.decodeToString())
+                    migrate(delta.payload, json.encodeToString(delta.payload).encodeToByteArray())
+                }
 
             // 6. The base, and the changes that follow it.
             //
@@ -172,9 +172,17 @@ class BackupImporter(
      * A payload written by an older build is migrated before it is applied; a
      * payload of this build's own schema is left alone.
      */
-    private fun migrate(payload: BackupPayload, payloadBytes: ByteArray): BackupPayload =
+    private fun migrate(
+        payload: BackupPayload,
+        payloadBytes: ByteArray,
+    ): BackupPayload =
         if (payload.schemaVersion > BackupFormat.SCHEMA_VERSION) {
             throw BackupPayloadError.UnsupportedSchemaVersion(payload.schemaVersion)
+        } else if (payload.schemaVersion < BackupFormat.MIN_SUPPORTED_SCHEMA_VERSION) {
+            // A version below the first one is not an older build's payload, it
+            // is a payload nobody can read — and it says so the way every other
+            // unreadable payload says so.
+            throw BackupPayloadError.SchemaTooOld(payload.schemaVersion)
         } else if (payload.schemaVersion < BackupFormat.SCHEMA_VERSION) {
             val jsonObj = json.parseToJsonElement(payloadBytes.decodeToString()).jsonObject
             val migrated = BackupMigrations.migrate(jsonObj, payload.schemaVersion)
@@ -314,36 +322,62 @@ class BackupImporter(
                 taskDao.removeDependencyForUser(taskId, dependsOnTaskId, userId.value)
             }
 
-            BackupEntityKind.CHECKLIST_ITEMS -> checklistDao.deleteForUser(key, userId.value)
+            BackupEntityKind.CHECKLIST_ITEMS -> {
+                checklistDao.deleteForUser(key, userId.value)
+            }
 
             BackupEntityKind.PROJECT_TAG_GROUPS -> {
                 val (projectId, tagGroupId) = key.linkParts()
                 projectTagGroupDao.delete(projectId, tagGroupId, userId.value)
             }
 
-            BackupEntityKind.ATTACHMENT_ANNOTATIONS -> annotationDao.deleteForUser(key, userId.value)
+            BackupEntityKind.ATTACHMENT_ANNOTATIONS -> {
+                annotationDao.deleteForUser(key, userId.value)
+            }
 
-            BackupEntityKind.ATTACHMENTS -> attachmentDao.deleteForUser(key, userId.value)
+            BackupEntityKind.ATTACHMENTS -> {
+                attachmentDao.deleteForUser(key, userId.value)
+            }
 
-            BackupEntityKind.AGENDA_VIEWS -> agendaViewDao.delete(userId.value, key)
+            BackupEntityKind.AGENDA_VIEWS -> {
+                agendaViewDao.delete(userId.value, key)
+            }
 
-            BackupEntityKind.SAVED_SEARCHES -> savedSearchDao.delete(userId.value, key)
+            BackupEntityKind.SAVED_SEARCHES -> {
+                savedSearchDao.delete(userId.value, key)
+            }
 
-            BackupEntityKind.TASK_REMINDERS -> reminderDao.delete(key, userId.value)
+            BackupEntityKind.TASK_REMINDERS -> {
+                reminderDao.delete(key, userId.value)
+            }
 
-            BackupEntityKind.PROJECT_REMINDERS -> projectReminderDao.delete(key, userId.value)
+            BackupEntityKind.PROJECT_REMINDERS -> {
+                projectReminderDao.delete(key, userId.value)
+            }
 
-            BackupEntityKind.TIME_ENTRIES -> timeEntryDao.delete(key, userId.value)
+            BackupEntityKind.TIME_ENTRIES -> {
+                timeEntryDao.delete(key, userId.value)
+            }
 
-            BackupEntityKind.TAGS -> tagDao.deleteForUser(key, userId.value)
+            BackupEntityKind.TAGS -> {
+                tagDao.deleteForUser(key, userId.value)
+            }
 
-            BackupEntityKind.TAG_GROUPS -> tagGroupDao.deleteForUser(key, userId.value)
+            BackupEntityKind.TAG_GROUPS -> {
+                tagGroupDao.deleteForUser(key, userId.value)
+            }
 
-            BackupEntityKind.TASKS -> taskDao.deleteForUser(key, userId.value)
+            BackupEntityKind.TASKS -> {
+                taskDao.deleteForUser(key, userId.value)
+            }
 
-            BackupEntityKind.NOTES -> noteDao.deleteForUser(key, userId.value)
+            BackupEntityKind.NOTES -> {
+                noteDao.deleteForUser(key, userId.value)
+            }
 
-            BackupEntityKind.PROJECTS -> projectDao.deleteForUser(key, userId.value)
+            BackupEntityKind.PROJECTS -> {
+                projectDao.deleteForUser(key, userId.value)
+            }
 
             BackupEntityKind.PROFILES -> {
                 val owner = ownerId ?: throw IllegalStateException("ownerId required to remove profile")
@@ -353,7 +387,11 @@ class BackupImporter(
     }
 
     /** The rows that carry the account itself: tasks, notes, projects and tags. */
-    private suspend fun applyRows(payload: BackupPayload, userId: UserId, now: Long) {
+    private suspend fun applyRows(
+        payload: BackupPayload,
+        userId: UserId,
+        now: Long,
+    ) {
         for (task in payload.tasks) {
             taskDao.upsert(
                 task.toEntity(userId.value).copy(
@@ -405,7 +443,11 @@ class BackupImporter(
      * the table has no foreign key (see AttachmentAnnotationEntity), and adding one
      * would block restoring a note whose file is not in the archive.
      */
-    private suspend fun applyViews(payload: BackupPayload, userId: UserId, now: Long) {
+    private suspend fun applyViews(
+        payload: BackupPayload,
+        userId: UserId,
+        now: Long,
+    ) {
         for (view in payload.agendaViews) {
             agendaViewDao.upsert(
                 view.toEntity(userId.value).copy(
@@ -431,7 +473,11 @@ class BackupImporter(
      * with the target's). The tag groups land before the tags that reference
      * them, and the project's link to a group lands after the groups.
      */
-    private suspend fun applyGroups(payload: BackupPayload, userId: UserId, now: Long) {
+    private suspend fun applyGroups(
+        payload: BackupPayload,
+        userId: UserId,
+        now: Long,
+    ) {
         for (profile in payload.profiles) {
             profileDao.upsert(profile.toEntity())
         }
@@ -449,7 +495,11 @@ class BackupImporter(
     }
 
     /** Saved searches are standalone, with no cross-entity references. */
-    private suspend fun applySavedSearches(searches: List<SavedSearchDto>, userId: UserId, now: Long) {
+    private suspend fun applySavedSearches(
+        searches: List<SavedSearchDto>,
+        userId: UserId,
+        now: Long,
+    ) {
         for (search in searches) {
             savedSearchDao.upsert(
                 SavedSearchEntity(
@@ -465,7 +515,11 @@ class BackupImporter(
     }
 
     /** Task reminders and project reminders have no cross-entity foreign keys. */
-    private suspend fun applyReminders(payload: BackupPayload, userId: UserId, now: Long) {
+    private suspend fun applyReminders(
+        payload: BackupPayload,
+        userId: UserId,
+        now: Long,
+    ) {
         for (reminder in payload.taskReminders) {
             reminderDao.upsert(
                 reminder.toEntity(userId.value).copy(
@@ -485,7 +539,10 @@ class BackupImporter(
     }
 
     /** Checklist items reference the restoring user's tasks, so upsert is safe. */
-    private suspend fun applyChecklistItems(items: List<ChecklistItemDto>, now: Long) {
+    private suspend fun applyChecklistItems(
+        items: List<ChecklistItemDto>,
+        now: Long,
+    ) {
         for (item in items) {
             checklistDao.upsert(
                 ChecklistItemEntity(
@@ -505,7 +562,11 @@ class BackupImporter(
     }
 
     /** Time entries reference the restoring user's tasks. */
-    private suspend fun applyTimeEntries(entries: List<TimeEntryDto>, userId: UserId, now: Long) {
+    private suspend fun applyTimeEntries(
+        entries: List<TimeEntryDto>,
+        userId: UserId,
+        now: Long,
+    ) {
         for (entry in entries) {
             timeEntryDao.upsert(
                 entry.toEntity(userId.value).copy(
@@ -535,7 +596,7 @@ class BackupImporter(
         for (att in attachments) {
             val entryName = "${att.id}.dat"
             val bytes = attachmentBytes[entryName]
-            if (bytes != null) {
+            if (bytes != null && isIntact(att, bytes)) {
                 try {
                     val ext = att.mimeType?.substringAfterLast('/') ?: ""
                     // Both halves matter, and neither subsumes the other.
@@ -572,8 +633,9 @@ class BackupImporter(
                     missingIds.add(att.id)
                 }
             } else {
-                // The row is still inserted when the bytes are absent: the attachment exists
-                // as a record of what was there, marked by a null `localPath` rather than by
+                // The row is still inserted when the bytes are absent — or when they
+                // are not the bytes the row describes: the attachment exists as a
+                // record of what was there, marked by a null `localPath` rather than by
                 // its absence, and dropping it would also orphan the annotations written
                 // against it.
                 attachmentDao.upsert(
@@ -584,6 +646,32 @@ class BackupImporter(
         }
 
         return AttachmentOutcome(restored = restoredCount, missing = missingIds)
+    }
+
+    /**
+     * Whether the bytes in the archive are the bytes the row describes.
+     *
+     * The payload carries the size and the checksum of every attachment, and
+     * neither was checked: an entry that was truncated on the way in was written
+     * to the disk and counted as restored. "Present" is not "intact" — the record
+     * that says how big the file is and what it hashes to is in the same row as
+     * the entry, and it was sitting there unused.
+     *
+     * A row that says nothing about the file cannot say it is damaged, so only
+     * the emptiness of the entry is a verdict in that case — an entry with no
+     * bytes is a truncated one.
+     */
+    private fun isIntact(
+        att: AttachmentDto,
+        bytes: ByteArray,
+    ): Boolean {
+        if (bytes.isEmpty()) return false
+        val expectedChecksum = att.checksum
+        if (expectedChecksum != null) {
+            return BackupDomain.sha256Hex(bytes).equals(expectedChecksum, ignoreCase = true)
+        }
+        val expectedSize = att.fileSizeBytes
+        return expectedSize <= 0L || bytes.size.toLong() == expectedSize
     }
 
     /** What the attachment files did: how many landed, and which did not. */

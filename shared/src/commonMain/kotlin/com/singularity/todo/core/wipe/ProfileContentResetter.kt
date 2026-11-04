@@ -78,7 +78,6 @@ class ProfileContentResetter(
     private val draftStore: DraftStore,
     private val currentUser: ProfileAwareCurrentUser,
 ) : ContentResetter {
-
     override suspend fun resetContent(): ContentResetResult {
         val uid = currentUser.scopedUserId.value.value
 
@@ -113,8 +112,9 @@ class ProfileContentResetter(
         draftStore.clearPrefix("")
 
         return ContentResetResult(
-            wipedTables = ProfileWipePlan.WIPED.keys.toList() +
-                ProfileWipePlan.EMPTIED_BY_CONSEQUENCE.keys.toList(),
+            wipedTables =
+                ProfileWipePlan.WIPED.keys.toList() +
+                    ProfileWipePlan.EMPTIED_BY_CONSEQUENCE.keys.toList(),
         )
     }
 }

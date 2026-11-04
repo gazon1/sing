@@ -8,7 +8,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class BackupDomainTest {
-
     @Test
     fun sha256HexIsDeterministic() {
         val data = "hello world".toByteArray()
@@ -38,13 +37,14 @@ class BackupDomainTest {
         val payloadBytes = "{\"tasks\":[]}".toByteArray()
         val counts = EntityCounts(tasks = 1, notes = 2, projects = 0, tags = 0, attachments = 0, taskTags = 0)
 
-        val manifest = BackupDomain.buildManifest(
-            appVersion = "1.0.0",
-            nowEpochMillis = 1000L,
-            userId = userId,
-            payloadBytes = payloadBytes,
-            counts = counts,
-        )
+        val manifest =
+            BackupDomain.buildManifest(
+                appVersion = "1.0.0",
+                nowEpochMillis = 1000L,
+                userId = userId,
+                payloadBytes = payloadBytes,
+                counts = counts,
+            )
 
         assertEquals(1, manifest.formatVersion)
         assertEquals(BackupFormat.SCHEMA_VERSION, manifest.schemaVersion)
@@ -60,13 +60,14 @@ class BackupDomainTest {
     fun validateManifestAcceptsValidManifest() {
         val userId = UserId.fromString("user-123")
         val payloadBytes = "{\"tasks\":[]}".toByteArray()
-        val manifest = BackupDomain.buildManifest(
-            "1.0.0",
-            1000L,
-            userId,
-            payloadBytes,
-            EntityCounts(tasks = 0),
-        )
+        val manifest =
+            BackupDomain.buildManifest(
+                "1.0.0",
+                1000L,
+                userId,
+                payloadBytes,
+                EntityCounts(tasks = 0),
+            )
 
         val result = BackupDomain.validateManifest(manifest, payloadBytes)
         assertTrue(result.isSuccess)
@@ -74,16 +75,17 @@ class BackupDomainTest {
 
     @Test
     fun validateManifestRejectsFutureFormatVersion() {
-        val manifest = BackupManifest(
-            formatVersion = 99,
-            appName = "test",
-            appVersion = "1.0",
-            createdAtEpochMillis = 0,
-            userIdHash = "hash",
-            schemaVersion = 1,
-            entityCounts = EntityCounts(),
-            payloadChecksum = "abc",
-        )
+        val manifest =
+            BackupManifest(
+                formatVersion = 99,
+                appName = "test",
+                appVersion = "1.0",
+                createdAtEpochMillis = 0,
+                userIdHash = "hash",
+                schemaVersion = 1,
+                entityCounts = EntityCounts(),
+                payloadChecksum = "abc",
+            )
         val result = BackupDomain.validateManifest(manifest, "{}".toByteArray())
         result.onFailure {
             assertTrue(it is BackupPayloadError.UnsupportedFormatVersion)
@@ -92,16 +94,17 @@ class BackupDomainTest {
 
     @Test
     fun validateManifestRejectsFutureSchemaVersion() {
-        val manifest = BackupManifest(
-            formatVersion = 1,
-            appName = "test",
-            appVersion = "1.0",
-            createdAtEpochMillis = 0,
-            userIdHash = "hash",
-            schemaVersion = 99,
-            entityCounts = EntityCounts(),
-            payloadChecksum = "abc",
-        )
+        val manifest =
+            BackupManifest(
+                formatVersion = 1,
+                appName = "test",
+                appVersion = "1.0",
+                createdAtEpochMillis = 0,
+                userIdHash = "hash",
+                schemaVersion = 99,
+                entityCounts = EntityCounts(),
+                payloadChecksum = "abc",
+            )
         val result = BackupDomain.validateManifest(manifest, "{}".toByteArray())
         result.onFailure {
             assertTrue(it is BackupPayloadError.UnsupportedSchemaVersion)
@@ -110,16 +113,17 @@ class BackupDomainTest {
 
     @Test
     fun validateManifestRejectsChecksumMismatch() {
-        val manifest = BackupManifest(
-            formatVersion = 1,
-            appName = "test",
-            appVersion = "1.0",
-            createdAtEpochMillis = 0,
-            userIdHash = "hash",
-            schemaVersion = 1,
-            entityCounts = EntityCounts(),
-            payloadChecksum = "wrong_checksum",
-        )
+        val manifest =
+            BackupManifest(
+                formatVersion = 1,
+                appName = "test",
+                appVersion = "1.0",
+                createdAtEpochMillis = 0,
+                userIdHash = "hash",
+                schemaVersion = 1,
+                entityCounts = EntityCounts(),
+                payloadChecksum = "wrong_checksum",
+            )
         val result = BackupDomain.validateManifest(manifest, "{}".toByteArray())
         result.onFailure {
             assertTrue(it is BackupPayloadError.ChecksumMismatch)

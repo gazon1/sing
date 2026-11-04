@@ -67,7 +67,6 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class EnqueueSiteIsScannedTest {
-
     @Test
     fun `every enqueue that writes a row sits in a file the write rules scan`() {
         val offenders = escapedSites(allSources())
@@ -91,23 +90,24 @@ class EnqueueSiteIsScannedTest {
         // property the rule looks at — it writes a row and enqueues — and differs only in
         // where it lives. A rule whose scan set silently excluded it would pass the first
         // test forever and never notice.
-        val escaped = escapedSites(
-            listOf(
-                SourceFile(
-                    "feature/widget/data/WidgetStore.kt",
-                    """
-                    class WidgetStore(
-                        private val syncRepository: SyncRepository,
-                    ) {
-                        suspend fun rename(id: WidgetId, name: String) {
-                            widgetDao.upsert(row.copy(name = name))
-                            syncRepository.enqueue(row)
+        val escaped =
+            escapedSites(
+                listOf(
+                    SourceFile(
+                        "feature/widget/data/WidgetStore.kt",
+                        """
+                        class WidgetStore(
+                            private val syncRepository: SyncRepository,
+                        ) {
+                            suspend fun rename(id: WidgetId, name: String) {
+                                widgetDao.upsert(row.copy(name = name))
+                                syncRepository.enqueue(row)
+                            }
                         }
-                    }
-                    """.trimIndent(),
+                        """.trimIndent(),
+                    ),
                 ),
-            ),
-        )
+            )
         assertEquals(
             listOf("feature/widget/data/WidgetStore.kt:6"),
             escaped.map { "${it.path}:${it.line}" },
@@ -117,24 +117,25 @@ class EnqueueSiteIsScannedTest {
 
     @Test
     fun `a repository inside the glob is not reported`() {
-        val escaped = escapedSites(
-            listOf(
-                SourceFile(
-                    "feature/widget/data/WidgetRepositoryImpl.kt",
-                    """
-                    class WidgetRepositoryImpl(
-                        private val widgetDao: WidgetDao,
-                        private val syncRepository: SyncRepository,
-                    ) {
-                        suspend fun rename(id: WidgetId, name: String) {
-                            widgetDao.upsert(row.copy(name = name))
-                            syncRepository.enqueue(row)
+        val escaped =
+            escapedSites(
+                listOf(
+                    SourceFile(
+                        "feature/widget/data/WidgetRepositoryImpl.kt",
+                        """
+                        class WidgetRepositoryImpl(
+                            private val widgetDao: WidgetDao,
+                            private val syncRepository: SyncRepository,
+                        ) {
+                            suspend fun rename(id: WidgetId, name: String) {
+                                widgetDao.upsert(row.copy(name = name))
+                                syncRepository.enqueue(row)
+                            }
                         }
-                    }
-                    """.trimIndent(),
+                        """.trimIndent(),
+                    ),
                 ),
-            ),
-        )
+            )
         assertEquals(emptyList(), escaped, "a scanned repository was reported as escaped")
     }
 
@@ -143,23 +144,24 @@ class EnqueueSiteIsScannedTest {
         // The interface spells the pipeline out in KDoc, receiver and all. Treating
         // documentation as a call would put a permanent, unexplainable entry in the failure
         // message — which is how a rule loses its readers.
-        val escaped = escapedSites(
-            listOf(
-                SourceFile(
-                    "core/repository/WidgetUserScopedRepository.kt",
-                    """
-                    interface WidgetUserScopedRepository {
-                        /**
-                         * 1. currentUser.assertCanWrite(item.id)
-                         * 2. widgetDao.upsert(item)
-                         * 3. syncRepository.enqueue(item)
-                         */
-                        suspend fun save(item: Widget): Result<Unit>
-                    }
-                    """.trimIndent(),
+        val escaped =
+            escapedSites(
+                listOf(
+                    SourceFile(
+                        "core/repository/WidgetUserScopedRepository.kt",
+                        """
+                        interface WidgetUserScopedRepository {
+                            /**
+                             * 1. currentUser.assertCanWrite(item.id)
+                             * 2. widgetDao.upsert(item)
+                             * 3. syncRepository.enqueue(item)
+                             */
+                            suspend fun save(item: Widget): Result<Unit>
+                        }
+                        """.trimIndent(),
+                    ),
                 ),
-            ),
-        )
+            )
         assertEquals(emptyList(), escaped, "an enqueue inside KDoc was treated as a call site")
     }
 
@@ -168,36 +170,37 @@ class EnqueueSiteIsScannedTest {
         // Both files call `enqueue(`. Neither is a repository enqueueing its own write, and
         // neither is excused by name — they are not matched, because the receiver is the
         // engine rather than the port.
-        val escaped = escapedSites(
-            listOf(
-                SourceFile(
-                    "core/sync/SyncRepositoryImpl.kt",
-                    """
-                    class SyncRepositoryImpl(private val engine: SyncEngine) : SyncRepository {
-                        override suspend fun enqueue(entity: SyncableEntity): Result<Unit> =
-                            engine.enqueue(entity)
+        val escaped =
+            escapedSites(
+                listOf(
+                    SourceFile(
+                        "core/sync/SyncRepositoryImpl.kt",
+                        """
+                        class SyncRepositoryImpl(private val engine: SyncEngine) : SyncRepository {
+                            override suspend fun enqueue(entity: SyncableEntity): Result<Unit> =
+                                engine.enqueue(entity)
 
-                        override suspend fun push(): Result<Unit> {
-                            outboxDao.upsert(row)
-                            return engine.enqueue(entity)
+                            override suspend fun push(): Result<Unit> {
+                                outboxDao.upsert(row)
+                                return engine.enqueue(entity)
+                            }
                         }
-                    }
-                    """.trimIndent(),
-                ),
-                SourceFile(
-                    "core/di/CoreDiModule.kt",
-                    """
-                    fun syncWriter(): Module = module {
-                        single {
-                            SyncDocumentWriter(
-                                enqueue = { entity -> get<SyncEngine>().enqueue(entity) },
-                            )
+                        """.trimIndent(),
+                    ),
+                    SourceFile(
+                        "core/di/CoreDiModule.kt",
+                        """
+                        fun syncWriter(): Module = module {
+                            single {
+                                SyncDocumentWriter(
+                                    enqueue = { entity -> get<SyncEngine>().enqueue(entity) },
+                                )
+                            }
                         }
-                    }
-                    """.trimIndent(),
+                        """.trimIndent(),
+                    ),
                 ),
-            ),
-        )
+            )
         assertEquals(emptyList(), escaped, "the port or its wiring was reported as a call site")
     }
 
@@ -208,21 +211,22 @@ class EnqueueSiteIsScannedTest {
         // block comments across a false start swallows the rest of the file — including the
         // call this rule exists to find. An unreported trailing comment costs nothing; a
         // swallowed call costs a silent green suite.
-        val escaped = escapedSites(
-            listOf(
-                SourceFile(
-                    "feature/widget/data/WidgetStore.kt",
-                    """
-                    class WidgetStore(private val syncRepository: SyncRepository) {
-                        suspend fun rename() {
-                            val base = "http://x"
-                            widgetDao.upsert(row); syncRepository.enqueue(row) // ok
+        val escaped =
+            escapedSites(
+                listOf(
+                    SourceFile(
+                        "feature/widget/data/WidgetStore.kt",
+                        """
+                        class WidgetStore(private val syncRepository: SyncRepository) {
+                            suspend fun rename() {
+                                val base = "http://x"
+                                widgetDao.upsert(row); syncRepository.enqueue(row) // ok
+                            }
                         }
-                    }
-                    """.trimIndent(),
+                        """.trimIndent(),
+                    ),
                 ),
-            ),
-        )
+            )
         assertEquals(
             listOf("feature/widget/data/WidgetStore.kt:4"),
             escaped.map { "${it.path}:${it.line}" },
@@ -260,17 +264,21 @@ class EnqueueSiteIsScannedTest {
      * The three predicates are ordered cheapest-first and the write check comes before the
      * scan check on purpose: a file with no DAO write is not a hole, whatever it is called.
      */
-    private fun escapedSites(sources: List<SourceFile>): List<Site> = sources.flatMap { file ->
-        val code = stripComments(file.source)
-        val call = PORT_ENQUEUE.find(code)
-        if (call == null) return@flatMap emptyList()
-        if (!WRITES_ROW_IN_BODY.containsMatchIn(code)) return@flatMap emptyList()
-        if (isScanned(file.path, code)) return@flatMap emptyList()
-        listOf(Site(file.path, code.take(call.range.first).count { it == '\n' } + 1))
-    }
+    private fun escapedSites(sources: List<SourceFile>): List<Site> =
+        sources.flatMap { file ->
+            val code = stripComments(file.source)
+            val call = PORT_ENQUEUE.find(code)
+            if (call == null) return@flatMap emptyList()
+            if (!WRITES_ROW_IN_BODY.containsMatchIn(code)) return@flatMap emptyList()
+            if (isScanned(file.path, code)) return@flatMap emptyList()
+            listOf(Site(file.path, code.take(call.range.first).count { it == '\n' } + 1))
+        }
 
     /** The shape `SyncedWriteEnqueuesTest` scans, restated rather than imported. */
-    private fun isScanned(path: String, source: String): Boolean =
+    private fun isScanned(
+        path: String,
+        source: String,
+    ): Boolean =
         path.startsWith(FEATURE_ROOT) &&
             path.endsWith(REPOSITORY_IMPL_SUFFIX) &&
             DECLARES_PORT.containsMatchIn(source)
@@ -290,7 +298,8 @@ class EnqueueSiteIsScannedTest {
 
     private fun allSources(): List<SourceFile> {
         val root = commonMainRoot()
-        return root.walkTopDown()
+        return root
+            .walkTopDown()
             .filter { it.isFile && it.name.endsWith(".kt") }
             .map { it.relativeTo(root).invariantSeparatorsPath to it.readText() }
             .map { (path, source) -> SourceFile(path, source) }
@@ -298,8 +307,9 @@ class EnqueueSiteIsScannedTest {
     }
 
     private fun commonMainRoot(): File {
-        val root = System.getProperty("commonMain.root")
-            ?: error("commonMain.root system property is not set — see the jvmTest task config")
+        val root =
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root system property is not set — see the jvmTest task config")
         val dir = File(root, "com/singularity/todo")
         assertTrue(dir.isDirectory, "commonMain sources are not where this test expects them: ${dir.path}")
         return dir
@@ -313,9 +323,10 @@ class EnqueueSiteIsScannedTest {
         val PORT_ENQUEUE = Regex("""syncRepository\s*\.\s*enqueue\s*\(""")
 
         /** The same write vocabulary `SyncedWriteEnqueuesTest` scans for. */
-        val WRITES_ROW_IN_BODY = Regex(
-            """Dao\.(upsert|insert|update\w*|softDelete\w*|set\w*|patch\w*|delete\w*)\(""",
-        )
+        val WRITES_ROW_IN_BODY =
+            Regex(
+                """Dao\.(upsert|insert|update\w*|softDelete\w*|set\w*|patch\w*|delete\w*)\(""",
+            )
 
         val DECLARES_PORT = Regex("""private val \w+\s*:\s*SyncRepository""")
     }

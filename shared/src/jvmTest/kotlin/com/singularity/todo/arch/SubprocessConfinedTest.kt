@@ -1,7 +1,7 @@
 package com.singularity.todo.arch
 
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -35,7 +35,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SubprocessConfinedTest {
-
     /**
      * Production sources of `:shared`, derived from `commonMain.root`.
      *
@@ -44,14 +43,17 @@ class SubprocessConfinedTest {
      * excluded: they may legitimately construct a process to test it.
      */
     private fun productionSources(): List<File> {
-        val root = System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
-        val sourceRoot = File(root).parentFile?.parentFile
-            ?: error("cannot locate the module source root above $root")
-        return sourceRoot.walkTopDown()
+        val root =
+            System.getProperty("commonMain.root")
+                ?: error(
+                    "commonMain.root system property is not set — " +
+                        "see the jvmTest task config in shared/build.gradle.kts",
+                )
+        val sourceRoot =
+            File(root).parentFile?.parentFile
+                ?: error("cannot locate the module source root above $root")
+        return sourceRoot
+            .walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .filterNot { file -> TEST_SOURCE_MARKERS.any { file.path.contains(it) } }
             .toList()
@@ -60,11 +62,12 @@ class SubprocessConfinedTest {
     @Test
     fun `only Subprocess spawns a process`() {
         val allowed = allowedFiles()
-        val offenders = productionSources()
-            .filterNot { file -> allowed.any { suffix -> file.path.endsWith(suffix) } }
-            .filter { file -> SPAWN_PATTERN.containsMatchIn(file.readText()) }
-            .map { it.name }
-            .sorted()
+        val offenders =
+            productionSources()
+                .filterNot { file -> allowed.any { suffix -> file.path.endsWith(suffix) } }
+                .filter { file -> SPAWN_PATTERN.containsMatchIn(file.readText()) }
+                .map { it.name }
+                .sorted()
 
         assertEquals(
             emptyList(),
@@ -86,12 +89,13 @@ class SubprocessConfinedTest {
      */
     @Test
     fun `the rule recognises every way to spawn a process`() {
-        val samples = listOf(
-            "val p = ProcessBuilder(\"notify-send\", \"--version\").start()",
-            "val p = ProcessBuilder(listOf(\"at\", \"q\")).redirectErrorStream(true).start()",
-            "Runtime.getRuntime().exec(arrayOf(\"secret-tool\", \"lookup\"))",
-            "val p = ProcessBuilder(\"/usr/bin/notify-send\").redirectOutput(ProcessBuilder.Redirect.DISCARD).start()",
-        )
+        val samples =
+            listOf(
+                "val p = ProcessBuilder(\"notify-send\", \"--version\").start()",
+                "val p = ProcessBuilder(listOf(\"at\", \"q\")).redirectErrorStream(true).start()",
+                "Runtime.getRuntime().exec(arrayOf(\"secret-tool\", \"lookup\"))",
+                "val p = ProcessBuilder(\"/usr/bin/notify-send\").redirectOutput(ProcessBuilder.Redirect.DISCARD).start()",
+            )
 
         for (source in samples) {
             assertTrue(
@@ -139,16 +143,18 @@ class SubprocessConfinedTest {
          * `Runtime.addShutdownHook` is deliberately *not* matched. It takes a `Thread`, not
          * a command, and appears in two legitimate places.
          */
-        val SPAWN_PATTERN = Regex(
-            "ProcessBuilder\\s*\\(|Runtime\\s*\\.\\s*getRuntime\\s*\\(\\s*\\)\\s*\\.\\s*exec\\s*\\(",
-        )
+        val SPAWN_PATTERN =
+            Regex(
+                "ProcessBuilder\\s*\\(|Runtime\\s*\\.\\s*getRuntime\\s*\\(\\s*\\)\\s*\\.\\s*exec\\s*\\(",
+            )
 
-        val TEST_SOURCE_MARKERS = listOf(
-            "/jvmTest/",
-            "/commonTest/",
-            "/androidUnitTest/",
-            "/androidHostTest/",
-            "/androidMain/",
-        )
+        val TEST_SOURCE_MARKERS =
+            listOf(
+                "/jvmTest/",
+                "/commonTest/",
+                "/androidUnitTest/",
+                "/androidHostTest/",
+                "/androidMain/",
+            )
     }
 }

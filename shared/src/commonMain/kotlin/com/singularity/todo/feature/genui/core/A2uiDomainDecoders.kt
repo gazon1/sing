@@ -18,7 +18,6 @@ import kotlinx.serialization.json.JsonObject
  * both, and rejecting neither, is the smaller rule.
  */
 internal object A2uiDomainDecoders {
-
     fun taskCard(
         component: JsonObject,
         id: String,
@@ -26,8 +25,9 @@ internal object A2uiDomainDecoders {
         surfaceId: SurfaceId,
         errors: A2uiComponentErrors,
     ): Decode {
-        val title: String = component["title"].asStringOrNull()
-            ?: return Decode.Bad(errors.missingProperty(id, "task_card", "title", pointer, surfaceId))
+        val title: String =
+            component["title"].asStringOrNull()
+                ?: return Decode.Bad(errors.missingProperty(id, "task_card", "title", pointer, surfaceId))
         return Decode.Ok(
             UiNode.TaskCard(
                 title = title,

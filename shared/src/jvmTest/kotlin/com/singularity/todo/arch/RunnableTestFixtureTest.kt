@@ -35,11 +35,11 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class RunnableTestFixtureTest {
-
-    private val repoRoot: File = File(
-        System.getProperty("commonMain.root")
-            ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
-    ).parentFile.parentFile.parentFile.parentFile
+    private val repoRoot: File =
+        File(
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
+        ).parentFile.parentFile.parentFile.parentFile
 
     private val fixtureFile = File(repoRoot, "config/test-fixtures/runnable-test-members.txt")
 
@@ -50,12 +50,13 @@ class RunnableTestFixtureTest {
 
     @Test
     fun every_shared_fixture_matches_its_agreed_verdict() {
-        val failures = loadFixtures()
-            .filter { RunnableTestMember.hasRunnableTest(it.source) != it.runnable }
-            .joinToString("\n") {
-                "  ${it.id}: expected ${it.verdict}, " +
-                    "got ${if (RunnableTestMember.hasRunnableTest(it.source)) "runnable" else "not-runnable"}"
-            }
+        val failures =
+            loadFixtures()
+                .filter { RunnableTestMember.hasRunnableTest(it.source) != it.runnable }
+                .joinToString("\n") {
+                    "  ${it.id}: expected ${it.verdict}, " +
+                        "got ${if (RunnableTestMember.hasRunnableTest(it.source)) "runnable" else "not-runnable"}"
+                }
 
         assertTrue(
             failures.isEmpty(),
@@ -87,7 +88,12 @@ class RunnableTestFixtureTest {
     @Test
     fun fixture_ids_are_unique() {
         val ids = loadFixtures().map { it.id }
-        val duplicates = ids.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+        val duplicates =
+            ids
+                .groupingBy { it }
+                .eachCount()
+                .filterValues { it > 1 }
+                .keys
         assertEquals(emptySet(), duplicates, "duplicate fixture ids")
     }
 
@@ -120,9 +126,11 @@ class RunnableTestFixtureTest {
         fixtureFile.readLines().forEach { line ->
             if (line.startsWith(HEADER)) {
                 flush()
-                val (parsedId, verdict) = line.removePrefix(HEADER)
-                    .split("|")
-                    .map { it.trim() }
+                val (parsedId, verdict) =
+                    line
+                        .removePrefix(HEADER)
+                        .split("|")
+                        .map { it.trim() }
                 check(verdict == "runnable" || verdict == "not-runnable") {
                     "fixture $parsedId: bad verdict '$verdict'"
                 }

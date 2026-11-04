@@ -71,8 +71,7 @@ fun DesktopComposeUiTest.semanticsTree(maxDepth: Int = 25): String {
  * caller is looking for.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.mainRootNodeCount(): Int =
-    semanticsRoots().firstOrNull()?.countNodes() ?: 0
+fun DesktopComposeUiTest.mainRootNodeCount(): Int = semanticsRoots().firstOrNull()?.countNodes() ?: 0
 
 /**
  * The number of nodes carrying [tag] in the app's **main** window — the first root.

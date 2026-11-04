@@ -20,7 +20,6 @@ internal class ToolServerStartupContext(
      */
     val selection: ProfileSelection,
 ) {
-
     /**
      * The profile the caller named, or null when the caller named none.
      */
@@ -71,8 +70,9 @@ internal class ToolServerStartupContext(
      * the runner being told, which is a defect in the sequence rather than a start-up
      * failure a client could be told about.
      */
-    fun ready(): ToolServerStartup.Ready = ToolServerStartup.Ready(
-        server = checkNotNull(server) { "The start-up's order does not build a server." },
-        sessionContext = sessionContext,
-    )
+    fun ready(): ToolServerStartup.Ready =
+        ToolServerStartup.Ready(
+            server = checkNotNull(server) { "The start-up's order does not build a server." },
+            sessionContext = sessionContext,
+        )
 }

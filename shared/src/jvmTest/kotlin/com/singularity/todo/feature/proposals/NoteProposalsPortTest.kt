@@ -5,11 +5,11 @@ import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
+import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
-import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProposalRepository
@@ -28,30 +28,31 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class NoteProposalsPortTest {
-
     private val now = Instant.parse("2026-03-10T09:00:00Z")
 
     @Test
-    fun `the proposals of a note are watched`() = runTest {
-        val repository = FakeProposalRepository(FakeClock(now))
-        val noteId = NoteId.fromString("note-1")
-        repository.save(proposalFor(noteId.value)).getOrThrow()
+    fun `the proposals of a note are watched`() =
+        runTest {
+            val repository = FakeProposalRepository(FakeClock(now))
+            val noteId = NoteId.fromString("note-1")
+            repository.save(proposalFor(noteId.value)).getOrThrow()
 
-        val watched = repository.watchProposalsForNote(noteId).first()
+            val watched = repository.watchProposalsForNote(noteId).first()
 
-        assertEquals(1, watched.size, "the note's proposal is there")
-        assertEquals(noteId.value, watched.first().targetId)
-    }
+            assertEquals(1, watched.size, "the note's proposal is there")
+            assertEquals(noteId.value, watched.first().targetId)
+        }
 
     @Test
-    fun `another note's proposals are not watched`() = runTest {
-        val repository = FakeProposalRepository(FakeClock(now))
-        repository.save(proposalFor("note-1")).getOrThrow()
+    fun `another note's proposals are not watched`() =
+        runTest {
+            val repository = FakeProposalRepository(FakeClock(now))
+            repository.save(proposalFor("note-1")).getOrThrow()
 
-        val watched = repository.watchProposalsForNote(NoteId.fromString("note-2")).first()
+            val watched = repository.watchProposalsForNote(NoteId.fromString("note-2")).first()
 
-        assertEquals(0, watched.size, "a note sees only its own")
-    }
+            assertEquals(0, watched.size, "a note sees only its own")
+        }
 
     private fun proposalFor(noteId: String): AiProposal {
         val proposalId = ProposalId.fromString("prop-1")
@@ -63,17 +64,18 @@ class NoteProposalsPortTest {
             source = ProposalSource.Detail,
             createdAt = now,
             updatedAt = now,
-            items = listOf(
-                ProposalItem(
-                    id = ProposalItemId.fromString("item-1"),
-                    proposalId = proposalId,
-                    kind = ProposalItemKind.SetNoteField(NoteValue.Body("a shorter body")),
-                    targetId = noteId,
-                    humanSummary = "Rewrite the body",
-                    status = ProposalItemStatus.Pending,
-                    fingerprint = "note-body-1",
+            items =
+                listOf(
+                    ProposalItem(
+                        id = ProposalItemId.fromString("item-1"),
+                        proposalId = proposalId,
+                        kind = ProposalItemKind.SetNoteField(NoteValue.Body("a shorter body")),
+                        targetId = noteId,
+                        humanSummary = "Rewrite the body",
+                        status = ProposalItemStatus.Pending,
+                        fingerprint = "note-body-1",
+                    ),
                 ),
-            ),
         )
     }
 }

@@ -92,7 +92,9 @@ data class AdrCorpusConfig(
         val d = "$root/$deferredDir"
         val dir = java.io.File(d)
         if (!dir.isDirectory) return emptyList()
-        return dir.listFiles()?.filter { it.isFile && it.name.endsWith(".md") }
+        return dir
+            .listFiles()
+            ?.filter { it.isFile && it.name.endsWith(".md") }
             ?.map { it.name.removeSuffix(".md") }
             ?.filterNot { it in ignoredFiles }
             ?.sorted()
@@ -117,8 +119,10 @@ data class AdrCorpusConfig(
     fun isDeferred(path: String): Boolean = isDirectoryNamed(path, deferredDir)
 
     /** The directory itself, or anything inside it. */
-    private fun isDirectoryNamed(path: String, name: String): Boolean =
-        path.contains("/$name/") || path.endsWith("/$name")
+    private fun isDirectoryNamed(
+        path: String,
+        name: String,
+    ): Boolean = path.contains("/$name/") || path.endsWith("/$name")
 
     fun isIgnored(path: String): Boolean = path.substringAfterLast('/') in ignoredFiles
 
@@ -128,10 +132,16 @@ data class AdrCorpusConfig(
      * `status: archived` and a different vocabulary, and including them made
      * `list --status open` disagree with the policy gate.
      */
-    fun discover(root: String, maxDepth: Int = discoverMaxDepth): List<String> =
-        walk(Path(root), depth = 0, maxDepth = maxDepth).map { it.toString() }
+    fun discover(
+        root: String,
+        maxDepth: Int = discoverMaxDepth,
+    ): List<String> = walk(Path(root), depth = 0, maxDepth = maxDepth).map { it.toString() }
 
-    private fun walk(dir: java.nio.file.Path, depth: Int, maxDepth: Int): List<java.nio.file.Path> {
+    private fun walk(
+        dir: java.nio.file.Path,
+        depth: Int,
+        maxDepth: Int,
+    ): List<java.nio.file.Path> {
         if (depth > maxDepth || !dir.isDirectory()) return emptyList()
         return dir.listDirectoryEntries().flatMap { entry ->
             val path = entry.toString()
@@ -139,16 +149,21 @@ data class AdrCorpusConfig(
                 // The archive and the backlog are not decisions, and neither is anything
                 // under them. The walk skipped the archive only by accident — the check
                 // was written for a path *inside* it.
-                entry.isDirectory() ->
+                entry.isDirectory() -> {
                     if (isArchived(path) || isDeferred(path)) {
                         emptyList()
                     } else {
                         walk(entry, depth + 1, maxDepth)
                     }
+                }
 
-                isIgnored(path) -> emptyList()
+                isIgnored(path) -> {
+                    emptyList()
+                }
 
-                else -> listOf(entry)
+                else -> {
+                    listOf(entry)
+                }
             }
         }
     }
@@ -179,46 +194,95 @@ data class AdrCorpusConfig(
      * would let a typo be reinterpreted as a decision.
      */
     fun normalizeStatus(raw: String?): String =
-        raw?.trim()?.trim('[', ']', '"', '\'')?.lowercase().orEmpty()
+        raw
+            ?.trim()
+            ?.trim('[', ']', '"', '\'')
+            ?.lowercase()
+            .orEmpty()
 
-    fun isValidStatus(status: String): Boolean =
-        status in statuses || status == archivedStatus
+    fun isValidStatus(status: String): Boolean = status in statuses || status == archivedStatus
 
     companion object {
         /** Mirrors `config/docs/adr-corpus.json`. Kept honest by check-adr-config-sync.py. */
-        val DEFAULT = AdrCorpusConfig(
-            root = "docs/decisions",
-            decisionPattern = Regex("^[0-9]{4}-[0-9]{2}-[0-9]{2}-"),
-            archiveDir = "archive",
-            deferredDir = "deferred",
-            ignoredFiles = setOf("DIGEST.md", "DIGEST-full.md"),
-            statuses = setOf("accepted", "deferred", "superseded", "open"),
-            archivedStatus = "archived",
-            staleDays = 30,
-            frontmatterKeys = setOf(
-                "title", "date", "created", "updated", "last_updated", "status", "tags", "Tags",
-                "deciders", "decider", "authors", "author", "reviewedBy", "review-by", "owner",
-                "profile", "epic", "description", "summary", "id", "slug", "type", "impact",
-                "review", "supersedes", "superseded-by", "superseded_by", "doesNotSupersede",
-                "replaces", "follows", "decides", "adr", "adr-number", "end-date", "labels",
-                "status-was", "issuesRelated", "related", "references", "skills", "context",
-                "Context", "Decision", "Rationale", "Consequences", "Links", "deprecated-by",
-                "gh", "issue", "backlog", "tracked-as",
-            ),
-            frontmatterKeyOrder = listOf(
-                "title",
-                "date",
-                "status",
-                "tags",
-                "deciders",
-                "supersedes",
-                "superseded-by",
-                "epic",
-            ),
-            newAdrStatus = "open",
-            newAdrKeyOrder = listOf("title", "date", "status", "tags"),
-            discoverMaxDepth = 3,
-        )
+        val DEFAULT =
+            AdrCorpusConfig(
+                root = "docs/decisions",
+                decisionPattern = Regex("^[0-9]{4}-[0-9]{2}-[0-9]{2}-"),
+                archiveDir = "archive",
+                deferredDir = "deferred",
+                ignoredFiles = setOf("DIGEST.md", "DIGEST-full.md"),
+                statuses = setOf("accepted", "deferred", "superseded", "open"),
+                archivedStatus = "archived",
+                staleDays = 30,
+                frontmatterKeys =
+                    setOf(
+                        "title",
+                        "date",
+                        "created",
+                        "updated",
+                        "last_updated",
+                        "status",
+                        "tags",
+                        "Tags",
+                        "deciders",
+                        "decider",
+                        "authors",
+                        "author",
+                        "reviewedBy",
+                        "review-by",
+                        "owner",
+                        "profile",
+                        "epic",
+                        "description",
+                        "summary",
+                        "id",
+                        "slug",
+                        "type",
+                        "impact",
+                        "review",
+                        "supersedes",
+                        "superseded-by",
+                        "superseded_by",
+                        "doesNotSupersede",
+                        "replaces",
+                        "follows",
+                        "decides",
+                        "adr",
+                        "adr-number",
+                        "end-date",
+                        "labels",
+                        "status-was",
+                        "issuesRelated",
+                        "related",
+                        "references",
+                        "skills",
+                        "context",
+                        "Context",
+                        "Decision",
+                        "Rationale",
+                        "Consequences",
+                        "Links",
+                        "deprecated-by",
+                        "gh",
+                        "issue",
+                        "backlog",
+                        "tracked-as",
+                    ),
+                frontmatterKeyOrder =
+                    listOf(
+                        "title",
+                        "date",
+                        "status",
+                        "tags",
+                        "deciders",
+                        "supersedes",
+                        "superseded-by",
+                        "epic",
+                    ),
+                newAdrStatus = "open",
+                newAdrKeyOrder = listOf("title", "date", "status", "tags"),
+                discoverMaxDepth = 3,
+            )
 
         private val json = Json { ignoreUnknownKeys = true }
 
@@ -248,30 +312,41 @@ data class AdrCorpusConfig(
                 archiveDir = obj.string("archiveDir", DEFAULT.archiveDir),
                 deferredDir = obj.string("deferredDir", DEFAULT.deferredDir),
                 ignoredFiles = obj.stringList("ignoredFiles", DEFAULT.ignoredFiles),
-                statuses = vocab?.stringList("statuses", DEFAULT.statuses)
-                    ?: DEFAULT.statuses,
-                archivedStatus = vocab?.string("archivedStatus", DEFAULT.archivedStatus)
-                    ?: DEFAULT.archivedStatus,
+                statuses =
+                    vocab?.stringList("statuses", DEFAULT.statuses)
+                        ?: DEFAULT.statuses,
+                archivedStatus =
+                    vocab?.string("archivedStatus", DEFAULT.archivedStatus)
+                        ?: DEFAULT.archivedStatus,
                 staleDays = obj["staleDays"]?.jsonPrimitive?.content?.toIntOrNull() ?: DEFAULT.staleDays,
                 frontmatterKeys = fm.stringList("knownKeys", DEFAULT.frontmatterKeys),
-                frontmatterKeyOrder = fm.orderedStringList(
-                    "keyOrder",
-                    DEFAULT.frontmatterKeyOrder,
-                ),
+                frontmatterKeyOrder =
+                    fm.orderedStringList(
+                        "keyOrder",
+                        DEFAULT.frontmatterKeyOrder,
+                    ),
                 newAdrStatus = fm.string("newAdrStatus", DEFAULT.newAdrStatus),
                 newAdrKeyOrder = fm.orderedStringList("newAdrKeyOrder", DEFAULT.newAdrKeyOrder),
-                discoverMaxDepth = obj["discover"]
-                    ?.jsonObject?.get("maxDepth")
-                    ?.jsonPrimitive?.content?.toIntOrNull()
-                    ?: DEFAULT.discoverMaxDepth,
+                discoverMaxDepth =
+                    obj["discover"]
+                        ?.jsonObject
+                        ?.get("maxDepth")
+                        ?.jsonPrimitive
+                        ?.content
+                        ?.toIntOrNull()
+                        ?: DEFAULT.discoverMaxDepth,
             )
         }
 
-        private fun JsonObject.string(key: String, fallback: String): String =
-            this[key]?.jsonPrimitive?.content ?: fallback
+        private fun JsonObject.string(
+            key: String,
+            fallback: String,
+        ): String = this[key]?.jsonPrimitive?.content ?: fallback
 
-        private fun JsonObject.stringList(key: String, fallback: Set<String>): Set<String> =
-            this[key]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: fallback
+        private fun JsonObject.stringList(
+            key: String,
+            fallback: Set<String>,
+        ): Set<String> = this[key]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: fallback
 
         /**
          * Order-preserving counterpart of [stringList].
@@ -280,7 +355,9 @@ data class AdrCorpusConfig(
          * difference between `--- title, date, status, tags ---` and whatever the
          * insertion order of a hash set happened to be. Order is part of the contract.
          */
-        private fun JsonObject.orderedStringList(key: String, fallback: List<String>): List<String> =
-            this[key]?.jsonArray?.map { it.jsonPrimitive.content } ?: fallback
+        private fun JsonObject.orderedStringList(
+            key: String,
+            fallback: List<String>,
+        ): List<String> = this[key]?.jsonArray?.map { it.jsonPrimitive.content } ?: fallback
     }
 }

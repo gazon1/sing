@@ -44,20 +44,24 @@ data class ViewerRoute(val target: ViewerTarget, val mimeType: String)
  * [MimeTypes.classifyMime].
  */
 object AttachmentViewerRoute {
-
-    fun routeFor(fileName: String?, mimeType: String?): ViewerRoute {
-        val resolvedMime = mimeType?.takeIf { it.isNotBlank() }
-            ?: fileName?.let { name ->
-                MimeTypes.extensionOf(name)?.let { MimeTypes.fromExtension(it) }
-            }
-            ?: "application/octet-stream"
+    fun routeFor(
+        fileName: String?,
+        mimeType: String?,
+    ): ViewerRoute {
+        val resolvedMime =
+            mimeType?.takeIf { it.isNotBlank() }
+                ?: fileName?.let { name ->
+                    MimeTypes.extensionOf(name)?.let { MimeTypes.fromExtension(it) }
+                }
+                ?: "application/octet-stream"
 
         val category = MimeTypes.classifyMime(resolvedMime, fileName)
-        val target = when (category) {
-            FileCategory.Image -> ViewerTarget.InAppImage
-            FileCategory.Text -> ViewerTarget.InAppText
-            FileCategory.External -> ViewerTarget.External
-        }
+        val target =
+            when (category) {
+                FileCategory.Image -> ViewerTarget.InAppImage
+                FileCategory.Text -> ViewerTarget.InAppText
+                FileCategory.External -> ViewerTarget.External
+            }
         return ViewerRoute(target = target, mimeType = resolvedMime)
     }
 }

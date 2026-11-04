@@ -56,8 +56,7 @@ internal enum class FieldShape(val label: String) {
  *
  * A preview may build a source: it is not the owner, it is a picture of one.
  */
-internal fun KoFunctionDeclaration.isPreview(): Boolean =
-    annotations.any { it.name == "Preview" }
+internal fun KoFunctionDeclaration.isPreview(): Boolean = annotations.any { it.name == "Preview" }
 
 /**
  * Whether the property declares a source of [kind].
@@ -97,7 +96,6 @@ internal fun KoFunctionDeclaration.returnsSourceOf(kind: String): Boolean {
  * declarations of any file in `commonMain`.
  */
 internal object TextFieldShapeScan {
-
     /**
      * The whole of `commonMain`, read by Konsist.
      *
@@ -124,16 +122,18 @@ internal object TextFieldShapeScan {
      * 3-minute suite, paid again by every caller.
      */
     private val shapesByPath: Map<String, Set<FieldShape>> by lazy {
-        files.entries.mapNotNull { (path, file) ->
-            if (path.startsWith(HELPERS_PACKAGE)) return@mapNotNull null
-            val imports = file.imports.map { it.name }
-            val shapes = buildSet {
-                if (LOCAL_HELPER in imports) add(FieldShape.LOCAL)
-                if (BRIDGED_HELPER in imports) add(FieldShape.BRIDGED)
-                if (ANCHORED_HELPER in imports) add(FieldShape.ANCHORED)
-            }
-            if (shapes.isEmpty()) null else path to shapes
-        }.toMap()
+        files.entries
+            .mapNotNull { (path, file) ->
+                if (path.startsWith(HELPERS_PACKAGE)) return@mapNotNull null
+                val imports = file.imports.map { it.name }
+                val shapes =
+                    buildSet {
+                        if (LOCAL_HELPER in imports) add(FieldShape.LOCAL)
+                        if (BRIDGED_HELPER in imports) add(FieldShape.BRIDGED)
+                        if (ANCHORED_HELPER in imports) add(FieldShape.ANCHORED)
+                    }
+                if (shapes.isEmpty()) null else path to shapes
+            }.toMap()
     }
 
     fun shapes(): Map<String, Set<FieldShape>> = shapesByPath
@@ -144,8 +144,7 @@ internal object TextFieldShapeScan {
      * Fails the test when the file does not exist: a registry that names a file
      * that is gone is a registry that is wrong, and the failure has to be loud.
      */
-    fun file(path: String): KoFileDeclaration =
-        files[path] ?: error("no such file in commonMain: $path")
+    fun file(path: String): KoFileDeclaration = files[path] ?: error("no such file in commonMain: $path")
 
     /** The properties of the file at [path], nested ones included. */
     fun properties(path: String): List<KoPropertyDeclaration> = file(path).properties()
@@ -172,18 +171,20 @@ internal object TextFieldShapeScan {
     fun functionsThatCanMention(fullyQualifiedName: String): List<KoFunctionDeclaration> {
         val typeName = fullyQualifiedName.substringAfterLast('.')
         val packageName = fullyQualifiedName.substringBeforeLast('.')
-        val candidates = files.filter { (path, file) ->
-            packageOf(path) == packageName ||
-                file.imports.any { it.name.substringAfterLast('.') == typeName }
-        }
-        val declaresTheType = candidates.any { (path, file) ->
-            packageOf(path) == packageName &&
-                (
-                    file.interfaces().any { it.name == typeName } ||
-                        file.classes().any { it.name == typeName } ||
-                        file.objects().any { it.name == typeName }
-                )
-        }
+        val candidates =
+            files.filter { (path, file) ->
+                packageOf(path) == packageName ||
+                    file.imports.any { it.name.substringAfterLast('.') == typeName }
+            }
+        val declaresTheType =
+            candidates.any { (path, file) ->
+                packageOf(path) == packageName &&
+                    (
+                        file.interfaces().any { it.name == typeName } ||
+                            file.classes().any { it.name == typeName } ||
+                            file.objects().any { it.name == typeName }
+                    )
+            }
         check(declaresTheType) {
             "no file of $packageName declares $typeName — the rule would look at nothing"
         }
@@ -199,8 +200,7 @@ internal object TextFieldShapeScan {
      * `com.singularity.todo.core.ui`, and a package without its root names a
      * package that does not exist.
      */
-    private fun packageOf(path: String): String =
-        "$ROOT_PACKAGE.${path.substringBeforeLast('/').replace('/', '.')}"
+    private fun packageOf(path: String): String = "$ROOT_PACKAGE.${path.substringBeforeLast('/').replace('/', '.')}"
 
     /**
      * The text of every declaration of the file at [path] — the functions and the
@@ -227,8 +227,7 @@ internal object TextFieldShapeScan {
      * a rule about a call site, where the call may sit in an initializer and
      * not in a function at all.
      */
-    fun allFileTexts(): List<Pair<String, String>> =
-        files.entries.map { (path, file) -> path to file.text }
+    fun allFileTexts(): List<Pair<String, String>> = files.entries.map { (path, file) -> path to file.text }
 
     /**
      * The path of a file, relative to `com/singularity/todo/`.

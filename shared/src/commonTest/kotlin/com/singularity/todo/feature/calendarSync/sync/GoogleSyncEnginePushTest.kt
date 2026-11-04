@@ -41,16 +41,20 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class GoogleSyncEnginePushTest {
-
     private val t0 = Instant.fromEpochMilliseconds(1_700_000_000_000)
     private val clock = MutableClock(t0)
     private val utc = TimeZone.UTC
     private val userId = TestUsers.DEFAULT
 
-    private val noon = LocalDateTime(2026, 3, 4, 12, 0).toInstant(utc)
+    private val noon = localDateTime(2026, 3, 4, 12, 0).toInstant(utc)
 
-    private fun LocalDateTime(y: Int, mo: Int, d: Int, h: Int, mi: Int) =
-        kotlinx.datetime.LocalDateTime(LocalDate(y, mo, d), LocalTime(h, mi))
+    private fun localDateTime(
+        y: Int,
+        mo: Int,
+        d: Int,
+        h: Int,
+        mi: Int,
+    ) = kotlinx.datetime.LocalDateTime(LocalDate(y, mo, d), LocalTime(h, mi))
 
     /** Records what the engine asked Google to do. */
     private class RecordingSource(private val events: List<GoogleEvent>) : CalendarEventSource {
@@ -59,10 +63,15 @@ class GoogleSyncEnginePushTest {
 
         override suspend fun listCalendars(): List<GoogleCalendarSummary> = emptyList()
 
-        override suspend fun fetchChanges(calendarId: String, syncToken: String?) =
-            ChangePage(events = events, nextSyncToken = "token-1")
+        override suspend fun fetchChanges(
+            calendarId: String,
+            syncToken: String?,
+        ) = ChangePage(events = events, nextSyncToken = "token-1")
 
-        override suspend fun insert(calendarId: String, event: GoogleEvent): GoogleEvent {
+        override suspend fun insert(
+            calendarId: String,
+            event: GoogleEvent,
+        ): GoogleEvent {
             inserts += event
             return event.copy(id = GoogleEventId("generated-${inserts.size}"))
         }
@@ -77,10 +86,16 @@ class GoogleSyncEnginePushTest {
             return event
         }
 
-        override suspend fun get(calendarId: String, eventId: GoogleEventId) =
-            GoogleEvent(id = eventId, calendarId = calendarId)
+        override suspend fun get(
+            calendarId: String,
+            eventId: GoogleEventId,
+        ) = GoogleEvent(id = eventId, calendarId = calendarId)
 
-        override suspend fun cancel(calendarId: String, eventId: GoogleEventId, etag: String?) = Unit
+        override suspend fun cancel(
+            calendarId: String,
+            eventId: GoogleEventId,
+            etag: String?,
+        ) = Unit
     }
 
     private val db = FakeAppDatabase()
@@ -89,17 +104,18 @@ class GoogleSyncEnginePushTest {
     private val scheduler = FakeReminderScheduler()
     private val source = RecordingSource(emptyList())
 
-    private fun applier() = GoogleTaskApplier(
-        taskRepository = taskRepo,
-        reminderRepository = reminders,
-        reminderScheduler = scheduler,
-        shadowDao = db.googleEventShadowDao(),
-        importDao = db.calendarImportEventDao(),
-        userId = userId,
-        clock = clock,
-        idGenerator = UuidIdGenerator,
-        timeZone = { utc },
-    )
+    private fun applier() =
+        GoogleTaskApplier(
+            taskRepository = taskRepo,
+            reminderRepository = reminders,
+            reminderScheduler = scheduler,
+            shadowDao = db.googleEventShadowDao(),
+            importDao = db.calendarImportEventDao(),
+            userId = userId,
+            clock = clock,
+            idGenerator = UuidIdGenerator,
+            timeZone = { utc },
+        )
 
     private fun remoteEvent(
         title: String? = "Old title",
@@ -125,156 +141,180 @@ class GoogleSyncEnginePushTest {
     // ─── The regression this file exists for ────────────────────────────
 
     @Test
-    fun `a renamed task reaches Google`() = runTest {
-        // The remote event has a recorded ancestor and an unchanged task id; the local task
-        // has moved on. Before the fix `ours` was built from the shadow, so `localChanged`
-        // was always false and `patch` was unreachable.
-        taskRepo.seed(
-            com.singularity.todo.feature.tasks.domain.model.Task(
-                id = com.singularity.todo.feature.tasks.domain.model.TaskId("task-1"),
-                title = "New title",
-                dueDate = LocalDate(2026, 3, 4),
-                dueTime = LocalTime(12, 0),
-                createdAt = t0,
-                updatedAt = t0,
-                userId = userId,
-            ),
-        )
-        writeShadow(base = EventShadow(title = "Old title", startsAt = noon, endsAt = noon))
+    fun `a renamed task reaches Google`() =
+        runTest {
+            // The remote event has a recorded ancestor and an unchanged task id; the local task
+            // has moved on. Before the fix `ours` was built from the shadow, so `localChanged`
+            // was always false and `patch` was unreachable.
+            taskRepo.seed(
+                com.singularity.todo.feature.tasks.domain.model.Task(
+                    id =
+                        com.singularity.todo.feature.tasks.domain.model
+                            .TaskId("task-1"),
+                    title = "New title",
+                    dueDate = LocalDate(2026, 3, 4),
+                    dueTime = LocalTime(12, 0),
+                    createdAt = t0,
+                    updatedAt = t0,
+                    userId = userId,
+                ),
+            )
+            writeShadow(base = EventShadow(title = "Old title", startsAt = noon, endsAt = noon))
 
-        val result = engineWith(remoteEvent(title = "Old title")).sync("primary")
+            val result = engineWith(remoteEvent(title = "Old title")).sync("primary")
 
-        assertEquals(1, result.pushed, "a renamed task must be pushed to Google")
-        assertEquals("New title", source.patches.single().title)
-    }
-
-    @Test
-    fun `a pushed patch preserves the location Google holds`() = runTest {
-        // The task has no location field at all, so a task-derived payload always has
-        // `location = null`. Sending that would erase the address on a real entry.
-        taskRepo.seed(
-            com.singularity.todo.feature.tasks.domain.model.Task(
-                id = com.singularity.todo.feature.tasks.domain.model.TaskId("task-1"),
-                title = "New title",
-                createdAt = t0,
-                updatedAt = t0,
-                userId = userId,
-            ),
-        )
-        writeShadow(base = EventShadow(title = "Old title", location = "Clinic"))
-        val event = remoteEvent(title = "Old title", location = "Clinic")
-        val engine = engineWith(event)
-
-        engine.sync("primary")
-
-        assertEquals("Clinic", source.patches.single().location)
-    }
+            assertEquals(1, result.pushed, "a renamed task must be pushed to Google")
+            assertEquals("New title", source.patches.single().title)
+        }
 
     @Test
-    fun `an unchanged task produces no write at all`() = runTest {
-        // Otherwise every pass bumps the event and then syncs that bump back out.
-        taskRepo.seed(
-            com.singularity.todo.feature.tasks.domain.model.Task(
-                id = com.singularity.todo.feature.tasks.domain.model.TaskId("task-1"),
-                title = "Same",
-                dueDate = LocalDate(2026, 3, 4),
-                dueTime = LocalTime(12, 0),
-                createdAt = t0,
-                updatedAt = t0,
-                userId = userId,
-            ),
-        )
-        // `endsAt` is null on both sides because the task has no end date. The first version
-        // of this test put `endsAt = noon` in the shadow while the task implied null — so the
-        // push it complained about was correct, and the test was asserting that a real
-        // disagreement was not a disagreement.
-        writeShadow(base = EventShadow(title = "Same", startsAt = noon, endsAt = null))
+    fun `a pushed patch preserves the location Google holds`() =
+        runTest {
+            // The task has no location field at all, so a task-derived payload always has
+            // `location = null`. Sending that would erase the address on a real entry.
+            taskRepo.seed(
+                com.singularity.todo.feature.tasks.domain.model.Task(
+                    id =
+                        com.singularity.todo.feature.tasks.domain.model
+                            .TaskId("task-1"),
+                    title = "New title",
+                    createdAt = t0,
+                    updatedAt = t0,
+                    userId = userId,
+                ),
+            )
+            writeShadow(base = EventShadow(title = "Old title", location = "Clinic"))
+            val event = remoteEvent(title = "Old title", location = "Clinic")
+            val engine = engineWith(event)
 
-        val result = engineWith(remoteEvent(title = "Same", endsAt = null)).sync("primary")
+            engine.sync("primary")
 
-        assertTrue(source.patches.isEmpty(), "an unchanged task must not be written")
-        assertEquals(0, result.pushed)
-    }
+            assertEquals("Clinic", source.patches.single().location)
+        }
+
+    @Test
+    fun `an unchanged task produces no write at all`() =
+        runTest {
+            // Otherwise every pass bumps the event and then syncs that bump back out.
+            taskRepo.seed(
+                com.singularity.todo.feature.tasks.domain.model.Task(
+                    id =
+                        com.singularity.todo.feature.tasks.domain.model
+                            .TaskId("task-1"),
+                    title = "Same",
+                    dueDate = LocalDate(2026, 3, 4),
+                    dueTime = LocalTime(12, 0),
+                    createdAt = t0,
+                    updatedAt = t0,
+                    userId = userId,
+                ),
+            )
+            // `endsAt` is null on both sides because the task has no end date. The first version
+            // of this test put `endsAt = noon` in the shadow while the task implied null — so the
+            // push it complained about was correct, and the test was asserting that a real
+            // disagreement was not a disagreement.
+            writeShadow(base = EventShadow(title = "Same", startsAt = noon, endsAt = null))
+
+            val result = engineWith(remoteEvent(title = "Same", endsAt = null)).sync("primary")
+
+            assertTrue(source.patches.isEmpty(), "an unchanged task must not be written")
+            assertEquals(0, result.pushed)
+        }
 
     // ─── Insert: the case the pull walk structurally cannot see ──────────
 
     @Test
-    fun `a task with no Google event yet is inserted`() = runTest {
-        taskRepo.seed(
-            com.singularity.todo.feature.tasks.domain.model.Task(
-                id = com.singularity.todo.feature.tasks.domain.model.TaskId("task-1"),
-                title = "Brand new",
-                createdAt = t0,
-                updatedAt = t0,
-                userId = userId,
-            ),
-        )
+    fun `a task with no Google event yet is inserted`() =
+        runTest {
+            taskRepo.seed(
+                com.singularity.todo.feature.tasks.domain.model.Task(
+                    id =
+                        com.singularity.todo.feature.tasks.domain.model
+                            .TaskId("task-1"),
+                    title = "Brand new",
+                    createdAt = t0,
+                    updatedAt = t0,
+                    userId = userId,
+                ),
+            )
 
-        val result = engineWith().sync("primary")
+            val result = engineWith().sync("primary")
 
-        assertEquals(1, result.pushed)
-        assertEquals("Brand new", source.inserts.single().title)
-    }
-
-    @Test
-    fun `a completed task is not put on the calendar`() = runTest {
-        taskRepo.seed(
-            com.singularity.todo.feature.tasks.domain.model.Task(
-                id = com.singularity.todo.feature.tasks.domain.model.TaskId("task-1"),
-                title = "Done already",
-                completedAt = t0,
-                createdAt = t0,
-                updatedAt = t0,
-                userId = userId,
-            ),
-        )
-
-        engineWith().sync("primary")
-
-        assertTrue(source.inserts.isEmpty(), "a completed task must not be created in Google")
-    }
+            assertEquals(1, result.pushed)
+            assertEquals("Brand new", source.inserts.single().title)
+        }
 
     @Test
-    fun `a trashed task is not put on the calendar`() = runTest {
-        taskRepo.seed(
-            com.singularity.todo.feature.tasks.domain.model.Task(
-                id = com.singularity.todo.feature.tasks.domain.model.TaskId("task-1"),
-                title = "Bin",
-                archivedAt = t0,
-                createdAt = t0,
-                updatedAt = t0,
-                userId = userId,
-            ),
-        )
+    fun `a completed task is not put on the calendar`() =
+        runTest {
+            taskRepo.seed(
+                com.singularity.todo.feature.tasks.domain.model.Task(
+                    id =
+                        com.singularity.todo.feature.tasks.domain.model
+                            .TaskId("task-1"),
+                    title = "Done already",
+                    completedAt = t0,
+                    createdAt = t0,
+                    updatedAt = t0,
+                    userId = userId,
+                ),
+            )
 
-        engineWith().sync("primary")
+            engineWith().sync("primary")
 
-        assertTrue(source.inserts.isEmpty(), "a trashed task must not be created in Google")
-    }
+            assertTrue(source.inserts.isEmpty(), "a completed task must not be created in Google")
+        }
 
     @Test
-    fun `an inserted event gets a shadow so the next pass can update it`() = runTest {
-        // Without one, the next pass sees an event with no recorded ancestor, every field
-        // reads as a conflict, and the task is inserted once and never synced again.
-        taskRepo.seed(
-            com.singularity.todo.feature.tasks.domain.model.Task(
-                id = com.singularity.todo.feature.tasks.domain.model.TaskId("task-1"),
-                title = "Brand new",
-                createdAt = t0,
-                updatedAt = t0,
-                userId = userId,
-            ),
-        )
+    fun `a trashed task is not put on the calendar`() =
+        runTest {
+            taskRepo.seed(
+                com.singularity.todo.feature.tasks.domain.model.Task(
+                    id =
+                        com.singularity.todo.feature.tasks.domain.model
+                            .TaskId("task-1"),
+                    title = "Bin",
+                    archivedAt = t0,
+                    createdAt = t0,
+                    updatedAt = t0,
+                    userId = userId,
+                ),
+            )
 
-        engineWith().sync("primary")
+            engineWith().sync("primary")
 
-        val shadow = db.googleEventShadowDao().get(userId.value, "generated-1")
-        assertEquals("task-1", shadow?.taskId)
-    }
+            assertTrue(source.inserts.isEmpty(), "a trashed task must not be created in Google")
+        }
+
+    @Test
+    fun `an inserted event gets a shadow so the next pass can update it`() =
+        runTest {
+            // Without one, the next pass sees an event with no recorded ancestor, every field
+            // reads as a conflict, and the task is inserted once and never synced again.
+            taskRepo.seed(
+                com.singularity.todo.feature.tasks.domain.model.Task(
+                    id =
+                        com.singularity.todo.feature.tasks.domain.model
+                            .TaskId("task-1"),
+                    title = "Brand new",
+                    createdAt = t0,
+                    updatedAt = t0,
+                    userId = userId,
+                ),
+            )
+
+            engineWith().sync("primary")
+
+            val shadow = db.googleEventShadowDao().get(userId.value, "generated-1")
+            assertEquals("task-1", shadow?.taskId)
+        }
 
     // ─── Helpers ────────────────────────────────────────────────────────
 
-    private suspend fun writeShadow(base: EventShadow, taskId: String = "task-1") {
+    private suspend fun writeShadow(
+        base: EventShadow,
+        taskId: String = "task-1",
+    ) {
         db.googleEventShadowDao().upsert(
             GoogleEventShadowEntity(
                 userId = userId.value,
@@ -289,17 +329,21 @@ class GoogleSyncEnginePushTest {
         )
     }
 
-    private fun engineWith(vararg events: GoogleEvent) = GoogleSyncEngine(
-        eventSource = object : CalendarEventSource by source {
-            override suspend fun fetchChanges(calendarId: String, syncToken: String?) =
-                ChangePage(events = events.toList(), nextSyncToken = "t1")
-        },
-        importWindow = ImportWindow.DEFAULT,
-        shadowDao = db.googleEventShadowDao(),
-        stateDao = db.calendarSyncStateDao(),
-        importDao = db.calendarImportEventDao(),
-        userId = userId.value,
-        clock = clock,
-        applier = applier(),
-    )
+    private fun engineWith(vararg events: GoogleEvent) =
+        GoogleSyncEngine(
+            eventSource =
+                object : CalendarEventSource by source {
+                    override suspend fun fetchChanges(
+                        calendarId: String,
+                        syncToken: String?,
+                    ) = ChangePage(events = events.toList(), nextSyncToken = "t1")
+                },
+            importWindow = ImportWindow.DEFAULT,
+            shadowDao = db.googleEventShadowDao(),
+            stateDao = db.calendarSyncStateDao(),
+            importDao = db.calendarImportEventDao(),
+            userId = userId.value,
+            clock = clock,
+            applier = applier(),
+        )
 }

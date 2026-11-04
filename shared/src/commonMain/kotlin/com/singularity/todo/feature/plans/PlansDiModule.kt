@@ -21,24 +21,26 @@ import kotlin.time.Clock
  * binding of the same repository would be a second place where the choice
  * lives.
  */
-fun plansModule(): Module = module {
-    // ─── Repository ─────────────────────────────────────────────────────
+fun plansModule(): Module =
+    module {
+        // ─── Repository ─────────────────────────────────────────────────────
 
-    single<PlansSettingsRepository> { get<SettingsRepository>().plans }
+        single<PlansSettingsRepository> { get<SettingsRepository>().plans }
 
-    // ─── ViewModel ──────────────────────────────────────────────────────
+        // ─── ViewModel ──────────────────────────────────────────────────────
 
-    viewModel {
-        PlansViewModel(
-            deps = PlansDeps(
-                taskRepo = get<TaskRepository>(),
-                settings = get<PlansSettingsRepository>(),
-                clock = get<Clock>(),
-                timeZone = get<TimeZoneProvider>(),
-                reminderScheduler = get<ReminderScheduler>(),
-                currentUser = get<ProfileAwareCurrentUser>(),
-            ),
-            crashReporter = get(),
-        )
+        viewModel {
+            PlansViewModel(
+                deps =
+                    PlansDeps(
+                        taskRepo = get<TaskRepository>(),
+                        settings = get<PlansSettingsRepository>(),
+                        clock = get<Clock>(),
+                        timeZone = get<TimeZoneProvider>(),
+                        reminderScheduler = get<ReminderScheduler>(),
+                        currentUser = get<ProfileAwareCurrentUser>(),
+                    ),
+                crashReporter = get(),
+            )
+        }
     }
-}

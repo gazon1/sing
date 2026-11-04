@@ -8,5 +8,6 @@ import com.singularity.todo.core.ui.MviEvent
  */
 sealed interface AttachmentsUiEvent : MviEvent {
     data class ShowError(val message: String) : AttachmentsUiEvent
+
     data class UndoDelete(val attachmentId: AttachmentId) : AttachmentsUiEvent
 }

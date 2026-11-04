@@ -28,7 +28,6 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class AgendaStateFilterScenarioTest {
-
     @Test
     @DisplayName("AGENDA-STATE-01 a saved view shows only the tasks in the chosen state")
     fun a_saved_view_shows_only_the_tasks_in_the_chosen_state() =

@@ -12,7 +12,6 @@ import java.io.File
  * is not executable" is.
  */
 sealed interface ToolServerCommand {
-
     /** A command that starts the tool server. */
     data class Available(val command: String, val args: List<String>) : ToolServerCommand
 
@@ -45,7 +44,6 @@ data class ToolServerEnvironment(
     val classpath: String,
 ) {
     companion object {
-
         /**
          * Reads the facts from the running process.
          *
@@ -63,7 +61,12 @@ data class ToolServerEnvironment(
             val javaName = if (windows) "java.exe" else "java"
             return ToolServerEnvironment(
                 packaged = System.getProperty("jpackage.app-version") != null,
-                launcher = ProcessHandle.current().info().command().orElse(null),
+                launcher =
+                    ProcessHandle
+                        .current()
+                        .info()
+                        .command()
+                        .orElse(null),
                 javaBinary = File(javaHome, "bin/$javaName").takeIf { it.isFile }?.path,
                 classpath = System.getProperty("java.class.path").orEmpty(),
             )
@@ -111,7 +114,6 @@ data class ToolServerEnvironment(
  * the connection is fine, and the agent is simply blind to the user's data.
  */
 class McpServerCommandProvider(private val environment: ToolServerEnvironment = ToolServerEnvironment.current()) {
-
     /**
      * The command that starts the tool server for [profileId].
      *
@@ -133,11 +135,12 @@ class McpServerCommandProvider(private val environment: ToolServerEnvironment = 
     }
 
     private fun packagedCommand(profileArgs: List<String>): ToolServerCommand {
-        val launcher = environment.launcher
-            ?: return ToolServerCommand.Unavailable(
-                "the running process does not report its own executable, so the tool server " +
-                    "cannot be started from the application's launcher",
-            )
+        val launcher =
+            environment.launcher
+                ?: return ToolServerCommand.Unavailable(
+                    "the running process does not report its own executable, so the tool server " +
+                        "cannot be started from the application's launcher",
+                )
         if (!File(launcher).canExecute()) {
             return ToolServerCommand.Unavailable(
                 "the application's own executable at $launcher is not executable, so the " +
@@ -151,11 +154,12 @@ class McpServerCommandProvider(private val environment: ToolServerEnvironment = 
     }
 
     private fun developmentCommand(profileArgs: List<String>): ToolServerCommand {
-        val java = environment.javaBinary
-            ?: return ToolServerCommand.Unavailable(
-                "no Java runtime was found at ${System.getProperty("java.home")}/bin, so the " +
-                    "tool server cannot be started outside a packaged application",
-            )
+        val java =
+            environment.javaBinary
+                ?: return ToolServerCommand.Unavailable(
+                    "no Java runtime was found at ${System.getProperty("java.home")}/bin, so the " +
+                        "tool server cannot be started outside a packaged application",
+                )
         if (!File(java).canExecute()) {
             return ToolServerCommand.Unavailable(
                 "the Java runtime at $java is not executable, so the tool server cannot be " +

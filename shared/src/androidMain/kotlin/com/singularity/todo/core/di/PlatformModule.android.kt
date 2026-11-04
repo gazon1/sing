@@ -7,15 +7,18 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import com.singularity.todo.core.backup.AndroidBackupCodec
 import com.singularity.todo.core.backup.BackupCodec
+import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
+import com.singularity.todo.core.database.RoomUnitOfWork
+import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.files.AndroidFileOpener
 import com.singularity.todo.core.files.AndroidFileRevealer
-import com.singularity.todo.core.files.AndroidFileSourceFactory
 import com.singularity.todo.core.files.AndroidFileSharePort
+import com.singularity.todo.core.files.AndroidFileSourceFactory
 import com.singularity.todo.core.files.AndroidFileSystem
 import com.singularity.todo.core.files.AndroidSharePort
-import com.singularity.todo.core.files.AndroidFileOpener
 import com.singularity.todo.core.files.FileOpener
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSharePort
@@ -23,16 +26,16 @@ import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.log.LogBundleExporter
-import com.singularity.todo.core.observability.FileCrashReportingPort
-import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.notifications.AndroidNotifier
-import com.singularity.todo.core.notifications.Notifier
 import com.singularity.todo.core.notifications.NotificationsSettingsRepository
-import com.singularity.todo.core.observability.crashReportingFailureHandler
-import com.singularity.todo.core.platform.AndroidHostEnvironment
+import com.singularity.todo.core.notifications.Notifier
 import com.singularity.todo.core.observability.AndroidFileToolCallLog
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.FileCrashReportingPort
 import com.singularity.todo.core.observability.ToolCallLog
 import com.singularity.todo.core.observability.ToolCallRecorder
+import com.singularity.todo.core.observability.crashReportingFailureHandler
+import com.singularity.todo.core.platform.AndroidHostEnvironment
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.core.platform.haptics.AndroidHaptic
 import com.singularity.todo.core.platform.haptics.Haptic
@@ -44,18 +47,18 @@ import com.singularity.todo.core.settings.SettingsDataStoreMigration
 import com.singularity.todo.core.sync.AndroidSyncPeriodicTrigger
 import com.singularity.todo.core.sync.SyncPeriodicTrigger
 import com.singularity.todo.core.sync.work.AndroidSyncWorkScheduler
+import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.core.work.AndroidBackgroundWorkScheduler
 import com.singularity.todo.core.work.BackgroundWorkScheduler
-import com.singularity.todo.core.sync.work.SyncWorkScheduler
-import com.singularity.todo.feature.calendarSync.data.AndroidCalendarAppQueries
-import com.singularity.todo.feature.calendarSync.data.AndroidCalendarProvider
-import com.singularity.todo.feature.calendarSync.data.CalendarSyncSettingsRepositoryImpl
 import com.singularity.todo.feature.calendarSync.auth.GoogleAccessTokenProvider
 import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRedeemer
 import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRevoker
 import com.singularity.todo.feature.calendarSync.auth.SupabaseGoogleAccessTokenProvider
 import com.singularity.todo.feature.calendarSync.auth.SupabaseGoogleGrantRedeemer
 import com.singularity.todo.feature.calendarSync.auth.SupabaseGoogleGrantRevoker
+import com.singularity.todo.feature.calendarSync.data.AndroidCalendarAppQueries
+import com.singularity.todo.feature.calendarSync.data.AndroidCalendarProvider
+import com.singularity.todo.feature.calendarSync.data.CalendarSyncSettingsRepositoryImpl
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarSyncRepository
 import com.singularity.todo.feature.calendarSync.sync.GoogleSyncCoordinator
@@ -70,21 +73,18 @@ import com.singularity.todo.feature.pomodoro.PomodoroConfig
 import com.singularity.todo.feature.pomodoro.PomodoroScheduler
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
-import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.AlarmManagerReminderScheduler
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.settings.AiApiKeyMigration
-import java.io.File
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
-import com.singularity.todo.core.database.RoomUnitOfWork
-import com.singularity.todo.core.database.UnitOfWork
+import java.io.File
 
 /**
  * Android platform bindings.
@@ -107,322 +107,324 @@ import com.singularity.todo.core.database.UnitOfWork
  * builder code — and the un-qualified binding delegates to the named one
  * to keep them as the *same* DataStore instance.
  */
-actual fun platformModule(): Module = module {
-    // ─── Dispatchers ──────────────────────────────────────────────────────
+actual fun platformModule(): Module =
+    module {
+        // ─── Dispatchers ──────────────────────────────────────────────────────
 
-    // The dispatcher the heavy work runs on: sealing an archive, exporting one,
-    // reading one. Choosing it here is the platform's business — `commonMain`
-    // is not allowed to name a dispatcher, and a test can hand in its own.
-    single<CoroutineDispatcher> { Dispatchers.IO }
+        // The dispatcher the heavy work runs on: sealing an archive, exporting one,
+        // reading one. Choosing it here is the platform's business — `commonMain`
+        // is not allowed to name a dispatcher, and a test can hand in its own.
+        single<CoroutineDispatcher> { Dispatchers.IO }
 
-    // ─── Room Database ────────────────────────────────────────────────────
+        // ─── Room Database ────────────────────────────────────────────────────
 
-    single<AppDatabase> {
-        // Room 3 KMP resolves `name` as a relative file path, which on Android
-        // lands in `/` (read-only) and triggers EROFS when it tries to create
-        // `todo.db.lck`. Pass the absolute path under the app's databases dir.
-        val context = get<Context>()
-        val dbPath = context.getDatabasePath("todo.db").absolutePath
-        // SQLite creates the *file*, not the directory around it: a missing parent
-        // is SQLITE_CANTOPEN (error 14), not a created-on-demand directory. The
-        // framework's own database API creates the databases dir as a side effect;
-        // the bundled driver has no such side effect, so the directory is created
-        // here. On a device the directory usually exists already and this is a
-        // no-op; where it does not — a fresh install on some OEM builds, a cleared
-        // data directory, a Robolectric test — it is the difference between a
-        // database and a crash at start.
-        File(dbPath).parentFile?.mkdirs()
-        AppDatabaseFactory.build(createSqlDriver(), dbPath)
-    }
+        single<AppDatabase> {
+            // Room 3 KMP resolves `name` as a relative file path, which on Android
+            // lands in `/` (read-only) and triggers EROFS when it tries to create
+            // `todo.db.lck`. Pass the absolute path under the app's databases dir.
+            val context = get<Context>()
+            val dbPath = context.getDatabasePath("todo.db").absolutePath
+            // SQLite creates the *file*, not the directory around it: a missing parent
+            // is SQLITE_CANTOPEN (error 14), not a created-on-demand directory. The
+            // framework's own database API creates the databases dir as a side effect;
+            // the bundled driver has no such side effect, so the directory is created
+            // here. On a device the directory usually exists already and this is a
+            // no-op; where it does not — a fresh install on some OEM builds, a cleared
+            // data directory, a Robolectric test — it is the difference between a
+            // database and a crash at start.
+            File(dbPath).parentFile?.mkdirs()
+            AppDatabaseFactory.build(createSqlDriver(), dbPath)
+        }
 
-    // One write transaction for the repositories that write a synced row and the
-    // patch describing it. Registered here, beside the database, because it *is* the
-    // database's transaction — not a feature concern. See ADR
-    // 2026-10-05-who-owns-a-row-and-the-patch-that-describes-it.
-    single<UnitOfWork> { RoomUnitOfWork(get()) }
+        // One write transaction for the repositories that write a synced row and the
+        // patch describing it. Registered here, beside the database, because it *is* the
+        // database's transaction — not a feature concern. See ADR
+        // 2026-10-05-who-owns-a-row-and-the-patch-that-describes-it.
+        single<UnitOfWork> { RoomUnitOfWork(get()) }
 
-    single { get<AppDatabase>().taskDao() }
-    single { get<AppDatabase>().noteDao() }
-    single { get<AppDatabase>().projectDao() }
-    single { get<AppDatabase>().tagDao() }
-    single { get<AppDatabase>().ftsDao() }
-    single { get<AppDatabase>().tagGroupDao() }
-    single { get<AppDatabase>().projectInheritedTagGroupDao() }
-    single { get<AppDatabase>().syncOutboxDao() }
-    single { get<AppDatabase>().syncDeadLetterDao() }
-    single { get<AppDatabase>().syncStateDao() }
-    single { get<AppDatabase>().syncShadowDao() }
-    single { get<AppDatabase>().remoteConfigDao() }
-    single { get<AppDatabase>().remoteConfigCacheDao() }
-    single { get<AppDatabase>().attachmentDao() }
-    single { get<AppDatabase>().annotationDao() }
-    single { get<AppDatabase>().reminderDao() }
-    single { get<AppDatabase>().projectReminderDao() }
-    single { get<AppDatabase>().checklistDao() }
-    single { get<AppDatabase>().llmUsageDao() }
-    single { get<AppDatabase>().profileDao() }
-    single { get<AppDatabase>().agendaViewDao() }
-    single { get<AppDatabase>().calendarSyncTaskMapDao() }
-    single { get<AppDatabase>().calendarSyncStateDao() }
-    single { get<AppDatabase>().googleEventShadowDao() }
-    single { get<AppDatabase>().calendarImportEventDao() }
-    single { get<AppDatabase>().savedSearchDao() }
-    single { get<AppDatabase>().timeEntryDao() }
-    single { get<AppDatabase>().proposalDao() }
-    single { get<AppDatabase>().proposalItemDao() }
+        single { get<AppDatabase>().taskDao() }
+        single { get<AppDatabase>().noteDao() }
+        single { get<AppDatabase>().projectDao() }
+        single { get<AppDatabase>().tagDao() }
+        single { get<AppDatabase>().ftsDao() }
+        single { get<AppDatabase>().tagGroupDao() }
+        single { get<AppDatabase>().projectInheritedTagGroupDao() }
+        single { get<AppDatabase>().syncOutboxDao() }
+        single { get<AppDatabase>().syncDeadLetterDao() }
+        single { get<AppDatabase>().syncStateDao() }
+        single { get<AppDatabase>().syncShadowDao() }
+        single { get<AppDatabase>().remoteConfigDao() }
+        single { get<AppDatabase>().remoteConfigCacheDao() }
+        single { get<AppDatabase>().attachmentDao() }
+        single { get<AppDatabase>().annotationDao() }
+        single { get<AppDatabase>().reminderDao() }
+        single { get<AppDatabase>().projectReminderDao() }
+        single { get<AppDatabase>().checklistDao() }
+        single { get<AppDatabase>().llmUsageDao() }
+        single { get<AppDatabase>().profileDao() }
+        single { get<AppDatabase>().agendaViewDao() }
+        single { get<AppDatabase>().calendarSyncTaskMapDao() }
+        single { get<AppDatabase>().calendarSyncStateDao() }
+        single { get<AppDatabase>().googleEventShadowDao() }
+        single { get<AppDatabase>().calendarImportEventDao() }
+        single { get<AppDatabase>().savedSearchDao() }
+        single { get<AppDatabase>().timeEntryDao() }
+        single { get<AppDatabase>().proposalDao() }
+        single { get<AppDatabase>().proposalItemDao() }
 
-    // ─── Platform Ports (registered early — needed by koinBridge migrations) ────
+        // ─── Platform Ports (registered early — needed by koinBridge migrations) ────
 
-    single<SecureStoragePort> { AndroidSecureStorage(get()) }
+        single<SecureStoragePort> { AndroidSecureStorage(get()) }
 
-    // The cryptography of the encrypted backup archive: the same JDK providers the
-    // desktop uses, so an archive written by one is read by the other — see
-    // `ArchiveCrypto`.
-    single<ArchiveCrypto> { AndroidArchiveCrypto() }
+        // The cryptography of the encrypted backup archive: the same JDK providers the
+        // desktop uses, so an archive written by one is read by the other — see
+        // `ArchiveCrypto`.
+        single<ArchiveCrypto> { AndroidArchiveCrypto() }
 
-    // ─── DataStore (split: user settings + state) ─────────────────────────
+        // ─── DataStore (split: user settings + state) ─────────────────────────
 
-    // user_settings.preferences_pb — all mutable user-facing settings
-    single<DataStore<Preferences>>(qualifier = named("user_settings")) {
-        val context = get<Context>()
-        PreferenceDataStoreFactory.create {
-            context.filesDir.resolve("user_settings.preferences_pb")
+        // user_settings.preferences_pb — all mutable user-facing settings
+        single<DataStore<Preferences>>(qualifier = named("user_settings")) {
+            val context = get<Context>()
+            PreferenceDataStoreFactory.create {
+                context.filesDir.resolve("user_settings.preferences_pb")
+            }
+        }
+
+        // state.preferences_pb — read-only flags (schema version, migration timestamps)
+        single<DataStore<Preferences>>(qualifier = named("state")) {
+            val context = get<Context>()
+            PreferenceDataStoreFactory.create {
+                context.filesDir.resolve("state.preferences_pb")
+            }
+        }
+
+        // Legacy migration source — points to the old flat-key file.
+        // Will be empty after migration; DataStore itself never writes back to it.
+        single<DataStore<Preferences>>(qualifier = named("settings")) {
+            val context = get<Context>()
+            PreferenceDataStoreFactory.create {
+                context.filesDir.resolve("settings.preferences_pb")
+            }
+        }
+
+        // profile_state.preferences_pb — the active profile, and nothing else.
+        //
+        // Its own file so that the settings file can be opened by a second process — the
+        // tool server an external agent is handed — without that file saying anything
+        // about the profile the user is working in. See ActiveProfileState.
+        single<DataStore<Preferences>>(qualifier = named("profile_state")) {
+            val context = get<Context>()
+            PreferenceDataStoreFactory.create {
+                context.filesDir.resolve("profile_state.preferences_pb")
+            }
+        }
+
+        // Primary DataStore<Preferences> binding — what SettingsRepository consumes.
+        // Delegates to the named `user_settings` binding so we keep one instance.
+        single<DataStore<Preferences>> {
+            get<DataStore<Preferences>>(qualifier = named("user_settings"))
+        }
+
+        // One-shot migration: v0 flat-key settings → v1 split + namespaced.
+        // Bound as a single so we can access `get<SecureStoragePort>()` inside Koin scope.
+        // Both migrations are I/O-bound (DataStore + SecureStorage file ops) and must NOT
+        // block the main thread — they run on Dispatchers.IO instead of runBlocking.
+        single {
+            val secureStorage = get<SecureStoragePort>()
+            val legacyDs = get<DataStore<Preferences>>(qualifier = named("settings"))
+            val userSettingsDs = get<DataStore<Preferences>>(qualifier = named("user_settings"))
+            val stateDs = get<DataStore<Preferences>>(qualifier = named("state"))
+            val migration =
+                SettingsDataStoreMigration(
+                    legacyDataStore = legacyDs,
+                    userSettingsDataStore = userSettingsDs,
+                    stateDataStore = stateDs,
+                )
+            // Run both migrations in parallel on Dispatchers.IO — neither blocks the main thread.
+            val bgScope = CoroutineScope(Dispatchers.IO)
+            migration.runDeferred(bgScope)
+            bgScope.launch { AiApiKeyMigration.run(legacyDs, secureStorage) }
+            Unit
+        }
+
+        // Separate DataStore for calendar sync settings (isolates calendar feature from main settings)
+        single<DataStore<Preferences>>(qualifier = named("calendar_sync")) {
+            val context = get<Context>()
+            PreferenceDataStoreFactory.create {
+                context.filesDir.resolve("calendar_sync.preferences_pb")
+            }
+        }
+
+        // ─── Platform Ports ─────────────────────────────────────────────────
+
+        single<FileSystem> { AndroidFileSystem(get()) }
+
+        single<HostEnvironmentPort> { AndroidHostEnvironment(get()) }
+
+        // The tool-call records, in the app's private storage. The platform already keeps
+        // that directory away from other applications, so there is nothing to lock down
+        // here that the platform has not already done.
+        single<ToolCallLog> {
+            AndroidFileToolCallLog(
+                directory = get<HostEnvironmentPort>().applicationDataDirectory() + "/tool-calls",
+            ).also { it.purgeExpired() }
+        }
+
+        single { ToolCallRecorder(log = get(), nowEpochMillis = { System.currentTimeMillis() }) }
+
+        single<FileRevealer> { AndroidFileRevealer(get()) }
+        single<FileOpener> { AndroidFileOpener(get()) }
+
+        single<SharePort> { AndroidSharePort(get()) }
+
+        single<FileSharePort> { AndroidFileSharePort(get()) }
+
+        single<FileSourceFactory> { AndroidFileSourceFactory(get()) }
+
+        single<BackupCodec> { AndroidBackupCodec() }
+
+        // ─── The OAuth consent step ─────────────────────────────────────────
+        //
+        // There is nothing to bind here, and that is the point.
+        //
+        // The desktop consent opens a browser and waits on a loopback socket; the desktop
+        // module binds both. Android cannot use that flow: Google blocked the loopback
+        // redirect for Android OAuth clients in October 2022, and custom URI schemes are
+        // not supported either. Here the consent runs through Google's own authorization
+        // API, and Play Services carries the answer back — so the piece that touches the
+        // operating system is the activity result, and only a composition can own one.
+        // The consent therefore lives in `GoogleConsent.android.kt`, not in the graph.
+        //
+        // The difference is recorded rather than left implicit:
+        // `shared/src/jvmTest/resources/platform-seams.tsv` lists the browser and the socket
+        // as desktop-only seams, with the reason.
+
+        // Free core: the log-file reporter. The pro catalogue overrides this binding
+        // with the Tracer-backed one, which is why it is a `single<CrashReportingPort>`
+        // and not a concrete type — the override has to be substitutable.
+        single<CrashReportingPort> { FileCrashReportingPort(get()) }
+
+        single<String>(BackupDirQualifier) { get<Context>().filesDir.absolutePath + "/backups" }
+
+        single<String>(LogDirQualifier) { get<Context>().filesDir.absolutePath + "/logs" }
+
+        // The attachments live next to the other app data, in the folder the
+        // FileProvider publishes as `attachments/`.
+        single<String>(AttachmentDirQualifier) { get<Context>().filesDir.absolutePath + "/attachments" }
+
+        single { LogBundleExporter(get(LogDirQualifier), get(), get()) }
+
+        // ─── Notifications ─────────────────────────────────────────────────
+
+        // AndroidNotifier handles notification posting (channel, launch intent).
+        // AlarmReceiver receives alarm broadcasts and calls notifier.post().
+        single { AndroidNotifier(get(), get<NotificationsSettingsRepository>(), get<CoroutineScope>()) }
+        // Bound as the port, not only as the class: `AlarmReceiver` injects `Notifier`, and a
+        // platform that binds the implementation without the interface leaves the port
+        // unresolvable on that platform for anything that asks for it by type.
+        single<Notifier> { get<AndroidNotifier>() }
+
+        // ─── Reminder Scheduler ────────────────────────────────────────────
+
+        single<ReminderScheduler> {
+            AlarmManagerReminderScheduler(get(), get(), get())
+        }
+
+        // ─── Sync Scheduler ─────────────────────────────────────────────────
+
+        // Periodic sync on Android: WorkManager periodic work.
+        single<SyncPeriodicTrigger> { AndroidSyncPeriodicTrigger(get()) }
+
+        // WorkManager scheduler (reacts to auth session changes, survives process death)
+        single<SyncWorkScheduler> { AndroidSyncWorkScheduler(get()) }
+        single<BackgroundWorkScheduler> { AndroidBackgroundWorkScheduler(get(), get(), get()) }
+
+        // ─── Pomodoro Timer ─────────────────────────────────────────────────
+
+        single { PomodoroConfig() }
+        single<PomodoroScheduler> { PomodoroAlarmScheduler(get()) }
+        // Bound to the interface, not the concrete class: registering the implementation
+        // type made every koinInject<PomodoroTaskListProvider>() fail with
+        // NoDefinitionFoundException, which crashed the Pomodoro tab on Android while
+        // Desktop worked. The JVM module binds the interface — mirror that.
+        single<PomodoroTaskListProvider> {
+            AndroidPomodoroTaskListProvider(get(), createBackgroundScope(crashReportingFailureHandler(get())))
+        }
+        // AndroidPomodoroTimer no longer extends ViewModel — use factory so each injection
+        // point gets its own instance with the CoroutineScope from coreModule.
+        // A shared process-lifetime scope, so its failure policy is named here rather than
+        // inherited. PomodoroTimer gets this exact instance — a factory binding here would hand
+        // each timer a different scope and silently break the sharing this line exists for.
+        single<CoroutineScope> { createBackgroundScope(crashReportingFailureHandler(get())) }
+        factory<PomodoroTimer> { AndroidPomodoroTimer(get(), get(), get(), get(), get(), get(), get()) }
+
+        // ─── Calendar Sync ────────────────────────────────────────────────
+
+        // Calendar sync settings repository (separate DataStore for isolation)
+        single<CalendarSyncRepository> {
+            CalendarSyncSettingsRepositoryImpl(get(qualifier = named("calendar_sync")))
+        }
+
+        // Calendar app picker — queries PackageManager for installed calendar apps
+        single<com.singularity.todo.feature.calendarSync.domain.port.CalendarAppQueries> {
+            AndroidCalendarAppQueries(get())
+        }
+
+        // Android calendar provider (ContentResolver-backed).
+        // accountNameProvider is a lambda so it re-samples scopedUserId on every call (profile-switch safe).
+        // syncRepo is read at each operation to get the current target app package.
+        single<CalendarProviderPort> {
+            AndroidCalendarProvider(
+                context = get(),
+                accountNameProvider = { get<ProfileAwareCurrentUser>().scopedUserId.value.value },
+                syncRepo = get(),
+            )
+        }
+
+        // WorkManager scheduler for calendar sync
+        single<CalendarSyncWorkScheduler> {
+            AndroidCalendarSyncWorkScheduler(get())
+        }
+
+        // Google sync runs on desktop as well as here — it is network plus Room, with no
+        // platform API in it — so both platform modules bind this, and the mirror test is what
+        // keeps them from drifting apart. The coordinator is resolved per call rather than
+        // captured: it is bound per profile, and a captured instance would sync whichever
+        // profile was active when this trigger was built.
+        single<GoogleSyncPeriodicTrigger> {
+            AndroidGoogleSyncPeriodicTrigger(get(), coordinatorProvider = { get<GoogleSyncCoordinator>() })
+        }
+
+        // ─── The Google grant ────────────────────────────────────────────────
+        //
+        // Android redeems the grant on the *server*, and the server renews the token.
+        //
+        // Google's offline flow hands the app a one-time code and keeps the refresh token
+        // behind it; only a holder of the client secret can redeem it, and a client secret
+        // inside an APK is a secret that has leaked. So the device asks the project's own
+        // Edge Function, and the function does the part that needs the secret.
+        //
+        // The desktop redeems on the device instead — a Desktop OAuth client is a public
+        // client and needs no secret — so the two platforms bind different implementations
+        // of the same two ports. The gateway itself is common: the function is deployed
+        // once and every platform talks to it the same way.
+        single<GoogleGrantRedeemer> { SupabaseGoogleGrantRedeemer(gateway = get()) }
+
+        // The revoke goes the same way as the redemption: the credential is on the
+        // server, so it is cancelled there — the row is deleted and the token is
+        // revoked at Google in one request.
+        single<GoogleGrantRevoker> { SupabaseGoogleGrantRevoker(gateway = get()) }
+
+        single<GoogleAccessTokenProvider> {
+            SupabaseGoogleAccessTokenProvider(gateway = get(), credentialStore = get())
+        }
+
+        // ─── Haptics ─────────────────────────────────────────────────────────
+        @Suppress("NewApi") // VibratorManager requires API 31
+        single<Haptic> {
+            val context = get<Context>()
+            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            AndroidHaptic.of(vibratorManager)
         }
     }
-
-    // state.preferences_pb — read-only flags (schema version, migration timestamps)
-    single<DataStore<Preferences>>(qualifier = named("state")) {
-        val context = get<Context>()
-        PreferenceDataStoreFactory.create {
-            context.filesDir.resolve("state.preferences_pb")
-        }
-    }
-
-    // Legacy migration source — points to the old flat-key file.
-    // Will be empty after migration; DataStore itself never writes back to it.
-    single<DataStore<Preferences>>(qualifier = named("settings")) {
-        val context = get<Context>()
-        PreferenceDataStoreFactory.create {
-            context.filesDir.resolve("settings.preferences_pb")
-        }
-    }
-
-    // profile_state.preferences_pb — the active profile, and nothing else.
-    //
-    // Its own file so that the settings file can be opened by a second process — the
-    // tool server an external agent is handed — without that file saying anything
-    // about the profile the user is working in. See ActiveProfileState.
-    single<DataStore<Preferences>>(qualifier = named("profile_state")) {
-        val context = get<Context>()
-        PreferenceDataStoreFactory.create {
-            context.filesDir.resolve("profile_state.preferences_pb")
-        }
-    }
-
-    // Primary DataStore<Preferences> binding — what SettingsRepository consumes.
-    // Delegates to the named `user_settings` binding so we keep one instance.
-    single<DataStore<Preferences>> {
-        get<DataStore<Preferences>>(qualifier = named("user_settings"))
-    }
-
-    // One-shot migration: v0 flat-key settings → v1 split + namespaced.
-    // Bound as a single so we can access `get<SecureStoragePort>()` inside Koin scope.
-    // Both migrations are I/O-bound (DataStore + SecureStorage file ops) and must NOT
-    // block the main thread — they run on Dispatchers.IO instead of runBlocking.
-    single {
-        val secureStorage = get<SecureStoragePort>()
-        val legacyDs = get<DataStore<Preferences>>(qualifier = named("settings"))
-        val userSettingsDs = get<DataStore<Preferences>>(qualifier = named("user_settings"))
-        val stateDs = get<DataStore<Preferences>>(qualifier = named("state"))
-        val migration = SettingsDataStoreMigration(
-            legacyDataStore = legacyDs,
-            userSettingsDataStore = userSettingsDs,
-            stateDataStore = stateDs,
-        )
-        // Run both migrations in parallel on Dispatchers.IO — neither blocks the main thread.
-        val bgScope = CoroutineScope(Dispatchers.IO)
-        migration.runDeferred(bgScope)
-        bgScope.launch { AiApiKeyMigration.run(legacyDs, secureStorage) }
-        Unit
-    }
-
-    // Separate DataStore for calendar sync settings (isolates calendar feature from main settings)
-    single<DataStore<Preferences>>(qualifier = named("calendar_sync")) {
-        val context = get<Context>()
-        PreferenceDataStoreFactory.create {
-            context.filesDir.resolve("calendar_sync.preferences_pb")
-        }
-    }
-
-    // ─── Platform Ports ─────────────────────────────────────────────────
-
-    single<FileSystem> { AndroidFileSystem(get()) }
-
-    single<HostEnvironmentPort> { AndroidHostEnvironment(get()) }
-
-    // The tool-call records, in the app's private storage. The platform already keeps
-    // that directory away from other applications, so there is nothing to lock down
-    // here that the platform has not already done.
-    single<ToolCallLog> {
-        AndroidFileToolCallLog(
-            directory = get<HostEnvironmentPort>().applicationDataDirectory() + "/tool-calls",
-        ).also { it.purgeExpired() }
-    }
-
-    single { ToolCallRecorder(log = get(), nowEpochMillis = { System.currentTimeMillis() }) }
-
-    single<FileRevealer> { AndroidFileRevealer(get()) }
-    single<FileOpener> { AndroidFileOpener(get()) }
-
-    single<SharePort> { AndroidSharePort(get()) }
-
-    single<FileSharePort> { AndroidFileSharePort(get()) }
-
-    single<FileSourceFactory> { AndroidFileSourceFactory(get()) }
-
-    single<BackupCodec> { AndroidBackupCodec() }
-
-    // ─── The OAuth consent step ─────────────────────────────────────────
-    //
-    // There is nothing to bind here, and that is the point.
-    //
-    // The desktop consent opens a browser and waits on a loopback socket; the desktop
-    // module binds both. Android cannot use that flow: Google blocked the loopback
-    // redirect for Android OAuth clients in October 2022, and custom URI schemes are
-    // not supported either. Here the consent runs through Google's own authorization
-    // API, and Play Services carries the answer back — so the piece that touches the
-    // operating system is the activity result, and only a composition can own one.
-    // The consent therefore lives in `GoogleConsent.android.kt`, not in the graph.
-    //
-    // The difference is recorded rather than left implicit:
-    // `shared/src/jvmTest/resources/platform-seams.tsv` lists the browser and the socket
-    // as desktop-only seams, with the reason.
-
-    // Free core: the log-file reporter. The pro catalogue overrides this binding
-    // with the Tracer-backed one, which is why it is a `single<CrashReportingPort>`
-    // and not a concrete type — the override has to be substitutable.
-    single<CrashReportingPort> { FileCrashReportingPort(get()) }
-
-    single<String>(BackupDirQualifier) { get<Context>().filesDir.absolutePath + "/backups" }
-
-    single<String>(LogDirQualifier) { get<Context>().filesDir.absolutePath + "/logs" }
-
-    // The attachments live next to the other app data, in the folder the
-    // FileProvider publishes as `attachments/`.
-    single<String>(AttachmentDirQualifier) { get<Context>().filesDir.absolutePath + "/attachments" }
-
-    single { LogBundleExporter(get(LogDirQualifier), get(), get()) }
-
-    // ─── Notifications ─────────────────────────────────────────────────
-
-    // AndroidNotifier handles notification posting (channel, launch intent).
-    // AlarmReceiver receives alarm broadcasts and calls notifier.post().
-    single { AndroidNotifier(get(), get<NotificationsSettingsRepository>(), get<CoroutineScope>()) }
-    // Bound as the port, not only as the class: `AlarmReceiver` injects `Notifier`, and a
-    // platform that binds the implementation without the interface leaves the port
-    // unresolvable on that platform for anything that asks for it by type.
-    single<Notifier> { get<AndroidNotifier>() }
-
-    // ─── Reminder Scheduler ────────────────────────────────────────────
-
-    single<ReminderScheduler> {
-        AlarmManagerReminderScheduler(get(), get(), get())
-    }
-
-    // ─── Sync Scheduler ─────────────────────────────────────────────────
-
-    // Periodic sync on Android: WorkManager periodic work.
-    single<SyncPeriodicTrigger> { AndroidSyncPeriodicTrigger(get()) }
-
-    // WorkManager scheduler (reacts to auth session changes, survives process death)
-    single<SyncWorkScheduler> { AndroidSyncWorkScheduler(get()) }
-    single<BackgroundWorkScheduler> { AndroidBackgroundWorkScheduler(get(), get(), get()) }
-
-    // ─── Pomodoro Timer ─────────────────────────────────────────────────
-
-    single { PomodoroConfig() }
-    single<PomodoroScheduler> { PomodoroAlarmScheduler(get()) }
-    // Bound to the interface, not the concrete class: registering the implementation
-    // type made every koinInject<PomodoroTaskListProvider>() fail with
-    // NoDefinitionFoundException, which crashed the Pomodoro tab on Android while
-    // Desktop worked. The JVM module binds the interface — mirror that.
-    single<PomodoroTaskListProvider> {
-        AndroidPomodoroTaskListProvider(get(), createBackgroundScope(crashReportingFailureHandler(get())))
-    }
-    // AndroidPomodoroTimer no longer extends ViewModel — use factory so each injection
-    // point gets its own instance with the CoroutineScope from coreModule.
-    // A shared process-lifetime scope, so its failure policy is named here rather than
-    // inherited. PomodoroTimer gets this exact instance — a factory binding here would hand
-    // each timer a different scope and silently break the sharing this line exists for.
-    single<CoroutineScope> { createBackgroundScope(crashReportingFailureHandler(get())) }
-    factory<PomodoroTimer> { AndroidPomodoroTimer(get(), get(), get(), get(), get(), get(), get()) }
-
-    // ─── Calendar Sync ────────────────────────────────────────────────
-
-    // Calendar sync settings repository (separate DataStore for isolation)
-    single<CalendarSyncRepository> {
-        CalendarSyncSettingsRepositoryImpl(get(qualifier = named("calendar_sync")))
-    }
-
-    // Calendar app picker — queries PackageManager for installed calendar apps
-    single<com.singularity.todo.feature.calendarSync.domain.port.CalendarAppQueries> {
-        AndroidCalendarAppQueries(get())
-    }
-
-    // Android calendar provider (ContentResolver-backed).
-    // accountNameProvider is a lambda so it re-samples scopedUserId on every call (profile-switch safe).
-    // syncRepo is read at each operation to get the current target app package.
-    single<CalendarProviderPort> {
-        AndroidCalendarProvider(
-            context = get(),
-            accountNameProvider = { get<ProfileAwareCurrentUser>().scopedUserId.value.value },
-            syncRepo = get(),
-        )
-    }
-
-    // WorkManager scheduler for calendar sync
-    single<CalendarSyncWorkScheduler> {
-        AndroidCalendarSyncWorkScheduler(get())
-    }
-
-    // Google sync runs on desktop as well as here — it is network plus Room, with no
-    // platform API in it — so both platform modules bind this, and the mirror test is what
-    // keeps them from drifting apart. The coordinator is resolved per call rather than
-    // captured: it is bound per profile, and a captured instance would sync whichever
-    // profile was active when this trigger was built.
-    single<GoogleSyncPeriodicTrigger> {
-        AndroidGoogleSyncPeriodicTrigger(get(), coordinatorProvider = { get<GoogleSyncCoordinator>() })
-    }
-
-    // ─── The Google grant ────────────────────────────────────────────────
-    //
-    // Android redeems the grant on the *server*, and the server renews the token.
-    //
-    // Google's offline flow hands the app a one-time code and keeps the refresh token
-    // behind it; only a holder of the client secret can redeem it, and a client secret
-    // inside an APK is a secret that has leaked. So the device asks the project's own
-    // Edge Function, and the function does the part that needs the secret.
-    //
-    // The desktop redeems on the device instead — a Desktop OAuth client is a public
-    // client and needs no secret — so the two platforms bind different implementations
-    // of the same two ports. The gateway itself is common: the function is deployed
-    // once and every platform talks to it the same way.
-    single<GoogleGrantRedeemer> { SupabaseGoogleGrantRedeemer(gateway = get()) }
-
-    // The revoke goes the same way as the redemption: the credential is on the
-    // server, so it is cancelled there — the row is deleted and the token is
-    // revoked at Google in one request.
-    single<GoogleGrantRevoker> { SupabaseGoogleGrantRevoker(gateway = get()) }
-
-    single<GoogleAccessTokenProvider> {
-        SupabaseGoogleAccessTokenProvider(gateway = get(), credentialStore = get())
-    }
-
-    // ─── Haptics ─────────────────────────────────────────────────────────
-    @Suppress("NewApi") // VibratorManager requires API 31
-    single<Haptic> {
-        val context = get<Context>()
-        val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-        AndroidHaptic.of(vibratorManager)
-    }
-}

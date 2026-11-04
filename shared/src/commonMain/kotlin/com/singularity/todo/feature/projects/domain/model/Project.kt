@@ -17,7 +17,12 @@ import kotlin.time.Instant
 @JvmInline
 value class ProjectId(val value: String) {
     companion object {
-        fun generate() = ProjectId(com.singularity.todo.core.ids.nextId())
+        fun generate() =
+            ProjectId(
+                com.singularity.todo.core.ids
+                    .nextId(),
+            )
+
         fun fromString(value: String) = ProjectId(value)
     }
 }
@@ -75,7 +80,6 @@ data class Project(
     val hlc: Hlc? = null,
 ) : SyncableEntity,
     Searchable {
-
     /**
      * The surfaces a project is searched by (F3): its name.
      *

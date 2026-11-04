@@ -43,128 +43,139 @@ import kotlin.time.Duration.Companion.seconds
  */
 @Tag("fast")
 class DelayLoopSyncPeriodicTriggerTest {
+    @Test
+    fun `fires once per interval`() =
+        runTest {
+            var fired = 0
+            val trigger =
+                DelayLoopSyncPeriodicTrigger(
+                    request = { fired++ },
+                    scope = backgroundScope,
+                )
+
+            trigger.start(5.minutes)
+            runCurrent()
+            assertEquals(1, fired, "the first cycle should fire immediately")
+
+            advanceTimeBy(5.minutes + 1.seconds)
+            runCurrent()
+            assertEquals(2, fired, "exactly one cycle per interval, not more")
+
+            trigger.stop()
+        }
 
     @Test
-    fun `fires once per interval`() = runTest {
-        var fired = 0
-        val trigger = DelayLoopSyncPeriodicTrigger(
-            request = { fired++ },
-            scope = backgroundScope,
-        )
+    fun `a throwing cycle does not kill the loop`() =
+        runTest {
+            var fired = 0
+            val trigger =
+                DelayLoopSyncPeriodicTrigger(
+                    request = {
+                        fired++
+                        if (fired == 1) error("first cycle fails")
+                    },
+                    scope = backgroundScope,
+                )
 
-        trigger.start(5.minutes)
-        runCurrent()
-        assertEquals(1, fired, "the first cycle should fire immediately")
+            trigger.start(5.minutes)
+            runCurrent()
+            assertEquals(1, fired)
 
-        advanceTimeBy(5.minutes + 1.seconds)
-        runCurrent()
-        assertEquals(2, fired, "exactly one cycle per interval, not more")
+            // If the exception had escaped, the coroutine would be dead and this is where
+            // it shows up: the interval passes and nothing happens.
+            advanceTimeBy(5.minutes + 1.seconds)
+            runCurrent()
+            assertEquals(2, fired, "the loop died on the first failure")
 
-        trigger.stop()
-    }
-
-    @Test
-    fun `a throwing cycle does not kill the loop`() = runTest {
-        var fired = 0
-        val trigger = DelayLoopSyncPeriodicTrigger(
-            request = {
-                fired++
-                if (fired == 1) error("first cycle fails")
-            },
-            scope = backgroundScope,
-        )
-
-        trigger.start(5.minutes)
-        runCurrent()
-        assertEquals(1, fired)
-
-        // If the exception had escaped, the coroutine would be dead and this is where
-        // it shows up: the interval passes and nothing happens.
-        advanceTimeBy(5.minutes + 1.seconds)
-        runCurrent()
-        assertEquals(2, fired, "the loop died on the first failure")
-
-        trigger.stop()
-    }
+            trigger.stop()
+        }
 
     @Test
-    fun `a permanently failing loop keeps firing`() = runTest {
-        var fired = 0
-        val trigger = DelayLoopSyncPeriodicTrigger(
-            request = {
-                fired++
-                error("always fails")
-            },
-            scope = backgroundScope,
-        )
+    fun `a permanently failing loop keeps firing`() =
+        runTest {
+            var fired = 0
+            val trigger =
+                DelayLoopSyncPeriodicTrigger(
+                    request = {
+                        fired++
+                        error("always fails")
+                    },
+                    scope = backgroundScope,
+                )
 
-        trigger.start(1.minutes)
-        // Cycles land at t=0, 60s and 120s, so advancing to 121s runs three of them.
-        advanceTimeBy(2.minutes + 1.seconds)
-        runCurrent()
+            trigger.start(1.minutes)
+            // Cycles land at t=0, 60s and 120s, so advancing to 121s runs three of them.
+            advanceTimeBy(2.minutes + 1.seconds)
+            runCurrent()
 
-        assertEquals(3, fired, "a failing loop must keep retrying, not give up")
+            assertEquals(3, fired, "a failing loop must keep retrying, not give up")
 
-        trigger.stop()
-    }
-
-    @Test
-    fun `stop halts the loop`() = runTest {
-        var fired = 0
-        val trigger = DelayLoopSyncPeriodicTrigger(
-            request = { fired++ },
-            scope = backgroundScope,
-        )
-
-        trigger.start(1.minutes)
-        runCurrent()
-        val afterStart = fired
-
-        trigger.stop()
-        advanceTimeBy(10.minutes)
-        runCurrent()
-
-        assertEquals(afterStart, fired, "the loop kept firing after stop()")
-    }
+            trigger.stop()
+        }
 
     @Test
-    fun `start twice does not leave two loops running`() = runTest {
-        var fired = 0
-        val trigger = DelayLoopSyncPeriodicTrigger(
-            request = { fired++ },
-            scope = backgroundScope,
-        )
+    fun `stop halts the loop`() =
+        runTest {
+            var fired = 0
+            val trigger =
+                DelayLoopSyncPeriodicTrigger(
+                    request = { fired++ },
+                    scope = backgroundScope,
+                )
 
-        trigger.start(5.minutes)
-        trigger.start(5.minutes)
-        runCurrent()
+            trigger.start(1.minutes)
+            runCurrent()
+            val afterStart = fired
 
-        // One loop, one cycle per interval. Two loops would be 2 here and 4 later.
-        assertEquals(1, fired)
-        advanceTimeBy(5.minutes + 1.seconds)
-        runCurrent()
-        assertEquals(2, fired)
+            trigger.stop()
+            advanceTimeBy(10.minutes)
+            runCurrent()
 
-        trigger.stop()
-    }
+            assertEquals(afterStart, fired, "the loop kept firing after stop()")
+        }
 
     @Test
-    fun `the loop is bounded by the interval, not by how long the test waits`() = runTest {
-        // Pins the arithmetic the other tests depend on: if `delay` ever stopped
-        // being virtual, this assertion is what fails first, loudly and cheaply,
-        // instead of the whole suite filling the disk.
-        var fired = 0
-        val trigger = DelayLoopSyncPeriodicTrigger(
-            request = { fired++ },
-            scope = backgroundScope,
-        )
+    fun `start twice does not leave two loops running`() =
+        runTest {
+            var fired = 0
+            val trigger =
+                DelayLoopSyncPeriodicTrigger(
+                    request = { fired++ },
+                    scope = backgroundScope,
+                )
 
-        trigger.start(10.minutes)
-        runCurrent()
-        advanceTimeBy(10.minutes)
-        runCurrent()
+            trigger.start(5.minutes)
+            trigger.start(5.minutes)
+            runCurrent()
 
-        assertEquals(2, fired, "10 minutes of virtual time is two 5-minute cycles")
-        trigger.stop()
-    }
+            // One loop, one cycle per interval. Two loops would be 2 here and 4 later.
+            assertEquals(1, fired)
+            advanceTimeBy(5.minutes + 1.seconds)
+            runCurrent()
+            assertEquals(2, fired)
+
+            trigger.stop()
+        }
+
+    @Test
+    fun `the loop is bounded by the interval, not by how long the test waits`() =
+        runTest {
+            // Pins the arithmetic the other tests depend on: if `delay` ever stopped
+            // being virtual, this assertion is what fails first, loudly and cheaply,
+            // instead of the whole suite filling the disk.
+            var fired = 0
+            val trigger =
+                DelayLoopSyncPeriodicTrigger(
+                    request = { fired++ },
+                    scope = backgroundScope,
+                )
+
+            trigger.start(10.minutes)
+            runCurrent()
+            advanceTimeBy(10.minutes)
+            runCurrent()
+
+            assertEquals(2, fired, "10 minutes of virtual time is two 5-minute cycles")
+            trigger.stop()
+        }
 }

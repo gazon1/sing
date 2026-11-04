@@ -66,7 +66,6 @@ import kotlinx.coroutines.flow.flow
  * answering "not authenticated".
  */
 class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private val log: Logger) : AuthGateway {
-
     /**
      * The provider's auth plugin, or a clear refusal.
      *
@@ -87,56 +86,70 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
      * into the project they just left.
      */
     private suspend fun backend(): SupabaseAuthBackend {
-        val client = clients.client()
-            ?: throw AppError.Validation(
-                "No Supabase project is configured, so there is nothing to sign in to.",
-                code = "auth.not_configured",
-            )
+        val client =
+            clients.client()
+                ?: throw AppError.Validation(
+                    "No Supabase project is configured, so there is nothing to sign in to.",
+                    code = "auth.not_configured",
+                )
         return SupabaseAuthBackend(supabaseClient = client)
     }
 
-    override suspend fun signUp(email: String, password: String): Result<RemoteSession> = call("sign up") {
-        val user = backend().signUp(email, password).getOrThrow()
-        val session = auth().currentSessionOrNull()
-        session?.toRemote() ?: RemoteSession(
-            userId = user.uid,
-            // A blank address is how the repository is told that the account exists
-            // but there is no session to use yet: a sign-up that needs the address
-            // confirmed leaves the device signed out, and the screen has to say
-            // "check your mail" rather than "that failed".
-            email = "",
-            accessToken = "",
-            refreshToken = "",
-            isAnonymous = false,
-        )
-    }
-
-    override suspend fun signIn(email: String, password: String): Result<RemoteSession> = call("sign in") {
-        backend().signIn(AuthCredential.EmailPassword(email = email, password = password)).getOrThrow()
-        auth().currentSessionOrNull()?.toRemote()
-    }
-
-    override suspend fun updatePassword(newPassword: String): Result<Unit> = call("update password") {
-        val auth = auth()
-        auth.updateUser { this.password = newPassword }
-        Unit
-    }
-
-    override suspend fun sendMagicLink(email: String): Result<Unit> = call("send magic link") {
-        val auth = auth()
-        // OTP.login sends a magic link (email OTP) to the supplied address.
-        // Used for resending confirmation emails and for password-reset flows.
-        auth.signInWith(OTP) {
-            this.email = email
-            // Do not create a new user: a magic-link resend targets an existing
-            // unconfirmed account. Attempting to send to an unknown address
-            // correctly surfaces the error rather than silently creating a ghost.
-            createUser = false
+    override suspend fun signUp(
+        email: String,
+        password: String,
+    ): Result<RemoteSession> =
+        call("sign up") {
+            val user = backend().signUp(email, password).getOrThrow()
+            val session = auth().currentSessionOrNull()
+            session?.toRemote() ?: RemoteSession(
+                userId = user.uid,
+                // A blank address is how the repository is told that the account exists
+                // but there is no session to use yet: a sign-up that needs the address
+                // confirmed leaves the device signed out, and the screen has to say
+                // "check your mail" rather than "that failed".
+                email = "",
+                accessToken = "",
+                refreshToken = "",
+                isAnonymous = false,
+            )
         }
-        Unit
-    }
 
-    override suspend fun verifyMagicLink(email: String, token: String): Result<RemoteSession> =
+    override suspend fun signIn(
+        email: String,
+        password: String,
+    ): Result<RemoteSession> =
+        call("sign in") {
+            backend().signIn(AuthCredential.EmailPassword(email = email, password = password)).getOrThrow()
+            auth().currentSessionOrNull()?.toRemote()
+        }
+
+    override suspend fun updatePassword(newPassword: String): Result<Unit> =
+        call("update password") {
+            val auth = auth()
+            auth.updateUser { this.password = newPassword }
+            Unit
+        }
+
+    override suspend fun sendMagicLink(email: String): Result<Unit> =
+        call("send magic link") {
+            val auth = auth()
+            // OTP.login sends a magic link (email OTP) to the supplied address.
+            // Used for resending confirmation emails and for password-reset flows.
+            auth.signInWith(OTP) {
+                this.email = email
+                // Do not create a new user: a magic-link resend targets an existing
+                // unconfirmed account. Attempting to send to an unknown address
+                // correctly surfaces the error rather than silently creating a ghost.
+                createUser = false
+            }
+            Unit
+        }
+
+    override suspend fun verifyMagicLink(
+        email: String,
+        token: String,
+    ): Result<RemoteSession> =
         runCatchingCancellable {
             val auth = auth()
             // Exchange the token from the magic link URL for a session.
@@ -151,32 +164,33 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
             }
         }
 
-    override suspend fun signOut(): Result<Unit> = call("sign out") {
-        val client = clients.client()
-        if (client == null) {
-            // Signing out with no configured project still succeeds locally: there is
-            // no provider to ask, and there is nothing to end at one either.
-            Unit
-        } else {
-            try {
-                backend().signOut()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: HttpRequestException) {
-                // The provider could not be reached. The session on *this* device must
-                // still end: refusing to sign out locally because a request failed
-                // would mean the user cannot sign out on a plane.
-                //
-                // A refusal from the provider — a status it chose — is not caught here:
-                // the plugin clears the session it holds before it lets that through,
-                // so the local end has already happened by the time the exception
-                // reaches this catch.
-                runCatchingCancellable { client.auth.clearSession() }
-                    .onFailure { log.w(it) { "Could not clear the local session after a failed sign out" } }
-                throw e
+    override suspend fun signOut(): Result<Unit> =
+        call("sign out") {
+            val client = clients.client()
+            if (client == null) {
+                // Signing out with no configured project still succeeds locally: there is
+                // no provider to ask, and there is nothing to end at one either.
+                Unit
+            } else {
+                try {
+                    backend().signOut()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: HttpRequestException) {
+                    // The provider could not be reached. The session on *this* device must
+                    // still end: refusing to sign out locally because a request failed
+                    // would mean the user cannot sign out on a plane.
+                    //
+                    // A refusal from the provider — a status it chose — is not caught here:
+                    // the plugin clears the session it holds before it lets that through,
+                    // so the local end has already happened by the time the exception
+                    // reaches this catch.
+                    runCatchingCancellable { client.auth.clearSession() }
+                        .onFailure { log.w(it) { "Could not clear the local session after a failed sign out" } }
+                    throw e
+                }
             }
         }
-    }
 
     /**
      * Refreshes the session, or says that the session is gone.
@@ -198,23 +212,24 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
     override suspend fun refresh(
         accessToken: String,
         refreshToken: String,
-    ): Result<RemoteSession?> = runCatchingCancellable {
-        val auth = auth()
-        try {
-            auth.refreshSession(refreshToken).toRemote()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (failure: Throwable) {
-            when (AuthFailure.refreshOutcome(failure.refreshFailureReason())) {
-                RefreshOutcome.SessionIsGone -> null
-                RefreshOutcome.KeepSession -> throw failure
+    ): Result<RemoteSession?> =
+        runCatchingCancellable {
+            val auth = auth()
+            try {
+                auth.refreshSession(refreshToken).toRemote()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Throwable) {
+                when (AuthFailure.refreshOutcome(failure.refreshFailureReason())) {
+                    RefreshOutcome.SessionIsGone -> null
+                    RefreshOutcome.KeepSession -> throw failure
+                }
+            }
+        }.onFailure { e ->
+            if (e !is CancellationException) {
+                log.w(e) { "Auth token refresh failed" }
             }
         }
-    }.onFailure { e ->
-        if (e !is CancellationException) {
-            log.w(e) { "Auth token refresh failed" }
-        }
-    }
 
     /**
      * The live session, read from the credential store.
@@ -240,18 +255,19 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
      */
     override suspend fun currentSession(): RemoteSession? {
         val auth = auth()
-        val session = try {
-            auth.sessionManager?.loadSession()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: NoSessionFoundException) {
-            // The store holds no session. That is an answer, not a failure — and it is
-            // the only failure this catch treats as one: a keychain that cannot be
-            // read throws something else and travels on, so the caller learns that
-            // the session could not be read rather than that there is none.
-            log.d(e) { "The credential store holds no session" }
-            null
-        } ?: return null
+        val session =
+            try {
+                auth.sessionManager?.loadSession()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: NoSessionFoundException) {
+                // The store holds no session. That is an answer, not a failure — and it is
+                // the only failure this catch treats as one: a keychain that cannot be
+                // read throws something else and travels on, so the caller learns that
+                // the session could not be read rather than that there is none.
+                log.d(e) { "The credential store holds no session" }
+                null
+            } ?: return null
         auth.importSession(session, autoRefresh = false, source = SessionSource.Storage)
         return session.toRemoteOrNull()
     }
@@ -268,17 +284,18 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
      * belongs to the client that holds it: a session observed across a project change
      * would be a session of the project the user left.
      */
-    override fun sessionChanges(): Flow<RemoteSession?> = flow {
-        val plugin = clients.auth()
-        if (plugin == null) {
-            log.d { "No Supabase project is configured, so there is no session to observe" }
-            return@flow
+    override fun sessionChanges(): Flow<RemoteSession?> =
+        flow {
+            val plugin = clients.auth()
+            if (plugin == null) {
+                log.d { "No Supabase project is configured, so there is no session to observe" }
+                return@flow
+            }
+            plugin.sessionStatus.collect { status ->
+                val session = (status as? SessionStatus.Authenticated)?.session
+                emit(session?.toRemoteOrNull())
+            }
         }
-        plugin.sessionStatus.collect { status ->
-            val session = (status as? SessionStatus.Authenticated)?.session
-            emit(session?.toRemoteOrNull())
-        }
-    }
 
     /**
      * Runs [block], mapping a failure to [AppError] and a null session to one too.
@@ -287,7 +304,10 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
      * caller cannot act differently on them: both mean there is no session, and
      * both must leave the store untouched.
      */
-    private suspend fun <T> call(what: String, block: suspend () -> T?): Result<T> =
+    private suspend fun <T> call(
+        what: String,
+        block: suspend () -> T?,
+    ): Result<T> =
         runCatchingCancellable {
             block() ?: throw AuthFailure.noSession(what)
         }.onFailure { e ->
@@ -324,11 +344,12 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
      * email and still be anonymous, and treating it as claimed would make the app
      * skip the sign-up path for a user who has not actually created an account.
      */
-    private fun io.github.jan.supabase.auth.user.UserSession.toRemote(): RemoteSession = toRemoteOrNull()
-        ?: throw AppError.Unauthorized(
-            "The identity provider returned a session with no owner",
-            code = "auth.no_session",
-        )
+    private fun io.github.jan.supabase.auth.user.UserSession.toRemote(): RemoteSession =
+        toRemoteOrNull()
+            ?: throw AppError.Unauthorized(
+                "The identity provider returned a session with no owner",
+                code = "auth.no_session",
+            )
 
     /**
      * The session, or null when it has no owner.
@@ -351,12 +372,13 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
 
     private companion object {
         /** The codes GoTrue answers with when it will not accept the refresh token. */
-        val REJECTED_REFRESH_CODES = setOf(
-            AuthErrorCode.RefreshTokenNotFound,
-            AuthErrorCode.RefreshTokenAlreadyUsed,
-            AuthErrorCode.SessionNotFound,
-            AuthErrorCode.SessionExpired,
-        )
+        val REJECTED_REFRESH_CODES =
+            setOf(
+                AuthErrorCode.RefreshTokenNotFound,
+                AuthErrorCode.RefreshTokenAlreadyUsed,
+                AuthErrorCode.SessionNotFound,
+                AuthErrorCode.SessionExpired,
+            )
 
         const val HTTP_BAD_REQUEST = 400
     }

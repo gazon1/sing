@@ -16,6 +16,7 @@ sealed interface AuthUiEvent :
     MviEvent,
     AuthNavigationEvent {
     data object NavigateToHome : AuthUiEvent, AuthNavigationEvent by AuthNavigateHome
+
     data class Error(val message: String) : AuthUiEvent
 
     /**

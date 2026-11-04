@@ -59,10 +59,14 @@ kotlin {
 //
 // With no token the plugin is disabled, so a secretless checkout of the pro
 // configuration still produces a working build.
-val tracerAppToken = providers.gradleProperty("tracerAppToken")
-    .orElse(providers.environmentVariable("TRACER_APP_TOKEN"))
-val tracerPluginToken = providers.gradleProperty("tracerPluginToken")
-    .orElse(providers.environmentVariable("TRACER_PLUGIN_TOKEN"))
+val tracerAppToken =
+    providers
+        .gradleProperty("tracerAppToken")
+        .orElse(providers.environmentVariable("TRACER_APP_TOKEN"))
+val tracerPluginToken =
+    providers
+        .gradleProperty("tracerPluginToken")
+        .orElse(providers.environmentVariable("TRACER_PLUGIN_TOKEN"))
 
 // Policy: release builds must not upload from a developer machine.
 // Debug builds may always upload (for #134 verification before first release).
@@ -106,15 +110,17 @@ tasks.register<Exec>("assertTracerBuildUuid") {
     onlyIf { tokensPresent }
 
     val variant = if (project.hasProperty("isDebug") == true) "debug" else "release"
-    val manifestFile = layout.buildDirectory
-        .dir("generated/source/tracerManifest/$variant/com/singularity/todo/pro")
-        .get()
-        .file("TracerLibraryManifest.java")
+    val manifestFile =
+        layout.buildDirectory
+            .dir("generated/source/tracerManifest/$variant/com/singularity/todo/pro")
+            .get()
+            .file("TracerLibraryManifest.java")
 
     // The tracer plugin must run before this task can read its output.
-    tasks.find {
-        it.name == "generate${variant.replaceFirstChar { it.uppercase() }}TracerLibraryManifest"
-    }?.let { dependsOn(it) }
+    tasks
+        .find {
+            it.name == "generate${variant.replaceFirstChar { it.uppercase() }}TracerLibraryManifest"
+        }?.let { dependsOn(it) }
 
     doFirst {
         val javaFile = manifestFile.asFile
@@ -128,20 +134,21 @@ tasks.register<Exec>("assertTracerBuildUuid") {
         //   public String buildUuid() { return "abc123"; }
         // or:
         //   public String buildUuid() { return null; }
-        val returnMatch = Regex("""public String buildUuid\(\)\s*\{\s*return\s*"([^"]*)"\s*;?\s*}""")
-            .find(content)
+        val returnMatch =
+            Regex("""public String buildUuid\(\)\s*\{\s*return\s*"([^"]*)"\s*;?\s*}""")
+                .find(content)
         val returnValue = returnMatch?.groupValues?.getOrNull(1)
 
         if (returnValue == null) {
             logger.error(
                 "TracerLibraryManifest.buildUuid() is null — " +
                     "the AppTracer plugin did not generate a UUID for variant '$variant'. " +
-                    "The SDK will throw IllegalStateException at runtime and crash reporting will be dead."
+                    "The SDK will throw IllegalStateException at runtime and crash reporting will be dead.",
             )
             throw GradleException(
                 "AppTracer buildUuid is null. " +
                     "Ensure the tracer plugin is applied to the application module (not just a library) " +
-                    "or configure tracer.buildUuid per variant in pro/build.gradle.kts."
+                    "or configure tracer.buildUuid per variant in pro/build.gradle.kts.",
             )
         }
         logger.lifecycle("AppTracer buildUuid for variant '$variant': $returnValue")
@@ -150,10 +157,16 @@ tasks.register<Exec>("assertTracerBuildUuid") {
 
 android {
     namespace = "com.singularity.todo.pro"
-    compileSdk = libs.versions.sdk.compile.get().toInt()
+    compileSdk =
+        libs.versions.sdk.compile
+            .get()
+            .toInt()
 
     defaultConfig {
-        minSdk = libs.versions.sdk.min.get().toInt()
+        minSdk =
+            libs.versions.sdk.min
+                .get()
+                .toInt()
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -205,7 +218,6 @@ dependencies {
     // The custom rule sets, matching the other modules — otherwise no project rule
     // applies to :pro at all.
     detektPlugins(project(":detekt-rules"))
-    detektPlugins(libs.detekt.formatting)
 }
 
 detekt {

@@ -20,14 +20,15 @@ import com.singularity.todo.feature.tasks.presentation.model.TaskUi
  *
  * @return the host the agenda graph takes.
  */
-fun androidAgendaContextMenuHost(): AgendaContextMenuHost = { taskUi: TaskUi, _, onDismiss, onIntent ->
-    TaskContextMenuSheet(
-        task = taskUi,
-        onOpen = { onIntent(AgendaIntent.TaskClicked(taskUi.id)) },
-        onToggleComplete = { onIntent(AgendaIntent.TaskCheckClicked(taskUi.id)) },
-        onTogglePin = { onIntent(AgendaIntent.TaskPinClicked(taskUi.id)) },
-        onArchive = { onIntent(AgendaIntent.TaskDeleteClicked(taskUi.id)) },
-        onDismiss = onDismiss,
-        modifier = Modifier.semantics { testTagsAsResourceId = true },
-    )
-}
+fun androidAgendaContextMenuHost(): AgendaContextMenuHost =
+    { taskUi: TaskUi, _, onDismiss, onIntent ->
+        TaskContextMenuSheet(
+            task = taskUi,
+            onOpen = { onIntent(AgendaIntent.TaskClicked(taskUi.id)) },
+            onToggleComplete = { onIntent(AgendaIntent.TaskCheckClicked(taskUi.id)) },
+            onTogglePin = { onIntent(AgendaIntent.TaskPinClicked(taskUi.id)) },
+            onArchive = { onIntent(AgendaIntent.TaskDeleteClicked(taskUi.id)) },
+            onDismiss = onDismiss,
+            modifier = Modifier.semantics { testTagsAsResourceId = true },
+        )
+    }

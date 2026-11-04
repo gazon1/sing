@@ -14,9 +14,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.PriorityPalette
-import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
 
 internal val TaskPriority.isActive: Boolean get() = this != TaskPriority.None
 
@@ -29,7 +29,10 @@ internal val TaskPriority.isActive: Boolean get() = this != TaskPriority.None
  * и [TaskRowContent], чтобы цвет приоритета был согласован по всей строке.
  */
 @Composable
-fun PriorityIndicator(priority: TaskPriority, modifier: Modifier = Modifier) {
+fun PriorityIndicator(
+    priority: TaskPriority,
+    modifier: Modifier = Modifier,
+) {
     val color = priorityColor(priority)
     Icon(
         imageVector = if (priority.isActive) Icons.Filled.Star else Icons.Outlined.StarOutline,
@@ -45,13 +48,14 @@ fun PriorityIndicator(priority: TaskPriority, modifier: Modifier = Modifier) {
  */
 fun priorityColor(priority: TaskPriority): Color = priorityMeta(priority, PriorityPalette.TaskList).color
 
-private fun priorityContentDescription(priority: TaskPriority): String = when (priority) {
-    TaskPriority.High -> "Высокий приоритет"
-    TaskPriority.Medium -> "Средний приоритет"
-    TaskPriority.Low -> "Низкий приоритет"
-    TaskPriority.None -> "Без приоритета"
-    TaskPriority.Urgent -> "Срочный приоритет"
-}
+private fun priorityContentDescription(priority: TaskPriority): String =
+    when (priority) {
+        TaskPriority.High -> "Высокий приоритет"
+        TaskPriority.Medium -> "Средний приоритет"
+        TaskPriority.Low -> "Низкий приоритет"
+        TaskPriority.None -> "Без приоритета"
+        TaskPriority.Urgent -> "Срочный приоритет"
+    }
 
 @Preview
 @Composable

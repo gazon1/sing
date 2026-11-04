@@ -21,7 +21,12 @@ import kotlin.time.Instant
 @JvmInline
 value class TaskId(val value: String) {
     companion object {
-        fun generate() = TaskId(com.singularity.todo.core.ids.nextId())
+        fun generate() =
+            TaskId(
+                com.singularity.todo.core.ids
+                    .nextId(),
+            )
+
         fun fromString(value: String) = TaskId(value)
     }
 }
@@ -41,13 +46,21 @@ enum class TaskKind {
 
 sealed interface TaskFilter {
     data object Today : TaskFilter
+
     data object Upcoming : TaskFilter
+
     data object Someday : TaskFilter
+
     data object Inbox : TaskFilter
+
     data object Pinned : TaskFilter
+
     data object Trash : TaskFilter
+
     data object All : TaskFilter
+
     data class ByProject(val id: ProjectId) : TaskFilter
+
     data class ByTag(val id: TagId) : TaskFilter
 
     /**
@@ -148,7 +161,8 @@ data class Task(
     val endDate: kotlinx.datetime.LocalDate? = null, // deadline / end of active window
     val endTime: kotlinx.datetime.LocalTime? = null,
     val accentColor: Long? = null, // ARGB color value, null = use default
-    val emoji: String? = null, // task-level emoji, null = none
+    // Task-level emoji; null = none.
+    val emoji: String? = null,
     /**
      * Estimated time to complete this task, in minutes.
      * Null means no estimate has been set — distinct from 0 minutes.
@@ -265,14 +279,15 @@ data class Task(
     val createdAt: Instant,
     val updatedAt: Instant,
     val userId: UserId,
-    // ─── Sync fields ───────────────────────────────────────────────────────────
-    /** Server version from last sync; 0 = not yet synced. Stored in DB but not part of the constructor — loaded via mapper. */
+    /**
+     * Sync field. Server version from last sync; 0 = not yet synced.
+     * Stored in DB but not part of the constructor — loaded via mapper.
+     */
     val serverVersion: Long = 0,
-    /** Hybrid Logical Clock timestamp; null for local-only tasks. */
+    /** Sync field. Hybrid Logical Clock timestamp; null for local-only tasks. */
     val hlc: Hlc? = null,
 ) : SyncableEntity,
     Searchable {
-
     /**
      * The surfaces a task is searched by (F3): its title and its description.
      *

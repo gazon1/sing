@@ -74,12 +74,13 @@ class TemplateResolver(
      * `data.value` submits as a number, not as its digits in a string. A string that *mixes* text
      * and a value has no such type and becomes text.
      */
-    fun json(element: JsonElement?): JsonElement? = when (element) {
-        is JsonObject -> JsonObject(element.mapValues { (_, value: JsonElement) -> json(value) ?: JsonNull })
-        is JsonArray -> JsonArray(element.map { json(it) ?: JsonNull })
-        is JsonPrimitive -> resolvePrimitive(element)
-        else -> element
-    }
+    fun json(element: JsonElement?): JsonElement? =
+        when (element) {
+            is JsonObject -> JsonObject(element.mapValues { (_, value: JsonElement) -> json(value) ?: JsonNull })
+            is JsonArray -> JsonArray(element.map { json(it) ?: JsonNull })
+            is JsonPrimitive -> resolvePrimitive(element)
+            else -> element
+        }
 
     private fun resolvePrimitive(primitive: JsonPrimitive): JsonElement {
         if (!primitive.isString) return primitive
@@ -97,21 +98,27 @@ class TemplateResolver(
         return (segment as? TemplateSegment.Path)?.path
     }
 
-    private fun resolve(segment: TemplateSegment): String = when (segment) {
-        is TemplateSegment.Literal -> segment.text
-
-        is TemplateSegment.Path -> read(segment.path).asText()
-
-        is TemplateSegment.Call -> {
-            val args: List<JsonElement> = segment.args.map { argument: TemplateArg ->
-                when (argument) {
-                    is TemplateArg.Literal -> argument.value
-                    is TemplateArg.Nested -> JsonPrimitive(resolve(argument.segment))
-                }
+    private fun resolve(segment: TemplateSegment): String =
+        when (segment) {
+            is TemplateSegment.Literal -> {
+                segment.text
             }
-            functions.call(segment.name, args, context()).asText()
+
+            is TemplateSegment.Path -> {
+                read(segment.path).asText()
+            }
+
+            is TemplateSegment.Call -> {
+                val args: List<JsonElement> =
+                    segment.args.map { argument: TemplateArg ->
+                        when (argument) {
+                            is TemplateArg.Literal -> argument.value
+                            is TemplateArg.Nested -> JsonPrimitive(resolve(argument.segment))
+                        }
+                    }
+                functions.call(segment.name, args, context()).asText()
+            }
         }
-    }
 
     private fun context(): A2uiFunctionContext = A2uiFunctionContext(today, EMPTY_MODEL)
 }

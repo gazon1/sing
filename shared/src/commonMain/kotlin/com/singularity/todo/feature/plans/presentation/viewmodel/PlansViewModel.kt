@@ -1,20 +1,20 @@
 package com.singularity.todo.feature.plans.presentation.viewmodel
 
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.feature.plans.domain.logic.TimelineGrouper
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
@@ -37,7 +37,6 @@ class PlansViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     /**
      * Today, in the user's own time zone.
      *
@@ -68,27 +67,31 @@ class PlansViewModel(
                         granularity = granularity,
                         today = today,
                     )
-                }
-                .catch { throwable ->
+                }.catch { throwable ->
                     crashReporter.report(throwable, LOAD_FAILED)
                     setState(PlansUiState.Error(throwable.message ?: "Could not load the plan"))
-                }
-                .collect { loaded -> setState(loaded) }
+                }.collect { loaded -> setState(loaded) }
         }
     }
 
     override fun onIntent(intent: PlansIntent) {
         when (intent) {
-            is PlansIntent.SetGranularity -> vmScope.launch {
-                deps.settings.setGranularity(intent.granularity)
+            is PlansIntent.SetGranularity -> {
+                vmScope.launch {
+                    deps.settings.setGranularity(intent.granularity)
+                }
             }
 
-            is PlansIntent.ToggleCompleted -> vmScope.launch {
-                toggleCompleted(intent.taskId)
+            is PlansIntent.ToggleCompleted -> {
+                vmScope.launch {
+                    toggleCompleted(intent.taskId)
+                }
             }
 
-            is PlansIntent.TaskSwipedAway -> vmScope.launch {
-                swipeAway(intent.taskId)
+            is PlansIntent.TaskSwipedAway -> {
+                vmScope.launch {
+                    swipeAway(intent.taskId)
+                }
             }
         }
     }
@@ -110,11 +113,12 @@ class PlansViewModel(
             return
         }
 
-        val completed = deps.taskRepo.complete(taskId).getOrElse { error ->
-            crashReporter.report(error, COMPLETE_FAILED)
-            emit(PlansUiEvent.ShowError("Could not update the task"))
-            return
-        }
+        val completed =
+            deps.taskRepo.complete(taskId).getOrElse { error ->
+                crashReporter.report(error, COMPLETE_FAILED)
+                emit(PlansUiEvent.ShowError("Could not update the task"))
+                return
+            }
         if (!completed) {
             emit(PlansUiEvent.ShowError("The task has an unfinished prerequisite"))
         }

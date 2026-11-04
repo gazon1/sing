@@ -24,7 +24,6 @@ package com.singularity.todo.feature.search.query
  */
 @JvmInline
 value class QueryInterval internal constructor(private val _days: Int) {
-
     val days: Int get() = _days
 
     /** `true` when this is the [NONE] sentinel — "no date constraint". */
@@ -76,13 +75,14 @@ value class QueryInterval internal constructor(private val _days: Int) {
         private fun fromSignedNumber(input: String): QueryInterval? {
             val match = SIGNED_NUMBER_UNIT.matchEntire(input) ?: return null
             val magnitude = match.groupValues[1].toIntOrNull() ?: return null
-            val days = when (match.groupValues[2]) {
-                "d" -> magnitude
-                "w" -> magnitude * 7
-                "m" -> magnitude * 30
-                "y" -> magnitude * 365
-                else -> return null // unreachable: the regex admits only d/w/m/y
-            }
+            val days =
+                when (match.groupValues[2]) {
+                    "d" -> magnitude
+                    "w" -> magnitude * 7
+                    "m" -> magnitude * 30
+                    "y" -> magnitude * 365
+                    else -> return null // unreachable: the regex admits only d/w/m/y
+                }
             return QueryInterval(days)
         }
 

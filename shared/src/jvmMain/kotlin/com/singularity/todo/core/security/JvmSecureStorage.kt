@@ -1,5 +1,6 @@
 package com.singularity.todo.core.security
 
+import com.singularity.todo.core.error.runCatchingCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.DataInputStream
@@ -24,7 +25,6 @@ import javax.crypto.spec.SecretKeySpec
  */
 @Suppress("TooManyFunctions")
 open class JvmSecureStorage : SecureStoragePort {
-
     /** Open so test subclasses can direct the fallback file to a test-specific path. */
     protected open val fallbackFile: Path by lazy {
         val home = System.getProperty("user.home")
@@ -41,18 +41,43 @@ open class JvmSecureStorage : SecureStoragePort {
 
     // ─── SecureStoragePort ────────────────────────────────────────────────────
 
-    override suspend fun read(key: String): String? = withContext(Dispatchers.IO) {
-        secretToolRead(key) ?: fallbackReadWithRecovery(key)
+    override suspend fun read(key: String): String? =
+        withContext(Dispatchers.IO) {
+            secretToolRead(key) ?: fallbackReadWithRecovery(key)
+        }
+
+    /**
+     * Writes the secret to the keyring, and keeps the file from disagreeing.
+     *
+     * The keyring and the fallback file are one store with two doors, and a
+     * read that finds nothing in the keyring goes to the file. So a file that
+     * still holds the value from **before** the keyring took the secret answers
+     * with an old credential — an old API key, an old refresh token — with no
+     * error anywhere. When the keyring accepts the value, the file's copy of it
+     * is dropped: the two stores then hold the same thing, or the file holds
+     * nothing for that key at all.
+     */
+    override suspend fun write(
+        key: String,
+        value: String,
+    ) = withContext(Dispatchers.IO) {
+        if (secretToolWrite(key, value)) {
+            // The file's copy of the key is dropped, best effort: the write that
+            // reached the keyring stands either way, and a file that cannot be
+            // parsed is left exactly as it is — it holds nothing this key could
+            // be read from.
+            runCatchingCancellable { fallbackDelete(key) }
+            Unit
+        } else {
+            fallbackWriteWithRecovery(key, value)
+        }
     }
 
-    override suspend fun write(key: String, value: String) = withContext(Dispatchers.IO) {
-        if (!secretToolWrite(key, value)) fallbackWriteWithRecovery(key, value)
-    }
-
-    override suspend fun delete(key: String) = withContext(Dispatchers.IO) {
-        secretToolDelete(key)
-        fallbackDelete(key)
-    }
+    override suspend fun delete(key: String) =
+        withContext(Dispatchers.IO) {
+            secretToolDelete(key)
+            fallbackDelete(key)
+        }
 
     override fun isHardwareBacked(): Boolean = IS_LINUX && secretToolAvailable()
 
@@ -67,7 +92,8 @@ open class JvmSecureStorage : SecureStoragePort {
     /** Open so test subclasses can force the fallback path. */
     private val keyring: com.github.javakeyring.Keyring? by lazy {
         try {
-            com.github.javakeyring.Keyring.create()
+            com.github.javakeyring.Keyring
+                .create()
         } catch (_: com.github.javakeyring.BackendNotSupportedException) {
             null
         }
@@ -78,13 +104,23 @@ open class JvmSecureStorage : SecureStoragePort {
     protected open fun secretToolRead(key: String): String? {
         val kr = keyring ?: return null
         return try {
-            kr.getPassword(SERVICE_NAME, key)?.trim()?.takeIf { it.isNotEmpty() }
+            // The value the keyring holds, as it is. It used to be trimmed and
+            // an empty one was reported as absent: a secret with surrounding
+            // whitespace came back without it, and a secret that was the empty
+            // string came back as `null` — which the port says means "there is
+            // no such key". The fallback file returns its value verbatim, so the
+            // same key answered with two different values depending on which
+            // backend had it.
+            kr.getPassword(SERVICE_NAME, key)
         } catch (_: com.github.javakeyring.PasswordAccessException) {
             null
         }
     }
 
-    protected open fun secretToolWrite(key: String, value: String): Boolean {
+    protected open fun secretToolWrite(
+        key: String,
+        value: String,
+    ): Boolean {
         val kr = keyring ?: return false
         return try {
             kr.setPassword(SERVICE_NAME, key, value)
@@ -119,10 +155,21 @@ open class JvmSecureStorage : SecureStoragePort {
             return legacyDerivedKey()
         }
         synchronized(keyLock) {
-            val stored = secretToolRead(fallbackKeyName)
+            // The key is base64, so it is never blank: a blank value is not a
+            // key, it is an absent one.
+            val stored = secretToolRead(fallbackKeyName)?.takeIf { it.isNotBlank() }
             if (stored != null) {
                 return try {
-                    SecretKeySpec(java.util.Base64.getDecoder().decode(stored), "AES")
+                    // The MIME decoder skips the whitespace a keyring may have
+                    // wrapped the value in. The plain decoder would refuse it and
+                    // the key would be regenerated, which orphans every entry in
+                    // the fallback file.
+                    SecretKeySpec(
+                        java.util.Base64
+                            .getMimeDecoder()
+                            .decode(stored),
+                        "AES",
+                    )
                 } catch (_: IllegalArgumentException) {
                     null
                 } ?: regenerateKey()
@@ -133,12 +180,13 @@ open class JvmSecureStorage : SecureStoragePort {
 
     private fun legacyDerivedKey(): SecretKeySpec {
         val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-        val spec = javax.crypto.spec.PBEKeySpec(
-            System.getProperty("user.home")!!.toCharArray(),
-            "singularity-v1".toByteArray(),
-            100_000,
-            256,
-        )
+        val spec =
+            javax.crypto.spec.PBEKeySpec(
+                System.getProperty("user.home")!!.toCharArray(),
+                "singularity-v1".toByteArray(),
+                100_000,
+                256,
+            )
         val key = factory.generateSecret(spec)
         return javax.crypto.spec.SecretKeySpec(key.encoded, "AES")
     }
@@ -146,7 +194,10 @@ open class JvmSecureStorage : SecureStoragePort {
     private fun regenerateKey(): SecretKeySpec {
         val bytes = ByteArray(32)
         rng.nextBytes(bytes)
-        val encoded = java.util.Base64.getEncoder().encodeToString(bytes)
+        val encoded =
+            java.util.Base64
+                .getEncoder()
+                .encodeToString(bytes)
         if (!secretToolWrite(fallbackKeyName, encoded)) {
             throw IllegalStateException("could not persist fallback AES key")
         }
@@ -184,13 +235,14 @@ open class JvmSecureStorage : SecureStoragePort {
         if (!Files.exists(fallbackFile)) return null
         return DataInputStream(Files.newInputStream(fallbackFile)).use { dis ->
             val first = dis.readInt()
-            val count = if (first == MAGIC) {
-                val version = dis.readInt()
-                require(version == FORMAT_VERSION) { "unsupported format version: $version" }
-                dis.readInt()
-            } else {
-                first
-            }
+            val count =
+                if (first == MAGIC) {
+                    val version = dis.readInt()
+                    require(version == FORMAT_VERSION) { "unsupported format version: $version" }
+                    dis.readInt()
+                } else {
+                    first
+                }
             require(count in 0..MAX_ENTRIES) { "entry count out of range: $count" }
             repeat(count) {
                 val k = dis.readUTF()
@@ -223,24 +275,30 @@ open class JvmSecureStorage : SecureStoragePort {
      *
      * A second failure propagates with the first attached as suppressed.
      */
-    private fun fallbackWriteWithRecovery(key: String, value: String) =
-        SecureStoreRecovery.openOrErase(
-            open = { fallbackWrite(key, value) },
-            erase = { Files.deleteIfExists(fallbackFile) },
-        )
+    private fun fallbackWriteWithRecovery(
+        key: String,
+        value: String,
+    ) = SecureStoreRecovery.openOrErase(
+        open = { fallbackWrite(key, value) },
+        erase = { Files.deleteIfExists(fallbackFile) },
+    )
 
-    private fun fallbackWrite(key: String, value: String) {
+    private fun fallbackWrite(
+        key: String,
+        value: String,
+    ) {
         val entries = mutableMapOf<String, Pair<ByteArray, ByteArray>>() // iv to ct
         if (Files.exists(fallbackFile)) {
             DataInputStream(Files.newInputStream(fallbackFile)).use { dis ->
                 val first = dis.readInt()
-                val count = if (first == MAGIC) {
-                    val version = dis.readInt()
-                    require(version == FORMAT_VERSION) { "unsupported format version: $version" }
-                    dis.readInt()
-                } else {
-                    first
-                }
+                val count =
+                    if (first == MAGIC) {
+                        val version = dis.readInt()
+                        require(version == FORMAT_VERSION) { "unsupported format version: $version" }
+                        dis.readInt()
+                    } else {
+                        first
+                    }
                 require(count in 0..MAX_ENTRIES) { "entry count out of range: $count" }
                 repeat(count) {
                     val k = dis.readUTF()
@@ -288,31 +346,33 @@ open class JvmSecureStorage : SecureStoragePort {
     private fun fallbackDelete(key: String) {
         if (!Files.exists(fallbackFile)) return
         val entries = mutableMapOf<String, Pair<ByteArray, ByteArray>>()
-        val parsed = runCatching {
-            DataInputStream(Files.newInputStream(fallbackFile)).use { dis ->
-                val first = dis.readInt()
-                val count = if (first == MAGIC) {
-                    val version = dis.readInt()
-                    require(version == FORMAT_VERSION) { "unsupported format version: $version" }
-                    dis.readInt()
-                } else {
-                    first
+        val parsed =
+            runCatching {
+                DataInputStream(Files.newInputStream(fallbackFile)).use { dis ->
+                    val first = dis.readInt()
+                    val count =
+                        if (first == MAGIC) {
+                            val version = dis.readInt()
+                            require(version == FORMAT_VERSION) { "unsupported format version: $version" }
+                            dis.readInt()
+                        } else {
+                            first
+                        }
+                    require(count in 0..MAX_ENTRIES) { "entry count out of range: $count" }
+                    repeat(count) {
+                        val k = dis.readUTF()
+                        val ivLen = dis.readInt()
+                        require(ivLen in 0..MAX_IV_BYTES) { "iv length out of range: $ivLen" }
+                        val iv = ByteArray(ivLen)
+                        dis.readFully(iv)
+                        val ctLen = dis.readInt()
+                        require(ctLen in 0..MAX_CT_BYTES) { "ciphertext length out of range: $ctLen" }
+                        val ct = ByteArray(ctLen)
+                        dis.readFully(ct)
+                        if (k != key) entries[k] = iv to ct
+                    }
                 }
-                require(count in 0..MAX_ENTRIES) { "entry count out of range: $count" }
-                repeat(count) {
-                    val k = dis.readUTF()
-                    val ivLen = dis.readInt()
-                    require(ivLen in 0..MAX_IV_BYTES) { "iv length out of range: $ivLen" }
-                    val iv = ByteArray(ivLen)
-                    dis.readFully(iv)
-                    val ctLen = dis.readInt()
-                    require(ctLen in 0..MAX_CT_BYTES) { "ciphertext length out of range: $ctLen" }
-                    val ct = ByteArray(ctLen)
-                    dis.readFully(ct)
-                    if (k != key) entries[k] = iv to ct
-                }
-            }
-        }.isSuccess
+            }.isSuccess
         // A file that cannot be parsed is left exactly as it is. Rewriting it from a partial
         // parse would launder a truncated file into a valid shorter one, silently dropping
         // every entry after the break point.
@@ -340,8 +400,11 @@ open class JvmSecureStorage : SecureStoragePort {
         private const val SERVICE_NAME = "singularity"
         private const val MAGIC = 0x53494E47 // "SING"
         private const val FORMAT_VERSION = 1
-        private val IS_LINUX = System.getProperty("os.name", "")
-            .lowercase().contains("linux")
+        private val IS_LINUX =
+            System
+                .getProperty("os.name", "")
+                .lowercase()
+                .contains("linux")
         private const val AES_TRANSFORM = "AES/GCM/NoPadding"
         private const val TAG_BITS = 128
 

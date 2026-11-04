@@ -22,40 +22,57 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class CalendarEventMapperTest {
-
     private val tz = TimeZone.currentSystemDefault()
+
     private fun today(): LocalDate {
         val nowMs = System.currentTimeMillis()
-        return kotlin.time.Instant.fromEpochMilliseconds(nowMs)
-            .toLocalDateTime(tz).date
+        return kotlin.time.Instant
+            .fromEpochMilliseconds(nowMs)
+            .toLocalDateTime(tz)
+            .date
     }
 
-    private fun localDate(year: Int, month: Int, day: Int) = LocalDate(year, month, day)
+    private fun localDate(
+        year: Int,
+        month: Int,
+        day: Int,
+    ) = LocalDate(year, month, day)
 
-    private fun localTime(hour: Int, minute: Int) = LocalTime(hour, minute)
+    private fun localTime(
+        hour: Int,
+        minute: Int,
+    ) = LocalTime(hour, minute)
 
-    private fun midnightMs(date: LocalDate) = date.atStartOfDayIn(tz)
-        .toEpochMilliseconds()
+    private fun midnightMs(date: LocalDate) =
+        date
+            .atStartOfDayIn(tz)
+            .toEpochMilliseconds()
 
     private fun nextDayMidnightMs(date: LocalDate): Long {
         // Mirror the logic from CalendarEventMapper.LocalDate.nextDay()
         val dim = daysInMonth(date.year, date.month.number)
         val nextD = date.day + 1
-        val tomorrow = when {
-            nextD <= dim -> LocalDate(date.year, date.month.number, nextD)
-            date.month.number == 12 -> LocalDate(date.year + 1, 1, 1)
-            else -> LocalDate(date.year, date.month.number + 1, 1)
-        }
-        return tomorrow.atStartOfDayIn(tz)
+        val tomorrow =
+            when {
+                nextD <= dim -> LocalDate(date.year, date.month.number, nextD)
+                date.month.number == 12 -> LocalDate(date.year + 1, 1, 1)
+                else -> LocalDate(date.year, date.month.number + 1, 1)
+            }
+        return tomorrow
+            .atStartOfDayIn(tz)
             .toEpochMilliseconds()
     }
 
-    private fun daysInMonth(year: Int, month: Int): Int = when (month) {
-        1, 3, 5, 7, 8, 10, 12 -> 31
-        4, 6, 9, 11 -> 30
-        2 -> if (isLeapYear(year)) 29 else 28
-        else -> 30
-    }
+    private fun daysInMonth(
+        year: Int,
+        month: Int,
+    ): Int =
+        when (month) {
+            1, 3, 5, 7, 8, 10, 12 -> 31
+            4, 6, 9, 11 -> 30
+            2 -> if (isLeapYear(year)) 29 else 28
+            else -> 30
+        }
 
     private fun isLeapYear(year: Int): Boolean = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
 
@@ -96,7 +113,10 @@ class CalendarEventMapperTest {
     )
 
     // Full Reminder constructor for recurring pattern tests
-    private fun reminder(taskId: TaskId, recurringPattern: String?) = Reminder(
+    private fun reminder(
+        taskId: TaskId,
+        recurringPattern: String?,
+    ) = Reminder(
         id = ReminderId("r1"),
         taskId = taskId,
         userId = UserId("u1"),
@@ -112,8 +132,10 @@ class CalendarEventMapperTest {
     fun timed_task_maps_to_timed_event_with_1h_duration() {
         val date = localDate(2026, 9, 22)
         val time = localTime(15, 0)
-        val startMs = LocalDateTime(date.year, date.month.number, date.day, 15, 0, 0, 0).toInstant(tz)
-            .toEpochMilliseconds()
+        val startMs =
+            LocalDateTime(date.year, date.month.number, date.day, 15, 0, 0, 0)
+                .toInstant(tz)
+                .toEpochMilliseconds()
         val t = task(TaskId("t1"), "Meeting", date, time)
 
         val result = CalendarEventMapper.mapToEvent(t, null, "cal1", null)
@@ -163,13 +185,14 @@ class CalendarEventMapperTest {
         // If the task description already contains a deep-link from a previous sync,
         // it should be stripped before appending the new one (to avoid doubling)
         val date = localDate(2026, 9, 22)
-        val t = task(
-            TaskId("t1"),
-            "Task",
-            date,
-            null,
-            "Some text\n\nsingularity://task/t1\n\nMore text",
-        )
+        val t =
+            task(
+                TaskId("t1"),
+                "Task",
+                date,
+                null,
+                "Some text\n\nsingularity://task/t1\n\nMore text",
+            )
 
         val result = CalendarEventMapper.mapToEvent(t, null, "cal1", null)
 
@@ -187,7 +210,8 @@ class CalendarEventMapperTest {
 
         assertEquals(
             "singularity://task/my-task-123",
-            result.description.lines()
+            result.description
+                .lines()
                 .last { it.startsWith("singularity://") },
         )
     }

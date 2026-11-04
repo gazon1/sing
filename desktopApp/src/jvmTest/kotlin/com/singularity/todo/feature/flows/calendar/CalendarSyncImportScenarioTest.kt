@@ -4,18 +4,18 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.calendarSync.domain.model.ImportWindow
 import com.singularity.todo.test.fakes.TestUsers
-import com.singularity.todo.test.helpers.connectedCredential
-import com.singularity.todo.test.helpers.googleCalendarModule
 import com.singularity.todo.test.helpers.FakeCalendarEventSource
-import com.singularity.todo.test.helpers.FakeGoogleSettings
 import com.singularity.todo.test.helpers.FakeGoogleCredentialStore
+import com.singularity.todo.test.helpers.FakeGoogleSettings
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
 import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.connectedCredential
+import com.singularity.todo.test.helpers.googleCalendarModule
 import com.singularity.todo.test.helpers.openDrawer
-import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
+import com.singularity.todo.test.helpers.scrollToTag
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -51,27 +51,29 @@ import kotlin.time.Duration
 @Tag("slow")
 @Tag("slow:compose")
 class CalendarSyncImportScenarioTest {
-
     @Test
     @DisplayName("CAL-SYNC-IMPORT-01 the import window shown is the one the pass is configured with")
     fun the_import_window_shown_matches_the_configured_one() =
         runDesktopAppTest(
-            overrides = googleCalendarModule(
-                credentials = FakeGoogleCredentialStore(
-                    initial = mapOf(TestUsers.DEFAULT.value to connectedCredential()),
+            overrides =
+                googleCalendarModule(
+                    credentials =
+                        FakeGoogleCredentialStore(
+                            initial = mapOf(TestUsers.DEFAULT.value to connectedCredential()),
+                        ),
+                    settings = FakeGoogleSettings(calId = "primary-cal"),
+                    eventSource = FakeCalendarEventSource(),
+                    // Deliberately NOT the default. The sentence is derived from the
+                    // value DI handed the engine and the event source, so a screen that
+                    // still read ImportWindow.DEFAULT here would print different numbers
+                    // than the pass it describes. Three sites used to name that constant
+                    // independently and nothing would have complained.
+                    importWindow =
+                        ImportWindow(
+                            past = Duration.parse("7d"),
+                            future = Duration.parse("14d"),
+                        ),
                 ),
-                settings = FakeGoogleSettings(calId = "primary-cal"),
-                eventSource = FakeCalendarEventSource(),
-                // Deliberately NOT the default. The sentence is derived from the
-                // value DI handed the engine and the event source, so a screen that
-                // still read ImportWindow.DEFAULT here would print different numbers
-                // than the pass it describes. Three sites used to name that constant
-                // independently and nothing would have complained.
-                importWindow = ImportWindow(
-                    past = Duration.parse("7d"),
-                    future = Duration.parse("14d"),
-                ),
-            ),
         ) {
             openDrawer()
             clickContentDescriptionScrolled("Settings")

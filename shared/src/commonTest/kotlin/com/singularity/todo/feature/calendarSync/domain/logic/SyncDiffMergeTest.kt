@@ -10,16 +10,23 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class SyncDiffMergeTest {
+    private fun entity(
+        taskId: String,
+        calendarId: String = "cal1",
+        eventId: Long = 100L,
+        checksum: Int = 0,
+    ) = SyncedEventRef(
+        taskId = taskId,
+        calendarId = calendarId,
+        eventId = eventId,
+        checksum = checksum,
+    )
 
-    private fun entity(taskId: String, calendarId: String = "cal1", eventId: Long = 100L, checksum: Int = 0) =
-        SyncedEventRef(
-            taskId = taskId,
-            calendarId = calendarId,
-            eventId = eventId,
-            checksum = checksum,
-        )
-
-    private fun event(taskId: String, calendarId: String = "cal1", checksum: Int = 1) = CalendarSyncEvent(
+    private fun event(
+        taskId: String,
+        calendarId: String = "cal1",
+        checksum: Int = 1,
+    ) = CalendarSyncEvent(
         taskId = TaskId(taskId),
         calendarId = calendarId,
         eventId = null,

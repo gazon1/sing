@@ -43,8 +43,10 @@ import ru.ok.tracer.crash.report.TracerCrashReport
  * `ru.ok.tracer` Gradle plugin injects the tokens.
  */
 class TracerCrashReportingPort(private val log: Logger) : CrashReportingPort {
-
-    override fun report(error: Throwable, issueKey: String) {
+    override fun report(
+        error: Throwable,
+        issueKey: String,
+    ) {
         runCatching {
             TracerCrashReport.report(e = error, issueKey = issueKey)
         }.onFailure { failure ->

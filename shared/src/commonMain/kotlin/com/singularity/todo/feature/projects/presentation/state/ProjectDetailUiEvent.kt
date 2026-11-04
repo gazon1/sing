@@ -8,6 +8,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  */
 sealed interface ProjectDetailUiEvent : MviEvent {
     data object NavigateBack : ProjectDetailUiEvent // after successful delete
+
     data class ShowError(val message: String) : ProjectDetailUiEvent
+
     data class UndoDeleteTask(val taskId: TaskId) : ProjectDetailUiEvent
 }

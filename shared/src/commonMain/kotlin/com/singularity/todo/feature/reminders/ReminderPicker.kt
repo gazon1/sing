@@ -16,13 +16,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.ui.touchTarget
 
 /**
  * Radio group for picking a reminder offset when creating/editing a task.
  * Does not persist — callers handle the [onSelect] callback.
  */
 @Composable
-fun ReminderPicker(selected: ReminderOffset, onSelect: (ReminderOffset) -> Unit, modifier: Modifier = Modifier) {
+fun ReminderPicker(
+    selected: ReminderOffset,
+    onSelect: (ReminderOffset) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             "Remind me",
@@ -31,15 +36,16 @@ fun ReminderPicker(selected: ReminderOffset, onSelect: (ReminderOffset) -> Unit,
         )
         ReminderOffset.entries.forEach { offset ->
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp)
-                    .selectable(
-                        selected = selected == offset,
-                        onClick = { onSelect(offset) },
-                        role = Role.RadioButton,
-                    )
-                    .padding(horizontal = 8.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .touchTarget()
+                        .height(40.dp)
+                        .selectable(
+                            selected = selected == offset,
+                            onClick = { onSelect(offset) },
+                            role = Role.RadioButton,
+                        ).padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 RadioButton(

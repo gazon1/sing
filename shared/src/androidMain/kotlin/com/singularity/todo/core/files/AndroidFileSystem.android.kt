@@ -2,9 +2,12 @@ package com.singularity.todo.core.files
 
 import android.content.Context
 import android.net.Uri
-import com.singularity.todo.core.error.runCatchingCancellable
 import android.provider.OpenableColumns
+import com.singularity.todo.core.error.runCatchingCancellable
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
 
 class AndroidFileSystem(private val context: Context) : FileSystem {
     override suspend fun readBytes(path: String): ByteArray =
@@ -14,7 +17,10 @@ class AndroidFileSystem(private val context: Context) : FileSystem {
             File(path).readBytes()
         }
 
-    override suspend fun writeBytes(path: String, data: ByteArray) {
+    override suspend fun writeBytes(
+        path: String,
+        data: ByteArray,
+    ) {
         if (path.startsWith("content:")) {
             context.contentResolver.openOutputStream(Uri.parse(path))!!.use { it.write(data) }
         } else {
@@ -40,16 +46,17 @@ class AndroidFileSystem(private val context: Context) : FileSystem {
                 FileStat(path, System.currentTimeMillis(), 0L, false)
             } else {
                 cursor.use { c ->
-                    val size = if (c.moveToFirst()) {
-                        val idx = c.getColumnIndex(OpenableColumns.SIZE)
-                        if (idx >= 0) {
-                            c.getLong(idx)
+                    val size =
+                        if (c.moveToFirst()) {
+                            val idx = c.getColumnIndex(OpenableColumns.SIZE)
+                            if (idx >= 0) {
+                                c.getLong(idx)
+                            } else {
+                                0L
+                            }
                         } else {
                             0L
                         }
-                    } else {
-                        0L
-                    }
                     FileStat(path, System.currentTimeMillis(), size, false)
                 }
             }
@@ -65,18 +72,26 @@ class AndroidFileSystem(private val context: Context) : FileSystem {
     /**
      * The rename, which is atomic within one filesystem.
      *
-     * The app's files are all under the app's own directory, so the rename is
-     * the whole story; the copy is the exception, for a path that is somehow on
-     * another filesystem.
+     * `Files.move` is the platform's own rename: the target is replaced and the
+     * source is gone. `ATOMIC_MOVE` is what makes it *one* rename — without it
+     * the platform unlinks the target first, so there is a window in which the
+     * target is not there at all, and a reader can find it missing.
+     *
+     * A move across two filesystems cannot be done by a rename, and a copy is
+     * not atomic, so the platform refuses it rather than quietly copying.
      */
-    override suspend fun move(from: String, to: String) {
-        val source = File(from)
-        val target = File(to)
-        target.parentFile?.mkdirs()
-        if (!source.renameTo(target)) {
-            source.copyTo(target, overwrite = true)
-            source.delete()
-        }
+    override suspend fun move(
+        from: String,
+        to: String,
+    ) {
+        val target = Paths.get(to)
+        target.parent?.let { Files.createDirectories(it) }
+        Files.move(
+            Paths.get(from),
+            target,
+            StandardCopyOption.REPLACE_EXISTING,
+            StandardCopyOption.ATOMIC_MOVE,
+        )
     }
 
     override suspend fun delete(path: String): Boolean = File(path).delete()
@@ -95,29 +110,38 @@ class AndroidFileSystem(private val context: Context) : FileSystem {
     }
 
     override fun openRead(path: String): ByteSource {
-        val stream = if (path.startsWith("content:")) {
-            context.contentResolver.openInputStream(Uri.parse(path))!!
-        } else {
-            File(path).inputStream()
-        }
+        val stream =
+            if (path.startsWith("content:")) {
+                context.contentResolver.openInputStream(Uri.parse(path))!!
+            } else {
+                File(path).inputStream()
+            }
         return object : ByteSource {
-            override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
-                stream.read(buffer, offset, length)
+            override fun read(
+                buffer: ByteArray,
+                offset: Int,
+                length: Int,
+            ): Int = stream.read(buffer, offset, length)
 
             override fun close() = stream.close()
         }
     }
 
     override fun openWrite(path: String): ByteSink {
-        val stream = if (path.startsWith("content:")) {
-            context.contentResolver.openOutputStream(Uri.parse(path))!!
-        } else {
-            val file = File(path)
-            file.parentFile?.mkdirs()
-            file.outputStream()
-        }
+        val stream =
+            if (path.startsWith("content:")) {
+                context.contentResolver.openOutputStream(Uri.parse(path))!!
+            } else {
+                val file = File(path)
+                file.parentFile?.mkdirs()
+                file.outputStream()
+            }
         return object : ByteSink {
-            override fun write(buffer: ByteArray, offset: Int, length: Int) {
+            override fun write(
+                buffer: ByteArray,
+                offset: Int,
+                length: Int,
+            ) {
                 stream.write(buffer, offset, length)
             }
 

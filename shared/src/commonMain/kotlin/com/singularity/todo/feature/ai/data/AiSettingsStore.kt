@@ -55,41 +55,43 @@ class AiSettingsStore(
     private var systemPromptWrite: FieldOwnedText? = null
 
     /** Combines the four ephemeral flows into a single state object. */
-    val ephemeralStateFlow: Flow<EphemeralState.Ai> = combine(
-        _testResult,
-        _models,
-        _isFetchingModels,
-        _fetchModelsError,
-    ) { testResult, models, isFetching, fetchError ->
-        EphemeralState.Ai(
-            testResult = testResult,
-            models = models,
-            isFetchingModels = isFetching,
-            fetchModelsError = fetchError,
-        )
-    }
+    val ephemeralStateFlow: Flow<EphemeralState.Ai> =
+        combine(
+            _testResult,
+            _models,
+            _isFetchingModels,
+            _fetchModelsError,
+        ) { testResult, models, isFetching, fetchError ->
+            EphemeralState.Ai(
+                testResult = testResult,
+                models = models,
+                isFetchingModels = isFetching,
+                fetchModelsError = fetchError,
+            )
+        }
 
     /**
      * Full AI settings section — combines persisted settings with live ephemeral state.
      */
-    fun observe(): Flow<SettingsSection.Ai> = combine(
-        settings.aiProvider,
-        settings.aiBaseUrl,
-        settings.aiModel,
-        settings.aiSystemPrompt,
-        ephemeralStateFlow,
-    ) { provider, baseUrl, model, systemPrompt, aiEphem ->
-        SettingsSection.Ai(
-            provider = LlmProvider.fromId(provider),
-            baseUrl = baseUrl.asWritten(baseUrlWrite),
-            model = model.asWritten(modelWrite),
-            systemPrompt = systemPrompt.asWritten(systemPromptWrite),
-            testResult = aiEphem.testResult,
-            models = aiEphem.models,
-            isFetchingModels = aiEphem.isFetchingModels,
-            fetchModelsError = aiEphem.fetchModelsError,
-        )
-    }
+    fun observe(): Flow<SettingsSection.Ai> =
+        combine(
+            settings.aiProvider,
+            settings.aiBaseUrl,
+            settings.aiModel,
+            settings.aiSystemPrompt,
+            ephemeralStateFlow,
+        ) { provider, baseUrl, model, systemPrompt, aiEphem ->
+            SettingsSection.Ai(
+                provider = LlmProvider.fromId(provider),
+                baseUrl = baseUrl.asWritten(baseUrlWrite),
+                model = model.asWritten(modelWrite),
+                systemPrompt = systemPrompt.asWritten(systemPromptWrite),
+                testResult = aiEphem.testResult,
+                models = aiEphem.models,
+                isFetchingModels = aiEphem.isFetchingModels,
+                fetchModelsError = aiEphem.fetchModelsError,
+            )
+        }
 
     /**
      * The value the store holds, with the kind of the write that produced it.
@@ -103,7 +105,9 @@ class AiSettingsStore(
 
     suspend fun process(intent: SettingsIntent.Ai) {
         when (intent) {
-            is SettingsIntent.Ai.UpdateProvider -> settings.setAiProvider(intent.value.id)
+            is SettingsIntent.Ai.UpdateProvider -> {
+                settings.setAiProvider(intent.value.id)
+            }
 
             is SettingsIntent.Ai.UpdateBaseUrl -> {
                 baseUrlWrite = intent.value
@@ -120,11 +124,17 @@ class AiSettingsStore(
                 settings.setAiSystemPrompt(intent.value.text)
             }
 
-            is SettingsIntent.Ai.UpdateApiKey -> updateApiKey(intent.value)
+            is SettingsIntent.Ai.UpdateApiKey -> {
+                updateApiKey(intent.value)
+            }
 
-            is SettingsIntent.Ai.TestConnection -> testConnection()
+            is SettingsIntent.Ai.TestConnection -> {
+                testConnection()
+            }
 
-            is SettingsIntent.Ai.FetchModels -> fetchModels()
+            is SettingsIntent.Ai.FetchModels -> {
+                fetchModels()
+            }
         }
     }
 
@@ -139,36 +149,40 @@ class AiSettingsStore(
     private suspend fun testConnection() {
         _testResult.value = AiTestResult.Testing
         val start = System.currentTimeMillis()
-        val reader = object : SettingsReader {
-            override val aiProvider: Flow<String> = settings.aiProvider
-            override val aiBaseUrl: Flow<String> = settings.aiBaseUrl
-            override val aiModel: Flow<String> = settings.aiModel
-        }
+        val reader =
+            object : SettingsReader {
+                override val aiProvider: Flow<String> = settings.aiProvider
+                override val aiBaseUrl: Flow<String> = settings.aiBaseUrl
+                override val aiModel: Flow<String> = settings.aiModel
+            }
         val cfg = OpenAiConfig.resolve(secureStorage, reader)
         if (!cfg.apiKey.isConfigured) {
             _testResult.value = AiTestResult.Error("API key not configured")
             return
         }
-        val result = textGen.generate(
-            prompt = "ping",
-            systemPrompt = "You are a connectivity probe. Reply with the single word: pong.",
-            model = cfg.defaultModelId,
-        )
+        val result =
+            textGen.generate(
+                prompt = "ping",
+                systemPrompt = "You are a connectivity probe. Reply with the single word: pong.",
+                model = cfg.defaultModelId,
+            )
         val latency = System.currentTimeMillis() - start
-        _testResult.value = result.fold(
-            onSuccess = { AiTestResult.Ok(latency) },
-            onFailure = { e -> AiTestResult.Error(e.message ?: "Unknown error") },
-        )
+        _testResult.value =
+            result.fold(
+                onSuccess = { AiTestResult.Ok(latency) },
+                onFailure = { e -> AiTestResult.Error(e.message ?: "Unknown error") },
+            )
     }
 
     private suspend fun fetchModels() {
         _isFetchingModels.value = true
         _fetchModelsError.value = null
-        val reader = object : SettingsReader {
-            override val aiProvider: Flow<String> = settings.aiProvider
-            override val aiBaseUrl: Flow<String> = settings.aiBaseUrl
-            override val aiModel: Flow<String> = settings.aiModel
-        }
+        val reader =
+            object : SettingsReader {
+                override val aiProvider: Flow<String> = settings.aiProvider
+                override val aiBaseUrl: Flow<String> = settings.aiBaseUrl
+                override val aiModel: Flow<String> = settings.aiModel
+            }
         val cfg = OpenAiConfig.resolve(secureStorage, reader)
         if (!cfg.apiKey.isConfigured) {
             _isFetchingModels.value = false

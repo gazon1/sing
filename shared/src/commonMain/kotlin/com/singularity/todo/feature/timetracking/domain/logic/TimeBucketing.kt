@@ -66,12 +66,14 @@ fun mergeIntervals(entries: List<TimeEntry>): List<TimeInterval> {
     if (workEntries.isEmpty()) return emptyList()
 
     // Build closed intervals from entries with endedAt
-    val intervals = workEntries.map { entry ->
-        TimeInterval(
-            startMs = entry.startedAt.toEpochMilliseconds(),
-            endMs = entry.endedAt!!.toEpochMilliseconds(),
-        )
-    }.sortedBy { it.startMs }
+    val intervals =
+        workEntries
+            .map { entry ->
+                TimeInterval(
+                    startMs = entry.startedAt.toEpochMilliseconds(),
+                    endMs = entry.endedAt!!.toEpochMilliseconds(),
+                )
+            }.sortedBy { it.startMs }
 
     val result = mutableListOf<TimeInterval>()
     var current = intervals.first()
@@ -95,7 +97,11 @@ fun mergeIntervals(entries: List<TimeEntry>): List<TimeInterval> {
  * Like [mergeIntervals] but includes an open (running) entry.
  * The open interval's end is taken as `nowMs` at call time.
  */
-fun mergeIntervalsWithOpen(entries: List<TimeEntry>, open: OpenInterval?, nowMs: Long): List<TimeInterval> {
+fun mergeIntervalsWithOpen(
+    entries: List<TimeEntry>,
+    open: OpenInterval?,
+    nowMs: Long,
+): List<TimeInterval> {
     if (entries.isEmpty() && open == null) return emptyList()
 
     val allIntervals = mutableListOf<TimeInterval>()
@@ -114,19 +120,20 @@ fun mergeIntervalsWithOpen(entries: List<TimeEntry>, open: OpenInterval?, nowMs:
     open?.let { allIntervals.add(TimeInterval(it.startMs, nowMs)) }
 
     // Synthesize pseudo-entries for merge algorithm
-    val pseudoEntries = allIntervals.map { interval ->
-        TimeEntry(
-            id = TimeEntryId("synth-${interval.startMs}"),
-            taskId = TaskId(""),
-            userId = UserId(""),
-            startedAt = Instant.fromEpochMilliseconds(interval.startMs),
-            endedAt = Instant.fromEpochMilliseconds(interval.endMs),
-            kind = TimeEntryKind.Work,
-            source = TimeEntrySource.Timer,
-            createdAt = Instant.fromEpochMilliseconds(0),
-            updatedAt = Instant.fromEpochMilliseconds(0),
-        )
-    }
+    val pseudoEntries =
+        allIntervals.map { interval ->
+            TimeEntry(
+                id = TimeEntryId("synth-${interval.startMs}"),
+                taskId = TaskId(""),
+                userId = UserId(""),
+                startedAt = Instant.fromEpochMilliseconds(interval.startMs),
+                endedAt = Instant.fromEpochMilliseconds(interval.endMs),
+                kind = TimeEntryKind.Work,
+                source = TimeEntrySource.Timer,
+                createdAt = Instant.fromEpochMilliseconds(0),
+                updatedAt = Instant.fromEpochMilliseconds(0),
+            )
+        }
 
     return mergeIntervals(pseudoEntries)
 }
@@ -143,18 +150,25 @@ fun mergeIntervalsWithOpen(entries: List<TimeEntry>, open: OpenInterval?, nowMs:
  * @param zone The time zone for computing midnight.
  * @return A list of sub-intervals, none of which cross midnight.
  */
-fun splitAtMidnight(interval: TimeInterval, zone: TimeZone): List<TimeInterval> {
+fun splitAtMidnight(
+    interval: TimeInterval,
+    zone: TimeZone,
+): List<TimeInterval> {
     val result = mutableListOf<TimeInterval>()
     var cursor = interval.startMs
 
     while (cursor < interval.endMs) {
-        val cursorDate = Instant.fromEpochMilliseconds(cursor)
-            .toLocalDateTime(zone).date
+        val cursorDate =
+            Instant
+                .fromEpochMilliseconds(cursor)
+                .toLocalDateTime(zone)
+                .date
 
-        val midnightTomorrow = cursorDate
-            .plus(1, DateTimeUnit.DAY)
-            .atStartOfDayIn(zone)
-            .toEpochMilliseconds()
+        val midnightTomorrow =
+            cursorDate
+                .plus(1, DateTimeUnit.DAY)
+                .atStartOfDayIn(zone)
+                .toEpochMilliseconds()
 
         val endOfSlice = minOf(midnightTomorrow, interval.endMs)
         result.add(TimeInterval(cursor, endOfSlice))
@@ -173,13 +187,14 @@ fun splitAtMidnight(interval: TimeInterval, zone: TimeZone): List<TimeInterval> 
  */
 data class TaskProgress(val totalWorkMs: Long, val estimateMinutes: Int?) {
     /** Progress as a fraction in 0.0..1.0, or null if no estimate. */
-    val fraction: Double? get() = estimateMinutes?.let { est ->
-        if (est <= 0) {
-            null
-        } else {
-            (totalWorkMs / 60_000.0 / est).coerceIn(0.0, 1.0)
+    val fraction: Double? get() =
+        estimateMinutes?.let { est ->
+            if (est <= 0) {
+                null
+            } else {
+                (totalWorkMs / 60_000.0 / est).coerceIn(0.0, 1.0)
+            }
         }
-    }
 
     val isOverEstimate: Boolean get() = estimateMinutes != null && fraction != null && fraction!! > 1.0
 }
@@ -196,7 +211,11 @@ data class TaskProgress(val totalWorkMs: Long, val estimateMinutes: Int?) {
  * @param estimateMinutes The task's estimate, or null.
  * @param zone Time zone for midnight splitting.
  */
-fun taskProgress(entries: List<TimeEntry>, estimateMinutes: Int?, zone: TimeZone): TaskProgress {
+fun taskProgress(
+    entries: List<TimeEntry>,
+    estimateMinutes: Int?,
+    zone: TimeZone,
+): TaskProgress {
     val workEntries = entries.filter { it.kind == TimeEntryKind.Work }
     if (workEntries.isEmpty()) return TaskProgress(0, estimateMinutes)
 
@@ -214,14 +233,18 @@ fun taskProgress(entries: List<TimeEntry>, estimateMinutes: Int?, zone: TimeZone
  * @param zone Time zone for computing the date of each entry.
  * @return Map from date string to entries on that day.
  */
-fun groupByDay(entries: List<TimeEntry>, zone: TimeZone): Map<String, List<TimeEntry>> = entries
-    .filter { it.kind == TimeEntryKind.Work && it.endedAt != null }
-    .groupBy { entry ->
-        entry.startedAt
-            .toLocalDateTime(zone)
-            .date
-            .toString()
-    }
+fun groupByDay(
+    entries: List<TimeEntry>,
+    zone: TimeZone,
+): Map<String, List<TimeEntry>> =
+    entries
+        .filter { it.kind == TimeEntryKind.Work && it.endedAt != null }
+        .groupBy { entry ->
+            entry.startedAt
+                .toLocalDateTime(zone)
+                .date
+                .toString()
+        }
 
 /**
  * A day bucket for the Insights time-series chart.
@@ -239,25 +262,36 @@ data class DayInsightsBucket(val date: String, val totalMs: Long)
  * @param rangeDays Number of past days to include (including today).
  * @param zone Time zone for computing calendar dates.
  */
-fun bucketByDay(intervals: List<TimeInterval>, nowMs: Long, rangeDays: Int, zone: TimeZone): List<DayInsightsBucket> {
+fun bucketByDay(
+    intervals: List<TimeInterval>,
+    nowMs: Long,
+    rangeDays: Int,
+    zone: TimeZone,
+): List<DayInsightsBucket> {
     val cutoffMs = nowMs - (rangeDays * TimeConstants.MILLIS_PER_DAY)
 
     // Build all days in range
     val dayMap = mutableMapOf<String, Long>()
     for (i in 0 until rangeDays) {
         val dayMs = nowMs - (i * TimeConstants.MILLIS_PER_DAY)
-        val date = Instant.fromEpochMilliseconds(dayMs)
-            .toLocalDateTime(zone).date
-            .toString()
+        val date =
+            Instant
+                .fromEpochMilliseconds(dayMs)
+                .toLocalDateTime(zone)
+                .date
+                .toString()
         dayMap[date] = 0L
     }
 
     // Sum durations per day from intervals
     intervals.forEach { interval ->
         // interval is guaranteed not to cross midnight (splitAtMidnight guarantees this)
-        val date = Instant.fromEpochMilliseconds(interval.startMs)
-            .toLocalDateTime(zone).date
-            .toString()
+        val date =
+            Instant
+                .fromEpochMilliseconds(interval.startMs)
+                .toLocalDateTime(zone)
+                .date
+                .toString()
         if (date in dayMap) {
             dayMap[date] = dayMap[date]!! + interval.durationMs
         }
@@ -275,7 +309,10 @@ fun bucketByDay(intervals: List<TimeInterval>, nowMs: Long, rangeDays: Int, zone
  * @param taskProjectMap Map from taskId to projectId (or null for no project).
  * @return Map from projectId (or null for no project) to entries.
  */
-fun groupByProject(entries: List<TimeEntry>, taskProjectMap: Map<String, String?>): Map<String?, List<TimeEntry>> =
+fun groupByProject(
+    entries: List<TimeEntry>,
+    taskProjectMap: Map<String, String?>,
+): Map<String?, List<TimeEntry>> =
     entries
         .filter { it.kind == TimeEntryKind.Work && it.endedAt != null }
         .groupBy { entry -> taskProjectMap[entry.taskId.value] }
@@ -287,7 +324,10 @@ fun groupByProject(entries: List<TimeEntry>, taskProjectMap: Map<String, String?
  * @param taskProjectMap Map from taskId to projectId (or null for no project).
  * @return Map from projectId (or null) to total milliseconds.
  */
-fun bucketByProject(entries: List<TimeEntry>, taskProjectMap: Map<String, String?>): Map<String?, Long> {
+fun bucketByProject(
+    entries: List<TimeEntry>,
+    taskProjectMap: Map<String, String?>,
+): Map<String?, Long> {
     val grouped = groupByProject(entries, taskProjectMap)
     return grouped.mapValues { (_, groupEntries) ->
         groupEntries.sumOf { entry ->

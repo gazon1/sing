@@ -40,7 +40,6 @@ import kotlin.time.Instant
  */
 @OptIn(ExperimentalTestApi::class)
 internal object AgendaStateScenarioSupport {
-
     const val VIEW_NAME = "In progress"
     const val TIMEOUT_MS = 10_000L
     val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")
@@ -48,14 +47,19 @@ internal object AgendaStateScenarioSupport {
     val today: LocalDate = LocalDate(2026, 9, 16)
 
     /** Seeds one task in [state], dated [today]. */
-    suspend fun seed(koin: Koin, title: String, state: TaskWorkflowState) {
+    suspend fun seed(
+        koin: Koin,
+        title: String,
+        state: TaskWorkflowState,
+    ) {
         val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
-        val task = testTask(
-            id = TaskId(title),
-            title = title,
-            dueDate = today,
-            userId = userId,
-        ).copy(workflowState = state)
+        val task =
+            testTask(
+                id = TaskId(title),
+                title = title,
+                dueDate = today,
+                userId = userId,
+            ).copy(workflowState = state)
         koin.get<TaskRepository>().upsert(TaskDocument.of(task))
     }
 
@@ -72,17 +76,26 @@ internal object AgendaStateScenarioSupport {
     }
 
     /** Moves the task named [title] into "In progress" through the repository. */
-    suspend fun moveToInProgress(koin: Koin, title: String) {
+    suspend fun moveToInProgress(
+        koin: Koin,
+        title: String,
+    ) {
         val repository = koin.get<TaskRepository>()
-        val task = withTimeout(TIMEOUT_MS) {
-            repository.observeAll().first { tasks -> tasks.any { it.title == title } }
-                .first { it.title == title }
-        }
+        val task =
+            withTimeout(TIMEOUT_MS) {
+                repository
+                    .observeAll()
+                    .first { tasks -> tasks.any { it.title == title } }
+                    .first { it.title == title }
+            }
         repository.upsert(TaskDocument.of(task.copy(workflowState = TaskWorkflowState.InProgress)))
     }
 
     /** Opens the saved view [name] through the UI, the way a user does. */
-    fun openSavedView(ui: DesktopComposeUiTest, name: String) {
+    fun openSavedView(
+        ui: DesktopComposeUiTest,
+        name: String,
+    ) {
         ui.awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
         ui.awaitTag(TestTags.savedAgendaCard(name)).performClick()
     }

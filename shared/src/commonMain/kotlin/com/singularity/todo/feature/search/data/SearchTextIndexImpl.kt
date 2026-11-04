@@ -24,10 +24,10 @@ import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.toTag
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.withExtras
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.zip
-import kotlinx.coroutines.flow.map
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.zip
 
 /**
  * The full-text index, read through the one port.
@@ -56,7 +56,6 @@ class SearchTextIndexImpl(
     private val taskDao: TaskDao,
     private val currentUser: ProfileAwareCurrentUser,
 ) : SearchTextIndex {
-
     override fun observeTasks(query: TextMatchQuery): Flow<List<IndexedRecord<Task>>> =
         currentUser.observeForCurrentUser { uid ->
             val matched: Flow<List<TaskMatchRow>> = ftsDao.watchTasks(uid.value, query)
@@ -89,12 +88,18 @@ class SearchTextIndexImpl(
             }
         }
 
-    override suspend fun recentTaskTitles(query: TextMatchQuery, limit: Int): List<Task> {
+    override suspend fun recentTaskTitles(
+        query: TextMatchQuery,
+        limit: Int,
+    ): List<Task> {
         val userId = currentUser.scopedUserId.value.value
         return ftsDao.searchTaskTitles(userId, query, limit).map { it.task.toTask() }
     }
 
-    override suspend fun recentNoteTitles(query: TextMatchQuery, limit: Int): List<Note> {
+    override suspend fun recentNoteTitles(
+        query: TextMatchQuery,
+        limit: Int,
+    ): List<Note> {
         val userId = currentUser.scopedUserId.value.value
         return ftsDao.searchNoteTitles(userId, query, limit).map { it.note.toNote() }
     }

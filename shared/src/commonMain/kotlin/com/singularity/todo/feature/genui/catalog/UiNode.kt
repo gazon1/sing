@@ -19,7 +19,6 @@ import kotlinx.serialization.json.JsonObject
 @Serializable
 @JsonClassDiscriminator("kind")
 sealed interface UiNode {
-
     @Serializable
     @SerialName("text")
     data class Text(val value: String, val tone: Tone = Tone.Default) : UiNode

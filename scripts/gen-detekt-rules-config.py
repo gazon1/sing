@@ -7,8 +7,8 @@ full detekt.yml to :detekt-rules therefore fails on every custom rule as unresol
 
 Rather than hand-maintaining a second config (which drifts the moment detekt.yml
 changes), this drops only the custom rule-set blocks and copies everything else — so
-ktlint formatting, the function-count and complexity settings, and any future built-in
-tuning stay single-sourced in detekt.yml.
+the function-count and complexity settings, and any future built-in tuning stay
+single-sourced in detekt.yml.
 
 The config/provider relationship that this file cannot check is asserted by
 detekt-rules/src/test/kotlin/com/singularity/todo/detekt/DetektConfigWiringTest.kt.
@@ -42,8 +42,8 @@ HEADER = """# detekt config for the :detekt-rules module itself.
 # are not on its classpath until it is built, so the full config would fail on every one
 # of them as unresolvable.
 #
-# Everything else is copied verbatim, so ktlint formatting and the built-in rule tuning
-# stay single-sourced in detekt.yml. The custom rules are covered by :detekt-rules:test —
+# Everything else is copied verbatim, so the built-in rule tuning stays single-sourced
+# in detekt.yml. The custom rules are covered by :detekt-rules:test —
 # including DetektConfigWiringTest, which asserts that every configured rule name is
 # supplied by a registered provider and that every provided rule has a config block.
 #
@@ -70,11 +70,6 @@ OVERRIDES = [
     # See the module header: guard clauses are how an unsatisfiable guard stays visible.
     active: true
     max: 16"""),
-    ("ktlint", """  # The ktlint `filename` rule (reported as "contains a single class") fires on
-  # KDocEnforcementRules.kt, which groups a cohesive pair of private top-level rule
-  # classes in one file. One file per private class would fragment it for no benefit.
-  Filename:
-    active: false"""),
 ]
 
 

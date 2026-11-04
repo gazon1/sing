@@ -61,7 +61,6 @@ class ConditionExprParser(
     private val conditionMatches: List<QueryParser.ConditionMatch>,
     private val parseDate: (prefix: String, spec: String) -> Condition,
 ) {
-
     /** Parses the whole token list. Never throws — see G5 and G9. */
     fun parse(): Condition {
         // G7 — an empty conjunction is a no-op, and matches everything.
@@ -103,8 +102,9 @@ class ConditionExprParser(
         return when (val token = tokens[from]) {
             // G3 — `NOT` binds the whole expression that follows it. The expression,
             // not just the next atom.
-            is QueryTokenizer.Token.Not ->
+            is QueryTokenizer.Token.Not -> {
                 parseDisjunction(from + 1).let { Cursor(Condition.Not(it.condition), it.position) }
+            }
 
             is QueryTokenizer.Token.LParen -> {
                 val inner = parseDisjunction(from + 1)
@@ -112,25 +112,31 @@ class ConditionExprParser(
                 // whole expression, so `(a or b) and c` is `AND(OR(a, b), c)`.
                 // G9 — an unclosed `(` is tolerated. The expression is parsed as far
                 // as it goes.
-                val afterClose = if (inner.peek() is QueryTokenizer.Token.RParen) {
-                    inner.advanced().position
-                } else {
-                    inner.position
-                }
+                val afterClose =
+                    if (inner.peek() is QueryTokenizer.Token.RParen) {
+                        inner.advanced().position
+                    } else {
+                        inner.position
+                    }
                 Cursor(inner.condition, afterClose)
             }
 
             // G5 — a word that matches no condition rule is free text. A rule that
             // claims it makes it a condition instead.
-            is QueryTokenizer.Token.Word ->
+            is QueryTokenizer.Token.Word -> {
                 Cursor(conditionFor(token.text) ?: Condition.HasText(token.text), from + 1)
+            }
 
             // G6 — a quoted string is always free text, whatever it contains (R2).
             // F1 — the free text of a query is a list of terms. A quoted string is one
             // term, however many words it holds.
-            is QueryTokenizer.Token.Quoted -> Cursor(Condition.HasText(token.text), from + 1)
+            is QueryTokenizer.Token.Quoted -> {
+                Cursor(Condition.HasText(token.text), from + 1)
+            }
 
-            else -> Cursor(Condition.And(emptyList()), from)
+            else -> {
+                Cursor(Condition.And(emptyList()), from)
+            }
         }
     }
 
@@ -156,7 +162,10 @@ class ConditionExprParser(
      * `AND(a, AND(b, c))` becomes `AND(a, b, c)`, and a one-element node collapses to
      * that element.
      */
-    private fun flatten(parts: List<Condition>, op: BoolOp): Condition {
+    private fun flatten(
+        parts: List<Condition>,
+        op: BoolOp,
+    ): Condition {
         val flat = mutableListOf<Condition>()
         for (part in parts) {
             when {
@@ -247,6 +256,7 @@ class ConditionExprParser(
      */
     private inner class Cursor(val condition: Condition, val position: Int) {
         fun peek(): QueryTokenizer.Token? = tokens.getOrNull(position)
+
         fun advanced(): Cursor = Cursor(condition, position + 1)
     }
 }

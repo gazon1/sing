@@ -19,7 +19,6 @@ import kotlin.test.assertEquals
  * provider rather than constructed directly.
  */
 class KDocEnforcementRulesTest {
-
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
     private val viewModelRule = ViewModelMustHaveKDocRule(TestConfig())
@@ -31,7 +30,10 @@ class KDocEnforcementRulesTest {
     // not flagged" case passed for the same reason: the rule was never reaching the
     // fixture. A test class whose only passing tests are the negative controls is
     // a control that cannot fail. RuleFiresSmokeTest uses the same Path form.
-    private fun count(rule: dev.detekt.api.Rule, code: String): Int {
+    private fun count(
+        rule: dev.detekt.api.Rule,
+        code: String,
+    ): Int {
         val ktFile = compileContentForTest(code.trimIndent(), Path.of("Fixture.kt"))
         return rule.visitFile(ktFile, languageSettings).size
     }

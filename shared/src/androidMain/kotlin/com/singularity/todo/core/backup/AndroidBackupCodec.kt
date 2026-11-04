@@ -18,60 +18,64 @@ import java.util.zip.ZipOutputStream
  * Same shape as [com.singularity.todo.core.backup.JvmBackupCodec]: the zip is
  * written through `fs.openWrite` and each attachment is copied from its own file
  * in chunks, so no whole archive or attachment is held in memory.
+ *
+ * The read side is bounded by [ArchiveBudget], the same budget the JVM decoder
+ * reads under: the two decoders drifted once, and the half that had no budget
+ * was the one that could be killed by a small archive.
  */
 class AndroidBackupCodec : BackupCodec {
-
     override suspend fun export(
         manifestBytes: ByteArray,
         payloadBytes: ByteArray,
         attachments: List<Pair<String, String>>,
         destPath: String,
         fs: FileSystem,
-    ): Result<Unit> = runCatchingCancellable {
-        fs.ensureDir(destPath.substringBeforeLast('/', ""))
+    ): Result<Unit> =
+        runCatchingCancellable {
+            fs.ensureDir(destPath.substringBeforeLast('/', ""))
 
-        // `ByteSink` is the project's port, not `Closeable`: closed in `finally`.
-        val sink = fs.openWrite(destPath)
-        try {
-            ZipOutputStream(SinkOutputStream(sink)).use { zos ->
-                zos.putNextEntry(ZipEntry(BackupFormat.ENTRY_MANIFEST))
-                zos.write(manifestBytes)
-                zos.closeEntry()
-
-                zos.putNextEntry(ZipEntry(BackupFormat.ENTRY_PAYLOAD))
-                zos.write(payloadBytes)
-                zos.closeEntry()
-
-                for ((name, sourcePath) in attachments) {
-                    zos.putNextEntry(ZipEntry(BackupFormat.DIR_ATTACHMENTS + name))
-                    copyInto(zos, fs.openRead(sourcePath))
+            // `ByteSink` is the project's port, not `Closeable`: closed in `finally`.
+            val sink = fs.openWrite(destPath)
+            try {
+                ZipOutputStream(SinkOutputStream(sink)).use { zos ->
+                    zos.putNextEntry(ZipEntry(BackupFormat.ENTRY_MANIFEST))
+                    zos.write(manifestBytes)
                     zos.closeEntry()
+
+                    zos.putNextEntry(ZipEntry(BackupFormat.ENTRY_PAYLOAD))
+                    zos.write(payloadBytes)
+                    zos.closeEntry()
+
+                    for ((name, sourcePath) in attachments) {
+                        zos.putNextEntry(ZipEntry(BackupFormat.DIR_ATTACHMENTS + name))
+                        copyInto(zos, fs.openRead(sourcePath))
+                        zos.closeEntry()
+                    }
                 }
+            } finally {
+                sink.close()
             }
-        } finally {
-            sink.close()
         }
-    }
 
     override suspend fun import(
         sourcePath: String,
         fs: FileSystem,
-    ): Result<BackupCodec.CodecReadResult> = runCatchingCancellable {
-        if (!fs.exists(sourcePath)) throw BackupStorageError.FileNotFound(sourcePath)
-        val source = fs.openRead(sourcePath)
-        try {
-            decodeZip(source.asInputStream())
-        } finally {
-            source.close()
+    ): Result<BackupCodec.CodecReadResult> =
+        runCatchingCancellable {
+            if (!fs.exists(sourcePath)) throw BackupStorageError.FileNotFound(sourcePath)
+            val source = fs.openRead(sourcePath)
+            try {
+                decodeZip(source.asInputStream())
+            } finally {
+                source.close()
+            }
         }
-    }
 
-    override suspend fun importFromSource(
-        source: FileSource,
-    ): Result<BackupCodec.CodecReadResult> = runCatchingCancellable {
-        val bytes = source.readBytes()
-        decodeZip(ByteArrayInputStream(bytes))
-    }
+    override suspend fun importFromSource(source: FileSource): Result<BackupCodec.CodecReadResult> =
+        runCatchingCancellable {
+            val bytes = source.readBytes()
+            decodeZip(ByteArrayInputStream(bytes))
+        }
 
     private fun decodeZip(stream: java.io.InputStream): BackupCodec.CodecReadResult {
         var manifest: ByteArray? = null
@@ -80,15 +84,30 @@ class AndroidBackupCodec : BackupCodec {
 
         ZipInputStream(stream).use { zis ->
             var entry: ZipEntry? = zis.nextEntry
+            var entryCount = 0
+            var totalBytes = 0L
             while (entry != null) {
-                val data = zis.readBytes()
+                entryCount++
+                ArchiveBudget.check(entryCount, totalBytes)
+                val data =
+                    ArchiveBudget.readEntryBounded(ArchiveBudget.MAX_TOTAL_BYTES - totalBytes) { buffer ->
+                        zis.read(buffer)
+                    }
+                totalBytes += data.size
+                ArchiveBudget.check(entryCount, totalBytes)
                 when (entry.name) {
-                    BackupFormat.ENTRY_MANIFEST -> manifest = data
+                    BackupFormat.ENTRY_MANIFEST -> {
+                        manifest = data
+                    }
 
-                    BackupFormat.ENTRY_PAYLOAD -> payload = data
+                    BackupFormat.ENTRY_PAYLOAD -> {
+                        payload = data
+                    }
 
-                    else -> if (entry.name.startsWith(BackupFormat.DIR_ATTACHMENTS)) {
-                        attachments[entry.name.removePrefix(BackupFormat.DIR_ATTACHMENTS)] = data
+                    else -> {
+                        if (entry.name.startsWith(BackupFormat.DIR_ATTACHMENTS)) {
+                            attachments[entry.name.removePrefix(BackupFormat.DIR_ATTACHMENTS)] = data
+                        }
                     }
                 }
                 entry = zis.nextEntry
@@ -96,30 +115,39 @@ class AndroidBackupCodec : BackupCodec {
         }
 
         return BackupCodec.CodecReadResult(
-            manifestBytes = manifest
-                ?: throw BackupPayloadError.MalformedManifest("missing manifest.json"),
-            payloadBytes = payload
-                ?: throw BackupPayloadError.MalformedManifest("missing payload.json"),
+            manifestBytes =
+                manifest
+                    ?: throw BackupPayloadError.MalformedManifest("missing manifest.json"),
+            payloadBytes =
+                payload
+                    ?: throw BackupPayloadError.MalformedManifest("missing payload.json"),
             attachments = attachments,
         )
     }
 
     /** Adapts the project's [ByteSource] to a java [InputStream] for streaming zip read. */
-    private fun ByteSource.asInputStream(): InputStream = object : InputStream() {
-        override fun read(): Int {
-            val buf = ByteArray(1)
-            val n = this@asInputStream.read(buf, 0, 1)
-            return if (n < 0) -1 else buf[0].toInt() and 0xFF
+    private fun ByteSource.asInputStream(): InputStream =
+        object : InputStream() {
+            override fun read(): Int {
+                val buf = ByteArray(1)
+                val n = this@asInputStream.read(buf, 0, 1)
+                return if (n < 0) -1 else buf[0].toInt() and 0xFF
+            }
+
+            override fun read(
+                b: ByteArray,
+                off: Int,
+                len: Int,
+            ): Int = this@asInputStream.read(b, off, len)
+
+            override fun close() = this@asInputStream.close()
         }
 
-        override fun read(b: ByteArray, off: Int, len: Int): Int =
-            this@asInputStream.read(b, off, len)
-
-        override fun close() = this@asInputStream.close()
-    }
-
     /** Copies everything [source] yields into [out], in pieces, and closes it. */
-    private fun copyInto(out: OutputStream, source: ByteSource) {
+    private fun copyInto(
+        out: OutputStream,
+        source: ByteSource,
+    ) {
         try {
             val buffer = ByteArray(COPY_CHUNK_BYTES)
             while (true) {
@@ -139,7 +167,11 @@ class AndroidBackupCodec : BackupCodec {
             sink.write(one, 0, 1)
         }
 
-        override fun write(b: ByteArray, off: Int, len: Int) = sink.write(b, off, len)
+        override fun write(
+            b: ByteArray,
+            off: Int,
+            len: Int,
+        ) = sink.write(b, off, len)
     }
 
     private companion object {

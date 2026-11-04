@@ -40,7 +40,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class HlcFactoryNodeIdFailureTest {
-
     /**
      * A scope dispatching unconfined.
      *
@@ -59,11 +58,12 @@ class HlcFactoryNodeIdFailureTest {
     @Test
     fun `a device id provider that fails reports its own cause, not a pending deferred`() {
         val cause = IllegalStateException("keystore unreadable")
-        val factory = HlcFactory(
-            deviceIdProvider = FailingNodeStore { cause },
-            clock = MutableClock(),
-            scope = newScope(),
-        )
+        val factory =
+            HlcFactory(
+                deviceIdProvider = FailingNodeStore { cause },
+                clock = MutableClock(),
+                scope = newScope(),
+            )
 
         val thrown = assertFailsWith<Exception> { factory.tick() }
 
@@ -82,11 +82,12 @@ class HlcFactoryNodeIdFailureTest {
         // Determinism is the reason to complete exceptionally rather than fall back: a caller
         // that retries must get the same answer, or "sometimes it works" becomes a support
         // question the log cannot answer.
-        val factory = HlcFactory(
-            deviceIdProvider = FailingNodeStore { IllegalStateException("nope") },
-            clock = MutableClock(),
-            scope = newScope(),
-        )
+        val factory =
+            HlcFactory(
+                deviceIdProvider = FailingNodeStore { IllegalStateException("nope") },
+                clock = MutableClock(),
+                scope = newScope(),
+            )
 
         repeat(3) {
             assertFailsWith<Exception> { factory.tick() }
@@ -98,11 +99,12 @@ class HlcFactoryNodeIdFailureTest {
     fun `current still answers after the node id failed`() {
         // The failure is confined to the operations that need a node id. A caller reading the
         // last timestamp must not be taken down by a provider that failed during construction.
-        val factory = HlcFactory(
-            deviceIdProvider = FailingNodeStore { IllegalStateException("nope") },
-            clock = MutableClock(),
-            scope = newScope(),
-        )
+        val factory =
+            HlcFactory(
+                deviceIdProvider = FailingNodeStore { IllegalStateException("nope") },
+                clock = MutableClock(),
+                scope = newScope(),
+            )
 
         assertEquals(Hlc.zero("pending"), factory.current())
     }

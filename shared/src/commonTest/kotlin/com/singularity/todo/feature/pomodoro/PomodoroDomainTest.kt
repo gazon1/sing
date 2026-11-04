@@ -6,13 +6,13 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class PomodoroDomainTest {
-
-    private val config = PomodoroConfig(
-        workMinutes = 25,
-        shortBreakMinutes = 5,
-        longBreakMinutes = 15,
-        cyclesBeforeLongBreak = 4,
-    )
+    private val config =
+        PomodoroConfig(
+            workMinutes = 25,
+            shortBreakMinutes = 5,
+            longBreakMinutes = 15,
+            cyclesBeforeLongBreak = 4,
+        )
 
     // ─── PomodoroConfig.phaseSecondsOf ────────────────────────────────────
 
@@ -81,11 +81,12 @@ class PomodoroDomainTest {
     fun `recomputeRemaining computes elapsed time correctly`() {
         // Phase started 60 seconds ago, original duration 1500s → 1440s remaining
         val started = System.currentTimeMillis() - 60_000
-        val state = PomodoroState(
-            phase = PomodoroPhase.Work,
-            remainingSeconds = 1500,
-            phaseStartedAtEpochMs = started,
-        )
+        val state =
+            PomodoroState(
+                phase = PomodoroPhase.Work,
+                remainingSeconds = 1500,
+                phaseStartedAtEpochMs = started,
+            )
         val remaining = recomputeRemaining(state, nowEpochMs = System.currentTimeMillis())
         assertEquals(1440, remaining)
     }
@@ -93,11 +94,12 @@ class PomodoroDomainTest {
     @Test
     fun `recomputeRemaining clamps to zero`() {
         val started = System.currentTimeMillis() - 5_000_000L // 5000s ago
-        val state = PomodoroState(
-            phase = PomodoroPhase.Work,
-            remainingSeconds = 1500,
-            phaseStartedAtEpochMs = started,
-        )
+        val state =
+            PomodoroState(
+                phase = PomodoroPhase.Work,
+                remainingSeconds = 1500,
+                phaseStartedAtEpochMs = started,
+            )
         assertEquals(0, recomputeRemaining(state, nowEpochMs = System.currentTimeMillis()))
     }
 }

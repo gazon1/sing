@@ -28,12 +28,13 @@ class CreateProjectUseCase(
 
         val userId = currentUser.scopedUserId.value
         val now = clock.now()
-        val project = ProjectsDomain.buildProject(
-            input = (validated as Either.Right).value,
-            createdAt = now,
-            updatedAt = now,
-            userId = userId,
-        )
+        val project =
+            ProjectsDomain.buildProject(
+                input = (validated as Either.Right).value,
+                createdAt = now,
+                updatedAt = now,
+                userId = userId,
+            )
         return repo.create(project).map { it.id }
     }
 }

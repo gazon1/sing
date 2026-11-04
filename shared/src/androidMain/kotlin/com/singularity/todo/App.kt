@@ -1,7 +1,13 @@
 package com.singularity.todo
 
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -17,10 +23,12 @@ import com.singularity.todo.core.appearance.AppearanceSettingsRepository
 import com.singularity.todo.core.auth.AuthGuard
 import com.singularity.todo.core.settings.ThemeMode
 import com.singularity.todo.core.ui.LocalHaptic
+import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.core.ui.text.LocalInternalLinkHandler
 import com.singularity.todo.core.ui.text.TextLink
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
+import com.singularity.todo.core.ui.theme.resolvedIsDark
 import com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen
 import com.singularity.todo.feature.nav.LocalAppNavigator
 import com.singularity.todo.feature.nav.Nav3State
@@ -31,7 +39,6 @@ import com.singularity.todo.feature.nav.internalLinkDestination
 import com.singularity.todo.feature.nav.rememberNav3State
 import com.singularity.todo.feature.whatsnew.presentation.screen.WhatsNewScreen
 import org.koin.compose.koinInject
-import com.singularity.todo.core.ui.preview.noopClick
 
 private const val PLAY_STORE_URI = "market://details?id=com.singularity.todo"
 
@@ -63,13 +70,14 @@ actual fun App(deepLinkTarget: DeepLinkTarget?) {
             @Suppress("BatteryLife")
             context.startActivity(storeIntent)
         },
-        modifier = Modifier
-            .fillMaxSize()
-            // Surfaces every Modifier.testTag as an accessibility resource-id, which is how
-            // external UI automation (Maestro, UIAutomator) addresses the TestTags registry.
-            // Without it, Compose keeps test tags in an internal-only semantics property and
-            // the whole TestTags catalogue is invisible outside the app.
-            .semantics { testTagsAsResourceId = true },
+        modifier =
+            Modifier
+                .fillMaxSize()
+                // Surfaces every Modifier.testTag as an accessibility resource-id, which is how
+                // external UI automation (Maestro, UIAutomator) addresses the TestTags registry.
+                // Without it, Compose keeps test tags in an internal-only semantics property and
+                // the whole TestTags catalogue is invisible outside the app.
+                .semantics { testTagsAsResourceId = true },
         content = {
             AppContent(
                 deepLinkTarget = deepLinkTarget,
@@ -97,13 +105,14 @@ actual fun AppContent(
 ) {
     val state = rememberNav3State()
     val navigator = remember(state) { Navigator(state) }
-    val navCallbacks = remember(navigator) {
-        NavCallbacks(
-            navigate = navigator::open,
-            goBack = navigator::goBack,
-            close = navigator::close,
-        )
-    }
+    val navCallbacks =
+        remember(navigator) {
+            NavCallbacks(
+                navigate = navigator::open,
+                goBack = navigator::goBack,
+                close = navigator::close,
+            )
+        }
 
     // The deep link sets the tab *and* the stack of that tab, so "back" returns to
     // the tab's own screen. `LaunchedEffect` keyed by the target also makes a repeated
@@ -118,11 +127,37 @@ actual fun AppContent(
     // A tapped internal link opens the screen it names, in the app. The handler is
     // remembered so that the composition local's value does not change on every
     // recomposition — a link screen would otherwise be recomposed for nothing.
-    val internalLinkHandler = remember(navCallbacks) {
-        { link: TextLink.Internal ->
-            val destination = internalLinkDestination(link.target)
-            if (destination != null) navCallbacks.navigate(destination)
+    val internalLinkHandler =
+        remember(navCallbacks) {
+            { link: TextLink.Internal ->
+                val destination = internalLinkDestination(link.target)
+                if (destination != null) navCallbacks.navigate(destination)
+            }
         }
+
+    // The system bars follow the app's theme, not the operating system's. The
+    // flag comes from the same resolution the palette is built from, so the bars
+    // and the painted palette cannot disagree: a user who forces light mode on a
+    // dark phone gets light bars, not dark ones over a light app.
+    //
+    // The activity is reached through the context rather than injected, because
+    // the edge-to-edge style is a property of the window the app is drawn in.
+    // The effect is keyed by the polarity, so the window is touched when the
+    // theme changes and not on every recomposition.
+    val isDark = themeMode.resolvedIsDark()
+    val context = LocalContext.current
+    LaunchedEffect(context, isDark) {
+        val activity = context.findActivity() ?: return@LaunchedEffect
+        val style =
+            if (isDark) {
+                SystemBarStyle.dark(Color.TRANSPARENT)
+            } else {
+                SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+            }
+        activity.enableEdgeToEdge(
+            statusBarStyle = style,
+            navigationBarStyle = style,
+        )
     }
 
     SingularityTheme(themeMode = themeMode, accent = accent, fontSizeScale = fontSizeScale) {
@@ -145,7 +180,11 @@ actual fun AppContent(
  * Android actual implementation of [PlatformShell].
  */
 @Composable
-actual fun PlatformShell(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks) {
+actual fun PlatformShell(
+    state: Nav3State,
+    navigator: Navigator,
+    navCallbacks: NavCallbacks,
+) {
     // From the graph, not the host (#91) — see the desktop shell for the full story.
     val shellClock: kotlin.time.Clock = koinInject()
     val shellZone: com.singularity.todo.core.platform.TimeZoneProvider = koinInject()
@@ -153,6 +192,22 @@ actual fun PlatformShell(state: Nav3State, navigator: Navigator, navCallbacks: N
         state = state,
         navigator = navigator,
         navCallbacks = navCallbacks,
-        today = com.singularity.todo.core.platform.todayAt(shellClock, shellZone.current()),
+        today =
+            com.singularity.todo.core.platform
+                .todayAt(shellClock, shellZone.current()),
     )
 }
+
+/**
+ * Finds the activity the composition is hosted in.
+ *
+ * `LocalContext.current` is the activity itself in the common case, but it may be
+ * a themed wrapper around it — so the chain is unwrapped rather than cast, and a
+ * context that leads nowhere yields `null` rather than a crash.
+ */
+private tailrec fun Context.findActivity(): ComponentActivity? =
+    when (this) {
+        is ComponentActivity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
+    }

@@ -15,13 +15,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.ColorSwatch
 import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
+
 /**
  * Color picker sheet for project color selection.
  * Shows a grid of color circles; selected color shows a checkmark overlay.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ColorPickerSheet(currentColor: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit) {
+fun ColorPickerSheet(
+    currentColor: Int,
+    onPick: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
     Column(modifier = Modifier.padding(24.dp)) {
         Text("Color", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(16.dp))

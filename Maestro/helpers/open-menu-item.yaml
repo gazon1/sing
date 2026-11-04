@@ -1,4 +1,0 @@
-# DEPRECATED — delete after verifying no callers remain.
-# Was: open a menu sheet item by testTag id.
-# Was used by: (none — 0 callers found in Maestro/flows/)
-# Replace with: inline Maestro commands in the flow if needed.

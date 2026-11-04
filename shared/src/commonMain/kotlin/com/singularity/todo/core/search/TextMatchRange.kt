@@ -12,7 +12,6 @@ import kotlinx.collections.immutable.toImmutableList
  * and a screen that draws one of them knows which answer it is waiting for.
  */
 enum class SearchColumn {
-
     /** The title of a task or a note. */
     TITLE,
 
@@ -41,7 +40,6 @@ enum class SearchColumn {
  * @param end the character after the last one of the match.
  */
 data class TextMatchRange(val column: SearchColumn, val start: Int, val end: Int) {
-
     /** The length of the match, in characters. */
     val length: Int get() = end - start
 }

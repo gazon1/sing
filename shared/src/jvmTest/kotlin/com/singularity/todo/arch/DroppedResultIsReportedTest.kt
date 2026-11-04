@@ -89,7 +89,6 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class DroppedResultIsReportedTest {
-
     @Test
     fun `no production Result is dropped where nobody handles it`() {
         val declarations = declaredMethods()
@@ -103,13 +102,14 @@ class DroppedResultIsReportedTest {
                 "violating.",
         )
 
-        val offenders = SourceScan.productionSources.flatMap { source ->
-            droppedCallsIn(source.text, declarations, selfReporting)
-                .map {
-                    "${source.file.name}:${it.line} ${it.receiver}.${it.method}() " +
-                        "returns a Result and nothing looks at it"
-                }
-        }
+        val offenders =
+            SourceScan.productionSources.flatMap { source ->
+                droppedCallsIn(source.text, declarations, selfReporting)
+                    .map {
+                        "${source.file.name}:${it.line} ${it.receiver}.${it.method}() " +
+                            "returns a Result and nothing looks at it"
+                    }
+            }
 
         if (offenders.isNotEmpty()) fail(describe(offenders))
     }
@@ -122,22 +122,23 @@ class DroppedResultIsReportedTest {
         // `upsert` is the collision that made a name-based rule unusable: `Unit` on a DAO,
         // `Result` on a checklist repository, the entity on a task repository. A rule that
         // decides from the name is wrong about all three at once.
-        val resolved = declaredMethodsIn(
-            """
-            interface TaskDao {
-                suspend fun upsert(task: Task): Unit
-            }
-            interface TaskRepository {
-                suspend fun upsert(task: Task): Task
-            }
-            interface ChecklistRepository {
-                suspend fun upsert(item: ChecklistItem): Result<Unit>
-            }
-            interface SessionStore {
-                suspend fun save(session: Session.SignedIn)
-            }
-            """.trimIndent(),
-        )
+        val resolved =
+            declaredMethodsIn(
+                """
+                interface TaskDao {
+                    suspend fun upsert(task: Task): Unit
+                }
+                interface TaskRepository {
+                    suspend fun upsert(task: Task): Task
+                }
+                interface ChecklistRepository {
+                    suspend fun upsert(item: ChecklistItem): Result<Unit>
+                }
+                interface SessionStore {
+                    suspend fun save(session: Session.SignedIn)
+                }
+                """.trimIndent(),
+            )
         assertEqual(
             mapOf(
                 "TaskDao" to mapOf("upsert" to false),
@@ -156,7 +157,8 @@ class DroppedResultIsReportedTest {
         // The second half of the control. Reading the return type is only half the rule; the
         // other half is telling a bare statement from a consumed value, and getting that wrong
         // in the false-positive direction is what switches a rule off.
-        val source = """
+        val source =
+            """
             val repo: ChecklistRepository = ChecklistRepository()
 
             interface ChecklistRepository {
@@ -173,7 +175,7 @@ class DroppedResultIsReportedTest {
             emitError { repo.create(item) }
             emitError("Move failed") { repo.update(item) }
             fun wrapper(): Result<Int> = repo.count(item)
-        """.trimIndent()
+            """.trimIndent()
         val stripped = KotlinText.stripComments(source)
         val dropped = droppedCallsIn(stripped, declaredMethodsIn(stripped), emptySet())
 
@@ -196,7 +198,8 @@ class DroppedResultIsReportedTest {
         // The control for comment stripping, and for the false positive it exists to stop.
         // `FeatureSlot.kt` carries this exact shape in its KDoc today; a text-only scan reports
         // it, and a rule that reports the documentation gets switched off.
-        val source = """
+        val source =
+            """
             val repo: ChecklistRepository = ChecklistRepository()
 
             interface ChecklistRepository {
@@ -213,7 +216,7 @@ class DroppedResultIsReportedTest {
                 repo.create(item)
                 log("done")
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val stripped = KotlinText.stripComments(source)
         val dropped = droppedCallsIn(stripped, declaredMethodsIn(stripped), emptySet())
@@ -230,7 +233,8 @@ class DroppedResultIsReportedTest {
         // The control for the derivation. Three methods that all touch a failure, and only one
         // of them is exempt — because the exemption is not "reports" but "reports the very
         // Result it returns", and only that one builds its Result by capturing.
-        val source = """
+        val source =
+            """
             class SyncEngine {
                 suspend fun enqueue(entity: SyncableEntity): Result<Unit> = runCatchingResult {
                     dao.insert(entity)
@@ -253,7 +257,7 @@ class DroppedResultIsReportedTest {
                     seed(scope)
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
 
         assertEqual(
             setOf(MethodKey("SyncEngine", "enqueue")),
@@ -273,7 +277,8 @@ class DroppedResultIsReportedTest {
         // implementation alone reported that correct call site as dropped. And
         // `SyncRepositoryImpl.enqueue` is `= engine.enqueue(entity)` — nothing of its own, so it
         // reports exactly when `SyncEngine.enqueue` does.
-        val source = """
+        val source =
+            """
             interface ProposalRepository {
                 suspend fun refreshStatus(id: ProposalId): Result<Unit>
             }
@@ -310,7 +315,7 @@ class DroppedResultIsReportedTest {
                 // recognised, and saying so is why this control is written the way it is.
                 override suspend fun enqueue(entity: SyncableEntity): Result<Unit> = engine.enqueue(entity)
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val stripped = KotlinText.stripComments(source)
         val derived = closeOver(capturesAndReports(stripped), declaredMethodsIn(stripped), listOf(stripped))
@@ -460,7 +465,10 @@ class DroppedResultIsReportedTest {
     }
 
     /** `Impl.m = other.n(…)` and `Other.n` reports ⇒ `Impl.m` reports, by forwarding alone. */
-    private fun spreadOverDelegation(found: MutableSet<MethodKey>, source: String): Boolean {
+    private fun spreadOverDelegation(
+        found: MutableSet<MethodKey>,
+        source: String,
+    ): Boolean {
         val receivers = receiverTypes(source)
         var added = false
         for (delegation in delegationsIn(source)) {
@@ -496,17 +504,26 @@ class DroppedResultIsReportedTest {
         }
 
     /** The supertypes between the closing `)` of the parameter list and the body's `{`. */
-    private fun supertypesAfter(source: String, closeParen: Int): List<String> {
+    private fun supertypesAfter(
+        source: String,
+        closeParen: Int,
+    ): List<String> {
         if (closeParen < 0) return emptyList()
         var i = closeParen + 1
         while (i < source.length && source[i].isWhitespace()) i++
         if (i >= source.length || source[i] != ':') return emptyList()
         val bodyStart = source.indexOf('{', i)
         if (bodyStart < 0) return emptyList()
-        return source.substring(i + 1, bodyStart)
+        return source
+            .substring(i + 1, bodyStart)
             .split(',')
-            .map { it.trim().substringBefore('<').substringBefore('(').trim() }
-            .filter { it.isNotEmpty() && it.all(Char::isLetterOrDigit) }
+            .map {
+                it
+                    .trim()
+                    .substringBefore('<')
+                    .substringBefore('(')
+                    .trim()
+            }.filter { it.isNotEmpty() && it.all(Char::isLetterOrDigit) }
     }
 
     /**
@@ -518,12 +535,15 @@ class DroppedResultIsReportedTest {
      * one in Kotlin, so the nearest preceding `fun` is the enclosing function by construction.
      */
     private fun capturesAndReports(source: String): Set<MethodKey> =
-        REPORT_CALL.findAll(source)
+        REPORT_CALL
+            .findAll(source)
             .mapNotNull { report ->
-                val funMatch = FUNCTION_DECLARATION.findAll(source.take(report.range.first)).lastOrNull()
-                    ?: return@mapNotNull null
-                val typeMatch = enclosingTypeDeclaration(source, funMatch.range.first)
-                    ?: return@mapNotNull null
+                val funMatch =
+                    FUNCTION_DECLARATION.findAll(source.take(report.range.first)).lastOrNull()
+                        ?: return@mapNotNull null
+                val typeMatch =
+                    enclosingTypeDeclaration(source, funMatch.range.first)
+                        ?: return@mapNotNull null
                 val head = source.substring(funMatch.range.last + 1, report.range.first)
                 if (!capturesItsOwnFailure(head)) return@mapNotNull null
                 MethodKey(typeMatch.groupValues[1], funMatch.groupValues[1])
@@ -539,16 +559,19 @@ class DroppedResultIsReportedTest {
      * silent failure.
      */
     private fun delegationsIn(source: String): List<Delegation> =
-        DELEGATION.findAll(source).mapNotNull { match ->
-            val owner = TYPE_DECLARATION.findAll(source.take(match.range.first)).lastOrNull()
-                ?: return@mapNotNull null
-            Delegation(
-                fromType = owner.groupValues[1],
-                fromMethod = match.groupValues[1],
-                receiver = match.groupValues[2],
-                method = match.groupValues[3],
-            )
-        }.toList()
+        DELEGATION
+            .findAll(source)
+            .mapNotNull { match ->
+                val owner =
+                    TYPE_DECLARATION.findAll(source.take(match.range.first)).lastOrNull()
+                        ?: return@mapNotNull null
+                Delegation(
+                    fromType = owner.groupValues[1],
+                    fromMethod = match.groupValues[1],
+                    receiver = match.groupValues[2],
+                    method = match.groupValues[3],
+                )
+            }.toList()
 
     /** `Impl.m` that returns nothing but `receiver.n(…)`. */
     private data class Delegation(
@@ -601,8 +624,9 @@ class DroppedResultIsReportedTest {
             // falls inside it and the span is larger than the best seen so far, this candidate is
             // the better match.
             val body = typeBodyBounds(source, candidate.range.last) ?: continue
-            val enclosesOffset = candidate.range.first <= functionOffset &&
-                functionOffset <= body.last
+            val enclosesOffset =
+                candidate.range.first <= functionOffset &&
+                    functionOffset <= body.last
             val span = body.last - candidate.range.first
             if (enclosesOffset && span > bestSpan) {
                 best = candidate
@@ -616,7 +640,10 @@ class DroppedResultIsReportedTest {
      * Index range of the type body that starts after [afterTypeKeyword], or `null` when there is
      * no body (or the braces never balance).
      */
-    private fun typeBodyBounds(source: String, afterTypeKeyword: Int): IntRange? {
+    private fun typeBodyBounds(
+        source: String,
+        afterTypeKeyword: Int,
+    ): IntRange? {
         val bodyOpen = classBodyOpen(source, afterTypeKeyword) ?: return null
         val bodyClose = matchingBrace(source, bodyOpen) ?: return null
         return bodyOpen..bodyClose
@@ -629,7 +656,10 @@ class DroppedResultIsReportedTest {
      * (e.g. `Logger.withTag(...) { ... }`) as the class body when `closingParen` returns early —
      * so we scan forward tracking parentheses depth, and return the first `{` at depth 0.
      */
-    private fun classBodyOpen(source: String, afterTypeKeyword: Int): Int? {
+    private fun classBodyOpen(
+        source: String,
+        afterTypeKeyword: Int,
+    ): Int? {
         var parenDepth = 0
         var i = afterTypeKeyword
         while (i < source.length) {
@@ -645,7 +675,10 @@ class DroppedResultIsReportedTest {
     }
 
     /** Index of the `}` matching the `{` at [bodyOpen], or `null` when the source runs out. */
-    private fun matchingBrace(source: String, bodyOpen: Int): Int? {
+    private fun matchingBrace(
+        source: String,
+        bodyOpen: Int,
+    ): Int? {
         var depth = 0
         var pos = bodyOpen
         while (pos < source.length) {
@@ -726,8 +759,10 @@ class DroppedResultIsReportedTest {
     }
 
     /** True when the text before [upTo] ends in `=`, i.e. the call's value is assigned. */
-    private fun endsWithAssignment(source: String, upTo: Int): Boolean =
-        source.substring(0, upTo.coerceAtMost(source.length)).trimEnd().endsWith('=')
+    private fun endsWithAssignment(
+        source: String,
+        upTo: Int,
+    ): Boolean = source.substring(0, upTo.coerceAtMost(source.length)).trimEnd().endsWith('=')
 
     /**
      * Consumption is decided past the closing parenthesis, skipping whitespace.
@@ -737,7 +772,10 @@ class DroppedResultIsReportedTest {
      * whose value is the enclosing block's value — the last expression of a lambda — is consumed
      * by whoever asked for the lambda.
      */
-    private fun isConsumed(source: String, call: Call): Boolean {
+    private fun isConsumed(
+        source: String,
+        call: Call,
+    ): Boolean {
         val start = source.indexOf("${call.receiver}.${call.method}", call.offset)
         val open = if (start >= 0) source.indexOf('(', start) else -1
         val close = if (open >= 0) SourceScan.closingParen(source, open) else -1
@@ -766,12 +804,17 @@ class DroppedResultIsReportedTest {
      * failed", …) { updateTask.invoke(…) }` — and checking only the call's own receiver
      * reported it as dropped, which it is not.
      */
-    private fun insideConsumingLambda(source: String, upTo: Int): Boolean {
+    private fun insideConsumingLambda(
+        source: String,
+        upTo: Int,
+    ): Boolean {
         var depth = 0
         var i = upTo - 1
         while (i >= 0) {
             when (source[i]) {
-                '}' -> depth++
+                '}' -> {
+                    depth++
+                }
 
                 '{' -> {
                     if (depth == 0) {
@@ -808,7 +851,11 @@ class DroppedResultIsReportedTest {
             "  3. if the caller genuinely cannot care, say so where the method is declared, so " +
             "the next reader does not have to rediscover it."
 
-    private fun assertEqual(expected: Any, actual: Any, message: String) {
+    private fun assertEqual(
+        expected: Any,
+        actual: Any,
+        message: String,
+    ) {
         if (expected != actual) fail("$message: expected <$expected> but was <$actual>")
     }
 
@@ -826,20 +873,22 @@ class DroppedResultIsReportedTest {
         /** A statement that is exactly `<receiver>.<method>(` — not a `.continuation`. */
         val STANDALONE_CALL = Regex("""^(\w+)\.(\w+)\s*\(""")
 
-        val CONSUMES_ON_RETURN = Regex(
-            """\.(\??)\s*(getOrThrow|onSuccess|onFailure|fold|getOrElse|getOrNull|isSuccess|""" +
-                """isFailure|exceptionOrNull|onNull|map|mapCatching|let|also|recoverCatching|""" +
-                """getOrDefault|orElse)\b""",
-        )
+        val CONSUMES_ON_RETURN =
+            Regex(
+                """\.(\??)\s*(getOrThrow|onSuccess|onFailure|fold|getOrElse|getOrNull|isSuccess|""" +
+                    """isFailure|exceptionOrNull|onNull|map|mapCatching|let|also|recoverCatching|""" +
+                    """getOrDefault|orElse)\b""",
+            )
 
         /** Receivers whose call is an argument to a consumer that takes the failure. */
         val CONSUMING_SEAMS = setOf("emitError", "catchTo")
 
         /** A lambda opened by any of these is a place where the failure is consumed. */
-        val CONSUMING_WRAPPER = Regex(
-            """(emitError|catchTo|runCatching\w*|onSuccess|onFailure|fold|getOrElse|map|""" +
-                """mapCatching|let|also|recoverCatching)\s*(\{|\(.*\)\s*\{)""",
-        )
+        val CONSUMING_WRAPPER =
+            Regex(
+                """(emitError|catchTo|runCatching\w*|onSuccess|onFailure|fold|getOrElse|map|""" +
+                    """mapCatching|let|also|recoverCatching)\s*(\{|\(.*\)\s*\{)""",
+            )
 
         val PROPERTY_TYPE = Regex("""\b(?:val|var)\s+(\w+)\s*:\s*([A-Za-z0-9_.<>]+)""")
         val PARAM_TYPE = Regex("""\b(\w+)\s*:\s*([A-Za-z0-9_.<>]+)\s*[,)]""")
@@ -863,13 +912,14 @@ class DroppedResultIsReportedTest {
             Regex("""\b(?:internal\s+|abstract\s+|open\s+|sealed\s+|data\s+)*class\s+(\w+)\s*\(""")
 
         /** A whole function that is nothing but `= receiver.method(…)`. */
-        val DELEGATION = Regex(
-            """^\s*(?:override\s+)?(?:suspend\s+)?fun\s+(\w+)\s*\([^)]*\)\s*:\s*Result<[^>]*>*\s*=\s*(\w+)\.(\w+)\s*\(.*\)\s*$""",
-            // MULTILINE, or `^` and `$` bind to the whole file and the pattern matches nothing
-            // outside line one. Without it the derivation silently found zero delegations and
-            // the rule reported `SyncRepository.enqueue`'s 17 call sites.
-            RegexOption.MULTILINE,
-        )
+        val DELEGATION =
+            Regex(
+                """^\s*(?:override\s+)?(?:suspend\s+)?fun\s+(\w+)\s*\([^)]*\)\s*:\s*Result<[^>]*>*\s*=\s*(\w+)\.(\w+)\s*\(.*\)\s*$""",
+                // MULTILINE, or `^` and `$` bind to the whole file and the pattern matches nothing
+                // outside line one. Without it the derivation silently found zero delegations and
+                // the rule reported `SyncRepository.enqueue`'s 17 call sites.
+                RegexOption.MULTILINE,
+            )
 
         /** A lexical rule must not be able to walk a cycle in the delegation graph. */
         const val MAX_HOPS = 4

@@ -14,7 +14,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TextFieldStateBridgeTest {
-
     @Test
     fun pullIgnoresTheValueTheFieldJustHandedOut() {
         // The field pushed "abc" upstream; the upstream now holds "abc". Writing it back

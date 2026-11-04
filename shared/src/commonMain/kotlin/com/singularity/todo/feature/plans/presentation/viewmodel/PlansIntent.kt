@@ -6,7 +6,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /** What the user can ask the plan screen to do. */
 sealed interface PlansIntent : MviIntent {
-
     /**
      * Switch the timeline to another granularity.
      *

@@ -37,7 +37,6 @@ import kotlin.test.assertEquals
 @Tag("slow")
 @Tag("slow:compose")
 class TaskStateSurvivesScenarioTest {
-
     @Test
     @DisplayName("TASK-STATE-02 a workflow state survives leaving and reopening the task")
     fun a_workflow_state_survives_leaving_and_reopening_the_task() =

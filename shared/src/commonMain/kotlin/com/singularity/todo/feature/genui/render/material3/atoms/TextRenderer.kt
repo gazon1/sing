@@ -9,27 +9,30 @@ import com.singularity.todo.feature.genui.render.genuiTag
 import com.singularity.todo.feature.genui.render.resolveText
 
 /** Maps [UiNode.Tone] to a display color. Internal so it can be unit-tested. */
-internal fun toneColor(tone: UiNode.Tone): Color = when (tone) {
-    UiNode.Tone.Error -> GenUiToneColors.Error
-    UiNode.Tone.Warning -> GenUiToneColors.Warning
-    UiNode.Tone.Positive -> GenUiToneColors.Positive
-    else -> Color.Unspecified
-}
+internal fun toneColor(tone: UiNode.Tone): Color =
+    when (tone) {
+        UiNode.Tone.Error -> GenUiToneColors.Error
+        UiNode.Tone.Warning -> GenUiToneColors.Warning
+        UiNode.Tone.Positive -> GenUiToneColors.Positive
+        else -> Color.Unspecified
+    }
 
-internal fun ComponentRegistry.registerText(): Unit = register("text") { node, ctx, modifier ->
-    val t = node as UiNode.Text
-    // The value is a template, not a string: it may name data that arrives in a later message, so
-    // it is resolved at draw time. Everything else about the component stays as declared.
-    val resolved: String = ctx.resolveText(t.value)
-    // A generated screen is prose, and prose is where links turn up. The text is linkified so
-    // those are tappable; with no links in it, the rendering is a plain text — the semantics
-    // and the tests of the generated surfaces stay as they were.
-    LinkifiedText(
-        text = resolved,
-        color = toneColor(t.tone),
-        modifier = modifier.genuiTag(
-            name = "text_${t.value.take(16).replace(" ", "_")}",
-            description = "Text: ${resolved.take(32)}",
-        ),
-    )
-}
+internal fun ComponentRegistry.registerText(): Unit =
+    register("text") { node, ctx, modifier ->
+        val t = node as UiNode.Text
+        // The value is a template, not a string: it may name data that arrives in a later message, so
+        // it is resolved at draw time. Everything else about the component stays as declared.
+        val resolved: String = ctx.resolveText(t.value)
+        // A generated screen is prose, and prose is where links turn up. The text is linkified so
+        // those are tappable; with no links in it, the rendering is a plain text — the semantics
+        // and the tests of the generated surfaces stay as they were.
+        LinkifiedText(
+            text = resolved,
+            color = toneColor(t.tone),
+            modifier =
+                modifier.genuiTag(
+                    name = "text_${t.value.take(16).replace(" ", "_")}",
+                    description = "Text: ${resolved.take(32)}",
+                ),
+        )
+    }

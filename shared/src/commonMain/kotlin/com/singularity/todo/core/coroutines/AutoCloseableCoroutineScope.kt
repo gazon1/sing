@@ -34,7 +34,6 @@ import kotlin.coroutines.CoroutineContext
 class AutoCloseableCoroutineScope(override val coroutineContext: CoroutineContext) :
     AutoCloseable,
     CoroutineScope {
-
     /**
      * The [Job] of this scope. Exposed so tests can cancel only this scope's child jobs
      * without cancelling the root [Job] of the surrounding [CoroutineScope].

@@ -13,8 +13,8 @@ import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import kotlinx.coroutines.flow.first
 import org.junit.jupiter.api.Tag
-import kotlin.time.Instant
 import kotlin.test.Test
+import kotlin.time.Instant
 
 /**
  * Full-app flow test for creating a saved agenda view.
@@ -34,35 +34,40 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class SavedAgendaCreateFlowTest {
-
     @Test
-    fun `saving a new agenda view leaves the editor and persists the view`() = runDesktopAppTest(
-        clock = CLOCK,
-        checkA11y = true,
-    ) { koin ->
-        waitForIdle()
+    fun `saving a new agenda view leaves the editor and persists the view`() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            checkA11y = true,
+        ) { koin ->
+            waitForIdle()
 
-        // Boot lands on the Today agenda; its top bar carries the bookmark-add control.
-        clickTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
-        awaitTag(TestTags.SAVED_AGENDA_SAVE_BUTTON)
+            // Boot lands on the Today agenda; its top bar carries the bookmark-add control.
+            clickTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
+            awaitTag(TestTags.SAVED_AGENDA_SAVE_BUTTON)
 
-        // The seeded draft is pristine, so Save is disabled — rename to dirty it.
-        clearAndTypeIntoTag(TestTags.SAVED_AGENDA_NAME_INPUT, "Saved By Test")
-        clickTag(TestTags.SAVED_AGENDA_SAVE_BUTTON)
+            // The seeded draft is pristine, so Save is disabled — rename to dirty it.
+            clearAndTypeIntoTag(TestTags.SAVED_AGENDA_NAME_INPUT, "Saved By Test")
+            clickTag(TestTags.SAVED_AGENDA_SAVE_BUTTON)
 
-        // SaveSuccess navigates back to the agenda. This is the assertion that fails
-        // on the pre-fix code: the editor stayed on screen with the spinner running.
-        // awaitTagGone polls, so the async write → event → navigation chain has time
-        // to settle before the check passes.
-        awaitTagGone(TestTags.SAVED_AGENDA_SAVE_BUTTON)
+            // SaveSuccess navigates back to the agenda. This is the assertion that fails
+            // on the pre-fix code: the editor stayed on screen with the spinner running.
+            // awaitTagGone polls, so the async write → event → navigation chain has time
+            // to settle before the check passes.
+            awaitTagGone(TestTags.SAVED_AGENDA_SAVE_BUTTON)
 
-        // Navigation only fires after the repository write resolved, so a single
-        // read is enough — no polling required.
-        val savedNames = koin.get<SavedAgendaViewsRepository>().observeAll().first().map { it.name }
-        assert("Saved By Test" in savedNames) {
-            "the created view must be persisted for the current user, got: $savedNames"
+            // Navigation only fires after the repository write resolved, so a single
+            // read is enough — no polling required.
+            val savedNames =
+                koin
+                    .get<SavedAgendaViewsRepository>()
+                    .observeAll()
+                    .first()
+                    .map { it.name }
+            assert("Saved By Test" in savedNames) {
+                "the created view must be persisted for the current user, got: $savedNames"
+            }
         }
-    }
 
     private companion object {
         /** Mid-month, so no assertion in this file straddles a day boundary. */

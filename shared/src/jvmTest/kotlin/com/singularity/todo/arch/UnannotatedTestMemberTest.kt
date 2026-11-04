@@ -75,7 +75,6 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class UnannotatedTestMemberTest {
-
     @Test
     fun every_non_private_member_of_a_test_class_carries_an_annotation() {
         val findings = mutableListOf<String>()
@@ -123,11 +122,12 @@ class UnannotatedTestMemberTest {
     @Test
     fun the_gate_still_finds_a_test_that_was_never_wired_to_junit() {
         val classes = classesByDir.getValue(FIXTURE_DIR.absolutePath)
-        val fixture = classes.singleOrNull { it.name == FIXTURE_CLASS_NAME }
-            ?: error(
-                "positive control: ${FIXTURE_CLASS_NAME} not found in ${FIXTURE_DIR.absolutePath}; " +
-                    "parsed ${classes.map { it.name }}",
-            )
+        val fixture =
+            classes.singleOrNull { it.name == FIXTURE_CLASS_NAME }
+                ?: error(
+                    "positive control: ${FIXTURE_CLASS_NAME} not found in ${FIXTURE_DIR.absolutePath}; " +
+                        "parsed ${classes.map { it.name }}",
+                )
         val found = directMembers(fixture).filter { isUnwired(it) }.map { it.name }
         assertEquals(
             listOf("looksExactlyLikeATest"),
@@ -148,8 +148,7 @@ class UnannotatedTestMemberTest {
      * annotations, because `@BeforeEach` and `@TestFactory` are both declarations
      * that mean something and neither is a test.
      */
-    private fun isUnwired(member: KoFunctionDeclaration): Boolean =
-        !isHook(member) && member.annotations.isEmpty()
+    private fun isUnwired(member: KoFunctionDeclaration): Boolean = !isHook(member) && member.annotations.isEmpty()
 
     /**
      * A declaration that cannot be a standalone test, whatever it is annotated with.
@@ -169,11 +168,12 @@ class UnannotatedTestMemberTest {
     private fun isHook(member: KoFunctionDeclaration): Boolean =
         member.hasPrivateModifier || member.hasAbstractModifier || member.hasOverrideModifier
 
-    private fun describe(owner: KoClassDeclaration, member: KoFunctionDeclaration): String =
-        "${member.location} ${owner.name}.${member.name}()"
+    private fun describe(
+        owner: KoClassDeclaration,
+        member: KoFunctionDeclaration,
+    ): String = "${member.location} ${owner.name}.${member.name}()"
 
     private companion object {
-
         private const val TEST_CLASS_SUFFIX = "Test"
         private const val FIXTURE_CLASS_NAME = "UnannotatedMemberFixtureTest"
 
@@ -181,8 +181,12 @@ class UnannotatedTestMemberTest {
          * `commonMain.root` is `shared/src/commonMain/kotlin`; three levels up is
          * `shared/`, one more is the root that also holds `desktopApp/`.
          */
-        private val repoRoot: File = property("commonMain.root")
-            .let { File(it).parentFile.parentFile.parentFile.parentFile }
+        private val repoRoot: File =
+            property("commonMain.root")
+                .let {
+                    File(it)
+                        .parentFile.parentFile.parentFile.parentFile
+                }
 
         /**
          * The class the positive control reads. Not on any compiler source path, and
@@ -207,14 +211,15 @@ class UnannotatedTestMemberTest {
          * same failure as a gate that passes vacuously, with the extra step of looking
          * like a finding.
          */
-        private val scannedDirs: List<File> = listOf(
-            File(property("commonTest.root")),
-            File(property("jvmTest.root")),
-            File(property("desktopAppJvmTest.root")),
-            File(repoRoot, "mcp-server/src/test"),
-            File(repoRoot, "androidApp/src/androidTest"),
-            FIXTURE_DIR,
-        )
+        private val scannedDirs: List<File> =
+            listOf(
+                File(property("commonTest.root")),
+                File(property("jvmTest.root")),
+                File(property("desktopAppJvmTest.root")),
+                File(repoRoot, "mcp-server/src/test"),
+                File(repoRoot, "androidApp/src/androidTest"),
+                FIXTURE_DIR,
+            )
 
         /** Parsed once: Konsist scopes are expensive and the trees do not change mid-run. */
         private val classesByDir: Map<String, List<KoClassDeclaration>> by lazy {

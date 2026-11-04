@@ -9,12 +9,12 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class FormStateTest {
-
     private data class SimpleForm(val email: String = "", val password: String = "", val rememberMe: Boolean = false)
 
     private class SimpleFormState(form: SimpleForm = SimpleForm()) : FormState<SimpleForm>(form) {
         // Capture a fresh instance for reset() — not the same reference as 'form'
         private val fresh = SimpleForm()
+
         override fun initialForm() = fresh
     }
 

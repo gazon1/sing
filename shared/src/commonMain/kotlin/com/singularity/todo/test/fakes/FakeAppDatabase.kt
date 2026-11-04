@@ -12,13 +12,11 @@ import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.ChecklistDao
 import com.singularity.todo.core.database.ChecklistItemEntity
 import com.singularity.todo.core.database.FtsDao
-import com.singularity.todo.core.database.NoteMatchRow
-import com.singularity.todo.core.database.ProjectMatchRow
-import com.singularity.todo.core.database.TagMatchRow
 import com.singularity.todo.core.database.LlmUsageDao
 import com.singularity.todo.core.database.LlmUsageEntity
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.NoteEntity
+import com.singularity.todo.core.database.NoteMatchRow
 import com.singularity.todo.core.database.OwnerEraseDao
 import com.singularity.todo.core.database.OwnerReassignDao
 import com.singularity.todo.core.database.OwnerScopeDao
@@ -28,6 +26,7 @@ import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.ProjectInheritedTagGroupCrossRef
 import com.singularity.todo.core.database.ProjectInheritedTagGroupDao
+import com.singularity.todo.core.database.ProjectMatchRow
 import com.singularity.todo.core.database.ProjectReminderDao
 import com.singularity.todo.core.database.ProjectReminderEntity
 import com.singularity.todo.core.database.ReminderDao
@@ -37,6 +36,7 @@ import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.TagGroupDao
 import com.singularity.todo.core.database.TagGroupEntity
+import com.singularity.todo.core.database.TagMatchRow
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
@@ -47,15 +47,15 @@ import com.singularity.todo.core.search.SearchLimits
 import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.core.sync.RemoteConfigDao
 import com.singularity.todo.core.sync.RemoteConfigEntity
-import com.singularity.todo.core.sync.SyncOutboxDao
 import com.singularity.todo.core.sync.SyncDeadLetterDao
 import com.singularity.todo.core.sync.SyncDeadLetterEntity
+import com.singularity.todo.core.sync.SyncOutboxDao
+import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.core.sync.SyncScope
-import com.singularity.todo.core.sync.SyncStateDao
 import com.singularity.todo.core.sync.SyncShadowDao
 import com.singularity.todo.core.sync.SyncShadowEntity
+import com.singularity.todo.core.sync.SyncStateDao
 import com.singularity.todo.core.sync.SyncStateEntity
-import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventDao
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncStateDao
@@ -90,7 +90,6 @@ import kotlin.time.Instant
  * to subscribers — exactly like Room's invalidation tracker.
  */
 class FakeAppDatabase : AppDatabase() {
-
     private val _tasks = MutableStateFlow<Map<String, TaskEntity>>(emptyMap())
     private val _taskTags = MutableStateFlow<List<TaskTagCrossRef>>(emptyList())
     private val _taskDependencies = MutableStateFlow<List<TaskDependencyCrossRef>>(emptyList())
@@ -149,37 +148,65 @@ class FakeAppDatabase : AppDatabase() {
 
     override fun taskDao(): TaskDao =
         FakeTaskDao(_tasks, _taskTags, _taskDependencies, _tags, _projectTagGroups, _checklist)
+
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
+
     override fun projectDao(): ProjectDao = FakeProjectDao(_projects)
+
     override fun tagDao(): TagDao = FakeTagDao(_tags)
+
     override fun ftsDao(): FtsDao = FakeFtsDao(_tasks, _notes, _projects, _tags)
+
     override fun syncOutboxDao(): SyncOutboxDao = FakeSyncOutboxDao(_outbox)
+
     override fun syncDeadLetterDao(): SyncDeadLetterDao = FakeSyncDeadLetterDao(_deadLetter)
+
     override fun syncStateDao(): SyncStateDao = FakeSyncStateDao(_syncState)
+
     override fun syncShadowDao(): SyncShadowDao = FakeSyncShadowDao(_syncShadow)
+
     override fun attachmentDao(): AttachmentDao = FakeAttachmentDao(_attachments)
+
     override fun annotationDao(): AttachmentAnnotationDao = FakeAttachmentAnnotationDao(_annotations)
+
     override fun reminderDao(): ReminderDao = FakeReminderDao(_reminders)
+
     override fun projectReminderDao(): ProjectReminderDao = FakeProjectReminderDao(_projectReminders)
+
     override fun checklistDao(): ChecklistDao = FakeChecklistDao(_checklist, _tasks)
+
     override fun llmUsageDao(): LlmUsageDao = FakeLlmUsageDao(_llmUsage)
+
     override fun profileDao(): ProfileDao = FakeProfileDao(_profiles)
+
     override fun agendaViewDao(): AgendaViewDao = FakeAgendaViewDao(_agendaViews)
+
     override fun remoteConfigDao(): RemoteConfigDao = FakeRemoteConfigDao(_remoteConfigs)
+
     override fun remoteConfigCacheDao(): RemoteConfigCacheDao = FakeRemoteConfigCacheDao(_remoteConfigCache)
+
     override fun calendarSyncTaskMapDao(): CalendarSyncTaskMapDao = FakeCalendarSyncTaskMapDao(_calendarSyncTaskMap)
+
     override fun calendarSyncStateDao(): CalendarSyncStateDao = FakeCalendarSyncStateDao(_calendarSyncState)
+
     override fun googleEventShadowDao(): GoogleEventShadowDao = FakeGoogleEventShadowDao(_googleEventShadow)
-    override fun calendarImportEventDao(): CalendarImportEventDao =
-        FakeCalendarImportEventDao(_calendarImportEvents)
+
+    override fun calendarImportEventDao(): CalendarImportEventDao = FakeCalendarImportEventDao(_calendarImportEvents)
+
     override fun savedSearchDao(): SavedSearchDao = FakeSavedSearchDao(_savedSearches)
+
     override fun tagGroupDao(): TagGroupDao = FakeTagGroupDao(_tagGroups)
-    override fun projectInheritedTagGroupDao(): ProjectInheritedTagGroupDao = FakeProjectInheritedTagGroupDao(
-        _projectTagGroups,
-        _projects,
-    )
+
+    override fun projectInheritedTagGroupDao(): ProjectInheritedTagGroupDao =
+        FakeProjectInheritedTagGroupDao(
+            _projectTagGroups,
+            _projects,
+        )
+
     override fun timeEntryDao(): TimeEntryDao = FakeTimeEntryDao(_timeEntries)
+
     override fun proposalDao(): ProposalDao = FakeProposalDao(_proposals, _proposalItems)
+
     override fun proposalItemDao(): ProposalItemDao = FakeProposalItemDao(_proposals, _proposalItems)
 
     /**
@@ -193,45 +220,48 @@ class FakeAppDatabase : AppDatabase() {
      */
     var failReassign: Boolean = false
 
-    override fun ownerReassignDao(): OwnerReassignDao = FakeOwnerReassignDao(
-        failWith = { if (failReassign) error("the disk went away mid-transfer") },
-        tasks = _tasks,
-        projects = _projects,
-        notes = _notes,
-        tags = _tags,
-        tagGroups = _tagGroups,
-        taskReminders = _reminders,
-        projectReminders = _projectReminders,
-        timeEntries = _timeEntries,
-        agendaViews = _agendaViews,
-        profiles = _profiles,
-        outbox = _outbox,
-        deadLetter = _deadLetter,
-        shadow = _syncShadow,
-    )
+    override fun ownerReassignDao(): OwnerReassignDao =
+        FakeOwnerReassignDao(
+            failWith = { if (failReassign) error("the disk went away mid-transfer") },
+            tasks = _tasks,
+            projects = _projects,
+            notes = _notes,
+            tags = _tags,
+            tagGroups = _tagGroups,
+            taskReminders = _reminders,
+            projectReminders = _projectReminders,
+            timeEntries = _timeEntries,
+            agendaViews = _agendaViews,
+            profiles = _profiles,
+            outbox = _outbox,
+            deadLetter = _deadLetter,
+            shadow = _syncShadow,
+        )
 
-    override fun ownerEraseDao(): OwnerEraseDao = FakeOwnerEraseDao(
-        tasks = _tasks,
-        taskTags = _taskTags,
-        taskDependencies = _taskDependencies,
-        checklist = _checklist,
-        projects = _projects,
-        projectTagGroups = _projectTagGroups,
-        notes = _notes,
-        tags = _tags,
-        tagGroups = _tagGroups,
-        taskReminders = _reminders,
-        projectReminders = _projectReminders,
-        timeEntries = _timeEntries,
-        agendaViews = _agendaViews,
-        profiles = _profiles,
-    )
+    override fun ownerEraseDao(): OwnerEraseDao =
+        FakeOwnerEraseDao(
+            tasks = _tasks,
+            taskTags = _taskTags,
+            taskDependencies = _taskDependencies,
+            checklist = _checklist,
+            projects = _projects,
+            projectTagGroups = _projectTagGroups,
+            notes = _notes,
+            tags = _tags,
+            tagGroups = _tagGroups,
+            taskReminders = _reminders,
+            projectReminders = _projectReminders,
+            timeEntries = _timeEntries,
+            agendaViews = _agendaViews,
+            profiles = _profiles,
+        )
 
-    override fun ownerScopeDao(): OwnerScopeDao = FakeOwnerScopeDao(
-        tasks = _tasks,
-        projects = _projects,
-        notes = _notes,
-    )
+    override fun ownerScopeDao(): OwnerScopeDao =
+        FakeOwnerScopeDao(
+            tasks = _tasks,
+            projects = _projects,
+            notes = _notes,
+        )
 
     override suspend fun clearAllTables() {
         _tasks.value = emptyMap()
@@ -280,48 +310,63 @@ class FakeAppDatabase : AppDatabase() {
     fun seedTagRefs(items: List<TaskTagCrossRef>) {
         _taskTags.value = items
     }
+
     fun seedNotes(items: List<NoteEntity>) {
         _notes.value = items.associateBy { it.id }
     }
+
     fun seedProjects(items: List<ProjectEntity>) {
         _projects.value = items.associateBy { it.id }
     }
+
     fun seedTags(items: List<TagEntity>) {
         _tags.value = items.associateBy { it.id }
     }
+
     fun seedOutbox(items: List<SyncOutboxEntity>) {
         _outbox.value = items.associateBy { it.patchId }
     }
+
     fun seedAttachments(items: List<AttachmentEntity>) {
         _attachments.value = items.associateBy { it.id }
     }
+
     fun seedAnnotations(items: List<AttachmentAnnotationEntity>) {
         _annotations.value = items.associateBy { it.id }
     }
+
     fun seedReminders(items: List<com.singularity.todo.core.database.TaskReminderEntity>) {
         _reminders.value = items.associateBy { it.userId to it.id }
     }
+
     fun seedChecklist(items: List<ChecklistItemEntity>) {
         _checklist.value = items.associateBy { it.id }
     }
+
     fun seedLlUsage(items: List<LlmUsageEntity>) {
         _llmUsage.value = items.associateBy { it.id }
     }
+
     fun seedProfiles(items: List<ProfileEntity>) {
         _profiles.value = items.associateBy { it.id }
     }
+
     fun seedAgendaViews(items: List<AgendaViewEntity>) {
         _agendaViews.value = items.associateBy { it.id }
     }
+
     fun seedSavedSearches(items: List<SavedSearchEntity>) {
         _savedSearches.value = items.associateBy { it.id }
     }
+
     fun seedTagGroups(items: List<TagGroupEntity>) {
         _tagGroups.value = items.associateBy { it.id }
     }
+
     fun seedProjectTagGroups(items: List<ProjectInheritedTagGroupCrossRef>) {
         _projectTagGroups.value = items
     }
+
     fun seedTimeEntries(items: List<TimeEntryEntity>) {
         _timeEntries.value = items.associateBy { it.id }
     }
@@ -333,63 +378,64 @@ class FakeAppDatabase : AppDatabase() {
      * Each table is prefixed with `--- <TableName> ---` and a row count, then the
      * rows in insertion order.
      */
-    fun dumpAll(): String = buildString {
-        appendLine("=== FakeAppDatabase snapshot ===")
-        appendLine()
-        appendLine("--- Tasks (${_tasks.value.size} rows) ---")
-        _tasks.value.values.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- TaskTags (${_taskTags.value.size} rows) ---")
-        _taskTags.value.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- TaskDependencies (${_taskDependencies.value.size} rows) ---")
-        _taskDependencies.value.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- Notes (${_notes.value.size} rows) ---")
-        _notes.value.values.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- Projects (${_projects.value.size} rows) ---")
-        _projects.value.values.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- Tags (${_tags.value.size} rows) ---")
-        _tags.value.values.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- SyncOutbox (${_outbox.value.size} rows) ---")
-        _outbox.value.values.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- Attachments (${_attachments.value.size} rows) ---")
-        _attachments.value.values.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- Reminders (${_reminders.value.size} rows) ---")
-        _reminders.value.values.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- ProjectReminders (${_projectReminders.value.size} rows) ---")
-        _projectReminders.value.values.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- Checklist (${_checklist.value.size} rows) ---")
-        _checklist.value.values.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- LlmUsage (${_llmUsage.value.size} rows) ---")
-        _llmUsage.value.values.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- Profiles (${_profiles.value.size} rows) ---")
-        _profiles.value.values.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- AgendaViews (${_agendaViews.value.size} rows) ---")
-        _agendaViews.value.values.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- RemoteConfigs (${_remoteConfigs.value.size} rows) ---")
-        _remoteConfigs.value.values.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- SavedSearches (${_savedSearches.value.size} rows) ---")
-        _savedSearches.value.values.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- TagGroups (${_tagGroups.value.size} rows) ---")
-        _tagGroups.value.values.forEach { appendLine(it) }
-        appendLine()
-        appendLine("--- ProjectTagGroups (${_projectTagGroups.value.size} rows) ---")
-        _projectTagGroups.value.forEach { appendLine(it) }
-    }
+    fun dumpAll(): String =
+        buildString {
+            appendLine("=== FakeAppDatabase snapshot ===")
+            appendLine()
+            appendLine("--- Tasks (${_tasks.value.size} rows) ---")
+            _tasks.value.values.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- TaskTags (${_taskTags.value.size} rows) ---")
+            _taskTags.value.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- TaskDependencies (${_taskDependencies.value.size} rows) ---")
+            _taskDependencies.value.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- Notes (${_notes.value.size} rows) ---")
+            _notes.value.values.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- Projects (${_projects.value.size} rows) ---")
+            _projects.value.values.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- Tags (${_tags.value.size} rows) ---")
+            _tags.value.values.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- SyncOutbox (${_outbox.value.size} rows) ---")
+            _outbox.value.values.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- Attachments (${_attachments.value.size} rows) ---")
+            _attachments.value.values.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- Reminders (${_reminders.value.size} rows) ---")
+            _reminders.value.values.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- ProjectReminders (${_projectReminders.value.size} rows) ---")
+            _projectReminders.value.values.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- Checklist (${_checklist.value.size} rows) ---")
+            _checklist.value.values.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- LlmUsage (${_llmUsage.value.size} rows) ---")
+            _llmUsage.value.values.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- Profiles (${_profiles.value.size} rows) ---")
+            _profiles.value.values.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- AgendaViews (${_agendaViews.value.size} rows) ---")
+            _agendaViews.value.values.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- RemoteConfigs (${_remoteConfigs.value.size} rows) ---")
+            _remoteConfigs.value.values.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- SavedSearches (${_savedSearches.value.size} rows) ---")
+            _savedSearches.value.values.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- TagGroups (${_tagGroups.value.size} rows) ---")
+            _tagGroups.value.values.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- ProjectTagGroups (${_projectTagGroups.value.size} rows) ---")
+            _projectTagGroups.value.forEach { appendLine(it) }
+        }
 }
 
 // ─── TaskDao ─────────────────────────────────────────────────────────────────
@@ -414,47 +460,68 @@ private class FakeFtsDao(
     private val projects: MutableStateFlow<Map<String, ProjectEntity>>,
     private val tags: MutableStateFlow<Map<String, TagEntity>>,
 ) : FtsDao {
+    override fun watchTasks(
+        userId: String,
+        query: TextMatchQuery,
+    ): Flow<List<TaskMatchRow>> =
+        tasks.map { map ->
+            map.values
+                .filter { t ->
+                    t.userId == userId && t.archivedAt == null &&
+                        matchesTextMatch(query, t.title, t.description)
+                }.sortedWith(compareBy({ t -> t.dueDate ?: "\uFFFF" }, { t -> !t.isPinned }))
+                .map { entity -> TaskMatchRow(entity, offsets = null) }
+        }
 
-    override fun watchTasks(userId: String, query: TextMatchQuery): Flow<List<TaskMatchRow>> = tasks.map { map ->
-        map.values.filter { t ->
-            t.userId == userId && t.archivedAt == null &&
-                matchesTextMatch(query, t.title, t.description)
-        }.sortedWith(compareBy({ t -> t.dueDate ?: "\uFFFF" }, { t -> !t.isPinned }))
-            .map { entity -> TaskMatchRow(entity, offsets = null) }
-    }
+    override fun watchNotes(
+        userId: String,
+        query: TextMatchQuery,
+    ): Flow<List<NoteMatchRow>> =
+        notes.map { map ->
+            map.values
+                .filter { n ->
+                    n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
+                        matchesTextMatch(query, n.title)
+                }.sortedByDescending { it.updatedAt }
+                .take(SearchLimits.NOTES)
+                .map { entity -> NoteMatchRow(entity, offsets = null) }
+        }
 
-    override fun watchNotes(userId: String, query: TextMatchQuery): Flow<List<NoteMatchRow>> = notes.map { map ->
-        map.values.filter { n ->
-            n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
-                matchesTextMatch(query, n.title)
-        }.sortedByDescending { it.updatedAt }.take(SearchLimits.NOTES)
-            .map { entity -> NoteMatchRow(entity, offsets = null) }
-    }
-
-    override fun watchProjects(userId: String, query: TextMatchQuery): Flow<List<ProjectMatchRow>> =
+    override fun watchProjects(
+        userId: String,
+        query: TextMatchQuery,
+    ): Flow<List<ProjectMatchRow>> =
         projects.map { map ->
-            map.values.filter { p ->
-                p.userId == userId && !p.isDeleted && matchesTextMatch(query, p.name)
-            }.sortedWith(compareBy({ it.sortOrder }, { it.name }))
+            map.values
+                .filter { p ->
+                    p.userId == userId && !p.isDeleted && matchesTextMatch(query, p.name)
+                }.sortedWith(compareBy({ it.sortOrder }, { it.name }))
                 .map { entity -> ProjectMatchRow(entity, offsets = null) }
         }
 
-    override fun watchTags(userId: String, query: TextMatchQuery): Flow<List<TagMatchRow>> = tags.map { map ->
-        map.values.filter { t ->
-            t.userId == userId && t.deletedAt == null && matchesTextMatch(query, t.name)
-        }.sortedWith(compareBy({ it.sortOrder }, { it.name }))
-            .map { entity -> TagMatchRow(entity, offsets = null) }
-    }
+    override fun watchTags(
+        userId: String,
+        query: TextMatchQuery,
+    ): Flow<List<TagMatchRow>> =
+        tags.map { map ->
+            map.values
+                .filter { t ->
+                    t.userId == userId && t.deletedAt == null && matchesTextMatch(query, t.name)
+                }.sortedWith(compareBy({ it.sortOrder }, { it.name }))
+                .map { entity -> TagMatchRow(entity, offsets = null) }
+        }
 
     override suspend fun searchTaskTitles(
         userId: String,
         query: TextMatchQuery,
         limit: Int,
     ): List<TaskMatchRow> =
-        tasks.value.values.filter { t ->
-            t.userId == userId && t.archivedAt == null &&
-                matchesTextMatch(query, t.title, t.description)
-        }.sortedByDescending { it.updatedAt }.take(limit)
+        tasks.value.values
+            .filter { t ->
+                t.userId == userId && t.archivedAt == null &&
+                    matchesTextMatch(query, t.title, t.description)
+            }.sortedByDescending { it.updatedAt }
+            .take(limit)
             .map { entity -> TaskMatchRow(entity, offsets = null) }
 
     override suspend fun searchNoteTitles(
@@ -462,23 +529,34 @@ private class FakeFtsDao(
         query: TextMatchQuery,
         limit: Int,
     ): List<NoteMatchRow> =
-        notes.value.values.filter { n ->
-            n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
-                matchesTextMatch(query, n.title)
-        }.sortedByDescending { it.updatedAt }.take(limit)
+        notes.value.values
+            .filter { n ->
+                n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
+                    matchesTextMatch(query, n.title)
+            }.sortedByDescending { it.updatedAt }
+            .take(limit)
             .map { entity -> NoteMatchRow(entity, offsets = null) }
 
-    override fun watchTasksByMatch(userId: String, match: String): Flow<List<TaskMatchRow>> =
-        noExpression("watchTasksByMatch")
+    override fun watchTasksByMatch(
+        userId: String,
+        match: String,
+    ): Flow<List<TaskMatchRow>> = noExpression("watchTasksByMatch")
 
-    override fun watchNotesByMatch(userId: String, match: String, limit: Int): Flow<List<NoteMatchRow>> =
-        noExpression("watchNotesByMatch")
+    override fun watchNotesByMatch(
+        userId: String,
+        match: String,
+        limit: Int,
+    ): Flow<List<NoteMatchRow>> = noExpression("watchNotesByMatch")
 
-    override fun watchProjectsByMatch(userId: String, match: String): Flow<List<ProjectMatchRow>> =
-        noExpression("watchProjectsByMatch")
+    override fun watchProjectsByMatch(
+        userId: String,
+        match: String,
+    ): Flow<List<ProjectMatchRow>> = noExpression("watchProjectsByMatch")
 
-    override fun watchTagsByMatch(userId: String, match: String): Flow<List<TagMatchRow>> =
-        noExpression("watchTagsByMatch")
+    override fun watchTagsByMatch(
+        userId: String,
+        match: String,
+    ): Flow<List<TagMatchRow>> = noExpression("watchTagsByMatch")
 
     override suspend fun searchTaskTitlesByMatch(
         userId: String,
@@ -516,60 +594,97 @@ private class FakeTaskDao(
     private val projectTagGroups: MutableStateFlow<List<ProjectInheritedTagGroupCrossRef>>,
     private val checklist: MutableStateFlow<Map<String, ChecklistItemEntity>>,
 ) : TaskDao {
-
-    override fun watchActive(userId: String): Flow<List<TaskEntity>> = store.map {
-        it.values.filter { t -> t.userId == userId && t.archivedAt == null }
-            .sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
-    }
+    override fun watchActive(userId: String): Flow<List<TaskEntity>> =
+        store.map {
+            it.values
+                .filter { t -> t.userId == userId && t.archivedAt == null }
+                .sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
+        }
 
     override fun watchById(id: String): Flow<TaskEntity?> = store.map { it[id] }
 
-    override fun watchByIdForUser(id: String, userId: String): Flow<TaskEntity?> =
-        store.map { it[id]?.takeIf { t -> t.userId == userId } }
+    override fun watchByIdForUser(
+        id: String,
+        userId: String,
+    ): Flow<TaskEntity?> = store.map { it[id]?.takeIf { t -> t.userId == userId } }
 
-    override fun watchTrash(userId: String): Flow<List<TaskEntity>> = store.map {
-        it.values.filter { t -> t.userId == userId && t.archivedAt != null }
+    override fun watchTrash(userId: String): Flow<List<TaskEntity>> =
+        store.map {
+            it.values
+                .filter { t -> t.userId == userId && t.archivedAt != null }
+                .sortedByDescending { it.archivedAt }
+        }
+
+    override suspend fun getTrashForUser(userId: String): List<TaskEntity> =
+        store.value.values
+            .filter { t -> t.userId == userId && t.archivedAt != null }
             .sortedByDescending { it.archivedAt }
-    }
 
-    override suspend fun getTrashForUser(userId: String): List<TaskEntity> = store.value.values
-        .filter { t -> t.userId == userId && t.archivedAt != null }
-        .sortedByDescending { it.archivedAt }
+    override fun watchSomeday(userId: String): Flow<List<TaskEntity>> =
+        store.map {
+            it.values
+                .filter { t -> t.userId == userId && t.someday && t.archivedAt == null }
+                .sortedByDescending { it.createdAt }
+        }
 
-    override fun watchSomeday(userId: String): Flow<List<TaskEntity>> = store.map {
-        it.values.filter { t -> t.userId == userId && t.someday && t.archivedAt == null }
-            .sortedByDescending { it.createdAt }
-    }
+    override fun watchByDate(
+        userId: String,
+        date: String,
+    ): Flow<List<TaskEntity>> =
+        store.map {
+            it.values
+                .filter { t -> t.userId == userId && t.archivedAt == null && t.dueDate == date }
+                .sortedWith(compareBy({ !it.isPinned }, { it.dueTime ?: "" }))
+        }
 
-    override fun watchByDate(userId: String, date: String): Flow<List<TaskEntity>> = store.map {
-        it.values.filter { t -> t.userId == userId && t.archivedAt == null && t.dueDate == date }
-            .sortedWith(compareBy({ !it.isPinned }, { it.dueTime ?: "" }))
-    }
+    override fun watchUpcoming(
+        userId: String,
+        today: String,
+        endDate: String,
+    ): Flow<List<TaskEntity>> =
+        store.map {
+            it.values
+                .filter { t ->
+                    val due = t.dueDate ?: return@filter false
+                    t.userId == userId && t.archivedAt == null && due > today && due <= endDate
+                }.sortedBy { it.dueDate }
+        }
 
-    override fun watchUpcoming(userId: String, today: String, endDate: String): Flow<List<TaskEntity>> = store.map {
-        it.values.filter { t ->
-            val due = t.dueDate ?: return@filter false
-            t.userId == userId && t.archivedAt == null && due > today && due <= endDate
-        }.sortedBy { it.dueDate }
-    }
+    override fun watchByProject(
+        userId: String,
+        projectId: String,
+    ): Flow<List<TaskEntity>> =
+        store.map {
+            it.values
+                .filter { t -> t.userId == userId && t.projectId == projectId && t.archivedAt == null }
+                .sortedWith(compareBy({ !it.isPinned }, { it.dueDate ?: "" }))
+        }
 
-    override fun watchByProject(userId: String, projectId: String): Flow<List<TaskEntity>> = store.map {
-        it.values.filter { t -> t.userId == userId && t.projectId == projectId && t.archivedAt == null }
-            .sortedWith(compareBy({ !it.isPinned }, { it.dueDate ?: "" }))
-    }
+    override fun watchByDateRange(
+        userId: String,
+        from: String,
+        to: String,
+    ): Flow<List<TaskEntity>> =
+        store.map {
+            it.values
+                .filter { t ->
+                    val due = t.dueDate ?: return@filter false
+                    t.userId == userId && t.archivedAt == null && due >= from && due <= to
+                }.sortedBy { it.dueDate }
+        }
 
-    override fun watchByDateRange(userId: String, from: String, to: String): Flow<List<TaskEntity>> = store.map {
-        it.values.filter { t ->
-            val due = t.dueDate ?: return@filter false
-            t.userId == userId && t.archivedAt == null && due >= from && due <= to
-        }.sortedBy { it.dueDate }
-    }
+    override fun observeSeriesForUser(
+        seriesId: String,
+        userId: String,
+    ): Flow<List<TaskEntity>> =
+        store.map {
+            it.values.filter { t -> t.userId == userId && t.seriesId == seriesId }.sortedBy { it.dueDate }
+        }
 
-    override fun observeSeriesForUser(seriesId: String, userId: String): Flow<List<TaskEntity>> = store.map {
-        it.values.filter { t -> t.userId == userId && t.seriesId == seriesId }.sortedBy { it.dueDate }
-    }
-
-    override suspend fun getSeriesForUser(seriesId: String, userId: String): List<TaskEntity> =
+    override suspend fun getSeriesForUser(
+        seriesId: String,
+        userId: String,
+    ): List<TaskEntity> =
         store.value.values
             .filter { t -> t.userId == userId && t.seriesId == seriesId }
             .sortedBy { it.dueDate }
@@ -578,36 +693,49 @@ private class FakeTaskDao(
         store.value.values
             .filter { t ->
                 t.userId == userId && t.archivedAt == null && t.recurrenceRule != null && t.seriesId == null
-            }
-            .sortedBy { it.dueDate }
+            }.sortedBy { it.dueDate }
 
-    override fun watchByTag(userId: String, tagId: String): Flow<List<TaskEntity>> =
+    override fun watchByTag(
+        userId: String,
+        tagId: String,
+    ): Flow<List<TaskEntity>> =
         kotlinx.coroutines.flow.combine(store, crossRefs, tags, projectTagGroups) { tasks, refs, tagsMap, ptgRefs ->
             val directlyTagged = refs.filter { it.tagId == tagId }.map { it.taskId }.toSet()
-            val inheritedViaProject = ptgRefs
-                .filter { ptg -> tagsMap.values.any { t -> t.groupId == ptg.tagGroupId && t.id == tagId } }
-                .mapNotNull { ptg -> tasks.values.find { t -> t.projectId == ptg.projectId }?.id }
-                .toSet()
+            val inheritedViaProject =
+                ptgRefs
+                    .filter { ptg -> tagsMap.values.any { t -> t.groupId == ptg.tagGroupId && t.id == tagId } }
+                    .mapNotNull { ptg -> tasks.values.find { t -> t.projectId == ptg.projectId }?.id }
+                    .toSet()
             val allIds = directlyTagged + inheritedViaProject
-            tasks.values.filter { t ->
-                t.userId == userId && t.archivedAt == null && t.id in allIds
-            }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
+            tasks.values
+                .filter { t ->
+                    t.userId == userId && t.archivedAt == null && t.id in allIds
+                }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
         }
 
-    override fun watchByAnyTag(userId: String, tagIds: List<String>): Flow<List<TaskEntity>> =
+    override fun watchByAnyTag(
+        userId: String,
+        tagIds: List<String>,
+    ): Flow<List<TaskEntity>> =
         kotlinx.coroutines.flow.combine(store, crossRefs, tags, projectTagGroups) { tasks, refs, tagsMap, ptgRefs ->
             val directlyTagged = refs.filter { it.tagId in tagIds }.map { it.taskId }.toSet()
-            val inheritedViaProject = ptgRefs
-                .filter { ptg -> tagsMap.values.any { t -> t.groupId == ptg.tagGroupId && t.id in tagIds } }
-                .mapNotNull { ptg -> tasks.values.find { t -> t.projectId == ptg.projectId }?.id }
-                .toSet()
+            val inheritedViaProject =
+                ptgRefs
+                    .filter { ptg -> tagsMap.values.any { t -> t.groupId == ptg.tagGroupId && t.id in tagIds } }
+                    .mapNotNull { ptg -> tasks.values.find { t -> t.projectId == ptg.projectId }?.id }
+                    .toSet()
             val allIds = directlyTagged + inheritedViaProject
-            tasks.values.filter { t ->
-                t.userId == userId && t.archivedAt == null && t.id in allIds
-            }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
+            tasks.values
+                .filter { t ->
+                    t.userId == userId && t.archivedAt == null && t.id in allIds
+                }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
         }
 
-    override fun watchByAllTags(userId: String, tagIds: List<String>, size: Int): Flow<List<TaskEntity>> =
+    override fun watchByAllTags(
+        userId: String,
+        tagIds: List<String>,
+        size: Int,
+    ): Flow<List<TaskEntity>> =
         kotlinx.coroutines.flow.combine(store, crossRefs, tags, projectTagGroups) { tasks, refs, tagsMap, ptgRefs ->
             // Build per-task set of tags: direct + inherited via the task's project
             val taskTagSets = mutableMapOf<String, MutableSet<String>>()
@@ -623,33 +751,46 @@ private class FakeTaskDao(
                 }
                 taskTagSets[t.id] = (direct + inherited).toMutableSet()
             }
-            val matchingIds = taskTagSets.entries
-                .filter { it.value.size == tagIds.toSet().size && tagIds.all { id -> id in it.value } }
-                .map { it.key }
-                .toSet()
-            tasks.values.filter { t ->
-                t.userId == userId && t.archivedAt == null && t.id in matchingIds
-            }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
+            val matchingIds =
+                taskTagSets.entries
+                    .filter { it.value.size == tagIds.toSet().size && tagIds.all { id -> id in it.value } }
+                    .map { it.key }
+                    .toSet()
+            tasks.values
+                .filter { t ->
+                    t.userId == userId && t.archivedAt == null && t.id in matchingIds
+                }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
         }
 
-    override fun watchByPriorities(userId: String, priorities: List<String>): Flow<List<TaskEntity>> =
+    override fun watchByPriorities(
+        userId: String,
+        priorities: List<String>,
+    ): Flow<List<TaskEntity>> =
         store.map { tasks ->
-            tasks.values.filter { t ->
-                t.userId == userId && t.archivedAt == null && t.priority.name in priorities
-            }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
+            tasks.values
+                .filter { t ->
+                    t.userId == userId && t.archivedAt == null && t.priority.name in priorities
+                }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
         }
 
-    override fun watchByRegexp(userId: String, pattern: String): Flow<List<TaskEntity>> = store.map { tasks ->
-        tasks.values.filter { t ->
-            t.userId == userId && t.archivedAt == null &&
-                t.title.contains(pattern, ignoreCase = true)
-        }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
-    }
+    override fun watchByRegexp(
+        userId: String,
+        pattern: String,
+    ): Flow<List<TaskEntity>> =
+        store.map { tasks ->
+            tasks.values
+                .filter { t ->
+                    t.userId == userId && t.archivedAt == null &&
+                        t.title.contains(pattern, ignoreCase = true)
+                }.sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
+        }
 
-    override fun watchPinned(userId: String): Flow<List<TaskEntity>> = store.map {
-        it.values.filter { t -> t.userId == userId && t.isPinned && t.archivedAt == null }
-            .sortedWith(compareBy({ !it.isPinned }, { it.dueDate ?: "" }))
-    }
+    override fun watchPinned(userId: String): Flow<List<TaskEntity>> =
+        store.map {
+            it.values
+                .filter { t -> t.userId == userId && t.isPinned && t.archivedAt == null }
+                .sortedWith(compareBy({ !it.isPinned }, { it.dueDate ?: "" }))
+        }
 
     override suspend fun upsert(task: TaskEntity) {
         store.update { it + (task.id to task) }
@@ -661,7 +802,11 @@ private class FakeTaskDao(
      * contract of the real DAO. Returning 0 here is what makes tests able to
      * assert cross-user isolation instead of passing vacuously.
      */
-    private fun mutateTaskForUser(id: String, userId: String, fn: (TaskEntity) -> TaskEntity): Int {
+    private fun mutateTaskForUser(
+        id: String,
+        userId: String,
+        fn: (TaskEntity) -> TaskEntity,
+    ): Int {
         var affected = 0
         store.update { current ->
             val existing = current[id]
@@ -675,24 +820,41 @@ private class FakeTaskDao(
         return affected
     }
 
-    private fun ownsTask(id: String, userId: String): Boolean = store.value[id]?.userId == userId
+    private fun ownsTask(
+        id: String,
+        userId: String,
+    ): Boolean = store.value[id]?.userId == userId
 
-    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int =
-        mutateTaskForUser(id, userId) { it.copy(archivedAt = ts, updatedAt = ts) }
+    override suspend fun softDeleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int = mutateTaskForUser(id, userId) { it.copy(archivedAt = ts, updatedAt = ts) }
 
-    override suspend fun restoreForUser(id: String, ts: Long, userId: String): Int =
-        mutateTaskForUser(id, userId) { it.copy(archivedAt = null, updatedAt = ts) }
+    override suspend fun restoreForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int = mutateTaskForUser(id, userId) { it.copy(archivedAt = null, updatedAt = ts) }
 
     override suspend fun getById(id: String): TaskEntity? = store.value[id]
 
-    override suspend fun getByIdForUser(id: String, userId: String): TaskEntity? =
-        store.value[id]?.takeIf { it.userId == userId }
+    override suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): TaskEntity? = store.value[id]?.takeIf { it.userId == userId }
 
-    override suspend fun markCompleteForUser(id: String, ts: Long, userId: String): Int =
-        mutateTaskForUser(id, userId) { it.copy(completedAt = ts, updatedAt = ts) }
+    override suspend fun markCompleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int = mutateTaskForUser(id, userId) { it.copy(completedAt = ts, updatedAt = ts) }
 
-    override suspend fun markIncompleteForUser(id: String, ts: Long, userId: String): Int =
-        mutateTaskForUser(id, userId) { it.copy(completedAt = null, updatedAt = ts) }
+    override suspend fun markIncompleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int = mutateTaskForUser(id, userId) { it.copy(completedAt = null, updatedAt = ts) }
 
     override suspend fun markCompleteIfNotBlockedForUser(
         id: String,
@@ -701,35 +863,47 @@ private class FakeTaskDao(
         verb: String,
     ): Int {
         val task = store.value[id]?.takeIf { it.userId == userId } ?: return 0
-        val blockerOpen = depRefs.value.any { ref ->
-            ref.taskId == id &&
-                ref.verb == verb &&
-                store.value[ref.dependsOnTaskId]?.let { it.completedAt == null && it.archivedAt == null } == true
-        }
+        val blockerOpen =
+            depRefs.value.any { ref ->
+                ref.taskId == id &&
+                    ref.verb == verb &&
+                    store.value[ref.dependsOnTaskId]?.let { it.completedAt == null && it.archivedAt == null } == true
+            }
         if (blockerOpen) return 0
         return mutateTaskForUser(id, userId) { it.copy(completedAt = ts, updatedAt = ts) }
     }
 
-    override suspend fun setDueDateForUser(id: String, dueDate: String?, updatedAt: Long, userId: String): Int =
-        mutateTaskForUser(id, userId) { it.copy(dueDate = dueDate, updatedAt = updatedAt) }
+    override suspend fun setDueDateForUser(
+        id: String,
+        dueDate: String?,
+        updatedAt: Long,
+        userId: String,
+    ): Int = mutateTaskForUser(id, userId) { it.copy(dueDate = dueDate, updatedAt = updatedAt) }
 
     override suspend fun blockedTaskIdsForUser(
         taskIds: List<String>,
         userId: String,
         verb: String,
-    ): List<String> = depRefs.value
-        .filter { ref ->
-            ref.taskId in taskIds &&
-                ref.verb == verb &&
-                store.value[ref.dependsOnTaskId]?.let { it.completedAt == null && it.archivedAt == null } == true
-        }
-        .map { it.taskId }
-        .distinct()
+    ): List<String> =
+        depRefs.value
+            .filter { ref ->
+                ref.taskId in taskIds &&
+                    ref.verb == verb &&
+                    store.value[ref.dependsOnTaskId]?.let { it.completedAt == null && it.archivedAt == null } == true
+            }.map { it.taskId }
+            .distinct()
 
-    override suspend fun setPinnedForUser(id: String, pinned: Boolean, ts: Long, userId: String): Int =
-        mutateTaskForUser(id, userId) { it.copy(isPinned = pinned, updatedAt = ts) }
+    override suspend fun setPinnedForUser(
+        id: String,
+        pinned: Boolean,
+        ts: Long,
+        userId: String,
+    ): Int = mutateTaskForUser(id, userId) { it.copy(isPinned = pinned, updatedAt = ts) }
 
-    override suspend fun archiveCompletedForUser(ts: Long, userId: String): Int {
+    override suspend fun archiveCompletedForUser(
+        ts: Long,
+        userId: String,
+    ): Int {
         var count = 0
         store.update { current ->
             current.mapValues { (_, task) ->
@@ -748,12 +922,20 @@ private class FakeTaskDao(
         crossRefs.update { it + ref }
     }
 
-    override suspend fun upsertTagCrossRefForUser(taskId: String, tagId: String, userId: String) {
+    override suspend fun upsertTagCrossRefForUser(
+        taskId: String,
+        tagId: String,
+        userId: String,
+    ) {
         if (!ownsTask(taskId, userId)) return
         crossRefs.update { it + TaskTagCrossRef(taskId = taskId, tagId = tagId) }
     }
 
-    override suspend fun removeTagRefForUser(taskId: String, tagId: String, userId: String): Int {
+    override suspend fun removeTagRefForUser(
+        taskId: String,
+        tagId: String,
+        userId: String,
+    ): Int {
         if (!ownsTask(taskId, userId)) return 0
         crossRefs.update { it.filterNot { r -> r.taskId == taskId && r.tagId == tagId } }
         return 1
@@ -762,7 +944,10 @@ private class FakeTaskDao(
     override fun getTagIdsForTask(taskId: String): Flow<List<String>> =
         crossRefs.map { refs -> refs.filter { it.taskId == taskId }.map { it.tagId } }
 
-    override fun getTagIdsForUser(taskId: String, userId: String): Flow<List<String>> =
+    override fun getTagIdsForUser(
+        taskId: String,
+        userId: String,
+    ): Flow<List<String>> =
         combine(crossRefs, store) { refs, tasks ->
             if (tasks[taskId]?.userId != userId) {
                 emptyList()
@@ -771,7 +956,10 @@ private class FakeTaskDao(
             }
         }
 
-    override fun getOrderingEdgeIdsForUser(taskId: String, userId: String): Flow<List<String>> =
+    override fun getOrderingEdgeIdsForUser(
+        taskId: String,
+        userId: String,
+    ): Flow<List<String>> =
         combine(depRefs, store) { refs, tasks ->
             if (tasks[taskId]?.userId != userId) {
                 emptyList()
@@ -780,7 +968,11 @@ private class FakeTaskDao(
             }
         }
 
-    override fun getBlockingEdgeIdsForUser(taskId: String, userId: String, verb: String): Flow<List<String>> =
+    override fun getBlockingEdgeIdsForUser(
+        taskId: String,
+        userId: String,
+        verb: String,
+    ): Flow<List<String>> =
         combine(depRefs, store) { refs, tasks ->
             if (tasks[taskId]?.userId != userId) {
                 emptyList()
@@ -799,28 +991,47 @@ private class FakeTaskDao(
         }
     }
 
-    override suspend fun upsertDependencyForUser(taskId: String, depId: String, verb: String, userId: String) {
+    override suspend fun upsertDependencyForUser(
+        taskId: String,
+        depId: String,
+        verb: String,
+        userId: String,
+    ) {
         if (!ownsTask(taskId, userId)) return
         upsertDependency(TaskDependencyCrossRef(taskId = taskId, dependsOnTaskId = depId, verb = verb))
     }
 
-    override suspend fun removeDependencyForUser(taskId: String, depId: String, userId: String): Int {
+    override suspend fun removeDependencyForUser(
+        taskId: String,
+        depId: String,
+        userId: String,
+    ): Int {
         if (!ownsTask(taskId, userId)) return 0
         depRefs.update { it.filterNot { r -> r.taskId == taskId && r.dependsOnTaskId == depId } }
         return 1
     }
 
-    override suspend fun removeDependencyForVerb(taskId: String, depId: String, verb: String, userId: String): Int {
+    override suspend fun removeDependencyForVerb(
+        taskId: String,
+        depId: String,
+        verb: String,
+        userId: String,
+    ): Int {
         if (!ownsTask(taskId, userId)) return 0
         val before = depRefs.value.count { r -> r.taskId == taskId && r.dependsOnTaskId == depId && r.verb == verb }
         depRefs.update { it.filterNot { r -> r.taskId == taskId && r.dependsOnTaskId == depId && r.verb == verb } }
         return before
     }
 
-    override fun observeTypedDependenciesForUser(taskId: String, userId: String): Flow<List<TaskDependencyCrossRef>> =
-        depRefs.map { refs -> refs.filter { it.taskId == taskId } }
+    override fun observeTypedDependenciesForUser(
+        taskId: String,
+        userId: String,
+    ): Flow<List<TaskDependencyCrossRef>> = depRefs.map { refs -> refs.filter { it.taskId == taskId } }
 
-    override suspend fun clearDependenciesForUser(taskId: String, userId: String): Int {
+    override suspend fun clearDependenciesForUser(
+        taskId: String,
+        userId: String,
+    ): Int {
         if (!ownsTask(taskId, userId)) return 0
         val before = depRefs.value.count { it.taskId == taskId }
         depRefs.update { it.filterNot { r -> r.taskId == taskId } }
@@ -835,21 +1046,30 @@ private class FakeTaskDao(
             store.value[ref.taskId]?.userId == userId
         }
 
-    override suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef> = crossRefs.value.filter { ref ->
-        store.value[ref.taskId]?.userId == userId
-    }
+    override suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef> =
+        crossRefs.value.filter { ref ->
+            store.value[ref.taskId]?.userId == userId
+        }
 
     override fun observeTagCrossRefs(userId: String): Flow<List<TaskTagCrossRef>> = crossRefs
 
     override fun observeDependencyCrossRefs(userId: String): Flow<List<TaskDependencyCrossRef>> = depRefs
 
-    override suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int =
-        mutateTaskForUser(id, userId) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
+    override suspend fun setOutgoingLinksForUser(
+        id: String,
+        linksJson: String,
+        updatedAt: Long,
+        userId: String,
+    ): Int = mutateTaskForUser(id, userId) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
 
-    override suspend fun getBacklinkTasks(url: String, userId: String): List<TaskEntity> =
-        store.value.values.filter { t ->
-            t.userId == userId && t.archivedAt == null && storedLinks(t.outgoingLinks).contains(url)
-        }.take(20)
+    override suspend fun getBacklinkTasks(
+        url: String,
+        userId: String,
+    ): List<TaskEntity> =
+        store.value.values
+            .filter { t ->
+                t.userId == userId && t.archivedAt == null && storedLinks(t.outgoingLinks).contains(url)
+            }.take(20)
 
     // ── Profile-scoped wipe ───────────────────────────────────────────────────
     //
@@ -867,7 +1087,10 @@ private class FakeTaskDao(
      * The single-row counterpart of [deleteAllForUser]: one task of one profile,
      * and nothing else.
      */
-    override suspend fun deleteForUser(id: String, userId: String): Int {
+    override suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int {
         val existing = store.value[id] ?: return 0
         if (existing.userId != userId) return 0
         store.update { it - id }
@@ -875,21 +1098,33 @@ private class FakeTaskDao(
     }
 
     override suspend fun deleteTagRefsForUser(userId: String): Int {
-        val owned = store.value.values.filter { it.userId == userId }.map { it.id }.toSet()
+        val owned =
+            store.value.values
+                .filter { it.userId == userId }
+                .map { it.id }
+                .toSet()
         val doomed = crossRefs.value.count { it.taskId in owned }
         crossRefs.update { refs -> refs.filterNot { it.taskId in owned } }
         return doomed
     }
 
     override suspend fun deleteDependenciesForUser(userId: String): Int {
-        val owned = store.value.values.filter { it.userId == userId }.map { it.id }.toSet()
+        val owned =
+            store.value.values
+                .filter { it.userId == userId }
+                .map { it.id }
+                .toSet()
         val doomed = depRefs.value.count { it.taskId in owned || it.dependsOnTaskId in owned }
         depRefs.update { refs -> refs.filterNot { it.taskId in owned || it.dependsOnTaskId in owned } }
         return doomed
     }
 
     override suspend fun deleteChecklistItemsForUser(userId: String): Int {
-        val owned = store.value.values.filter { it.userId == userId }.map { it.id }.toSet()
+        val owned =
+            store.value.values
+                .filter { it.userId == userId }
+                .map { it.id }
+                .toSet()
         val doomed = checklist.value.values.count { it.taskId in owned }
         checklist.update { items -> items.filterValues { it.taskId !in owned } }
         return doomed
@@ -899,52 +1134,74 @@ private class FakeTaskDao(
 // ─── NoteDao ──────────────────────────────────────────────────────────────────
 
 private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEntity>>) : NoteDao {
-
-    override fun watchAll(userId: String): Flow<List<NoteEntity>> = store.map {
-        it.values.filter { n -> n.userId == userId && n.archivedAt == null && n.deletedAt == null }
-            .sortedWith(compareBy({ !it.isPinned }, { it.sortOrder }, { -it.updatedAt }))
-    }
-
-    override fun watchPinned(userId: String): Flow<List<NoteEntity>> = store.map {
-        it.values.filter { n -> n.userId == userId && n.isPinned && n.archivedAt == null && n.deletedAt == null }
-            .sortedByDescending { it.pinnedAt }
-    }
-
-    override fun watchArchived(userId: String): Flow<List<NoteEntity>> = store.map {
-        it.values.filter { n -> n.userId == userId && n.archivedAt != null && n.deletedAt == null }
-            .sortedByDescending { it.archivedAt }
-    }
-
-    override fun watchRootNotes(userId: String): Flow<List<NoteEntity>> = store.map {
-        it.values.filter { n ->
-            n.userId == userId && n.parentNoteId == null && !n.isFolder &&
-                n.archivedAt == null && n.deletedAt == null
+    override fun watchAll(userId: String): Flow<List<NoteEntity>> =
+        store.map {
+            it.values
+                .filter { n -> n.userId == userId && n.archivedAt == null && n.deletedAt == null }
+                .sortedWith(compareBy({ !it.isPinned }, { it.sortOrder }, { -it.updatedAt }))
         }
-            .sortedWith(compareBy({ it.sortOrder }, { -it.updatedAt }))
-    }
 
-    override fun watchByIdForUser(id: String, userId: String): Flow<NoteEntity?> = store.map { n ->
-        n.values.find { it.id == id && it.userId == userId }
-    }
-    override suspend fun getByIdForUser(id: String, userId: String): NoteEntity? =
-        store.value.values.find { it.id == id && it.userId == userId }
+    override fun watchPinned(userId: String): Flow<List<NoteEntity>> =
+        store.map {
+            it.values
+                .filter { n -> n.userId == userId && n.isPinned && n.archivedAt == null && n.deletedAt == null }
+                .sortedByDescending { it.pinnedAt }
+        }
 
-    override fun watchChildrenForUser(parentId: String, userId: String): Flow<List<NoteEntity>> = store.map { items ->
-        items.values
-            .filter { n ->
-                n.parentNoteId == parentId &&
-                    n.userId == userId &&
-                    n.archivedAt == null &&
-                    n.deletedAt == null
-            }
-            .sortedWith(compareBy({ it.sortOrder }, { it.title }))
-    }
+    override fun watchArchived(userId: String): Flow<List<NoteEntity>> =
+        store.map {
+            it.values
+                .filter { n -> n.userId == userId && n.archivedAt != null && n.deletedAt == null }
+                .sortedByDescending { it.archivedAt }
+        }
 
-    override fun watchByTaskForUser(taskId: String, userId: String): Flow<List<NoteEntity>> = store.map { map ->
-        map.values.filter { n ->
-            n.taskId == taskId && n.userId == userId && n.deletedAt == null
-        }.sortedByDescending { n -> n.createdAt }.take(50)
-    }
+    override fun watchRootNotes(userId: String): Flow<List<NoteEntity>> =
+        store.map {
+            it.values
+                .filter { n ->
+                    n.userId == userId && n.parentNoteId == null && !n.isFolder &&
+                        n.archivedAt == null && n.deletedAt == null
+                }.sortedWith(compareBy({ it.sortOrder }, { -it.updatedAt }))
+        }
+
+    override fun watchByIdForUser(
+        id: String,
+        userId: String,
+    ): Flow<NoteEntity?> =
+        store.map { n ->
+            n.values.find { it.id == id && it.userId == userId }
+        }
+
+    override suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): NoteEntity? = store.value.values.find { it.id == id && it.userId == userId }
+
+    override fun watchChildrenForUser(
+        parentId: String,
+        userId: String,
+    ): Flow<List<NoteEntity>> =
+        store.map { items ->
+            items.values
+                .filter { n ->
+                    n.parentNoteId == parentId &&
+                        n.userId == userId &&
+                        n.archivedAt == null &&
+                        n.deletedAt == null
+                }.sortedWith(compareBy({ it.sortOrder }, { it.title }))
+        }
+
+    override fun watchByTaskForUser(
+        taskId: String,
+        userId: String,
+    ): Flow<List<NoteEntity>> =
+        store.map { map ->
+            map.values
+                .filter { n ->
+                    n.taskId == taskId && n.userId == userId && n.deletedAt == null
+                }.sortedByDescending { n -> n.createdAt }
+                .take(50)
+        }
 
     override suspend fun upsert(note: NoteEntity) {
         store.update { it + (note.id to note) }
@@ -955,7 +1212,11 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
      * returning the affected row count — mirroring the real DAO's
      * `WHERE id AND user_id` contract.
      */
-    private fun mutateForUser(id: String, userId: String, fn: (NoteEntity) -> NoteEntity): Int {
+    private fun mutateForUser(
+        id: String,
+        userId: String,
+        fn: (NoteEntity) -> NoteEntity,
+    ): Int {
         var affected = 0
         store.update { current ->
             val existing = current[id]
@@ -969,17 +1230,29 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
         return affected
     }
 
-    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int =
-        mutateForUser(id, userId) { it.copy(deletedAt = ts, updatedAt = ts) }
+    override suspend fun softDeleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int = mutateForUser(id, userId) { it.copy(deletedAt = ts, updatedAt = ts) }
 
-    override suspend fun restoreForUser(id: String, ts: Long, userId: String): Int =
-        mutateForUser(id, userId) { it.copy(deletedAt = null, updatedAt = ts) }
+    override suspend fun restoreForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int = mutateForUser(id, userId) { it.copy(deletedAt = null, updatedAt = ts) }
 
-    override suspend fun archiveForUser(id: String, ts: Long, userId: String): Int =
-        mutateForUser(id, userId) { it.copy(archivedAt = ts, updatedAt = ts) }
+    override suspend fun archiveForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int = mutateForUser(id, userId) { it.copy(archivedAt = ts, updatedAt = ts) }
 
-    override suspend fun unarchiveForUser(id: String, ts: Long, userId: String): Int =
-        mutateForUser(id, userId) { it.copy(archivedAt = null, updatedAt = ts) }
+    override suspend fun unarchiveForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int = mutateForUser(id, userId) { it.copy(archivedAt = null, updatedAt = ts) }
 
     override suspend fun updateContentForUser(
         id: String,
@@ -990,73 +1263,122 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
         charCount: Int,
         updatedAt: Long,
         userId: String,
-    ): Int = mutateForUser(id, userId) {
-        it.copy(
-            title = title,
-            bodyMarkdown = markdown,
-            bodyHtml = html,
-            wordCount = wordCount,
-            charCount = charCount,
-            updatedAt = updatedAt,
-        )
-    }
+    ): Int =
+        mutateForUser(id, userId) {
+            it.copy(
+                title = title,
+                bodyMarkdown = markdown,
+                bodyHtml = html,
+                wordCount = wordCount,
+                charCount = charCount,
+                updatedAt = updatedAt,
+            )
+        }
 
-    override suspend fun setPinnedForUser(id: String, pinned: Boolean, pinnedAt: Long?, ts: Long, userId: String): Int =
-        mutateForUser(id, userId) { it.copy(isPinned = pinned, pinnedAt = pinnedAt, updatedAt = ts) }
+    override suspend fun setPinnedForUser(
+        id: String,
+        pinned: Boolean,
+        pinnedAt: Long?,
+        ts: Long,
+        userId: String,
+    ): Int = mutateForUser(id, userId) { it.copy(isPinned = pinned, pinnedAt = pinnedAt, updatedAt = ts) }
 
-    override suspend fun setColorForUser(id: String, color: Int?, ts: Long, userId: String): Int =
-        mutateForUser(id, userId) { it.copy(color = color, updatedAt = ts) }
+    override suspend fun setColorForUser(
+        id: String,
+        color: Int?,
+        ts: Long,
+        userId: String,
+    ): Int = mutateForUser(id, userId) { it.copy(color = color, updatedAt = ts) }
 
-    override suspend fun setSortOrderForUser(id: String, sortOrder: Int, ts: Long, userId: String): Int =
-        mutateForUser(id, userId) { it.copy(sortOrder = sortOrder, updatedAt = ts) }
+    override suspend fun setSortOrderForUser(
+        id: String,
+        sortOrder: Int,
+        ts: Long,
+        userId: String,
+    ): Int = mutateForUser(id, userId) { it.copy(sortOrder = sortOrder, updatedAt = ts) }
 
     override suspend fun listAllForUser(userId: String): List<NoteEntity> =
         store.value.values.filter { it.userId == userId }
 
-    override suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int =
-        mutateForUser(id, userId) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
+    override suspend fun setOutgoingLinksForUser(
+        id: String,
+        linksJson: String,
+        updatedAt: Long,
+        userId: String,
+    ): Int = mutateForUser(id, userId) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
 
-    override suspend fun getBacklinkNotes(url: String, userId: String): List<NoteEntity> =
-        store.value.values.filter { n ->
-            n.userId == userId && n.deletedAt == null && storedLinks(n.outgoingLinks).contains(url)
-        }.take(20)
+    override suspend fun getBacklinkNotes(
+        url: String,
+        userId: String,
+    ): List<NoteEntity> =
+        store.value.values
+            .filter { n ->
+                n.userId == userId && n.deletedAt == null && storedLinks(n.outgoingLinks).contains(url)
+            }.take(20)
 
-    override suspend fun getNotesLinkingToTask(url: String, userId: String): List<NoteEntity> =
-        store.value.values.filter { n ->
-            n.userId == userId && n.deletedAt == null && storedLinks(n.outgoingLinks).contains(url)
-        }.take(20)
+    override suspend fun getNotesLinkingToTask(
+        url: String,
+        userId: String,
+    ): List<NoteEntity> =
+        store.value.values
+            .filter { n ->
+                n.userId == userId && n.deletedAt == null && storedLinks(n.outgoingLinks).contains(url)
+            }.take(20)
 
     // ── Templates and daily notes ─────────────────────────────────────────────
 
-    override fun watchTemplates(userId: String): Flow<List<NoteEntity>> = store.map { map ->
-        map.values.filter { n ->
-            n.userId == userId && n.kind.name == "Template" && n.deletedAt == null
-        }.sortedBy { it.title }
-    }
+    override fun watchTemplates(userId: String): Flow<List<NoteEntity>> =
+        store.map { map ->
+            map.values
+                .filter { n ->
+                    n.userId == userId && n.kind.name == "Template" && n.deletedAt == null
+                }.sortedBy { it.title }
+        }
 
-    override suspend fun getDailyNote(userId: String, dateKey: String): NoteEntity? = store.value.values.find {
-        it.userId == userId && it.kind.name == "Daily" && it.title == dateKey && it.deletedAt == null
-    }
+    override suspend fun getDailyNote(
+        userId: String,
+        dateKey: String,
+    ): NoteEntity? =
+        store.value.values.find {
+            it.userId == userId && it.kind.name == "Daily" && it.title == dateKey && it.deletedAt == null
+        }
 
     override suspend fun getDailyNoteForProject(
         userId: String,
         dateKey: String,
         projectId: String?,
-    ): NoteEntity? = store.value.values.find {
-        it.userId == userId && it.kind.name == "Daily" && it.title == dateKey && it.projectId == projectId &&
-            it.deletedAt == null
-    }
-
-    override fun watchDailyNotesInRange(userId: String, from: String, to: String): Flow<List<NoteEntity>> =
-        store.map { map ->
-            map.values.filter { n ->
-                n.userId == userId && n.kind.name == "Daily" && n.deletedAt == null && n.title >= from && n.title <= to
-            }.sortedBy { it.title }
+    ): NoteEntity? =
+        store.value.values.find {
+            it.userId == userId && it.kind.name == "Daily" && it.title == dateKey && it.projectId == projectId &&
+                it.deletedAt == null
         }
 
-    override suspend fun setKindForUser(id: String, kind: String, ts: Long, userId: String): Int =
+    override fun watchDailyNotesInRange(
+        userId: String,
+        from: String,
+        to: String,
+    ): Flow<List<NoteEntity>> =
+        store.map { map ->
+            map.values
+                .filter { n ->
+                    n.userId == userId && n.kind.name == "Daily" && n.deletedAt == null && n.title >= from &&
+                        n.title <= to
+                }.sortedBy { it.title }
+        }
+
+    override suspend fun setKindForUser(
+        id: String,
+        kind: String,
+        ts: Long,
+        userId: String,
+    ): Int =
         mutateForUser(id, userId) {
-            it.copy(kind = com.singularity.todo.feature.notes.NoteKind.valueOf(kind), updatedAt = ts)
+            it.copy(
+                kind =
+                    com.singularity.todo.feature.notes.NoteKind
+                        .valueOf(kind),
+                updatedAt = ts,
+            )
         }
 
     /**
@@ -1074,7 +1396,10 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
      * The single-row counterpart of [deleteAllForUser]: one note of one profile,
      * and nothing else.
      */
-    override suspend fun deleteForUser(id: String, userId: String): Int {
+    override suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int {
         val existing = store.value[id] ?: return 0
         if (existing.userId != userId) return 0
         store.update { it - id }
@@ -1085,34 +1410,52 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
 // ─── ProjectDao ────────────────────────────────────────────────────────────────
 
 private class FakeProjectDao(private val store: MutableStateFlow<Map<String, ProjectEntity>>) : ProjectDao {
+    override fun watchAll(userId: String): Flow<List<ProjectEntity>> =
+        store.map {
+            it.values
+                .filter { p -> p.userId == userId && !p.isDeleted && p.closedAt == null }
+                .sortedWith(compareBy({ it.sortOrder }, { it.name }))
+        }
 
-    override fun watchAll(userId: String): Flow<List<ProjectEntity>> = store.map {
-        it.values.filter { p -> p.userId == userId && !p.isDeleted && p.closedAt == null }
-            .sortedWith(compareBy({ it.sortOrder }, { it.name }))
-    }
+    override fun watchClosedForUser(userId: String): Flow<List<ProjectEntity>> =
+        store.map {
+            it.values
+                .filter { p -> p.userId == userId && !p.isDeleted && p.closedAt != null }
+                .sortedWith(compareByDescending<ProjectEntity> { it.closedAt }.thenBy { it.name })
+        }
 
-    override fun watchClosedForUser(userId: String): Flow<List<ProjectEntity>> = store.map {
-        it.values.filter { p -> p.userId == userId && !p.isDeleted && p.closedAt != null }
-            .sortedWith(compareByDescending<ProjectEntity> { it.closedAt }.thenBy { it.name })
-    }
-
-    override fun watchAllIncludingClosed(userId: String): Flow<List<ProjectEntity>> = store.map {
-        it.values.filter { p -> p.userId == userId && !p.isDeleted }
-            .sortedWith(compareBy({ it.sortOrder }, { it.name }))
-    }
+    override fun watchAllIncludingClosed(userId: String): Flow<List<ProjectEntity>> =
+        store.map {
+            it.values
+                .filter { p -> p.userId == userId && !p.isDeleted }
+                .sortedWith(compareBy({ it.sortOrder }, { it.name }))
+        }
 
     // ─── UserId-scoped reads (Phase 2.8 fix) ──────────────────────────────────
-    override fun watchByIdForUser(id: String, userId: String): Flow<ProjectEntity?> = store.map {
-        it[id]?.takeIf { p ->
-            p.userId ==
+    override fun watchByIdForUser(
+        id: String,
+        userId: String,
+    ): Flow<ProjectEntity?> =
+        store.map {
+            it[id]?.takeIf { p ->
+                p.userId ==
+                    userId
+            }
+        }
+
+    override suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): ProjectEntity? =
+        store.value[id]?.takeIf {
+            it.userId ==
                 userId
         }
-    }
-    override suspend fun getByIdForUser(id: String, userId: String): ProjectEntity? = store.value[id]?.takeIf {
-        it.userId ==
-            userId
-    }
-    override fun watchByParentForUser(parentId: String, userId: String): Flow<List<ProjectEntity>> =
+
+    override fun watchByParentForUser(
+        parentId: String,
+        userId: String,
+    ): Flow<List<ProjectEntity>> =
         store.map {
             it.values.filter { p ->
                 p.parentId == parentId && p.userId == userId && !p.isDeleted && p.closedAt == null
@@ -1121,43 +1464,85 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
 
     override fun watchAllWithCounts(
         userId: String,
-    ): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> = store.map { map ->
-        map.values.filter { it.userId == userId && !it.isDeleted && it.closedAt == null }
-            .sortedWith(compareBy({ it.sortOrder }, { it.name }))
-            .map { entity ->
-                com.singularity.todo.core.database.ProjectWithCountRow(
-                    project = entity,
-                    totalCount = 0,
-                    completedCount = 0,
-                )
-            }
-    }
-    override suspend fun closeForUser(id: String, ts: Long, userId: String): Int =
-        mutateForUser(id, userId) { it.copy(closedAt = ts, updatedAt = ts) }
-    override suspend fun reopenForUser(id: String, ts: Long, userId: String): Int =
-        mutateForUser(id, userId) { if (it.closedAt == null) it else it.copy(closedAt = null, updatedAt = ts) }
-    override suspend fun setParentForUser(id: String, parentId: String?, ts: Long, userId: String): Int =
-        mutateForUser(id, userId) { it.copy(parentId = parentId, updatedAt = ts) }
-    override suspend fun setSortOrderForUser(id: String, sortOrder: Int, ts: Long, userId: String): Int =
-        mutateForUser(id, userId) { it.copy(sortOrder = sortOrder, updatedAt = ts) }
-    override suspend fun restoreForUser(id: String, ts: Long, userId: String): Int =
-        mutateForUser(id, userId) { it.copy(isDeleted = false, deletedAt = null, updatedAt = ts) }
-    override suspend fun findByIdempotencyKeyForUser(key: String, userId: String): ProjectEntity? =
-        store.value.values.firstOrNull { it.idempotencyKey == key && it.userId == userId }
-    override suspend fun touchUpdatedAtForUser(id: String, ts: Long, userId: String): Int =
-        mutateForUser(id, userId) { it.copy(updatedAt = ts) }
-    override suspend fun findByNameForUser(userId: String, name: String): ProjectEntity? =
-        store.value.values.firstOrNull {
-            it.userId == userId && !it.isDeleted && it.closedAt == null && it.name.equals(
-                name,
-                ignoreCase = true,
-            )
+    ): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> =
+        store.map { map ->
+            map.values
+                .filter { it.userId == userId && !it.isDeleted && it.closedAt == null }
+                .sortedWith(compareBy({ it.sortOrder }, { it.name }))
+                .map { entity ->
+                    com.singularity.todo.core.database.ProjectWithCountRow(
+                        project = entity,
+                        totalCount = 0,
+                        completedCount = 0,
+                    )
+                }
         }
+
+    override suspend fun closeForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int = mutateForUser(id, userId) { it.copy(closedAt = ts, updatedAt = ts) }
+
+    override suspend fun reopenForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int = mutateForUser(id, userId) { if (it.closedAt == null) it else it.copy(closedAt = null, updatedAt = ts) }
+
+    override suspend fun setParentForUser(
+        id: String,
+        parentId: String?,
+        ts: Long,
+        userId: String,
+    ): Int = mutateForUser(id, userId) { it.copy(parentId = parentId, updatedAt = ts) }
+
+    override suspend fun setSortOrderForUser(
+        id: String,
+        sortOrder: Int,
+        ts: Long,
+        userId: String,
+    ): Int = mutateForUser(id, userId) { it.copy(sortOrder = sortOrder, updatedAt = ts) }
+
+    override suspend fun restoreForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int = mutateForUser(id, userId) { it.copy(isDeleted = false, deletedAt = null, updatedAt = ts) }
+
+    override suspend fun findByIdempotencyKeyForUser(
+        key: String,
+        userId: String,
+    ): ProjectEntity? = store.value.values.firstOrNull { it.idempotencyKey == key && it.userId == userId }
+
+    override suspend fun touchUpdatedAtForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int = mutateForUser(id, userId) { it.copy(updatedAt = ts) }
+
+    override suspend fun findByNameForUser(
+        userId: String,
+        name: String,
+    ): ProjectEntity? =
+        store.value.values.firstOrNull {
+            it.userId == userId && !it.isDeleted && it.closedAt == null &&
+                it.name.equals(
+                    name,
+                    ignoreCase = true,
+                )
+        }
+
     override suspend fun upsert(project: ProjectEntity) {
         store.update { it + (project.id to project) }
     }
-    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int =
-        mutateForUser(id, userId) { it.copy(isDeleted = true, deletedAt = ts, updatedAt = ts) }
+
+    override suspend fun softDeleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int = mutateForUser(id, userId) { it.copy(isDeleted = true, deletedAt = ts, updatedAt = ts) }
+
     override suspend fun listAllForUser(userId: String): List<ProjectEntity> =
         store.value.values.filter { it.userId == userId }
 
@@ -1176,14 +1561,21 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
      * The single-row counterpart of [deleteAllForUser]: one project of one
      * profile, and nothing else.
      */
-    override suspend fun deleteForUser(id: String, userId: String): Int {
+    override suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int {
         val existing = store.value[id] ?: return 0
         if (existing.userId != userId) return 0
         store.update { it - id }
         return 1
     }
 
-    private fun mutateForUser(id: String, userId: String, fn: (ProjectEntity) -> ProjectEntity): Int {
+    private fun mutateForUser(
+        id: String,
+        userId: String,
+        fn: (ProjectEntity) -> ProjectEntity,
+    ): Int {
         store.update { current ->
             val existing = current[id] ?: return@update current
             if (existing.userId != userId) return@update current
@@ -1192,7 +1584,10 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
         return 1
     }
 
-    private fun mutate(id: String, fn: (ProjectEntity) -> ProjectEntity) {
+    private fun mutate(
+        id: String,
+        fn: (ProjectEntity) -> ProjectEntity,
+    ) {
         store.update { current ->
             val existing = current[id] ?: return@update current
             current + (id to fn(existing))
@@ -1203,33 +1598,49 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
 // ─── TagDao ────────────────────────────────────────────────────────────────────
 
 private class FakeTagDao(private val store: MutableStateFlow<Map<String, TagEntity>>) : TagDao {
-
-    override fun watchAll(userId: String): Flow<List<TagEntity>> = store.map {
-        it.values.filter { t -> t.userId == userId && t.deletedAt == null }
-            .sortedWith(compareBy({ it.sortOrder }, { it.name }))
-    }
+    override fun watchAll(userId: String): Flow<List<TagEntity>> =
+        store.map {
+            it.values
+                .filter { t -> t.userId == userId && t.deletedAt == null }
+                .sortedWith(compareBy({ it.sortOrder }, { it.name }))
+        }
 
     override fun watchById(id: String): Flow<TagEntity?> = store.map { it[id] }
 
-    override fun watchByIdForUser(id: String, userId: String): Flow<TagEntity?> = store.map {
-        it[id]?.takeIf { t -> t.userId == userId && t.deletedAt == null }
-    }
+    override fun watchByIdForUser(
+        id: String,
+        userId: String,
+    ): Flow<TagEntity?> =
+        store.map {
+            it[id]?.takeIf { t -> t.userId == userId && t.deletedAt == null }
+        }
 
-    override suspend fun getByIdForUser(id: String, userId: String): TagEntity? =
-        store.value[id]?.takeIf { it.userId == userId && it.deletedAt == null }
+    override suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): TagEntity? = store.value[id]?.takeIf { it.userId == userId && it.deletedAt == null }
 
-    override suspend fun findByNameForUser(userId: String, name: String): TagEntity? = store.value.values.firstOrNull {
-        it.userId == userId && it.deletedAt == null && it.name.equals(
-            name,
-            ignoreCase = true,
-        )
-    }
+    override suspend fun findByNameForUser(
+        userId: String,
+        name: String,
+    ): TagEntity? =
+        store.value.values.firstOrNull {
+            it.userId == userId && it.deletedAt == null &&
+                it.name.equals(
+                    name,
+                    ignoreCase = true,
+                )
+        }
 
     override suspend fun upsert(tag: TagEntity) {
         store.update { it + (tag.id to tag) }
     }
 
-    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int {
+    override suspend fun softDeleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int {
         val entity = store.value[id]
         return if (entity != null && entity.userId == userId) {
             mutate(id) { it.copy(deletedAt = ts, updatedAt = ts) }
@@ -1239,7 +1650,11 @@ private class FakeTagDao(private val store: MutableStateFlow<Map<String, TagEnti
         }
     }
 
-    override suspend fun restoreForUser(id: String, ts: Long, userId: String): Int {
+    override suspend fun restoreForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int {
         val entity = store.value[id]
         return if (entity != null && entity.userId == userId && entity.deletedAt != null) {
             mutate(id) { it.copy(deletedAt = null, updatedAt = ts) }
@@ -1267,23 +1682,36 @@ private class FakeTagDao(private val store: MutableStateFlow<Map<String, TagEnti
      * The single-row counterpart of [deleteAllForUser]: one tag of one profile,
      * and nothing else.
      */
-    override suspend fun deleteForUser(id: String, userId: String): Int {
+    override suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int {
         val existing = store.value[id] ?: return 0
         if (existing.userId != userId) return 0
         store.update { it - id }
         return 1
     }
 
-    override suspend fun listByGroupForUser(groupId: String, userId: String): List<TagEntity> =
+    override suspend fun listByGroupForUser(
+        groupId: String,
+        userId: String,
+    ): List<TagEntity> =
         store.value.values.filter { it.groupId == groupId && it.userId == userId && it.deletedAt == null }
 
-    override suspend fun clearGroupForUser(groupId: String, ts: Long, userId: String): Int {
+    override suspend fun clearGroupForUser(
+        groupId: String,
+        ts: Long,
+        userId: String,
+    ): Int {
         val members = listByGroupForUser(groupId, userId)
         members.forEach { mutate(it.id) { tag -> tag.copy(groupId = null, updatedAt = ts) } }
         return members.size
     }
 
-    private fun mutate(id: String, fn: (TagEntity) -> TagEntity) {
+    private fun mutate(
+        id: String,
+        fn: (TagEntity) -> TagEntity,
+    ) {
         store.update { current ->
             val existing = current[id] ?: return@update current
             current + (id to fn(existing))
@@ -1294,7 +1722,6 @@ private class FakeTagDao(private val store: MutableStateFlow<Map<String, TagEnti
 // ─── SyncOutboxDao ────────────────────────────────────────────────────────────
 
 private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, SyncOutboxEntity>>) : SyncOutboxDao {
-
     override fun watchPending(): Flow<List<SyncOutboxEntity>> = store.map { it.values.sortedBy { it.createdAt } }
 
     /**
@@ -1306,39 +1733,54 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
      * says must not arise, and precisely what a fake that quietly drops half a query's
      * conditions will let a test assert as correct.
      */
-    override suspend fun getPending(now: Long, ownerId: String, profileId: String): List<SyncOutboxEntity> =
+    override suspend fun getPending(
+        now: Long,
+        ownerId: String,
+        profileId: String,
+    ): List<SyncOutboxEntity> =
         store.value.values
             .filter { it.ownerId == ownerId && it.profileId == profileId }
             .filter { it.claimToken == null }
             .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
             .sortedBy { it.createdAt }
 
-    override suspend fun countPendingFor(ownerId: String): Int =
-        store.value.values.count { it.ownerId == ownerId }
+    override suspend fun countPendingFor(ownerId: String): Int = store.value.values.count { it.ownerId == ownerId }
 
     override suspend fun insert(entity: SyncOutboxEntity) {
         store.update { it + (entity.patchId to entity) }
     }
+
     override suspend fun delete(id: String) {
         store.update { it - id }
     }
-    override suspend fun markFailed(id: String, error: String, nextAttemptAt: Long, claimToken: String?) {
+
+    override suspend fun markFailed(
+        id: String,
+        error: String,
+        nextAttemptAt: Long,
+        claimToken: String?,
+    ) {
         store.update { current ->
             val existing = current[id] ?: return@update current
             if (existing.claimToken != null && existing.claimToken != claimToken) return@update current
             current + (
-                id to existing.copy(
-                    attempts = existing.attempts + 1,
-                    lastError = error,
-                    nextAttemptAt = nextAttemptAt,
-                    claimToken = null,
-                )
+                id to
+                    existing.copy(
+                        attempts = existing.attempts + 1,
+                        lastError = error,
+                        nextAttemptAt = nextAttemptAt,
+                        claimToken = null,
+                    )
             )
         }
     }
+
     override suspend fun attemptsOf(id: String): Int? = store.value[id]?.attempts
 
-    override suspend fun claim(ids: List<String>, token: String) {
+    override suspend fun claim(
+        ids: List<String>,
+        token: String,
+    ) {
         store.update { current ->
             current.mapValues { (k, v) ->
                 if (k in ids && v.claimToken == null) v.copy(claimToken = token) else v
@@ -1346,7 +1788,10 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
         }
     }
 
-    override suspend fun release(ids: List<String>, token: String) {
+    override suspend fun release(
+        ids: List<String>,
+        token: String,
+    ) {
         store.update { current ->
             current.mapValues { (k, v) ->
                 if (k in ids && v.claimToken == token) v.copy(claimToken = null) else v
@@ -1354,7 +1799,11 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
         }
     }
 
-    override suspend fun deleteByEntity(ownerId: String, profileId: String, entityId: String) {
+    override suspend fun deleteByEntity(
+        ownerId: String,
+        profileId: String,
+        entityId: String,
+    ) {
         store.update {
             it.filterValues { e ->
                 e.ownerId != ownerId || e.profileId != profileId || e.entityId != entityId
@@ -1369,8 +1818,7 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
         return doomed.size
     }
 
-    override suspend fun countForOwner(ownerId: String): Int =
-        store.value.values.count { it.ownerId == ownerId }
+    override suspend fun countForOwner(ownerId: String): Int = store.value.values.count { it.ownerId == ownerId }
 
     override suspend fun clearAll() {
         store.value = emptyMap()
@@ -1379,14 +1827,12 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
 
 private class FakeSyncDeadLetterDao(private val store: MutableStateFlow<Map<String, SyncDeadLetterEntity>>) :
     SyncDeadLetterDao {
-
     override fun watch(): Flow<List<SyncDeadLetterEntity>> =
         store.map { it.values.sortedByDescending { e -> e.failedAt } }
 
     override fun watchCount(): Flow<Int> = store.map { it.size }
 
-    override suspend fun getAll(): List<SyncDeadLetterEntity> =
-        store.value.values.sortedByDescending { it.failedAt }
+    override suspend fun getAll(): List<SyncDeadLetterEntity> = store.value.values.sortedByDescending { it.failedAt }
 
     override suspend fun insert(entity: SyncDeadLetterEntity) {
         store.update { it + (entity.patchId to entity) }
@@ -1405,8 +1851,7 @@ private class FakeSyncDeadLetterDao(private val store: MutableStateFlow<Map<Stri
         return doomed.size
     }
 
-    override suspend fun countForOwner(ownerId: String): Int =
-        store.value.values.count { it.ownerId == ownerId }
+    override suspend fun countForOwner(ownerId: String): Int = store.value.values.count { it.ownerId == ownerId }
 
     override suspend fun clearAll() {
         store.value = emptyMap()
@@ -1421,49 +1866,83 @@ private class FakeSyncDeadLetterDao(private val store: MutableStateFlow<Map<Stri
  * distinction is a fake that cannot test the thing the table exists for.
  */
 private class FakeSyncStateDao(private val store: MutableStateFlow<Map<SyncScope, SyncStateEntity>>) : SyncStateDao {
+    private fun key(
+        ownerId: String,
+        profileId: String,
+    ) = SyncScope(ownerId, profileId)
 
-    private fun key(ownerId: String, profileId: String) = SyncScope(ownerId, profileId)
+    override suspend fun get(
+        ownerId: String,
+        profileId: String,
+    ): SyncStateEntity? = store.value[key(ownerId, profileId)]
 
-    override suspend fun get(ownerId: String, profileId: String): SyncStateEntity? =
-        store.value[key(ownerId, profileId)]
-
-    override fun observe(ownerId: String, profileId: String): Flow<SyncStateEntity?> =
-        store.map { it[key(ownerId, profileId)] }
+    override fun observe(
+        ownerId: String,
+        profileId: String,
+    ): Flow<SyncStateEntity?> = store.map { it[key(ownerId, profileId)] }
 
     override suspend fun insertIfAbsent(entity: SyncStateEntity) {
         val k = SyncScope(entity.ownerId, entity.profileId)
         store.update { if (k in it) it else it + (k to entity) }
     }
 
-    override suspend fun setLastLsn(ownerId: String, profileId: String, lsn: Long) =
-        mutate(ownerId, profileId) { it.copy(lastLsn = lsn) }
+    override suspend fun setLastLsn(
+        ownerId: String,
+        profileId: String,
+        lsn: Long,
+    ) = mutate(ownerId, profileId) { it.copy(lastLsn = lsn) }
 
-    override suspend fun setLastSuccessfulSyncAt(ownerId: String, profileId: String, at: Long) =
-        mutate(ownerId, profileId) { it.copy(lastSuccessfulSyncAt = at) }
+    override suspend fun setLastSuccessfulSyncAt(
+        ownerId: String,
+        profileId: String,
+        at: Long,
+    ) = mutate(ownerId, profileId) { it.copy(lastSuccessfulSyncAt = at) }
 
-    override suspend fun setDeviceId(ownerId: String, profileId: String, deviceId: String) =
-        mutate(ownerId, profileId) { it.copy(deviceId = deviceId) }
+    override suspend fun setDeviceId(
+        ownerId: String,
+        profileId: String,
+        deviceId: String,
+    ) = mutate(ownerId, profileId) { it.copy(deviceId = deviceId) }
 
-    override suspend fun setAutoSyncEnabled(ownerId: String, profileId: String, enabled: Boolean) =
-        mutate(ownerId, profileId) { it.copy(autoSyncEnabled = enabled) }
+    override suspend fun setAutoSyncEnabled(
+        ownerId: String,
+        profileId: String,
+        enabled: Boolean,
+    ) = mutate(ownerId, profileId) { it.copy(autoSyncEnabled = enabled) }
 
-    override suspend fun setScheduledIntervalMinutes(ownerId: String, profileId: String, minutes: Int) =
-        mutate(ownerId, profileId) { it.copy(scheduledIntervalMinutes = minutes) }
+    override suspend fun setScheduledIntervalMinutes(
+        ownerId: String,
+        profileId: String,
+        minutes: Int,
+    ) = mutate(ownerId, profileId) { it.copy(scheduledIntervalMinutes = minutes) }
 
-    override suspend fun setEnabledTriggers(ownerId: String, profileId: String, triggers: String) =
-        mutate(ownerId, profileId) { it.copy(enabledTriggers = triggers) }
+    override suspend fun setEnabledTriggers(
+        ownerId: String,
+        profileId: String,
+        triggers: String,
+    ) = mutate(ownerId, profileId) { it.copy(enabledTriggers = triggers) }
 
-    override suspend fun setSeedCompleted(ownerId: String, profileId: String, completed: Boolean) =
-        mutate(ownerId, profileId) { it.copy(seedCompleted = completed) }
+    override suspend fun setSeedCompleted(
+        ownerId: String,
+        profileId: String,
+        completed: Boolean,
+    ) = mutate(ownerId, profileId) { it.copy(seedCompleted = completed) }
 
-    override suspend fun setAttachmentsSyncEnabled(ownerId: String, profileId: String, enabled: Boolean) =
-        mutate(ownerId, profileId) { it.copy(attachmentsSyncEnabled = enabled) }
+    override suspend fun setAttachmentsSyncEnabled(
+        ownerId: String,
+        profileId: String,
+        enabled: Boolean,
+    ) = mutate(ownerId, profileId) { it.copy(attachmentsSyncEnabled = enabled) }
 
     override suspend fun clearAll() {
         store.value = emptyMap()
     }
 
-    private fun mutate(ownerId: String, profileId: String, fn: (SyncStateEntity) -> SyncStateEntity) {
+    private fun mutate(
+        ownerId: String,
+        profileId: String,
+        fn: (SyncStateEntity) -> SyncStateEntity,
+    ) {
         val k = key(ownerId, profileId)
         store.update { current ->
             val existing = current[k] ?: SyncStateEntity(ownerId = ownerId, profileId = profileId)
@@ -1495,9 +1974,12 @@ private data class SyncShadowKey(
  */
 private class FakeSyncShadowDao(private val store: MutableStateFlow<Map<SyncShadowKey, SyncShadowEntity>>) :
     SyncShadowDao {
-
-    private fun key(ownerId: String, profileId: String, entityType: String, entityId: String) =
-        SyncShadowKey(ownerId, profileId, entityType, entityId)
+    private fun key(
+        ownerId: String,
+        profileId: String,
+        entityType: String,
+        entityId: String,
+    ) = SyncShadowKey(ownerId, profileId, entityType, entityId)
 
     override suspend fun get(
         ownerId: String,
@@ -1532,17 +2014,18 @@ private class FakeSyncShadowDao(private val store: MutableStateFlow<Map<SyncShad
         patchId: String,
         json: String,
         serverVersion: Long?,
-    ): Int = mutateIfOwned(ownerId, profileId, entityType, entityId, patchId) { row ->
-        // The COALESCE in the real query, reproduced: a response with no version must
-        // not reset one the client already had, or the next patch claims the server has
-        // never seen the row.
-        row.copy(
-            confirmedJson = json,
-            inFlightJson = null,
-            inFlightPatchId = null,
-            serverVersion = serverVersion ?: row.serverVersion,
-        )
-    }
+    ): Int =
+        mutateIfOwned(ownerId, profileId, entityType, entityId, patchId) { row ->
+            // The COALESCE in the real query, reproduced: a response with no version must
+            // not reset one the client already had, or the next patch claims the server has
+            // never seen the row.
+            row.copy(
+                confirmedJson = json,
+                inFlightJson = null,
+                inFlightPatchId = null,
+                serverVersion = serverVersion ?: row.serverVersion,
+            )
+        }
 
     override suspend fun release(
         ownerId: String,
@@ -1550,9 +2033,10 @@ private class FakeSyncShadowDao(private val store: MutableStateFlow<Map<SyncShad
         entityType: String,
         entityId: String,
         patchId: String,
-    ): Int = mutateIfOwned(ownerId, profileId, entityType, entityId, patchId) { row ->
-        row.copy(inFlightJson = null, inFlightPatchId = null)
-    }
+    ): Int =
+        mutateIfOwned(ownerId, profileId, entityType, entityId, patchId) { row ->
+            row.copy(inFlightJson = null, inFlightPatchId = null)
+        }
 
     /**
      * Applies [transform] only while [patchId] still owns the in-flight marker, and
@@ -1573,7 +2057,10 @@ private class FakeSyncShadowDao(private val store: MutableStateFlow<Map<SyncShad
         return 1
     }
 
-    override suspend fun clearScope(ownerId: String, profileId: String) {
+    override suspend fun clearScope(
+        ownerId: String,
+        profileId: String,
+    ) {
         store.update { current -> current.filterKeys { it.ownerId != ownerId || it.profileId != profileId } }
     }
 
@@ -1590,8 +2077,7 @@ private class FakeSyncShadowDao(private val store: MutableStateFlow<Map<SyncShad
         return doomed
     }
 
-    override suspend fun countForOwner(ownerId: String): Int =
-        store.value.count { it.key.ownerId == ownerId }
+    override suspend fun countForOwner(ownerId: String): Int = store.value.count { it.key.ownerId == ownerId }
 
     override suspend fun clearAll() {
         store.value = emptyMap()
@@ -1601,46 +2087,77 @@ private class FakeSyncShadowDao(private val store: MutableStateFlow<Map<SyncShad
 // ─── AttachmentDao ────────────────────────────────────────────────────────────
 
 private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, AttachmentEntity>>) : AttachmentDao {
-
     // ─── UserId-scoped reads (Phase 2.8 fix) ──────────────────────────────────
-    override fun watchByTaskForUser(taskId: String, userId: String): Flow<List<AttachmentEntity>> = store.map {
-        it.values.filter { a -> a.taskId == taskId && a.userId == userId && a.deletedAt == null }
-            .sortedByDescending { it.createdAt }
-    }
-    override fun watchAll(userId: String): Flow<List<AttachmentEntity>> = store.map {
-        it.values.filter { a -> a.userId == userId && a.deletedAt == null }
-            .sortedByDescending { it.createdAt }
-    }
-    override suspend fun getById(id: String, userId: String): AttachmentEntity? =
-        store.value[id]?.takeIf { a -> a.userId == userId && a.deletedAt == null }
-    override fun watchByIdForUser(id: String, userId: String): Flow<AttachmentEntity?> = store.map {
-        it[id]?.takeIf { a ->
-            a.userId ==
-                userId
+    override fun watchByTaskForUser(
+        taskId: String,
+        userId: String,
+    ): Flow<List<AttachmentEntity>> =
+        store.map {
+            it.values
+                .filter { a -> a.taskId == taskId && a.userId == userId && a.deletedAt == null }
+                .sortedByDescending { it.createdAt }
         }
-    }
-    override fun watchBySyncStatusForUser(status: String, userId: String): Flow<List<AttachmentEntity>> =
+
+    override fun watchAll(userId: String): Flow<List<AttachmentEntity>> =
+        store.map {
+            it.values
+                .filter { a -> a.userId == userId && a.deletedAt == null }
+                .sortedByDescending { it.createdAt }
+        }
+
+    override suspend fun getById(
+        id: String,
+        userId: String,
+    ): AttachmentEntity? = store.value[id]?.takeIf { a -> a.userId == userId && a.deletedAt == null }
+
+    override fun watchByIdForUser(
+        id: String,
+        userId: String,
+    ): Flow<AttachmentEntity?> =
+        store.map {
+            it[id]?.takeIf { a ->
+                a.userId ==
+                    userId
+            }
+        }
+
+    override fun watchBySyncStatusForUser(
+        status: String,
+        userId: String,
+    ): Flow<List<AttachmentEntity>> =
         store.map { it.values.filter { a -> a.syncStatus == status && a.userId == userId && a.deletedAt == null } }
 
     // ─── Legacy ────────────────────────────────────────────────────────────────
     override suspend fun upsert(entity: AttachmentEntity) {
         store.update { it + (entity.id to entity) }
     }
-    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int {
+
+    override suspend fun softDeleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int {
         val entity = store.value[id]
         if (entity == null || entity.userId != userId) return 0
         mutate(id) { it.copy(deletedAt = ts, updatedAt = ts) }
         return 1
     }
 
-    override suspend fun restoreForUser(id: String, ts: Long, userId: String): Int {
+    override suspend fun restoreForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int {
         val entity = store.value[id]
         if (entity == null || entity.userId != userId || entity.deletedAt == null) return 0
         mutate(id) { it.copy(deletedAt = null, updatedAt = ts) }
         return 1
     }
 
-    override suspend fun deleteForUser(id: String, userId: String): Int {
+    override suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int {
         val entity = store.value[id]
         if (entity == null || entity.userId != userId) return 0
         store.update { it - id }
@@ -1653,10 +2170,14 @@ private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, 
     override suspend fun listDeletedForUser(userId: String): List<AttachmentEntity> =
         store.value.values.filter { it.userId == userId && it.deletedAt != null }
 
-    override suspend fun deleteDeletedBefore(userId: String, before: Long): Int {
-        val doomed = store.value.values.filter {
-            it.userId == userId && it.deletedAt != null && (it.deletedAt ?: 0L) < before
-        }
+    override suspend fun deleteDeletedBefore(
+        userId: String,
+        before: Long,
+    ): Int {
+        val doomed =
+            store.value.values.filter {
+                it.userId == userId && it.deletedAt != null && (it.deletedAt ?: 0L) < before
+            }
         store.update { map ->
             map.filterValues {
                 !(it.userId == userId && it.deletedAt != null && (it.deletedAt ?: 0L) < before)
@@ -1674,7 +2195,10 @@ private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, 
         return doomed.size
     }
 
-    private fun mutate(id: String, fn: (AttachmentEntity) -> AttachmentEntity) {
+    private fun mutate(
+        id: String,
+        fn: (AttachmentEntity) -> AttachmentEntity,
+    ) {
         store.update { current ->
             val existing = current[id] ?: return@update current
             current + (id to fn(existing))
@@ -1693,18 +2217,20 @@ private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, 
 private class FakeAttachmentAnnotationDao(
     private val store: MutableStateFlow<Map<String, AttachmentAnnotationEntity>>,
 ) : AttachmentAnnotationDao {
-
     override fun watchByAttachmentForUser(
         attachmentId: String,
         userId: String,
-    ): Flow<List<AttachmentAnnotationEntity>> = store.map {
-        it.values
-            .filter { a -> a.attachmentId == attachmentId && a.userId == userId && a.deletedAt == null }
-            .sortedBy { it.createdAt }
-    }
+    ): Flow<List<AttachmentAnnotationEntity>> =
+        store.map {
+            it.values
+                .filter { a -> a.attachmentId == attachmentId && a.userId == userId && a.deletedAt == null }
+                .sortedBy { it.createdAt }
+        }
 
-    override suspend fun getByIdForUser(id: String, userId: String): AttachmentAnnotationEntity? =
-        store.value[id]?.takeIf { it.userId == userId && it.deletedAt == null }
+    override suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): AttachmentAnnotationEntity? = store.value[id]?.takeIf { it.userId == userId && it.deletedAt == null }
 
     override suspend fun listAllForUser(userId: String): List<AttachmentAnnotationEntity> =
         store.value.values.filter { it.userId == userId }
@@ -1722,7 +2248,10 @@ private class FakeAttachmentAnnotationDao(
      * The single-row counterpart of [deleteAllForUser]: one annotation of one
      * profile, and nothing else.
      */
-    override suspend fun deleteForUser(id: String, userId: String): Int {
+    override suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int {
         val existing = store.value[id] ?: return 0
         if (existing.userId != userId) return 0
         store.update { it - id }
@@ -1733,14 +2262,23 @@ private class FakeAttachmentAnnotationDao(
         store.update { it + (entity.id to entity) }
     }
 
-    override suspend fun updateNoteForUser(id: String, note: String, ts: Long, userId: String): Int {
+    override suspend fun updateNoteForUser(
+        id: String,
+        note: String,
+        ts: Long,
+        userId: String,
+    ): Int {
         val entity = store.value[id]
         if (entity == null || entity.userId != userId || entity.deletedAt != null) return 0
         store.update { it + (id to entity.copy(note = note, updatedAt = ts)) }
         return 1
     }
 
-    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int {
+    override suspend fun softDeleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int {
         val entity = store.value[id]
         if (entity == null || entity.userId != userId || entity.deletedAt != null) return 0
         store.update { it + (id to entity.copy(deletedAt = ts, updatedAt = ts)) }
@@ -1756,16 +2294,28 @@ private class FakeProjectReminderDao(
     override fun watchAll(userId: String): Flow<List<ProjectReminderEntity>> =
         store.map { it.values.filter { r -> r.userId == userId }.sortedBy { it.fireAt } }
 
-    override fun watchByProject(projectId: String, userId: String): Flow<List<ProjectReminderEntity>> = store.map {
-        it.values.filter { r -> r.projectId == projectId && r.userId == userId }.sortedBy { r -> r.fireAt }
-    }
+    override fun watchByProject(
+        projectId: String,
+        userId: String,
+    ): Flow<List<ProjectReminderEntity>> =
+        store.map {
+            it.values.filter { r -> r.projectId == projectId && r.userId == userId }.sortedBy { r -> r.fireAt }
+        }
 
-    override fun getDueBefore(now: Long, userId: String): Flow<List<ProjectReminderEntity>> =
+    override fun getDueBefore(
+        now: Long,
+        userId: String,
+    ): Flow<List<ProjectReminderEntity>> =
         store.map { it.values.filter { r -> r.fireAt <= now && r.userId == userId }.sortedBy { r -> r.fireAt } }
 
-    override fun getRecentDueBefore(now: Long, userId: String, limit: Int): Flow<List<ProjectReminderEntity>> =
+    override fun getRecentDueBefore(
+        now: Long,
+        userId: String,
+        limit: Int,
+    ): Flow<List<ProjectReminderEntity>> =
         store.map {
-            it.values.filter { r -> r.fireAt <= now && r.userId == userId }
+            it.values
+                .filter { r -> r.fireAt <= now && r.userId == userId }
                 .sortedByDescending { r -> r.fireAt }
                 .take(limit)
         }
@@ -1774,27 +2324,44 @@ private class FakeProjectReminderDao(
         store.update { it + ((reminder.userId to reminder.id) to reminder) }
     }
 
-    override suspend fun delete(id: String, userId: String) {
+    override suspend fun delete(
+        id: String,
+        userId: String,
+    ) {
         store.update { it - (userId to id) }
     }
 
-    override suspend fun deleteByProject(projectId: String, userId: String) {
+    override suspend fun deleteByProject(
+        projectId: String,
+        userId: String,
+    ) {
         store.update { m -> m.filterValues { !(it.projectId == projectId && it.userId == userId) } }
     }
 
-    override suspend fun getById(id: String, userId: String): ProjectReminderEntity? = store.value[(userId to id)]
+    override suspend fun getById(
+        id: String,
+        userId: String,
+    ): ProjectReminderEntity? = store.value[(userId to id)]
 
-    override fun watchByIdForUser(id: String, userId: String): Flow<ProjectReminderEntity?> =
-        store.map { it[userId to id] }
+    override fun watchByIdForUser(
+        id: String,
+        userId: String,
+    ): Flow<ProjectReminderEntity?> = store.map { it[userId to id] }
 
-    override suspend fun setLastFiredAt(id: String, userId: String, lastFiredAt: Long, updatedAt: Long) {
+    override suspend fun setLastFiredAt(
+        id: String,
+        userId: String,
+        lastFiredAt: Long,
+        updatedAt: Long,
+    ) {
         store.update { m ->
             m[(userId to id)]?.let { e ->
                 m + (
-                    (userId to id) to e.copy(
-                        lastFiredAt = lastFiredAt,
-                        updatedAt = updatedAt,
-                    )
+                    (userId to id) to
+                        e.copy(
+                            lastFiredAt = lastFiredAt,
+                            updatedAt = updatedAt,
+                        )
                 )
             }
                 ?: m
@@ -1818,7 +2385,6 @@ private class FakeReminderDao(
     private val store:
         MutableStateFlow<Map<Pair<String, String>, com.singularity.todo.core.database.TaskReminderEntity>>,
 ) : ReminderDao {
-
     override fun watchAll(userId: String): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> =
         store.map { it.values.filter { r -> r.userId == userId }.sortedBy { it.fireAt } }
 
@@ -1848,35 +2414,53 @@ private class FakeReminderDao(
         now: Long,
         userId: String,
         limit: Int,
-    ): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> = store.map {
-        it.values.filter { r -> r.fireAt <= now && r.userId == userId }.sortedBy { r -> -r.fireAt }.take(
-            limit,
-        )
-    }
+    ): Flow<List<com.singularity.todo.core.database.TaskReminderEntity>> =
+        store.map {
+            it.values.filter { r -> r.fireAt <= now && r.userId == userId }.sortedBy { r -> -r.fireAt }.take(
+                limit,
+            )
+        }
 
-    override suspend fun delete(id: String, userId: String) {
+    override suspend fun delete(
+        id: String,
+        userId: String,
+    ) {
         store.update { it - (userId to id) }
     }
 
-    override suspend fun deleteByTask(taskId: String, userId: String) {
+    override suspend fun deleteByTask(
+        taskId: String,
+        userId: String,
+    ) {
         store.update { current ->
             current.filterValues { r -> r.userId != userId || r.taskId != taskId }
         }
     }
 
-    override suspend fun getById(id: String, userId: String): com.singularity.todo.core.database.TaskReminderEntity? =
-        store.value[userId to id]
+    override suspend fun getById(
+        id: String,
+        userId: String,
+    ): com.singularity.todo.core.database.TaskReminderEntity? = store.value[userId to id]
 
     override fun watchByIdForUser(
         id: String,
         userId: String,
     ): Flow<com.singularity.todo.core.database.TaskReminderEntity?> = store.map { it[userId to id] }
 
-    override fun watchRecurringTaskIds(userId: String): Flow<List<String>> = store.map { map ->
-        map.values.filter { r -> r.userId == userId && r.recurringPattern != null }.map { it.taskId }.distinct()
-    }
+    override fun watchRecurringTaskIds(userId: String): Flow<List<String>> =
+        store.map { map ->
+            map.values
+                .filter { r -> r.userId == userId && r.recurringPattern != null }
+                .map { it.taskId }
+                .distinct()
+        }
 
-    override suspend fun setLastFiredAt(id: String, userId: String, lastFiredAt: Long, updatedAt: Long) {
+    override suspend fun setLastFiredAt(
+        id: String,
+        userId: String,
+        lastFiredAt: Long,
+        updatedAt: Long,
+    ) {
         store.update { current ->
             val key = userId to id
             val existing = current[key] ?: return@update current
@@ -1901,37 +2485,49 @@ private class FakeReminderDao(
 
 private class FakeCalendarSyncTaskMapDao(private val store: MutableStateFlow<Map<String, CalendarSyncTaskMapEntity>>) :
     CalendarSyncTaskMapDao {
-
     override fun observeAll(userId: String): Flow<List<CalendarSyncTaskMapEntity>> =
         store.map { vals -> vals.values.filter { it.userId == userId } }
 
     override suspend fun getAll(userId: String): List<CalendarSyncTaskMapEntity> =
         store.value.values.filter { it.userId == userId }
 
-    override suspend fun getEventId(taskId: String, userId: String): Long? =
-        store.value[taskId]?.takeIf { it.userId == userId }?.eventId
+    override suspend fun getEventId(
+        taskId: String,
+        userId: String,
+    ): Long? = store.value[taskId]?.takeIf { it.userId == userId }?.eventId
 
-    override suspend fun getByTaskId(taskId: String, userId: String): CalendarSyncTaskMapEntity? =
-        store.value[taskId]?.takeIf { it.userId == userId }
+    override suspend fun getByTaskId(
+        taskId: String,
+        userId: String,
+    ): CalendarSyncTaskMapEntity? = store.value[taskId]?.takeIf { it.userId == userId }
 
     override suspend fun upsert(entity: CalendarSyncTaskMapEntity) {
         store.update { it + (entity.taskId to entity) }
     }
 
-    override suspend fun delete(taskId: String, userId: String) {
+    override suspend fun delete(
+        taskId: String,
+        userId: String,
+    ) {
         store.update { current ->
             // Only delete if the row belongs to this user
             if (current[taskId]?.userId == userId) current - taskId else current
         }
     }
 
-    override suspend fun deleteByEventId(eventId: Long, userId: String) {
+    override suspend fun deleteByEventId(
+        eventId: Long,
+        userId: String,
+    ) {
         store.update { current ->
             current.filterValues { it.eventId != eventId || it.userId != userId }
         }
     }
 
-    override suspend fun deleteStale(taskIds: List<String>, userId: String) {
+    override suspend fun deleteStale(
+        taskIds: List<String>,
+        userId: String,
+    ) {
         store.update { current ->
             // Only keep rows that either (a) are for a different user, or (b) are in the taskIds set
             current.filterValues { it.userId != userId || it.taskId in taskIds }
@@ -1956,11 +2552,17 @@ private class FakeCalendarSyncTaskMapDao(private val store: MutableStateFlow<Map
 private class FakeCalendarSyncStateDao(
     private val store: MutableStateFlow<Map<Triple<String, String, String>, CalendarSyncStateEntity>>,
 ) : CalendarSyncStateDao {
+    private fun key(
+        userId: String,
+        provider: String,
+        calendarId: String,
+    ) = Triple(userId, provider, calendarId)
 
-    private fun key(userId: String, provider: String, calendarId: String) = Triple(userId, provider, calendarId)
-
-    override suspend fun get(userId: String, provider: String, calendarId: String): CalendarSyncStateEntity? =
-        store.value[key(userId, provider, calendarId)]
+    override suspend fun get(
+        userId: String,
+        provider: String,
+        calendarId: String,
+    ): CalendarSyncStateEntity? = store.value[key(userId, provider, calendarId)]
 
     override suspend fun upsert(state: CalendarSyncStateEntity) {
         store.update {
@@ -1968,7 +2570,10 @@ private class FakeCalendarSyncStateDao(
         }
     }
 
-    override suspend fun deleteForProvider(userId: String, provider: String) {
+    override suspend fun deleteForProvider(
+        userId: String,
+        provider: String,
+    ) {
         store.update { current ->
             current.filterKeys { it.first != userId || it.second != provider }
         }
@@ -1978,7 +2583,11 @@ private class FakeCalendarSyncStateDao(
      * Drops the token for one calendar only. A fake that reset every calendar would hide
      * the scoping bug this exists to make obvious.
      */
-    override suspend fun invalidateToken(userId: String, provider: String, calendarId: String) {
+    override suspend fun invalidateToken(
+        userId: String,
+        provider: String,
+        calendarId: String,
+    ) {
         store.update { current ->
             current.mapValues { (k, v) ->
                 if (k == key(userId, provider, calendarId)) v.copy(nextSyncToken = null) else v
@@ -1990,9 +2599,10 @@ private class FakeCalendarSyncStateDao(
 private class FakeGoogleEventShadowDao(
     private val store: MutableStateFlow<Map<Pair<String, String>, GoogleEventShadowEntity>>,
 ) : GoogleEventShadowDao {
-
-    override suspend fun get(userId: String, eventId: String): GoogleEventShadowEntity? =
-        store.value[userId to eventId]
+    override suspend fun get(
+        userId: String,
+        eventId: String,
+    ): GoogleEventShadowEntity? = store.value[userId to eventId]
 
     override suspend fun getAll(userId: String): List<GoogleEventShadowEntity> =
         store.value.values.filter { it.userId == userId }
@@ -2004,11 +2614,17 @@ private class FakeGoogleEventShadowDao(
         store.update { it + ((shadow.userId to shadow.eventId) to shadow) }
     }
 
-    override suspend fun delete(userId: String, eventId: String) {
+    override suspend fun delete(
+        userId: String,
+        eventId: String,
+    ) {
         store.update { it - (userId to eventId) }
     }
 
-    override suspend fun deleteNotIn(userId: String, liveEventIds: List<String>) {
+    override suspend fun deleteNotIn(
+        userId: String,
+        liveEventIds: List<String>,
+    ) {
         store.update { current ->
             // Scoped to this user: another profile's rows are not ours to delete even when
             // their event ids are absent from the live set.
@@ -2024,7 +2640,6 @@ private class FakeGoogleEventShadowDao(
 private class FakeCalendarImportEventDao(
     private val store: MutableStateFlow<Map<Pair<String, String>, CalendarImportEventEntity>>,
 ) : CalendarImportEventDao {
-
     override fun observeUnconverted(userId: String): Flow<List<CalendarImportEventEntity>> =
         store.map { values ->
             values.values
@@ -2035,25 +2650,37 @@ private class FakeCalendarImportEventDao(
     override suspend fun getAll(userId: String): List<CalendarImportEventEntity> =
         store.value.values.filter { it.userId == userId }
 
-    override suspend fun get(userId: String, eventId: String): CalendarImportEventEntity? =
-        store.value[userId to eventId]
+    override suspend fun get(
+        userId: String,
+        eventId: String,
+    ): CalendarImportEventEntity? = store.value[userId to eventId]
 
     override suspend fun upsert(event: CalendarImportEventEntity) {
         store.update { it + ((event.userId to event.eventId) to event) }
     }
 
-    override suspend fun delete(userId: String, eventId: String) {
+    override suspend fun delete(
+        userId: String,
+        eventId: String,
+    ) {
         store.update { it - (userId to eventId) }
     }
 
-    override suspend fun linkTask(userId: String, eventId: String, taskId: String) {
+    override suspend fun linkTask(
+        userId: String,
+        eventId: String,
+        taskId: String,
+    ) {
         store.update { current ->
             val k = userId to eventId
             current[k]?.let { current + (k to it.copy(taskId = taskId)) } ?: current
         }
     }
 
-    override suspend fun deleteOlderThan(userId: String, beforeMs: Long) {
+    override suspend fun deleteOlderThan(
+        userId: String,
+        beforeMs: Long,
+    ) {
         store.update { current ->
             current.filterValues { it.userId != userId || (it.startsAt ?: Long.MAX_VALUE) >= beforeMs }
         }
@@ -2070,11 +2697,13 @@ private class FakeChecklistDao(
     private val store: MutableStateFlow<Map<String, ChecklistItemEntity>>,
     private val tasksStore: MutableStateFlow<Map<String, TaskEntity>>,
 ) : ChecklistDao {
-
     override fun watchByTask(taskId: String): Flow<List<ChecklistItemEntity>> =
         store.map { it.values.filter { c -> c.taskId == taskId }.sortedBy { c -> c.sortOrder } }
 
-    override fun watchByTaskForUser(taskId: String, userId: String): Flow<List<ChecklistItemEntity>> =
+    override fun watchByTaskForUser(
+        taskId: String,
+        userId: String,
+    ): Flow<List<ChecklistItemEntity>> =
         store.map { items ->
             items.values
                 .filter { c -> c.taskId == taskId && tasksStore.value[c.taskId]?.userId == userId }
@@ -2090,13 +2719,19 @@ private class FakeChecklistDao(
      * has no task store, so it cannot evaluate ownership and applies the
      * deletion, reporting how many rows it removed.
      */
-    override suspend fun deleteForUser(id: String, userId: String): Int {
+    override suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int {
         val existed = store.value.containsKey(id)
         store.update { it - id }
         return if (existed) 1 else 0
     }
 
-    override suspend fun deleteByTaskForUser(taskId: String, userId: String): Int {
+    override suspend fun deleteByTaskForUser(
+        taskId: String,
+        userId: String,
+    ): Int {
         val before = store.value.values.count { it.taskId == taskId }
         store.update { current -> current.filterValues { c -> c.taskId != taskId } }
         return before
@@ -2124,20 +2759,25 @@ private class FakeChecklistDao(
         val existing = store.value[itemId] ?: return 0
         store.update {
             it + (
-                itemId to existing.copy(
-                    isCompleted = isCompleted,
-                    updatedAt = updatedAt,
-                    checkedBy = actor,
-                    checkedAt = checkedAt,
-                    rowVersion = existing.rowVersion + 1,
-                )
+                itemId to
+                    existing.copy(
+                        isCompleted = isCompleted,
+                        updatedAt = updatedAt,
+                        checkedBy = actor,
+                        checkedAt = checkedAt,
+                        rowVersion = existing.rowVersion + 1,
+                    )
             )
         }
         return 1
     }
 
     override suspend fun listAllForUser(userId: String): List<ChecklistItemEntity> {
-        val ownedTaskIds = tasksStore.value.values.filter { it.userId == userId }.map { it.id }.toSet()
+        val ownedTaskIds =
+            tasksStore.value.values
+                .filter { it.userId == userId }
+                .map { it.id }
+                .toSet()
         return store.value.values.filter { it.taskId in ownedTaskIds }
     }
 }
@@ -2145,31 +2785,38 @@ private class FakeChecklistDao(
 // ─── LlmUsageDao ────────────────────────────────────────────────────────────────
 
 private class FakeLlmUsageDao(private val store: MutableStateFlow<Map<String, LlmUsageEntity>>) : LlmUsageDao {
-
     override suspend fun upsert(entity: LlmUsageEntity) {
         store.update { it + (entity.id to entity) }
     }
 
-    override fun observeRecent(profileId: String, limit: Int): Flow<List<LlmUsageEntity>> =
-        store.map { it.values.filter { e -> e.profileId == profileId }.sortedByDescending { it.createdAt }.take(limit) }
+    override fun observeRecent(
+        profileId: String,
+        limit: Int,
+    ): Flow<List<LlmUsageEntity>> =
+        store.map {
+            it.values
+                .filter { e -> e.profileId == profileId }
+                .sortedByDescending { it.createdAt }
+                .take(limit)
+        }
 
     override fun observeByDay(
         profileId: String,
         sinceEpochMs: Long,
-    ): Flow<List<com.singularity.todo.core.database.DailyUsageRow>> = store.map { rows ->
-        rows.values
-            .filter { it.profileId == profileId && it.createdAt >= sinceEpochMs }
-            .groupBy { Instant.fromEpochMilliseconds(it.createdAt).toString().take(10) }
-            .map { (date, items) ->
-                com.singularity.todo.core.database.DailyUsageRow(
-                    date = date,
-                    totalTokens = items.sumOf { it.totalTokens }.toLong(),
-                    totalCostMicros = items.mapNotNull { it.costUsdMicros }.takeIf { it.isNotEmpty() }?.sum(),
-                    callCount = items.size.toLong(),
-                )
-            }
-            .sortedByDescending { it.date }
-    }
+    ): Flow<List<com.singularity.todo.core.database.DailyUsageRow>> =
+        store.map { rows ->
+            rows.values
+                .filter { it.profileId == profileId && it.createdAt >= sinceEpochMs }
+                .groupBy { Instant.fromEpochMilliseconds(it.createdAt).toString().take(10) }
+                .map { (date, items) ->
+                    com.singularity.todo.core.database.DailyUsageRow(
+                        date = date,
+                        totalTokens = items.sumOf { it.totalTokens }.toLong(),
+                        totalCostMicros = items.mapNotNull { it.costUsdMicros }.takeIf { it.isNotEmpty() }?.sum(),
+                        callCount = items.size.toLong(),
+                    )
+                }.sortedByDescending { it.date }
+        }
 
     override fun observeByTool(profileId: String): Flow<List<com.singularity.todo.core.database.ToolUsageRow>> =
         store.map { rows ->
@@ -2183,8 +2830,7 @@ private class FakeLlmUsageDao(private val store: MutableStateFlow<Map<String, Ll
                         totalCostMicros = items.mapNotNull { it.costUsdMicros }.takeIf { it.isNotEmpty() }?.sum(),
                         callCount = items.size.toLong(),
                     )
-                }
-                .sortedByDescending { it.totalTokens }
+                }.sortedByDescending { it.totalTokens }
         }
 
     override fun observeByModel(profileId: String): Flow<List<com.singularity.todo.core.database.ModelUsageRow>> =
@@ -2199,8 +2845,7 @@ private class FakeLlmUsageDao(private val store: MutableStateFlow<Map<String, Ll
                         totalCostMicros = items.mapNotNull { it.costUsdMicros }.takeIf { it.isNotEmpty() }?.sum(),
                         callCount = items.size.toLong(),
                     )
-                }
-                .sortedByDescending { it.totalTokens }
+                }.sortedByDescending { it.totalTokens }
         }
 
     override suspend fun pruneOlderThan(cutoffEpochMs: Long) {
@@ -2211,7 +2856,6 @@ private class FakeLlmUsageDao(private val store: MutableStateFlow<Map<String, Ll
 // ─── ProfileDao ─────────────────────────────────────────────────────────────────
 
 private class FakeProfileDao(private val store: MutableStateFlow<Map<String, ProfileEntity>>) : ProfileDao {
-
     override fun all(): Flow<List<ProfileEntity>> = store.map { it.values.sortedBy { p -> p.createdAt } }
 
     override suspend fun getById(id: String): ProfileEntity? = store.value[id]
@@ -2231,7 +2875,10 @@ private class FakeProfileDao(private val store: MutableStateFlow<Map<String, Pro
         store.update { it - id }
     }
 
-    override suspend fun deleteForUser(id: String, userId: String): Int {
+    override suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int {
         val existing = store.value[id] ?: return 0
         if (existing.userId != null && existing.userId != userId) return 0
         store.update { it - id }
@@ -2241,7 +2888,9 @@ private class FakeProfileDao(private val store: MutableStateFlow<Map<String, Pro
     override suspend fun count(): Int = store.value.size
 
     override suspend fun listOwnedBy(userId: String): List<ProfileEntity> =
-        store.value.values.filter { it.userId == userId }.sortedBy { it.createdAt }
+        store.value.values
+            .filter { it.userId == userId }
+            .sortedBy { it.createdAt }
 
     override suspend fun claimUnowned(userId: String): Int {
         var claimed = 0
@@ -2264,23 +2913,32 @@ private class FakeProfileDao(private val store: MutableStateFlow<Map<String, Pro
 // ─── AgendaViewDao ────────────────────────────────────────────────────────────
 
 private class FakeAgendaViewDao(private val store: MutableStateFlow<Map<String, AgendaViewEntity>>) : AgendaViewDao {
+    override fun watchAll(userId: String): Flow<List<AgendaViewEntity>> =
+        store.map {
+            it.values.filter { v -> v.userId == userId }.sortedBy { v -> v.name }
+        }
 
-    override fun watchAll(userId: String): Flow<List<AgendaViewEntity>> = store.map {
-        it.values.filter { v -> v.userId == userId }.sortedBy { v -> v.name }
-    }
+    override fun watchById(
+        userId: String,
+        id: String,
+    ): Flow<AgendaViewEntity?> =
+        store.map {
+            it.values.find { v -> v.userId == userId && v.id == id }
+        }
 
-    override fun watchById(userId: String, id: String): Flow<AgendaViewEntity?> = store.map {
-        it.values.find { v -> v.userId == userId && v.id == id }
-    }
-
-    override suspend fun getById(userId: String, id: String): AgendaViewEntity? =
-        store.value.values.find { v -> v.userId == userId && v.id == id }
+    override suspend fun getById(
+        userId: String,
+        id: String,
+    ): AgendaViewEntity? = store.value.values.find { v -> v.userId == userId && v.id == id }
 
     override suspend fun upsert(entity: AgendaViewEntity) {
         store.update { it + (entity.id to entity) }
     }
 
-    override suspend fun delete(userId: String, id: String) {
+    override suspend fun delete(
+        userId: String,
+        id: String,
+    ) {
         store.update { current ->
             current.filterValues { v -> !(v.userId == userId && v.id == id) }
         }
@@ -2300,7 +2958,6 @@ private class FakeAgendaViewDao(private val store: MutableStateFlow<Map<String, 
 
 private class FakeRemoteConfigDao(private val store: MutableStateFlow<Map<String, RemoteConfigEntity>>) :
     RemoteConfigDao {
-
     override fun watchDefault(): Flow<RemoteConfigEntity?> = store.map { it["default"] }
 
     override suspend fun getDefault(): RemoteConfigEntity? = store.value["default"]
@@ -2318,7 +2975,6 @@ private class FakeRemoteConfigDao(private val store: MutableStateFlow<Map<String
 
 private class FakeRemoteConfigCacheDao(private val store: MutableStateFlow<RemoteConfigCacheEntity?>) :
     RemoteConfigCacheDao {
-
     override fun watchDefault(): Flow<RemoteConfigCacheEntity?> = store
 
     override suspend fun getDefault(): RemoteConfigCacheEntity? = store.value
@@ -2335,26 +2991,38 @@ private class FakeRemoteConfigCacheDao(private val store: MutableStateFlow<Remot
 // ─── SavedSearchDao ────────────────────────────────────────────────────────────
 
 private class FakeSavedSearchDao(private val store: MutableStateFlow<Map<String, SavedSearchEntity>>) : SavedSearchDao {
+    override fun watchAll(userId: String): Flow<List<SavedSearchEntity>> =
+        store.map {
+            it.values.filter { v -> v.userId == userId }.sortedBy { v -> v.name }
+        }
 
-    override fun watchAll(userId: String): Flow<List<SavedSearchEntity>> = store.map {
-        it.values.filter { v -> v.userId == userId }.sortedBy { v -> v.name }
-    }
+    override fun watchById(
+        userId: String,
+        id: String,
+    ): Flow<SavedSearchEntity?> =
+        store.map {
+            it.values.find { v -> v.userId == userId && v.id == id }
+        }
 
-    override fun watchById(userId: String, id: String): Flow<SavedSearchEntity?> = store.map {
-        it.values.find { v -> v.userId == userId && v.id == id }
-    }
+    override suspend fun getById(
+        userId: String,
+        id: String,
+    ): SavedSearchEntity? = store.value.values.find { v -> v.userId == userId && v.id == id }
 
-    override suspend fun getById(userId: String, id: String): SavedSearchEntity? =
-        store.value.values.find { v -> v.userId == userId && v.id == id }
-
-    override suspend fun findByName(userId: String, name: String): SavedSearchEntity? =
+    override suspend fun findByName(
+        userId: String,
+        name: String,
+    ): SavedSearchEntity? =
         store.value.values.find { v -> v.userId == userId && v.name.equals(name, ignoreCase = true) }
 
     override suspend fun upsert(entity: SavedSearchEntity) {
         store.update { it + (entity.id to entity) }
     }
 
-    override suspend fun delete(userId: String, id: String) {
+    override suspend fun delete(
+        userId: String,
+        id: String,
+    ) {
         store.update { current ->
             current.filterValues { v -> !(v.userId == userId && v.id == id) }
         }
@@ -2376,19 +3044,35 @@ private class FakeSavedSearchDao(private val store: MutableStateFlow<Map<String,
 // ─── TagGroupDao ───────────────────────────────────────────────────────────────
 
 private class FakeTagGroupDao(private val store: MutableStateFlow<Map<String, TagGroupEntity>>) : TagGroupDao {
-    override fun watchAll(userId: String): Flow<List<TagGroupEntity>> = store.map {
-        it.values.filter { t -> t.userId == userId }.sortedBy { t -> t.name }
-    }
+    override fun watchAll(userId: String): Flow<List<TagGroupEntity>> =
+        store.map {
+            it.values.filter { t -> t.userId == userId }.sortedBy { t -> t.name }
+        }
+
     override fun watchById(id: String): Flow<TagGroupEntity?> = store.map { it[id] }
-    override fun watchByIdForUser(id: String, userId: String): Flow<TagGroupEntity?> = store.map {
-        it[id]?.takeIf { t -> t.userId == userId }
-    }
-    override suspend fun getByIdForUser(id: String, userId: String): TagGroupEntity? =
-        store.value.values.find { it.id == id && it.userId == userId }
+
+    override fun watchByIdForUser(
+        id: String,
+        userId: String,
+    ): Flow<TagGroupEntity?> =
+        store.map {
+            it[id]?.takeIf { t -> t.userId == userId }
+        }
+
+    override suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): TagGroupEntity? = store.value.values.find { it.id == id && it.userId == userId }
+
     override suspend fun upsert(entity: TagGroupEntity) {
         store.update { it + (entity.id to entity) }
     }
-    override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int {
+
+    override suspend fun softDeleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int {
         val entity = store.value[id]
         return if (entity != null && entity.userId == userId) {
             store.update { current ->
@@ -2417,7 +3101,10 @@ private class FakeTagGroupDao(private val store: MutableStateFlow<Map<String, Ta
      * The single-row counterpart of [deleteAllForUser]: one tag group of one
      * profile, and nothing else.
      */
-    override suspend fun deleteForUser(id: String, userId: String): Int {
+    override suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int {
         val existing = store.value[id] ?: return 0
         if (existing.userId != userId) return 0
         store.update { it - id }
@@ -2431,18 +3118,27 @@ private class FakeProjectInheritedTagGroupDao(
     private val store: MutableStateFlow<List<ProjectInheritedTagGroupCrossRef>>,
     private val projects: MutableStateFlow<Map<String, ProjectEntity>>,
 ) : ProjectInheritedTagGroupDao {
-    override fun watchByProject(projectId: String, userId: String): Flow<List<String>> = store.map { list ->
-        list.filter { it.projectId == projectId }.map { it.tagGroupId }
-    }
+    override fun watchByProject(
+        projectId: String,
+        userId: String,
+    ): Flow<List<String>> =
+        store.map { list ->
+            list.filter { it.projectId == projectId }.map { it.tagGroupId }
+        }
 
-    override suspend fun getByProject(projectId: String, userId: String): List<String> =
-        store.value.filter { it.projectId == projectId }.map { it.tagGroupId }
+    override suspend fun getByProject(
+        projectId: String,
+        userId: String,
+    ): List<String> = store.value.filter { it.projectId == projectId }.map { it.tagGroupId }
 
     /**
      * The real DAO scopes this through the owning project's `user_id`. This fake
      * holds only the join rows, so ownership cannot be evaluated here.
      */
-    override suspend fun deleteAllForUser(projectId: String, userId: String): Int {
+    override suspend fun deleteAllForUser(
+        projectId: String,
+        userId: String,
+    ): Int {
         val before = store.value.count { it.projectId == projectId }
         store.update { list -> list.filter { it.projectId != projectId } }
         return before
@@ -2454,7 +3150,11 @@ private class FakeProjectInheritedTagGroupDao(
      * applies the insert — the ownership contract is exercised against real
      * SQLite in the repository sync tests instead.
      */
-    override suspend fun insertForUser(projectId: String, tagGroupId: String, userId: String) {
+    override suspend fun insertForUser(
+        projectId: String,
+        tagGroupId: String,
+        userId: String,
+    ) {
         store.update { list ->
             if (list.any { it.projectId == projectId && it.tagGroupId == tagGroupId }) {
                 list
@@ -2465,13 +3165,19 @@ private class FakeProjectInheritedTagGroupDao(
     }
 
     /** No projects table in this fake, so ownership cannot be evaluated. */
-    override suspend fun isProjectOwnedBy(projectId: String, userId: String): Boolean = true
+    override suspend fun isProjectOwnedBy(
+        projectId: String,
+        userId: String,
+    ): Boolean = true
 
     /**
      * Mirrors the real DAO minus the `projects.user_id` sub-select — this fake holds
      * only the join rows, so a group id is removed from every project that has it.
      */
-    override suspend fun deleteByGroupForUser(tagGroupId: String, userId: String): Int {
+    override suspend fun deleteByGroupForUser(
+        tagGroupId: String,
+        userId: String,
+    ): Int {
         val before = store.value.count { it.tagGroupId == tagGroupId }
         store.update { list -> list.filter { it.tagGroupId != tagGroupId } }
         return before
@@ -2484,7 +3190,11 @@ private class FakeProjectInheritedTagGroupDao(
      * `user_id`, because the join table itself carries no owner column.
      */
     override suspend fun deleteAllForUserProjects(userId: String): Int {
-        val owned = projects.value.values.filter { it.userId == userId }.map { it.id }.toSet()
+        val owned =
+            projects.value.values
+                .filter { it.userId == userId }
+                .map { it.id }
+                .toSet()
         val before = store.value.count { it.projectId in owned }
         store.update { list -> list.filterNot { it.projectId in owned } }
         return before
@@ -2507,7 +3217,11 @@ private class FakeProjectInheritedTagGroupDao(
      * holds only the join rows and has no view of the projects table, so it
      * removes the pair it is given.
      */
-    override suspend fun delete(projectId: String, tagGroupId: String, userId: String): Int {
+    override suspend fun delete(
+        projectId: String,
+        tagGroupId: String,
+        userId: String,
+    ): Int {
         val before = store.value.count { it.projectId == projectId && it.tagGroupId == tagGroupId }
         store.update { list ->
             list.filterNot { it.projectId == projectId && it.tagGroupId == tagGroupId }
@@ -2517,9 +3231,10 @@ private class FakeProjectInheritedTagGroupDao(
 }
 
 private class FakeTimeEntryDao(private val store: MutableStateFlow<Map<String, TimeEntryEntity>>) : TimeEntryDao {
-    override fun watchForTask(taskId: String): Flow<List<TimeEntryEntity>> = store.map { map ->
-        map.values.filter { it.taskId == taskId && it.deletedAt == null }.sortedByDescending { it.startedAt }
-    }
+    override fun watchForTask(taskId: String): Flow<List<TimeEntryEntity>> =
+        store.map { map ->
+            map.values.filter { it.taskId == taskId && it.deletedAt == null }.sortedByDescending { it.startedAt }
+        }
 
     override fun watchOpenEntry(userId: String): Flow<TimeEntryEntity?> =
         store.map { map -> map.values.find { it.userId == userId && it.endedAt == null && it.deletedAt == null } }
@@ -2527,45 +3242,69 @@ private class FakeTimeEntryDao(private val store: MutableStateFlow<Map<String, T
     override suspend fun getOpenEntry(userId: String): TimeEntryEntity? =
         store.value.values.find { it.userId == userId && it.endedAt == null && it.deletedAt == null }
 
-    override suspend fun getByIdForUser(id: String, userId: String): TimeEntryEntity? =
-        store.value[id]?.takeIf { it.userId == userId }
+    override suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): TimeEntryEntity? = store.value[id]?.takeIf { it.userId == userId }
 
-    override fun watchForUserInRange(userId: String, startMs: Long, endMs: Long): Flow<List<TimeEntryEntity>> =
+    override fun watchForUserInRange(
+        userId: String,
+        startMs: Long,
+        endMs: Long,
+    ): Flow<List<TimeEntryEntity>> =
         store.map { map ->
-            map.values.filter {
-                it.userId == userId &&
-                    it.startedAt >= startMs &&
-                    it.startedAt < endMs &&
-                    it.deletedAt == null
-            }.sortedByDescending { it.startedAt }
+            map.values
+                .filter {
+                    it.userId == userId &&
+                        it.startedAt >= startMs &&
+                        it.startedAt < endMs &&
+                        it.deletedAt == null
+                }.sortedByDescending { it.startedAt }
         }
 
     override suspend fun upsert(entity: TimeEntryEntity) {
         store.update { map -> map + (entity.id to entity) }
     }
 
-    override suspend fun stopEntry(id: String, endedAt: Long, updatedAt: Long, userId: String): Int {
+    override suspend fun stopEntry(
+        id: String,
+        endedAt: Long,
+        updatedAt: Long,
+        userId: String,
+    ): Int {
         val before = store.value[id]
         if (before == null || before.userId != userId) return 0
         store.update { map -> map + (id to before.copy(endedAt = endedAt, updatedAt = updatedAt)) }
         return 1
     }
 
-    override suspend fun updateNote(id: String, note: String?, updatedAt: Long, userId: String): Int {
+    override suspend fun updateNote(
+        id: String,
+        note: String?,
+        updatedAt: Long,
+        userId: String,
+    ): Int {
         val before = store.value[id] ?: return 0
         if (before.userId != userId) return 0
         store.update { map -> map + (id to before.copy(note = note, updatedAt = updatedAt)) }
         return 1
     }
 
-    override suspend fun softDelete(id: String, deletedAt: Long, userId: String): Int {
+    override suspend fun softDelete(
+        id: String,
+        deletedAt: Long,
+        userId: String,
+    ): Int {
         val before = store.value[id] ?: return 0
         if (before.userId != userId) return 0
         store.update { map -> map + (id to before.copy(deletedAt = deletedAt, updatedAt = deletedAt)) }
         return 1
     }
 
-    override suspend fun delete(id: String, userId: String): Int {
+    override suspend fun delete(
+        id: String,
+        userId: String,
+    ): Int {
         val before = store.value[id] ?: return 0
         if (before.userId != userId) return 0
         store.update { map -> map - id }
@@ -2604,7 +3343,6 @@ private class FakeProposalDao(
     private val proposals: MutableStateFlow<Map<String, AiProposalEntity>>,
     private val items: MutableStateFlow<Map<String, ProposalItemEntity>>,
 ) : ProposalDao {
-
     override suspend fun upsertProposal(entity: AiProposalEntity) {
         proposals.update { it + (entity.id to entity) }
     }
@@ -2617,15 +3355,15 @@ private class FakeProposalDao(
         targetId: String,
         targetKind: String,
         userId: String,
-    ): Flow<List<AiProposalEntity>> = proposals.map { map ->
-        map.values
-            .filter {
-                it.targetId == targetId &&
-                    it.targetKind == targetKind &&
-                    it.userId == userId
-            }
-            .sortedByDescending { it.createdAt }
-    }
+    ): Flow<List<AiProposalEntity>> =
+        proposals.map { map ->
+            map.values
+                .filter {
+                    it.targetId == targetId &&
+                        it.targetKind == targetKind &&
+                        it.userId == userId
+                }.sortedByDescending { it.createdAt }
+        }
 
     /**
      * The proposals that still wait for a decision.
@@ -2636,15 +3374,21 @@ private class FakeProposalDao(
      */
     override fun watchWaitingProposals(userId: String): Flow<List<AiProposalEntity>> =
         combine(proposals, items) { rows, allItems ->
-            rows.values.filter { row ->
-                row.userId == userId &&
-                    allItems.values.any {
-                        it.proposalId == row.id && it.status !in DECIDED_STATUSES
-                    }
-            }.sortedByDescending { it.createdAt }
+            rows.values
+                .filter { row ->
+                    row.userId == userId &&
+                        allItems.values.any {
+                            it.proposalId == row.id && it.status !in DECIDED_STATUSES
+                        }
+                }.sortedByDescending { it.createdAt }
         }
 
-    override suspend fun updateProposalStatus(id: String, status: String, updatedAt: Long, userId: String): Int {
+    override suspend fun updateProposalStatus(
+        id: String,
+        status: String,
+        updatedAt: Long,
+        userId: String,
+    ): Int {
         val before = proposals.value[id] ?: return 0
         if (before.userId != userId) return 0
         proposals.update { it + (id to before.copy(status = status, updatedAt = updatedAt)) }
@@ -2683,10 +3427,14 @@ private class FakeProposalItemDao(
         items.map { map -> map.values.filter { it.proposalId == proposalId }.sortedBy { it.sortOrder } }
 
     override suspend fun getItemsForProposal(proposalId: String): List<ProposalItemEntity> =
-        items.value.values.filter { it.proposalId == proposalId }.sortedBy { it.sortOrder }
+        items.value.values
+            .filter { it.proposalId == proposalId }
+            .sortedBy { it.sortOrder }
 
-    override suspend fun countItemsWithFingerprint(proposalId: String, fingerprint: String): Int =
-        items.value.values.count { it.proposalId == proposalId && it.fingerprint == fingerprint }
+    override suspend fun countItemsWithFingerprint(
+        proposalId: String,
+        fingerprint: String,
+    ): Int = items.value.values.count { it.proposalId == proposalId && it.fingerprint == fingerprint }
 
     override suspend fun claimItem(
         userId: String,
@@ -2705,12 +3453,13 @@ private class FakeProposalItemDao(
         if (proposals.value[before.proposalId]?.userId != userId) return 0
         items.update { map ->
             map + (
-                id to before.copy(
-                    status = status,
-                    decidedAt = decidedAt,
-                    decidedActor = actor,
-                    rejectionReason = reason,
-                )
+                id to
+                    before.copy(
+                        status = status,
+                        decidedAt = decidedAt,
+                        decidedActor = actor,
+                        rejectionReason = reason,
+                    )
             )
         }
         return 1
@@ -2723,35 +3472,45 @@ private class FakeProposalItemDao(
      * confirmed by the actor that is releasing it — because a fake that released any
      * confirmed row would let a second user undo a decision that was not theirs.
      */
-    override suspend fun releaseClaim(userId: String, id: String, actor: String): Int {
+    override suspend fun releaseClaim(
+        userId: String,
+        id: String,
+        actor: String,
+    ): Int {
         val before = items.value[id]
-        val releasable = before != null &&
-            before.status == "Confirmed" &&
-            before.decidedActor == actor &&
-            proposals.value[before.proposalId]?.userId == userId
+        val releasable =
+            before != null &&
+                before.status == "Confirmed" &&
+                before.decidedActor == actor &&
+                proposals.value[before.proposalId]?.userId == userId
         if (before == null || !releasable) return 0
         items.update { map ->
             map + (
-                id to before.copy(
-                    status = "Pending",
-                    decidedAt = null,
-                    decidedActor = null,
-                    rejectionReason = null,
-                )
+                id to
+                    before.copy(
+                        status = "Pending",
+                        decidedAt = null,
+                        decidedActor = null,
+                        rejectionReason = null,
+                    )
             )
         }
         return 1
     }
 
-    override suspend fun retractPendingItems(proposalId: String, userId: String): Int {
+    override suspend fun retractPendingItems(
+        proposalId: String,
+        userId: String,
+    ): Int {
         val owned = proposals.value[proposalId]?.userId == userId
-        val affected = if (owned) {
-            items.value.values.filter {
-                it.proposalId == proposalId && it.status !in DECIDED_STATUSES
+        val affected =
+            if (owned) {
+                items.value.values.filter {
+                    it.proposalId == proposalId && it.status !in DECIDED_STATUSES
+                }
+            } else {
+                emptyList()
             }
-        } else {
-            emptyList()
-        }
         if (affected.isEmpty()) return 0
         items.update { map ->
             map.mapValues { (key, value) ->
@@ -2779,18 +3538,26 @@ private class FakeProposalItemDao(
         if (proposals.value[before.proposalId]?.userId != userId) return 0
         items.update { map ->
             map + (
-                id to before.copy(
-                    kindJson = kindJson,
-                    humanSummary = humanSummary,
-                    fingerprint = fingerprint,
-                )
+                id to
+                    before.copy(
+                        kindJson = kindJson,
+                        humanSummary = humanSummary,
+                        fingerprint = fingerprint,
+                    )
             )
         }
         return 1
     }
 
-    override suspend fun rejectedFingerprints(userId: String, limit: Int): List<String> {
-        val ownerIds = proposals.value.values.filter { it.userId == userId }.map { it.id }.toSet()
+    override suspend fun rejectedFingerprints(
+        userId: String,
+        limit: Int,
+    ): List<String> {
+        val ownerIds =
+            proposals.value.values
+                .filter { it.userId == userId }
+                .map { it.id }
+                .toSet()
         return items.value.values
             .filter { it.proposalId in ownerIds && it.status == "Rejected" }
             .sortedByDescending { it.decidedAt ?: 0L }
@@ -2804,7 +3571,11 @@ private class FakeProposalItemDao(
      * same subquery the real statement uses.
      */
     override suspend fun deleteAllForUser(userId: String): Int {
-        val ownerIds = proposals.value.values.filter { it.userId == userId }.map { it.id }.toSet()
+        val ownerIds =
+            proposals.value.values
+                .filter { it.userId == userId }
+                .map { it.id }
+                .toSet()
         val doomed = items.value.values.filter { it.proposalId in ownerIds }
         items.update { map -> map.filterValues { it.proposalId !in ownerIds } }
         return doomed.size
@@ -2826,12 +3597,15 @@ private class FakeOwnerScopeDao(
     private val projects: MutableStateFlow<Map<String, ProjectEntity>>,
     private val notes: MutableStateFlow<Map<String, NoteEntity>>,
 ) : OwnerScopeDao {
-
     override suspend fun listTaskIdsForOwner(scopedUserIds: List<String>): List<String> =
-        tasks.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        tasks.value.values
+            .filter { it.userId in scopedUserIds }
+            .map { it.id }
 
     override suspend fun listProjectIdsForOwner(scopedUserIds: List<String>): List<String> =
-        projects.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        projects.value.values
+            .filter { it.userId in scopedUserIds }
+            .map { it.id }
 
     override suspend fun countTasks(scopedUserIds: List<String>): Int =
         tasks.value.values.count { it.userId in scopedUserIds }
@@ -2869,41 +3643,58 @@ private class FakeOwnerReassignDao(
     private val deadLetter: MutableStateFlow<Map<String, SyncDeadLetterEntity>>,
     private val shadow: MutableStateFlow<Map<SyncShadowKey, SyncShadowEntity>>,
 ) : OwnerReassignDao {
-
     // ── Data rows: exact equality on the composed scope ───────────────────────
 
-    override suspend fun reassignTasks(from: String, to: String): Int {
+    override suspend fun reassignTasks(
+        from: String,
+        to: String,
+    ): Int {
         failWith()
         val doomed = tasks.value.values.count { it.userId == from }
         tasks.update { current -> current.mapValues { (_, t) -> if (t.userId == from) t.copy(userId = to) else t } }
         return doomed
     }
 
-    override suspend fun reassignNotes(from: String, to: String): Int {
+    override suspend fun reassignNotes(
+        from: String,
+        to: String,
+    ): Int {
         val doomed = notes.value.values.count { it.userId == from }
         notes.update { current -> current.mapValues { (_, n) -> if (n.userId == from) n.copy(userId = to) else n } }
         return doomed
     }
 
-    override suspend fun reassignProjects(from: String, to: String): Int {
+    override suspend fun reassignProjects(
+        from: String,
+        to: String,
+    ): Int {
         val doomed = projects.value.values.count { it.userId == from }
         projects.update { current -> current.mapValues { (_, p) -> if (p.userId == from) p.copy(userId = to) else p } }
         return doomed
     }
 
-    override suspend fun reassignTags(from: String, to: String): Int {
+    override suspend fun reassignTags(
+        from: String,
+        to: String,
+    ): Int {
         val doomed = tags.value.values.count { it.userId == from }
         tags.update { current -> current.mapValues { (_, t) -> if (t.userId == from) t.copy(userId = to) else t } }
         return doomed
     }
 
-    override suspend fun reassignTagGroups(from: String, to: String): Int {
+    override suspend fun reassignTagGroups(
+        from: String,
+        to: String,
+    ): Int {
         val doomed = tagGroups.value.values.count { it.userId == from }
         tagGroups.update { current -> current.mapValues { (_, g) -> if (g.userId == from) g.copy(userId = to) else g } }
         return doomed
     }
 
-    override suspend fun reassignTaskReminders(from: String, to: String): Int {
+    override suspend fun reassignTaskReminders(
+        from: String,
+        to: String,
+    ): Int {
         val doomed = taskReminders.value.values.count { it.userId == from }
         taskReminders.update { current ->
             current.mapValues { (_, r) ->
@@ -2917,7 +3708,10 @@ private class FakeOwnerReassignDao(
         return doomed
     }
 
-    override suspend fun reassignProjectReminders(from: String, to: String): Int {
+    override suspend fun reassignProjectReminders(
+        from: String,
+        to: String,
+    ): Int {
         val doomed = projectReminders.value.values.count { it.userId == from }
         projectReminders.update { current ->
             current.mapValues { (_, r) ->
@@ -2931,7 +3725,10 @@ private class FakeOwnerReassignDao(
         return doomed
     }
 
-    override suspend fun reassignTimeEntries(from: String, to: String): Int {
+    override suspend fun reassignTimeEntries(
+        from: String,
+        to: String,
+    ): Int {
         val doomed = timeEntries.value.values.count { it.userId == from }
         timeEntries.update { current ->
             current.mapValues { (_, e) ->
@@ -2941,7 +3738,10 @@ private class FakeOwnerReassignDao(
         return doomed
     }
 
-    override suspend fun reassignAgendaViews(from: String, to: String): Int {
+    override suspend fun reassignAgendaViews(
+        from: String,
+        to: String,
+    ): Int {
         val doomed = agendaViews.value.values.count { it.userId == from }
         agendaViews.update { current ->
             current.mapValues { (_, v) ->
@@ -2953,7 +3753,10 @@ private class FakeOwnerReassignDao(
 
     // ── Ownership and sync state: exact equality on the bare owner ───────────
 
-    override suspend fun reassignProfiles(fromOwnerId: String, toOwnerId: String): Int {
+    override suspend fun reassignProfiles(
+        fromOwnerId: String,
+        toOwnerId: String,
+    ): Int {
         val doomed = profiles.value.values.count { it.userId == fromOwnerId }
         profiles.update { current ->
             current.mapValues { (_, profile) ->
@@ -2963,7 +3766,10 @@ private class FakeOwnerReassignDao(
         return doomed
     }
 
-    override suspend fun reassignOutbox(fromOwnerId: String, toOwnerId: String): Int {
+    override suspend fun reassignOutbox(
+        fromOwnerId: String,
+        toOwnerId: String,
+    ): Int {
         val doomed = outbox.value.values.count { it.ownerId == fromOwnerId }
         outbox.update { current ->
             current.mapValues { (_, patch) ->
@@ -2973,7 +3779,10 @@ private class FakeOwnerReassignDao(
         return doomed
     }
 
-    override suspend fun reassignDeadLetter(fromOwnerId: String, toOwnerId: String): Int {
+    override suspend fun reassignDeadLetter(
+        fromOwnerId: String,
+        toOwnerId: String,
+    ): Int {
         val doomed = deadLetter.value.values.count { it.ownerId == fromOwnerId }
         deadLetter.update { current ->
             current.mapValues { (_, patch) ->
@@ -2983,7 +3792,10 @@ private class FakeOwnerReassignDao(
         return doomed
     }
 
-    override suspend fun reassignShadows(fromOwnerId: String, toOwnerId: String): Int {
+    override suspend fun reassignShadows(
+        fromOwnerId: String,
+        toOwnerId: String,
+    ): Int {
         val doomed = shadow.value.values.count { it.ownerId == fromOwnerId }
         shadow.update { current ->
             current.mapValues { (_, row) ->
@@ -3022,17 +3834,13 @@ private class FakeOwnerReassignDao(
     override suspend fun countAgendaViews(scopedUserIds: List<String>): Int =
         agendaViews.value.values.count { it.userId in scopedUserIds }
 
-    override suspend fun countProfiles(ownerId: String): Int =
-        profiles.value.values.count { it.userId == ownerId }
+    override suspend fun countProfiles(ownerId: String): Int = profiles.value.values.count { it.userId == ownerId }
 
-    override suspend fun countOutbox(ownerId: String): Int =
-        outbox.value.values.count { it.ownerId == ownerId }
+    override suspend fun countOutbox(ownerId: String): Int = outbox.value.values.count { it.ownerId == ownerId }
 
-    override suspend fun countDeadLetter(ownerId: String): Int =
-        deadLetter.value.values.count { it.ownerId == ownerId }
+    override suspend fun countDeadLetter(ownerId: String): Int = deadLetter.value.values.count { it.ownerId == ownerId }
 
-    override suspend fun countShadows(ownerId: String): Int =
-        shadow.value.values.count { it.ownerId == ownerId }
+    override suspend fun countShadows(ownerId: String): Int = shadow.value.values.count { it.ownerId == ownerId }
 }
 
 /**
@@ -3064,19 +3872,24 @@ private class FakeOwnerEraseDao(
     private val agendaViews: MutableStateFlow<Map<String, AgendaViewEntity>>,
     private val profiles: MutableStateFlow<Map<String, ProfileEntity>>,
 ) : OwnerEraseDao {
-
     // ── Children: scoped through their parent, at call time ───────────────────
 
     /**
      * The `{ id IN taskIds AND user_id IN scopedUserIds }` sub-select the three
      * task-scoped child deletes share, resolved against the store as it is now.
      */
-    private fun parentTaskIds(taskIds: List<String>, scopedUserIds: List<String>): Set<String> =
+    private fun parentTaskIds(
+        taskIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Set<String> =
         tasks.value.values
             .filter { it.id in taskIds && it.userId in scopedUserIds }
             .mapTo(mutableSetOf()) { it.id }
 
-    override suspend fun deleteTagRefs(taskIds: List<String>, scopedUserIds: List<String>): Int {
+    override suspend fun deleteTagRefs(
+        taskIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int {
         val parents = parentTaskIds(taskIds, scopedUserIds)
         val doomed = taskTags.value.filter { it.taskId in parents }
         taskTags.update { refs -> refs.filterNot { it.taskId in parents } }
@@ -3084,7 +3897,10 @@ private class FakeOwnerEraseDao(
     }
 
     /** Both directions: a surviving task must not keep pointing at a deleted one. */
-    override suspend fun deleteDependencies(taskIds: List<String>, scopedUserIds: List<String>): Int {
+    override suspend fun deleteDependencies(
+        taskIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int {
         val parents = parentTaskIds(taskIds, scopedUserIds)
         val doomed = taskDependencies.value.filter { it.taskId in parents || it.dependsOnTaskId in parents }
         taskDependencies.update { refs ->
@@ -3093,7 +3909,10 @@ private class FakeOwnerEraseDao(
         return doomed.size
     }
 
-    override suspend fun deleteChecklistItems(taskIds: List<String>, scopedUserIds: List<String>): Int {
+    override suspend fun deleteChecklistItems(
+        taskIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int {
         val parents = parentTaskIds(taskIds, scopedUserIds)
         val doomed = checklist.value.values.filter { it.taskId in parents }
         checklist.update { current -> current.filterValues { it.taskId !in parents } }
@@ -3101,10 +3920,14 @@ private class FakeOwnerEraseDao(
     }
 
     /** Scoped through `projects`, not `tasks` — the same parent the real query names. */
-    override suspend fun deleteInheritedTagGroups(projectIds: List<String>, scopedUserIds: List<String>): Int {
-        val parents = projects.value.values
-            .filter { it.id in projectIds && it.userId in scopedUserIds }
-            .mapTo(mutableSetOf()) { it.id }
+    override suspend fun deleteInheritedTagGroups(
+        projectIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int {
+        val parents =
+            projects.value.values
+                .filter { it.id in projectIds && it.userId in scopedUserIds }
+                .mapTo(mutableSetOf()) { it.id }
         val doomed = projectTagGroups.value.filter { it.projectId in parents }
         projectTagGroups.update { list -> list.filterNot { it.projectId in parents } }
         return doomed.size
@@ -3113,31 +3936,46 @@ private class FakeOwnerEraseDao(
     // ── Parents: straight membership on `user_id` ─────────────────────────────
 
     override suspend fun deleteTasks(scopedUserIds: List<String>): Int {
-        val doomed = tasks.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        val doomed =
+            tasks.value.values
+                .filter { it.userId in scopedUserIds }
+                .map { it.id }
         tasks.update { current -> current - doomed.toSet() }
         return doomed.size
     }
 
     override suspend fun deleteNotes(scopedUserIds: List<String>): Int {
-        val doomed = notes.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        val doomed =
+            notes.value.values
+                .filter { it.userId in scopedUserIds }
+                .map { it.id }
         notes.update { current -> current - doomed.toSet() }
         return doomed.size
     }
 
     override suspend fun deleteProjects(scopedUserIds: List<String>): Int {
-        val doomed = projects.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        val doomed =
+            projects.value.values
+                .filter { it.userId in scopedUserIds }
+                .map { it.id }
         projects.update { current -> current - doomed.toSet() }
         return doomed.size
     }
 
     override suspend fun deleteTags(scopedUserIds: List<String>): Int {
-        val doomed = tags.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        val doomed =
+            tags.value.values
+                .filter { it.userId in scopedUserIds }
+                .map { it.id }
         tags.update { current -> current - doomed.toSet() }
         return doomed.size
     }
 
     override suspend fun deleteTagGroups(scopedUserIds: List<String>): Int {
-        val doomed = tagGroups.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        val doomed =
+            tagGroups.value.values
+                .filter { it.userId in scopedUserIds }
+                .map { it.id }
         tagGroups.update { current -> current - doomed.toSet() }
         return doomed.size
     }
@@ -3155,38 +3993,57 @@ private class FakeOwnerEraseDao(
     }
 
     override suspend fun deleteTimeEntries(scopedUserIds: List<String>): Int {
-        val doomed = timeEntries.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        val doomed =
+            timeEntries.value.values
+                .filter { it.userId in scopedUserIds }
+                .map { it.id }
         timeEntries.update { current -> current - doomed.toSet() }
         return doomed.size
     }
 
     override suspend fun deleteAgendaViews(scopedUserIds: List<String>): Int {
-        val doomed = agendaViews.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        val doomed =
+            agendaViews.value.values
+                .filter { it.userId in scopedUserIds }
+                .map { it.id }
         agendaViews.update { current -> current - doomed.toSet() }
         return doomed.size
     }
 
     // ── Preview (count without delete) ────────────────────────────────────────
 
-    override suspend fun countTagRefs(taskIds: List<String>, scopedUserIds: List<String>): Int {
+    override suspend fun countTagRefs(
+        taskIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int {
         val parents = parentTaskIds(taskIds, scopedUserIds)
         return taskTags.value.count { it.taskId in parents }
     }
 
-    override suspend fun countDependencies(taskIds: List<String>, scopedUserIds: List<String>): Int {
+    override suspend fun countDependencies(
+        taskIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int {
         val parents = parentTaskIds(taskIds, scopedUserIds)
         return taskDependencies.value.count { it.taskId in parents || it.dependsOnTaskId in parents }
     }
 
-    override suspend fun countChecklistItems(taskIds: List<String>, scopedUserIds: List<String>): Int {
+    override suspend fun countChecklistItems(
+        taskIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int {
         val parents = parentTaskIds(taskIds, scopedUserIds)
         return checklist.value.values.count { it.taskId in parents }
     }
 
-    override suspend fun countInheritedTagGroups(projectIds: List<String>, scopedUserIds: List<String>): Int {
-        val parents = projects.value.values
-            .filter { it.id in projectIds && it.userId in scopedUserIds }
-            .mapTo(mutableSetOf()) { it.id }
+    override suspend fun countInheritedTagGroups(
+        projectIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int {
+        val parents =
+            projects.value.values
+                .filter { it.id in projectIds && it.userId in scopedUserIds }
+                .mapTo(mutableSetOf()) { it.id }
         return projectTagGroups.value.count { it.projectId in parents }
     }
 
@@ -3217,8 +4074,7 @@ private class FakeOwnerEraseDao(
     override suspend fun countAgendaViews(scopedUserIds: List<String>): Int =
         agendaViews.value.values.count { it.userId in scopedUserIds }
 
-    override suspend fun countProfiles(ownerId: String): Int =
-        profiles.value.values.count { it.userId == ownerId }
+    override suspend fun countProfiles(ownerId: String): Int = profiles.value.values.count { it.userId == ownerId }
 }
 
 /**

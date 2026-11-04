@@ -39,7 +39,6 @@ import kotlin.test.assertTrue
  */
 @Tag("slow")
 class Migration46To47Test {
-
     private lateinit var tempDir: File
     private lateinit var dbPath: String
 
@@ -92,90 +91,98 @@ class Migration46To47Test {
     }
 
     @Test
-    fun `the column exists after the upgrade`() = runTest {
-        val db = openMigrated()
-        try {
-            val columns = db.useConnection(isReadOnly = true) { transactor ->
-                transactor.usePrepared("PRAGMA table_info(tasks)") { statement ->
-                    buildList {
-                        while (statement.step()) {
-                            add(statement.getText(1))
+    fun `the column exists after the upgrade`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val columns =
+                    db.useConnection(isReadOnly = true) { transactor ->
+                        transactor.usePrepared("PRAGMA table_info(tasks)") { statement ->
+                            buildList {
+                                while (statement.step()) {
+                                    add(statement.getText(1))
+                                }
+                            }
                         }
                     }
-                }
-            }
 
-            assertTrue(
-                "workflow_state" in columns,
-                "the upgrade must add the column the task model reads: $columns",
-            )
-        } finally {
-            db.close()
+                assertTrue(
+                    "workflow_state" in columns,
+                    "the upgrade must add the column the task model reads: $columns",
+                )
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `a task that predates the upgrade reads back as claiming nothing`() = runTest {
-        val db = openMigrated()
-        try {
-            val state = db.useConnection(isReadOnly = true) { transactor ->
-                transactor.usePrepared("SELECT workflow_state FROM tasks WHERE id = 't-old'") { statement ->
-                    assertTrue(statement.step(), "the task must survive the upgrade")
-                    statement.getText(0)
-                }
-            }
+    fun `a task that predates the upgrade reads back as claiming nothing`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val state =
+                    db.useConnection(isReadOnly = true) { transactor ->
+                        transactor.usePrepared("SELECT workflow_state FROM tasks WHERE id = 't-old'") { statement ->
+                            assertTrue(statement.step(), "the task must survive the upgrade")
+                            statement.getText(0)
+                        }
+                    }
 
-            assertEquals(
-                "Open",
-                state,
-                "a task that existed before the upgrade has had nothing claimed about it",
-            )
-        } finally {
-            db.close()
+                assertEquals(
+                    "Open",
+                    state,
+                    "a task that existed before the upgrade has had nothing claimed about it",
+                )
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `a state can be set after the upgrade`() = runTest {
-        val db = openMigrated()
-        try {
-            db.useConnection(isReadOnly = false) { transactor ->
-                transactor.usePrepared(
-                    "UPDATE tasks SET workflow_state = 'InProgress' WHERE id = 't-old'",
-                ) { it.step() }
-            }
-
-            val state = db.useConnection(isReadOnly = true) { transactor ->
-                transactor.usePrepared("SELECT workflow_state FROM tasks WHERE id = 't-old'") { statement ->
-                    assertTrue(statement.step())
-                    statement.getText(0)
+    fun `a state can be set after the upgrade`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                db.useConnection(isReadOnly = false) { transactor ->
+                    transactor.usePrepared(
+                        "UPDATE tasks SET workflow_state = 'InProgress' WHERE id = 't-old'",
+                    ) { it.step() }
                 }
-            }
 
-            assertEquals("InProgress", state, "the column must be writable after the upgrade")
-        } finally {
-            db.close()
+                val state =
+                    db.useConnection(isReadOnly = true) { transactor ->
+                        transactor.usePrepared("SELECT workflow_state FROM tasks WHERE id = 't-old'") { statement ->
+                            assertTrue(statement.step())
+                            statement.getText(0)
+                        }
+                    }
+
+                assertEquals("InProgress", state, "the column must be writable after the upgrade")
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `a note that points at a task keeps that task after the upgrade`() = runTest {
-        val db = openMigrated()
-        try {
-            val row = db.useConnection(isReadOnly = true) { transactor ->
-                transactor.usePrepared("SELECT task_id FROM notes WHERE id = 'n-old'") { statement ->
-                    assertTrue(statement.step(), "the note must survive the upgrade")
-                    if (statement.isNull(0)) null else statement.getText(0)
-                }
-            }
+    fun `a note that points at a task keeps that task after the upgrade`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val row =
+                    db.useConnection(isReadOnly = true) { transactor ->
+                        transactor.usePrepared("SELECT task_id FROM notes WHERE id = 'n-old'") { statement ->
+                            assertTrue(statement.step(), "the note must survive the upgrade")
+                            if (statement.isNull(0)) null else statement.getText(0)
+                        }
+                    }
 
-            assertEquals(
-                "t-old",
-                row,
-                "adding a column must not cost the note the task it points at",
-            )
-        } finally {
-            db.close()
+                assertEquals(
+                    "t-old",
+                    row,
+                    "adding a column must not cost the note the task it points at",
+                )
+            } finally {
+                db.close()
+            }
         }
-    }
 }

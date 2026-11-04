@@ -44,7 +44,6 @@ data class AdrMcpToolSpec(val command: String, val tool: String)
  * anyone restating it. The catalogue names them; the classes describe them.
  */
 object AdrSurface {
-
     /**
      * Subcommands, in the order `help` lists them.
      *
@@ -55,25 +54,27 @@ object AdrSurface {
      * prevent. Wrapping these across lines is not a style preference; it breaks the
      * gate that keeps the skill honest.
      */
-    val commands: List<AdrCommandSpec> = listOf(
-        AdrCommandSpec("new", "new <slug> <title> [tag ...]", "write a new decision"),
-        AdrCommandSpec("list", "list", "every decision in the corpus"),
-        AdrCommandSpec("list-open", "list-open", "deferred backlog entries still open"),
-        AdrCommandSpec("read", "read <slug>", "one decision, with its body"),
-        AdrCommandSpec("search", "search <query>", "find decisions by title, tags or body"),
-        AdrCommandSpec("update", "update <slug> <status> [by]", "change status, never the body (#509)"),
-        AdrCommandSpec("stale", "stale [--days N] [--status S]", "what the gate will reject next (#521)"),
-        AdrCommandSpec("prune", "prune [--keep slug]", "uncited decisions, never deleted (#525)"),
-        AdrCommandSpec("validate", "validate", "run the repository's ADR status gate"),
-        AdrCommandSpec("version", "version [--check]", "which build this is, and does it match the checkout"),
-        AdrCommandSpec("upgrade", "upgrade [--check|--force]", "rebuild this binary when it no longer matches"),
-    )
+    val commands: List<AdrCommandSpec> =
+        listOf(
+            AdrCommandSpec("new", "new <slug> <title> [tag ...]", "write a new decision"),
+            AdrCommandSpec("list", "list", "every decision in the corpus"),
+            AdrCommandSpec("list-open", "list-open", "deferred backlog entries still open"),
+            AdrCommandSpec("read", "read <slug>", "one decision, with its body"),
+            AdrCommandSpec("search", "search <query>", "find decisions by title, tags or body"),
+            AdrCommandSpec("update", "update <slug> <status> [by]", "change status, never the body (#509)"),
+            AdrCommandSpec("stale", "stale [--days N] [--status S]", "what the gate will reject next (#521)"),
+            AdrCommandSpec("prune", "prune [--keep slug]", "uncited decisions, never deleted (#525)"),
+            AdrCommandSpec("validate", "validate", "run the repository's ADR status gate"),
+            AdrCommandSpec("version", "version [--check]", "which build this is, and does it match the checkout"),
+            AdrCommandSpec("upgrade", "upgrade [--check|--force]", "rebuild this binary when it no longer matches"),
+        )
 
     /** Flags that apply to every subcommand. One per line, for the same reason. */
-    val globalFlags: List<AdrFlagSpec> = listOf(
-        AdrFlagSpec("--json", "machine-readable output on every command (#524)"),
-        AdrFlagSpec("--review-by", "YYYY-MM-DD on update: when this is due to be revisited (#527)"),
-    )
+    val globalFlags: List<AdrFlagSpec> =
+        listOf(
+            AdrFlagSpec("--json", "machine-readable output on every command (#524)"),
+            AdrFlagSpec("--review-by", "YYYY-MM-DD on update: when this is due to be revisited (#527)"),
+        )
 
     /** Commands whose result is safe to consume from a script. */
     val jsonCommands: List<String> = commands.map { it.name }
@@ -90,14 +91,15 @@ object AdrSurface {
      * **One declaration per line**, for the same reason the commands are one per
      * line: the renderer refuses a declaration it cannot read rather than skipping it.
      */
-    val mcpTools: List<AdrMcpToolSpec> = listOf(
-        AdrMcpToolSpec("new", "write_adr"),
-        AdrMcpToolSpec("list", "list_adrs"),
-        AdrMcpToolSpec("list-open", "list_open_deferred"),
-        AdrMcpToolSpec("read", "read_adr"),
-        AdrMcpToolSpec("update", "update_adr"),
-        AdrMcpToolSpec("search", "search_decisions"),
-    )
+    val mcpTools: List<AdrMcpToolSpec> =
+        listOf(
+            AdrMcpToolSpec("new", "write_adr"),
+            AdrMcpToolSpec("list", "list_adrs"),
+            AdrMcpToolSpec("list-open", "list_open_deferred"),
+            AdrMcpToolSpec("read", "read_adr"),
+            AdrMcpToolSpec("update", "update_adr"),
+            AdrMcpToolSpec("search", "search_decisions"),
+        )
 
     /** One `help` line per command, padded to a common column. */
     fun usageLines(): List<String> {

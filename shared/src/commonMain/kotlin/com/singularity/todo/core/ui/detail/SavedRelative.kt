@@ -13,7 +13,10 @@ import kotlin.time.Instant
  * @param lastEditedAt The instant of the last edit, or `null` if never edited.
  * @return Human-readable relative string, or empty string if `lastEditedAt` is `null`.
  */
-fun formatSavedRelative(clock: Clock, lastEditedAt: Instant?): String {
+fun formatSavedRelative(
+    clock: Clock,
+    lastEditedAt: Instant?,
+): String {
     if (lastEditedAt == null) return ""
     val now = clock.now()
     val diffMs = now.toEpochMilliseconds() - lastEditedAt.toEpochMilliseconds()
