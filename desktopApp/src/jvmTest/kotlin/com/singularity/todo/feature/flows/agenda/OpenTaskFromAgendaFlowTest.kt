@@ -84,7 +84,7 @@ class OpenTaskFromAgendaFlowTest {
             scrollToTag(TestTags.TASK_EDITOR_DUE_ROW)
             assertTagDisplayed(TestTags.TASK_EDITOR_DUE_ROW)
             assertTextDisplayed(today.toString())
-            assertTextNotExists("Добавить дату")
+            assertTextNotExists("Add date")
         }
 
     @Test

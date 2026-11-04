@@ -22,6 +22,9 @@ import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.priority
 
 /**
  * Hosts all bottom sheets for [TaskEditorContent].
@@ -99,7 +102,7 @@ fun TaskEditorSheetsHost(
         // ── Priority ─────────────────────────────────────────────────────────
         is TaskEditorSheet.Priority -> {
             TaskEditorSheetHost(
-                title = "Приоритет",
+                title = stringResource(Res.string.priority),
                 onClose = onSheetDismiss,
             ) {
                 TaskEditorPrioritySheet(

@@ -16,6 +16,9 @@ import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColor
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.task_description_placeholder
 
 /**
  * Многострочное поле описания. Реальный текстовый ввод вместо статичного
@@ -47,7 +50,7 @@ fun TaskDescriptionField(
         decorator = { innerTextField ->
             if (descriptionState.text.isEmpty()) {
                 Text(
-                    text = "Введите описание задачи...",
+                    text = stringResource(Res.string.task_description_placeholder),
                     color = placeholderTextColor(),
                     fontSize = 16.sp,
                     lineHeight = 22.sp,

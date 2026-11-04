@@ -25,7 +25,7 @@ import kotlin.test.Test
 @Tag("fast")
 class TaskMetaRowBadgeTest {
     /** The repeat badge's accessible name — what a screen reader reads for the mark. */
-    private val repeat = hasContentDescription("Повторяющаяся задача")
+    private val repeat = hasContentDescription("Recurring task")
 
     // ─── The repeat badge ─────────────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ class TaskMetaRowBadgeTest {
                 )
             }
 
-            assertContentDescriptionNotExists("Повторяющаяся задача")
+            assertContentDescriptionNotExists("Recurring task")
         }
 
     @Test

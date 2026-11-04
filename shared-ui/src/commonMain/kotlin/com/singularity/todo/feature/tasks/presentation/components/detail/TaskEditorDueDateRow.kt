@@ -31,6 +31,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import org.jetbrains.compose.resources.stringResource
 import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.add_date
 import singularity_todo.shared.generated.resources.reset_date
 
 /**
@@ -118,12 +119,13 @@ fun TaskEditorDueDateRow(
  * the time next to it. Several dates read as a list, because a row that showed
  * only the first of them would hide the fact that there are others.
  */
+@Composable
 private fun dueDateRowLabel(
     date: LocalDate?,
     time: LocalTime?,
     dates: List<LocalDate>,
 ): String {
-    if (date == null) return "Добавить дату"
+    if (date == null) return stringResource(Res.string.add_date)
     if (dates.size > 1) return formatRussianDateList(dates)
     return formatRussianDueDateWithTime(date, time)
 }
