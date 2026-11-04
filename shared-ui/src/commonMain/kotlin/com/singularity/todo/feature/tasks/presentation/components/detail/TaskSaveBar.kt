@@ -62,11 +62,22 @@ fun TaskSaveBar(
                 //
                 // The label gives way to the spinner: a button that says
                 // "Сохранить" while it is busy says the save has not started.
-                // The caller keeps `enabled` false while saving (`isSaveEnabled`
-                // is `validationError == null && !isSaving`), so the spinner
-                // cannot be tapped into a second save.
+                // The caller keeps `enabled` false while a save is in flight, so
+                // the spinner cannot be tapped into a second save.
+                //
+                // The spinner carries its own `contentDescription`. It replaces
+                // the Button's only `Text`, and a Button whose children say
+                // nothing is announced by TalkBack as an unlabelled button for
+                // the length of every save — the moment a person most needs to
+                // be told that something is happening. The label is not kept
+                // beside it because the bar is 52dp and the two together do not
+                // fit at the largest font scale; the description says the same
+                // words to the only reader that needs them.
                 ButtonSpinner(
-                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_SAVING),
+                    modifier =
+                        Modifier
+                            .testTag(TestTags.TASK_EDITOR_SAVING)
+                            .semantics { contentDescription = "Сохранение" },
                 )
             } else {
                 Text(

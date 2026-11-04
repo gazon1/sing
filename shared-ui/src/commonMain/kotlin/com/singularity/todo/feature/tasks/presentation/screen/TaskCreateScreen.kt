@@ -97,24 +97,28 @@ fun TaskCreateScreen(
     // would point at the wrong control, and would do it while the snackbar said
     // the same sentence.
     //
-    // *Whether* any — `state.error != null`. The slot is recomputed from
-    // `validate` on every draft change (`DraftMviViewModel.pushUiState`), so it
-    // is non-null exactly when the editor has something to say: the person has
-    // edited the draft, or a save was refused. The first pass after restore
-    // deliberately leaves it null, so nothing is drawn on a screen nobody has
-    // touched yet. Gating on the rule's own answer instead would draw
-    // "Title is required" from the first frame — the create draft starts blank —
-    // and the message would stop meaning "you are in the middle of something".
-    // Note there is no save-attempt gate to use: a blank title makes the draft
-    // invalid, which disables the button, so a save attempt is not a thing the
-    // person can make.
-    //
-    // And the message does not vanish on the first keystroke while the title is
-    // still blank: `error` is not a one-shot that `updateDraft` clears, it is
-    // rewritten from `validate` each time, so it stays as long as the title is
+    // *Whether* any — whenever the rule says the title cannot be saved, from the
+    // first frame, with no "has the draft been edited?" gate on top. The gate
+    // this used to have (`state.error != null`, non-null only after an edit)
+    // left exactly the screen the report is about: a fresh create screen with a
+    // blank title drew a grey, disabled "Сохранить" and nothing else, so the one
+    // thing the person needed to be told was the one thing not on screen. A
+    // blank title is not an opinion about an edit in progress; it is a title
+    // that cannot be saved, and the field says so for as long as that is true.
+    // The message does not flicker on the first keystroke either — the rule is
+    // re-asked of the draft on every change, so it stays until the title is not
     // blank and goes the moment it is not.
+    //
+    // And the save button is pressable with a blank title (`isEnabled` below):
+    // the batched brief's first acceptance criterion is about a save *attempt*
+    // with an empty title, and an attempt needs a button that accepts the press.
+    // The attempt runs the same rule, writes the same string into the error
+    // slot, and the snackbar below suppresses it because it is already under the
+    // field — so pressing Save on a blank title says the same thing twice in
+    // neither place. Disabling the button instead would have made the criterion
+    // untestable and the grey button unexplained.
     val validationError = TaskTitleValidation.error(state.draft.title.text)
-    val titleError = validationError.takeIf { state.error != null }
+    val titleError = validationError
     LaunchedEffect(state.error, validationError) {
         val error = state.error ?: return@LaunchedEffect
         // A validation failure is already under the field, where it can be read
@@ -261,7 +265,16 @@ fun TaskCreateScreen(
                 dependencies = null,
                 bottomBar = {
                     TaskSaveBar(
-                        isEnabled = state.isSaveEnabled,
+                        // Enabled while the draft is valid, and also while the only
+                        // thing wrong with it is the title — that gap is the save
+                        // attempt the batched brief's first criterion is about, and
+                        // the field under it already says why the attempt will be
+                        // refused. A button disabled by the same rule that is
+                        // explained two rows above it would be a grey control with
+                        // no next step; a pressable one answers the press with the
+                        // same sentence, inline. `!isSaving` stays in front: a save
+                        // in flight must not be tappable into a second one.
+                        isEnabled = !state.isSaving && (state.isSaveEnabled || titleError != null),
                         isLoading = state.isSaving,
                         onSaveClick = { vm.onIntent(TaskCreateIntent.SaveClicked) },
                     )
