@@ -37,4 +37,49 @@ class ScreenActionsHolder {
     var onExitSelection: (() -> Unit)? by mutableStateOf(null)
 }
 
+/**
+ * Which of the three candidates fills the shell bar's title slot.
+ *
+ * The bar has one title and three candidates for it: the selection count, a
+ * title a screen published, and the destination's own name. The precedence
+ * between them lived inline in the Android shell's bar, where no test could
+ * reach it; it lives here, and the bar draws whatever this answers.
+ */
+sealed interface ShellBarTitleSource {
+    /** Selection mode: the bar says how many items are selected. */
+    data class Selection(val text: String) : ShellBarTitleSource
+
+    /** The screen's own title: the bar draws the composable the screen published. */
+    data object Published : ShellBarTitleSource
+
+    /** Nothing else wins: the bar says where the user is. */
+    data class Destination(val text: String) : ShellBarTitleSource
+}
+
+/**
+ * Decides what the shell bar's title says.
+ *
+ * [overrideShell] is the screen's "replace the shell's title" flag and
+ * [hasPublishedTitle] says whether it actually published one. The flag alone
+ * does not win: a screen that asked for the override and published nothing
+ * leaves the destination's name in place, and so does a screen that published a
+ * title without asking — the bar must not be handed a title it was not told to
+ * use. That last combination is the one nothing pinned, and the one that once
+ * lost the agenda's greeting.
+ *
+ * Precedence: [selectionTitle] wins over everything, then a published title
+ * taken with the override, otherwise [destinationTitle].
+ */
+fun resolveShellBarTitleSource(
+    selectionTitle: String?,
+    overrideShell: Boolean,
+    hasPublishedTitle: Boolean,
+    destinationTitle: String,
+): ShellBarTitleSource =
+    when {
+        selectionTitle != null -> ShellBarTitleSource.Selection(selectionTitle)
+        overrideShell && hasPublishedTitle -> ShellBarTitleSource.Published
+        else -> ShellBarTitleSource.Destination(destinationTitle)
+    }
+
 val LocalScreenActions = compositionLocalOf<ScreenActionsHolder?> { null }
