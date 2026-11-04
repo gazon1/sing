@@ -17,6 +17,12 @@ tags:
     visible:
       id: plans_granularity_day
     timeout: 8000
+# The seeded row is waited for, not asserted bare: the seed helper waits for
+# the shell, not for the row it wrote.
+- extendedWaitUntil:
+    visible:
+      id: task_item_due_today
+    timeout: 8000
 # The week granularity replaces the day sections with the week they belong to.
 - tapOn:
     id: plans_granularity_week

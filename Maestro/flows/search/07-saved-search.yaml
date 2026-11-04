@@ -43,6 +43,12 @@ tags:
     visible:
       id: task_item_savedalpha2026
     timeout: 8000
+# Both seeded rows are waited for, not asserted bare: the seed helper waits for
+# the shell, not for the rows it wrote.
+- extendedWaitUntil:
+    visible:
+      id: task_item_savedbeta2026
+    timeout: 8000
 
 # Open save dialog via the "Save" chip.
 - tapOn:

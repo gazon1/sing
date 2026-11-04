@@ -71,6 +71,12 @@ tags:
     visible:
       id: agenda_section_blocked
     timeout: 8000
+# The seeded row is waited for, not asserted bare: the seed helper waits for
+# the shell, not for the row it wrote.
+- extendedWaitUntil:
+    visible:
+      id: task_item_${RUN_ID}_blocked_task
+    timeout: 8000
 - assertVisible:
     id: agenda_section_blocked
 # Back to Statistics via system back (agenda screen has no in-app back button).
@@ -93,6 +99,12 @@ tags:
     visible:
       id: agenda_section_not_touched_in_a_while
     timeout: 8000
+# The seeded row is waited for, not asserted bare: the seed helper waits for
+# the shell, not for the row it wrote.
+- extendedWaitUntil:
+    visible:
+      id: task_item_${RUN_ID}_stagnant_task
+    timeout: 8000
 - assertVisible:
     id: agenda_section_not_touched_in_a_while
 # Back to Statistics via system back (agenda screen has no in-app back button).
@@ -114,6 +126,12 @@ tags:
 - extendedWaitUntil:
     visible:
       id: agenda_section_overdue
+    timeout: 8000
+# The seeded row is waited for, not asserted bare: the seed helper waits for
+# the shell, not for the row it wrote.
+- extendedWaitUntil:
+    visible:
+      id: task_item_${RUN_ID}_overdue_task
     timeout: 8000
 - assertVisible:
     id: agenda_section_overdue

@@ -22,10 +22,11 @@
 # ## The contract: this helper waits for the shell, not for the seeded entity
 #
 # The helper waits for the agenda shell (the bottom bar) and returns. It does
-# NOT wait for the row the seed wrote, and it cannot: a link seeds one kind of
-# entity, but not always one the helper can name — a note or a project is given
-# a generated id, a seed owns the row of its title (seeding the same title
-# again updates that row), and `session=anonymous` creates no entity at all.
+# NOT wait for the row the seed wrote, and it cannot: a query may write more
+# than one row, and the row it writes is not always one the helper can name —
+# a note or a project is given a generated id, a seed owns the row of its title
+# (seeding the same title again updates that row), and `session=anonymous`
+# creates no entity at all.
 #
 # The shell wait is only meaningful when the link cold-starts the app. In a
 # flow that has already launched the app — every flow that starts with

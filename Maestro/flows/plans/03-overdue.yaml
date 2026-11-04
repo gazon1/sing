@@ -17,3 +17,9 @@ tags:
     visible:
       id: plans_section_overdue
     timeout: 8000
+# The seeded row is waited for, not asserted bare: the seed helper waits for
+# the shell, not for the row it wrote.
+- extendedWaitUntil:
+    visible:
+      id: task_item_late_task
+    timeout: 8000

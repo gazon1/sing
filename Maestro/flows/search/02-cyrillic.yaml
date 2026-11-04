@@ -12,9 +12,8 @@ tags:
   - scenario:SEARCH-02
 ---
 # Seed a task with a Cyrillic title.
-# `due=today`: a task without a due date lands in the "No Date" bucket,
-# which the Today tab does not show — the flow would assert against a task
-# it had seeded and could not see.
+# `due=today` dates the task, so it belongs to today's work rather than to
+# the "No Date" bucket an undated task lands in.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
@@ -33,13 +32,19 @@ tags:
       id: search_input
     timeout: 5000
 
-# Type the Cyrillic task title (ASCII equivalent of the seeded title).
+# Type the transliteration of the seeded title: Maestro's inputText cannot
+# type Cyrillic, so the query goes in as Latin letters.
 - tapOn:
     id: search_input
 - inputText: "Pokupki"
 
 # The task with Cyrillic title must appear in results.
+#
+# The row's id keeps the title's own slug, and the slug is Unicode-aware: a
+# non-Latin title stays addressable instead of collapsing into an empty tag.
+# The id is therefore the Cyrillic slug of the title, not a Latin spelling of
+# it — the Latin spelling names a row that does not exist.
 - extendedWaitUntil:
     visible:
-      id: task_item_pokupki
+      id: task_item_покупки
     timeout: 8000
