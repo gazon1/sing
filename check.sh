@@ -676,8 +676,15 @@ if [[ "${RUN_MAESTRO:-0}" == "1" ]]; then
         # ends up green against a build that does not contain the fix it is
         # supposed to be verifying. Set SKIP_INSTALL=1 only when you know the
         # device is intact and the APK on it is the one you just built.
+        #
+        # `./rm`, not `run-maestro`: the console script is an editable install,
+        # and it belongs to whichever checkout was installed last. The runner
+        # resolves its root from the installed package's file, so the bare
+        # command reads another checkout's flows and installs another checkout's
+        # APK — and reports the result against this one. See `rm` and
+        # scripts/package-binding.py.
         SERIAL="${SERIAL:-}" TAGS="${MAESTRO_TAGS:-smoke}" SKIP_INSTALL="${SKIP_INSTALL:-0}" \
-            run-maestro || {
+            ./rm || {
             echo -e "${RED}Maestro flows FAILED${NC}"
             exit 1
         }

@@ -22,12 +22,33 @@ import os
 import pathlib
 import re
 import subprocess
+import tempfile
 import unittest
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 WRAPPER = REPO / "rm"
 JUST_TESTS = REPO / ".just" / "tests" / "mod.just"
 JUST_TRACEABILITY = REPO / ".just" / "traceability" / "mod.just"
+CHECK_SH = REPO / "check.sh"
+
+#: The bare console scripts, as they are written on a line of their own. A
+#: recipe that calls one of them measures whichever checkout was installed last.
+BARE_CALL = re.compile(r"^(run-maestro|ensure-emulator|python3 -m traceability)\b")
+
+#: A stand-in for the binding, in a tree where one package does not resolve to
+#: it. The wrapper loads the binding by path, so a tree can carry its own.
+FOREIGN_BINDING = '''
+def bind_local_package(root):
+    return root
+
+
+def foreign_packages(root):
+    return ["emulator"]
+
+
+def package_origin(package):
+    return None
+'''
 
 
 def _run(*arguments: str) -> subprocess.CompletedProcess:
@@ -74,13 +95,12 @@ class RmWrapperTest(unittest.TestCase):
 
     def test_the_just_recipes_go_through_the_wrapper(self) -> None:
         """The recipes must not call the console scripts from PATH."""
-        bare = re.compile(r"^(run-maestro|ensure-emulator|python3 -m traceability)\b")
         for path in (JUST_TESTS, JUST_TRACEABILITY):
             text = path.read_text(encoding="utf-8")
             for line in text.splitlines():
                 stripped = line.strip()
                 self.assertIsNone(
-                    bare.match(stripped),
+                    BARE_CALL.match(stripped),
                     f"{path.name} calls the installed package instead of the wrapper: {stripped!r}",
                 )
             self.assertIn(
@@ -89,14 +109,65 @@ class RmWrapperTest(unittest.TestCase):
                 f"{path.name} does not go through the wrapper at all",
             )
 
-    def test_the_traceability_recipes_do_not_use_the_bare_module(self) -> None:
-        text = JUST_TRACEABILITY.read_text(encoding="utf-8")
-        self.assertNotIn(
-            "python3 -m traceability",
+    def test_the_check_script_goes_through_the_wrapper(self) -> None:
+        """`check.sh` runs the Maestro lane too, and it must be this checkout's."""
+        text = CHECK_SH.read_text(encoding="utf-8")
+        for line in text.splitlines():
+            stripped = line.strip()
+            self.assertIsNone(
+                BARE_CALL.match(stripped),
+                f"check.sh calls the installed package instead of the wrapper: {stripped!r}",
+            )
+        self.assertIn(
+            "./rm",
             text,
-            "the traceability recipes resolve the installed package, which belongs "
-            "to whichever checkout was installed last",
+            "check.sh does not go through the wrapper at all",
         )
+
+    def test_it_refuses_when_a_package_does_not_resolve_here(self) -> None:
+        """A run against another checkout is not a red run — it is no run at all."""
+        with tempfile.TemporaryDirectory() as tree:
+            root = pathlib.Path(tree)
+            (root / "scripts").mkdir()
+            (root / "rm").write_text(WRAPPER.read_text(encoding="utf-8"), encoding="utf-8")
+            os.chmod(root / "rm", 0o755)
+            (root / "scripts" / "package-binding.py").write_text(
+                FOREIGN_BINDING, encoding="utf-8"
+            )
+            result = subprocess.run(
+                [str(root / "rm"), "--dry-run", "--tags", "tasks"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                stdin=subprocess.DEVNULL,
+            )
+
+        self.assertEqual(
+            2,
+            result.returncode,
+            f"the wrapper ran instead of refusing: {result.stdout.strip()[:200]}",
+        )
+        self.assertIn(
+            "emulator",
+            result.stderr,
+            "the refusal does not name the package that does not resolve here",
+        )
+
+    def test_the_traceability_recipes_do_not_use_the_bare_module(self) -> None:
+        """The bare module invocation is banned — in a recipe and in a comment alike.
+
+        The check is per line rather than over the whole file: a comment that
+        *names* the bare invocation is how a reader learns to type it, and the
+        prose around it in this very file does that.
+        """
+        text = JUST_TRACEABILITY.read_text(encoding="utf-8")
+        for line in text.splitlines():
+            self.assertNotIn(
+                "python3 -m traceability",
+                line,
+                "the traceability recipes name the installed package instead of "
+                "the wrapper",
+            )
 
 
 if __name__ == "__main__":

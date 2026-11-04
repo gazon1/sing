@@ -66,9 +66,10 @@ for the Maestro lane, and recipes that went through the wrapper.
 3. The wrapper refuses to run when a package does not resolve to this checkout,
    and says which one. A run that measures the wrong tree is not a red run — it
    is no run at all.
-4. The `just` recipes call the wrapper: `ui-maestro` and `gate-maestro` use
-   `./rm`, and the traceability recipes use `./rm traceability` instead of
-   `python3 -m traceability`.
+4. The callers call the wrapper: `ui-maestro` and `gate-maestro` use `./rm`,
+   the traceability recipes use `./rm traceability` instead of
+   `python3 -m traceability`, and `check.sh`'s opt-in Maestro lane uses `./rm`
+   instead of the `run-maestro` console script.
 
 ## Rationale
 
@@ -92,6 +93,8 @@ for the Maestro lane, and recipes that went through the wrapper.
 - `just ui-maestro`, `just gate-maestro` and the `just trace-*` recipes run
   this checkout's flows, install this checkout's APK and read this checkout's
   `build/maestro-results`.
+- `check.sh`'s opt-in Maestro lane (`RUN_MAESTRO=1`) runs this checkout's
+  flows too, instead of the flows of whichever checkout was installed last.
 - The Maestro lane joins the gate lane: the checkout is named by the tool that
   runs it (`./rm whereami`), not only by the tool that gates it (`./sg
   whereami`).
@@ -109,3 +112,4 @@ for the Maestro lane, and recipes that went through the wrapper.
 - `rm` — the Maestro lane of this checkout.
 - `sg` — the gate suite of this checkout.
 - `scripts/tests/test_rm_wrapper.py` — the wrapper, as tests.
+- `scripts/tests/test_package_binding.py` — the binding the wrapper uses, as tests.
