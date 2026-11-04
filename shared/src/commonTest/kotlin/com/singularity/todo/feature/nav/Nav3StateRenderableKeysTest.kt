@@ -5,6 +5,7 @@ import androidx.navigation3.runtime.NavBackStack
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 
 /**
@@ -53,5 +54,31 @@ class Nav3StateRenderableKeysTest {
         state.requireBackStackFor(today).add(AppDestination.Settings)
 
         assertEquals(listOf(today, AppDestination.Settings), state.renderableKeysFor(today))
+    }
+
+    @Test
+    fun `a route with no back stack still yields itself rather than nothing`() {
+        assertEquals(listOf(AppDestination.Settings), state().renderableKeysFor(AppDestination.Settings))
+    }
+
+    @Test
+    fun `reseedEmptyStacks puts the start route back into an empty start stack`() {
+        val state = state()
+        state.requireBackStackFor(today).clear()
+
+        state.reseedEmptyStacks()
+
+        assertEquals(listOf(today), state.requireBackStackFor(today).toList())
+    }
+
+    @Test
+    fun `a start route with no back stack cannot be constructed`() {
+        assertFailsWith<IllegalArgumentException> {
+            Nav3State(
+                startRoute = today,
+                topLevelRouteState = mutableStateOf(today),
+                backStacks = mapOf(upcoming to NavBackStack(upcoming)),
+            )
+        }
     }
 }
