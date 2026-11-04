@@ -40,6 +40,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ColorSwatch
 import com.singularity.todo.core.ui.components.SettingsActionRow
 import com.singularity.todo.core.ui.components.SettingsSection
+import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.core.ui.formatDecimal
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -171,6 +172,9 @@ private fun AccentSwatch(
             Icon(
                 imageVector = Icons.Filled.Check,
                 contentDescription = null,
+                // The swatch paints the accent and publishes no content colour, so the tick
+                // names its own contrast: a pale accent would otherwise get a white check.
+                tint = accent.color.contrastingForeground(),
                 modifier = Modifier.size(20.dp),
             )
         }
