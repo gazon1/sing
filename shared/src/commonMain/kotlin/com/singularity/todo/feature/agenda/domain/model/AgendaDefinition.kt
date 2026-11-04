@@ -42,16 +42,93 @@ data class Section(
     val prefill: SectionPrefill? = null,
 ) {
     /**
-     * Guaranteed-non-null stable id for this section.
-     * For sections loaded from legacy saved agendas (where `id == null`), derives a
-     * stable id from the section name so the `+` button prefill key is deterministic.
+     * Guaranteed-non-null, non-blank id for this section.
+     *
+     * For sections loaded from legacy saved agendas (where `id == null`), derives an
+     * id from the section name so the `+` button prefill key is deterministic. The
+     * derived id is *not* guaranteed unique: two legacy sections both named "Project"
+     * derive the same id. Uniqueness is one level up, in
+     * [resolvedSections] and [withUniqueIds] — see the note there.
      */
-    val effectiveId: String get() =
-        id ?: name
-            .lowercase()
-            .replace(" ", "_")
-            .replace(Regex("[^a-z0-9_]"), "")
+    val effectiveId: String
+        get() = id?.takeIf { it.isNotBlank() } ?: name.sectionSlug()
+
+    companion object {
+        /**
+         * An id no section in [existing] resolves to.
+         *
+         * The saved-view editor used to mint `"section_$count"`, where `count` is the
+         * number of sections — a number that *shrinks* when a section is removed. So
+         * removing `section_1` from a view of three and adding a new section minted
+         * `section_2` again, the id of a section still in the view. This function
+         * starts from the current count and walks up until the id is free, so the id
+         * is unique whatever order the user adds and removes in.
+         */
+        fun freshId(existing: Collection<Section>): String {
+            val used = existing.mapTo(mutableSetOf()) { it.effectiveId }
+            var candidate = existing.size
+            while ("section_$candidate" in used) candidate++
+            return "section_$candidate"
+        }
+    }
 }
+
+/** The readable part of a legacy section id, derived from its name. */
+private fun String.sectionSlug(): String =
+    lowercase()
+        .replace(" ", "_")
+        .replace(Regex("[^a-z0-9_]"), "")
+        .ifBlank { "section" }
+
+/**
+ * The same sections with an id that is unique within this list.
+ *
+ * [Section.id] is nullable (legacy saved agendas) and is not enforced unique when
+ * it is present (older editors could mint a duplicate). Both cases collapse two
+ * sections onto one [Section.effectiveId]; here the first keeps the id and each
+ * later duplicate gets a positional `_2`, `_3`, … suffix. The result is unique
+ * whichever way the collision arose, and the assignment is stable for a given
+ * list order.
+ */
+fun List<Section>.withUniqueIds(): List<Section> {
+    val used = mutableSetOf<String>()
+    return map { section ->
+        val base = section.effectiveId
+        var candidate = base
+        var suffix = 2
+        while (!used.add(candidate)) {
+            candidate = "${base}_$suffix"
+            suffix++
+        }
+        if (section.id == candidate) section else section.copy(id = candidate)
+    }
+}
+
+/**
+ * A section paired with the id the agenda renders it under — unique within its
+ * definition, even though [Section.id] is not.
+ */
+data class ResolvedSection(
+    val id: String,
+    val section: Section,
+)
+
+/**
+ * The definition's sections in render order, each with an id unique within the
+ * definition.
+ *
+ * The static list in a definition can hold two sections with the same id: a legacy
+ * section has none, and `effectiveId` derives one from the name, so two sections
+ * called "Project" derive "project" for both. The agenda list keys its headers and
+ * rows by the rendered id, so this is the one owner of "make them distinct" — the
+ * evaluator renders under these ids, and the `+` button resolves a rendered id back
+ * to its section through the same function.
+ */
+fun AgendaDefinition.resolvedSections(): List<ResolvedSection> =
+    sections
+        .sortedBy { it.order }
+        .withUniqueIds()
+        .map { ResolvedSection(it.effectiveId, it) }
 
 /**
  * Pre-fill values for a task created via the '+' button in an agenda section.

@@ -21,6 +21,7 @@ import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.toSectionsJson
+import com.singularity.todo.feature.agenda.domain.model.withUniqueIds
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -436,6 +437,11 @@ class SavedAgendaViewModel(
                     .decodeFromString<AgendaDefinition>(
                         json,
                     ).sections
+                    // A view saved before section ids existed has none, and an older
+                    // editor could mint the same id twice. Normalising here means the
+                    // editor's draft carries (and re-saves) ids that are unique within
+                    // the view, rather than relying on the renderer to disambiguate.
+                    .withUniqueIds()
             }.onFailure { deps.log.w { "agenda decode failed" } }
                 .getOrNull()
         }

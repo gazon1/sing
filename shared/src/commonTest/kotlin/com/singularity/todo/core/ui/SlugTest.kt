@@ -106,9 +106,9 @@ class SlugTest {
 
     @Test
     fun `agenda section tags use the agendaSection function`() {
-        assertEquals("agenda_section_no_date", TestTags.agendaSection("No Date"))
-        assertEquals("agenda_section_today", TestTags.agendaSection("Today"))
-        assertEquals("agenda_section_upcoming", TestTags.agendaSection("Upcoming"))
+        assertEquals("agenda_section_no_date", TestTags.agendaSection("no_date"))
+        assertEquals("agenda_section_today", TestTags.agendaSection("today"))
+        assertEquals("agenda_section_upcoming", TestTags.agendaSection("upcoming"))
     }
 
     @Test

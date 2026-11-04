@@ -159,7 +159,7 @@ class SavedViewsFlowTest {
 
             // Tap card → Results ("No Date" section holds the undated task)
             awaitTag(TestTags.savedAgendaCard("navigation_test")).performClick()
-            assertTagDisplayed(TestTags.agendaSection("No Date"))
+            assertTagDisplayed(TestTags.agendaSection("no_date"))
             assertTagDisplayed(TestTags.taskItem("Navigation task"))
 
             // Back → list with card

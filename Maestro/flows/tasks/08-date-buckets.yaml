@@ -6,8 +6,8 @@
 # The three agenda tabs are disjoint: the overdue and today's tasks are in the
 # Today tab, tomorrow's in the Upcoming tab, and the undated ones in the Inbox.
 #
-# The agenda section header uses TestTags.agendaSection(name) so "No Date" ->
-# `agenda_section_no_date`, "Overdue" -> `agenda_section_overdue`, etc.
+# The agenda section header uses TestTags.agendaSection(sectionId), so the preset
+# ids give `no_date` -> `agenda_section_no_date`, `overdue` -> `agenda_section_overdue`.
 appId: com.singularity.todo
 name: tasks-date-buckets
 tags:

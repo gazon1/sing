@@ -5,6 +5,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
+import com.singularity.todo.feature.agenda.domain.model.resolvedSections
 import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
 import com.singularity.todo.feature.agenda.domain.selector.matches
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -65,9 +66,10 @@ object AgendaEvaluator {
                 blockedIds = blockedIds,
                 followUpIds = followUpIds,
             )
-        return definition.sections
-            .sortedBy { it.order }
-            .mapNotNull { section ->
+        return definition
+            .resolvedSections()
+            .mapNotNull { resolved ->
+                val section = resolved.section
                 val matched = remaining.filter { section.selector.matches(it, context) }
                 if (matched.isEmpty()) return@mapNotNull null
 
@@ -76,7 +78,10 @@ object AgendaEvaluator {
                 }
 
                 RenderedSection(
-                    id = section.effectiveId,
+                    // Unique within this definition: a legacy section has no id, and
+                    // two sections can share a name, so the list must not key on
+                    // either the raw id or the name.
+                    id = resolved.id,
                     name = section.name,
                     tasks =
                         matched

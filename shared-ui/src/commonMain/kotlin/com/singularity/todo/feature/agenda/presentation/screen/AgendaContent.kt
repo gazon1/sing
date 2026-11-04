@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -353,6 +354,7 @@ private fun AgendaList(
             // takes the whole list down.
             item(key = "header-${section.id}") {
                 AgendaSectionHeader(
+                    sectionId = section.id,
                     name = section.name,
                     badge = section.badge,
                     onAddClick = { onIntent(AgendaIntent.CreateInSection(section.id)) },
@@ -414,6 +416,7 @@ private fun AgendaList(
 
 @Composable
 private fun AgendaSectionHeader(
+    sectionId: String,
     name: String,
     badge: Int?,
     onAddClick: (() -> Unit)?,
@@ -424,27 +427,47 @@ private fun AgendaSectionHeader(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        androidx.compose.foundation.layout.Row(
+        Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val label = if (badge != null && badge > 0) "$name  ·  $badge" else name
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                // The label takes the row's spare width only. Without the weight it
-                // claims the whole row and pushes the '+' button past the right edge,
-                // where it is neither visible nor tappable.
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                // Tag on the leaf Text so it survives in the accessibility tree.
+            Row(
+                // The label block takes the row's spare width only. Without the
+                // weight it claims the whole row and pushes the '+' button past the
+                // right edge, where it is neither visible nor tappable.
                 modifier =
                     Modifier
                         .weight(1f)
-                        .testTag(TestTags.agendaSection(name)),
-            )
+                        // Tagged by the section id, not its name: two sections of one
+                        // saved view can share a name, and a name-keyed tag addresses
+                        // both (#2197).
+                        .testTag(TestTags.agendaSection(sectionId)),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    // `fill = false`: the name ellipsizes inside the spare width and
+                    // leaves the badge its own room, so a long name cannot eat it.
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (badge != null && badge > 0) {
+                    Text(
+                        text = "· $badge",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        // The count is not part of the ellipsized name: a long name
+                        // must not make the badge disappear with it.
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+            }
             if (onAddClick != null) {
                 IconButton(onClick = onAddClick) {
                     Icon(

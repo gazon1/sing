@@ -50,7 +50,7 @@ class AgendaStateFollowScenarioTest {
             moveToInProgress(koin, "Idle task")
 
             awaitTag(TestTags.savedAgendaCard(VIEW_NAME)).performClick()
-            assertTagDisplayed(TestTags.agendaSection("In progress"))
+            assertTagDisplayed(TestTags.agendaSection("in_progress"))
             assertTagDisplayed(TestTags.taskItem("Idle task"))
             assertTagNotExists(TestTags.taskItem("Other task"))
         }

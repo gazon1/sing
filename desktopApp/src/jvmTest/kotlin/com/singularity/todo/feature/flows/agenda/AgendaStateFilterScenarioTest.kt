@@ -41,7 +41,7 @@ class AgendaStateFilterScenarioTest {
 
             // Only the in-progress task is in the section; the other task is
             // not somewhere else on the screen either.
-            assertTagDisplayed(TestTags.agendaSection("In progress"))
+            assertTagDisplayed(TestTags.agendaSection("in_progress"))
             assertTagDisplayed(TestTags.taskItem("Started task"))
             assertTagNotExists(TestTags.taskItem("Idle task"))
         }
