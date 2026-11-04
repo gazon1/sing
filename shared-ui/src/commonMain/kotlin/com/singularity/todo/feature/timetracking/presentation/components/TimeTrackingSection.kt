@@ -36,7 +36,7 @@ import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
 
 /**
- * Time tracking section shown in the task detail's extraSections.
+ * Time tracking section shown in the task detail's stateSections.
  * Displays running timer, total tracked time, recent entries, and an add button.
  *
  * @param state Current time tracking state for this task.

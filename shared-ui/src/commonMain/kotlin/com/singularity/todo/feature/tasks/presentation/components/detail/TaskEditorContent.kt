@@ -109,7 +109,10 @@ import kotlin.time.Instant
  * @param pinCallbacks Callbacks for the pin toggle row. Null = row is hidden.
  * @param blockedBy IDs of tasks this task depends on.
  * @param availableTasks Tasks available for dependency selection.
- * @param extraSections Optional composable for View-mode-only sections (checklist, project, tags, timestamps, etc.).
+ * @param askSections Optional composable drawn directly under the description: the content
+ *   that asks the person for a decision. Null — nothing is drawn.
+ * @param stateSections Optional composable drawn after the attribute rows: the task's own
+ *   state. Null — nothing is drawn.
  * @param bottomBar Optional bottom bar content. Typically [TaskSaveBar] in Create mode, null in View mode.
  * @param menuItems List of dropdown menu items. Shown when non-empty. Typically Archive/Delete in View mode.
  * @param onBack Called when the back button is tapped.
@@ -156,7 +159,8 @@ private fun TaskEditorContent(
     checklistCallbacks: ChecklistCallbacks? = null,
     attachmentsCallbacks: AttachmentsCallbacks? = null,
     showAttachmentsRow: Boolean = true,
-    extraSections: (@Composable () -> Unit)?,
+    askSections: (@Composable () -> Unit)?,
+    stateSections: (@Composable () -> Unit)?,
     bottomBar: (@Composable () -> Unit)?,
     menuItems: ImmutableList<TaskEditorMenuItem>,
     onBack: () -> Unit,
@@ -198,8 +202,13 @@ private fun TaskEditorContent(
                 descriptionState = descriptionState,
             )
 
-            // View-mode extra sections
-            extraSections?.invoke()
+            // The caller's content that asks the person for something.
+            //
+            // Under the description and above the attribute rows, because an offer is
+            // only an offer if it is seen. It used to share one slot with the task's
+            // child work, so moving the child work down carried the offer down with it:
+            // a decision waiting for an answer sat under every field on the screen.
+            askSections?.invoke()
 
             // Dependencies card
             //
@@ -389,6 +398,14 @@ private fun TaskEditorContent(
                             .testTag(TestTags.TASK_EDITOR_PIN_ROW),
                 )
             }
+
+            // The caller's content that shows the task's own state — its child work.
+            //
+            // After the rows, not before them: the due date, the priority and the project
+            // are what a person fills in, and a screen of empty "add" cards above them
+            // pushed those fields below the fold. An empty slot draws nothing, so a caller
+            // that fills neither slot sees the screen it always saw.
+            stateSections?.invoke()
 
             Spacer(modifier = Modifier.height(TaskSpacing.xl))
         }
@@ -594,7 +611,8 @@ private fun TaskEditorScaffold(
         checklistCallbacks = callbacks.checklist,
         attachmentsCallbacks = callbacks.attachments,
         showAttachmentsRow = showAttachmentsRow,
-        extraSections = callbacks.extraSections,
+        askSections = callbacks.askSections,
+        stateSections = callbacks.stateSections,
         bottomBar = callbacks.bottomBar,
         menuItems = callbacks.menuItems,
         onBack = callbacks.onBack,
@@ -646,7 +664,8 @@ private fun TaskEditorContentEmptyPreview() =
             onDueDateClear = null,
             blockedBy = persistentSetOf(),
             availableTasks = persistentListOf(),
-            extraSections = null,
+            askSections = null,
+            stateSections = null,
             bottomBar = null,
             menuItems = persistentListOf(),
             onBack = {},
@@ -672,7 +691,8 @@ private fun TaskEditorContentFilledPreview() =
             onDueDateClear = {},
             blockedBy = persistentSetOf(),
             availableTasks = persistentListOf(),
-            extraSections = null,
+            askSections = null,
+            stateSections = null,
             bottomBar = null,
             menuItems =
                 persistentListOf(
@@ -703,13 +723,58 @@ private fun TaskEditorContentDarkPreview() =
             onDueDateClear = {},
             blockedBy = persistentSetOf(sampleTask.id),
             availableTasks = persistentListOf(sampleTask),
-            extraSections = null,
+            askSections = null,
+            stateSections = null,
             bottomBar = null,
             menuItems =
                 persistentListOf(
                     TaskEditorMenuItem("Archive", onClick = {}),
                     TaskEditorMenuItem("Delete", onClick = {}),
                 ),
+            onBack = {},
+            sheets = rememberDialogState(),
+        )
+    }
+
+/**
+ * Both supplied-content slots filled, which is the whole point of having two.
+ *
+ * Every other preview passes `null` to both, so the one thing this editor now does
+ * differently — an ask above the rows, the task's state below them — was the one thing
+ * no preview showed. A `Text` in each place is enough to read the order off the preview;
+ * the real slots carry cards, but a card would only be a heavier way to say the same.
+ */
+@Preview
+@Composable
+private fun TaskEditorContentSlotsPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        TaskEditorContent(
+            taskId = "",
+            titleState = TextFieldState("Two slots, two places"),
+            isCompleted = false,
+            onCheckToggle = null,
+            descriptionState = TextFieldState(""),
+            priority = TaskPriority.Medium,
+            onPriorityClear = {},
+            dueDate = PreviewSamples.today,
+            dueTime = null,
+            onDueDateClear = {},
+            blockedBy = persistentSetOf(),
+            availableTasks = persistentListOf(),
+            askSections = {
+                Text(
+                    text = "Waiting for you: confirm, reject or edit",
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            },
+            stateSections = {
+                Text(
+                    text = "The task's own state: checklist, subtasks, logbook",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            bottomBar = null,
+            menuItems = persistentListOf(),
             onBack = {},
             sheets = rememberDialogState(),
         )

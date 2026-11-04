@@ -9,6 +9,7 @@ import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
+import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
 import kotlinx.datetime.TimeZone
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import org.koin.dsl.module
 import kotlin.test.Test
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 /**
@@ -43,7 +45,7 @@ import kotlin.time.Instant
  * Android navigation graph over the phase-4 detail refactor (`adc95585`) on
  * Android only. Two screens then shipped under one route and one ViewModel: the
  * Android monolith kept time tracking, the refactored JVM shell renders
- * `extraSections = null` and had lost it. Desktop users had no timer at all, and
+ * `stateSections = null` and had lost it. Desktop users had no timer at all, and
  * the coverage matrix reported the row as `○` — a hole, which reads as "nobody
  * wrote the test yet".
  *
@@ -81,6 +83,11 @@ class TaskDetailTimeTrackingSectionTest {
             awaitTag(TestTags.taskItem("Track me")).performClick()
             awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
 
+            // The section sits below the attribute rows and the child work now, so on a
+            // desktop window it is past the fold: presence is not display. The guard is
+            // unchanged — the desktop task detail renders time tracking, which is the
+            // #187 regression — and it still fails if the section is dropped.
+            scrollToTag(TestTags.TimeTracking.START)
             assertTagDisplayed(TestTags.TimeTracking.START)
 
             // The click that used to live here has moved to `TaskTimeCarrierTest`, and
@@ -99,6 +106,33 @@ class TaskDetailTimeTrackingSectionTest {
             // worth having — the desktop task detail *renders* time tracking, which
             // is the #187 regression. Whether the control then works is
             // `TASK-TIME-01`'s question, and it now has a carrier to ask it.
+        }
+
+    @Test
+    @DisplayName("the desktop task detail keeps the attribute rows above the task's children")
+    fun the_desktop_task_detail_keeps_the_attribute_rows_above_the_children() =
+        runDesktopAppTest(
+            clock = TEST_CLOCK,
+            overrides = module { single<TimeZoneProvider> { TestTimeZone } },
+        ) { koin ->
+            tasks(koin).given(due = todayAt(TEST_CLOCK, TEST_ZONE), title = "Ordered")
+
+            tapTab("Today")
+            awaitTag(TestTags.taskItem("Ordered")).performClick()
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+
+            // The scrolling column lays out every child, including the ones past the
+            // fold, so the two positions can be compared without scrolling either one
+            // into view — which is the point: the child work must not sit above the
+            // rows at all, not merely be reachable.
+            val rowsTop = awaitTag(TestTags.TASK_EDITOR_DUE_ROW).fetchSemanticsNode().boundsInRoot.top
+            val childrenTop = awaitTag(TestTags.TASK_CHECKLIST_SECTION).fetchSemanticsNode().boundsInRoot.top
+
+            assertTrue(
+                rowsTop < childrenTop,
+                "The due-date row ($rowsTop) must sit above the child sections ($childrenTop): " +
+                    "the attribute rows are what a person fills in, and they belong on the first screen.",
+            )
         }
 
     private object TestTimeZone : TimeZoneProvider {

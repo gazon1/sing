@@ -36,7 +36,7 @@ import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Shows notes and tasks that link TO this task via `task://<id>` URL scheme.
- * Rendered inside [TaskEditorContent] extraSections when backlinks exist.
+ * Rendered inside [TaskEditorContent] stateSections when backlinks exist.
  *
  * @param onOpenNote Invoked with the tapped note. Required — a backlink row that
  *   swallows its tap is worse than no row at all, because it looks actionable.
