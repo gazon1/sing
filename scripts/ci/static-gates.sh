@@ -887,6 +887,20 @@ gate blocking "maestro keyboard commands have something to hide" python3 scripts
 # A swipe may be a share of the screen, or the element that scrolls. Both mean
 # the same gesture on every display.
 gate blocking "maestro flows do not name a pixel" python3 scripts/check-maestro-screen-geometry.py
+#
+# A seeded title names the row the seed replaces, so it carries no run id.
+#
+# The runner mints a fresh `${RUN_ID}` on every attempt, and the seed replaces
+# the row its title names: `task=${RUN_ID}_MyFixture` therefore names a row that
+# has never existed. The seed creates a new task instead of updating the old
+# one, and every run leaves its own row behind — the litter the replace-in-place
+# rule exists to remove. The failure is reported under the run id too
+# (`"r5869995730 PinnedTask2026" is visible`), which is a fixture whose name
+# nobody can read.
+#
+# A title a flow *types* into the editor is the flow's own row and reaches no
+# seed, so the run id there stays available. The gate reads `QUERY` lines only.
+gate blocking "maestro seeded titles are stable" python3 scripts/check-maestro-seeded-titles.py
 # The grammar of a link has a home: TaskLinkSpec for a deep link, core/links/InternalLinks.kt for an internal one. A second copy of it is a link that opens nothing.
 gate blocking "the link grammar has one home" sgate the_link_grammar_has_one_home
 # The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.

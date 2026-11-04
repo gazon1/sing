@@ -761,6 +761,16 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-maestro-screen-geometry.py"),
     ),
+    # The seed replaces the row its title names, so a title holding `${RUN_ID}`
+    # names a row that has never existed: the seed creates a new one instead of
+    # updating the old, and every run leaves its own behind. The rule lived in
+    # the decision record and in the flow configuration; nothing read the flows.
+    GateSpec(
+        name="maestro seeded titles are stable",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-maestro-seeded-titles.py"),
+    ),
     GateSpec(
         name="a pull request carries the review of an agent",
         mode=GateMode.BLOCKING,
@@ -1877,6 +1887,27 @@ GATE_CONTROLS: dict[str, Control] = {
             ),
             why=(
                 "a dismissal that precedes the input saves an empty draft and closes the editor — the flow passes and the user's words are gone"
+            ),
+        ),
+        # A seeded title that carries the run id names a row the seed can never
+        # replace: the runner mints a fresh id on every attempt, so the row the
+        # title names has never existed, each run creates a fresh row instead of
+        # updating the old one, and the rows of earlier runs stay behind. The
+        # probe stamps the id onto a real seed call, which is the state the gate
+        # exists to reject.
+        'maestro-seeded-titles': Control(
+            kind='sabotage',
+            proves='scripts/check-maestro-seeded-titles.py',
+            argv=('{python}', 'scripts/check-maestro-seeded-titles.py',),
+            path='Maestro/flows/attachments/01-add-url.yaml',
+            edit=Edit(
+                kind='replace',
+                old='QUERY: "task=AttachTestTask2026"',
+                new='QUERY: "task=${RUN_ID}_AttachTestTask2026"',
+                count=1,
+            ),
+            why=(
+                "a seeded title that carries the run id names a row the seed can never replace — each run creates a fresh row instead of updating the old one, and the rows of earlier runs stay behind"
             ),
         ),
         # A tag row that carries no normalized name is a tag that cannot be found

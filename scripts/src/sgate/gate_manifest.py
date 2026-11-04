@@ -1044,6 +1044,23 @@ statement about the app.
 A swipe may be a share of the screen, or the element that scrolls. Both mean
 the same gesture on every display.""",
     ),
+    "maestro seeded titles are stable": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-maestro-seeded-titles.py',
+        note="""
+A seeded title names the row the seed replaces, so it carries no run id.
+
+The runner mints a fresh `${RUN_ID}` on every attempt, and the seed replaces
+the row its title names: `task=${RUN_ID}_MyFixture` therefore names a row that
+has never existed. The seed creates a new task instead of updating the old
+one, and every run leaves its own row behind — the litter the replace-in-place
+rule exists to remove. The failure is reported under the run id too
+(`"r5869995730 PinnedTask2026" is visible`), which is a fixture whose name
+nobody can read.
+
+A title a flow *types* into the editor is the flow's own row and reaches no
+seed, so the run id there stays available. The gate reads `QUERY` lines only.""",
+    ),
     "a pull request carries the review of an agent": Placement(
         kind=PlacementKind.ELSEWHERE,
         reason=(

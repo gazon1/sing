@@ -910,6 +910,19 @@ SCRIPT_GATES = [
             'a traceability table is prose: a requirement can drop out of it, and a promised check can name a file nobody wrote, and neither fails anything'
         ),
     ),
+    # A seeded title that carries the run id names a row the seed can never
+    # replace: the runner mints a fresh id on every attempt, so the row the
+    # title names has never existed, each run creates a fresh row instead of
+    # updating the old one, and the rows of earlier runs stay behind.
+    ScriptGate(
+        name="maestro-seeded-titles",
+        cmd=[sys.executable, "scripts/check-maestro-seeded-titles.py"],
+        why=(
+            "a seeded title that carries the run id names a row the seed can never "
+            "replace — each run creates a fresh row instead of updating the old one, "
+            "and the rows of earlier runs stay behind"
+        ),
+    ),
         # a dismissal that precedes the input saves an empty draft and closes the editor — the flow passes and the user's words are gone
         ScriptGate(
             name="maestro-hidekeyboard",
