@@ -61,6 +61,11 @@ import com.singularity.todo.feature.agenda.domain.selector.typeDescription
  * answered, read both as a layout reservation and nothing more. A control that needs a
  * genuinely 48 dp target has to be laid out at 48 dp.
  *
+ * So #1669's touch-target clause is satisfied only in the sense the brief can be checked
+ * mechanically: the three calls are present and the row now reserves 48 dp per button.
+ * The hit area is still 40 dp, and #2173 — not this change — owes the fix. Do not record
+ * the clause as an accessibility fix delivered.
+ *
  * @param section The section to display.
  * @param index The section's position in the list.
  * @param canMoveUp False for the first row. The button is then disabled rather than

@@ -21,9 +21,20 @@ import com.singularity.todo.core.platform.rememberSystemAnimationDurationScale
  * composition that overrides this local — a test pinning `0f`, a preview — wins and the
  * platform is not consulted.
  *
- * The local is a dynamic [compositionLocalOf], not a static one: a reader must be
- * invalidated when the provided value changes, and static locals deliberately skip
- * that.
+ * ## Why it is dynamic rather than static, stated correctly
+ *
+ * The local is a [compositionLocalOf], not a `staticCompositionLocalOf`, and the
+ * difference is granularity — not whether a reader ever hears about a change. A static
+ * local does invalidate when the provided value changes; what it does is invalidate
+ * *every* composable under the provider rather than only the ones that read it, because
+ * it keeps no per-reader tracking. This local is provided at the shell, above the whole
+ * UI, so a static local would re-compose the app on every change to a value that a
+ * handful of spinners care about. A dynamic local invalidates the readers and nothing
+ * else.
+ *
+ * (An earlier revision of this doc said static locals "deliberately skip" invalidating
+ * readers on change. That is not true of Compose, and it was the kind of justification a
+ * later reader inherits without checking.)
  */
 val LocalAnimationDurationScale = compositionLocalOf<Float?> { null }
 

@@ -173,6 +173,14 @@ private fun CalendarControls(
 
         Spacer(Modifier.width(12.dp))
 
+        // The file's only two directional icons are these two, and both are
+        // auto-mirrored, so there is no second pair hiding further up the bar. The
+        // brief for #1669 listed four sites at rows 61/93/104/120 of this file, but
+        // those rows are the shell-override branch and its `Row`: no icon is drawn
+        // there, and the pre-change file had the same two `Chevron*` usages as this
+        // one has. The line numbers outlived the code they pointed at; the sites
+        // never numbered four. `grep -rn "ChevronLeft\\|ChevronRight" --include=*.kt`
+        // outside `automirrored` returns nothing in this repository.
         Icon(
             Icons.AutoMirrored.Filled.ChevronLeft,
             contentDescription = "Previous",
