@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check-arch-rule-controls.py — every architecture rule must have a control that can fail.
+"""check-arch-rule-controls.py — every arch rule declares its control or debt.
 
 Why this exists (2026-11): `shared/src/jvmTest/kotlin/com/singularity/todo/arch/`
 holds the Konsist rules and the hand-written scanners that guard the layering.
@@ -70,25 +70,42 @@ declaration file is immutable would be the same promise in a different hat.
 ## Why `none` is a third kind, and what it costs
 
 The issue lists two kinds, `fixture` and `synthetic` (its prose names a third,
-a corpus guard). Fourteen of the nineteen rules derived today have neither.
-Giving each a control means rewriting the rule, and the change that lands the
-mechanism is explicitly not the change that clears the backlog; the audit's
-migration order is *register the current state, then land controls*
+a corpus guard). Most of the rules derived today have neither. Giving each a
+control means rewriting the rule, and the change that lands the mechanism is
+explicitly not the change that clears the backlog; the audit's migration order
+is *register the current state, then land controls*
 (`docs/architecture/rule-control-audit.md` §6.9). `none` is that registration:
 it makes the debt visible, named and ratcheted instead of invisible.
 
-It does not prove those fourteen rules can fail. For them the gate proves only
-that the debt is declared and shrinking; the five rules with a `synthetic`
-control are the ones the gate actually holds to "can fail". That gap is recorded
-in the audit, §6.1, so the registry cannot be read as a stronger claim than it
-makes.
+It does not prove such a rule can fail. For those the gate proves only that the
+debt is declared and shrinking; only the rules whose row is a `fixture` or a
+`synthetic` control are the ones the gate actually holds to "can fail". That
+limit is recorded in the audit, §6.1, so the registry cannot be read as a
+stronger claim than it makes.
 
-## What this gate does not prove
+The counts are deliberately not restated here. A number copied into prose is
+the first thing to go stale — this paragraph used to say "fourteen of the
+nineteen", the derivation found eighteen, and arithmetic in a docstring was
+being read as evidence about a registry it does not measure. The registry is
+the authority for how many rows are which kind; `findings()` is the authority
+for whether that registry covers the derivation.
 
-It reads sources; it does not run the JVM test suite. `synthetic` is checked by
-reading the named control's body — the assertion it must contain, not its
-result. A control that is itself broken is a test failure, and the test suite is
-where that is caught.
+`fixture` is implemented and exercised by the tests, but no row in the landed
+registry is one. That is not an oversight: a fixture has to be *the rule's own
+corpus*, so a row pointing at a file the rule never scans would prove nothing —
+the defect this gate exists to name. None of the rules derived today has a
+fixture corpus; when one does, its row is the one that exercises the
+shape-still-present check against real input.
+
+## What the gate enforces, and what it does not
+
+`--check` enforces two things: every rule the derivation finds has a row, and
+a row whose kind is `fixture` or `synthetic` still proves something. A `none`
+row is not a control. It declares the debt, pins it by rule id and fails when
+the declaration drifts — it does not show that rule can fail. So the gate's
+name is the end state the ratchet walks toward, not a claim about the rows
+still on `none`; the audit's §6.1 records the same limit, and the SI
+comments at the registry entries say it where a reader meets the gate.
 
 Usage:
     python3 scripts/check-arch-rule-controls.py --check
@@ -256,12 +273,33 @@ def _matching_paren(text: str, open_index: int) -> int:
     return -1
 
 
-def _body_after(text: str, after: int) -> str:
-    """The `{…}` body that follows `after`, or "" when there is none.
+def _expression_after(text: str, equals: int) -> str:
+    """The expression that follows the `=` at `equals`, to the end of the declaration."""
+    depth = 0
+    index = equals + 1
+    while index < len(text):
+        char = text[index]
+        if char in "([{":
+            depth += 1
+        elif char in ")]}":
+            depth = max(0, depth - 1)
+        elif char == "\n" and depth == 0:
+            break
+        index += 1
+    return text[equals + 1 : index]
 
-    An expression body is accepted only when its brace sits on the same line
-    (`= runBlocking { … }`). `= assertTrue(…)` has no body of its own, and
-    swallowing the next method's braces would invent a rule.
+
+def _body_after(text: str, after: int) -> str:
+    """The body that follows `after`: a `{…}` block or a `= expression`.
+
+    A block body is read to its matching brace. An expression body is read to
+    the end of the declaration, bracket-aware — because `= assertTrue(…)` has no
+    braces at all, and accepting only an expression whose brace sat on the `=`
+    line returned "" for it. A rule written that way then left the inventory
+    with no row and no complaint, which is the silent omission this gate exists
+    to end. Stopping at the newline that closes every bracket keeps a multi-line
+    expression whole without swallowing the next method's body and inventing a
+    rule.
     """
     index = after
     while index < len(text) and text[index] not in "{=":
@@ -269,12 +307,7 @@ def _body_after(text: str, after: int) -> str:
     if index >= len(text):
         return ""
     if text[index] == "=":
-        line_end = text.find("\n", index)
-        stop = len(text) if line_end < 0 else line_end
-        brace = text.find("{", index, stop)
-        if brace < 0:
-            return ""
-        index = brace
+        return _expression_after(text, index)
     start, depth = index, 0
     while index < len(text):
         if text[index] == "{":
@@ -361,7 +394,17 @@ def parse_registry(text: str) -> tuple[list[Row], dict[str, int]]:
                 )
             declared = re.search(r"\bgrandfathered\s*:\s*(\S.*?)\s*$", line)
             if declared:
-                grandfathered[declared.group(1)] = number
+                rule_id = declared.group(1)
+                if rule_id in grandfathered:
+                    raise Unreadable(
+                        f"{CONTROLS}:{number}: `# grandfathered: {rule_id}` is "
+                        f"declared again; the first line is {grandfathered[rule_id]}. "
+                        "A second copy is not read as a second declaration: the "
+                        "ratchet is per rule, so two lines for one rule hide the "
+                        "first position and let a stale copy outlive the debt it "
+                        "describes. Keep exactly one line per rule"
+                    )
+                grandfathered[rule_id] = number
             continue
         fields = line.split("\t")
         if len(fields) != 4:

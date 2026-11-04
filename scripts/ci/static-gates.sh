@@ -473,12 +473,15 @@ gate blocking "review verdicts cover every change" python3 scripts/check-review-
 # does — `repository read methods are user-scoped` read `@Query` annotations out of
 # files that held none, and stayed green for its whole life (#788).
 #
-# The inventory is derived from the rule sources, not listed, and every derived rule
-# needs a control that proves it can fail: a fixture that still contains the hunted
-# shape, a synthetic source that asserts a finding, or a `none` row recording the
-# debt. The debt is pinned per rule by a `# grandfathered:` line — not counted, because
-# a count is satisfied by one debt replacing another and would let a new rule arrive
-# with a promise instead of a control.
+# The inventory is derived from the rule sources, not listed, so a rule added
+# today arrives in the check today. Every derived rule must have a row, and a
+# `fixture` or `synthetic` row is re-read every run: a fixture that lost the
+# hunted shape and a synthetic control that asserts no finding both fail. A
+# `none` row is a declaration, not a control — it records the debt and is
+# ratcheted by rule id (not by count, because a count is satisfied by one debt
+# replacing another and would let a new rule arrive with a promise instead of a
+# control). Only the `fixture` and `synthetic` rows are held to "this rule can
+# fail".
 gate blocking "architecture rules have controls" sgate architecture_rules_have_controls
 # The catalogue of the ids a Maestro flow may address.
 #

@@ -1179,6 +1179,13 @@ _REGISTERED: tuple[GateSpec, ...] = (
         # whether each rule can still fail. `repository read methods are
         # user-scoped` was green for its whole life over a corpus that could not
         # hold the shape it hunted (#788).
+        #
+        # What is enforced today is a row per derived rule, plus a re-read of
+        # every `fixture`/`synthetic` row: a fixture that lost the hunted shape
+        # and a synthetic control that asserts no finding both fail. A `none`
+        # row declares the debt and ratchets it by rule id — it does not prove
+        # that rule can fail. The display name is the end state the ratchet is
+        # walking to; the script's docstring states the limit in full.
         GateSpec(
             name="architecture rules have controls",
             mode=GateMode.BLOCKING,
