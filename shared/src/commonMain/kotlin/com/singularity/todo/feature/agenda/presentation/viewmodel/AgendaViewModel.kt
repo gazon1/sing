@@ -184,7 +184,12 @@ class AgendaViewModel(
      */
     private val latestTasks = MutableStateFlow<List<Task>>(emptyList())
 
-    /** Increments to re-run the collection in [init] after a failure or a retry. */
+    /**
+     * Increments to re-run the collection in [init] after a failure or a retry.
+     *
+     * The collection this triggers has to outlive a failure, or the retry has
+     * nothing to restart — see where the catch sits in [init].
+     */
     private val _reloadTrigger = MutableStateFlow(0)
 
     init {
@@ -201,33 +206,53 @@ class AgendaViewModel(
         scope.launch {
             _reloadTrigger
                 .flatMapLatest { _ ->
-                    todayFlow(deps.clock, deps.timeZone.current()).flatMapLatest { today ->
-                        // The projects are observed alongside the tasks: the row needs its
-                        // project's name and colour, and the lookup includes closed projects
-                        // so a badge never vanishes because the project was finished. The
-                        // projects are resolved here — once per list build — and ride on the
-                        // row item, so no row looks a project up.
-                        combine(
-                            deps.taskRepo
-                                .observeByFilter(TaskFilter.All)
-                                .distinctUntilChanged(), // skip recompute when task list unchanged
-                            deps.projectsRepository.observeAllIncludingClosed(),
-                        ) { tasks, projects -> tasks to projects }
-                            .onEach { (tasks, _) -> latestTasks.value = tasks }
-                            .map { (tasks, projects) ->
-                                val projectsById = projects.associateBy { it.id.value }
-                                AgendaUiState.Loaded(
-                                    sections =
-                                        AgendaEvaluator
-                                            .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
-                                            .toImmutableList(),
-                                    today = today,
-                                    greeting = _greeting.value,
-                                )
-                            }
-                    }
-                }.catch { cause ->
-                    setState(AgendaUiState.Error(message = cause.toMessage("Could not load agenda")))
+                    todayFlow(deps.clock, deps.timeZone.current())
+                        .flatMapLatest { today ->
+                            // The projects are observed alongside the tasks: the row needs its
+                            // project's name and colour, and the lookup includes closed projects
+                            // so a badge never vanishes because the project was finished. The
+                            // projects are resolved here — once per list build — and ride on the
+                            // row item, so no row looks a project up.
+                            combine(
+                                deps.taskRepo
+                                    .observeByFilter(TaskFilter.All)
+                                    .distinctUntilChanged(), // skip recompute when task list unchanged
+                                deps.projectsRepository.observeAllIncludingClosed(),
+                            ) { tasks, projects -> tasks to projects }
+                                .onEach { (tasks, _) -> latestTasks.value = tasks }
+                                .map { (tasks, projects) ->
+                                    val projectsById = projects.associateBy { it.id.value }
+                                    AgendaUiState.Loaded(
+                                        sections =
+                                            AgendaEvaluator
+                                                .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
+                                                .toImmutableList(),
+                                        today = today,
+                                        greeting = _greeting.value,
+                                    )
+                                }
+                        }
+                        // The catch sits INSIDE the trigger's branch, and that is the whole
+                        // difference between a retry that works and one that does not.
+                        //
+                        // A catch placed after this branch — on the trigger's own chain —
+                        // ends the collection it handled the exception in: the trigger's
+                        // subscriber is gone, and the Retry intent then bumps a trigger
+                        // nobody is listening to any more. The screen sits on the spinner
+                        // for ever and the user's second attempt does nothing.
+                        //
+                        // Here the failure ends only this attempt. The catch reports the
+                        // cause, publishes the error state and emits nothing, so the
+                        // collector below — whose input is a *loaded* agenda — never sees
+                        // an error mistaken for one. The trigger stays armed, and the next
+                        // increment starts a fresh attempt.
+                        .catch { cause ->
+                            // The collection stopped: a defect, not a user-actionable error, so the
+                            // cause goes to the reporter as well as to the screen. The message alone
+                            // would hide the throwable that explains why the agenda is empty.
+                            crashReporter.report(cause, AGENDA_LOAD_FAILED)
+                            setState(AgendaUiState.Error(message = cause.toMessage("Could not load agenda")))
+                        }
                 }.collect { fresh ->
                     // Reconciliation goes through `updateState`, which is CAS-backed,
                     // because this collector and the selection handlers both write and
@@ -407,7 +432,7 @@ class AgendaViewModel(
                 }
             }
 
-            is AgendaIntent.Retry, is AgendaIntent.Reload -> {
+            is AgendaIntent.Retry -> {
                 setState(AgendaUiState.Loading)
                 _reloadTrigger.value = _reloadTrigger.value + 1
             }
@@ -861,6 +886,7 @@ class AgendaViewModel(
         const val UNDO_WINDOW_MS = 5_000L
 
         // Machine-shaped grouping keys — these leave the device.
+        private const val AGENDA_LOAD_FAILED = "agenda.load_failed"
         private const val TOGGLE_COMPLETE_FAILED = "agenda.toggle_complete_failed"
         private const val TOGGLE_PINNED_FAILED = "agenda.toggle_pinned_failed"
         private const val CANCEL_REMINDERS_FAILED = "agenda.cancel_reminders_failed"

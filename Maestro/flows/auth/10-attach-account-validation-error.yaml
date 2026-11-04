@@ -105,10 +105,15 @@ tags:
 - tapOn:
     id: auth_attach_submit_button
 
-# Wait for an error message (either client-side or from the server).
+# Wait for the error (either client-side or from the server). It is presented
+# as the shared error dialog: the screen keeps no inline error line for it.
 - extendedWaitUntil:
     visible:
-      id: auth_error_text
+      id: result_dialog
     timeout: 20000
 - assertVisible:
-    id: auth_error_text
+    id: result_dialog
+# The dialog is closed by its button, addressed by tag: the label on it is the
+# translator's ("OK" reads "ОК" on this device).
+- tapOn:
+    id: result_dialog_confirm

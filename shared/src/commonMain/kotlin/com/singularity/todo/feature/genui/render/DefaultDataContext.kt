@@ -5,15 +5,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.text.Revisioned
-import com.singularity.todo.feature.genui.catalog.NodeRef
-import com.singularity.todo.feature.genui.catalog.UiNode
 import com.singularity.todo.feature.genui.schema.DataModel
 import com.singularity.todo.feature.genui.schema.UiPath
 import com.singularity.todo.feature.genui.surface.Surface
 import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.surface.SurfaceId
-import com.singularity.todo.feature.genui.surface.component
-import com.singularity.todo.feature.genui.surface.rootRef
 import com.singularity.todo.feature.genui.surface.value
 import com.singularity.todo.feature.genui.surface.valueAt
 import com.singularity.todo.feature.genui.surface.valueAtFlow
@@ -29,9 +25,9 @@ import kotlin.time.Clock
  * Everything a renderer is allowed to reach: the components, the data they bind to, and the two
  * callbacks that leave the layer.
  *
- * The component and data observations are per identifier, not per surface. A renderer that
- * subscribes to the whole surface cannot avoid re-rendering when any part of it changes, and a
- * tree of containers multiplies that cost by the number of nodes.
+ * The data observations are per path, not per surface. A renderer that subscribes to the whole
+ * surface cannot avoid re-rendering when any part of it changes, and a tree of containers
+ * multiplies that cost by the number of nodes.
  *
  * @param clock the clock renderers read "today" from. A card that says "Today" and a template
  *   that calls `formatRelative` both need the date, and neither should read it from the system:
@@ -73,12 +69,6 @@ class DefaultDataContext(
      * paying for the handful of strings a surface contains.
      */
     val dataModel: DataModel? get() = controller.snapshot(surfaceId)?.dataModel
-
-    /** One component, emitting only when that component changes. */
-    fun component(id: String): Flow<UiNode?> = controller.component(surfaceId, id)
-
-    /** The root component reference of this surface. */
-    fun rootRef(): Flow<NodeRef?> = controller.rootRef(surfaceId)
 
     /**
      * The value at a data-model path, **without** the count of the server's writes.

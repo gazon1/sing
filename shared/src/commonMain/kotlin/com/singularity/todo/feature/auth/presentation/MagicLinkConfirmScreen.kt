@@ -26,10 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -38,12 +34,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ButtonSpinner
-import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
-import com.singularity.todo.core.ui.textfields.ObserveTextFieldEdits
 import com.singularity.todo.feature.auth.AuthIntent
+import com.singularity.todo.feature.auth.AuthScreenEffects
 import com.singularity.todo.feature.auth.AuthUiEvent
 import com.singularity.todo.feature.auth.AuthUiState
 import com.singularity.todo.feature.auth.AuthViewModel
@@ -51,6 +46,7 @@ import com.singularity.todo.feature.auth.ConfirmationPendingContent
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
+import kotlinx.coroutines.flow.Flow
 import org.koin.compose.viewmodel.koinViewModel
 
 private const val TOKEN_TAG = "magic_link_token_input"
@@ -68,20 +64,17 @@ fun MagicLinkConfirmScreen(
     // The email and the token live in the fields; the deep link writes into them.
     val emailState = rememberTextFieldState()
     val tokenState = rememberTextFieldState()
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var message by remember { mutableStateOf<String?>(null) }
+
+    MagicLinkConfirmScreenEffects(
+        events = viewModel.events,
+        onNavigateHome = { navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today)) },
+    )
 
     MagicLinkConfirmEffects(
         prefillEmail = prefillEmail,
         prefillToken = prefillToken,
         emailState = emailState,
         viewModel = viewModel,
-        onNavigateHome = { navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today)) },
-        onError = { errorMessage = it },
-        onMessage = {
-            message = it
-            errorMessage = null
-        },
     )
 
     MagicLinkConfirmScaffold(onBack = { navigator.goBack() }) {
@@ -89,15 +82,14 @@ fun MagicLinkConfirmScreen(
         if (awaitingConfirmation != null) {
             MagicLinkPending(
                 email = awaitingConfirmation.email,
-                message = message,
+                // The inline slots stay until the follow-up that removes them; the
+                // events are presented where they arrive, so nothing feeds them here.
+                message = null,
                 isLoading = state is AuthUiState.Loading,
                 onResend = {
-                    message = null
                     viewModel.onIntent(AuthIntent.SendMagicLink(awaitingConfirmation.email.trim()))
                 },
                 onBack = {
-                    message = null
-                    errorMessage = null
                     viewModel.onIntent(AuthIntent.ResetState)
                 },
             )
@@ -107,15 +99,11 @@ fun MagicLinkConfirmScreen(
                 tokenState = tokenState,
                 emailEnabled = prefillEmail.isEmpty(),
                 isLoading = state is AuthUiState.Loading,
-                errorMessage = errorMessage,
-                message = message,
-                onFieldEdited = {
-                    errorMessage = null
-                    message = null
-                },
+                // The inline slots stay until the follow-up that removes them; the
+                // events are presented where they arrive, so nothing feeds them here.
+                errorMessage = null,
+                message = null,
                 onSubmit = {
-                    errorMessage = null
-                    message = null
                     viewModel.onIntent(
                         AuthIntent.VerifyMagicLink(
                             email = emailState.text.toString().trim(),
@@ -126,8 +114,6 @@ fun MagicLinkConfirmScreen(
                 onResend = {
                     val email = emailState.text.toString()
                     if (email.isNotBlank()) {
-                        errorMessage = null
-                        message = null
                         viewModel.onIntent(AuthIntent.SendMagicLink(email.trim()))
                     }
                 },
@@ -137,12 +123,11 @@ fun MagicLinkConfirmScreen(
 }
 
 /**
- * Everything this screen does that is not drawing: the two deep-link effects and
- * the one-shot event collector.
+ * Everything this screen does that is not drawing: the two deep-link effects.
  *
  * Split out of [MagicLinkConfirmScreen] so the screen body is the layout and the
- * reactions are a single named call. The callbacks write the screen's own state,
- * so this composable owns no state of its own and cannot disagree with the body.
+ * reactions are a single named call. This composable owns no state of its own and
+ * cannot disagree with the body.
  */
 @Composable
 private fun MagicLinkConfirmEffects(
@@ -150,9 +135,6 @@ private fun MagicLinkConfirmEffects(
     prefillToken: String,
     emailState: TextFieldState,
     viewModel: AuthViewModel,
-    onNavigateHome: () -> Unit,
-    onError: (String?) -> Unit,
-    onMessage: (String?) -> Unit,
 ) {
     // Sync deep-link email when it arrives (e.g. app was killed and reopened via link).
     LaunchedEffect(prefillEmail) {
@@ -174,13 +156,23 @@ private fun MagicLinkConfirmEffects(
         }
     }
 
-    CollectEvents(viewModel.events) { event ->
-        when (event) {
-            is AuthUiEvent.NavigateToHome -> onNavigateHome()
-            is AuthUiEvent.Error -> onError(event.message)
-            is AuthUiEvent.Message -> onMessage(event.message)
-        }
-    }
+}
+
+/**
+ * The magic-link screen's whole reaction to the auth event bus.
+ *
+ * The screen keeps no copy of an event: it presents it where it arrives — an
+ * error as the shared error dialog, a neutral notice as a snackbar — and
+ * forgets it. The implementation is [AuthScreenEffects], shared with the other
+ * auth screens; this name is the magic-link screen's own contract, so the desktop
+ * test can mount the screen's reaction on its own and hand it an event.
+ */
+@Composable
+fun MagicLinkConfirmScreenEffects(
+    events: Flow<AuthUiEvent>,
+    onNavigateHome: () -> Unit,
+) {
+    AuthScreenEffects(events = events, onNavigateHome = onNavigateHome)
 }
 
 /** The "check your inbox" state, for the screen that has a form to show. */
@@ -267,15 +259,10 @@ private fun MagicLinkVerifyForm(
     isLoading: Boolean,
     errorMessage: String?,
     message: String?,
-    onFieldEdited: () -> Unit,
     onSubmit: () -> Unit,
     onResend: () -> Unit,
     emailEnabled: Boolean = true,
 ) {
-    // The fields own their text, so "the user typed something" is observed rather than reported.
-    // Typing clears the transient error and message, the way the value-based `onValueChange` did.
-    ObserveTextFieldEdits(emailState) { onFieldEdited() }
-    ObserveTextFieldEdits(tokenState) { onFieldEdited() }
     SelectableText(
         text = "A sign-in link was sent to your email. Enter the code from the link below.",
         style = MaterialTheme.typography.bodyMedium,
@@ -373,7 +360,6 @@ private fun MagicLinkConfirmScreenPreview() =
             isLoading = false,
             errorMessage = null,
             message = null,
-            onFieldEdited = {},
             onSubmit = {},
             onResend = {},
             onBack = {},
@@ -387,7 +373,6 @@ internal fun MagicLinkConfirmScreenContent(
     isLoading: Boolean,
     errorMessage: String?,
     message: String? = null,
-    onFieldEdited: () -> Unit,
     onSubmit: () -> Unit,
     onResend: () -> Unit,
     onBack: () -> Unit,
@@ -402,7 +387,6 @@ internal fun MagicLinkConfirmScreenContent(
             isLoading = isLoading,
             errorMessage = errorMessage,
             message = message,
-            onFieldEdited = onFieldEdited,
             onSubmit = onSubmit,
             onResend = onResend,
         )

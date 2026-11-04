@@ -13,7 +13,7 @@ Use when implementing or modifying the rich-text editor in `feature/notes/`. Thi
 - `EditorSession` — the hoisting pattern for sharing `RichTextState` between toolbar and body
 - Internal link picker (Obsidian-style `[[Note Title]]` / `[[Task Title]]`)
 - External URL link dialog (`LinkUrlDialog`)
-- Wikilink insertion via `addLinkToSelection`
+- Wikilink insertion via `EditorSession.insertLink(url, text)` — a selection *and* a caret
 - Wikilink extraction via `extractOutgoingLinks` (HTML regex)
 - `RichTextState.toMarkdown()` / `setHtml()` for markdown round-trip (built-in, no port needed)
 - Debounced autosave with `AutosaveScheduler`
@@ -197,13 +197,11 @@ InternalLinkPickerSheet(
         notes + tasks  // merged
     },
     onSelected = { result ->
-        val url = when (result.kind) {
-            LinkKind.Note -> "note://${result.id}"
-            LinkKind.Task -> "task://${result.id}"
-        }
-        session?.richTextState?.addLinkToSelection(url = url)
-        session?.recordLink(url)
-        session?.dispatchHtml()
+        // The link text is the title; the address is the internal URL.
+        session.insertLink(
+            url = result.kind.urlFor(result.id),
+            text = result.title.ifBlank { "(Untitled)" },
+        )
         linkQueryFlow.value = ""
     },
     onDismiss = { internalLinkPickerVisible = false; linkQueryFlow.value = "" },
@@ -295,6 +293,10 @@ richState.toggleOrderedList()
 richState.toggleCodeSpan()
 richState.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Center))
 richState.addLinkToSelection(url = "https://example.com")  // inserts link span
+// A collapsed selection is refused by the library. The app writes the link text at
+// the caret first and links the range it occupies — see EditorSession.insertLink.
+richState.addTextAfterSelection("https://example.com")    // writes plain text at the caret
+richState.addLinkToTextRange(url, TextRange(caret, caret + len))  // links a range
 
 // Query state
 richState.currentSpanStyle.fontWeight >= FontWeight.Bold  // isBold
@@ -323,7 +325,7 @@ task://{taskId}
 
 `RichText` (read-only, used in NotePreview) handles link taps internally via `detectTapGestures` + `getLinkByOffset` (internal API).
 
-For the editable `RichTextEditor`: `addLinkToSelection(url)` inserts the link span correctly. Tapping links in the editor for navigation is future work.
+For the editable `RichTextEditor`: `EditorSession.insertLink(url, text)` inserts the link span correctly — on a selection it links the selected text, and on a caret it writes the link text at the caret and links that range. Tapping links in the editor for navigation is future work.
 
 ## Limitations
 

@@ -6,6 +6,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.text.TextRange
 import com.mohamedrejeb.richeditor.model.RichTextState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -58,6 +59,36 @@ class EditorSession(
             lastDispatchedHtml = html
             onBodyChange(id, html)
         }
+    }
+
+    /**
+     * Puts a link into the editor.
+     *
+     * The library's own link insertion refuses a collapsed selection: it returns
+     * without touching the text, and the caller cannot tell that nothing happened.
+     * A caret is the common case — the user taps inside a word and asks for a link —
+     * so the link text is written at the caret first, and the link is applied to the
+     * range that text occupies.
+     *
+     * A selection is the other case, and it keeps the library's behaviour: the
+     * selected text becomes the link, and no text is written.
+     *
+     * @param url the address the link points at.
+     * @param text the text the link shows — the address itself, or a title.
+     */
+    fun insertLink(
+        url: String,
+        text: String,
+    ) {
+        val state = richTextState
+        if (!state.selection.collapsed) {
+            state.addLinkToSelection(url = url)
+        } else {
+            val caret = state.selection.min
+            state.addTextAfterSelection(text)
+            state.addLinkToTextRange(url, TextRange(caret, caret + text.length))
+        }
+        dispatchHtml()
     }
 }
 

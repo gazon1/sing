@@ -16,25 +16,19 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.Notification
-import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.receiveAsFlow
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -159,69 +153,19 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
  * Everything the login screen does that is not drawing: the one collection of the
  * auth event bus, and the two ways an event can reach the user.
  *
- * ## Why the events are presented here and not copied into local flags
- *
- * The screen used to keep `errorMessage` and `message` as `remember` flags and
- * copy each event into one of them, which meant the flag had to be cleared by
- * hand wherever the screen moved on — four places, each of them a chance to
- * leave a stale error on the form. The event says what happened once; the
- * screen shows it where it arrives and forgets it. That is the shape
- * `BackupScreen` already has for `BackupUiEvent`.
- *
- * ## Why the notifications travel over a channel of their own
- *
- * The bus is a channel, and a channel has one consumer: a second collector on
- * `events` takes its share of the events away from the first. The screen owns
- * the single collection, so the notifications it maps are handed to the host
- * over a channel of their own and the host is the only consumer of those.
- *
- * ## Why this is public
- *
- * It is the screen's whole event contract, and a contract that cannot be
- * mounted on its own cannot be tested on its own: the desktop test mounts this,
- * hands it an event, and asserts that the user is told. `BackupScreen` takes
- * its event flow as a parameter for the same reason.
+ * The implementation is [AuthScreenEffects], shared with the other auth screens —
+ * the login screen was the first to take this shape, and the other two follow it.
+ * This name is the login screen's own contract: a contract that cannot be mounted
+ * on its own cannot be tested on its own, so the desktop test mounts this, hands
+ * it an event, and asserts that the user is told.
  */
 @Composable
 fun LoginScreenEffects(
     events: Flow<AuthUiEvent>,
     onNavigateHome: () -> Unit,
 ) {
-    val notificationChannel = remember { Channel<Notification>(Channel.BUFFERED) }
-    val notificationFlow = remember(notificationChannel) { notificationChannel.receiveAsFlow() }
-
-    LaunchedEffect(events) {
-        events.collect { event ->
-            when (event) {
-                // A destination is the screen's business, not a notification.
-                AuthUiEvent.NavigateToHome -> onNavigateHome()
-
-                // Everything else is something to tell the user, and it is told
-                // where it arrives rather than copied into a flag.
-                else -> event.toNotification()?.let { notificationChannel.send(it) }
-            }
-        }
-    }
-
-    NotificationHost(events = notificationFlow)
+    AuthScreenEffects(events = events, onNavigateHome = onNavigateHome)
 }
-
-/**
- * How an auth event reaches the user.
- *
- * An error is a dialog and a neutral notice is a snackbar: the two are told apart
- * on purpose, so "your account was created" is never read as a failure, and a
- * rejected password is never read as a success.
- *
- * [AuthUiEvent.NavigateToHome] is not a notification — it is a destination, and
- * the screen handles it itself.
- */
-internal fun AuthUiEvent.toNotification(): Notification? =
-    when (this) {
-        is AuthUiEvent.Error -> Notification.Error(message)
-        is AuthUiEvent.Message -> Notification.Toast(message)
-        AuthUiEvent.NavigateToHome -> null
-    }
 
 /**
  * The project URL and anon key, entered once.
