@@ -16,7 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.BookmarkAdd
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.CallMerge
 import androidx.compose.material.icons.outlined.DateRange
@@ -245,7 +245,7 @@ fun AgendaContent(
                                                 spotlightRegistry,
                                             ),
                                 ) {
-                                    Icon(Icons.Default.BookmarkAdd, contentDescription = "Save current agenda")
+                                    Icon(Icons.Default.BookmarkBorder, contentDescription = "Save current agenda")
                                 }
                             }
                         },
