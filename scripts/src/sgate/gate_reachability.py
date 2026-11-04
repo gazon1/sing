@@ -166,22 +166,42 @@ def reachable_gate_scripts(
     return follow_delegation(root, invoked), unresolved
 
 
-def _spec_for_command(registry_by_name: dict[str, object], command: str) -> object | None:
-    """The registry entry a ``sgate <command>`` line dispatches to.
+def command_index(registry_by_name: dict[str, object]) -> dict[str, object]:
+    """The registry keyed by the CLI command each gate's display name gives.
 
-    The registry is keyed by display name and the line names the command, so the
-    two are joined by the command the display name gives. The rule that gives it
-    lives in the registry, which is what names the CLI command — a copy here
-    would be the second spelling of one command that the placement table has
-    just stopped carrying.
+    The registry is keyed by display name and a `sgate <command>` line names the
+    command, so the two are joined by the command the display name gives. The
+    rule that gives it lives in the registry, which is what names the CLI
+    command — a copy here would be the second spelling of one command that the
+    placement table has just stopped carrying.
+
+    The index is built once per call rather than scanned per line: a gate line
+    table has no reason to pay a whole-registry scan for every row.
     """
     from sgate.commands import _registry
 
+    index: dict[str, object] = {}
     for spec in registry_by_name.values():
         name = getattr(spec, "name", None)
-        if name and _registry._module_name(str(name)) == command:
-            return spec
-    return None
+        if name:
+            # setdefault: two gates that give the same command is drift the
+            # registry comparison reports; this lookup must not hide it by
+            # silently picking the last one.
+            index.setdefault(_registry._module_name(str(name)), spec)
+    return index
+
+
+def _spec_for_command(index: dict[str, object], command: str) -> object | None:
+    """The registry entry a ``sgate <command>`` line dispatches to, or None.
+
+    None means the line names a command the registry does not have. That is a
+    typo in the line, not a gate without a script, and the caller cannot tell
+    the two apart from a missing script alone — so a miss is worth reporting
+    where the line is read. `covered_scripts` reports it through
+    `unresolved_commands`, and `test_gate_manifest` holds every placement
+    command to it, which is where a renamed command is caught.
+    """
+    return index.get(command)
 
 
 def covered_scripts(
@@ -205,6 +225,9 @@ def covered_scripts(
     `scripts/check-gate-registries.py`, so the two cannot disagree quietly.
     """
     covered: set[str] = set()
+    # Built once, before the lines are read: a per-line scan of the registry
+    # would re-derive every gate's command for every row of the table.
+    by_command = command_index(registry_by_name)
     for _mode, _name, command in shell_gates:
         for match in re.finditer(
             r"(?:^|[\s'\"])((?:scripts/)?(?:check|gen)[-_][\w.-]+\.(?:py|sh))", command
@@ -213,7 +236,7 @@ def covered_scripts(
         tokens = command.split()
         if tokens and tokens[0] == "sgate" and len(tokens) > 1:
             spec = registry_by_name.get(tokens[1]) or _spec_for_command(
-                registry_by_name, tokens[1]
+                by_command, tokens[1]
             )
             script = getattr(spec, "script", None)
             if script:

@@ -826,7 +826,16 @@ deleted decision leaves a dangling claim nothing else sees.""",
     ),
     "script conventions": Placement(
         kind=PlacementKind.STATIC,
-        command='sgate script_conventions',
+        # `conventions`, not `script_conventions`. The rule that the command of a
+        # gate is its display name with the spaces turned into underscores holds
+        # for the gates `make_command` generates; this one is a hand-written
+        # Click command — `conventions.py` — that runs the same script, and it is
+        # the command this line has always named. `_module_name("script
+        # conventions")` is `script_conventions`, which is not the command that
+        # dispatches here, so rewriting the line from the display name would have
+        # renamed a working gate. The line is already in the tool's shape: there
+        # is one declaration of the command, and the comparison never reads it.
+        command='sgate conventions',
         note="""
 ─── Deliberately NOT here ─────────────────────────────────────────────────────
 
