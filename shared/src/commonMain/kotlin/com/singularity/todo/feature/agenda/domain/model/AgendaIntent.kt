@@ -108,9 +108,12 @@ sealed interface AgendaIntent : MviIntent {
      */
     data object MergeSelectedSeries : AgendaIntent
 
-    /** Re-runs the agenda collection after a load failure. */
+    /**
+     * Re-runs the agenda collection after a load failure.
+     *
+     * The one name for this action: it used to have a second one beside it —
+     * an alias that dispatched the same handler — and a reader had to guess
+     * which of the two the screen meant.
+     */
     data object Retry : AgendaIntent
-
-    /** Alias for [Retry]; reloads the agenda collection. */
-    data object Reload : AgendaIntent
 }

@@ -35,6 +35,7 @@ import com.singularity.todo.test.helpers.testVm
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
@@ -92,11 +93,12 @@ class AgendaViewModelTest {
     /**
      * The tasks the agenda reads.
      *
-     * The failing variant of the fake, because the agenda's read is the one that
-     * can fail and leave the screen on an error — and the retry that has to get
-     * the agenda back is only reachable through that failure.
+     * The plain fake. The agenda's read is the one that can fail and leave the
+     * screen on an error — and the retry that has to get the agenda back is
+     * only reachable through that failure — so the failing variant is a fake
+     * of its own, built by the tests that need it.
      */
-    private val fakeRepo = FailingObserveTaskRepository()
+    private val fakeRepo = FakeTaskRepository()
     private val fakeSettings = FakeSettingsRepository()
     private val fakeCurrentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser()
     private val fakeTaskMutations = FakeTaskMutationsUseCase(fakeRepo)
@@ -1006,9 +1008,30 @@ class AgendaViewModelTest {
      * The fake has no hook for a failing flow, so the observation is overridden
      * here: the agenda's collection stops on it, and the catch that handles the
      * stop is what this test is about.
+     *
+     * The failure is switchable and the subscriptions are counted, because a
+     * retry only means something when the second attempt *can* succeed and
+     * when the test can see that a new observation ran at all.
      */
-    private class FailingTaskRepository(private val failure: Throwable) : FakeTaskRepository() {
-        override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> = flow { throw failure }
+    private class FailingTaskRepository(initialFailure: Throwable) : FakeTaskRepository() {
+        /** The failure the next observation throws; null lets it observe normally. */
+        var failure: Throwable? = initialFailure
+
+        /** How many times the filtered observation was subscribed to. */
+        var observations: Int = 0
+            private set
+
+        override fun observeByFilter(filter: TaskFilter): Flow<List<Task>> {
+            // The delegate is taken here rather than inside the flow builder:
+            // a `super` call is not allowed inside a lambda.
+            val observed = super.observeByFilter(filter)
+            return flow {
+                observations++
+                val cause = failure
+                if (cause != null) throw cause
+                emitAll(observed)
+            }
+        }
     }
 
     /**
@@ -1042,5 +1065,98 @@ class AgendaViewModelTest {
             val reported = reporter.reports.single()
             assertSame(failure, reported.first, "the reporter gets the original throwable")
             assertEquals("agenda.load_failed", reported.second)
+        }
+
+    // ─── The retry ────────────────────────────────────────────────────────────
+    //
+    // The error state's Retry button used to do nothing the user could see: the
+    // failed collection had ended the ViewModel's subscription to the reload
+    // trigger, so the trigger the Retry intent bumped was one nobody listened
+    // to any more. The screen went back to the spinner and stayed there.
+
+    /**
+     * The retry has to run the observation again, not only change the state.
+     *
+     * The observable result is the loaded agenda: the screen leaves the error
+     * state and shows the tasks again.
+     */
+    @Test
+    fun `a retry after a failed load reaches the loaded state`() =
+        runTest {
+            val failure = IllegalStateException("the observation failed")
+            val repo = FailingTaskRepository(failure)
+            val vm =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        deps = agendaDeps(taskRepo = repo),
+                        definition = AgendaPresets.Inbox,
+                        scope = scope,
+                    )
+                }
+            runCurrent()
+            runCurrent()
+
+            assertIs<AgendaUiState.Error>(vm.stateFlow.value)
+
+            // The second attempt succeeds.
+            repo.failure = null
+
+            vm.onIntent(AgendaIntent.Retry)
+            runCurrent()
+            runCurrent()
+
+            assertIs<AgendaUiState.Loaded>(
+                vm.stateFlow.value,
+                "the retry must bring the agenda back — the screen must not stay on the spinner",
+            )
+            assertEquals(
+                2,
+                repo.observations,
+                "the retry must run a new observation, not reuse the one that failed",
+            )
+        }
+
+    /**
+     * A retry that fails again lands in the error state — not on the spinner.
+     *
+     * The state the Retry intent writes (loading) is a promise that the load
+     * is running; when the load fails, that promise is broken and the error
+     * state has to replace it.
+     */
+    @Test
+    fun `a retry that fails again lands in the error state`() =
+        runTest {
+            val failure = IllegalStateException("the observation failed")
+            val reporter = RecordingCrashReportingPort()
+            val repo = FailingTaskRepository(failure)
+            val vm =
+                createVmIn { scope ->
+                    AgendaViewModel(
+                        deps = agendaDeps(taskRepo = repo),
+                        definition = AgendaPresets.Inbox,
+                        crashReporter = reporter,
+                        scope = scope,
+                    )
+                }
+            runCurrent()
+            runCurrent()
+
+            assertIs<AgendaUiState.Error>(vm.stateFlow.value)
+
+            vm.onIntent(AgendaIntent.Retry)
+            runCurrent()
+            runCurrent()
+
+            assertIs<AgendaUiState.Error>(
+                vm.stateFlow.value,
+                "a failed retry must land in the error state, not on the spinner",
+            )
+            assertEquals(
+                2,
+                reporter.reports.size,
+                "every failed attempt is reported — the first one and the retry",
+            )
+            assertSame(failure, reporter.reports.last().first, "the reporter gets the original throwable")
+            assertEquals("agenda.load_failed", reporter.reports.last().second)
         }
 }
