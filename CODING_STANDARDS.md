@@ -582,11 +582,10 @@ before the expansion caps the hit area — the order is the bug.
   so the size it applies cannot be chosen at the call site. The shared
   `touchTarget(minSize)` helper (`core/ui/TouchTarget.kt`) is what enforces
   the size in this project.
-- **Use the token.** `TaskListSizes.MinTouchTarget = 48.dp` is the source of
-  truth for task-list controls; `TouchTarget.MinSize` is the 48 dp minimum
-  the helper defaults to. Prefer passing the token explicitly rather than
-  relying on the default when the control is in scope of that token:
-  `Modifier.touchTarget(TaskListSizes.MinTouchTarget)`.
+- **Use the shared token.** `TouchTarget.MinSize = 48.dp`
+  (`core/ui/TouchTarget.kt`) is the app-wide source of truth, and
+  `Modifier.touchTarget()` defaults to it. The minimum is read from the core UI
+  package, never from a feature's theme package.
 - **A touch target is still a control.** Padding and hit expansion do not
   replace a real hit area. A `clickable`/`toggleable`/`IconButton` on a small
   node needs expansion, and the expansion must not be clipped by a

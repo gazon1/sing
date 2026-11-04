@@ -26,7 +26,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 
 private val COMMON_EMOJIS =
     listOf(
@@ -79,7 +78,7 @@ fun IconPickerSheet(
                         },
                     modifier =
                         Modifier
-                            .touchTarget(TaskListSizes.MinTouchTarget)
+                            .touchTarget()
                             .size(40.dp)
                             .clip(CircleShape)
                             .clickable { onPick(key) }
@@ -122,7 +121,7 @@ private fun EmojiSection(
                 text = emoji,
                 modifier =
                     Modifier
-                        .touchTarget(TaskListSizes.MinTouchTarget)
+                        .touchTarget()
                         .size(40.dp)
                         .clip(CircleShape)
                         .clickable { onPick(emoji) }
