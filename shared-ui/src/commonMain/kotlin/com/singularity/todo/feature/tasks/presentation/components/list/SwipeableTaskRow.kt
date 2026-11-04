@@ -29,7 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.core.ui.TouchTarget
+import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
 import org.jetbrains.compose.resources.stringResource
@@ -128,7 +128,7 @@ fun SwipeableTaskRow(
                     tint = Color.White,
                     modifier =
                         Modifier
-                            .size(TouchTarget.MinSize - TaskListSpacing.Md) // 36dp
+                            .size(TaskListSizes.SwipeDeleteIcon)
                             .scale(iconScale),
                 )
             }

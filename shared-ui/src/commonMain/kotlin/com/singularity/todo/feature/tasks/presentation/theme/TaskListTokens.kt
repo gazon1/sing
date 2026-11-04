@@ -44,6 +44,21 @@ object TaskListSizes {
     val CheckIcon = 13.dp
     val PriorityStar = 16.dp
     val MetaIcon = 13.dp
+
+    /**
+     * Видимый размер иконки удаления в свайп-строке.
+     *
+     * Это **видимый** размер, а не размер площади касания, поэтому он не выводится
+     * из общего минимума [TouchTarget.MinSize]: минимум касания относится к области
+     * нажатия, и его изменение не должно двигать глиф. Раньше размер считался как
+     * `TouchTarget.MinSize - TaskListSpacing.Md`, и когда минимум подняли с 44 до
+     * 48 dp, иконка выросла на 4 dp сама собой — не по решению, а по следствию.
+     *
+     * Сколько именно занимает область нажатия, решает общий минимум в
+     * `core/ui/TouchTarget.kt` — он и должен быть единственным, кто им управляет.
+     */
+    val SwipeDeleteIcon = 36.dp
+
     val DividerThickness = 1.dp
     val CardElevation = 1.dp
     val CardElevationHover = 4.dp
