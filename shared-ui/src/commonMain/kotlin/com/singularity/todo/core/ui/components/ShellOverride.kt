@@ -3,6 +3,7 @@ package com.singularity.todo.core.ui.components
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 
 /**
  * Publishes [title] (and optionally [navigationIcon]) to the Android shell bar
@@ -21,17 +22,18 @@ fun ShellOverride(
     title: @Composable () -> Unit,
     navigationIcon: (@Composable () -> Unit)? = null,
 ) {
+    // One token per composed screen: it lets the holder tell "this screen
+    // published a title" from "this slot holds a title someone has left". It is
+    // taken before the provider check so the composition's slots do not depend
+    // on whether the shell is present.
+    val publisher = remember { Any() }
     val holder = LocalScreenActions.current ?: return
     SideEffect {
-        holder.title = title
-        holder.navigationIcon = navigationIcon
-        holder.override = true
+        holder.publishTitle(publisher, title, navigationIcon)
     }
-    DisposableEffect(holder) {
+    DisposableEffect(holder, publisher) {
         onDispose {
-            holder.title = null
-            holder.navigationIcon = null
-            holder.override = false
+            holder.releaseTitle(publisher)
         }
     }
 }
