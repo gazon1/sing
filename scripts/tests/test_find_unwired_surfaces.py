@@ -880,6 +880,85 @@ class TestUnreadPublicDetector(unittest.TestCase):
         })
         self.assertEqual(["write-only"], [k for k, _ in findings], findings)
 
+
+class TestUnreadPublicReportAndFloor(unittest.TestCase):
+    """The reporting the write-only shape leans on (#1916).
+
+    Three things the shape is judged by: a read the corpus cannot show is still a
+    read, a run's counts must not call a note an exemption, and the floor header is
+    shipped into the checked-in floor file, so a paragraph pasted into it twice is
+    pasted into the repository twice.
+    """
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def _run(self, files):
+        code = {}
+        for name, content in files.items():
+            p = self.tmp / name
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(content)
+            code[p] = fus.strip_comments(content)
+        pre = fus._precompute_unread_public(code)
+        return fus._check_unread_public(code, "\n".join(code.values()), pre)
+
+    def test_a_string_template_read_is_a_read(self):
+        # `log("$overwriteExisting")` evaluates the property, so the option is
+        # consulted. The corpus is built with `strip_code`, which blanks the contents
+        # of a literal, so the template is invisible to it — without counting the
+        # template the property was reported as unread.
+        findings = self._run({
+            "shared/src/commonMain/Options.kt": (
+                "data class ImportOptions(val overwriteExisting: Boolean = true)\n"
+            ),
+            "shared/src/commonMain/Logger.kt": (
+                "fun log(message: String) {}\n"
+                "fun use(o: ImportOptions) {\n"
+                '    log("$overwriteExisting")\n'
+                "}\n"
+            ),
+        })
+        self.assertEqual([], findings)
+
+    def test_a_plain_literal_mention_is_not_a_read(self):
+        # The other half of the template rule: a log *tag* is a literal, not a
+        # template, and it does not consult the property.
+        findings = self._run({
+            "shared/src/commonMain/Options.kt": (
+                "data class ImportOptions(val overwriteExisting: Boolean = true)\n"
+            ),
+            "shared/src/commonMain/Logger.kt": (
+                "fun log(tag: String, message: String) {}\n"
+                "fun use(o: ImportOptions) {\n"
+                '    log("overwriteExisting", "done")\n'
+                "}\n"
+            ),
+        })
+        self.assertEqual(["unread-public"], [k for k, _ in findings], findings)
+
+    def test_the_summary_counts_exempt_and_note_apart(self):
+        # A note is information, not an exemption: calling it one claims a decision
+        # was taken that nobody took.
+        summary = fus._summary([
+            ("note", "3 public name(s) skipped as ambiguous"),
+            ("exempt", "SavedId is accepted debt"),
+            ("unread-public", "UnusedId is declared and never read"),
+        ])
+        self.assertEqual("1 blocking finding(s); 1 exempted; 1 note(s).", summary)
+
+    def test_the_summary_of_a_note_only_run_says_no_exemption(self):
+        summary = fus._summary([("note", "3 public name(s) skipped as ambiguous")])
+        self.assertEqual("0 blocking finding(s); 1 note(s).", summary)
+        self.assertNotIn("exempted", summary)
+
+    def test_the_floor_header_has_no_duplicated_paragraph(self):
+        # The header is written into config/docs/unwired-surfaces-floor.txt, so a
+        # paragraph pasted into it twice is shipped to the repository twice.
+        lines = [line for line in fus.FLOOR_HEADER.splitlines() if line.strip()]
+        self.assertEqual(len(lines), len(set(lines)))
+
     def test_a_property_declared_inside_a_default_lambda_is_not_an_option(self):
         # The `val` belongs to the default value's lambda, not to the constructor, so
         # `Holder.tmp` never existed as an option.

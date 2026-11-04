@@ -2,12 +2,8 @@
 #
 # Counted when the floor was last written, against source roots: shared/src, shared-ui/src, androidApp/src, desktopApp/src, adr-cli/src, adr-core/src, core-base/src, mcp-server/src, pro/src, tools/unwritten-properties/src.
 #
-# Every detector counts, `unread-public` / `write-only` (#1916) included. Those shapes
-# were added *to* the count when they landed: a shape whose findings are never counted
-# has no floor to stop it growing, and exemptions are not a ratchet. An exemption is a
-# decision about one finding, not a property of a shape: a shape that needs no rows in
-# scripts/find-unwired-surfaces-baseline.txt still moves the number here, and that file
-# carries a row only when somebody argues a specific finding is accepted debt.
+# Every detector counts, `unread-public` / `write-only` (#1916) included: a shape
+# whose findings are never counted has no floor to stop it growing.
 #
 # One-directional on purpose. Lowering it is the debt being paid down and needs no
 # justification; raising it is a new unwired surface and must be argued in review.
@@ -16,4 +12,4 @@
 #
 # Rewrite with: scripts/find-unwired-surfaces.py --update-floor
 
-10
+0
