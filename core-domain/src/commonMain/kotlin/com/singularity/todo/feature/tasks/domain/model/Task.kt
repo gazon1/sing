@@ -52,12 +52,19 @@ sealed interface TaskFilter {
     data object Someday : TaskFilter
 
     /**
-     * Every task that is not in the trash and not deferred — dated or undated.
+     * Every live task that is not deferred — dated or undated.
+     *
+     * "Live" means not in the trash, and "not deferred" means the `someday` flag is
+     * clear. The repository read is `watchNotDeferred`, which says the same thing in
+     * SQL, so the name is a description of the query and not a nickname for it.
      *
      * This is not a completion filter: a finished task still matches, because
      * completing a task marks it and only archiving takes it away. A caller that
      * wants the unfinished ones narrows this filter with [TaskStatus.Active], as
      * the AI tool's `open` selection does.
+     *
+     * [All] is the wider question — the deferred tasks included — so the two names
+     * answer two questions and the two reads are two queries.
      *
      * The agenda's Inbox tab is *narrower* than this: it holds the tasks with no
      * due date, because it answers "what have I not scheduled yet". The filter and
@@ -70,6 +77,15 @@ sealed interface TaskFilter {
 
     data object Trash : TaskFilter
 
+    /**
+     * Every task that is not in the trash — the deferred ones, the finished ones,
+     * the dated and the undated all included.
+     *
+     * The repository read is `watchActive`, whose only condition is
+     * `archived_at IS NULL`. The trash itself is [Trash]'s question.
+     *
+     * Narrower than this: [NotDeferred], which also excludes the deferred tasks.
+     */
     data object All : TaskFilter
 
     data class ByProject(val id: ProjectId) : TaskFilter

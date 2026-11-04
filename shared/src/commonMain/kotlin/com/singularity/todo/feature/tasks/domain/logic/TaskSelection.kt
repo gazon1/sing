@@ -117,10 +117,11 @@ data class TaskSelectionRequest(
  * ## Why the base is always "everything", and not a narrower query
  *
  * The repository's own filters and the domain's own filters do not always agree. The
- * repository answers `NotDeferred` with every live task, while the domain's answer
- * leaves out the deferred ones; the repository answers `ByStatuses` with nothing at
- * all. Reading through the repository's narrower filters would therefore have the tool
- * report a different set from the screen.
+ * repository answers `ByStatuses` with nothing at all; and the two filters that do
+ * agree today — `NotDeferred` and `All` — are only kept in step by a test that pins
+ * what each read selects (`TaskRepositoryContractTest`). Reading through the
+ * repository's narrower filters would therefore have the tool report a different set
+ * from the screen.
  *
  * So the tool reads the live tasks and applies the domain's rule to them. The list is
  * the same size either way — the read is a single query over the user's own rows — and
@@ -170,6 +171,10 @@ object TaskSelectionResolver {
             // domain's `NotDeferred` filter leaves the finished tasks in, because a
             // filter and a screen are not the same question — so the active-status
             // rule is applied on top, and the reader gets what is still to do.
+            //
+            // `open` is the same rule the repository's `NotDeferred` read applies
+            // (`archived_at IS NULL AND someday = 0`), plus completion; that read is
+            // pinned by `TaskRepositoryContractTest` so the two cannot drift.
             //
             // This is *not* the agenda's Inbox tab, which holds the undated tasks
             // only. The two answer different questions — "what is not scheduled yet"

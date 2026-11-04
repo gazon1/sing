@@ -44,9 +44,14 @@ application's active-status rule on top and so excludes finished tasks.
 
 - `TaskFilter.NotDeferred` never filters by completion. A caller that wants the
   unfinished tasks narrows it with `TaskStatus.Active`, as `TaskSelection.OPEN` does.
-- The repository's `NotDeferred` read is still `watchActive`, which returns the
-  deferred tasks as well. Do not read the filter's name as a description of that
-  query; changing what the pomodoro picker lists is a separate decision.
+- The repository's `NotDeferred` read is `watchNotDeferred`
+  (`archived_at IS NULL AND someday = 0`), so the name is a description of the query.
+  It used to be `watchActive`, which returned the deferred tasks as well; the name and
+  the query disagreed and only this section said so. That is no longer the case: the
+  two filters that remain answer two questions, and `TaskRepositoryContractTest` pins
+  what each read selects so a rename cannot change it quietly.
+- `TaskFilter.All` is the wider question — everything not in the trash, the deferred
+  tasks included — and it keeps `watchActive`.
 - The AI tool's selection vocabulary has no `inbox`. A caller that sends it gets a
   validation error and should ask for `open`.
 - A cursor issued before the rename carries the old fingerprint and is refused with a

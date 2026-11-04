@@ -108,6 +108,68 @@ abstract class TaskRepositoryContractTest {
             assertEquals("Buy milk", result.getOrNull()?.title)
         }
 
+    // ─── What a filter selects ──────────────────────────────────────────────────
+
+    /**
+     * Pins the set `observeByFilter(NotDeferred)` returns, because the name is a claim
+     * about that query and the pomodoro picker reads it without narrowing anything.
+     *
+     * The claim: every live task that is not deferred. Undated in, dated in, finished
+     * in — completing a task marks it and only archiving takes it away — deferred out,
+     * trashed out. If the read ever falls back to `watchActive`, or the query loses its
+     * `someday` condition, this fails rather than the filter quietly answering a
+     * different question than its name.
+     */
+    @Test
+    fun `observeByFilter NotDeferred returns the live tasks that are not deferred`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("undated"))
+            repo.create(task("dated").copy(dueDate = LocalDate(2026, 10, 5)))
+            repo.create(task("finished").copy(completedAt = kotlin.time.Clock.System.now()))
+            repo.create(task("someday").copy(someday = true))
+            repo.create(task("trashed"))
+            advanceUntilIdle()
+            repo.softDelete(TaskId("trashed"))
+            advanceUntilIdle()
+
+            val selected = repo.observeByFilter(TaskFilter.NotDeferred).first().map { it.id.value }.toSet()
+
+            assertEquals(
+                setOf("undated", "dated", "finished"),
+                selected,
+                "NotDeferred is every live task that is not deferred — dated or undated, finished or not",
+            )
+        }
+
+    /**
+     * Pins the set `observeByFilter(All)` returns, so the two names cannot collapse
+     * back into one question: `All` is everything not in the trash, which is what its
+     * read (`watchActive`) does, and it is the deferred tasks that tell it apart from
+     * `NotDeferred`.
+     */
+    @Test
+    fun `observeByFilter All returns every live task, the deferred ones included`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("undated"))
+            repo.create(task("dated").copy(dueDate = LocalDate(2026, 10, 5)))
+            repo.create(task("finished").copy(completedAt = kotlin.time.Clock.System.now()))
+            repo.create(task("someday").copy(someday = true))
+            repo.create(task("trashed"))
+            advanceUntilIdle()
+            repo.softDelete(TaskId("trashed"))
+            advanceUntilIdle()
+
+            val selected = repo.observeByFilter(TaskFilter.All).first().map { it.id.value }.toSet()
+
+            assertEquals(
+                setOf("undated", "dated", "finished", "someday"),
+                selected,
+                "All is everything not in the trash — the deferred tasks included",
+            )
+        }
+
     // ─── Series ───────────────────────────────────────────────────────────────
 
     @Test

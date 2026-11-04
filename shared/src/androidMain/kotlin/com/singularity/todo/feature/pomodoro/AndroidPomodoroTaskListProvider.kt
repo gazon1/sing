@@ -16,8 +16,10 @@ import kotlinx.coroutines.launch
  * focus session can be started on.
  *
  * The set is [com.singularity.todo.feature.tasks.domain.model.TaskFilter.NotDeferred]
- * — every task that is neither in the trash nor deferred. It is *not* the agenda's
- * Inbox tab: that one holds the undated tasks only.
+ * — every task that is neither in the trash nor deferred, dated or undated. The name
+ * and the query agree: `TaskFilter.NotDeferred` reads `watchNotDeferred`, which filters
+ * `archived_at IS NULL AND someday = 0`, so a deferred (someday) task is not in this
+ * list. It is *not* the agenda's Inbox tab: that one holds the undated tasks only.
  *
  * Maintains a private [MutableStateFlow] updated via [CoroutineScope.launch].
  * Callers receive a [StateFlow] view for synchronous read access.

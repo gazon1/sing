@@ -57,7 +57,7 @@ Brief definition (1-3 sentences). Explain what it is, not how it's implemented.
 | `AgendaDefinition` | `AgendaDefinition` (keep) | The selector+evaluator config for an agenda |
 | `Profile` / `User` | `Profile` | Multi-profile isolation; `User` is the Room entity |
 | `TagGroup` / `TagCategory` | `TagGroup` | The grouping entity; Category is informal |
-| `Inbox` / `TaskFilter.Inbox` | `Inbox` | The default task collection |
+| `Inbox` / the old "inbox filter" | `Inbox` (the agenda tab, undated tasks only) and `TaskFilter.NotDeferred` (the code-level filter, live tasks that are not deferred) | The tab and the filter answer different questions; neither is "the default task collection" |
 | `scope` / `CoroutineScope` | `CoroutineScope` | Always spell out in code; `scope` is only for lambdas |
 
 ## Consequences

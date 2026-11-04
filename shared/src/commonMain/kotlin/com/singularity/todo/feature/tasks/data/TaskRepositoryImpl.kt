@@ -153,12 +153,12 @@ class TaskRepositoryImpl(
                     }
 
                     is TaskFilter.NotDeferred -> {
-                        // The DAO query is wider than the domain rule: it returns
-                        // every non-archived task, the deferred ones included. That
-                        // predates this filter's name, and the pomodoro picker is its
-                        // only reader — this change renames it, it does not change
-                        // what the picker lists.
-                        taskDao.watchActive(uid.value)
+                        // The name is the rule: not in the trash, not deferred. The
+                        // query says the same, so a reader does not have to be told
+                        // not to trust the name. `All` is the wider question and keeps
+                        // `watchActive`; if this read went back to `watchActive` the
+                        // two filters would answer one question under two names.
+                        taskDao.watchNotDeferred(uid.value)
                     }
 
                     is TaskFilter.Trash -> {
