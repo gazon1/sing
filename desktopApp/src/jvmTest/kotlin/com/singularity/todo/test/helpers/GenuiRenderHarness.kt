@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.genui.catalog.A2uiCatalog
 import com.singularity.todo.feature.genui.catalog.SingularityCatalog
+import com.singularity.todo.feature.genui.catalog.UiNode
 import com.singularity.todo.feature.genui.core.A2uiMessageProcessor
 import com.singularity.todo.feature.genui.core.A2uiParseOutcome
 import com.singularity.todo.feature.genui.core.A2uiValidator
@@ -73,10 +74,14 @@ data class GenuiWrite(val surfaceId: SurfaceId, val path: UiPath, val value: Jso
  * @param responses JSON Lines exactly as a model would send them, applied in order.
  * @param assertClean fail when a line is rejected. A test about drawing a screen wants a screen,
  *   not a screen minus whatever the validator disliked.
+ * @param configureRegistry receives the registry **after** the production catalog is installed, so
+ *   a test can replace one kind without losing the rest — the containers that dispatch through
+ *   `RenderSingle` are the ones a surface's shape depends on.
  */
 fun runGenuiRenderTest(
     responses: List<String>,
     assertClean: Boolean = true,
+    configureRegistry: (ComponentRegistry) -> Unit = {},
     test: suspend GenuiRenderScope.() -> Unit,
 ) = runIsolatedComposeTest {
     val controller: SurfaceController = SurfaceController()
@@ -101,7 +106,13 @@ fun runGenuiRenderTest(
 
     val presses: MutableList<GenuiPress> = mutableListOf()
     val writes: MutableList<GenuiWrite> = mutableListOf()
-    val registry: ComponentRegistry = ComponentRegistry().also { Material3Catalog.installAll(it) }
+    val registry: ComponentRegistry =
+        ComponentRegistry().also {
+            Material3Catalog.installAll(it)
+            // Last, so an override wins: a test that replaces one kind keeps every other renderer
+            // the application has, including the containers that call `RenderSingle`.
+            configureRegistry(it)
+        }
     val context =
         DefaultDataContext(
             surfaceId = GenuiSurfaceId,
@@ -185,6 +196,25 @@ class GenuiRenderScope(
                 surfaceId = GenuiSurfaceId,
                 path = UiPath.parse(path),
                 value = value,
+            ),
+        )
+    }
+
+    /**
+     * Replaces components of the surface that is already on screen.
+     *
+     * This is the update a streaming answer sends while the user is looking at the surface, and
+     * the one a recomposition measurement is about: what a model's later `updateComponents` costs
+     * when only some of the components changed. The components that are not named here are left
+     * exactly as they were, as `ComponentStore.put` promises.
+     *
+     * The composition is not awaited here — call [settle] before asking what was composed.
+     */
+    fun updateComponents(components: Map<String, UiNode>) {
+        controller.apply(
+            UiEvent.UpdateComponents(
+                surfaceId = GenuiSurfaceId,
+                components = components,
             ),
         )
     }
