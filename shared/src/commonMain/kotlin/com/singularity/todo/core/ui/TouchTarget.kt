@@ -27,10 +27,16 @@ object TouchTarget {
  * the size this helper is called with is enforced here instead.
  *
  * **The order matters.** The modifier has to come BEFORE the `size(...)` that constrains
- * the visual size: `Modifier.touchTarget().size(20.dp)` keeps a 48 dp hit area around a
- * 20 dp icon, while `Modifier.size(20.dp).touchTarget()` is capped back to 20 dp, because
- * the outer size modifier constrains the whole chain. See CODING_STANDARDS.md, "Touch
- * targets meet the minimum and the order is correct".
+ * the visual size: `Modifier.touchTarget().size(20.dp)` keeps a 48 dp layout box around
+ * a 20 dp icon, while `Modifier.size(20.dp).touchTarget()` is capped back to 20 dp,
+ * because the outer size modifier constrains the whole chain.
+ *
+ * **What this does not prove.** The box it reports is wider than the content, but a
+ * pointer in that extra band is still outside the content's own bounds, so whether it
+ * reaches a control inside depends on the control's own touch handling — #2173 tracks
+ * that question. Material's `Modifier.minimumInteractiveComponentSize()` is the
+ * sanctioned alternative where a control needs the guarantee rather than the layout
+ * reservation.
  */
 fun Modifier.touchTarget(minSize: Dp = TouchTarget.MinSize): Modifier =
     this.layout { measurable, constraints ->
