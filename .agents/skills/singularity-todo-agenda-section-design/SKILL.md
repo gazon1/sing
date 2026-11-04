@@ -59,6 +59,11 @@ The bottom bar shows three agenda tabs, and a task belongs to exactly one of the
 `AgendaPresets.All` above is **not** a tab — it holds every bucket, and it is
 the seed a new saved view starts from.
 
+On a working day with work hours configured, the Today tab keeps these two
+sections and adds the user's work blocks between them (Overdue, the blocks,
+then the rest of today), so the partition holds for that configuration too —
+see ADR `2026-11-05-the-work-day-plan-sits-inside-the-today-tab`.
+
 Two rules keep the tabs apart:
 
 - **A tab never repeats another's bucket.** `Upcoming` used to open with

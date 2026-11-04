@@ -348,7 +348,10 @@ private fun AgendaList(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         for (section in sections) {
-            item(key = "header-${section.name}") {
+            // Keyed by the section's id, not its display name: the working day's
+            // morning and afternoon blocks are both called "Work", and two headers
+            // with one key take the list down with "Key ... was already used".
+            item(key = "header-${section.id}") {
                 AgendaSectionHeader(
                     name = section.name,
                     badge = section.badge,
@@ -358,11 +361,13 @@ private fun AgendaList(
 
             items(
                 items = section.tasks,
-                // Scoped to the section on purpose. Presets are supposed to be mutually
-                // exclusive via `Section.discard`, but a task that matches two buckets
-                // would otherwise repeat this id and take the whole list down with
-                // "Key ... was already used" — a crash, not a wrong-looking row.
-                key = { "${section.name}/${it.task.id.value}" },
+                // Scoped to the section on purpose — and by its id, for the same
+                // reason as the header: two sections can share a display name.
+                // Presets are supposed to be mutually exclusive via `Section.discard`,
+                // but a task that matches two buckets would otherwise repeat this id
+                // and take the whole list down with "Key ... was already used" — a
+                // crash, not a wrong-looking row.
+                key = { "${section.id}/${it.task.id.value}" },
             ) { rowItem ->
                 val task = rowItem.task
                 val isSelected = task.id in selectedTaskIds
