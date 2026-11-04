@@ -6,6 +6,9 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Direction
+import androidx.test.uiautomator.UiObject2
+import androidx.test.uiautomator.Until
 import com.singularity.todo.MainActivity
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.DestinationKind
@@ -17,6 +20,12 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/** How many times the menu sheet is scrolled before an entry is given up on. */
+private const val MENU_SCROLL_ATTEMPTS = 6
+
+/** How much of the sheet one scroll gesture covers. */
+private const val MENU_SCROLL_PERCENT = 0.5f
+
 /**
  * Smoke tests for the Android shell — app cold-start and bottom navigation reachability.
  *
@@ -26,6 +35,7 @@ import org.junit.runner.RunWith
  *
  * The test tag IDs are those declared in [com.singularity.todo.core.ui.TestTags]:
  * - nav_tab_<slug> for bottom nav tabs
+ * - menu_<id> for the entries of the menu sheet
  * - tasks_fab for the shell FAB
  *
  * `testTagsAsResourceId = true` is set on the root composable in [MainActivity],
@@ -103,8 +113,14 @@ class NavigationSmokeTest : InstrumentedTestBase() {
     }
 
     /**
-     * FAB presence: agenda tabs (Inbox, Today, Plans) show the "Add task" FAB;
-     * Upcoming, Pomodoro, and Calendar do not.
+     * FAB presence: the agenda destinations show the "Add task" FAB; Upcoming,
+     * Pomodoro and Calendar do not.
+     *
+     * Plans and Pomodoro are **menu** destinations, not tabs: they left the tab
+     * bar and live behind the "Menu" button (see `DestinationKind`), so they are
+     * reached through the menu sheet. Waiting for a bottom-bar tag the screen
+     * does not contain can only end in a timeout, and it says nothing about the
+     * FAB — the failure would name a wait, not a behaviour.
      *
      * This encodes the contract from `FabActionResolver` — changing the FAB behaviour
      * will make this test fail, which is the intended signal.
@@ -132,19 +148,62 @@ class NavigationSmokeTest : InstrumentedTestBase() {
             device.findObject(By.res("tasks_fab")),
         )
 
-        // Plans — agenda tab, FAB present.
-        device.tapTag("nav_tab_plans")
-        device.awaitTagOrNull("nav_tab_plans", 3_000)
-        assertNotNull("FAB should be on Plans tab", device.findObject(By.res("tasks_fab")))
+        // Plans — a menu destination, and it does show the "Add task" FAB.
+        openMenuDestination(TestTags.MENU_PLANS)
+        device.awaitTag(TestTags.PLANS_SCREEN, "the Plans screen", TAB_TIMEOUT_MS)
+        assertNotNull("FAB should be on the Plans screen", device.findObject(By.res("tasks_fab")))
 
-        // Pomodoro — not an agenda tab, no FAB.
-        device.tapTag("nav_tab_pomodoro")
-        device.awaitTagOrNull("nav_tab_pomodoro", 3_000)
+        // Pomodoro — a menu destination too, and it has no FAB.
+        openMenuDestination(TestTags.MENU_POMODORO)
+        // The Pomodoro screen has to be up before the FAB is judged: the FAB of
+        // the screen underneath is still in the tree while the menu sheet is
+        // open, so an assertion made too early would be about the screen the
+        // navigation came from.
+        device.awaitTag(
+            TestTags.Pomodoro.TIMER_LABEL,
+            "the Pomodoro screen's timer",
+            TAB_TIMEOUT_MS,
+        )
+        device.wait(Until.gone(By.res("tasks_fab")), TAB_TIMEOUT_MS)
         assertNull(
-            "FAB should NOT be on Pomodoro tab",
+            "FAB should NOT be on the Pomodoro screen",
             device.findObject(By.res("tasks_fab")),
         )
 
         scenario.close()
+    }
+
+    /**
+     * Opens a destination that lives in the menu sheet rather than in the tab bar.
+     *
+     * The sheet is a scrollable column: an entry can be in the tree and still be
+     * below the fold, so the sheet is scrolled until the entry is on screen and
+     * the entry is then tapped.
+     */
+    private fun openMenuDestination(tag: String) {
+        device.tapTag(TestTags.NAV_MENU_BUTTON)
+        val sheet = device.awaitTag(TestTags.MENU_SHEET, "the app menu sheet", TAB_TIMEOUT_MS)
+        menuEntry(sheet, tag).tap()
+    }
+
+    /**
+     * The menu entry with [tag], scrolled into view.
+     *
+     * `scroll(Direction.DOWN)` is a swipe towards the top of the screen, and that
+     * is what moves the content of the sheet up and brings the later entries into
+     * it — the same direction a thumb moves to read further down a list.
+     */
+    private fun menuEntry(sheet: UiObject2, tag: String): UiObject2 {
+        var attempts = 0
+        while (true) {
+            val entry = device.findObject(By.res(tag))
+            if (entry != null && entry.visibleBounds.isNotEmpty) return entry
+            if (attempts >= MENU_SCROLL_ATTEMPTS) break
+            sheet.scroll(Direction.DOWN, MENU_SCROLL_PERCENT)
+            attempts++
+        }
+        throw AssertionError(
+            "the menu entry $tag is not on the menu sheet: " + device.diagnostics(),
+        )
     }
 }
