@@ -10,6 +10,9 @@ import androidx.compose.ui.platform.testTag
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.Navigator
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.search
 
 /**
  * Global search action shared by the Android and Desktop shell app bars.
@@ -22,7 +25,6 @@ import com.singularity.todo.feature.nav.Navigator
 fun ShellSearchButton(
     navigator: Navigator,
     modifier: Modifier = Modifier,
-    contentDescription: String = "Search",
 ) {
     IconButton(
         onClick = { navigator.open(AppDestination.Search) },
@@ -30,7 +32,7 @@ fun ShellSearchButton(
     ) {
         Icon(
             imageVector = Icons.Filled.Search,
-            contentDescription = contentDescription,
+            contentDescription = stringResource(Res.string.search),
         )
     }
 }
