@@ -684,18 +684,20 @@ gate blocking "gates speak the JSON contract" python3 scripts/check-gate-json-co
 # them at its own time. So the meta-gate stays where the results are: after the tests,
 # in check.sh and in ci.yml's `tests` job.
 #
-# Lint-rule governance: one gate for six checks over one subject.
+# Lint-rule governance: one gate for seven checks over one subject.
 #
 #   - the generated detekt.yml is current;
 #   - the generated rule table is current;
 #   - every rule has a registration;
 #   - the baseline does not grow silently;
 #   - a lint rule states the decision it implements;
-#   - a suppression says why it is there.
+#   - a suppression says why it is there;
+#   - the quality page states the thresholds the config and the pinned detekt
+#     actually enforce.
 #
 # Six CI rows for one subject became one. Each check keeps its own script, its
 # own unit tests and its own positive control — a control proves that a check
-# can fail, and one control for six checks would prove only that something in
+# can fail, and one control for seven checks would prove only that something in
 # them can fail.
 gate blocking "detekt governance is consistent" python3 scripts/check-detekt-governance.py
 # detekt-rules branch coverage floor: 60% (below 2026-10-15 measured 65.6%, 725/1105).

@@ -30,7 +30,7 @@ two declarations.
 
 The cluster membership
 ----------------------
-Nine gates run through a cluster wrapper — one gate that runs several checks
+Ten gates run through a cluster wrapper — one gate that runs several checks
 and reports every failure, not the first. Which gates those are was inferred
 by scanning the wrapper's source for the file names it mentions, so renaming a
 line inside a wrapper silently dropped a gate from the covered set: nothing
@@ -105,6 +105,7 @@ CLUSTERS: dict[str, tuple[str, ...]] = {
         "detekt rules config is current",
         "file-level suppressions explain themselves",
         "lint rules are declared decisions",
+        "quality page states the enforced thresholds",
     ),
 }
 
@@ -694,18 +695,20 @@ A gate that proves another gate works inherits that gate's preconditions and run
 them at its own time. So the meta-gate stays where the results are: after the tests,
 in check.sh and in ci.yml's `tests` job.
 
-Lint-rule governance: one gate for six checks over one subject.
+Lint-rule governance: one gate for seven checks over one subject.
 
   - the generated detekt.yml is current;
   - the generated rule table is current;
   - every rule has a registration;
   - the baseline does not grow silently;
   - a lint rule states the decision it implements;
-  - a suppression says why it is there.
+  - a suppression says why it is there;
+  - the quality page states the thresholds the config and the pinned detekt
+    actually enforce.
 
 Six CI rows for one subject became one. Each check keeps its own script, its
 own unit tests and its own positive control — a control proves that a check
-can fail, and one control for six checks would prove only that something in
+can fail, and one control for seven checks would prove only that something in
 them can fail.""",
     ),
     "scenario specs valid": Placement(
@@ -953,6 +956,10 @@ longer has is a debt that was paid and whose record did not move with it.""",
         cluster="detekt governance is consistent",
     ),
     "lint rules are declared decisions": Placement(
+        kind=PlacementKind.CLUSTER,
+        cluster="detekt governance is consistent",
+    ),
+    "quality page states the enforced thresholds": Placement(
         kind=PlacementKind.CLUSTER,
         cluster="detekt governance is consistent",
     ),
