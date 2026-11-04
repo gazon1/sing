@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.feature.calendar.domain.logic.YearMonth
 import com.singularity.todo.feature.calendar.domain.logic.isoLocalDate
 import com.singularity.todo.feature.calendar.domain.logic.monthGridDates
@@ -233,6 +234,10 @@ private fun MonthDayCell(
     val overflow = tasks.size - visibleTasks.size
     val dayNumberColor = if (isCurrentMonth) palette.textPrimary else palette.textMuted
     val hasNoTasks = tasks.isEmpty() && isCurrentMonth
+    // The selected day is painted with the accent, so the marks that sit on it
+    // (today's badge, the count of the day's tasks) are painted with the accent's
+    // own contrast colour — otherwise they would vanish into the cell.
+    val onAccent = palette.accent.contrastingForeground()
 
     Box(
         modifier =
@@ -243,7 +248,11 @@ private fun MonthDayCell(
                 .let { box ->
                     when {
                         isDateSelected -> box.background(palette.accent.copy(alpha = 0.25f))
-                        isSelected -> box.background(palette.surface)
+                        // The accent, not `surface`: the Material 3 scheme resolves
+                        // `surface` and `background` to the same colour, so a cell
+                        // painted with it was pixel-identical to an unselected one
+                        // and the selection was invisible.
+                        isSelected -> box.background(palette.accent)
                         else -> box
                     }
                 }.combinedClickable(
@@ -269,12 +278,12 @@ private fun MonthDayCell(
                             Modifier
                                 .size(20.dp)
                                 .clip(CircleShape)
-                                .background(palette.todayBadge),
+                                .background(if (isSelected) onAccent else palette.todayBadge),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = "${date.day}",
-                            color = Color.White,
+                            color = if (isSelected) palette.accent else Color.White,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                         )
@@ -282,7 +291,7 @@ private fun MonthDayCell(
                 } else {
                     Text(
                         text = "${date.day}",
-                        color = dayNumberColor,
+                        color = if (isSelected) onAccent else dayNumberColor,
                         fontSize = 13.sp,
                         fontWeight = if (isCurrentMonth) FontWeight.Medium else FontWeight.Normal,
                     )
@@ -293,12 +302,12 @@ private fun MonthDayCell(
                             Modifier
                                 .size(16.dp)
                                 .clip(CircleShape)
-                                .background(palette.accent),
+                                .background(if (isSelected) onAccent else palette.accent),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = tasks.size.toString(),
-                            color = Color.White,
+                            color = if (isSelected) palette.accent else Color.White,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                         )

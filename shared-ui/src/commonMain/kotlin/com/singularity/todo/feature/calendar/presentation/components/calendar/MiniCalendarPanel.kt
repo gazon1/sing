@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -29,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.calendar.domain.logic.displayName
 import com.singularity.todo.feature.calendar.domain.logic.monthGridDates
@@ -37,8 +37,30 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import kotlinx.datetime.LocalDate
 
 /**
+ * The width the panel takes when it sits beside the grid.
+ *
+ * The caller decides: on a wide screen the panel sits beside the grid at this
+ * width, on a narrow one it floats over the grid at a width the screen can
+ * hold. The panel itself no longer decides — a fixed 340 dp was wider than a
+ * 320 dp screen.
+ */
+internal val MiniCalendarPanelWidth = 340.dp
+
+/**
+ * The width from which the panel can sit beside the grid.
+ *
+ * Below it the two do not fit: a 340 dp panel beside a 360 dp phone leaves the
+ * grid a sliver and crushes the calendar's own controls, so the panel floats
+ * over the grid instead.
+ */
+internal val MiniCalendarInlineMinWidth = 600.dp
+
+/**
  * Right-side mini calendar panel (slide-in overlay).
  * Shows a month grid for navigation plus filter rows.
+ *
+ * The panel does not choose its own width: the caller passes one in [modifier],
+ * because the width that fits is the width the screen has.
  */
 @Composable
 fun MiniCalendarPanel(
@@ -56,7 +78,6 @@ fun MiniCalendarPanel(
     Column(
         modifier =
             modifier
-                .width(340.dp)
                 .fillMaxHeight()
                 .background(palette.background)
                 .padding(20.dp),
@@ -163,7 +184,11 @@ private fun MiniDateCell(
                 text = "${date.day}",
                 color =
                     when {
-                        isSelected -> Color.White
+                        // The accent's own contrast colour, as the month grid
+                        // paints it: the two grids mark the selected day the same
+                        // way, and white on a light accent is unreadable in the
+                        // dark theme.
+                        isSelected -> palette.accent.contrastingForeground()
                         !isCurrentMonth -> palette.textMuted
                         else -> palette.textPrimary
                     },
