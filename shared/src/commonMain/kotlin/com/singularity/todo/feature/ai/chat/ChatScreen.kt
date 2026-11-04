@@ -65,6 +65,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.serialization.json.JsonElement
 import org.koin.compose.koinInject
@@ -237,7 +238,14 @@ private fun ChatMessagesList(
         modifier = modifier.fillMaxWidth().testTag(TestTags.CHAT_MESSAGES),
         state = listState,
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        // Bottom-anchored, so that a conversation shorter than the window keeps its end at the
+        // bottom instead of hanging from the top with the newest message in the middle of the
+        // screen. The scroll policy cannot do this and does not try: there is no distance to
+        // scroll, so `remaining` in `slideToContentEnd` is not positive and the move does nothing,
+        // which is also why "a short conversation is not scrolled" and "its end sits at the
+        // bottom" are one property of the arrangement rather than two of the policy. Content that
+        // overflows is unaffected: an arrangement's alignment only positions what is left over.
+        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom),
     ) {
         items(messages, key = { it.id }) { msg ->
             // An answer that is only a screen has no words, and an empty bubble next to a
