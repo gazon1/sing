@@ -40,7 +40,6 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ColorSwatch
 import com.singularity.todo.core.ui.components.SettingsActionRow
 import com.singularity.todo.core.ui.components.SettingsSection
-import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.core.ui.formatDecimal
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -172,7 +171,6 @@ private fun AccentSwatch(
             Icon(
                 imageVector = Icons.Filled.Check,
                 contentDescription = null,
-                tint = accent.color.contrastingForeground(),
                 modifier = Modifier.size(20.dp),
             )
         }
