@@ -4,6 +4,11 @@ date: 2026-09-30
 status: accepted
 tags: [agenda, domain-logic, agenda-presets, lazycolumn]
 ---
+> **Superseded in part (2026-11-04):** the defensive item key is scoped by the section's
+> **id**, not by its display name — two sections of one saved view can share a name
+> ("Project", "Any tag: N"), and a name-scoped key repeated itself. See
+> [2026-11-04-the-agenda-list-is-keyed-by-the-section-id.md](2026-11-04-the-agenda-list-is-keyed-by-the-section-id.md).
+> The `discard = true` rule below still holds.
 
 # AgendaPresets: every narrow bucket section needs `discard=true`
 

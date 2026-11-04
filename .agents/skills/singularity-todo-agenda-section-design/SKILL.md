@@ -107,9 +107,15 @@ declare the same section, and every task shows up in exactly one of them.
 
 ## Defensive item keys
 
-Use `"{section.name}/{task.id.value}"` as the `LazyColumn` item key, not
+Use `"{section.id}/{task.id.value}"` as the `LazyColumn` item key, not
 `task.id.value` alone. A misconfigured preset (missing `discard`) will then
 render duplicate-looking rows instead of crashing.
+
+The scope is the section's **id**, never its display name. Two sections of one
+saved view can share a name — `Selector.Projects` with a single project renders
+as "Project", `Selector.Tags` as "Any tag: N" — and a name-scoped key then
+duplicates itself (`Key "header-Project" was already used`), which takes the
+whole list down.
 
 ## Testing a new section
 

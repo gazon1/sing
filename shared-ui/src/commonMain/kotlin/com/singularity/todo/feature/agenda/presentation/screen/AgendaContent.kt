@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -346,7 +347,11 @@ private fun AgendaList(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         for (section in sections) {
-            item(key = "header-${section.name}") {
+            // Keyed by the section's id, never by its display name: two sections of
+            // the same saved view can share a name ("Project" for a single-project
+            // selector, "Any tag: N" for a tag selector), and a duplicated key
+            // takes the whole list down.
+            item(key = "header-${section.id}") {
                 AgendaSectionHeader(
                     name = section.name,
                     badge = section.badge,
@@ -360,7 +365,8 @@ private fun AgendaList(
                 // exclusive via `Section.discard`, but a task that matches two buckets
                 // would otherwise repeat this id and take the whole list down with
                 // "Key ... was already used" — a crash, not a wrong-looking row.
-                key = { "${section.name}/${it.task.id.value}" },
+                // The scope is the section's id: the display name is not unique.
+                key = { "${section.id}/${it.task.id.value}" },
             ) { rowItem ->
                 val task = rowItem.task
                 val isSelected = task.id in selectedTaskIds
@@ -428,8 +434,16 @@ private fun AgendaSectionHeader(
                 text = label,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
+                // The label takes the row's spare width only. Without the weight it
+                // claims the whole row and pushes the '+' button past the right edge,
+                // where it is neither visible nor tappable.
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 // Tag on the leaf Text so it survives in the accessibility tree.
-                modifier = Modifier.testTag(TestTags.agendaSection(name)),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .testTag(TestTags.agendaSection(name)),
             )
             if (onAddClick != null) {
                 IconButton(onClick = onAddClick) {
