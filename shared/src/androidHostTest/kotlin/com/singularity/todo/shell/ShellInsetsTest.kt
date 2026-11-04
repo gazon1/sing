@@ -29,10 +29,11 @@ import kotlin.test.assertEquals
  * which is the only shape in which it can be wrong.
  *
  * The one number these tests cannot supply is the library's own: whether the suite's bar
- * height already contains the system navigation bar's inset. That is measured at runtime by
+ * height already contains the system navigation bar's inset. That is observed at runtime by
  * the shell and recorded in `docs/device-checks/android-shell-insets-360dp.md`;
- * `the_measured_phone_case_adds_no_gap_under_the_navigation_bar` below pins the arithmetic
- * for the reading that measurement is expected to confirm.
+ * `a_suite_bar_taller_than_the_system_bar_sets_the_room_the_content_clears` below pins the
+ * arithmetic for the reading that observation is expected to confirm — the reading is an
+ * expectation, not a measurement, and the test is named after what it asserts.
  */
 @RunWith(RobolectricTestRunner::class)
 class ShellInsetsTest {
@@ -80,11 +81,16 @@ class ShellInsetsTest {
     }
 
     @Test
-    fun the_measured_phone_case_adds_no_gap_under_the_navigation_bar() {
+    fun a_suite_bar_taller_than_the_system_bar_sets_the_room_the_content_clears() {
         // The 360 dp phone #2165 / #2166 were filed against: a 24 dp gesture navigation bar
-        // under an 80 dp suite bar. The suite's bar height is the room the content has to
-        // clear — the system bar sits *under* it — so the answer is 80 dp, not 104 dp. A sum
-        // here would be a visible 24 dp gap between the last row and the bar.
+        // under an 80 dp suite bar. This input stands for the reading the device check is
+        // expected to confirm — the suite's bar height covers the system bar's inset — so the
+        // answer is 80 dp, not 104 dp. A sum here would be a visible 24 dp gap between the
+        // last row and the bar.
+        //
+        // The *reading* is an expectation until a device says otherwise: the numbers below
+        // are the case the check is meant to confirm, not an observation. The device run
+        // settles them — see `docs/device-checks/android-shell-insets-360dp.md`.
         val insets =
             shellContentWindowInsets(
                 windowInsets = WindowInsets(0, 0, 0, 48),
