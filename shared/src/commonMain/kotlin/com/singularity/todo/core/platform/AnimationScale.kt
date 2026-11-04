@@ -21,6 +21,10 @@ package com.singularity.todo.core.platform
  * from. Reading the platform's own setting is therefore the way to get the
  * same answer.
  *
+ * The UI layer wraps this answer in `LocalAnimationDurationScale` (shared-ui),
+ * so a screen asks the composition local, and a test can pin a scale the
+ * platform would not answer with.
+ *
  * ## What the platforms answer
  *
  * Android reads the system animator setting, which is what "Remove animations"
