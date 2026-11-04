@@ -379,6 +379,7 @@ ALLOWLIST: Set[str] = {
     "task_item_attachtesttask2026",
     "task_item_deleteattachtask2026",
     "task_item_emptyurltask2026",
+    "task_item_healthoverdue_task",
     "task_item_persistencetask2026",
     "task_item_pinnedtask2026",
     "task_item_pokupki",

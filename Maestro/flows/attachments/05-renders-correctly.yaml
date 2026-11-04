@@ -1,4 +1,5 @@
 # Attachments: a URL attachment renders title, URL text, and link icon.
+# прогнан на устройстве: нет (2026-11-04) — прогон на устройстве не выполнялся
 appId: com.singularity.todo
 name: attachments-renders-correctly
 tags:
@@ -12,16 +13,16 @@ tags:
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=${RUN_ID}_RenderTestTask2026"
+      QUERY: "task=RenderTestTask2026"
 
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_rendertesttask2026
+      id: task_item_rendertesttask2026
     timeout: 8000
 - tapOn:
-    id: task_item_${RUN_ID}_rendertesttask2026
+    id: task_item_rendertesttask2026
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
