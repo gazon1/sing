@@ -133,9 +133,16 @@ class BackupImporter(
                 runTransaction {
                     var merged = migrated
                     val ownerId = options.ownerId ?: options.ownerUserId
-                    val outcome = applyPayload(migrated, options.targetUserId, ownerId, now, read.attachments)
+                    // Every task id this restore will write, base and changes
+                    // together: a parent link is resolved against all of them, so
+                    // a change may name a parent the base wrote.
+                    val knownTaskIds =
+                        (migrated.tasks + decodedChanges.flatMap { it.tasks })
+                            .mapTo(HashSet()) { it.id }
+                    val outcome =
+                        applyPayload(migrated, options.targetUserId, ownerId, now, read.attachments, knownTaskIds)
                     for (changePayload in decodedChanges) {
-                        applyPayload(changePayload, options.targetUserId, ownerId, now, emptyMap())
+                        applyPayload(changePayload, options.targetUserId, ownerId, now, emptyMap(), knownTaskIds)
                         merged = merge(merged, changePayload)
                     }
                     outcome to merged
@@ -230,8 +237,9 @@ class BackupImporter(
         ownerId: UserId?,
         now: Long,
         attachmentBytes: Map<String, ByteArray>,
+        knownTaskIds: Set<String>,
     ): AttachmentOutcome {
-        applyRows(payload, targetUserId, now)
+        applyRows(payload, targetUserId, now, knownTaskIds)
         applyLinks(payload)
         applyViews(payload, targetUserId, now)
         applyGroups(payload, targetUserId, now)
@@ -391,10 +399,11 @@ class BackupImporter(
         payload: BackupPayload,
         userId: UserId,
         now: Long,
+        knownTaskIds: Set<String>,
     ) {
         for (task in payload.tasks) {
             taskDao.upsert(
-                task.toEntity(userId.value).copy(
+                task.withResolvedParent(knownTaskIds).toEntity(userId.value).copy(
                     updatedAt = now,
                     createdAt = task.createdAt,
                 ),
