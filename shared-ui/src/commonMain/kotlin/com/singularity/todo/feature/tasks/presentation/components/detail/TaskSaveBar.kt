@@ -81,14 +81,12 @@ fun TaskSaveBar(
             if (isLoading) {
                 ButtonSpinner(modifier = Modifier.testTag(TestTags.TASK_EDITOR_SAVING))
             } else {
-            Text(
-                text = SAVE_LABEL,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
+                Text(
+                    text = SAVE_LABEL,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
     }
 }
-
-/** The save action's name, in one place: the visible label while idle, the accessible name always. */
-private const val SAVE_LABEL = "Сохранить"
