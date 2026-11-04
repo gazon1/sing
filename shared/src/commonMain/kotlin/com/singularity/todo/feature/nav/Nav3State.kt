@@ -2,6 +2,7 @@ package com.singularity.todo.feature.nav
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.SideEffect
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
@@ -191,6 +192,12 @@ class Nav3State internal constructor(
         // shell. If every resolved stack is empty, reseed the start stack and
         // return its entries.
         return if (result.isEmpty()) {
+            // The one place that knows the tree is about to be empty. The report is built
+            // now — before the reseed below changes the answer — and recorded once the
+            // composition applies, so a discarded composition cannot log a state that is
+            // already gone.
+            val blankTree = blankTreeReport(this)
+            SideEffect { logBlankTree(blankTree) }
             val startStack = backStackFor(startRoute)
             if (startStack != null && startStack.isEmpty()) {
                 startStack.add(startRoute)

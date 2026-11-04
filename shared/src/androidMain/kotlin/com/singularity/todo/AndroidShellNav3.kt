@@ -169,7 +169,8 @@ fun androidShellNav3Root(
             Box(Modifier.fillMaxSize().padding(padding)) {
                 val appEntryProvider = createAppEntryProvider(navCallbacks, today)
 
-                // #445 blank-screen diagnostic — TEMPORARY: to be replaced with proper CI alerting.
+                // The blank-tree diagnostic (REQ-DN-004) is recorded by
+                // `toDecoratedEntries` itself, before its unresolvable-entry fallback.
                 val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
                 LaunchedEffect(state.topLevelRoute) {
                     // A screen without its own TopAppBar never publishes actions, so clear the
@@ -184,12 +185,6 @@ fun androidShellNav3Root(
                     screenActions.title = null
                     screenActions.navigationIcon = null
                     screenActions.override = false
-                    if (navDisplayEntries.isEmpty()) {
-                        println(
-                            "WARNING [blank-screen] topLevelRoute=${state.topLevelRoute} has 0 entries. " +
-                                "Check that the entryProvider covers this route.",
-                        )
-                    }
                 }
 
                 CompositionLocalProvider(LocalNav3State provides state, LocalScreenActions provides screenActions) {
