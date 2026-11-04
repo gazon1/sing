@@ -13,6 +13,15 @@ sealed interface TaskDetailUiEvent : MviEvent {
 
     data class Saved(val message: String) : TaskDetailUiEvent
 
+    /**
+     * A debounced inline edit reached the repository.
+     *
+     * Deliberately not [Saved]: that one carries a message and the screen turns it into
+     * a snackbar, and an autosave on every pause would be a snackbar per pause. The
+     * screen shows the "Saved" pill instead, for the moment after the write.
+     */
+    data object SavedPulse : TaskDetailUiEvent
+
     data class UndoDelete(val taskId: TaskId) : TaskDetailUiEvent
 
     data class UndoArchive(val taskId: TaskId) : TaskDetailUiEvent

@@ -49,6 +49,14 @@ class TaskDraftSlot(
     private val scope: AutoCloseableCoroutineScope,
     private val taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
+    /**
+     * Reports a write that landed.
+     *
+     * The detail stores these edits silently, so this is the only sign the user gets
+     * that the text they typed is on disk — and it fires once per debounced write, not
+     * once per keystroke.
+     */
+    private val onSaved: () -> Unit,
 ) : FeatureSlot<TaskDetailDraft, TaskDraftIntent> {
     private val draftState = TaskDetailDraftState()
     override val state: StateFlow<TaskDetailDraft> = draftState.state
@@ -106,10 +114,12 @@ class TaskDraftSlot(
             core.updateSeries
                 .updateSeries(seriesId) { it.transform() }
                 .onFailure { onError("Save failed") }
+                .onSuccess { onSaved() }
         } else {
             core
                 .updateTask(task.id) { it.transform() }
                 .onFailure { onError("Save failed") }
+                .onSuccess { onSaved() }
         }
     }
 

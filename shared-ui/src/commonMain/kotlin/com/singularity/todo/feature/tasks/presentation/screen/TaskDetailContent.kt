@@ -102,6 +102,9 @@ fun TaskDetailContent(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showAiSheet by rememberSaveable { mutableStateOf(false) }
+    // The pill that says an inline edit landed. Shown for the autosave window after each
+    // debounced write, the same way the note editor shows its own.
+    var savedVisible by remember { mutableStateOf(false) }
     // Separate flag rather than one `showSheet` enum: the two sheets are
     // reachable from two different sections far apart in the list, and an enum
     // would mean every call site names a state it does not own.
@@ -123,6 +126,19 @@ fun TaskDetailContent(
     LaunchedEffect(coordinator.events) {
         coordinator.events.collect { event ->
             when (event) {
+                // An inline edit was stored. The pill says so without a message: there is
+                // one of these per pause in typing, and they are not things the user asked
+                // for, so they must not become a snackbar each.
+                TaskDetailUiEvent.SavedPulse -> {
+                    scope.launch {
+                        savedVisible = true
+                        kotlinx.coroutines.delay(
+                            com.singularity.todo.core.platform.TimeConstants.AutoSaveDebounceMs,
+                        )
+                        savedVisible = false
+                    }
+                }
+
                 is TaskDetailUiEvent.Saved -> {
                     scope.launch {
                         snackbarHostState.showSnackbar(
@@ -330,6 +346,7 @@ fun TaskDetailContent(
                                 ),
                             titleSource = ui.titleSource,
                             descriptionSource = ui.descriptionSource,
+                            savedVisible = savedVisible,
                             onTitleChange = { coordinator.onIntent(TaskDetailIntent.Domain.TitleChanged(it)) },
                             onDescriptionChange = {
                                 coordinator.onIntent(TaskDetailIntent.Domain.DescriptionChanged(it))

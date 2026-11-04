@@ -67,7 +67,9 @@ class TaskSeriesScopeTest {
                     children = fakes.children(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             runCurrent()
 
             slot.onIntent(TaskDetailIntent.Domain.SetPriority(TaskPriority.High))
@@ -101,7 +103,9 @@ class TaskSeriesScopeTest {
                     children = fakes.children(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             runCurrent()
 
             slot.onIntent(TaskDetailIntent.Domain.SetDueDate(LocalDate(2026, 10, 6)))
@@ -136,7 +140,9 @@ class TaskSeriesScopeTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             runCurrent()
 
             slot.onIntent(TaskDetailIntent.Domain.TitleChanged("Pay the rent in full"))
@@ -172,7 +178,9 @@ class TaskSeriesScopeTest {
                     children = fakes.children(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             runCurrent()
 
             slot.onIntent(TaskDetailIntent.Domain.SetPriority(TaskPriority.Low))
