@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.toPixelMap
 import com.singularity.todo.core.sync.SyncEngineStatus
 import com.singularity.todo.core.ui.LocalAnimationDurationScale
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -20,6 +21,8 @@ import kotlin.test.assertTrue
  * plainly visible in a 24 dp icon. The clock is driven by hand so that the comparison
  * does not depend on how long the test took to run.
  */
+@Tag("slow")
+@Tag("slow:compose")
 class SyncButtonTest {
     @Test
     fun `the spinner does not move when animations are off`() =

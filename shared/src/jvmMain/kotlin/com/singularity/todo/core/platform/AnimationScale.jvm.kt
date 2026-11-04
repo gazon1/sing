@@ -29,7 +29,26 @@ import androidx.compose.runtime.remember
  * SINGULARITY_TODO_ANIMATIONS=off       # same values, as an environment variable
  * ```
  */
-actual fun systemAnimationDurationScale(): Float = if (animationsDisabledByConfiguration()) 0f else 1f
+actual fun systemAnimationDurationScale(): Float =
+    animationDurationScaleForConfiguration(
+        property = System.getProperty(ANIMATIONS_PROPERTY),
+        environment = System.getenv(ANIMATIONS_ENVIRONMENT),
+    )
+
+/**
+ * The scale a desktop configuration means: `0f` when it says animations off, `1f`
+ * otherwise.
+ *
+ * Split out from [systemAnimationDurationScale] so the mapping is testable. The actual
+ * reads the process's ambient property and environment, which a test cannot set to a
+ * known value — `SINGULARITY_TODO_ANIMATIONS` cannot be unset from inside a running JVM,
+ * so a test that called the actual would fail on whichever developer or CI machine has
+ * the knob off, while the code being tested was fine. Pass the arguments instead.
+ */
+internal fun animationDurationScaleForConfiguration(
+    property: String?,
+    environment: String?,
+): Float = if (animationsDisabledByConfiguration(property, environment)) 0f else 1f
 
 /**
  * JVM actual of [rememberSystemAnimationDurationScale].
