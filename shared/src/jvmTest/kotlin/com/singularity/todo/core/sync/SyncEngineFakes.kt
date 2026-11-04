@@ -296,7 +296,22 @@ class FakeSyncDeadLetterDao(
         return doomed.size
     }
 
-    override suspend fun delete(id: String): Int = if (rows.removeAll { it.patchId == id }) 1 else 0
+    /**
+     * `DELETE ... WHERE patch_id = :id AND patch_id NOT LIKE 'pull:%'`.
+     *
+     * The filter is part of the contract, not of the test: this is the primitive a
+     * restore path calls, and an inbound-event key deletes nothing here. Without it the
+     * fake would let a test prove that an inbound row cannot be re-queued against
+     * behaviour the real DAO does not have.
+     */
+    override suspend fun delete(id: String): Int =
+        if (SyncDeadLetterEntity.isInboundEventKey(id)) {
+            0
+        } else if (rows.removeAll { it.patchId == id }) {
+            1
+        } else {
+            0
+        }
 
     override suspend fun deleteForOwner(ownerId: String): Int {
         val doomed = rows.filter { it.ownerId == ownerId }

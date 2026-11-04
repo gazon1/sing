@@ -1872,7 +1872,15 @@ private class FakeSyncDeadLetterDao(private val store: MutableStateFlow<Map<Stri
         return doomed.size
     }
 
+    /**
+     * `DELETE ... WHERE patch_id = :id AND patch_id NOT LIKE 'pull:%'`.
+     *
+     * The prefix filter is part of the real statement and therefore of this fake: the
+     * inbound key is not a patch, and a restore that reached one must get 0 rather than
+     * send somebody else's change back out as this device's patch.
+     */
     override suspend fun delete(id: String): Int {
+        if (SyncDeadLetterEntity.isInboundEventKey(id)) return 0
         val present = store.value.containsKey(id)
         store.update { it - id }
         return if (present) 1 else 0

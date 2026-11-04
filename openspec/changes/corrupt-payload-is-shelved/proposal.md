@@ -73,7 +73,13 @@ thing for a reader to check, for a distinction the key already carries.
 
 ## Verification
 
-- `:shared:jvmTest` — the handler classifies a corrupt payload; the pull phase shelves
-  it and still advances the cursor; the outcome shape is pinned.
-- `detekt` green.
-- `openspec validate --all --strict` exit 0.
+What was run, and what was not. Nothing here claims a green run the authoring session
+did not perform, and `tasks.md` says the same thing in the same terms.
+
+- `openspec validate --all --strict` — ran, exit 0.
+- `:shared:jvmTest` — **not run**: the authoring sandbox refused Gradle. The tests that
+  carry this change are named in `tasks.md`: the handler classifies a corrupt payload,
+  the pull phase shelves it and still advances the cursor, the outcome shape is pinned,
+  and a redelivery is counted rather than swallowed. CI is what runs them; until it
+  reports, this change is unverified, not verified.
+- `detekt` — **not run**, same reason. Not a claim of a green run.

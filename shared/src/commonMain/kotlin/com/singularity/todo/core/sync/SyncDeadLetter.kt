@@ -106,18 +106,24 @@ data class SyncDeadLetterEntity(
          *
          * ## Why the owner is part of the key
          *
-         * The insert replaces on this key ([SyncDeadLetterDao.insert]), and the shelf
+         * A redelivery of the same event resolves to the same key, and the pull path
+         * writes it with [SyncDeadLetterDao.insertInboundIfAbsent] — an insert that is
+         * **ignored** on conflict, not replaced. (It does not use
+         * [SyncDeadLetterDao.insert]: see the note on ageing on that method.) The shelf
          * keeps rows across a sign-out (REQ-UA-006), so two accounts can be looking at
          * the same profile. Without the owner, an event for account B would resolve to
          * the same key as a shelved event of account A — same profile, same server
-         * position, same entity — and replace it. The row would then claim to belong to
-         * B while its payload was still A's document: `deleteForOwner(A)` would leave
-         * A's data behind (REQ-UA-017), and A's payload would surface on B's settings
-         * screen.
+         * position, same entity — and the conflict would be *ignored*: B's unreadable
+         * event would never be recorded at all, and A's payload would be the row that
+         * surfaced while B was signed in. A record of one account's dropped change
+         * would then stand in for another account's, and `deleteForOwner` (REQ-UA-017)
+         * would erase it for whichever of the two it was told to.
          *
-         * Including the owner keeps the replace inside one account, which is the only
+         * Including the owner keeps the collision inside one account, which is the only
          * place it is wanted: a redelivery of the same event to the same account is the
-         * same row, so it updates rather than accumulating a copy per cycle.
+         * same row, so it stays one row — and its delivery is counted by
+         * [SyncDeadLetterDao.bumpInboundDelivery] rather than accumulating a copy per
+         * cycle.
          *
          * A profile reassigned from one owner to another keeps the key it was written
          * with. That costs at most a duplicate if the event is redelivered to the new

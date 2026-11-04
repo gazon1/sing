@@ -77,10 +77,22 @@ internal class PullPhase(
         data object Skipped : PullStep
 
         /**
-         * Applied by no means, and never will be: the payload was absent or was not a
-         * document. The cursor advances — the same bytes will arrive again, and blocking
-         * here would end the account's sync over one unusable row — but the event is
-         * counted as dropped and the reason is logged.
+         * Applied by no means, and never will be, and nothing was misread: the event
+         * carried **no** document at all.
+         *
+         * This arm is narrower than it used to be, and the narrowing is the point. It
+         * used to take a payload that "was absent or was not a document". A payload that
+         * is *present* and is not a document is [Corrupt] now, because bytes arrived and
+         * could not be read — [PullEventHandler] returns `Skipped(corrupt = true)` for
+         * it. Only the absent case is left here, and the difference is observable: only
+         * [Corrupt] leaves a row on the shelf.
+         *
+         * A new non-corrupt skip reason lands **here**, not in [Corrupt]: an event is
+         * shelved only when the classifier says the bytes themselves were unreadable.
+         *
+         * The cursor advances — the same bytes will arrive again, and blocking here
+         * would end the account's sync over one unusable row — but the event is counted
+         * as dropped and the reason is logged.
          */
         data class AppliedButUnusable(val reason: String) : PullStep
 

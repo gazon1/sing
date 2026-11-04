@@ -203,6 +203,23 @@ class PullPhaseTest {
                 "the same event is the same row: a redelivery must not accumulate a copy " +
                     "per cycle",
             )
+            // One row is what a plain IGNORE already gives, so the row count alone does
+            // not pin the rule. The count does: a redelivery is a second delivery, and
+            // the row has to say so rather than sit at 1 because the insert was ignored
+            // and nothing counted it.
+            val row = deadLetter.rows.single()
+            assertEquals(
+                2,
+                row.attempts,
+                "a redelivery is counted by bumpInboundDelivery on the ignored insert, " +
+                    "not swallowed by it",
+            )
+            assertEquals(
+                row.createdAt,
+                row.failedAt,
+                "the first sighting's timestamps stay put: the cap orders by failed_at, so " +
+                    "a row moved to `now` on every delivery would never age out",
+            )
         }
 
     @Test
@@ -238,6 +255,22 @@ class PullPhaseTest {
             )
         }
 
+    /**
+     * REQ-OS-032, *a record that cannot be written*.
+     *
+     * The shelf's write throws — the stand-in for a full disk or a busy SQLite — and the
+     * pull still finishes as `Ok` with the position moved past the event. If this
+     * rethrew, the account's sync would wedge on an unreadable row, which is the failure
+     * mode the whole change exists to avoid.
+     */
+    /**
+     * REQ-OS-032, *a record that cannot be written*.
+     *
+     * The shelf's write throws — the stand-in for a full disk or a busy SQLite — and the
+     * pull still finishes as `Ok` with the position moved past the event. If this
+     * rethrew, the account's sync would wedge on an unreadable row, which is the failure
+     * mode the whole change exists to avoid.
+     */
     @Test
     fun `a shelf that cannot be written does not fail the pull`() =
         runTest {

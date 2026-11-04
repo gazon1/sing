@@ -21,9 +21,19 @@ Spec: `offline-sync` REQ-OS-032. Issue: #1422.
 - [x] `shared/` Give the row a key that says it came in and cannot be retried, so it is
       told apart from a shelved outbound patch. **Test:** the same event delivered twice
       is one row, not two.
-- [x] `shared/` Keep the download position advancing past a corrupt event, and keep a
-      failure to write the row from failing the pull. **Test:** `PullPhaseTest` — the
-      position advances, and the event is counted as dropped.
+- [x] `shared/` Keep the download position advancing past a corrupt event. **Test:**
+      `PullPhaseTest` — the position advances, and the event is counted as dropped.
+- [x] `shared/` Keep a failure to write the row from failing the pull. **Test:**
+      `PullPhaseTest` — `a shelf that cannot be written does not fail the pull` pins
+      `PhaseResult.Ok`, `dropped = 1` and `lastLsn = 10` against a fake whose
+      `insertInboundIfAbsent` throws. That is REQ-OS-032's *a record that cannot be
+      written*: a storage error on the shelf must not stop the account synchronising.
+- [x] `shared/` Count a redelivery instead of only ignoring it. **Test:**
+      `PullPhaseTest` — `the same corrupt event delivered again is one row, not two` pins
+      one row **and** `attempts == 2`, with the first sighting's `createdAt` / `failedAt`
+      left where they were. One row alone is what a plain IGNORE gives, so without the
+      count and the timestamps that test would not notice
+      `bumpInboundDelivery` never being reached.
 - [x] `shared/` Hand the shelf to the pull phase the application assembles. The engine's
       own default phase carries `deadLetterDao`; the DI module builds its phase by hand
       and did not, so the record happened in every test and nowhere in the app.
