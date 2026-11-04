@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.geometry.Rect
@@ -71,7 +72,7 @@ fun rememberSpotlightTour(
 ): SpotlightTourController {
     val machine = remember(steps) { SpotlightTourStateMachine(steps) }
     val scope = rememberCoroutineScope()
-    var state by remember { mutableStateOf(SpotlightTourState()) }
+    var state by rememberSaveable { mutableStateOf(SpotlightTourState()) }
 
     // Republish from the machine whenever either the step or the target's bounds move.
     // Recomputing only on machine changes would freeze the hole in place while the

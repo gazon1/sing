@@ -34,6 +34,8 @@ interface AppearanceSettingsRepository {
 
     val accentColor: Flow<String>
     val fontSizeScale: Flow<Float>
+    val animationsEnabled: Flow<Boolean>
+    val hapticsEnabled: Flow<Boolean>
 
     suspend fun setThemeMode(value: ThemeMode)
 
@@ -44,6 +46,8 @@ interface AppearanceSettingsRepository {
     suspend fun setAccentColor(value: String)
 
     suspend fun setFontSizeScale(value: Float)
+    suspend fun setAnimationsEnabled(value: Boolean)
+    suspend fun setHapticsEnabled(value: Boolean)
 }
 
 /**
@@ -83,6 +87,16 @@ class DataStoreAppearanceSettingsRepository(dataStore: DataStore<Preferences>) :
             nsKey(SettingsNamespace.APPEARANCE, "font_size_scale"),
             SettingsDefaults.Appearance.FONT_SIZE_SCALE,
         )
+    private val animationsEnabledPref =
+        boolPref(
+            nsKey(SettingsNamespace.APPEARANCE, "animations_enabled"),
+            true,
+        )
+    private val hapticsEnabledPref =
+        boolPref(
+            nsKey(SettingsNamespace.APPEARANCE, "haptics_enabled"),
+            true,
+        )
 
     /**
      * Resolves the tri-state with migration.
@@ -115,6 +129,8 @@ class DataStoreAppearanceSettingsRepository(dataStore: DataStore<Preferences>) :
 
     override val accentColor: Flow<String> get() = accentColorPref.flow
     override val fontSizeScale: Flow<Float> get() = fontSizeScalePref.flow
+    override val animationsEnabled: Flow<Boolean> get() = animationsEnabledPref.flow
+    override val hapticsEnabled: Flow<Boolean> get() = hapticsEnabledPref.flow
 
     /**
      * Writes the tri-state. The old boolean key is intentionally not written
@@ -132,4 +148,5 @@ class DataStoreAppearanceSettingsRepository(dataStore: DataStore<Preferences>) :
     override suspend fun setAccentColor(value: String) = accentColorPref.set(value)
 
     override suspend fun setFontSizeScale(value: Float) = fontSizeScalePref.set(value)
-}
+    override suspend fun setAnimationsEnabled(value: Boolean) = animationsEnabledPref.set(value)
+    override suspend fun setHapticsEnabled(value: Boolean) = hapticsEnabledPref.set(value)
