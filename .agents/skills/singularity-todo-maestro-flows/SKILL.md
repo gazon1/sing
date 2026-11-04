@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-maestro-flows
-description: Author and run Maestro UI flows for the Android app. Covers seeding fixtures through the DebugSeedActivity deep-link instead of typing into the editor, why Compose's controlled BasicTextField cannot be filled by Maestro, selector conventions (TestTags over text), adaptive scrolling (scrollUntilVisible instead of hardcoded swipe), Maestro 2.10 syntax quirks, the edit-build-install-run loop, phone-viewport constraints, diagnosing an element that exists in code but is unreachable on screen, menu navigation patterns, animation timing, and where the app behaviour facts flows encode live — the runbook, not this skill body. Use when writing, fixing, or debugging Maestro YAML under Maestro/, when asked to "add a UI test", or when a flow fails on device.
+description: Author and run Maestro UI flows for the Android app. Covers seeding fixtures through the DebugSeedActivity deep-link instead of typing into the editor, why Compose's controlled BasicTextField cannot be filled by Maestro, selector conventions (TestTags over text), adaptive scrolling (scrollUntilVisible instead of hardcoded swipe), Maestro 2.10 syntax quirks, the edit-build-install-run loop, phone-viewport constraints, diagnosing an element that exists in code but is unreachable on screen, menu navigation patterns, animation timing, and app behaviour facts flows encode. Use when writing, fixing, or debugging Maestro YAML under Maestro/, when asked to "add a UI test", or when a flow fails on device.
 ---
 
 # Maestro UI Flows
@@ -8,9 +8,10 @@ description: Author and run Maestro UI flows for the Android app. Covers seeding
 Maestro drives the Android app end-to-end. Flows live in `Maestro/flows/` across 11
 subdirectories (~39 flows total). Helpers live in `Maestro/helpers/`.
 
-The failure classes of a CI run, and whether they are fixed, are recorded
-once — in the runbook's failure section:
-[Diagnosing a Maestro flow failure](runbook.md#diagnosing-a-maestro-flow-failure).
+Status (run 38223116125): classes A–D fixed (hardcoded swipe, missing nav menu
+openers, menu item scroll, animation timing). Class E diagnosed on `emulator-5554`
+— see the runbook in [`diagnosing-failures.md`](diagnosing-failures.md).
+All 4 Class E flows pass.
 
 ## Prerequisites: emulator first
 
@@ -125,6 +126,18 @@ selector — leave it. So are calendar day numbers (unique within a month) and
 the Material3 `contentDescription` regexes: Maestro 2.10 has no `content-desc`
 selector to fall back on.
 
+## Seed fixtures, never type them
+
+**Seed, never type.** A seeded fixture gets a title of its own: the seed replaces
+the row it names, so the title is the same in every run and the flow asserts on
+it (`task_item_<slug>`). A per-run value belongs to a title the flow *types*
+itself, not to a seeded one.
+
+The walkthrough — why typing a fixture into the editor does not work, the
+`seed.yaml` query keys, the seed replacing the row it names, the run id and the
+runner's cleanup wipe — is in the runbook:
+[Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them).
+
 ## Adaptive scrolling: `scrollUntilVisible` over hardcoded swipe
 
 **Never use fixed swipe coordinates.** The phone AVD viewport is 320×640px
@@ -227,8 +240,26 @@ step time, not at authoring time:
   there is no `content-desc` selector to fall back on. Select those with a regex
   over the same string, e.g. `text: ".* 1, 20[0-9][0-9]"` for the 1st of the
   month on screen — the year wildcard keeps the flow valid past the turn of the year.
+- **The task detail screen has no save button.** Edits autosave; `task_editor_save`
+  exists only on the create screen. A flow that expects it on the detail screen
+  fails with a confusing "not found".
 - **Pre-filled fields append.** `inputText` does not clear, so a field seeded
   with "Today" becomes "TodayFocus". `eraseText` first.
+- **Leaving a dirty draft raises a guard.** The shared top bar is tagged
+  `top_bar_back_button`; tapping it on a dirty editor opens a
+  "Discard changes?" dialog that must be confirmed with `text: "Discard"`.
+  System back does not pop the saved-view editor at all — use the top-bar arrow.
+- **Some saves do not navigate.** The saved-view editor emits a "Saved" snackbar
+  and stays open; the flow must leave explicitly.
+- **Quick-add destinations are not stable.** The notes quick-add lands on the
+  note's preview or straight in the editor, run to run. Tap the transition action
+  with `optional: true` and then wait on the destination you actually need.
+- **A feature can be modelled but unreachable.** Notes row actions (pin,
+  archive, delete, multi-select), the Calendar Today / prev / next /
+  mini-calendar controls, and the whole Sync configuration screen
+  (`SyncConfigScreen` + a complete `SyncViewModel`, composed by nothing) exist
+  with no control that dispatches them, and long-press on a note row does
+  nothing. Before writing a flow, check it is reachable.
 - **Day cells in a calendar grid are `text:`-addressable** — the number is
   unique within one month, so a full-string match is unambiguous. The mode
   control is labelled with the current mode ("Day", "4 days", "Week", "Month")
@@ -236,13 +267,6 @@ step time, not at authoring time:
 - **A failing batch run right after the first flow usually means the device died.**
   Check `adb devices` before debugging selectors; the emulator on this host dies
   after a few minutes of use and every later flow then fails in ~10 ms.
-
-**App behaviour is not a syntax quirk.** What a screen *does* — which
-destination a tap opens, whether a screen has a save button, what is modelled
-but unreachable — is app behaviour, and it lives in one place:
-[App behaviour facts flows encode](runbook.md#app-behaviour-facts-flows-encode).
-This file carries only what authoring a flow needs: selectors, scrolling,
-syntax, timing. When the two disagree, the runbook is the reference.
 
 ## Animation and timing
 
@@ -272,12 +296,8 @@ copy — "Удалить", "Архивировать" — are fine; only typed i
 | `launch-clean.yaml` | `launchApp`, waits 30s for `nav_tab_today`; includes `waitForAnimationToEnd` after launch |
 | `seed-task.yaml` | `launch-clean` + `seed.yaml` with the fixed title "Buy milk"; ends on Inbox and asserts `task_item_buy_milk` |
 | `seed.yaml` | Seeds via `todo-debug://seed?QUERY` deep-link (task/note/project/profile); waits for the shell and leaves the app on Today |
-| `open-app-menu.yaml` | Opens the app menu (the bottom-bar Menu button) and waits for the sheet |
-| `relaunch.yaml` | Stops the app and launches it again, keeping its data |
-| `session-signedin.yaml` / `session-signedout.yaml` | Puts the app into a signed-in / signed-out session |
-
-The full inventory — every helper and when to use it — is
-`Maestro/CONVENTIONS.md` § Helpers.
+| `open-menu-item.yaml` | Opens a menu sheet item by `ITEM_ID` and waits for `DEST_ID` |
+| `pick-date.yaml` | Date picker helper using `scripts/date.js` |
 
 A flow failing right after the previous one has usually lost the *device*, not
 its selectors — `adb devices` is the check. When running flows by hand, prefer
@@ -287,27 +307,26 @@ suite. See `singularity-todo-emulator-launch`.
 
 Start from `launch-clean`, then `seed.yaml` when the flow needs data. Make new
 flows self-seeding rather than inheriting state from an earlier flow. Note that
-`launch-clean` does not clear Room, so a fixture written by a previous run is
-still there.
+`launch-clean` does not clear Room, so a fixture written by a previous *manual*
+run is still there — the runner wipes the profile before each flow instead —
+see [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them).
 
 ## The runbook
 
-The runbook sits beside this skill as [`runbook.md`](runbook.md): the seeding
-walkthrough, the app's behaviour facts, the probe recipe and the dated failure
-snapshot.
-Read it when a flow needs data or misbehaves:
+The runbook sits beside this skill: the seeding walkthrough, the app's behaviour
+facts, the probe recipe and the failure tables. Read it when a flow needs data
+or misbehaves:
 
-- [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them) —
+- [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them) —
   why typing a fixture into the editor does not work, the `seed.yaml` query keys,
-  the run id, the runner's cleanup wipe, and why `launch-clean` does not clear
-  the database.
-- [App behaviour facts flows encode](runbook.md#app-behaviour-facts-flows-encode) —
+  the seed replacing the row it names, the run id and the runner's cleanup wipe,
+  and why `launch-clean` does not clear the database.
+- [App behaviour facts flows encode](diagnosing-failures.md#app-behaviour-facts-flows-encode) —
   the behaviours a flow author would otherwise guess wrong.
-- [Recon before writing a flow — the probe trick](runbook.md#recon-before-writing-a-flow--the-probe-trick) —
+- [Recon before writing a flow — the probe trick](diagnosing-failures.md#recon-before-writing-a-flow--the-probe-trick) —
   the probe flow that dumps the view hierarchy of the screen you are about to drive.
-- [Diagnosing a Maestro flow failure](runbook.md#diagnosing-a-maestro-flow-failure) — the
-  dated failure-class snapshot of one CI run (with the convention for refreshing
-  it), the logcat/hierarchy triage steps, when a selector is
+- [Diagnosing a Maestro flow failure](diagnosing-failures.md) — the failure-class
+  table for the last CI run, the logcat/hierarchy triage steps, when a selector is
   unreachable because the element is laid out off-screen, the retry policy, and the
   CI-vs-local timeout multipliers.
 
@@ -339,8 +358,12 @@ split for flows — the split is `smoke` vs domain.
    `tapOn id: <target>`.
 5. Assert on `id:` selectors from `TestTags`; add a constant if one is missing
    (then the rebuild loop).
-6. Stamp the fixture title with `${output.stamp}` if the flow mutates it, unless
-   it consumes `seed-task.yaml`'s fixed title.
+6. Give a seeded fixture a title of its own: the seed replaces the row it names,
+   so the title is stable across runs and the flow asserts on `task_item_<slug>`.
+   A per-run value comes from `${RUN_ID}` — minted by `run-maestro` on every
+   attempt, declared in `Maestro/config.yaml` — and belongs only in a title the
+   flow types into the editor itself. The old `${output.stamp}` form is gone: it
+   is a flow's own computed value, so a selector holding it can never resolve.
 7. Tag it with `smoke` only if it must always pass; otherwise use a domain tag.
 8. `just tm flow=Maestro/flows/<sub>/<file>.yaml`.
 9. **State whether the flow ran on a device**, in the header of the flow and
@@ -351,6 +374,6 @@ split for flows — the split is `smoke` vs domain.
    flow thinks it is. The header is where the answer belongs: the file
    outlives the pull request. "нет" is an honest and useful answer — "да"
    without a date is not. A flow tagged `smoke` has to have run on a device.
-10. On failure, open the runbook: [`runbook.md`](runbook.md).
+10. On failure, open [`diagnosing-failures.md`](diagnosing-failures.md).
 
 Fuller guidance, including the tag table: `Maestro/README.md`.
