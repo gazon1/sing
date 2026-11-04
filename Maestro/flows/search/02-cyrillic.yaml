@@ -43,7 +43,11 @@ tags:
 # The row's id keeps the title's own slug, and the slug is Unicode-aware: a
 # non-Latin title stays addressable instead of collapsing into an empty tag.
 # The id is therefore the Cyrillic slug of the title, not a Latin spelling of
-# it — the Latin spelling names a row that does not exist.
+# it — `task_item_pokupki` names a row that does not exist, and the wait it
+# guards could never have been satisfied by the seeded row. That one-selector
+# correction rides with this change because the seed wait is the assertion it
+# makes possible: a flow that waits for an id the app never produces is not
+# waiting for its entity at all.
 - extendedWaitUntil:
     visible:
       id: task_item_покупки

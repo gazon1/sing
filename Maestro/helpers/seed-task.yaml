@@ -15,9 +15,14 @@
 #
 # This helper runs launch-clean internally.
 #
-# It also waits for the row it seeded — the row is scrolled into view below —
-# so a caller that uses this helper has already waited for the entity it
-# seeded and does not wait again (see the contract in helpers/seed.yaml).
+# It also waits for the row it seeded: the row is scrolled into view below, so
+# a caller that uses this helper has already waited for the entity it seeded
+# and does not wait again (see the contract in helpers/seed.yaml).
+#
+# The scroll is the right wait here because this helper waits for no container
+# that a later step needs: the contract asks for `extendedWaitUntil` only when
+# a container wait precedes the row wait, and here the row is the last thing
+# the helper does.
 appId: com.singularity.todo
 name: seed-task
 ---

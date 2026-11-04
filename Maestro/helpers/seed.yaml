@@ -42,11 +42,11 @@
 #         QUERY: "task=Buy%20milk&due=today"
 #   - tapOn:
 #       id: nav_tab_inbox
-#   # Wait for the seeded row: `extendedWaitUntil` when it is on screen,
-#   # `scrollUntilVisible` when it may be below the fold.
-#   - extendedWaitUntil:
-#       visible:
+#   # Wait for the seeded row. Which command waits for it is the next section.
+#   - scrollUntilVisible:
+#       element:
 #         id: task_item_buy_milk
+#       direction: DOWN
 #       timeout: 8000
 #
 # A seed of `session=anonymous` creates no entity, so there is nothing to wait
@@ -73,13 +73,26 @@
 # flow that waits this way says so in a comment naming the container. This is
 # the same rule as the row wait, not a second one.
 #
-# A flow that then asserts the row itself still waits for the row — the
-# container proves the entity arrived, not that the row is on screen where the
-# next step needs it. Use `extendedWaitUntil` for that row wait, not
-# `scrollUntilVisible`: a scroll can carry the container the flow just waited
-# for out of the viewport, so a flow that needs both waits for the container
-# first, the row second, and waits for the container again after any step that
-# scrolled it away.
+# ## How to wait for the row itself: scroll, or wait in place
+#
+# Two commands wait for a row, and the choice is about what has to be on the
+# screen after the wait — not about which command is preferred in general:
+#
+#   - `scrollUntilVisible` when no container wait precedes it. It tolerates a
+#     row below the fold, and most rows in a list are below the fold. Nothing
+#     has been waited for that the scroll could carry away, so the scroll is
+#     free. This is what `seed-task.yaml` does with `task_item_buy_milk`, and
+#     what a flow does when it waits for an Inbox row before opening its notes.
+#   - `extendedWaitUntil` when a container wait precedes it and a later step
+#     still needs that container. It does not scroll, and that is the point: a
+#     scroll can carry the container the flow just waited for out of the
+#     viewport, and the later section assertion would then fail on a flow that
+#     was working. So the flow waits for the container first, the row second,
+#     and waits for the container again after any step that scrolled it away.
+#
+# A row wait that is the flow's last step is neither case: a scroll costs
+# nothing there, so such a flow scrolls rather than betting that the row landed
+# inside the viewport.
 #
 # ## Why there is deliberately no inbox→today tab round-trip here
 #

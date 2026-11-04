@@ -17,8 +17,9 @@ tags:
     visible:
       id: plans_section_overdue
     timeout: 8000
-# The seeded row is waited for, not asserted bare: the seed helper waits for
-# the shell, not for the row it wrote.
+# The seeded entity's arrival signal is the container waited for
+# above: it renders only while a row falls in it, so waiting for it is
+# waiting for the row (`helpers/seed.yaml`, "What counts as the wait").
 - extendedWaitUntil:
     visible:
       id: task_item_late_task
