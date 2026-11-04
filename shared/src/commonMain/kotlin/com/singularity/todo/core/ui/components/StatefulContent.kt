@@ -37,14 +37,19 @@ import com.singularity.todo.core.ui.preview.noopClick
  *     state = state.toContentState(),
  *     emptyTitle = "No tasks yet",
  *     emptyActions = {
- *         FilledTonalButton(onClick = { onIntent(TasksIntent.CreateNew) }) {
+ *         FilledTonalButton(onClick = onCreateTask) {
  *             Text("Create task")
  *         }
  *     },
- *     onRetry = { onIntent(TasksIntent.Reload) },
+ *     onRetry = onRetry,
  *     content = { tasks, contentModifier -> TasksList(tasks, contentModifier) },
  * )
  * ```
+ *
+ * `onCreateTask` and `onRetry` are the screen's own callbacks — the screen
+ * dispatches its own intent from them. The example names no intent type on
+ * purpose: an intent belongs to a feature, and this component belongs to none,
+ * so a name written here would be a name a reader cannot compile.
  *
  * @param state            The mapped [ContentState]. **UI-only type** — build it in the
  *   screen via a `ContentStateMapper` extension, never return it from a ViewModel;
