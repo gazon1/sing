@@ -2,6 +2,7 @@
 <resources>
     <string name="back">Назад</string>
     <string name="menu">Меню</string>
+    <string name="search">Поиск</string>
     <string name="ai_actions">AI Actions</string>
     <string name="reset_date">Сбросить дату</string>
     <string name="reset_priority">Сбросить приоритет</string>
