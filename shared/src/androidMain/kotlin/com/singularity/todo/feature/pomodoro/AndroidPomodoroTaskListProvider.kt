@@ -12,7 +12,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Android implementation of [PomodoroTaskListProvider] that observes inbox tasks.
+ * Android implementation of [PomodoroTaskListProvider] that observes the tasks a
+ * focus session can be started on.
+ *
+ * The set is [com.singularity.todo.feature.tasks.domain.model.TaskFilter.NotDeferred]
+ * — every task that is neither in the trash nor deferred. It is *not* the agenda's
+ * Inbox tab: that one holds the undated tasks only.
  *
  * Maintains a private [MutableStateFlow] updated via [CoroutineScope.launch].
  * Callers receive a [StateFlow] view for synchronous read access.
@@ -30,7 +35,7 @@ class AndroidPomodoroTaskListProvider(private val taskRepository: TaskRepository
     init {
         scope.launch {
             taskRepository
-                .observeByFilter(TaskFilter.Inbox)
+                .observeByFilter(TaskFilter.NotDeferred)
                 .collect { _tasks.value = it.toImmutableList() }
         }
     }

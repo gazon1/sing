@@ -114,19 +114,20 @@ class TaskReadSurfaceTest {
     }
 
     @Test
-    fun `the inbox is the app's inbox`() =
+    fun `open is every unfinished task that is not deferred, dated or undated`() =
         runTest {
             val repo = FakeTaskRepository()
             repo.seed(
-                task("open"),
+                task("undated"),
+                task("dated", dueDate = LocalDate(2026, 3, 9)),
                 task("deferred", someday = true),
                 task("done", completed = true),
                 task("gone", archived = true),
             )
 
-            val output = tool(repo).execute(ListTasksInput(selection = TaskSelection.INBOX))
+            val output = tool(repo).execute(ListTasksInput(selection = TaskSelection.OPEN))
 
-            assertEquals(listOf("open"), titles(output))
+            assertEquals(setOf("undated", "dated"), titles(output).toSet())
         }
 
     @Test
@@ -172,7 +173,7 @@ class TaskReadSurfaceTest {
             val output =
                 tool(repo).execute(
                     ListTasksInput(
-                        selection = TaskSelection.INBOX,
+                        selection = TaskSelection.OPEN,
                         projectId = "p1",
                         tagIds = listOf("home", "errand"),
                     ),
@@ -192,7 +193,7 @@ class TaskReadSurfaceTest {
 
             val output =
                 tool(repo).execute(
-                    ListTasksInput(selection = TaskSelection.INBOX, priorities = listOf("high")),
+                    ListTasksInput(selection = TaskSelection.OPEN, priorities = listOf("high")),
                 )
 
             assertEquals(listOf("high"), titles(output))
@@ -209,11 +210,11 @@ class TaskReadSurfaceTest {
             )
             val tool = tool(repo)
 
-            val first = read(tool.execute(ListTasksInput(selection = TaskSelection.INBOX, limit = 2)))
+            val first = read(tool.execute(ListTasksInput(selection = TaskSelection.OPEN, limit = 2)))
             assertEquals(listOf("a", "b"), titlesOf(first))
             val cursor = first["nextCursor"]!!.jsonPrimitive.content
 
-            val second = read(tool.execute(ListTasksInput(selection = TaskSelection.INBOX, limit = 2, cursor = cursor)))
+            val second = read(tool.execute(ListTasksInput(selection = TaskSelection.OPEN, limit = 2, cursor = cursor)))
             assertEquals(listOf("c"), titlesOf(second))
             val next = second["nextCursor"]
             assertTrue(next == null || next is JsonNull, "the last page has no cursor")
@@ -230,7 +231,7 @@ class TaskReadSurfaceTest {
             )
             val tool = tool(repo)
 
-            val first = read(tool.execute(ListTasksInput(selection = TaskSelection.INBOX, limit = 1)))
+            val first = read(tool.execute(ListTasksInput(selection = TaskSelection.OPEN, limit = 1)))
             val cursor = first["nextCursor"]!!.jsonPrimitive.content
 
             val other =
@@ -253,7 +254,7 @@ class TaskReadSurfaceTest {
                 task("fine"),
             )
 
-            val output = read(tool(repo).execute(ListTasksInput(selection = TaskSelection.INBOX)))
+            val output = read(tool(repo).execute(ListTasksInput(selection = TaskSelection.OPEN)))
             val health = output["health"]!!.jsonObject
 
             assertEquals(1, health["overdue"]!!.jsonPrimitive.content.toInt())
@@ -270,7 +271,7 @@ class TaskReadSurfaceTest {
 
             val output =
                 read(
-                    tool(repo).execute(ListTasksInput(selection = TaskSelection.INBOX, cursor = "not-a-cursor")),
+                    tool(repo).execute(ListTasksInput(selection = TaskSelection.OPEN, cursor = "not-a-cursor")),
                 )
 
             assertTrue(output["cursorWarning"] != null)
@@ -284,7 +285,7 @@ class TaskReadSurfaceTest {
             repo.seed(task("a"), task("b"))
             val tool = tool(repo)
 
-            val first = read(tool.execute(ListTasksInput(selection = TaskSelection.INBOX, limit = 1)))
+            val first = read(tool.execute(ListTasksInput(selection = TaskSelection.OPEN, limit = 1)))
             val cursor = first["nextCursor"]!!.jsonPrimitive.content
             val decoded = assertNotNull(cursor.decodeTaskPageCursor())
 

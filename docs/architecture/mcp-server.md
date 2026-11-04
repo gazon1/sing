@@ -762,7 +762,7 @@ val nextCursor = if (items.size == PAGE_SIZE) {
 The cursor is URL-safe and unpadded, so it survives being put in a query parameter, a
 message, or a shell command without being escaped into something unreadable. The
 `fingerprint` says *which* list the reader was reading: a cursor from the overdue list
-handed back for the inbox is refused rather than paging the wrong list.
+handed back for the open selection is refused rather than paging the wrong list.
 
 ## ZCode MCP Config
 

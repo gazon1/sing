@@ -18,10 +18,11 @@ import kotlin.time.Duration
  * ## Why a vocabulary and not a filter
  *
  * "The tasks I am in the middle of" is a thing the app already knows how to show — it
- * is the Inbox tab, the Today section, the overdue list. A reader who has to learn the
- * app's filter syntax to ask for it will not; a reader who says "overdue" gets what the
- * app calls overdue. So the names here are the app's names, and each one resolves to the
- * same rule the screen uses.
+ * is the Today section, the overdue list. A reader who has to learn the app's filter
+ * syntax to ask for it will not; a reader who says "overdue" gets what the app calls
+ * overdue. So the names here are the app's names, and each one resolves to the same
+ * rule the screen uses. Where the app has no screen for a set, the name says what the
+ * set is — `open` is every unfinished task that is not deferred.
  *
  * The names are also the wire format. The serial names are lower case, because they
  * travel to a model that reads English, and a value the model has to guess at is a value
@@ -29,9 +30,14 @@ import kotlin.time.Duration
  */
 @Serializable
 enum class TaskSelection {
-    /** What is open and not deferred: the Inbox. */
-    @SerialName("inbox")
-    INBOX,
+    /**
+     * Every unfinished task that is not deferred — dated or undated.
+     *
+     * This is not the agenda's Inbox tab, which holds the undated tasks only.
+     * The name says the question the selection answers.
+     */
+    @SerialName("open")
+    OPEN,
 
     /** Due today. */
     @SerialName("today")
@@ -77,7 +83,7 @@ enum class TaskSelection {
 /**
  * A selection, narrowed.
  *
- * The narrowing is always *and*: a request for the inbox within a project, tagged
+ * The narrowing is always *and*: a request for the open tasks within a project, tagged
  * "home", with high priority, is the intersection of the three. That is the direction
  * people read narrowing in — each word removes something — and the other direction
  * ("any of these tags") is a different question that the search tool answers.
@@ -85,7 +91,7 @@ enum class TaskSelection {
 @Serializable
 data class TaskSelectionRequest(
     /** Which named set to read. */
-    val selection: TaskSelection = TaskSelection.INBOX,
+    val selection: TaskSelection = TaskSelection.OPEN,
     /** Keep only the tasks in this project. */
     val projectId: String? = null,
     /** Keep only the tasks carrying **every** one of these tags. */
@@ -100,7 +106,7 @@ data class TaskSelectionRequest(
  * ## Why the rule is computed here and not in the tool
  *
  * A selection is a question about the user's tasks, and the app already answers it — in
- * the Inbox tab, in the agenda's overdue section, in the statistics screen. If the tool
+ * the agenda's Today tab, in its overdue section, in the statistics screen. If the tool
  * worked out the answer its own way, the tool and the app would answer the same question
  * differently, and the reader would be left choosing whom to believe.
  *
@@ -111,7 +117,7 @@ data class TaskSelectionRequest(
  * ## Why the base is always "everything", and not a narrower query
  *
  * The repository's own filters and the domain's own filters do not always agree. The
- * repository answers `Inbox` with every live task, while the domain's answer to `Inbox`
+ * repository answers `NotDeferred` with every live task, while the domain's answer
  * leaves out the deferred ones; the repository answers `ByStatuses` with nothing at
  * all. Reading through the repository's narrower filters would therefore have the tool
  * report a different set from the screen.
@@ -160,18 +166,17 @@ object TaskSelectionResolver {
         stagnationWindow: Duration,
     ): Boolean =
         when (selection) {
-            // The inbox is what is *open* and not deferred. The domain's `Inbox` filter
-            // leaves the finished tasks in, because a filter and a screen are not the same
-            // question — and the screen the reader is thinking of is the one that shows
-            // what is still to do.
+            // Every unfinished task that is not deferred, dated or undated. The
+            // domain's `NotDeferred` filter leaves the finished tasks in, because a
+            // filter and a screen are not the same question — so the active-status
+            // rule is applied on top, and the reader gets what is still to do.
             //
-            // This is the *filter's* inbox, and it is wider than the agenda's Inbox tab:
-            // the tab holds the tasks that are not dated yet, while this selection is
-            // every open task, dated or not. The two answer different questions — "what
-            // has no date" and "what is still to do" — and the tool's description says
-            // which one it answers.
-            TaskSelection.INBOX -> {
-                TaskDomain.matchesFilter(task, TaskFilter.Inbox, context.today) &&
+            // This is *not* the agenda's Inbox tab, which holds the undated tasks
+            // only. The two answer different questions — "what is not scheduled yet"
+            // and "what is still to do" — and the tool's description says which one
+            // this selection answers.
+            TaskSelection.OPEN -> {
+                TaskDomain.matchesFilter(task, TaskFilter.NotDeferred, context.today) &&
                     TaskDomain.matchesFilter(
                         task,
                         TaskFilter.ByStatuses(setOf(TaskStatus.Active)),

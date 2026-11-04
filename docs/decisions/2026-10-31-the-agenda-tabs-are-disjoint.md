@@ -3,6 +3,11 @@ status: accepted
 date: 2026-10-31
 ---
 
+> **Superseded in part (2026-11-04):** the `TaskFilter.Inbox` filter and the AI tool's
+> `inbox` selection are now `TaskFilter.NotDeferred` and `open`. The tab partition and
+> the Inbox tab described here are unchanged. See
+> [2026-11-04-inbox-names-the-unscheduled-tab.md](2026-11-04-inbox-names-the-unscheduled-tab.md).
+
 # The three agenda tabs are disjoint
 
 ## Context

@@ -51,7 +51,20 @@ sealed interface TaskFilter {
 
     data object Someday : TaskFilter
 
-    data object Inbox : TaskFilter
+    /**
+     * Every task that is not in the trash and not deferred — dated or undated.
+     *
+     * This is not a completion filter: a finished task still matches, because
+     * completing a task marks it and only archiving takes it away. A caller that
+     * wants the unfinished ones narrows this filter with [TaskStatus.Active], as
+     * the AI tool's `open` selection does.
+     *
+     * The agenda's Inbox tab is *narrower* than this: it holds the tasks with no
+     * due date, because it answers "what have I not scheduled yet". The filter and
+     * the tab used to share the name `Inbox`, which made the two questions look
+     * like one.
+     */
+    data object NotDeferred : TaskFilter
 
     data object Pinned : TaskFilter
 

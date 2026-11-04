@@ -33,7 +33,7 @@ import kotlin.time.Clock
  */
 @Serializable
 data class ListTasksInput(
-    val selection: TaskSelection = TaskSelection.INBOX,
+    val selection: TaskSelection = TaskSelection.OPEN,
     val projectId: String? = null,
     val tagIds: List<String> = emptyList(),
     val priorities: List<String> = emptyList(),
@@ -179,12 +179,14 @@ class ListTasksTool(
          */
         const val DESCRIPTION =
             "List the user's tasks. " +
-                "The selection is one of: inbox, today, upcoming, overdue, blocked, stagnant, " +
+                "The selection is one of: open, today, upcoming, overdue, blocked, stagnant, " +
                 "pinned, someday, active, completed, all. " +
-                "Inbox means open and not deferred; today means due today; upcoming means due " +
-                "later; overdue means past its due date and still open; blocked means waiting on " +
-                "something unfinished; stagnant means open, undated and untouched for a long time; " +
-                "pinned means the user pinned it; someday means deferred; active means open; " +
+                "Open means every unfinished task that is not deferred, dated or undated. " +
+                "It is not the Inbox tab, which holds the undated tasks only; today means due " +
+                "today; upcoming means due later; overdue means past its due date and still " +
+                "open; blocked means waiting on something unfinished; stagnant means unfinished, " +
+                "undated and untouched for a long time; pinned means the user pinned it; someday " +
+                "means deferred; active means every unfinished task, the deferred ones included; " +
                 "completed means finished; all means everything that is not in the trash. " +
                 "Narrowing is an intersection: projectId, tagIds and priorities each remove " +
                 "tasks, so a request for two tags returns only the tasks carrying both. " +

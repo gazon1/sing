@@ -48,11 +48,16 @@ Single source of truth for domain vocabulary. All terms are canonicalized here �
 
 ## Inbox
 
-**Inbox** is the default task collection — all tasks not assigned to a project. It is represented as `TaskFilter.Inbox`.
+**Inbox** is the agenda tab for the tasks with no due date — the answer to "what have I
+not scheduled yet". It is `AgendaPresets.Inbox`, whose one section is called "No Date".
 
-**Also known as:** Inbox tasks, unfiled tasks
+**Not the filter.** The wider code-level set is `TaskFilter.NotDeferred`: every task
+that is not in the trash and not deferred, dated or undated, and not filtered by
+completion. The pomodoro picker and the AI tool's `open` selection read that set. The
+two used to share the name `Inbox`, which is why older notes call the filter "the inbox
+filter".
 
-**Used in:** `TaskFilter`, `TaskRepository.observeByFilter`, `AgendaEvaluator`
+**Used in:** `AgendaPresets.Inbox`, `AgendaEvaluator`, `TaskFilter.NotDeferred`, `TaskRepository.observeByFilter`
 
 ---
 

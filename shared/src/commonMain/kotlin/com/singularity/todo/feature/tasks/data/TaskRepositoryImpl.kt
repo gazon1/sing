@@ -152,7 +152,12 @@ class TaskRepositoryImpl(
                         taskDao.watchSomeday(uid.value)
                     }
 
-                    is TaskFilter.Inbox -> {
+                    is TaskFilter.NotDeferred -> {
+                        // The DAO query is wider than the domain rule: it returns
+                        // every non-archived task, the deferred ones included. That
+                        // predates this filter's name, and the pomodoro picker is its
+                        // only reader — this change renames it, it does not change
+                        // what the picker lists.
                         taskDao.watchActive(uid.value)
                     }
 
