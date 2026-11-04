@@ -179,6 +179,38 @@ class SearchViewModel(
     private val _activeFilter = MutableStateFlow<SimpleFilter?>(null)
     private val _mode = MutableStateFlow(SearchMode.Word)
 
+    /**
+     * One question the screen asked: the text, the AST it parsed to, and the
+     * mode the free text is matched in.
+     *
+     * The three are one value because they are one question, and because an
+     * answer has to be attributable to the question it answers. [parsed] is null
+     * when the text did not parse, which is a question whose answer is already
+     * known: nothing.
+     */
+    private data class SearchRequest(
+        val text: String,
+        val parsed: Query?,
+        val mode: SearchMode,
+    )
+
+    /** The question the screen is asking now. */
+    private fun currentRequest(): SearchRequest =
+        SearchRequest(text = _queryString.value.text, parsed = _parsedQuery.value, mode = _mode.value)
+
+    /**
+     * True when the question on the screen is one the search will actually run.
+     *
+     * A blank query is not a question, and a query that did not parse has its
+     * answer already — neither leaves anything to wait for, so neither may raise
+     * the pending flag. The flag is only ever lowered by an answer, and these two
+     * have none coming.
+     */
+    private fun awaitsAnswer(): Boolean {
+        val text = _queryString.value.text
+        return text.isNotBlank() && _parsedQuery.value != null
+    }
+
     // ─── Observations ──────────────────────────────────────────────────────────
 
     init {
@@ -193,20 +225,38 @@ class SearchViewModel(
         // changes. The mode is part of the question: the same query asks a
         // different thing in the contains mode, so the answer has to be asked
         // again when the mode changes.
+        //
+        // Every request is answered, and every answer names the request it
+        // answers. Both halves matter:
+        //
+        //  * The answer names its request because the debounce sits *upstream*
+        //    of `flatMapLatest`: for up to 300 ms after a keystroke the previous
+        //    search is still running and still emitting, and its answer answers
+        //    a question the user has already changed. Applying it would report
+        //    results — or "no results" — for a query that has not run.
+        //  * A request that cannot be run is answered with the empty answer
+        //    rather than with silence. Silence is what left the pending flag
+        //    raised forever: the flag is lowered in the collector below, and
+        //    that collector must be reached by every request an intent raises.
         vmScope.launch {
-            combine(_queryString, _parsedQuery, _mode) { qs, pq, mode -> Triple(qs, pq, mode) }
-                .debounce(300.milliseconds)
-                .flatMapLatest { (qs, pq, mode) ->
-                    if (qs.text.isBlank()) {
-                        flowOf(SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
+            combine(_queryString, _parsedQuery, _mode) { qs, pq, mode ->
+                SearchRequest(text = qs.text, parsed = pq, mode = mode)
+            }.debounce(300.milliseconds)
+                .flatMapLatest { request ->
+                    val parsed = request.parsed
+                    if (request.text.isBlank() || parsed == null) {
+                        flowOf(request to SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
                     } else {
                         channelFlow {
                             val userId = savedSearchRepo.currentUserId()
-                            val q = pq ?: return@channelFlow
-                            searchUseCase(q, userId, mode).collect { send(it) }
+                            searchUseCase(parsed, userId, request.mode).collect { send(request to it) }
                         }
                     }
-                }.collect { results ->
+                }.collect { (request, results) ->
+                    // The answer belongs to the question it answers. An answer
+                    // for a superseded request is dropped, and the flag stays
+                    // raised until the question now on the screen is answered.
+                    if (request != currentRequest()) return@collect
                     updateState {
                         it.copy(results = results, isSearching = false)
                     }
@@ -266,11 +316,11 @@ class SearchViewModel(
     private fun onModeChange(mode: SearchMode) {
         _mode.value = mode
         // The mode is part of the question, so the answer has to be asked again —
-        // and the screen has to know that it is waiting for it. A blank query has
-        // no answer to wait for.
-        if (_queryString.value.text.isNotBlank()) {
-            updateState { it.copy(isSearching = true) }
-        }
+        // and the screen has to know that it is waiting for it. Only a question
+        // that will actually be run raises the flag: a blank query and one that
+        // did not parse have no answer coming, and the flag is only ever lowered
+        // by an answer.
+        updateState { it.copy(isSearching = awaitsAnswer()) }
     }
 
     /**
@@ -324,11 +374,22 @@ class SearchViewModel(
         _parsedQuery.value = parsed
         // Try to derive a SimpleFilter; unsupported conditions → null. The null
         // is the documented signal, not an error — the query still runs.
+        //
+        // Every other failure keeps the surface it had when the mapper was
+        // reached through the parser's `catch (Exception)`: it is reported as a
+        // [SearchUiEvent.Error] and the query is not run. Narrowing the parser's
+        // catch to [QueryParseException] must not narrow this one with it — the
+        // mapper has its own failure modes, and onIntent is not a place to let
+        // one escape.
         _activeFilter.value =
             try {
                 SimpleFilterMapper().fromQuery(parsed).getOrNull()
             } catch (_: UnsupportedSimpleFilterException) {
                 null
+            } catch (e: Exception) {
+                stopSearching()
+                vmScope.launch { emit(SearchUiEvent.Error("Search error: ${e.message ?: "unknown"}")) }
+                return
             }
         updateState { it.copy(isSearching = true) }
     }
