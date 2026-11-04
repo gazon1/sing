@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
@@ -76,6 +77,7 @@ import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.components.TopAppBar
+import com.singularity.todo.core.ui.components.platformVerticalScrollbar
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -464,10 +466,18 @@ private fun NoteList(
     currentFilter: NoteFilter,
     modifier: Modifier = Modifier,
 ) {
+    val listState = rememberLazyListState()
     LazyColumn(
+        state = listState,
         modifier =
             modifier
+                // The list's tag and the desktop bar share this node: the bar
+                // publishes a semantics key, not a second `testTag`, so neither
+                // value replaces the other.
                 .testTag(TestTags.NOTES_LIST)
+                .platformVerticalScrollbar(listState)
+                // The cap sits inside the bar, so the bar takes its geometry from
+                // the capped column and hugs it on a wide window.
                 .widthIn(max = 640.dp),
         contentPadding = PaddingValues(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

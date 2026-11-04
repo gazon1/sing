@@ -43,6 +43,7 @@ import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.components.platformVerticalScrollbar
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
@@ -127,7 +128,6 @@ private fun SavedAgendaEditor(
     modifier: Modifier = Modifier,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
-    val listState = rememberLazyListState()
 
     Column(modifier = modifier.fillMaxSize()) {
         // A single LazyColumn owns scrolling. Nesting a LazyColumn inside a
@@ -178,7 +178,7 @@ private fun SavedAgendaEditorList(
         // extension, so only the Column can apply it. It is what keeps the action
         // row on screen: `fillMaxSize` here would resolve against the whole
         // viewport and push that row off it.
-        modifier = modifier,
+        modifier = modifier.platformVerticalScrollbar(listState),
         state = listState,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
