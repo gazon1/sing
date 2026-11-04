@@ -1,5 +1,6 @@
 package com.singularity.todo.test.helpers
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -10,7 +11,10 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
+import com.singularity.todo.core.ui.DesktopShellLabels
 import com.singularity.todo.core.ui.TestTags
+import kotlin.test.assertTrue
 
 /**
  * Content descriptions the desktop flow helpers select on.
@@ -28,7 +32,14 @@ import com.singularity.todo.core.ui.TestTags
  * matching.
  */
 object DesktopShell {
-    const val HAMBURGER = "Menu"
+    /**
+     * The drawer trigger's content description.
+     *
+     * Not a literal: it is [DesktopShellLabels.DRAWER_TRIGGER], the same constant the
+     * shell draws the control with, so a rename in production moves this selector with
+     * it instead of leaving the suite red and the value duplicated.
+     */
+    const val HAMBURGER = DesktopShellLabels.DRAWER_TRIGGER
     const val BACK = "Back"
     const val FAB_ADD_TASK = "Add task"
     const val FAB_ADD_PROJECT = "Add project"
