@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.archive
 
-import com.singularity.todo.feature.archive.domain.port.ArchiveRepository
+import com.singularity.todo.test.fakes.FakeArchiveRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.helpers.VmScope
 import com.singularity.todo.test.helpers.testVm
@@ -33,10 +33,7 @@ class ArchiveViewModelTest {
      * The archive write path is not what this test is about, and the fake
      * persists nothing: the list these tests read is the trash observation.
      */
-    private val archiveRepo =
-        object : ArchiveRepository {
-            override suspend fun archiveCompletedTasks(): Result<Int> = Result.success(0)
-        }
+    private val archiveRepo = FakeArchiveRepository()
 
     private fun TestScope.createVm(): ArchiveViewModel =
         testVm(
@@ -82,11 +79,12 @@ class ArchiveViewModelTest {
         }
 
     /**
-     * A retry that fails again lands in the error state, not on the spinner.
+     * A retry that fails again lands in the error state, not on a spinner.
      *
-     * The state Retry writes is a promise that a load is running. When that load
-     * fails the promise is broken, and the error state has to replace it — a
-     * spinner that never resolves is the defect this path exists to prevent.
+     * A retry that succeeds leaves the error; a retry that fails must publish
+     * the second failure too. The trigger stays armed across both attempts, so
+     * the defect this guards against is a second failure that never reaches the
+     * screen and leaves it waiting for a list that will not come.
      */
     @Test
     fun `a retry that fails again lands in the error state`() =
