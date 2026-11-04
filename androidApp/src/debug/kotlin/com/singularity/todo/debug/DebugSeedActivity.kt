@@ -19,6 +19,8 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.whatsnew.presentation.WhatsNewPrefs
+import com.singularity.todo.test.stubs.DebugWhatsNewArming
 import com.singularity.todo.test.stubs.TestAuthStubs
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -93,6 +95,15 @@ import kotlin.time.Instant
  *   `Session.SignedIn`, which is why the attach-account affordance — rendered
  *   only for `Session.Anonymous` — used to be unreachable in every UI test: a
  *   flow waited for an element that could not be on the screen.
+ *
+ * - `whatsnew=<text>` — arms the release-notes sheet with a payload built from `<text>`: one
+ *   line of text and a "Got it" button whose action closes the sheet. The recorded dismissal is
+ *   forgotten first, so the sheet is shown even on a second run of the same flow. This is the
+ *   only trigger the sheet has in the E2E build — the production one is a remote-config payload
+ *   that no test server delivers.
+ * - `whatsnew-seen=<text>` — the same payload, delivered as one the user may already have
+ *   dismissed: the record is left alone, so the sheet appears only when this exact payload was
+ *   never dismissed. This is how a flow observes the "the same payload does not reappear" rule.
  *
  * Examples:
  * ```
@@ -328,6 +339,15 @@ class DebugSeedActivity :
             return
         }
 
+        // A whatsnew link arms the release-notes sheet and writes no entity. The sheet renders a
+        // remote-config payload the E2E build has no server to fetch, so the payload arrives
+        // from the link instead; `whatsnew-seen` delivers the same payload as one the user may
+        // already have dismissed, which is the only way to observe that rule.
+        if (params.containsKey("whatsnew") || params.containsKey("whatsnew-seen")) {
+            armWhatsNew(params)
+            return
+        }
+
         // Ensure default profile exists so repositories are functional.
         profileRepo.ensureDefaults()
 
@@ -354,6 +374,27 @@ class DebugSeedActivity :
             projectsRepo = projectsRepo,
             currentUser = currentUser,
         )
+    }
+
+    /**
+     * Arms the WhatsNew sheet with the payload a link carries.
+     *
+     * `whatsnew=<text>` delivers a payload the user has not seen: the recorded dismissal is
+     * forgotten first, so a re-run of the same flow sees the sheet again instead of finding it
+     * suppressed by the previous run — otherwise the flow would pass once and fail forever after.
+     *
+     * `whatsnew-seen=<text>` delivers the payload as one that may already have been dismissed:
+     * the record is left alone, so the sheet appears only when this exact payload was never
+     * dismissed. That is the rule the feature promises, and nothing else can observe it.
+     */
+    private suspend fun armWhatsNew(params: Map<String, String>) {
+        val seen = params["whatsnew-seen"]
+        val text = seen ?: params["whatsnew"]!!
+        if (seen == null) {
+            val prefs: WhatsNewPrefs by inject()
+            prefs.forget()
+        }
+        DebugWhatsNewArming.arm(text)
     }
 
     /**

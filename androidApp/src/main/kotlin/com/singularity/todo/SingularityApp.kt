@@ -104,13 +104,34 @@ open class SingularityApp : Application() {
      * or network call is needed. This is for E2E smoke tests only.
      */
     open fun extraKoinModules(): List<Module> {
-        if (BuildConfig.TEST_AUTH_BYPASS) {
-            return listOf(
-                com.singularity.todo.test.stubs
-                    .testAuthModule(),
-            )
-        }
-        return emptyList()
+        if (!BuildConfig.TEST_AUTH_BYPASS) return emptyList()
+        // The real port is resolved here, before the override is loaded: a `get()` inside the
+        // module would resolve the override itself and recurse without end.
+        //
+        // That makes this method callable only once Koin has started — which is why `onCreate`
+        // loads these modules *after* `startKoin` and never inside its `modules { }` argument,
+        // where there is no graph to resolve from. The message below says so, instead of
+        // surfacing as a bare "no bean found" in an E2E build that would otherwise look like a
+        // broken sheet.
+        val delegate: RemoteConfigPort =
+            try {
+                getKoin().get<RemoteConfigPort>()
+            } catch (e: IllegalStateException) {
+                throw IllegalStateException(
+                    "extraKoinModules() has to be called after startKoin: it resolves the real " +
+                        "RemoteConfigPort, and before the Koin graph exists there is nothing to " +
+                        "resolve it from",
+                    e,
+                )
+            }
+        return listOf(
+            com.singularity.todo.test.stubs
+                .testAuthModule(),
+            // WhatsNew renders a remote-config payload, and the E2E build has no config
+            // server to fetch one from — which is why the sheet could not be reached from
+            // any flow. This override lets the debug seed link deliver a payload instead.
+            com.singularity.todo.test.stubs.testRemoteConfigModule(delegate = delegate),
+        )
     }
 
     override fun onCreate() {
@@ -143,8 +164,13 @@ open class SingularityApp : Application() {
         // would still be making a known-weak spot weaker, and `loadModules(allowOverride
         // = true)` says exactly the same thing with a narrower blast radius: only these
         // modules can be overridden, not the platform graph.
-        if (extraKoinModules().isNotEmpty()) {
-            getKoin().loadModules(extraKoinModules(), allowOverride = true)
+        // Built once and loaded once: the list is built by resolving the real port, and
+        // building it twice would resolve that port twice, against a graph that the first
+        // call has not changed — harmless, but a second resolution of a port that is about to
+        // be overridden is one more thing to reason about than there is here.
+        val extra: List<Module> = extraKoinModules()
+        if (extra.isNotEmpty()) {
+            getKoin().loadModules(extra, allowOverride = true)
         }
         // Device/build context for every subsequent crash report. debugInfo() had no callers
         // and the unwired-surface audit cannot see it (that script only matches

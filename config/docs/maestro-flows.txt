@@ -139,3 +139,6 @@ Maestro/flows/tasks/logbook/TASK-LOG-02.yaml
 Maestro/flows/tasks/open-task-detail.yaml
 Maestro/flows/tasks/subtasks/TASK-SUB-01.yaml
 Maestro/flows/tasks/toggle-task-complete.yaml
+Maestro/flows/whatsnew/01-show-and-dismiss.yaml
+Maestro/flows/whatsnew/02-dismissed-payload-stays-hidden.yaml
+Maestro/flows/whatsnew/03-new-payload-shows-again.yaml

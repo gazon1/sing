@@ -1,0 +1,34 @@
+# WhatsNew: the release-notes sheet appears for a payload the user has not seen, and the
+# payload's own "Got it" action closes it.
+#
+# прогнан на устройстве: нет (2026-11-05) — не прогонялся: этот прогон не собирал APK. Форма payload разбирается
+# юнит-тестом (WhatsNewDemoPayloadTest); прогон на устройстве отслеживается в #1904.
+#
+# The payload is armed by the debug seed link rather than fetched from remote config: the E2E
+# build has no config server, so `todo-debug://seed?whatsnew=…` is what makes the surface
+# reachable at all. See `DebugSeedActivity` and `testRemoteConfigModule`.
+#
+# The dismissal is tapped by its label, not by an id: the button is rendered from the payload
+# (GenUI tags it `genui_btn_Got_it`), and that id has no entry in the selector catalogue — a
+# flow may only select ids the catalogue knows.
+appId: com.singularity.todo
+name: whatsnew-show-and-dismiss
+tags:
+  - whatsnew
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "whatsnew=Release%20notes%20demo"
+- extendedWaitUntil:
+    visible:
+      id: genui_whatsnew
+    timeout: 15000
+- assertVisible: "Release notes demo"
+# The action the payload itself carries — not a scrim tap and not a swipe, both of which
+# depend on where the sheet happens to be drawn.
+- tapOn: "Got it"
+- waitForAnimationToEnd
+- assertNotVisible:
+    id: genui_whatsnew

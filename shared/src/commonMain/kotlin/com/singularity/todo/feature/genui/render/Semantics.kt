@@ -25,3 +25,13 @@ fun Modifier.genuiTag(
     this
         .testTag(TestTags.genUi(name))
         .semantics { contentDescription = description }
+
+/**
+ * Marks a GenUI component with a tag and no description of its own.
+ *
+ * For a node that merges its descendants — a Surface, a Card, a sheet. A content description
+ * on such a node replaces the descriptions of everything below it: the body and the buttons
+ * leave the accessibility tree, and a flow that selects them by text stops finding them. The
+ * merged node keeps the descriptions of its children instead.
+ */
+fun Modifier.genuiTag(name: String): Modifier = testTag(TestTags.genUi(name))

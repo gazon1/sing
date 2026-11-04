@@ -76,7 +76,8 @@ Maestro/
     ├── settings/               # Interface (theme), Notifications
     ├── profile/                # create a profile from the Menu sheet
     ├── sync/                   # offline create survives no connectivity
-    └── system/                 # shell-level chrome (menu sheet)
+    ├── system/                 # shell-level chrome (menu sheet)
+    └── whatsnew/               # the release-notes sheet, armed by the seed link
 ```
 
 The subdirectory split mirrors `shared/src/commonMain/.../feature/`, so a flow

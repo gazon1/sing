@@ -36,6 +36,19 @@ class WhatsNewPrefs private constructor(private val dataStore: DataStore<Prefere
         dataStore.edit { it[KEY_LAST_HASH] = currentHash }
     }
 
+    /**
+     * Forgets the recorded dismissal, so [shouldShow] answers `true` for a payload the user
+     * has already seen.
+     *
+     * The debug seed link (`todo-debug://seed?whatsnew=…`) uses this to arm the sheet for an
+     * end-to-end flow: the dismissal is stored on the device, so without forgetting it the
+     * first run of a flow would see the sheet and every later run would not — a flow that
+     * passes once and fails forever after.
+     */
+    suspend fun forget() {
+        dataStore.edit { it.remove(KEY_LAST_HASH) }
+    }
+
     private suspend fun lastShownHash(): String =
         dataStore.data
             .catchDataStoreIoError()
