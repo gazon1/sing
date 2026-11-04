@@ -2,7 +2,8 @@
 
 This is the runbook for the `singularity-todo-maestro-flows` skill. It carries
 the seeding walkthrough, the app's behaviour facts, the probe recipe, and the
-failure classes of the last CI run with the triage steps that go with them.
+failure classes of one dated CI run — a snapshot, not a live classification of
+the suite — with the triage steps that go with them.
 Load it when a flow needs data or misbehaves. Authoring a flow — selectors,
 scrolling, syntax — lives in `SKILL.md`.
 
@@ -12,7 +13,16 @@ than restating them.
 
 ## Diagnosing a Maestro flow failure
 
-### Root causes of known failures (CI run 38223116125)
+### Root causes of known failures — CI run 38223116125, recorded 2026-10-12
+
+**This table is a snapshot of one CI run, not a live classification of the
+suite.** It describes what CI run 38223116125 failed on and the fix applied to
+each class; that run and its analysis are recorded in
+`docs/decisions/2026-10-12-maestro-e2e-fixes.md` — which groups the same
+failures under different class letters, so this table is the place to read the
+class names from. A later run can fail on classes this table does not list, and
+a fix listed here can since have been reverted — so read the table as history
+and triage the current run on its own failures.
 
 | Class | Root cause | Flows | Fix |
 |---|---|---|---|
@@ -23,10 +33,16 @@ than restating them.
 | E | Seed/state leakage, wrong testTag, agenda section timing | 4 flows | Fixed — see rows below |
 | F | Action row laid out past the screen edge | `agenda-smart-lists` | `SheetScaffold` column made scrollable |
 
+**Status of that run:** classes A–D fixed (hardcoded swipe, missing nav menu
+openers, menu item scroll, animation timing). Class E diagnosed — four flows,
+three separate defects (rows below); all four class E flows pass on
+`emulator-5554` with a `pm clear` slate. Class F fixed by making
+`SheetScaffold`'s column scrollable.
+
 #### Class E resolved — three separate defects
 
-Only one of the four flows was a test problem; the other two were real bugs. All
-four pass on `emulator-5554` with a `pm clear` slate.
+Two of the four flows were test problems; the other two were real bugs — one
+product, one harness. All four pass on `emulator-5554` with a `pm clear` slate.
 
 | Flow | Actual cause | Owner |
 |---|---|---|
@@ -34,6 +50,25 @@ four pass on `emulator-5554` with a `pm clear` slate.
 | `settings-cycle-tabs` | fixture typing + wrong testTag | test |
 | `agenda-smart-lists` | DatePicker actions off-screen | **product** |
 | `auth-first-run-anonymous` | seeded row invisible until re-query | harness |
+
+#### Refreshing this snapshot
+
+This section is the one place the run's status is recorded, so the table, the
+heading and the status line move together. When a later CI run fails:
+
+1. **Replace the table, do not append to it.** The table is one run's classes;
+   the next run's classes replace them, because two runs share no
+   classification.
+2. **Update the heading in the same commit** — the run id and the date the
+   snapshot was recorded. A table whose heading still names an older run is
+   worse than no table.
+3. **Update the "Status of that run" line in the same commit** — which classes
+   are fixed, diagnosed or still open. If the run's analysis lives in a
+   decision record, cite it as this section does.
+4. **Drop a class that no longer reproduces.** Keep its row only when the fix
+   was reverted, and say so in the row.
+5. **The old snapshot stays in git history.** Do not keep a second copy in the
+   file: one table, one run, one date.
 
 ### A selector that cannot be reached
 
@@ -194,11 +229,11 @@ seeds `task=Buy milk` with no `due` and then looks on Today finds nothing — ta
 
 **`seed.yaml` has no tab round-trip, and does not need one.** An inbox→today
 round-trip was added here on 2026-10-12 because a deep-link seed appeared not to
-reach an already-composed agenda. Once the runner began sweeping each run's
-fixtures on success, that stopped reproducing: what looked like "the row never
-arrived" was the row arriving *below* rows earlier runs had left behind. So
-before blaming the agenda, check for leftovers — a stale fixture masquerades as a
-missing one.
+reach an already-composed agenda. Once the runner began wiping the profile's
+content before each flow, that stopped reproducing: what looked like "the row
+never arrived" was the row arriving *below* rows an earlier run had left
+behind. So before blaming the agenda, check for leftovers — a stale fixture
+masquerades as a missing one.
 
 ### `launch-clean` does not clear the database — on purpose
 
@@ -207,9 +242,9 @@ runs on the same emulator, so **fixtures accumulate**.
 
 Do not "fix" this with `clearState: true` or a blanket `pm clear`: both destroy
 the pre-authenticated session the emulator snapshot carries, so every flow would
-land on the auth screen. The accumulation is handled by the runner's selective
-success sweep instead (see below), which leaves session, profile and auth state
-alone and cannot touch another run's data.
+land on the auth screen. The accumulation is handled by the runner's wipe of the
+active profile's content before every flow (see below), which leaves the
+session, the profile and the auth state alone.
 
 `pm clear` remains available as a manual escape hatch when you want a genuinely
 virgin device state — it costs you the authenticated session:
@@ -220,8 +255,15 @@ adb -s "$(ensure-emulator)" shell pm clear com.singularity.todo
 
 Accumulation is harmless for a read-only fixture but corrupts a flow that *mutates*
 its fixture and then asserts the mutated-away state — the previous run's already-dated
-copy satisfies the selector. **Prefix the title with `${RUN_ID}`** and the runner
-sweeps it for you:
+copy satisfies the selector. The runner stops that by **wiping the active profile's
+content before every flow**: `todo-debug://seed?reset=content` deletes every task,
+note and project of the active profile, seeded and typed alike. The wipe reaches
+the profile's content and nothing else — the profile itself, the session and the
+auth state are left alone — and it is the default scope (`all`);
+`--maestro-cleanup off` sends nothing.
+
+`run-maestro` mints `RUN_ID` on **every attempt** and declares it to the flow, so
+a flow can name its attempt:
 
 ```yaml
 - runFlow:
@@ -233,25 +275,32 @@ sweeps it for you:
       id: "task_item_${RUN_ID}_my_fixture"     # slug of "<run id> My fixture"
 ```
 
-`run-maestro` mints `RUN_ID` on **every attempt** and, after a
-successful flow, deep-links `todo-debug://seed?cleanup=<RUN_ID>` to delete every
-task, note and project whose title starts with that prefix. A retry after a lost
-device gets a *new* id, so it cannot collide with the attempt it replaces.
+The run id is **not a cleanup key**: nothing sweeps the rows by that prefix. The
+wipe knows every row of the profile, so the id only names the attempt in the
+runner's log. And per
+`docs/decisions/2026-10-28-the-seed-replaces-the-task-it-names.md`, a seeded title
+carries no run id at all: the seed replaces the row it names, so the title a flow
+seeds is the title the flow can assert on, in every run.
 
-**Prefix, not substring** — cleanup matches `startsWith`, so a leaked fixture
-names the run that made it and real data is never caught by it.
+The app still answers `todo-debug://seed?cleanup=<prefix>`, but the runner does
+not send it — the wipe is the whole cleanup scope, and the narrow sweep by title
+is gone.
 
 `seed-task.yaml` deliberately keeps the **fixed** title "Buy milk": 17 flows
 address its row by the stable `task_item_buy_milk` id, so a per-run stamp would
-break every one of them. The runner sweeps it by its own literal prefix instead,
-so it cannot accumulate into an ambiguous `tapOn`.
+break every one of them. Nothing sweeps it by a literal prefix — the wipe before
+the flow takes the previous run's copy, so it cannot accumulate into an ambiguous
+`tapOn`.
 
-**Cleanup runs on success only** — a failed flow keeps its fixtures, because they
-are the evidence. Same reason failure screenshots exist.
+**The wipe runs before the flow, not after it** — a failed flow's rows are still
+there when its screenshot, screen tree and logcat are captured (they are the
+evidence, same reason the failure screenshots exist), and the next flow's wipe
+takes them away afterwards.
 
 **A manual `maestro test <flow>` has no runner**: `RUN_ID` falls back to `manual`
-from `Maestro/config.yaml` and nothing is swept. Debug from a `pm clear` slate;
-set `MAESTRO_CLEANUP=0` to keep a run's fixtures for inspection.
+from `Maestro/config.yaml`, and nothing wipes the profile before the flow, so
+the rows of the previous run are still there. Debug from a `pm clear` slate;
+`run-maestro --maestro-cleanup off` keeps a run's fixtures for inspection.
 
 ## App behaviour facts flows encode
 

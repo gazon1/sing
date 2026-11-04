@@ -8,10 +8,9 @@ description: Author and run Maestro UI flows for the Android app. Covers seeding
 Maestro drives the Android app end-to-end. Flows live in `Maestro/flows/` across 11
 subdirectories (~39 flows total). Helpers live in `Maestro/helpers/`.
 
-Status (run 38223116125): classes A–D fixed (hardcoded swipe, missing nav menu
-openers, menu item scroll, animation timing). Class E diagnosed on `emulator-5554`
-— see the runbook: [`runbook.md`](runbook.md).
-All 4 Class E flows pass.
+The failure classes of a CI run, and whether they are fixed, are recorded
+once — in the runbook's failure section:
+[Diagnosing a Maestro flow failure](runbook.md#diagnosing-a-maestro-flow-failure).
 
 ## Prerequisites: emulator first
 
@@ -129,8 +128,8 @@ selector to fall back on.
 ## Seed fixtures, never type them
 
 **Seed, never type.** The walkthrough — why typing a fixture into the editor does
-not work, the `seed.yaml` query keys, `${RUN_ID}` prefixing, the runner's cleanup
-sweep — is in the runbook:
+not work, the `seed.yaml` query keys, the run id, the runner's cleanup wipe —
+is in the runbook:
 [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them).
 
 ## Adaptive scrolling: `scrollUntilVisible` over hardcoded swipe
@@ -295,25 +294,28 @@ suite. See `singularity-todo-emulator-launch`.
 
 Start from `launch-clean`, then `seed.yaml` when the flow needs data. Make new
 flows self-seeding rather than inheriting state from an earlier flow. Note that
-`launch-clean` does not clear Room, so a fixture written by a previous run is
-still there — see [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them).
+`launch-clean` does not clear Room — it is the runner's wipe of the active
+profile's content before each flow that keeps one flow's rows out of the next
+one's assertions. See [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them).
 
 ## The runbook
 
 The runbook sits beside this skill as [`runbook.md`](runbook.md): the seeding
-walkthrough, the app's behaviour facts, the probe recipe and the failure tables.
+walkthrough, the app's behaviour facts, the probe recipe and the dated failure
+snapshot.
 Read it when a flow needs data or misbehaves:
 
 - [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them) —
   why typing a fixture into the editor does not work, the `seed.yaml` query keys,
-  `${RUN_ID}` prefixing, the runner's cleanup sweep, and why `launch-clean` does
-  not clear the database.
+  the run id, the runner's cleanup wipe, and why `launch-clean` does not clear
+  the database.
 - [App behaviour facts flows encode](runbook.md#app-behaviour-facts-flows-encode) —
   the behaviours a flow author would otherwise guess wrong.
 - [Recon before writing a flow — the probe trick](runbook.md#recon-before-writing-a-flow--the-probe-trick) —
   the probe flow that dumps the view hierarchy of the screen you are about to drive.
-- [Diagnosing a Maestro flow failure](runbook.md#diagnosing-a-maestro-flow-failure) — the failure-class
-  table for the last CI run, the logcat/hierarchy triage steps, when a selector is
+- [Diagnosing a Maestro flow failure](runbook.md#diagnosing-a-maestro-flow-failure) — the
+  dated failure-class snapshot of one CI run (with the convention for refreshing
+  it), the logcat/hierarchy triage steps, when a selector is
   unreachable because the element is laid out off-screen, the retry policy, and the
   CI-vs-local timeout multipliers.
 

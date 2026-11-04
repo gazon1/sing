@@ -7,12 +7,14 @@ import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitCheckboxChecked
 import com.singularity.todo.test.helpers.clickCheckbox
+import com.singularity.todo.test.helpers.countNodes
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.time.Instant
 
 /**
@@ -50,14 +52,25 @@ class TaskRowFlowTest {
             assertTagDisplayed(TestTags.agendaSection("Today"))
         }
 
+    /**
+     * The tabs are disjoint: a task due today is in the Today tab and *not* in
+     * the Inbox one.
+     *
+     * It used to be in both — the Inbox preset held every dated task as well —
+     * so the two tabs showed the same row under different headers.
+     */
     @Test
-    fun a_task_due_today_is_also_in_the_inbox_agenda() =
+    fun a_task_due_today_is_not_in_the_inbox_agenda() =
         runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            tasks(koin).given(due = today, title = "Buy milk")
+
             tapTab("Inbox")
 
-            tasks(koin)
-                .given(due = today, title = "Buy milk")
-                .assertInAgenda("Buy milk")
+            assertEquals(
+                0,
+                countNodes(TestTags.taskItem("Buy milk")),
+                "a dated task belongs to the Today tab — the Inbox tab holds the undated ones",
+            )
         }
 
     @Test
