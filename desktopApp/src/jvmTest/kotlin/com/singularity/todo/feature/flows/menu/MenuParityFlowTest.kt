@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.flows.menu
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.shell.AppMenu
 import com.singularity.todo.test.fakes.FakeClock
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 /**
@@ -41,20 +43,20 @@ class MenuParityFlowTest {
             "the menu offers something the declared menu destinations do not, or misses one",
         )
 
-        // The Calendar is one of them: it left the tab bar and became a menu
-        // entry on both platforms.
-        assertEquals(
-            true,
-            AppMenu.allDestinations.contains(com.singularity.todo.feature.nav.AppDestination.Calendar),
-            "the Calendar is not an entry of the menu",
+        // The Calendar is a tab and the Plans is a menu entry: the two facts are
+        // what the menu's shape is made of, and a reader of one without the other
+        // cannot tell a destination that moved from one that was lost.
+        assertTrue(
+            AppDestination.Calendar !in AppMenu.allDestinations,
+            "the Calendar is an entry of the menu: ${AppMenu.allDestinations}",
         )
-
-        // The tree is drawn from the same nodes on both platforms: the model's
-        // tree section is the shared composable, and the drawer renders it.
-        assertEquals(
-            true,
-            AppMenu.allDestinations.none { it == com.singularity.todo.feature.nav.AppDestination.Plans },
-            "the Plans tab is a tab, not a menu entry",
+        assertTrue(
+            AppDestination.Plans in AppMenu.allDestinations,
+            "the Plans is not an entry of the menu: ${AppMenu.allDestinations}",
+        )
+        assertTrue(
+            AppDestination.Pomodoro in AppMenu.allDestinations,
+            "the Pomodoro is not an entry of the menu: ${AppMenu.allDestinations}",
         )
     }
 

@@ -95,6 +95,7 @@ their logic.
 | `seed-task.yaml` | Any flow needing one task titled "Buy milk" |
 | `relaunch.yaml` | Flows testing persistence (state survives process restart) |
 | `open-app-menu.yaml` | Flows opening the app menu (the bottom-bar Menu button) |
+| `open-menu-item.yaml` | Opens a menu entry by `ENTRY_ID`, scrolling the sheet until it is on screen, then waits for `DEST_ID` — the way to reach a destination that is not a tab |
 | `session-signedin.yaml` | Flows needing a signed-in session persisted on the device |
 | `session-signedout.yaml` | Flows needing a signed-out app — the auth screen |
 | `settings-account-tab.yaml` | Flows needing the Account tab in Settings (it is the last of twelve rows and starts below the fold) |
