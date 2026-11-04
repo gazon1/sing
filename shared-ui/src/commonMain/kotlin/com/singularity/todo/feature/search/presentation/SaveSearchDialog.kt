@@ -102,6 +102,7 @@ fun RenameSearchDialog(
                         .toString()
                         .trim()
                         .isNotBlank(),
+                modifier = Modifier.testTag(TestTags.SavedSearches.RENAME_DIALOG_CONFIRM),
             ) {
                 Text("Rename")
             }

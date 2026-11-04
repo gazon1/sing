@@ -788,14 +788,43 @@ object TestTags {
     }
 
     /**
-     * Saved searches row — long-press context menu items.
+     * Saved searches row — the per-chip selector and the long-press menu's items.
      *
-     * Desktop gap: `DropdownMenu` renders in a separate layer that the desktop
-     * Compose test API cannot reach. These tags are for Android/Maestro.
+     * The menu is a `DropdownMenu`, a popup: desktop composes it in two windows while
+     * it animates, so a single-node selector refuses to choose and a press goes
+     * through `clickTagFirst`. The chip needs its own selector because a long press is
+     * the only way the menu opens, and the chip's label is the user's saved name.
      */
     object SavedSearches {
         const val SEARCH_MENU_RENAME = "search_menu_rename"
         const val SEARCH_MENU_DELETE = "search_menu_delete"
+
+        /**
+         * The "Rename" button inside [SEARCH_MENU_RENAME]'s row.
+         *
+         * The menu row itself does nothing when pressed — the inline text field and
+         * this button are what commit the rename — so a press addressed by the row's
+         * tag would animate the menu and change nothing. This is the press that
+         * actually opens the rename dialog, and the label alone is ambiguous: the row
+         * draws the word "Rename" twice.
+         */
+        const val SEARCH_MENU_RENAME_BUTTON = "search_menu_rename_button"
+
+        /**
+         * The chip for one saved search, addressed by the name the chip draws.
+         *
+         * The chip is the only control the rename flow starts from — a long press
+         * opens the menu that offers it — and without a selector the desktop harness
+         * has nothing to press. The name is the address because it is what the chip
+         * shows and what a test controls, the way `taskItem` addresses a row by its
+         * title; two saved searches sharing a name share a tag, which a test that
+         * seeds its own fixture never sees.
+         */
+        fun chip(name: String) = "saved_search_chip_${slug(name)}"
+
+        /** Confirm button of the rename dialog — the marker that the dialog is up. */
+        const val RENAME_DIALOG_CONFIRM = "search_rename_dialog_confirm"
+
         const val SAVE_CHIP = "search_save_chip"
         const val SAVE_DIALOG_CONFIRM = "search_save_dialog_confirm"
     }
