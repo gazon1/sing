@@ -3,6 +3,7 @@
 #
 # Merged from former 03/04/05 flows: one cold start instead of three.
 # Each bucket is exercised in sequence; back navigation returns to Statistics.
+# прогнан на устройстве: нет (2026-11-04) — прогон на устройстве не выполнялся
 appId: com.singularity.todo
 name: smoke-health-drilldown
 tags:
@@ -16,26 +17,26 @@ tags:
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=${RUN_ID}%20Blocker"
+      QUERY: "task=HealthBlocker"
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=${RUN_ID}%20Blocked%20Task&dependsOn=${RUN_ID}%20Blocker"
+      QUERY: "task=HealthBlocked%20Task&dependsOn=HealthBlocker"
 
 # Stagnant task: undated, not touched for 22 days.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=${RUN_ID}%20Stagnant%20Task&updatedAt=-22d"
+      QUERY: "task=HealthStagnant%20Task&updatedAt=-22d"
 
 # Overdue task.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=${RUN_ID}%20Overdue%20Task&due=-1d"
+      QUERY: "task=HealthOverdue%20Task&due=-1d"
 - scrollUntilVisible:
     element:
-      id: "task_item_${RUN_ID}_overdue_task"
+      id: "task_item_healthoverdue_task"
     direction: DOWN
     timeout: 8000
 

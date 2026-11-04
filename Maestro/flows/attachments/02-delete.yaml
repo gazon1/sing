@@ -1,4 +1,5 @@
 # Attachments: deleting an attachment removes it from the list.
+# прогнан на устройстве: нет (2026-11-04) — прогон на устройстве не выполнялся
 appId: com.singularity.todo
 name: attachments-delete
 tags:
@@ -12,17 +13,17 @@ tags:
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=${RUN_ID}_DeleteAttachTask2026"
+      QUERY: "task=DeleteAttachTask2026"
 
 # Open task detail and add an attachment.
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_deleteattachtask2026
+      id: task_item_deleteattachtask2026
     timeout: 8000
 - tapOn:
-    id: task_item_${RUN_ID}_deleteattachtask2026
+    id: task_item_deleteattachtask2026
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
