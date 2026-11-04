@@ -56,8 +56,9 @@ import kotlinx.serialization.json.JsonPrimitive
  *   diff, so two devices that both pull converge on the same document.
  * - **A write is a change, or it is not a write.** An operation whose clock wins
  *   but whose effect on the document is nil — an `unset` of a field that was
- *   never set, a `remove` of an element no list holds — leaves the row's version
- *   and the field's clock exactly as they were, and the patch is answered with
+ *   never set, a `set` of a null value to a field that is already clear, a
+ *   `remove` of an element no list holds — leaves the row's version and the
+ *   field's clock exactly as they were, and the patch is answered with
  *   `ok, lost` because the row kept what it had. Otherwise a patch that changed
  *   nothing would move the version and put an event on the feed carrying a
  *   document identical to the one already there.
@@ -108,10 +109,13 @@ class SharedSyncServer {
     private val events = mutableMapOf<String, MutableList<SyncEvent>>()
 
     /**
-     * The answers already given, keyed by owner, profile and patch id.
+     * The answers already given, keyed by [PatchKey]: the owner, the profile,
+     * the row's type and entity, and the patch id. The row's dimensions are in
+     * the key because an answer is an answer about a row; [PatchKey] carries the
+     * reason for each one.
      *
-     * Bounded: see [MAX_RETAINED_EVENTS] and [MAX_RETAINED_ANSWERS]. Insertion
-     * ordered so the oldest answer is the one evicted.
+     * Bounded: see [MAX_RETAINED_ANSWERS]. Insertion ordered so the oldest
+     * answer is the one evicted.
      */
     private val answers = LinkedHashMap<PatchKey, PatchResult>()
 
@@ -136,10 +140,14 @@ class SharedSyncServer {
         account: String,
     ): List<SyncEvent> =
         mutex.withLock {
+            // No sort: the feed is append-only and [prune] only removes entries,
+            // so it is already ordered by `serverLsn` — filtering preserves that
+            // order, and the first `limit` of it is the page. Sorting here would
+            // be dead work over up to [MAX_RETAINED_EVENTS] events, per pull,
+            // inside the mutex.
             events[account]
                 .orEmpty()
                 .filter { it.serverLsn > sinceLsn }
-                .sortedBy { it.serverLsn }
                 .take(limit)
         }
 
@@ -368,16 +376,50 @@ class SharedSyncServer {
                 protocolVersion = patch.protocolVersion,
                 profileId = profileId,
             )
-        // Retention, not loss: the oldest events go once the feed is longer than
-        // MAX_RETAINED_EVENTS, so a carrier test that pushes in a loop holds a
-        // bounded feed instead of every snapshot it ever emitted. A puller below
-        // the retained floor is answered with what is left, which is what a real
-        // server with a retention window does. Because an event carries the whole
-        // row rather than a diff, the retained tail is still enough to converge.
-        if (feed.size > MAX_RETAINED_EVENTS) {
-            feed.subList(0, feed.size - MAX_RETAINED_EVENTS).clear()
+        prune(account, feed)
+    }
+
+    /**
+     * Keeps the feed from growing without a bound, without forgetting a row.
+     *
+     * The bound exists because a fixture driven in a loop would otherwise keep
+     * every snapshot it ever emitted. What it must not do is drop the only word
+     * on a row: a puller whose cursor is below the floor never asks again for
+     * what it missed, [pull] answers it with what is retained, and [SyncEvent]
+     * has no field in which to say "something is missing" — so an event dropped
+     * while it was the newest event for its row would leave that puller
+     * converged on a row that is not there, silently.
+     *
+     * So an event goes only when a later event for the same row is still on the
+     * feed. That later event carries the whole row ([ServerRow.snapshot]), not a
+     * diff, so every puller that misses the dropped event receives its successor
+     * and applies the row as it stands — which is what makes the retained feed
+     * sufficient rather than merely truncated. The newest event for a row is
+     * never dropped, so the feed can outgrow the bound only by holding one event
+     * per row, which is the same order of memory [rows] already uses.
+     *
+     * Pruning removes entries without adding or reordering any, so the feed
+     * stays ordered by `serverLsn` — the order [pull] relies on.
+     */
+    private fun prune(
+        account: String,
+        feed: MutableList<SyncEvent>,
+    ) {
+        if (feed.size <= MAX_RETAINED_EVENTS) return
+        // The feed is ascending by lsn, so the last write per row wins.
+        val newest = mutableMapOf<RowKey, Long>()
+        feed.forEach { event -> newest[rowKeyOf(account, event)] = event.serverLsn }
+        var index = 0
+        while (feed.size > MAX_RETAINED_EVENTS && index < feed.size) {
+            val event = feed[index]
+            if (newest[rowKeyOf(account, event)] == event.serverLsn) index += 1 else feed.removeAt(index)
         }
     }
+
+    private fun rowKeyOf(
+        account: String,
+        event: SyncEvent,
+    ): RowKey = RowKey(account, event.profileId, event.entityType, event.entityId)
 
     /**
      * The row one entity is stored as.
@@ -429,9 +471,10 @@ class SharedSyncServer {
          * list already there and `remove` drops the named element — or empties
          * the list when it names none.
          *
-         * An `unset` removes the key rather than storing a null: "this field is
-         * clear" and "this field's value is null" are different claims about the
-         * row, and the merge would take the second literally.
+         * Clearing is `doc.remove`, for both spellings of it: an `unset`, and a
+         * `set` whose value is null. The two are one claim about the row — "this
+         * field holds nothing" — and this fixture stores them as one state so a
+         * device cannot clear a field and have a peer read it as a value.
          *
          * Nothing here invents a value the patch did not state. An `append` with
          * no value, and an `append` to a field held as a non-list, are no-ops
@@ -441,8 +484,25 @@ class SharedSyncServer {
         private fun apply(op: FieldChange): Boolean =
             when (op.op) {
                 FieldOp.SET -> {
-                    val next = op.value ?: JsonNull
-                    if (doc[op.field] == next) {
+                    val next = op.value
+                    if (next == null || next is JsonNull) {
+                        // A `set` of a null value is not a value: it is the same
+                        // claim `unset` makes — the field holds nothing — and it is
+                        // treated as one here so the two spellings of "cleared"
+                        // cannot disagree. JSON Merge Patch (RFC 7386) reads a null
+                        // member the same way, by removing it, and [snapshot] renders
+                        // an absent field as `JsonNull` anyway, so storing one would
+                        // be a state the feed cannot distinguish from absent while
+                        // the document here could.
+                        //
+                        // Counting it as a change is what this used to do, and it was
+                        // wrong twice over: `doc[field]` is `null` for a field that
+                        // was never written while `next` is `JsonNull`, so the two
+                        // compared unequal, and a clear with nothing to clear moved
+                        // the row's version and put an event on the feed carrying a
+                        // document identical to the one already there.
+                        doc.remove(op.field) != null
+                    } else if (doc[op.field] == next) {
                         false
                     } else {
                         doc[op.field] = next
@@ -525,10 +585,14 @@ class SharedSyncServer {
         const val DELETED_AT = "deletedAt"
 
         /**
-         * How many events one account's feed keeps before the oldest are
-         * dropped. A fixture that is driven in a loop keeps its memory bounded;
-         * a puller below the floor is answered with what is retained, as it
-         * would be by a server with a retention window.
+         * How many events one account's feed holds before [prune] starts
+         * dropping the ones a later event has restated.
+         *
+         * The real server keeps every event (`sync_events` has no pruning), so
+         * this bound is the fixture's own, and it is chosen so that a fixture
+         * driven in a loop stays bounded without ever dropping the only event
+         * that carries a row: see [prune] for why that is the property that
+         * matters and what a puller below the floor is owed.
          */
         const val MAX_RETAINED_EVENTS = 4096
 

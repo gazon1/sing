@@ -359,6 +359,117 @@ class SharedSyncServerMergeTest {
             )
         }
 
+    @Test
+    fun `a set of null on a field that was never written is not a change`() =
+        runTest {
+            val server = SharedSyncServer()
+            val a = server.client(ACCOUNT)
+
+            val answer =
+                push(
+                    a,
+                    patch("p1", Hlc.of(1_000L, 0, "dev-a"), FieldChange("title", FieldOp.SET, JsonNull)),
+                )
+
+            // The row already says "title holds nothing", so this patch changed
+            // nothing: no version to report, no event on the feed.
+            assertTrue(answer.ok)
+            assertTrue(answer.lost)
+            assertNull(answer.newVersion)
+            assertTrue(a.getEventsSince(0L).isEmpty())
+        }
+
+    @Test
+    fun `a set of null clears the field and its clock keeps it cleared`() =
+        runTest {
+            val server = SharedSyncServer()
+            val a = server.client(ACCOUNT)
+
+            push(a, patch("p1", Hlc.of(1_000L, 0, "dev-a"), set("title", "Buy milk")))
+            val cleared =
+                push(
+                    a,
+                    patch("p2", Hlc.of(2_000L, 0, "dev-a"), FieldChange("title", FieldOp.SET, JsonNull)),
+                )
+
+            assertTrue(cleared.ok)
+            assertFalse(cleared.lost)
+            assertEquals(2L, cleared.newVersion)
+            assertEquals(JsonNull, a.getEventsSince(0L).last().mergedDocument()["title"])
+
+            // Cleared by `set null`, the field is as closed to an older clock as
+            // it would be if it had been cleared by `unset`.
+            val stale =
+                push(a, patch("p3", Hlc.of(1_500L, 0, "dev-a"), set("title", "Older than the clear")))
+            assertTrue(stale.lost)
+            assertEquals(2L, stale.newVersion)
+            assertEquals(JsonNull, a.getEventsSince(0L).last().mergedDocument()["title"])
+        }
+
+    @Test
+    fun `an unset of a field cleared by set null is not a second change`() =
+        runTest {
+            val server = SharedSyncServer()
+            val a = server.client(ACCOUNT)
+
+            push(a, patch("p1", Hlc.of(1_000L, 0, "dev-a"), set("title", "Buy milk")))
+            push(a, patch("p2", Hlc.of(2_000L, 0, "dev-a"), FieldChange("title", FieldOp.SET, JsonNull)))
+
+            // The clear and the unset are the same claim, so the second one has
+            // nothing left to clear — whichever order they arrive in.
+            val unset =
+                push(a, patch("p3", Hlc.of(3_000L, 0, "dev-a"), FieldChange("title", FieldOp.UNSET)))
+            assertTrue(unset.ok)
+            assertTrue(unset.lost)
+            assertEquals(2L, unset.newVersion)
+            assertEquals(2, a.getEventsSince(0L).size)
+
+            val setNull =
+                push(
+                    a,
+                    patch("p4", Hlc.of(4_000L, 0, "dev-a"), FieldChange("title", FieldOp.SET, JsonNull)),
+                )
+            assertTrue(setNull.lost)
+            assertEquals(2, a.getEventsSince(0L).size)
+        }
+
+    @Test
+    fun `the feed keeps the only event that carries a row when it outgrows its bound`() =
+        runTest {
+            val server = SharedSyncServer()
+            val a = server.client(ACCOUNT)
+
+            // Written once and never touched again: its event is the only word on
+            // the row, so pruning must not take it however far behind the feed is.
+            push(
+                a,
+                patch("frozen", Hlc.of(1_000L, 0, "dev-a"), set("title", "Untouched"), entityId = "t-frozen"),
+            )
+            // One row rewritten past the retention bound, so the feed is driven
+            // over it by the same single row.
+            val rewrites = 5_000
+            repeat(rewrites) { i ->
+                push(a, patch("hot-$i", Hlc.of(2_000L + i, 0, "dev-a"), set("title", "rewrite $i")))
+            }
+
+            // One pull, with room for the whole feed rather than the default page:
+            // this is the below-the-floor puller, and what it is owed is a feed it
+            // can converge from.
+            val events = a.getEventsSince(0L, 10_000)
+
+            // A puller from zero — every new device is one — still receives the
+            // frozen row, and the rewritten row exactly once, as it now stands.
+            assertEquals(1, events.count { it.entityId == "t-frozen" })
+            assertEquals(1, events.count { it.entityId == ENTITY })
+            assertEquals(
+                JsonPrimitive("rewrite ${rewrites - 1}"),
+                events.single { it.entityId == ENTITY }.mergedDocument()["title"],
+            )
+            // The bound holds, because every event dropped above had a later
+            // event for the same row still on the feed.
+            assertTrue(events.size < rewrites)
+        }
+
     private fun push(
         client: SyncApiClient,
         patch: DeltaPatch,
@@ -378,10 +489,11 @@ class SharedSyncServerMergeTest {
         patchId: String,
         clock: Hlc,
         vararg ops: FieldChange,
+        entityId: String = ENTITY,
     ): DeltaPatch =
         DeltaPatch(
             patchId = patchId,
-            entityId = ENTITY,
+            entityId = entityId,
             entityType = DocType.Task,
             baseVersion = 0L,
             ops = ops.toList(),
