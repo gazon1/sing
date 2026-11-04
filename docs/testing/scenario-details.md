@@ -1271,6 +1271,23 @@ Steps:
 
 **Expected:** The word mode does not find the task: a term matches the beginning of a word and not its middle. The contains mode finds it: the term occurs in the middle of the word, and the mode that answered is stated on the screen next to the switch.
 
+#### `SEARCH-11` — A pending search is not an empty answer
+
+**confirmed** · P1 · `#SEARCH`
+
+**Given:** A task titled "Buy milk" exists, and the search has not been asked anything yet.
+
+Steps:
+
+1. Open the search screen.
+2. Observe that the screen invites the user to search.
+3. Type a query that matches the task.
+4. Observe the screen before the search has answered it.
+5. Let the search answer.
+6. Observe the screen again.
+
+**Expected:** While the search is in flight the screen shows the pending indicator, does not claim that nothing was found, and does not show the previous query's results. Once the answer arrives the indicator is gone and the matching task is shown.
+
 ### feature.settings
 
 #### `SETTINGS-01` — Changing the theme mode leaves Settings intact and navigable

@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**132 scenarios · 101/173 claimed cells automated · 72 holes**
+**133 scenarios · 102/174 claimed cells automated · 72 holes**
 
 ## feature.agenda
 
@@ -189,6 +189,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `SEARCH-08` | A term matches the beginning of a word, and not its middle | ● | — | The first search finds the task titled "architecture": a term matches the beginning of a word. The second does not… |
 | `SEARCH-09` | The result shows the word that was matched | — | ● | The result shows the word in the title as the match: the index says where the word is, and the search draws it there.… |
 | `SEARCH-10` | The contains mode finds the term in the middle of a word | ● | — | The word mode does not find the task: a term matches the beginning of a word and not its middle. The contains mode… |
+| `SEARCH-11` | A pending search is not an empty answer | — | ● | While the search is in flight the screen shows the pending indicator, does not claim that nothing was found, and does… |
 
 ## feature.settings
 
