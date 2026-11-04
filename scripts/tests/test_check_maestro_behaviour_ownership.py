@@ -10,8 +10,9 @@ The gate keeps two documents in step with each other and with the source:
     fails on a device rather than here.
 
 Each test mutates a synthetic tree in the way one rule hunts for, and asserts
-that the gate reports it. A rule nobody has seen fail can be broken rather than
-clean.
+what the gate does with it: that it reports a claim the runbook owns, and that
+it stays quiet about a sentence that names the same vocabulary without claiming
+a behaviour. A rule nobody has seen fail can be broken rather than clean.
 """
 
 import importlib.util
@@ -56,6 +57,18 @@ sealed interface NotesUiEvent {
 
 class SavedAgendaScreen
 class SyncSettingsScreen
+'''
+
+#: A source that names `task_editor_save` only in a comment beside the code. A
+#: comment is prose, so the tag it quotes is not a tag the product declares.
+SOURCE_NAMING_THE_OLD_TAG_ONLY_IN_A_COMMENT = '''package com.singularity.todo
+
+object TestTags {
+    const val OTHER = "other_tag"
+}
+
+/** The old name was `task_editor_save`, before the screen was renamed. */
+class Detail
 '''
 
 
@@ -148,6 +161,42 @@ class RestatementTest(unittest.TestCase):
         )
         self.assertEqual([f.message for f in found], [])
 
+    def test_a_quick_add_named_for_an_authoring_reason_is_not_a_restatement(self):
+        """Naming the quick-add field is an authoring rule; where it lands is not.
+
+        The marker is anchored on the destination claim, so a rule that says how
+        to seed the field stays in the skill.
+        """
+        found = findings(
+            skill("- **The quick-add field is a `BasicTextField`, seed it.**"),
+            runbook("- **A save pops the editor** (`SavedAgendaScreen`)."),
+        )
+        self.assertEqual([f.message for f in found], [])
+
+    def test_a_preview_named_for_an_authoring_reason_is_not_a_restatement(self):
+        """A Compose preview is a tool for looking at the screen, not a claim.
+
+        The marker wants a destination claim — a tap that opens the preview — so
+        naming the preview tool stays in the skill.
+        """
+        found = findings(
+            skill(
+                "- **`render-compose-preview` renders the screen** so a flow author can "
+                "check the list before writing a step."
+            ),
+            runbook("- **A save pops the editor** (`SavedAgendaScreen`)."),
+        )
+        self.assertEqual([f.message for f in found], [])
+
+    def test_a_restated_preview_destination_is_reported(self):
+        """The other side of the same marker: a claim about a tap is the runbook's."""
+        found = findings(
+            skill("- **A tap on a note row opens the note's preview.**"),
+            runbook("- **Notes open their preview** (`note_action_edit`)."),
+        )
+        self.assertEqual(len(found), 1)
+        self.assertIn("preview-versus-editor", found[0].message)
+
     def test_a_pointer_to_the_runbook_is_not_a_restatement(self):
         found = findings(
             skill(
@@ -182,6 +231,34 @@ class IdentifierTest(unittest.TestCase):
             ),
         )
         self.assertEqual([f.message for f in found], [])
+
+    def test_a_name_that_is_the_tail_of_a_live_one_is_reported(self):
+        """`bar_back_button` is not declared by `top_bar_back_button`.
+
+        The name has to stand alone: a renamed tag whose old name survives as the
+        tail of a live one is a stale identifier, and a substring search would
+        have let it through.
+        """
+        found = findings(
+            skill("Seed, never type."),
+            runbook("- **The back control is tagged** `bar_back_button`."),
+        )
+        self.assertEqual(len(found), 1)
+        self.assertIn("bar_back_button", found[0].message)
+
+    def test_a_name_that_survives_only_in_a_comment_is_not_declared(self):
+        """A KDoc that quotes the old name is prose beside the code, not a declaration.
+
+        The source index drops comments, so a tag only a comment names is a tag
+        the product does not have.
+        """
+        found = findings(
+            skill("Seed, never type."),
+            runbook("- **The detail autosaves** — there is `task_editor_save` nowhere."),
+            source=SOURCE_NAMING_THE_OLD_TAG_ONLY_IN_A_COMMENT,
+        )
+        self.assertEqual(len(found), 1)
+        self.assertIn("task_editor_save", found[0].message)
 
     def test_a_parameterised_tag_is_checked_by_its_family(self):
         """`note_action_edit` is `note_action_` plus a slug: the family is the declaration."""
