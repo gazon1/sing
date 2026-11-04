@@ -6,7 +6,9 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * The keyring and the fallback file are one store, not two.
@@ -239,4 +241,42 @@ class JvmSecureStorageKeyringTest {
 
             assertNull(storage.read("never-written"))
         }
+
+    /**
+     * The flag answers from the keyring, and these two cases rule out a constant answer.
+     *
+     * It used to be gated on the host's OS name, a leftover from the `secret-tool` CLI that
+     * only existed on Linux; the keyring binding works on every OS this build targets. That
+     * defect is invisible on a Linux host, where the old form answered `true` as well — so
+     * this pair pins the contract in both directions rather than replaying it.
+     */
+    @Test
+    fun `an available keyring makes the store hardware-backed`() {
+        val storage =
+            object : JvmSecureStorage() {
+                override val fallbackFile: Path = this@JvmSecureStorageKeyringTest.secureBin
+
+                override fun secretToolAvailable() = true
+            }
+
+        assertTrue(storage.isHardwareBacked())
+    }
+
+    /**
+     * The encrypted-file fallback is not hardware-backed, and says so.
+     *
+     * The flag is the only signal a caller gets that the store is not protected. Reporting
+     * `true` here would make a badge look better while telling the user nothing true.
+     */
+    @Test
+    fun `the file fallback is not hardware-backed`() {
+        val storage =
+            object : JvmSecureStorage() {
+                override val fallbackFile: Path = this@JvmSecureStorageKeyringTest.secureBin
+
+                override fun secretToolAvailable() = false
+            }
+
+        assertFalse(storage.isHardwareBacked())
+    }
 }

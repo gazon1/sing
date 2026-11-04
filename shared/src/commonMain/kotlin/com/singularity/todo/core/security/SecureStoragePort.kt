@@ -4,11 +4,11 @@ package com.singularity.todo.core.security
  * Platform-agnostic port for secure credential storage.
  * Abstracts platform-specific backends:
  *   - Android: EncryptedSharedPreferences (androidx.security)
- *   - JVM/Linux: libsecret via `secret-tool` CLI, or AES-GCM encrypted file fallback
+ *   - JVM (desktop): the OS keyring binding, or an AES-GCM encrypted file fallback
  *
  * All operations are suspending to allow I/O without blocking.
- * The [isHardwareBacked] flag tells callers whether secrets live on a hardware
- * keychain (e.g. Android Keystore, Linux libsecret) or a derived-file fallback.
+ * The [isHardwareBacked] flag tells callers whether secrets live in an OS
+ * credential store (Android Keystore, a desktop keyring) or a derived-file fallback.
  */
 interface SecureStoragePort {
     /**
@@ -19,8 +19,8 @@ interface SecureStoragePort {
 
     /**
      * Persists [value] under [key].
-     * On platforms with a keyring (Android Keystore, Linux libsecret), the value
-     * is stored in hardware-backed secure storage.
+     * On platforms with a keyring (Android Keystore, a desktop OS keyring), the
+     * value is stored in hardware-backed secure storage.
      */
     suspend fun write(
         key: String,
@@ -34,9 +34,9 @@ interface SecureStoragePort {
     suspend fun delete(key: String)
 
     /**
-     * Returns `true` when secrets are stored in hardware-backed secure storage
-     * (Android Keystore, Linux libsecret/GNOME Keyring), `false` when the
-     * fallback encrypted-file backend is in use.
+     * Returns `true` when secrets are stored in an OS credential store — Android
+     * Keystore, or the OS keyring a desktop host provides — and `false` when the
+     * derived-key fallback file is in use.
      */
     fun isHardwareBacked(): Boolean
 }

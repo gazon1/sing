@@ -79,7 +79,16 @@ open class JvmSecureStorage : SecureStoragePort {
             fallbackDelete(key)
         }
 
-    override fun isHardwareBacked(): Boolean = IS_LINUX && secretToolAvailable()
+    /**
+     * Whether the secret went to the OS credential store rather than the fallback file.
+     *
+     * The answer follows the backend, not the platform: the keyring binding works on every
+     * OS this build targets, so a host with a working keyring is keyring-backed wherever it
+     * runs. A host without one is served by `secure.bin`, which is obfuscation and not
+     * protection, and that host must keep reporting `false`
+     * (ADR 2026-10-27-jvm-secure-storage-fallback-is-not-a-secret-store).
+     */
+    override fun isHardwareBacked(): Boolean = secretToolAvailable()
 
     // ─── libsecret via secret-tool CLI ───────────────────────────────────────
     //
@@ -400,11 +409,6 @@ open class JvmSecureStorage : SecureStoragePort {
         private const val SERVICE_NAME = "singularity"
         private const val MAGIC = 0x53494E47 // "SING"
         private const val FORMAT_VERSION = 1
-        private val IS_LINUX =
-            System
-                .getProperty("os.name", "")
-                .lowercase()
-                .contains("linux")
         private const val AES_TRANSFORM = "AES/GCM/NoPadding"
         private const val TAG_BITS = 128
 
