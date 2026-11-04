@@ -52,6 +52,13 @@ class NotePreview(
 
     private fun loadNote(noteId: String) {
         loadNoteJob?.cancel()
+        // A pane keeps one ViewModel across every note it shows, so a switch from one
+        // note to another would otherwise leave the previous note on screen until the
+        // new one resolved — the user clicks B and reads A. Only a *different* note
+        // resets: a refresh of the note already shown must not blank it.
+        if ((currentState as? NotePreviewState.Loaded)?.note?.id?.value != noteId) {
+            updateState { NotePreviewState.Loading }
+        }
         loadNoteJob =
             vmScope.launch {
                 val note = repo.get(NoteId.fromString(noteId))

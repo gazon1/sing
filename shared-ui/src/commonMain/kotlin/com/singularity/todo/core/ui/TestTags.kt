@@ -603,6 +603,15 @@ object TestTags {
     const val NOTES_QUICK_ADD_INPUT = "notes_quick_add_input"
 
     /**
+     * The "no note selected" prompt in the wide layout's detail pane.
+     *
+     * It is the empty state of the pane, not of the list — the list has its own
+     * (`NOTES_LIST_EMPTY`), and a flow that waited on the wrong one would pass on
+     * a screen with nothing in either place.
+     */
+    const val NOTES_DETAIL_EMPTY = "notes_detail_empty"
+
+    /**
      * Dynamic tag of the form `note_item_<slug>`, keyed by note id.
      */
     fun noteItem(id: String) = "note_item_${slug(id)}"
