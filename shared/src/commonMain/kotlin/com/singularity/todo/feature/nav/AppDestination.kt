@@ -34,7 +34,9 @@ import kotlinx.serialization.Serializable
  * `MenuBottomSheet` overlay (NOT a navigation destination — see `MenuBottomSheet`).
  *
  * Bottom bar: [AgendaGraph] with [AgendaStartRoute.Inbox]/[Today]/[Upcoming],
- * [Calendar] — see [DestinationKind.tabs].
+ * [Calendar] — see [DestinationKind.tabs]. Four tabs and a `Menu` button; the fifth tab
+ * slot is deliberately empty, per the decision
+ * `2026-11-04-the-fifth-tab-slot-stays-empty.md`.
  *
  * [Calendar] is now a tab; [Plans] and [Pomodoro] live in the app menu — see
  * [DestinationKind.menuEntries].
@@ -431,7 +433,10 @@ const val MENU_BUTTON_TITLE = "Menu"
  * Testable without any UI infrastructure.
  */
 object DestinationKind {
-    /** Five persistent tabs shown in the bottom bar (excludes the Menu button). */
+    /**
+     * Four persistent tabs shown in the bottom bar (excludes the Menu button), so the
+     * bar holds five items in all.
+     */
     fun isTab(destination: AppDestination): Boolean = destination in tabSet
 
     /** Menu destinations opened from the bottom sheet overlay. */
@@ -440,7 +445,11 @@ object DestinationKind {
     /** Anything that is NOT a top-level tab — i.e. push-on sub-routes. */
     fun isSubRoute(destination: AppDestination): Boolean = destination !in tabSet && destination !in menuSet
 
-    /** Five bottom-bar tab destinations in display order. */
+    /**
+     * Four bottom-bar tab destinations in display order. Four, not five: the empty slot
+     * is a decision, not an omission — see
+     * `2026-11-04-the-fifth-tab-slot-stays-empty.md`.
+     */
     val tabs: List<AppDestination> =
         listOf(
             AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
