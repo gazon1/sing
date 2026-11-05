@@ -59,7 +59,7 @@ def file_text(index, target_lines, compose):
     if compose:
         lines += [
             "@Composable",
-            f"fun label{index}(seed: Int): String = \"label-$index-\" + seed.toString()",
+            f"fun label{index}(seed: Int): String = \"label{index}-\" + seed.toString()",
             "",
         ]
     return "\n".join(lines) + "\n"
