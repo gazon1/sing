@@ -1,9 +1,10 @@
 ---
 title: "Every directory in the graph is qualified: Koin resolves a String by type"
 date: 2026-10-24
-status: accepted
+status: superseded
 slug: every-directory-in-the-graph-is-qualified
 supersedes: 2026-09-07-backup-directory-via-koin-string
+superseded-by: 2026-11-06-the-export-destination-is-what-the-person-chose
 ---
 
 # Every directory in the graph is qualified: Koin resolves a String by type
