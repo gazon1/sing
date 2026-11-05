@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.proposals.data
 
-import com.singularity.todo.core.database.LocalTimeFormats
+import com.singularity.todo.core.format.LocalTimeFormats
 import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProjectValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind

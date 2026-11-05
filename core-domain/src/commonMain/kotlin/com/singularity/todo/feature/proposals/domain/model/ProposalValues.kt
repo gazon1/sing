@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.proposals.domain.model
 
-import com.singularity.todo.core.database.LocalTimeFormats
+import com.singularity.todo.core.format.LocalTimeFormats
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus

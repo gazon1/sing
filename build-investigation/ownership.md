@@ -28,6 +28,45 @@ the confirmed dependency closure, not the whole 55-file `domain/model` package.
 - **Platform source sets.** Stage 2/3 verify every `expect` has its `actual` in `jvmMain`/`androidMain`;
   the module targets only `jvm()` + `androidTarget()`; no iOS, no platform code in `commonMain`.
 
+## Stage 2 — compiler-verified closure (2026-11-05)
+
+The Stage 1 31-file list was not the full closure. The compiler found these additional files (each is a
+real reference, not a guess):
+
+| File | Why it is in `:core-domain` |
+|---|---|
+| `feature/tags/Ids.kt` | `Task` uses `TagId`; `Mappers` imports `TagId` |
+| `feature/proposals/domain/model/ProposalValues.kt` | `ProposalItemKind`'s `ReadResult`/`ProposedProject`/`ProposedNote`; `AiProposal` |
+| `core/database/LocalTimeFormats.kt` | `ProposalValues` formats/parses time; moved to `core.format` (the DB module depends on the domain, not the reverse) |
+| `core/format/Padding.kt` | `LocalTimeFormats` uses `formatPadded`; pure |
+| `core/search/TextMatch.kt` | `SearchMode.matches` |
+| `core/search/TextMatchRange.kt` | `TextMatch` uses `TextMatchRange`/`SearchColumn` |
+| `core/search/DiacriticFold.kt` | `TextMatch` folds diacritics |
+| `feature/agenda/domain/model/SelectorSerializer.kt` | `Selector` is `@Serializable(with = SelectorSerializer::class)` |
+| `feature/proposals/domain/model/ProposalStatusReducer.kt` | `AiProposal` uses it |
+
+That makes **40 `:core-domain` production files** plus `DiacriticFoldTest.kt`, which moved with its
+class because `DiacriticFold` is `internal`.
+
+Stage 2 `:shared` changes forced by the module boundary:
+
+- 12 cross-module smart-cast sites replaced with local vals (`Task.dueDate`/`dueTime`/`recurrence`,
+  `Note.color`/`bodyHtml`, `Project.parentId`) in `SelectorMatcher`, `CalendarEventMapper`,
+  `NoteCard`, `NotePreviewScreen`, `ProjectDetailViewModel`, `TaskDomain`, `Computed`,
+  `TaskDetailContent`.
+- `LocalTimeFormats` moved to `core.format`; the `:shared` imports updated in `Mappers`,
+  `LocalTimeSerializer`, `BackupTaskDtos`, `UpdateTaskTool`, `ProposalKindCodec` and the two tests.
+- `DiacriticFoldTest` moved to `:core-domain` `commonTest`; its deps are `kotlin-test-junit5` +
+  `junit-jupiter`, and `jvmTest` uses the JUnit platform.
+
+Build: `:core-domain:compileKotlinJvm`, `:core-domain:compileTestKotlinJvm`,
+`:shared:compileKotlinJvm`, `:shared:compileTestKotlinJvm` green.
+
+The after-move Compose report first flagged `RecurrenceSpec`, `TimeEntry` and `EditorState.Editing`
+as runtime-unstable (they were inferred stable before only because they shared the Compose module);
+they are now in the config. The re-run has every moved-type parameter `stable`, and the `desktopApp`
+report is unchanged. The after reports are in `build-investigation/compose-stability-after/`.
+
 ## `:core-database` — Room/KSP, DAOs, entities, mappers, schemas, migrations
 
 | File | Owner | Reason |
@@ -37,7 +76,6 @@ the confirmed dependency closure, not the whole 55-file `domain/model` package.
 | `core/database/Daos.kt` | `:core-database` | Room `@Dao` for tasks/projects/notes/tags/etc. |
 | `core/database/Entities.kt` | `:core-database` | Room `@Entity` classes + `SyncColumns`; imports `TaskKind`/`TaskPriority` from `:core-domain` |
 | `core/database/Mappers.kt` | `:core-database` | entity↔domain mappers; imports the 12 domain models (the seed) |
-| `core/database/LocalTimeFormats.kt` | `:core-database` | DB time format; also imported by `:shared` `ProposalValues` (the `:shared` → DB edge) |
 | `core/database/AgendaViewDao.kt` | `:core-database` | Room DAO for agenda views |
 | `core/database/AgendaViewEntity.kt` | `:core-database` | Room entity (primitive `sectionsJson`; the model mapping stays in `:shared`) |
 | `core/database/FtsDao.kt` | `:core-database` | Room FTS DAO |
@@ -173,8 +211,6 @@ changes. `check-room-schema-integrity.py` gets one `SCHEMA_DIR` constant.
 | `projects/.../ProjectDocument.kt` | `:shared` | document model, not in the DB mapper |
 | `projects/.../ProjectTreeNode.kt` | `:shared` | tree/UI model |
 | `tags/.../TagEditActor.kt` | `:shared` | domain actor, not a DB field |
-| `proposals/.../ProposalStatusReducer.kt` | `:shared` | domain logic, not a persistence model |
-| `proposals/.../ProposalValues.kt` | `:shared` | imports `core.database.LocalTimeFormats`; the `:shared` → `:core-database` edge is intentional |
 | `notes/.../NoteBody.kt` | `:shared` | note-editor model |
 | `notes/.../NoteBodyMarkdown.kt` | `:shared` | note-editor model |
 | `calendarSync/.../CalendarAppInfo.kt` | `:shared` | sync/UI model, not used by the DB mapper |
@@ -195,14 +231,13 @@ changes. `check-room-schema-integrity.py` gets one `SCHEMA_DIR` constant.
 | `agenda/.../SavedAgendaView.kt` | `:shared` | model mapping stays in `:shared` |
 | `agenda/.../SavedAgendaViewFactory.kt` | `:shared` | factory |
 | `agenda/.../SavedAgendaViewKey.kt` | `:shared` | UI key |
-| `agenda/.../SelectorSerializer.kt` | `:shared` | serializer; consumes `Selector` from `:core-domain` |
 | `plans/.../PlansGranularity.kt` | `:shared` | UI |
 | `plans/.../TimelinePeriod.kt` | `:shared` | UI |
 | `plans/.../TimelineSection.kt` | `:shared` | UI |
 | `plans/.../TimelineTask.kt` | `:shared` | UI |
 | `timetracking/.../TaskTimeSlotState.kt` | `:shared` | UI slot state |
 | `core/sync/**` except `DocType`/`Hlc`/`SyncableEntity` + the five entity files | `:shared` | the sync engine stays |
-| `core/search/**` except `Searchable`/`SearchMode` | `:shared` | the search index stays |
+| `core/search/**` except `Searchable`/`SearchMode`/`TextMatch`/`TextMatchRange`/`DiacriticFold` | `:shared` | the search index stays |
 | `core/attachments/**` except `AttachmentType`/`AttachmentSyncStatus` + the DB files | `:shared` | repository/storage/upload/viewer/domain model |
 | `core/config/**` except `RemoteConfigCacheEntity` | `:shared` | repository/port/snapshot |
 | `core/text/**` except the three listed in `:core-domain` | `:shared` | text tools not used by the models |

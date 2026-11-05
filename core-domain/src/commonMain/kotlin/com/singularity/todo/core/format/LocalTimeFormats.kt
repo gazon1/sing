@@ -1,6 +1,5 @@
-package com.singularity.todo.core.database
+package com.singularity.todo.core.format
 
-import com.singularity.todo.core.format.formatPadded
 import kotlinx.datetime.LocalTime
 
 /**

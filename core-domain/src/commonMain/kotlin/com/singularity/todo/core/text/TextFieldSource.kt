@@ -1,7 +1,5 @@
 package com.singularity.todo.core.text
 
-import androidx.compose.runtime.Immutable
-
 /**
  * A value a bridged text field shows, and the authority the upstream has over it.
  *
@@ -56,7 +54,6 @@ import androidx.compose.runtime.Immutable
  *
  * @see com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
  */
-@Immutable
 sealed interface TextSource {
     /** The text the field shows. */
     val text: String
@@ -71,7 +68,6 @@ sealed interface TextSource {
  *
  * @param text the text the field shows.
  */
-@Immutable
 data class StaticText(override val text: String) : TextSource
 
 /**
@@ -84,5 +80,4 @@ data class StaticText(override val text: String) : TextSource
  * keystroke or for the echo of the owner's own save. Any change to it means
  * "the value that comes with it is a rewrite".
  */
-@Immutable
 data class OwnedText(override val text: String, val revision: Long) : TextSource

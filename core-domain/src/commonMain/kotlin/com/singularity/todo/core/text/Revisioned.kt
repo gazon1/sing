@@ -1,7 +1,5 @@
 package com.singularity.todo.core.text
 
-import androidx.compose.runtime.Immutable
-
 /**
  * A value the upstream owns, and the count of the times it was replaced.
  *
@@ -36,7 +34,6 @@ import androidx.compose.runtime.Immutable
  * @param value the value as it is now.
  * @param revision how many times the value was replaced from outside.
  */
-@Immutable
 class Revisioned<T> private constructor(val value: T, val revision: Long) {
     /** The value after the field's own change. The count does not move. */
     fun typed(newValue: T): Revisioned<T> = Revisioned(newValue, revision)

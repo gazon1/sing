@@ -147,6 +147,9 @@ kotlin {
             // `feature/ai/tools/AdrTools.kt` hand `AdrStorage.AdrFile` back to callers.
             api(project(":adr-core"))
 
+            // The pure domain models: :shared and :core-database compile against them.
+            api(project(":core-domain"))
+
             // Compose
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)

@@ -1,7 +1,5 @@
 package com.singularity.todo.core.text
 
-import androidx.compose.runtime.Immutable
-
 /**
  * The text of a field that the field alone writes.
  *
@@ -45,7 +43,6 @@ import androidx.compose.runtime.Immutable
  *
  * @param text the text as it is now.
  */
-@Immutable
 class FieldOwnedText private constructor(val text: String) {
     /**
      * The upstream loaded a value.

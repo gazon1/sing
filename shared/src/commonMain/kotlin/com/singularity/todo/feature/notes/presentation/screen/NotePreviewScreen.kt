@@ -279,7 +279,8 @@ fun NotePreviewScreenContent(
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                         // Body: read-only RichText with internal link interception
-                        if (note.bodyHtml.isNullOrBlank()) {
+                        val bodyHtml = note.bodyHtml
+                        if (bodyHtml.isNullOrBlank()) {
                             Text(
                                 text = "No content",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -288,7 +289,7 @@ fun NotePreviewScreenContent(
                             )
                         } else {
                             NotePreviewBody(
-                                html = note.bodyHtml,
+                                html = bodyHtml,
                                 modifier = Modifier.padding(horizontal = 16.dp),
                                 onNavigateToNote = onNavigateToNote,
                                 onNavigateToTask = onNavigateToTask,
