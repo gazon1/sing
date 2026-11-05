@@ -104,53 +104,35 @@ restore_held_tree() {
     fi
     if [ "$restored" -eq 0 ]; then
         # The held bytes are somebody's uncommitted work, so a failed restore
-        # must not take them with it. The holder is left in place, and the old
-        # message — which said "Nothing is lost" and then deleted the holder —
-        # told the opposite of what the next line did.
+        # must not take them with it. The holder is left in place.
         echo "" >&2
         echo "pre-commit: the held work could not be put back automatically." >&2
         echo "It is still in ${PLAN_DIR} — the files are in ${PLAN}.d and the plan" >&2
         echo "beside them says which is which. Nothing is lost: the directory is" >&2
         echo "left in place, so the work can be put back by hand." >&2
-        exit $rc
+        if [ "$rc" -eq 0 ]; then
+            rc=1
+        fi
+        exit "$rc"
     fi
     rm -rf "$PLAN_DIR"
-    exit $rc
+    exit "$rc"
 }
-trap restore_held_tree EXIT
+trap restore_held_tree EXIT INT TERM
 
 python3 "$PLAN_DIR/staged-tree.py" hold --root "$ROOT" --plan "$PLAN" || {
     echo "pre-commit: the working tree could not be held at the index" >&2
     exit 1
 }
 
-echo "=== Pre-commit: linting the changed files ==="
-if command -v heavy >/dev/null 2>&1; then
-    heavy --timeout 300 --on-timeout run -- python3 scripts/lint-changed.py || {
-        echo "detekt (changed files) FAILED"
-        exit 1
-    }
-else
-    python3 scripts/lint-changed.py || {
-        echo "detekt (changed files) FAILED"
-        exit 1
-    }
+echo "=== Pre-commit: running checks via hk ==="
+if ! command -v hk >/dev/null 2>&1; then
+    echo "pre-commit: hk is required but not found (pinned in mise.toml)." >&2
+    echo "Install it with: mise install" >&2
+    echo "Or run this commit with: mise exec -- git commit ..." >&2
+    exit 1
 fi
 
-echo "=== Pre-commit: compiling the modules the change touches ==="
-# The plan and the compile live in scripts/compile-changed.py: the module set
-# is computed from the module graph, and the script says what it compiled and
-# what it did not.
-if command -v heavy >/dev/null 2>&1; then
-    heavy --timeout 300 --on-timeout run -- python3 scripts/compile-changed.py || {
-        echo "compile-changed: FAILED"
-        exit 1
-    }
-else
-    python3 scripts/compile-changed.py || {
-        echo "compile-changed: FAILED"
-        exit 1
-    }
-fi
+hk run pre-commit
 
 echo "=== Pre-commit OK ==="

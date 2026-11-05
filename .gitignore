@@ -183,3 +183,5 @@ keystore/
 # the repository needs lives under it, so there is nothing to gain by
 # tracking it.
 .local/
+
+nodes_modules/
