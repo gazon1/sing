@@ -1,17 +1,33 @@
 #!/usr/bin/env bash
-# One measurement cycle: host gate -> forced real compile -> settle -> patch -> measure -> revert.
+# One measurement cycle: host gate -> forced real compile -> settle -> edit -> measure -> revert.
 #   cycle.sh <gradle-module> <patch> <out-dir> [strategy]
+#
+# Two knobs, for a stand that is its own build and has no patch to apply:
+#   PROJECT_DIR=/path   run `./gw -p /path`; the Build Report is read from under that directory
+#   EDIT_HOOK=/path     call `/path apply|revert` instead of `git apply` on <patch>
 #
 # Protocol and why each step exists: README.md in this directory.
 set -euo pipefail
 
-M=${1:?module}; PATCH=${2:?patch}; OUT=${3:?out-dir}; S=${4:-in-process}
+M=${1:?module}; PATCH=${2:-}; OUT=${3:?out-dir}; S=${4:-in-process}
+PROJECT_DIR=${PROJECT_DIR:-}; EDIT_HOOK=${EDIT_HOOK:-}
+[ -n "$PATCH" ] || [ -n "$EDIT_HOOK" ] || { echo "need a patch file or EDIT_HOOK" >&2; exit 2; }
 T=":$M:compileKotlinJvm"
-REPORTS=build/reports/kotlin-build
+REPORTS=${PROJECT_DIR:+$PROJECT_DIR/}build/reports/kotlin-build
+GW_OPTS=(); [ -n "$PROJECT_DIR" ] && GW_OPTS=(-p "$PROJECT_DIR")
 SUMMARY="$(dirname "$OUT")/SUMMARY.tsv"
 MAX_LOAD_PER_CORE=${SPLIT_PLAN_MAX_LOAD_PER_CORE:-1.0}
 OPTS=(-Pkotlin.compiler.execution.strategy="$S" -Pcoverage.enabled=false
       -Pkotlin.build.report.output=file --console=plain --no-build-cache)
+# EXTRA_OPTS carries what a stand needs and the repo does not: -PkotlinVersion=…, -PwithCompose, …
+extra=(); [ -n "${EXTRA_OPTS:-}" ] && read -r -a extra <<< "$EXTRA_OPTS"
+OPTS+=("${extra[@]}")
+
+edit() {
+  if [ -n "$EDIT_HOOK" ]; then "$EDIT_HOOK" "$1"; else
+    if [ "$1" = apply ]; then git apply "$PATCH"; else git apply -R "$PATCH"; fi
+  fi
+}
 
 # Host state: sampled BEFORE the measurement, because a sample after it measures this compile, not the host.
 host_state() {
@@ -36,27 +52,27 @@ dirty() { git status --porcelain -- . ':(exclude)build-investigation/split-plan/
 [ ! -e "$OUT/result.txt" ] || { echo "refusing to overwrite $OUT/result.txt" >&2; exit 7; }
 mkdir -p "$OUT"
 
-./gw "$T" --rerun-tasks "${OPTS[@]}" --info >"$OUT/1-force.log" 2>&1
+./gw "${GW_OPTS[@]}" "$T" --rerun-tasks "${OPTS[@]}" --info >"$OUT/1-force.log" 2>&1
 [ -d "$REPORTS" ] || { echo "no $REPORTS after the forced run — check kotlin.build.report.output" >&2; exit 6; }
 
-./gw "$T" "${OPTS[@]}" --info >"$OUT/2-settle.log" 2>&1
+./gw "${GW_OPTS[@]}" "$T" "${OPTS[@]}" --info >"$OUT/2-settle.log" 2>&1
 grep -q "Task $T UP-TO-DATE" "$OUT/2-settle.log" \
   || { echo "settle is not UP-TO-DATE: see $OUT/2-settle.log" >&2; exit 2; }
 
 host_state before >"$OUT/host.txt"
-git apply "$PATCH"
-trap 'git apply -R "$PATCH" 2>/dev/null || true' EXIT
+edit apply
+trap 'edit revert 2>/dev/null || true' EXIT
 
-# Marker after git apply and after settle: only the measured run's report can be newer than it.
+# Marker after the edit and after settle: only the measured run's report can be newer than it.
 marker="$OUT/.marker"; touch "$marker"
 start=$(date +%s%N); status=0
-./gw "$T" "${OPTS[@]}" --info >"$OUT/3-measure.log" 2>&1 || status=$?
+./gw "${GW_OPTS[@]}" "$T" "${OPTS[@]}" --info >"$OUT/3-measure.log" 2>&1 || status=$?
 end=$(date +%s%N)
 host_state after >>"$OUT/host.txt"
 
 report=$(find "$REPORTS" -name '*.txt' -newer "$marker" -print -quit)
 trap - EXIT
-git apply -R "$PATCH"
+edit revert
 
 # One extraction, anchored, then validated: an empty or non-numeric time must fail here,
 # not survive as a blank column in SUMMARY.tsv.
