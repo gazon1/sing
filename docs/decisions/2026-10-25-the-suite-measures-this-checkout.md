@@ -37,9 +37,10 @@ The same shape had a second face in the pre-commit hook: it compiled the
 **working tree**, not the tree of the commit being made, so on a branch with one
 commit per idea the hook refused the next idea's commit for the previous idea's
 breakage — or, worse, let a commit through that did not compile on its own.
-The hook now uses hk stash (`fix=true, stash=git`) to isolate unstaged changes while it checks (previously `scripts/staged-tree.py`).
-and the end-to-end case that was missing — a branch with an earlier commit plus
-an uncommitted, non-compiling half — is a test of its own.
+The hook now holds unstaged work aside while it checks
+(`hk.pkl`, `stash = "git"`; the shape of that decision is
+`2026-11-05-the-commit-runs-hk-steps-over-staged-files.md`), and the check it
+runs is about the tree the commit carries.
 
 Two things made the failure hard to read rather than hard to fix.
 

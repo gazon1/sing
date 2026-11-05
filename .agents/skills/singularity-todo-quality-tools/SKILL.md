@@ -215,7 +215,7 @@ not in the default `./check.sh` path — CI runs it in its own job.
 ## The gates are tested too
 
 `scripts/tests/` holds unit tests for the gate scripts themselves, run by
-`check.sh` step 8 and in CI:
+the loop's `gate script tests` step and in CI:
 
 ```bash
 python3 -m unittest discover -s scripts/tests    # ~20 ms, no JVM
@@ -256,7 +256,7 @@ inputs.dir(layout.projectDirectory.dir("../Maestro"))
     .withPathSensitivity(PathSensitivity.RELATIVE)
 ```
 
-`scripts/check-test-task-inputs.py` (in `check.sh` step 10b and in CI) fails when a
+`scripts/check-test-task-inputs.py` (in the loop's `static gates` step and in CI) fails when a
 path-valued system property points outside its module with no input covering it.
 
 **Proving the fix.** An input declaration that was not probed is a comment. Edit the file

@@ -945,9 +945,13 @@ def main(argv: list[str], paths: list[str] | None = None) -> int:
             # prints the selection for a caller to run, and the caller decides
             # what to run it with (the CI `quick` job adds the same flag). This
             # path RUNS the command, so it decides for itself.
-            print(' '.join([*command, COVERAGE_OFF]), file=sys.stderr)
+            # `--rerun`: a task whose inputs did not change is UP-TO-DATE, and an
+            # UP-TO-DATE test task runs NO test. The caller reads "N class(es)
+            # ran", so they have to run — a second pass over the same tree would
+            # otherwise report a run that never happened.
+            print(' '.join([*command, '--rerun', COVERAGE_OFF]), file=sys.stderr)
             result = subprocess.run(
-                [*command, COVERAGE_OFF], cwd=ROOT, check=False,
+                [*command, '--rerun', COVERAGE_OFF], cwd=ROOT, check=False,
             )
             if result.returncode != 0:
                 return result.returncode

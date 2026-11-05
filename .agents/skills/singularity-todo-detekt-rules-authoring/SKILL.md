@@ -159,7 +159,7 @@ So, before committing a registration:
 
 It fails on a duplicated provider, a duplicated `detekt.yml` key, a provider listed but
 not present in the source, and a provider declared but not listed. It runs in
-`check.sh` (step 0, before Gradle) and as the first line of `just lint`, because a
+the loop's `static gates` step (before Gradle) and as the first line of `just lint`, because a
 seconds-long check is worth far more here than a multi-minute failure with a misleading
 message.
 

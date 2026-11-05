@@ -29,6 +29,7 @@ import unittest
 REPO = pathlib.Path(__file__).resolve().parents[2]
 WRAPPER = REPO / "sg"
 CHECK_SH = REPO / "check.sh"
+HK_PKL = REPO / "hk.pkl"
 
 #: The console script from PATH, used as a command. The wrapper's own path is
 #: `./sg`, which this does not match: a dot or a slash before the name means
@@ -92,14 +93,22 @@ class SgWrapperTest(unittest.TestCase):
                 f"check.sh calls the installed gate CLI instead of the wrapper: {line!r}",
             )
 
-    def test_check_sh_reaches_the_gate_cli_through_the_wrapper(self) -> None:
-        """Both callers go through `./sg`: the registry and the cost report."""
-        text = CHECK_SH.read_text(encoding="utf-8")
+    def test_both_surfaces_reach_the_gate_cli_through_the_wrapper(self) -> None:
+        """Both callers go through `./sg`: the registry and the cost report.
+
+        The registry is named in `hk.pkl` (the `check` hook's first step) and
+        the cost report in the wrapper; each surface names the command it runs.
+        """
+        surfaces = {
+            "run-all": HK_PKL,
+            "gate-costs": CHECK_SH,
+        }
         for command in GATE_COMMANDS:
+            path = surfaces[command]
             self.assertIn(
                 f"./sg {command}",
-                text,
-                f"check.sh does not reach the gate CLI's {command} through the wrapper",
+                path.read_text(encoding="utf-8"),
+                f"{path.name} does not reach the gate CLI's {command} through the wrapper",
             )
 
     def test_it_names_the_checkout_it_belongs_to(self) -> None:

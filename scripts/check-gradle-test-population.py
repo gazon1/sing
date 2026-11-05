@@ -30,7 +30,7 @@ because `flake.yml` already had to spell the reason out in a comment.
 
 ## The rule
 
-Within one job (or `check.sh`, which is the local equivalent), every Gradle
+Within one job (or the local pipeline in `hk.pkl`), every Gradle
 invocation that can run tests must select the **same** population.
 
 *Test-capable* means the invocation names a test task or an aggregate that
@@ -50,7 +50,7 @@ there. The name-to-tags mapping is `config/test-populations.properties`, the
 one file the build and every gate read.
 
 Deliberately **not** a rule: that every test invocation must carry a selector.
-`check.sh` runs every test task with none, on purpose — the local default is
+`hk.pkl` runs every test task with none, on purpose — the local default is
 `excludeTags("slow")` and the local loop is a fast cycle. Demanding a selector
 there would fail a tree that is correct. Those runs are reported as `note:`
 lines, so the fact stays visible without being dressed as a violation.
@@ -153,7 +153,7 @@ import yaml  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
-LOCAL_SURFACE = ROOT / "check.sh"
+LOCAL_SURFACE = ROOT / "hk.pkl"
 
 #: The file that declares the populations and their properties — the same file
 #: the build reads. `settings.gradle.kts` and `build.gradle.kts` load it with
@@ -346,7 +346,7 @@ def _property_violations(verbose: bool = False) -> tuple[list[str], list[str], l
 
 
 def _surfaces() -> list[tuple[str, list[wg.Invocation]]]:
-    """Every job (and `check.sh`) with at least one Gradle invocation."""
+    """Every job (and `hk.pkl`) with at least one Gradle invocation."""
     found: list[tuple[str, list[wg.Invocation]]] = []
     for workflow in sorted(WORKFLOWS.glob("*.y*ml")):
         try:
