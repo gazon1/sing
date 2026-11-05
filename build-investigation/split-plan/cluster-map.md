@@ -18,10 +18,12 @@ counted apart: a hot test file says where the tests are, not where a module boun
    `ProjectsRepository`, `TaskRepository`, `TagRepository`; `core/search/SearchTextIndex.kt` imports
    `feature.notes.Note`; `core/wipe` imports eight features. The shell, the preview screens and the
    test support add 31 more such edges, which is normal for a composition root.
-3. **Nothing hot can move without refactoring.** The cost of lifting a cluster is every edge into it
-   from a cluster it can itself reach — not the one cycle a shortest-path search finds. `core/ui`: 28
-   edges. `feature/tasks`: 26. Every `core/*` together: 217. A greedy feedback arc set for the whole
-   cluster graph is 69 edges, so "the 64 upward edges" was never the bill.
+3. **The price depends on which side you cut, and for one hot cluster it is tiny.** A lift is blocked by
+   edges on either side of the cluster; a refactor takes the cheaper side. `core/ui` as a *top* layer
+   costs 28 cuts / 646 imports — but as a *bottom* layer it costs **2 cuts / 5 imports**. `feature/tasks`
+   costs 22 cuts / 286 imports either way. Lifting every `core/*` together: 64 cuts / 427 imports, and a
+   greedy feedback arc set for the whole graph is 69 edges — "the 64 upward edges" was never the bill in
+   either direction.
 4. **Even with every cut made, the win is small: 40 of 1,428 commits (2.8 %)** touch only clusters that
    live outside every cycle. `test/fakes` — the only hot cluster in that set — is the sole cluster of
    10 commits, and appears in 279.
@@ -67,36 +69,53 @@ Full table (81 clusters): `cluster-data.tsv`.
 
 ## What lifting one cluster actually costs
 
-A cluster `X` becomes a module only if nothing it can reach imports it back, so the exact cost is
-**every edge `Y → X` where `Y` is reachable from `X`**. Cutting one shortest cycle does not free `X`,
-and `cut-plan.txt` holds the check.
+A cluster `X` can be cut free from either side, and the cheaper side is the price a refactor pays:
 
-| lift | clusters | edges to cut |
+- **as a top layer** — cut every `Y → X` where `Y` is reachable from `X` (nothing it reaches may import it back);
+- **as a bottom layer** — cut every `X → Y` where `Y` can reach `X` (nothing it depends on may reach it).
+
+The true minimum is a max-flow, so the min of the two is an upper bound. `cut-plan.txt` holds both, edge by edge.
+
+| lift | clusters | top: cuts / imports | bottom: cuts / imports | cheaper |
+|---|---|---|---|---|
+| `core/ui` | 1 | 28 / 646 | **2 / 5** | **2 / 5** |
+| `feature/tasks` | 1 | 26 / 318 | 22 / 286 | 22 / 286 |
+| `core/backup` | 1 | 4 / 35 | 6 / 21 | 4 / 35 |
+| `test/fakes` | 1 | 0 / 0 | 0 / 0 | 0 / 0 |
+| `core/observability` | 1 | 0 / 0 | 0 / 0 | 0 / 0 |
+| every `core/*` | 44 | 217 / 1,514 | 64 / 427 | 64 / 427 |
+| the whole graph as a DAG | — | — | — | 69 edges (greedy FAS, an upper bound) |
+
+**`core/ui` is five import lines away from being liftable**, and they are misplacements rather than
+architecture:
+
+| edge | imports | where |
 |---|---|---|
-| `test/fakes` | 1 | **0** |
-| `core/observability` | 1 | **0** |
-| `(root)` — the shell | 1 | **0** |
-| `core/backup` | 1 | 4 |
-| `feature/tasks` | 1 | 26 |
-| `core/ui` | 1 | 28 |
-| every `core/*` | 39 | 217 |
-| the whole graph as a DAG | — | 69 (greedy FAS, an upper bound) |
+| `core/ui → core/search` (1) | `core.search.TextMatchRange` | `core/ui/text/HighlightedText.kt` |
+| `core/ui → core/settings` (4) | `BaseSettingsRepository`, `SettingsNamespace` | `core/ui/onboarding/OnboardingSettingsRepository.kt` — settings code living in UI |
+| | `ThemeMode` ×2 | `core/ui/theme/SingularityTheme.kt`, `core/ui/preview/PreviewThemed.kt` — a UI type living in settings |
 
-Two claims from an earlier draft are wrong and are corrected here:
+Three claims from earlier drafts are wrong and are corrected here:
 
-- **"`core/ui` needs one cut (`core/search → feature/notes`)."** Cutting exactly that edge leaves
-  `core/ui` in a cycle and the largest SCC at 52. It needs 28.
-- **"The cycle is held by these 64 edges, so that is the work."** Moving the DI aggregator out of the
-  graph — removing the 2 edges *into* `core/di`, which is where it belongs — takes the largest SCC from
-  52 to 50. The inversions are the symptom; the work is a layer refactor measured in tens of edges.
+- **"`core/ui` needs one cut (`core/search → feature/notes`)."** Cutting exactly that edge leaves it in a
+  cycle. Cutting its own two outgoing edges frees it — the direction was wrong, not the size.
+- **"`core/ui` needs 28 cuts."** That is the top-layer price; `core/ui` is a bottom layer and pays 2.
+- **"The cycle is held by these 64 edges, so that is the work."** Moving the DI aggregator out of the graph
+  (removing the 2 edges *into* `core/di`) takes the largest SCC from 52 to 50. The inversions are the
+  symptom; the work is measured per candidate, above.
 
 ## What share of the history a split could shorten
 
+Two populations, because 647 commits touch a path that no longer exists and cannot be classified: **781**
+commits whose every path is still in the tree, and 1,428 in total.
+
 | commits | what |
 |---|---|
-| 40 (2.8 %) | touch only clusters outside every cycle — the upper bound for a split with no refactoring |
-| 10 (0.7 %) | touch only `test/fakes` |
-| 279 (19.5 %) | touch `test/fakes` at all — those still recompile `:shared` |
+| 40 of 781 (**5.1 %**) | touch only clusters outside every cycle — the ceiling for a split with no refactoring |
+| 40 of 1,428 (2.8 %) | the same count over the whole window, for continuity only |
+| 10 | touch only `test/fakes` |
+| 279 | touch `test/fakes` at all — those still recompile `:shared` |
+| 256 of 1,428 (17.9 %) | touch no production file at all |
 
 So the one split that is free today, `test/fakes`, would shorten about 10 commits out of 1,428. Its
 co-change partners (`core/di` in 139 commits, `feature/tasks` in 105) keep the rest of the module
@@ -154,14 +173,17 @@ A boundary above these is cheap — everything depends on them, they depend on n
 
 ## Conclusion for the plan
 
-The data says the plan's ordering is wrong, not its premise. A split cannot shorten UI/ViewModel edits
-until the layer inversions are gone, and the inversions are tens of edges, not four. The cheap next
-step is **layer repair, then split**:
+The first version of this section said "nothing hot can move without a layer refactor". With the cut
+priced from both sides, that is true for the *features* and false for `core/ui`:
 
-1. Cut the 38 `core → feature` inversions and move `core/di` above the graph. That is a refactor with
-   its own tests, and it is the precondition for any module boundary.
-2. Only then does Phase 2 (cost model) inform a decision — modelling module sizes before the graph can
-   be cut would price a split that cannot exist yet.
+- **`core/ui`** — 108 production files, 261 commits (second hottest), and 5 import lines from being
+  liftable. Three of the five are misplacements (`ThemeMode` is a UI type in `core/settings`;
+  `OnboardingSettingsRepository` is settings code in `core/ui`), so the work is a move, not a redesign.
+  This is a real pilot, and the only thing between it and a measurement is the question Phase 2 answers:
+  how much a module of 108 files actually costs.
+- **The features** — `feature/tasks` needs 22 cuts / 286 imports, and its peers are similar. They stay
+  blocked behind the layer repair: 429 import lines from `core` into `feature`.
+- **`test/fakes`** — free to lift, worth 10 commits, blocked on the KMP test-support question above.
 
-Phase 2 is therefore deferred. `test/fakes` is filed as a side question — worth 10 commits, blocked on
-the KMP test-support dependency above — not as the pilot.
+So the ordering is: measure a `core/ui`-sized module first (Phase 2), then decide. Layer repair is the
+precondition for the features, not for the pilot.

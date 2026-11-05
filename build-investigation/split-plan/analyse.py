@@ -386,6 +386,15 @@ def main():
     # reachable from X has to go. That is exact, and it is much larger than the shortest cycle
     # through X — one cycle is not the whole bill.
     cluster_edges = {(source, target) for source in cluster_out for target in cluster_out[source]}
+    import_lines = Counter()
+    for path, info in production.items():
+        source_cluster = cluster_of_path[path]
+        for fqn in info["imports"]:
+            target = resolve(fqn, packages)
+            if target:
+                target_cluster = package_cluster[target]
+                if target_cluster != source_cluster:
+                    import_lines[(source_cluster, target_cluster)] += 1
 
     def reachable_from(nodes):
         seen, stack = set(), list(nodes)
@@ -396,9 +405,28 @@ def main():
                     stack.append(nxt)
         return seen
 
-    def lift_cuts(group):
+    def reach_back(nodes):
+        seen, stack = set(), list(nodes)
+        while stack:
+            for nxt in cluster_in[stack.pop()]:
+                if nxt not in seen:
+                    seen.add(nxt)
+                    stack.append(nxt)
+        return seen
+
+    # Two valid cuts for the same lift, from opposite sides: as a top layer (nothing it can reach may
+    # import it back) and as a bottom layer (nothing it depends on may reach it). The cheaper one is
+    # what a refactor would cost; the true minimum is a max-flow, so the min of two is an upper bound.
+    def cuts_as_top(group):
         back = reachable_from(group) - set(group)
         return sorted((source, node) for node in group for source in cluster_in[node] if source in back)
+
+    def cuts_as_bottom(group):
+        back = reach_back(group) - set(group)
+        return sorted((node, target) for node in group for target in cluster_out[node] if target in back)
+
+    def lines_in(cuts):
+        return sum(import_lines[cut] for cut in cuts)
 
     def greedy_back_edges():
         """Eades-Lin-Smyth: an ordering whose back edges break every cycle. An upper bound, not the minimum."""
@@ -452,14 +480,35 @@ def main():
     aggregated = largest_scc({node: (targets - {"core/di"} if node == "core/search" else targets)
                               for node, targets in cluster_out.items()})
 
+    cost_rows = []
+    for name, group in scenarios:
+        group = group & set(cluster_nodes)
+        if not group:
+            continue
+        top, bottom = cuts_as_top(group), cuts_as_bottom(group)
+        cheaper = min((top, bottom), key=len)
+        cost_rows.append(
+            f"{name}\t{len(group)}\t{len(top)}\t{lines_in(top)}\t{len(bottom)}\t{lines_in(bottom)}\t"
+            f"{len(cheaper)}\t{lines_in(cheaper)}")
+
     write(os.path.join(out, "cut-plan.txt"), [
         f"# clusters={len(cluster_nodes)} largest SCC={len(in_scc)}",
-        "# cost: edges (Y -> X) where Y is reachable from X — every one of them has to be cut to lift X",
-        "# (the shortest cycle through X is one cycle, not the whole bill)",
+        "# A lift is costed from both sides; a refactor takes the cheaper one. The exact minimum is a",
+        "# max-flow, so min(top, bottom) is an upper bound on it, not the minimum.",
+        "#   top    = cut every edge into the group from a cluster the group can reach",
+        "#   bottom = cut every edge out of the group into a cluster that can reach the group",
+        "#   imports = import statements on those edges — the unit of refactor work (edges are not)",
         "",
-        "# cuts\tclusters lifted",
-        *(f"{len(lift_cuts(group & set(cluster_nodes)))}\t{name}" for name, group in scenarios
-          if group & set(cluster_nodes)),
+        "# cluster\tclusters\tcuts_top\timports_top\tcuts_bottom\timports_bottom\tmin_cuts\tmin_imports",
+        *cost_rows,
+        "",
+        "# the cheaper cut, edge by edge (imports in brackets)",
+        *(f"{name}: " + ", ".join(f"{source} -> {target} ({import_lines[(source, target)]})"
+                                  for source, target in cheaper)
+          for name, group in scenarios
+          for group in [group & set(cluster_nodes)] if group
+          for top, bottom in [(cuts_as_top(group), cuts_as_bottom(group))]
+          for cheaper in [min((top, bottom), key=len)] if 0 < len(cheaper) <= 30),
         "",
         "# checks on the single cut an earlier draft claimed was enough for core/ui",
         f"core/ui still in a cycle after cutting core/search -> feature/notes: {'yes' if 'core/ui' in named_cut else 'no'}",
@@ -492,13 +541,19 @@ def main():
         parts = line.split("\t")
         if len(parts) == 3 and parts[0].startswith("R") and parts[1].startswith(SRC) and parts[2].startswith(SRC):
             renamed_into[cluster_of_path.get(parts[2], "(unknown)")] += 1
+    known_paths = total_commits - moved_paths
     write(os.path.join(out, "commit-profile.txt"), [
         f"# {total_commits} commits since '{args.since}' touching {SRC}",
-        f"# liftable = clusters outside the largest SCC ({len(liftable)} production clusters)",
+        "# Two denominators, because a commit touching a path that no longer exists cannot be classified:",
+        f"total\t{total_commits}\tall commits in the window",
+        f"known-paths\t{known_paths}\tcommits whose every path still exists — the honest denominator",
+        f"moved-path\t{moved_paths}\ttouches at least one path that no longer exists (excluded from shares below)",
         "",
-        f"moved-path\t{moved_paths}\ttouches a path that no longer exists in the tree",
-        f"tests-only\t{test_only}\ttouches no production file",
+        f"# liftable = clusters outside the largest SCC ({len(liftable)} production clusters)",
+        f"tests-only\t{test_only}\t{test_only * 100 / total_commits:.1f}% of all commits — touches no production file",
         f"liftable-only\t{liftable_only}\ttouches only liftable production clusters — the upper bound of a split",
+        f"liftable-of-known\t{liftable_only * 100 / max(known_paths, 1):.1f}%\tliftable-only / known-paths",
+        f"liftable-of-all\t{liftable_only * 100 / total_commits:.1f}%\tliftable-only / all commits",
         f"fakes-only\t{fakes_only}\ttouches only test/fakes",
         f"fakes-any\t{fakes_any}\ttouches test/fakes at all",
         "",

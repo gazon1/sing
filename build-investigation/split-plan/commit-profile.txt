@@ -1,9 +1,14 @@
 # 1428 commits since '2026-05-05' touching shared/src
-# liftable = clusters outside the largest SCC (23 production clusters)
+# Two denominators, because a commit touching a path that no longer exists cannot be classified:
+total	1428	all commits in the window
+known-paths	781	commits whose every path still exists — the honest denominator
+moved-path	647	touches at least one path that no longer exists (excluded from shares below)
 
-moved-path	647	touches a path that no longer exists in the tree
-tests-only	256	touches no production file
+# liftable = clusters outside the largest SCC (23 production clusters)
+tests-only	256	17.9% of all commits — touches no production file
 liftable-only	40	touches only liftable production clusters — the upper bound of a split
+liftable-of-known	5.1%	liftable-only / known-paths
+liftable-of-all	2.8%	liftable-only / all commits
 fakes-only	10	touches only test/fakes
 fakes-any	279	touches test/fakes at all
 
