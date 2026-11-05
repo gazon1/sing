@@ -7,6 +7,7 @@ import com.singularity.todo.core.error.AppError
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -66,6 +67,39 @@ class BackupFailureTest {
         val failure = backupFailure(ArchiveEnvelopeError.NotEncrypted(), fallback)
 
         assertEquals(NOT_ENCRYPTED, failure.code)
+    }
+
+    @Test
+    fun `an archive whose bytes could not be moved says so`() {
+        val failure = backupFailure(ArchiveEnvelopeError.Unusable(), fallback)
+
+        assertEquals(UNUSABLE_ARCHIVE, failure.code)
+        assertEquals("That archive could not be read or written", failure.message)
+    }
+
+    @Test
+    fun `an archive whose bytes could not be moved does not blame the password`() {
+        val failure = backupFailure(ArchiveEnvelopeError.Unusable(), fallback)
+
+        assertFalse(
+            failure.message.contains("password", ignoreCase = true),
+            "the container opened: the bytes did not survive the move: ${failure.message}",
+        )
+    }
+
+    @Test
+    fun `a codec failure with a cause keeps the person's own words`() {
+        val failure = backupFailure(
+            ArchiveEnvelopeError.Unusable(IllegalStateException("no space left on device")),
+            fallback,
+        )
+
+        assertEquals(UNUSABLE_ARCHIVE, failure.code)
+        assertEquals(
+            "That archive could not be read or written",
+            failure.message,
+            "the cause is the machine's, the sentence is the person's",
+        )
     }
 
     @Test
