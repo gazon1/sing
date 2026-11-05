@@ -864,20 +864,39 @@ for i in "${!PUSH_REFS[@]}"; do
     verdict_rc=0
     verdict_out=""
     if [ -n "$base" ]; then
-        verdict_out="$(python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
-            --sha "$local_sha" \
-            --repo "$REPO_ROOT" \
-            --fallback-tree "$fallback" \
-            --base "$base" \
-            --branch "$local_branch" \
-            --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
+        if command -v heavy >/dev/null 2>&1; then
+            verdict_out="$(heavy --timeout 600 --on-timeout run -- python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+                --sha "$local_sha" \
+                --repo "$REPO_ROOT" \
+                --fallback-tree "$fallback" \
+                --base "$base" \
+                --branch "$local_branch" \
+                --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
+        else
+            verdict_out="$(python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+                --sha "$local_sha" \
+                --repo "$REPO_ROOT" \
+                --fallback-tree "$fallback" \
+                --base "$base" \
+                --branch "$local_branch" \
+                --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
+        fi
     else
-        verdict_out="$(python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
-            --sha "$local_sha" \
-            --repo "$REPO_ROOT" \
-            --fallback-tree "$fallback" \
-            --branch "$local_branch" \
-            --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
+        if command -v heavy >/dev/null 2>&1; then
+            verdict_out="$(heavy --timeout 600 --on-timeout run -- python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+                --sha "$local_sha" \
+                --repo "$REPO_ROOT" \
+                --fallback-tree "$fallback" \
+                --branch "$local_branch" \
+                --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
+        else
+            verdict_out="$(python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+                --sha "$local_sha" \
+                --repo "$REPO_ROOT" \
+                --fallback-tree "$fallback" \
+                --branch "$local_branch" \
+                --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
+        fi
     fi
     printf '%s\n' "$verdict_out"
 

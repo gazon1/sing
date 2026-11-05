@@ -39,6 +39,10 @@ test serial="":
 [doc('Run Android JVM unit tests (no device needed)')]
 [working-directory(justfile_directory())]
 test-unit:
-    #!/bin/bash
+    #!/usr/bin/env bash
     set -euo pipefail
-    ./gw :androidApp:testDebugUnitTest
+    if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
+        heavy -- ./gw :androidApp:testDebugUnitTest
+    else
+        ./gw :androidApp:testDebugUnitTest
+    fi

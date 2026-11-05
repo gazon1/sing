@@ -10,14 +10,26 @@ build TARGET="run":
     set -euo pipefail
     case "{{TARGET}}" in
         run)
-            ./gw :desktopApp:run
+            if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
+                heavy -- ./gw :desktopApp:run
+            else
+                ./gw :desktopApp:run
+            fi
             ;;
         dist)
-            ./gw :desktopApp:createDistributable
+            if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
+                heavy -- ./gw :desktopApp:createDistributable
+            else
+                ./gw :desktopApp:createDistributable
+            fi
             echo "✅ desktopApp/build/compose/binaries/main/app/"
             ;;
         deb)
-            ./gw :desktopApp:packageDeb
+            if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
+                heavy -- ./gw :desktopApp:packageDeb
+            else
+                ./gw :desktopApp:packageDeb
+            fi
             echo "✅ desktopApp/build/compose/binaries/main/deb/singularity-todo_0.1.0_amd64.deb"
             ;;
         *)

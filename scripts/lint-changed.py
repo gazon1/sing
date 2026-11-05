@@ -43,6 +43,7 @@ import argparse
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 
@@ -191,7 +192,10 @@ def gradle_command(files: list[pathlib.Path]) -> list[str]:
     else:
         property = '-PdetektChangedFiles=' + ','.join(paths)
 
-    return [launcher, *TASKS, property, '--console=plain']
+    cmd = [launcher, *TASKS, property, '--console=plain']
+    if os.environ.get('LINT_CHANGED_NO_HEAVY') == '1' or not shutil.which('heavy'):
+        return cmd
+    return ['heavy', '--timeout', '300', '--on-timeout', 'run', '--', *cmd]
 
 
 def findings_of(output: str) -> list[dict[str, str]]:
