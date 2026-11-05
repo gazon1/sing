@@ -69,7 +69,7 @@ class TaskListSizesSwipeDeleteIconTest {
             ?: error("Токен $tokenName не объявлен в $fileName")
 
     private fun readSharedUiSource(relativePath: String): String =
-        File(repoRoot(), "shared-ui/src/commonMain/kotlin/com/singularity/todo/$relativePath").readText()
+        File(repoRoot(), "shared/src/commonMain/kotlin/com/singularity/todo/$relativePath").readText()
 
     private fun repoRoot(): File =
         generateSequence(File(System.getProperty("user.dir")).absoluteFile) { it.parentFile }

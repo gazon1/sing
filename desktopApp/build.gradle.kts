@@ -138,12 +138,13 @@ sourceSets {
 
 dependencies {
     implementation(project(":shared"))
-            implementation(project(":shared-ui"))
 
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutines.swing)
     implementation(libs.koin.core)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
+    implementation(libs.rich.editor.compose)
     implementation(libs.compose.material)
     implementation(libs.coil.compose)
 

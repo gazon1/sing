@@ -120,6 +120,7 @@ non-alphanumeric characters with `_`.
 | `TASK_CONTEXT_MENU_OPEN` | `task_action_open` | |
 | `TASK_CONTEXT_MENU_PIN` | `task_action_pin` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
+| `TASK_DETAIL_PROPOSALS_SECTION` | `task_detail_proposals_section` | |
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
 | `TASK_EDITOR_ATTACHMENTS_ROW` | `task_editor_attachments_row` | |
 | `TASK_EDITOR_CHECKLIST_ROW` | `task_editor_checklist_row` | |
@@ -145,6 +146,7 @@ non-alphanumeric characters with `_`.
 ### Agenda
 | Constant | Value | Where |
 |---|---|---|
+| `AGENDA_HORIZON_NOTE` | `agenda_horizon_note` | |
 | `AGENDA_MERGE_SERIES_BUTTON` | `agenda_merge_series_button` | |
 | `AGENDA_MULTI_DATE_BUTTON` | `agenda_multi_date_button` | |
 | `AGENDA_REGEX_PATTERN_INPUT` | `agenda_regex_pattern_input` | |
@@ -218,10 +220,12 @@ non-alphanumeric characters with `_`.
 | `SEARCH_MODE_CONTAINS` | `search_mode_contains` | |
 | `SEARCH_MODE_CONTAINS_NOTE` | `search_mode_contains_note` | |
 | `SEARCH_MODE_WORD` | `search_mode_word` | |
+| `SavedSearches.RENAME_DIALOG_CONFIRM` | `search_rename_dialog_confirm` | |
 | `SavedSearches.SAVE_CHIP` | `search_save_chip` | |
 | `SavedSearches.SAVE_DIALOG_CONFIRM` | `search_save_dialog_confirm` | |
 | `SavedSearches.SEARCH_MENU_DELETE` | `search_menu_delete` | |
 | `SavedSearches.SEARCH_MENU_RENAME` | `search_menu_rename` | |
+| `SavedSearches.SEARCH_MENU_RENAME_BUTTON` | `search_menu_rename_button` | |
 
 ### Projects
 | Constant | Value | Where |

@@ -97,7 +97,7 @@ class BackupMigrationsTest {
         val writtenTasks = after.taskAt(0).keys - before.taskAt(0).keys
         assertEquals(
             emptySet(),
-            writtenTasks - TaskDto.readableFields(),
+            writtenTasks - TaskDto.serializer().readableFields(),
             "the chain wrote a task field the payload's task row does not carry, so a restore would drop it",
         )
         assertTrue(
@@ -108,14 +108,14 @@ class BackupMigrationsTest {
         val writtenNotes = after.noteAt(0).keys - before.noteAt(0).keys
         assertEquals(
             emptySet(),
-            writtenNotes - NoteDto.readableFields(),
+            writtenNotes - NoteDto.serializer().readableFields(),
             "the chain wrote a note field the payload's note row does not carry, so a restore would drop it",
         )
 
         val writtenEdges = after.dependencyAt(0).keys - before.dependencyAt(0).keys
         assertEquals(
             emptySet(),
-            writtenEdges - TaskDependencyDto.readableFields(),
+            writtenEdges - TaskDependencyDto.serializer().readableFields(),
             "the chain wrote an edge field the payload's edge row does not carry, so a restore would drop it",
         )
     }
@@ -356,31 +356,6 @@ class BackupMigrationsTest {
         assertEveryWrittenKeyIsRead(migrated, readBack(payload))
     }
 
-    /**
-     * The join check notices a field the payload type does not carry.
-     *
-     * A green join test is worth something only if it can be red. Nothing is
-     * subtracted here: the check is asked what the chain writes that the reader
-     * does not carry, and the answer is the real gap — `parentTaskId`, which
-     * v1→v2 writes and `TaskDto` does not carry (#1998).
-     *
-     * The join test subtracts exactly that set and finds nothing else, so the two
-     * together say the gap is one key wide and no wider. When the payload type
-     * learns the field, this fails and the exception goes with it.
-     */
-    @Test
-    fun theJoinCheckNoticesAFieldThePayloadTypeDoesNotCarry() {
-        val payload = decodeMigratedPayload(V1_PAYLOAD_WITH_EDGES.encodeToByteArray(), 1)
-        val migrated = BackupMigrations.migrate(payload(V1_PAYLOAD_WITH_EDGES), 1)
-
-        assertEquals(
-            setOf("parentTaskId"),
-            lostKeys(migrated.rows(TASKS), readBack(payload).rows(TASKS)),
-            "the check must see the field the chain writes and the payload type does not carry; " +
-                "an empty set here means TaskDto carries parentTaskId now (#1998), and NOT_CARRIED goes with it",
-        )
-    }
-
     /** A payload as it would have been written at [version]. */
     private fun payloadAt(version: Int): JsonObject =
         payload("""{"schemaVersion":$version,"tasks":[{"id":"t1","title":"A task","createdAt":1,"updatedAt":1}]}""")
@@ -591,6 +566,6 @@ class BackupMigrationsTest {
          * proves the gap is still a gap: when the payload type learns the field,
          * that test fails and this map goes with it.
          */
-        val NOT_CARRIED: Map<String, Set<String>> = mapOf(TASKS to setOf("parentTaskId"))
+        val NOT_CARRIED: Map<String, Set<String>> = emptyMap()
     }
 }

@@ -398,7 +398,6 @@ kover {
 include(":androidApp")
 include(":desktopApp")
 include(":shared")
-include(":shared-ui")
 // The ADR toolchain's dependency chain, innermost first. `:adr-cli` depends on
 // `:adr-core` and never on `:shared` — that edge is what made a markdown lister ship
 // Compose, Room, SQLite and Koog (#522 follow-up). See ADR
