@@ -310,6 +310,39 @@ style:
     active: false          # ktlint owns unused imports: standard:no-unused-imports (enabled in .editorconfig)
   TrailingWhitespace:
     active: false          # ktlint owns trailing whitespace: standard:no-trailing-spaces
+  EqualsOnSignatureLine:
+    active: true
+  DestructuringDeclarationWithTooManyEntries:
+    active: false
+  MagicNumber:
+    active: false          # too noisy with Compose color/size/alpha defaults; revisit per-module
+  MandatoryBracesLoops:
+    active: false
+  ForbiddenAnnotation:
+    active: false
+  ForbiddenComment:
+    active: true
+    comments:
+      - { value: 'FIXME:', reason: 'Forbidden FIXME todo marker in comment, please fix the problem.' }
+      - { value: 'STOPSHIP:', reason: 'Forbidden STOPSHIP todo marker in comment, please address the problem before shipping the code.' }
+      - { value: 'TODO:', reason: 'Forbidden TODO todo marker in comment, please do the changes.' }
+    allowedPatterns: ''
+  UseAnyOrNoneInsteadOfFind:
+    active: true
+  UseIsNullOrEmpty:
+    active: true
+  # ── Declared 2026-10-04 (see above and check-rule-intent.py) ───────────────
+  UnusedParameter:
+    active: true            # 30 findings — per-site triage, not a blanket decision
+  MayBeConstant:
+    active: true            # 2 findings, both fixed 2026-10-04
+  ThrowsCount:
+    active: true            # QueryParser / RecurrenceParser throwing on malformed
+                            # input is intended behaviour
+  LoopWithTooManyJumpStatements:
+    active: true            # 3 findings, all in parsers (A2uiParser, ConditionExprParser)
+  # Reporting findings while absent from this file, i.e. on detekt's defaults.
+
   ReturnCount:
     # See the module header: guard clauses are how an unsatisfiable guard stays visible.
     active: true

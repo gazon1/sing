@@ -49,7 +49,6 @@ import com.singularity.todo.core.ui.menu.onSecondaryClick
 import com.singularity.todo.core.ui.onboarding.SpotlightAnchorId
 import com.singularity.todo.core.ui.onboarding.SpotlightAnchorRegistry
 import com.singularity.todo.core.ui.onboarding.spotlightAnchor
-import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
@@ -61,6 +60,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
+import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf

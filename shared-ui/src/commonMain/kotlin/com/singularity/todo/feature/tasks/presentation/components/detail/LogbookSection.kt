@@ -95,7 +95,7 @@ private fun LogbookEmptyCard(
                 .fillMaxWidth()
                 .testTag(TestTags.LOGBOOK_SECTION),
     ) {
-        Row(
+        Column(
             modifier =
                 Modifier
                     .padding(
@@ -103,11 +103,21 @@ private fun LogbookEmptyCard(
                         vertical = TaskSpacing.cardPaddingVertical,
                     ).fillMaxWidth()
                     .testTag(TestTags.LOGBOOK_EMPTY),
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            LogbookHeader(
-                title = "Logbook",
-                onAddNote = onAddNote,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                LogbookHeader(
+                    title = "Logbook",
+                    onAddNote = onAddNote,
+                )
+            }
+            // An empty logbook says so, rather than leaving the card with a title
+            // and a button and nothing else.
+            EmptySectionHint(
+                text = "No notes or time entries yet. Add a note to start the log.",
+                modifier = Modifier.testTag(TestTags.LOGBOOK_EMPTY_HINT),
             )
         }
     }

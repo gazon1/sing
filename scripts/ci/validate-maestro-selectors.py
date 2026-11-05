@@ -75,12 +75,29 @@ _STATIC_CONST_PATTERN = re.compile(
 )
 
 
+def _testtags_path() -> Path:
+    """Where the UI test-tag catalogue lives.
+
+    It moved from ``shared/`` to ``shared-ui/`` when the shared UI module was
+    split out; both locations are looked up so the catalogue is read whichever
+    tree it sits in.
+    """
+    root = Path(__file__).resolve().parents[2]
+    for relative in (
+        "shared-ui/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt",
+        "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt",
+    ):
+        candidate = root / relative
+        if candidate.exists():
+            return candidate
+    return root / (
+        "shared-ui/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"
+    )
+
+
 def _parse_testtags_kt() -> Set[str]:
     """Extract all `const val NAME = "value"` strings from TestTags.kt."""
-    testtags = (
-        Path(__file__).resolve().parents[2]
-        / "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"
-    )
+    testtags = _testtags_path()
     if not testtags.exists():
         return set()
     ids: Set[str] = set()
@@ -99,10 +116,7 @@ _DYNAMIC_GENERATOR_PATTERN = re.compile(r'"([a-z_0-9]+)_\$\{')
 
 def _live_dynamic_prefixes() -> Set[str]:
     """Prefixes of every dynamic id generator currently declared in TestTags.kt."""
-    testtags = (
-        Path(__file__).resolve().parents[2]
-        / "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"
-    )
+    testtags = _testtags_path()
     if not testtags.exists():
         return set()
     return {

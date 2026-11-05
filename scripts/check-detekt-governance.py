@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """check_detekt_governance.py — the governance around the detekt rules.
 
-Six checks read the detekt configuration and the rules it declares:
+Seven checks read the detekt configuration and the rules it declares:
 
   - ``gen-detekt-rules-config.py --check`` — the generated detekt.yml is current;
   - ``gen-detekt-rule-table.py --check`` — the generated rule table is current;
   - ``check-detekt-registrations.sh`` — every rule has a registration;
   - ``check-baseline-ratchet.py`` — the baseline does not grow silently;
   - ``check-rule-intent.py`` — a lint rule states the decision it implements;
-  - ``check-suppression-intent.py`` — a suppression says why it is there.
+  - ``check-suppression-intent.py`` — a suppression says why it is there;
+  - ``check-quality-thresholds.py`` — the quality page states what this config
+    and the pinned detekt's own defaults say it does.
 
 They were six CI rows and six registry entries for one subject: the detekt
-rules. They are one gate now. The wrapper runs all six, prints every failure
+rules. They are one gate now. The wrapper runs all of them, prints every failure
 rather than the first, and exits non-zero if any of them failed.
 
-The six checks are still six checks. Each keeps its own script, its own unit
+The checks are still separate checks. Each keeps its own script, its own unit
 tests and its own positive control — a control proves that a check can fail,
 and a cluster with one control proves only that *something* in it can fail.
 ``--only <name>`` runs one member, which is how the control for each member
@@ -93,6 +95,10 @@ MEMBERS: list[Member] = [
     Member(
         "file-level suppressions explain themselves",
         "python3 scripts/check-suppression-intent.py",
+    ),
+    Member(
+        "quality page states the enforced thresholds",
+        "python3 scripts/check-quality-thresholds.py",
     ),
 ]
 

@@ -187,11 +187,6 @@ fun tasksModule(): org.koin.core.module.Module =
 
         single<AttachmentSaver> { AttachmentSaverImpl(get()) }
 
-        // ─── Drafts ──────────────────────────────────────────────────────────
-        // UserScopedDraftStore wraps DraftStore, prepending the user ID prefix internally.
-        // Registered as DraftStore so it satisfies TaskCreateDeps.draftStore: DraftStore.
-        single<DraftStore> { UserScopedDraftStore(get(), get()) }
-
         // ─── ViewModels ─────────────────────────────────────────────────────
 
         viewModel { (route: com.singularity.todo.feature.nav.TasksRoute.Detail) ->

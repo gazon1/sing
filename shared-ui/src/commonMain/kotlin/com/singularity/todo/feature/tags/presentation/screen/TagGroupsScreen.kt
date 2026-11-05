@@ -30,15 +30,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.components.ContentState
-import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.tags.domain.model.TagGroup
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 @Composable
 fun TagGroupsScreen(
@@ -58,7 +59,23 @@ fun TagGroupsScreen(
 }
 
 private fun TagGroupsUiState.toContentState(): ContentState<ImmutableList<TagGroup>> =
-    ContentStateMapper.tagGroups(this)
+    when (this) {
+        is TagGroupsUiState.Loading -> {
+            ContentState.Loading
+        }
+
+        is TagGroupsUiState.Empty -> {
+            ContentState.Empty
+        }
+
+        is TagGroupsUiState.Error -> {
+            ContentState.Error(AppError.Unknown(message, code = "tags.groups.render_failed"))
+        }
+
+        is TagGroupsUiState.Content -> {
+            ContentState.Ready(groups.toImmutableList())
+        }
+    }
 
 @Composable
 private fun TagGroupList(
