@@ -319,7 +319,11 @@ def assert_namespace_disjoint(root: Path = REPO_ROOT) -> None:
     quietly collide with selector ids, which would make a scan for scenarios
     match UI strings.
     """
-    tags_file = root / "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"
+    # `TestTags` lives in the `shared-ui` module: it is a UI selector registry,
+    # and the UI lives there. The path used to point into `:shared`, which is
+    # where the file was before the module split, and a stale path here made
+    # every traceability command fail on a checkout that had moved on.
+    tags_file = root / "shared-ui/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"
     if not tags_file.is_file():
         raise ValidationError(f"не найден файл UI-тегов: {tags_file}")
     problems: list[str] = []

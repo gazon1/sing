@@ -14,14 +14,13 @@ priority: P1
 status: confirmed
 targets: [android, desktop]
 
-# Claimed on both tiers and reachable on neither. The hole is real and
-# counted; what this records is *what kind* of supply it needs, so the
-# next agent does not read `○` as "write a Compose test" and burn a
-# probe on a scenario no single-device harness can express.
-# Device A types a title, device B edits and deletes the same task, and the
-# check is the merge that follows. The scenario is *defined* by a conflict
-# between two devices; a single-device run would assert a different thing.
-unreachable: [android, desktop]
+# The android tier is still unreachable: it has no second device, and the
+# scenario is *defined* by a conflict between two devices — device A types a
+# title, device B edits and deletes the same task — so a single-device run
+# would assert a different thing. The desktop tier is reachable and is
+# carried: two desktop instances against one shared server are the two
+# devices the scenario asks for, and they prove the merge that follows.
+unreachable: [android]
 preconditions: Two devices signed into the same account.
 steps:
   - On device A open a task and start typing a title without saving.
