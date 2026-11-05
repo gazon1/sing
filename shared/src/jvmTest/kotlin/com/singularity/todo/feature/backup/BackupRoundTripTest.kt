@@ -16,8 +16,7 @@ import com.singularity.todo.core.backup.exportOptions
 import com.singularity.todo.core.backup.importOptions
 import com.singularity.todo.core.backup.toEntity
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.JvmFileSourceFactory
@@ -38,7 +37,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -62,16 +60,13 @@ import kotlin.time.Clock
 @Tag("slow")
 @Tag("slow:data")
 class BackupRoundTripTest {
-    private val tempDirLazy =
-        lazy {
-            Files.createTempDirectory("singularity-backup-round-trip-").toFile()
-        }
-    private val tempDir: File by tempDirLazy
+    private val fixtureLazy = lazy { DatabaseTestFixture.onDisk() }
+    private val fixture: DatabaseTestFixture by fixtureLazy
 
-    private val sourceDbLazy = lazy { buildDb("source.db") }
+    private val sourceDbLazy = lazy { fixture.database("source") }
     private val sourceDb: AppDatabase by sourceDbLazy
 
-    private val targetDbLazy = lazy { buildDb("target.db") }
+    private val targetDbLazy = lazy { fixture.database("target") }
     private val targetDb: AppDatabase by targetDbLazy
 
     /** Shared by the importer under test, so the marker it clears can be read back. */
@@ -79,16 +74,8 @@ class BackupRoundTripTest {
 
     @AfterTest
     fun tearDown() {
-        if (sourceDbLazy.isInitialized()) sourceDb.close()
-        if (targetDbLazy.isInitialized()) targetDb.close()
-        if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
+        if (fixtureLazy.isInitialized()) fixture.close()
     }
-
-    private fun buildDb(name: String): AppDatabase =
-        AppDatabaseFactory.build(
-            driver = createSqlDriver(),
-            dbPath = File(tempDir, name).absolutePath,
-        )
 
     @Test
     fun `a task survives export and restore`() =
@@ -97,7 +84,7 @@ class BackupRoundTripTest {
             seedTask(owner)
 
             val fs = JvmFileSystem()
-            val destPath = File(tempDir, "round-trip.zip").absolutePath
+            val destPath = File(fixture.directory(), "round-trip.zip").absolutePath
 
             val exported =
                 exporter(fs).export(
@@ -292,7 +279,7 @@ class BackupRoundTripTest {
             seedTask(owner)
 
             val fs = NoWholeFileReads(JvmFileSystem())
-            val destPath = File(tempDir, "no-whole-reads.zip").absolutePath
+            val destPath = File(fixture.directory(), "no-whole-reads.zip").absolutePath
 
             val exported =
                 exporter(fs).export(
@@ -346,7 +333,7 @@ class BackupRoundTripTest {
             seedGraph(owner)
 
             val fs = JvmFileSystem()
-            val destPath = File(tempDir, "verbs.zip").absolutePath
+            val destPath = File(fixture.directory(), "verbs.zip").absolutePath
 
             val exported =
                 exporter(fs).export(
@@ -434,8 +421,8 @@ class BackupRoundTripTest {
             codec = JvmBackupCodec(),
             clock = Clock.System,
             fs = fs,
-            cursors = BackupCursorStore(fs = fs, dir = File(tempDir, "cursor").absolutePath),
-            backupDir = tempDir.absolutePath,
+            cursors = BackupCursorStore(fs = fs, dir = File(fixture.directory(), "cursor").absolutePath),
+            backupDir = fixture.directory().absolutePath,
         )
 
     /** The importer writes into the empty target database. */
@@ -457,7 +444,7 @@ class BackupRoundTripTest {
             agendaViewDao = targetDb.agendaViewDao(),
             attachmentDao = targetDb.attachmentDao(),
             annotationDao = targetDb.annotationDao(),
-            attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachments").absolutePath),
+            attachmentStorage = AttachmentStorage(fs, File(fixture.directory(), "attachments").absolutePath),
             codec = JvmBackupCodec(),
             clock = Clock.System,
             createFileSource = JvmFileSourceFactory(),
