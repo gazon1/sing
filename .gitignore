@@ -183,3 +183,4 @@ keystore/
 # the repository needs lives under it, so there is nothing to gain by
 # tracking it.
 .local/
+build-investigation/stage5-reports/full/

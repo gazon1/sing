@@ -182,10 +182,17 @@ class SearchQueryGrammarAgreementTest {
                     "the system property `commonMain.root` is not set: the build file has to say " +
                         "where the sources are",
                 )
+        val coreDomain =
+            System.getProperty("coreDomain.root")
+                ?: error(
+                    "the system property `coreDomain.root` is not set: the build file has to say " +
+                        "where the core domain sources are",
+                )
         val roots =
             listOf(
                 File(commonMain, "com/singularity/todo/feature/search"),
                 File(commonMain, "com/singularity/todo/core/search"),
+                File(coreDomain, "com/singularity/todo/core/search"),
             )
         roots.forEach { root ->
             assertTrue(root.isDirectory, "the search sources are not where the build file says: $root")

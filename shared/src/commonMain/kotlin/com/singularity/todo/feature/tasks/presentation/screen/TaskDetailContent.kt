@@ -575,9 +575,10 @@ fun TaskDetailContent(
                                                     )
                                                 },
                                             )
-                                            if (ui.task.recurrence != null) {
+                                            val recurrence = ui.task.recurrence
+                                            if (recurrence != null) {
                                                 TaskDetailRecurrenceSection(
-                                                    recurrence = ui.task.recurrence,
+                                                    recurrence = recurrence,
                                                 )
                                             }
                                             TaskDetailChecklistSection(

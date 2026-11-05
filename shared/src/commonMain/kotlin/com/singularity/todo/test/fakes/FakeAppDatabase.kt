@@ -1741,8 +1741,10 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
         store.value.values
             .filter { it.ownerId == ownerId && it.profileId == profileId }
             .filter { it.claimToken == null }
-            .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
-            .sortedBy { it.createdAt }
+            .filter {
+                val nextAttemptAt = it.nextAttemptAt
+                nextAttemptAt == null || nextAttemptAt <= now
+            }.sortedBy { it.createdAt }
 
     override suspend fun countPendingFor(ownerId: String): Int = store.value.values.count { it.ownerId == ownerId }
 

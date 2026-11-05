@@ -316,17 +316,9 @@ class ScopedReadQueryIsolationTest {
      * owns that root for every lexical rule that reads sources; a fourth copy of the lookup
      * would have been the same drift wearing a different name.
      */
-    private fun daoSource(): File = commonMainFile("Daos.kt")
+    private fun daoSource(): File = SourceScan.fileNamed("Daos.kt")
 
-    private fun entitiesSource(): File = commonMainFile("Entities.kt")
-
-    private fun commonMainFile(name: String): File {
-        val root = SourceScan.commonMainRoot()
-        val direct = root.resolve("core/database/$name")
-        if (direct.isFile) return direct
-        return root.walkTopDown().firstOrNull { it.name == name }
-            ?: error("$name not found under $root — the source root this gate reads has moved")
-    }
+    private fun entitiesSource(): File = SourceScan.fileNamed("Entities.kt")
 
     private companion object {
         val SCOPING_COLUMNS = listOf("user_id", "owner_id", "profile_id", "userId", "ownerId", "profileId")

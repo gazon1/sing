@@ -8,6 +8,7 @@ import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.test.helpers.unclippedBoundsOfTag
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -23,6 +24,7 @@ import kotlin.time.Instant
  * On a narrow phone the attribute rows and the task's own content fill the screen, and
  * an offer below them is an offer nobody acts on.
  */
+@Tag("fast")
 @OptIn(ExperimentalTestApi::class)
 class TaskEditorBannerSlotTest {
     @Test

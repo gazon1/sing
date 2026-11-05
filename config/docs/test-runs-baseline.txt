@@ -157,5 +157,6 @@ desktopApp:test 62 0
 shared:archTest 219 0
 shared:jvmTest 4149 0
 shared:testAndroidHostTest 13 0
+core-domain:jvmTest 5 0
 mcp-server:test 0 0
 # GENERATED:END

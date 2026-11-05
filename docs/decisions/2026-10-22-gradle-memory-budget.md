@@ -68,9 +68,10 @@ Give a worktree a **budget** rather than a pile of defaults, and make the budget
 **D1. The Kotlin compilation runs in-process.**
 `kotlin.compiler.execution.strategy=in-process` in `gradle.properties`.
 
-Incremental compilation is **not** lost by this. The Kotlin plugin reads the
-incremental flag from the project properties regardless of the execution
-strategy; only the strategy switch differs (verified against the bytecode of
+Incremental compilation is **not** lost by this on a plain JVM module; on a KMP
+module it **is** — corrected 2026-11-05, see the amendment at the end. The
+Kotlin plugin reads the incremental flag from the project properties regardless
+of the execution strategy; only the strategy switch differs (verified against the bytecode of
 `kotlin-gradle-plugin-2.4.10-gradle.jar`: `BaseKotlinCompileConfig$1$1` calls
 `setIncremental(...)` from `PropertiesProvider.getIncrementalJvm()`, and the
 `IN_PROCESS` branch in `TasksUtilsKt` exists only to reword an error message).
@@ -483,11 +484,15 @@ which is 36 GB at four forks and 54 GB at eight. The second is 87% of the
 machine's RAM with the IDE, the OS and the other worktrees still to come — so
 eight forks was never affordable, whatever the core count said.
 
-**D1's claim about incremental compilation is still correct** — the in-process
-strategy does not cost it — but it is not the reason the build recompiles.
-The Compose compiler plugin marks the compile task non-incremental, and every
-module that carries the plugin recompiles from scratch on every build. See
-`2026-10-29-the-compose-plugin-breaks-incremental-compilation.md`.
+**Amended 2026-11-05 — D1's claim about incremental compilation is corrected.**
+It was checked against the `setIncremental` flag, not against the compiler's
+`KT-62686` bailout. On a KMP module, `in-process` makes an edit compile
+non-incrementally: a standalone KMP probe is incremental under `daemon` and
+non-incremental under `in-process`, and `:shared` follows. The task-state cause
+is separate — the Koin compiler plugin — not the Compose plugin. See
+`2026-11-05-the-koin-plugin-forced-the-aggregator-compile-to-rerun`. The memory
+trade for switching to `daemon` (a Kotlin daemon JVM beside the 6 GB Gradle
+daemon) is not taken there and remains open.
 
 # Links
 

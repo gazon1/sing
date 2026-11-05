@@ -204,6 +204,10 @@ tasks.withType<Test>().configureEach {
 // Produce a fat JAR with all runtime deps merged
 tasks.named<Jar>("jar") {
     archiveFileName.set("mcp-server.jar")
+    // The merged runtime classpath (Compose, Koog, Room) is over the 65535-entry
+    // ZIP limit. Zip64 is the format's answer; the entry count is a property of the
+    // dependency set, not of this module's own sources.
+    isZip64 = true
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
         attributes["Main-Class"] = "com.singularity.todo.mcp.MainKt"

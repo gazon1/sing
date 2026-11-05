@@ -145,8 +145,8 @@ class SearchCostDoesNotGrowTest {
         // runs.
         val source =
             File(
-                System.getProperty("commonMain.root")
-                    ?: error("commonMain.root system property is not set"),
+                System.getProperty("coreDatabase.root")
+                    ?: error("coreDatabase.root system property is not set"),
                 "com/singularity/todo/core/database/FtsDao.kt",
             ).readText()
 

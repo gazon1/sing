@@ -36,13 +36,66 @@ import java.io.File
  * reflection, or a failure dropped in a loop where the value itself is used.
  */
 internal object SourceScan {
-    /** Root of `commonMain` for this module, as set by the `jvmTest` task. */
-    fun commonMainRoot(): File {
-        val root =
-            System.getProperty("commonMain.root")
-                ?: error("commonMain.root system property is not set — see the jvmTest task config")
-        return File(root, "com/singularity/todo")
+    /**
+     * The production root of every module the source-reading gates judge.
+     *
+     * The database and the pure domain models moved out of `:shared`, and a gate that
+     * keeps walking one root does not fail — it walks less code and reports green.
+     * The roots come from the build, so a module that stops being configured shows up
+     * as a missing root rather than as a silently narrower scan.
+     */
+    fun productionRoots(): List<File> = productionRootList
+
+    private val productionRootList: List<File> by lazy {
+        listOfNotNull(
+            commonMainRootOrNull(),
+            modulePackageRoot("coreDomain.root"),
+            modulePackageRoot("coreDatabase.root"),
+        ).filter { it.isDirectory }
+            .distinct()
     }
+
+    /** Root of `commonMain` for this module, as set by the `jvmTest` task. */
+    fun commonMainRoot(): File =
+        commonMainRootOrNull()
+            ?: error("commonMain.root system property is not set — see the jvmTest task config")
+
+    private fun commonMainRootOrNull(): File? =
+        System.getProperty("commonMain.root")?.let { File(it, "com/singularity/todo") }
+
+    private fun modulePackageRoot(property: String): File? =
+        System.getProperty(property)?.let { File(it, "com/singularity/todo") }
+
+    /**
+     * The file at [relativePath], which is relative to `com/singularity/todo/`.
+     *
+     * Searches every covered module, so a file that moved keeps being read instead of
+     * failing the gate that names it.
+     */
+    fun file(relativePath: String): File =
+        productionRoots()
+            .asSequence()
+            .map { it.resolve(relativePath) }
+            .firstOrNull { it.isFile }
+            ?: error(
+                "$relativePath not found under ${productionRoots().map { it.path }} — " +
+                    "the source root this gate reads has moved",
+            )
+
+    /** The first file named [name], wherever it sits in a covered module. */
+    fun fileNamed(name: String): File =
+        productionRoots()
+            .asSequence()
+            .map { it.resolve(name) }
+            .firstOrNull { it.isFile }
+            ?: productionRoots()
+                .asSequence()
+                .flatMap { it.walkTopDown() }
+                .firstOrNull { it.isFile && it.name == name }
+            ?: error(
+                "$name not found under ${productionRoots().map { it.path }} — " +
+                    "the source root this gate reads has moved",
+            )
 
     /**
      * Root of this module's `jvmTest` sources, as set by the `jvmTest` task.
@@ -77,11 +130,9 @@ internal object SourceScan {
     fun productionFiles(): List<File> = productionFileList
 
     private val productionFileList: List<File> by lazy {
-        commonMainRoot()
-            .walkTopDown()
-            .filter { it.isFile && it.name.endsWith(".kt") }
+        productionRoots()
+            .flatMap { root -> root.walkTopDown().filter { it.isFile && it.name.endsWith(".kt") }.toList() }
             .filterNot { it.isTestDouble() }
-            .toList()
     }
 
     /**
