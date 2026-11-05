@@ -7,6 +7,8 @@ import java.time.Duration as JavaDuration
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
+    alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinxSerialization)
     // KSP for Room annotation processing
     alias(libs.plugins.ksp)
@@ -22,6 +24,27 @@ koinCompiler {
     // userLogs = true // uncomment to see detected definitions during development
 }
 
+/** kotlinx-coroutines-debug agent for jvmTest only. */
+val coroutinesDebugAgent = configurations.create("coroutinesDebugAgent") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+
+// The stability contract.
+val composeStabilityConfiguration: RegularFile =
+    rootProject.layout.projectDirectory.file("config/compose/stability_config.conf")
+
+composeCompiler {
+    stabilityConfigurationFiles.addAll(composeStabilityConfiguration)
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
+    inputs
+        .file(composeStabilityConfiguration)
+        .withPropertyName("composeStabilityConfiguration")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 kotlin {
 
     // The one JDK every target is compiled with and every consumer runs on —
@@ -33,9 +56,6 @@ kotlin {
 
     jvm {
         compilerOptions {
-            if (composeStabilityReportEnabled) {
-                freeCompilerArgs.addAll(composeStabilityReportArgs("jvm"))
-            }
         }
     }
 
@@ -57,9 +77,6 @@ kotlin {
             freeCompilerArgs.add("-Xopt-in=kotlin.time.ExperimentalTime")
             // Suppress warning: expect/actual classes are in Beta
             freeCompilerArgs.add("-Xexpect-actual-classes")
-            if (composeStabilityReportEnabled) {
-                freeCompilerArgs.addAll(composeStabilityReportArgs("android"))
-            }
         }
         androidResources {
             enable = true
@@ -113,7 +130,6 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            api(project(":shared-ui"))
             // ADR rules live in `:adr-core` so that `:adr-cli` can use them without
             // depending on this module. `api` because the Koog adapters in
             // `feature/ai/tools/AdrTools.kt` hand `AdrStorage.AdrFile` back to callers.

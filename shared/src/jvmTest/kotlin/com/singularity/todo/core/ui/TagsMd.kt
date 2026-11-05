@@ -409,6 +409,10 @@ object TagsMd {
                 )
             }
 
+            "SavedSearches.chip" -> {
+                DynamicMeta(fnName, "Search", "My search", "Saved search chips")
+            }
+
             // A new dynamic function must be described here, not silently dropped:
             // "Used for" and the example input are documentation, not derivable from source.
             else -> {

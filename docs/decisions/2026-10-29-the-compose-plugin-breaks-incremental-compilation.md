@@ -128,3 +128,20 @@ place. The candidates that remain, in order:
 - `docs/decisions/2026-10-22-gradle-memory-budget.md` — the in-process claim
 - `config/docs/gradle-memory-budget.properties` — the fork count and heap
 - `scripts/test-impact-map.py` — the map that narrows the selection but not the cost
+
+## Update (2026-11-05)
+
+`:shared-ui` was merged back into `:shared` (the `:shared-ui` split was reverted),
+so `:shared` once again applies `alias(libs.plugins.composeMultiplatform)` and
+`alias(libs.plugins.composeCompiler)` directly, and `config/compose/stability_config.conf`
+is wired via `stabilityConfigurationFiles`. The `composeStabilityReportEnabled` block
+— including the `outputs.upToDateWhen { false }` override — was removed in the merge,
+since the report is opt-in and no gate reads it.
+
+Re-measured after the merge: `:shared:compileKotlinJvm` still reports
+"Non-incremental compilation will be performed" and is not cacheable. The removal of
+the `upToDateWhen` override did not change the outcome, which confirms the earlier
+finding — the Compose compiler plugin, not the stability contract, is what marks
+the task non-incremental. The conclusion of this ADR stands unchanged; candidate
+fixes remain (1) splitting Compose-heavy code into a separate module, (2) a shared
+parsed-tree snapshot for the arch gates.
