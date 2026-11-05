@@ -65,7 +65,8 @@
 # docs/decisions/2026-10-22-gradle-memory-budget.md.
 #
 # Opt out with `SINGULARITY_GRADLE_SLOTS_DIR=0 ./gw ...`. The pool is disabled
-# automatically in CI (one checkout per runner).
+# automatically in CI (one checkout per runner), and when already wrapped by
+# `heavy` (via `HEAVY_HELD` or `GW_HEAVY_WRAPPED`) to avoid double queuing.
 #
 # NOT COVERED BY THE POOL: Android Studio's own Gradle sync, and a bare
 # `./gradlew`. Both bypass `gw` on purpose — see the ADR.

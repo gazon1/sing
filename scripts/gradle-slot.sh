@@ -53,7 +53,9 @@ set -euo pipefail
 # Where the slot files live. Machine-wide, so every worktree shares one pool.
 # `SINGULARITY_GRADLE_SLOTS_DIR=0` disables the pool entirely — that is the
 # opt-out, and it is an explicit opt-out: the pool being off "because nobody
-# set the variable" was the mistake this line exists to prevent.
+# set the variable" was the mistake this line exists to prevent. The pool is
+# also skipped when already wrapped by `heavy` (`HEAVY_HELD` or
+# `GW_HEAVY_WRAPPED`) to avoid double queuing.
 slots_dir="${SINGULARITY_GRADLE_SLOTS_DIR:-${XDG_RUNTIME_DIR:-/tmp}/singularity-gradle-slots}"
 # If already serialized by heavy, skip the Gradle slot pool to avoid double queuing.
 if [ -n "${HEAVY_HELD:-}" ] || [ -n "${GW_HEAVY_WRAPPED:-}" ]; then
