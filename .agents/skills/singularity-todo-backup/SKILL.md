@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-backup
-description: Backup/restore pattern for the Singularity Todo KMP app. Use whenever adding backup, restore, export, import, or zip compression features. Handles BackupExporter/BackupImporter orchestration, DSL builders with @DslMarker, sealed BackupError, the registered schema-migration chain, and BackupCodec platform implementations.
+description: Backup/restore pattern for the Singularity Todo KMP app. Use whenever adding backup, restore, export, import, or zip compression features. Handles BackupExporter/BackupImporter orchestration, DSL builders with @DslMarker, sealed BackupError, the registered schema-migration chain, the container's own versions and sealing (ArchiveFormat, ArchiveSealer), and BackupCodec platform implementations.
 ---
 
 # singularity-todo-backup
@@ -32,6 +32,10 @@ BackupImporter:  BackupCodec.import() → validate → migrate → DAOs upsert
 - `core/backup/BackupImporter.kt` — orchestrator: codec.import() → validate → migrate → DAOs upsert
 - `core/backup/RemoteBackupService.kt` — port + `RemoteBackupServiceImpl` (Supabase Storage; the archive is sealed on the device, so the server sees ciphertext)
 - `core/backup/ArchiveFormat.kt` — the **container's** versions (1 snapshot, 2 chain, 3 device-keyed chain): a versioning of its own, separate from `BackupFormat.SCHEMA_VERSION`
+- `core/backup/ArchiveSealer.kt` — the key a push seals under: a password, or a device key
+- `core/backup/EncryptedArchive.kt` — the container's shape: the three versions' bytes, the seal and the open
+- `core/backup/DeviceKeyStore.kt` — the key a scheduled run seals with, and the block that wraps it under the password
+- `core/backup/BackupCursor.kt` — the chain's bookkeeping: the base and the changes that follow it
 - `feature/backup/BackupViewModel.kt` — MVI (`MviViewModel` + `BackupIntent`), takes the current user from `AuthRepository`
 - `feature/backup/BackupScreen.kt` — Scaffold with TopAppBar, buttons, LazyColumn of BackupListItem, SnackbarHost
 
@@ -84,6 +88,170 @@ file and gets the temporary-sibling-then-move treatment every file gets. The
 change that follows the snapshot — the chain — is written only for a
 destination inside the backup directory, and an archive saved elsewhere is not
 one of the backups `observeAll` lists: that list is the backup directory.
+
+## The Container Layer
+
+The payload is what an archive *carries* — the DTOs, the manifest, the JSON. The
+**container** is the envelope around it: magic, version, salt, nonce, and the
+sealed bytes. Most of this skill is about the payload; this section is about the
+envelope, and it has its own version number, its own key and its own failure
+family (`ArchiveEnvelopeError`).
+
+### The three container versions
+
+`ArchiveFormat` holds them. A version is a **meaning**, not a format revision:
+it is never reused, and a build keeps reading every version it shipped with —
+so the readable set is a *set*, and a reader refuses anything outside it by
+name.
+
+| Version | Meaning | Written today by |
+|---|---|---|
+| 1 | the full snapshot: one sealed stream, nothing after the header | nothing — read only |
+| 2 | a chain: a base and the sealed deltas that follow it | a **manual push** (`ArchiveSealer.UnderPassword`) |
+| 3 | a chain sealed under a device key, with that key wrapped under the password | a **scheduled push** (`ArchiveSealer.UnderDeviceKey`) |
+
+`ArchiveFormat.READABLE_VERSIONS` is the set this build reads (`1, 2, 3`);
+`ArchiveFormat.LATEST_VERSION` is only the newest version the build knows how to
+write (`3`) — and it is **not** the version of every write. The version follows
+*how* an archive is sealed, not which build writes it: a person pushing by hand
+gets a version-2 container, a scheduled run gets a version-3 one.
+
+### Two version numbers, not one
+
+The payload's schema version and the container's version are different numbers
+with different rules. They meet in the same archive, which is exactly why
+confusing them writes a broken change.
+
+| | The container's version | The payload's schema version |
+|---|---|---|
+| Lives in | `ArchiveFormat` | `BackupFormat.SCHEMA_VERSION` |
+| Today | versions 1–3 | `7` |
+| A number means | a meaning of the envelope | the shape of the payload's JSON |
+| The rule for a change | a new meaning: a **new** number, never reused, and the reader's set grows | bump it **and** register the migration step |
+| A reader that cannot cope says | `ArchiveEnvelopeError.UnsupportedArchiveVersion` | `BackupPayloadError.UnsupportedSchemaVersion` / `SchemaTooOld` |
+| What carries the number forward | a new reader: every build keeps the versions it shipped with | `BackupMigrations` — the registered chain (see the section below) |
+
+So: change the **bytes of the envelope** — a new field in the header, a
+different key in the container, a new framing — and you bump the *container*
+version. Change the **rows inside** — a new field on a task, a new entity — and
+you bump the *schema* version and add the step. Bump only one and the archive
+breaks: a container version without a reader that supports it refuses the
+archive outright, and a schema version without a step fails the migration
+loudly rather than quietly restoring defaults.
+
+There is a **third** number in the same archive, and it is worth naming so it
+is not confused with the two above: `BackupFormat.FORMAT_VERSION` — the
+version of the *zip layout* — travels in the manifest, and a manifest that
+carries a newer one is refused
+(`BackupPayloadError.UnsupportedFormatVersion`). So an archive carries three
+versions: the container's version in the envelope's header, and the format
+version and the schema version in the manifest. The one a change to the rows
+bumps is the schema version; the format version moves when the archive's
+*layout* moves — a new entry in the zip, a new directory — which is a third
+kind of change again.
+
+### What sealing does, and where the key lives
+
+Sealing happens **on the device**, before anything leaves it. What lands in the
+bucket is ciphertext: the server never sees the key, and never sees the rows.
+`EncryptedArchive` is the shape of it:
+
+- **magic** (`SGBK`) says "this is an encrypted archive" — an archive from
+  before the encryption is refused with a sentence that names the problem
+  instead of failing as a checksum mismatch;
+- **salt** feeds the key derivation, so two archives under one password do not
+  share a key; **nonce** is the GCM nonce of the base and is fresh every time;
+- the **header** (magic, version, salt, nonce, and — for a chain — the head and
+  the key block) is the cipher's *authenticated data*: nothing in it can be
+  changed without the archive ceasing to open;
+- the **changes come first and the base last**, because the base is the part
+  that is streamed and a stream cannot say its own sealed length before it is
+  sealed; the head (the entry count and their total length) sits inside the
+  header, which is what makes a **truncated chain** detectable.
+
+What sealing does **not** cover is the name of the object: a bucket listing
+shows the file name, and always will.
+
+The key is `ArchiveSealer`, and it is a sealed interface with exactly two
+cases — the difference between a manual push (`push(backupId, password)`) and a
+scheduled one (`pushScheduled()`) is this value and nothing else:
+
+| | `UnderPassword` | `UnderDeviceKey` |
+|---|---|---|
+| The key | the person's password | a random 256-bit device key, wrapped under the password |
+| Where it lives | nowhere — it is typed, and it is not stored | the platform keystore (`DeviceKeyStore`), never derived from the password, never sent anywhere |
+| Who holds it | the person, for the length of the call | the device, for the length of the call |
+| What a restore needs | the password | the password too — it unwraps the key out of the container |
+| The container it writes | version 2 | version 3 |
+
+The secret is **consumed**: the call that takes it wipes it before it returns
+(`password.fill('\u0000')` / `deviceKey.fill(0)`), so a failure does not leave a
+password lying in memory for the next attempt, and a person who has to try
+again types it again.
+
+### The chain: a base and the changes that follow it
+
+A chain is **a base plus the deltas that follow it**, and the two cannot be
+separated: a change says "on top of that base", so a push that carried only
+the changes would carry nothing that could be restored.
+
+- The **bookkeeping** is `BackupCursor`: the base the changes were written
+  against (`baseArchivePath`) and the changes in order, each with the archive
+  it belongs to. It is device-local and never uploaded.
+- A **push** assembles the chain — `BackupRepositoryImpl.chainFor()` finds the
+  base and the changes — and seals the lot as one container. The object in the
+  bucket keeps the name of the archive the person pushed; the bytes are the
+  base and its changes.
+- An **import** travels the same way: `ImportOptions` carries the base
+  (`sourcePath`) and the changes that follow it (`entries`, each a whole
+  delta). Today the changes reach an import on one path only — the restore
+  from the cloud, which hands over the deltas it downloaded along with the
+  base. A local import takes the base alone: the DSL builder has no field for
+  the changes, and the repository's local import does not collect them from
+  the chain the export wrote beside the archive.
+- Each change is **applied whole** — a delta is a set of rows, not a patch —
+  through the same path the base goes through. `BackupImporter` decodes and
+  migrates *every* change before it writes anything, so a corrupt or
+  schema-incompatible change fails the import before a single row is touched;
+  then the base and the changes go in, in order, in one transaction, and the
+  result counts the **merged** state rather than the base's.
+- A chain is **bounded**: `ArchiveFormat.MAX_CHAIN_ENTRIES` (32 changes) and
+  `ArchiveFormat.MAX_CHAIN_BYTES` (16 MB). The export starts a fresh base
+  when the chain passes the bound, and a push whose chain is over the bound is
+  sealed again **without** the changes — the base alone is a whole backup, and
+  a whole backup that reaches the bucket beats a failure over bookkeeping.
+
+### The edge cases
+
+- **A chain whose base is missing.** A push sends the snapshot alone: when the
+  base or one of the changes is not on the device, `chainFor()` gives up on the
+  chain and seals the archive by itself. It is not what the person asked for,
+  but it is a backup. An import has no such fallback — the base is what is
+  being restored, so a base that is not there fails the import on the read
+  itself: the codec cannot open the file, and the import says so.
+- **A chain whose base is corrupt.** The failure names the layer: a container
+  that is not an archive, a wrong password or an unreadable version is
+  `ArchiveEnvelopeError` (`NotEncrypted`, `WrongPassword`,
+  `UnsupportedArchiveVersion`, `Unusable`), and a manifest or checksum that
+  does not hold is `BackupPayloadError` (`MalformedManifest`,
+  `ChecksumMismatch`). A **broken chain** — an entry out of order, a chain
+  shorter than its head says, bytes after the last entry — is
+  `ArchiveEnvelopeError.BrokenChain`: the archive refuses to pretend it read
+  one, rather than applying the entries before the break and calling the
+  result restored. Nothing is written when this happens (validation precedes
+  the transaction), and an archive downloaded from the cloud that fails to
+  import is deleted again rather than left in the person's list of backups.
+- **A device that is not authorized to seal.** `pushScheduled()` asks the
+  `DeviceKeyStore` for its wrapped key first, and there is none on a device
+  that was never authorized: it fails with
+  `BackupStorageError.DeviceNotAuthorized`. The reasoning is the feature's own
+  — an archive sealed under a key nobody can unwrap is not a backup, so the
+  run refuses rather than pushing something nobody can read. The person
+  authorizes the device once, with `authorizeScheduledBackup(password)`, which
+  wraps the key under the password, wipes the password, and seals the newest
+  local archive again and pushes it once more. It cannot reach into the cloud
+  and change the copy that is already there: that copy keeps asking for the
+  password it was made with, and the app says so.
 
 ## Failure Families
 
