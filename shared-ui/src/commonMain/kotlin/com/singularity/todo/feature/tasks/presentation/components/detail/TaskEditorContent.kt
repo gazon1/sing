@@ -82,6 +82,13 @@ import kotlinx.datetime.LocalTime
  * it has — the two editors that serve the two kinds are [TaskEditorContent] and
  * [TaskCreateEditorContent].
  *
+ * The order of the screen, top to bottom: the hero (the title and the description),
+ * the offers ([bannerSections]), the view-mode child sections ([extraSections]), and
+ * then the attribute rows (priority, estimate, due date, project, tags, …).
+ *
+ * The offers keep their place whatever the child sections are, and the attribute rows
+ * keep theirs.
+ *
  * @param titleState The title's field state, bridged by the caller.
  * @param isCompleted Whether the task is completed (affects checkbox appearance).
  * @param onCheckToggle Called when the completion checkbox is toggled. `null` hides the
@@ -109,6 +116,10 @@ import kotlinx.datetime.LocalTime
  * @param pinCallbacks Callbacks for the pin toggle row. Null = row is hidden.
  * @param blockedBy IDs of tasks this task depends on.
  * @param availableTasks Tasks available for dependency selection.
+ * @param bannerSections The offers the screen makes to the person — the first-run banner and
+ *   the pending AI proposals. Drawn directly under the title and the description, above the
+ *   attribute rows, for every task: an offer's place is the editor's decision, not a side
+ *   effect of which other sections the caller passes.
  * @param extraSections Optional composable for View-mode-only sections (checklist, project, tags, timestamps, etc.).
  * @param bottomBar Optional bottom bar content. Typically [TaskSaveBar] in Create mode, null in View mode.
  * @param menuItems List of dropdown menu items. Shown when non-empty. Typically Archive/Delete in View mode.
@@ -156,6 +167,7 @@ private fun TaskEditorContent(
     checklistCallbacks: ChecklistCallbacks? = null,
     attachmentsCallbacks: AttachmentsCallbacks? = null,
     showAttachmentsRow: Boolean = true,
+    bannerSections: (@Composable () -> Unit)? = null,
     extraSections: (@Composable () -> Unit)?,
     bottomBar: (@Composable () -> Unit)?,
     menuItems: ImmutableList<TaskEditorMenuItem>,
@@ -197,6 +209,14 @@ private fun TaskEditorContent(
             TaskDescriptionField(
                 descriptionState = descriptionState,
             )
+
+            // The offers: the first-run banner and the pending AI proposals.
+            //
+            // They are drawn here — directly under the hero, above the attribute rows —
+            // so their place does not depend on which child sections the caller passes
+            // in the extra-sections slot. An offer a person is meant to act on belongs
+            // at the top of the screen, not wherever the list of sections happens to end.
+            bannerSections?.invoke()
 
             // View-mode extra sections
             extraSections?.invoke()
@@ -594,6 +614,7 @@ private fun TaskEditorScaffold(
         checklistCallbacks = callbacks.checklist,
         attachmentsCallbacks = callbacks.attachments,
         showAttachmentsRow = showAttachmentsRow,
+        bannerSections = callbacks.bannerSections,
         extraSections = callbacks.extraSections,
         bottomBar = callbacks.bottomBar,
         menuItems = callbacks.menuItems,

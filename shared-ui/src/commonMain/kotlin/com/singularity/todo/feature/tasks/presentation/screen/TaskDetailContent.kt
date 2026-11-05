@@ -95,6 +95,22 @@ import singularity_todo.shared.generated.resources.menu_delete
 import singularity_todo.shared.generated.resources.menu_restore
 import kotlin.time.Instant
 
+/**
+ * The task detail, as a screen.
+ *
+ * ## The order of the screen
+ *
+ * Top to bottom: the hero (the title and the description), the offers — the first-run
+ * banner and the stack of pending AI proposals — the task's own sections (the tags, the
+ * checklist items, the subtasks, the attachments, the backlinks, the series card, the
+ * timer, the logbook), and then the attribute rows (the priority, the estimate, the due
+ * date, the project, the tags).
+ *
+ * The offers have a place of their own: they sit above the attribute rows for every
+ * task, and where they sit does not depend on which sections the task happens to carry.
+ * An offer a person is meant to act on is reachable without scrolling past the whole
+ * task. The attribute rows keep the order they have always had.
+ */
 @Suppress("LongMethod", "CyclomaticComplexMethod", "FunctionSignature")
 @Composable
 fun TaskDetailContent(
@@ -468,7 +484,14 @@ fun TaskDetailContent(
                                         ),
                                     onTimeEntryAdd = null,
                                     onTimeEntrySave = null,
-                                    extraSections = {
+                                    // The offers the screen makes to the person: the first-run
+                                    // banner and the pending AI proposals. They have a slot of
+                                    // their own, so their place on the screen is the editor's
+                                    // decision and not a side effect of which child sections the
+                                    // slot below happens to carry — the editor draws them
+                                    // directly under the title and the description, above the
+                                    // attribute rows, for every task.
+                                    bannerSections = {
                                         Column(
                                             modifier = Modifier.fillMaxWidth(),
                                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -534,6 +557,16 @@ fun TaskDetailContent(
                                                     },
                                                 )
                                             }
+                                        }
+                                    },
+                                    // The child sections: the task's own content, listed under
+                                    // the fields. Where they sit is the editor's business, and
+                                    // the offers above do not travel with them.
+                                    extraSections = {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        ) {
                                             TaskDetailTagsSection(
                                                 tags = ui.tags,
                                                 onDeleteTag = {
