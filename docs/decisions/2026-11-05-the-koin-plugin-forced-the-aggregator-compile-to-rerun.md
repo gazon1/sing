@@ -175,6 +175,10 @@ new.
 
 ## Second cause: the `in-process` strategy on a KMP module
 
+> **Corrected 2026-11-05** — the strategy half of this section did not reproduce; see "Correction:
+> the execution-strategy claim did not reproduce" at the end of this file, and
+> `2026-11-05-kt-62686-is-kmp-jvm-compilation`. The Koin half (the task-state cause) stands.
+
 The in-process strategy (`ADR 2026-10-22-gradle-memory-budget`, D1) was recorded
 as not costing incremental compilation. That was checked against the
 `setIncremental` flag, not against the compiler's `KT-62686` bailout. Measured on
@@ -293,3 +297,27 @@ is smaller than the split would give on the same edit.
   composition roots
 - `shared/src/jvmTest/.../arch/KoinEntryPointIsWhereItSaysTest.kt` — the guard
 - `gradle.properties` — the execution-strategy comment
+
+## Correction: the execution-strategy claim did not reproduce
+
+Measured 2026-11-05 (`build-investigation/kt-62686/`, ADR
+`2026-11-05-kt-62686-is-kmp-jvm-compilation`): on `:shared`, `daemon` prints the same
+`Non-incremental compilation will be performed: Incremental compilation might be incorrect (KT-62686)`
+and recompiles the same 1,237 sources — 53.4 s against 62.0 s under `in-process`. That is a faster
+non-incremental compile, not an incremental one, so "switching to `daemon` removes `KT-62686`"
+above is wrong, and the 47–60 s figure was a speed difference read as a kind difference.
+
+Two independent cycles were needed to see it: each strategy got its own `--rerun-tasks` compile and
+its own `UP-TO-DATE` settle run before the same patch was applied. A settle under one strategy
+followed by a measured run under the other does not separate the edit, the strategy switch and a
+possibly warm or cold compiler.
+
+The "bare KMP is incremental under `daemon`" probe row did not reproduce either: a one-file KMP
+module with no plugin falls back under both strategies, while the same file compiled by
+`kotlin("jvm")` is incremental under both. The difference is isolated to the KMP JVM compilation
+configuration against the plain JVM one — the plugin and its compilation model change together;
+Compose, Koin and Room/KSP are not required to reproduce the fallback, and it reproduces in a
+one-file KMP module under both strategies.
+`build-investigation/baseline.md`'s "both `KT-62686` — `in-process` is not the trigger"
+was the correct row. The `KT-82893` note in "Upstream" above is therefore closer to this case than
+this ADR assumed.

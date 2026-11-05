@@ -486,13 +486,16 @@ eight forks was never affordable, whatever the core count said.
 
 **Amended 2026-11-05 — D1's claim about incremental compilation is corrected.**
 It was checked against the `setIncremental` flag, not against the compiler's
-`KT-62686` bailout. On a KMP module, `in-process` makes an edit compile
-non-incrementally: a standalone KMP probe is incremental under `daemon` and
-non-incremental under `in-process`, and `:shared` follows. The task-state cause
-is separate — the Koin compiler plugin — not the Compose plugin. See
-`2026-11-05-the-koin-plugin-forced-the-aggregator-compile-to-rerun`. The memory
-trade for switching to `daemon` (a Kotlin daemon JVM beside the 6 GB Gradle
-daemon) is not taken there and remains open.
+`KT-62686` bailout. On a KMP module, an edit compiles non-incrementally — and the
+strategy is not the lever: `:shared` under `daemon` prints the same `KT-62686` and
+recompiles the same 1,237 sources, a one-file KMP probe with no plugin does too, and
+the same file compiled by `kotlin("jvm")` is incremental under both strategies. See
+`2026-11-05-kt-62686-is-kmp-jvm-compilation`; the earlier version of this amendment
+credited `daemon` with removing the fallback, which did not reproduce. The task-state
+cause is separate — the Koin compiler plugin — not the Compose plugin. D1's memory
+trade (a Kotlin daemon JVM beside the 6 GB Gradle daemon) is therefore not a decision
+this fallback forces: switching would buy a faster non-incremental compile, nothing
+more, and it remains open.
 
 # Links
 
