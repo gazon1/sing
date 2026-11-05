@@ -246,9 +246,12 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
     ":mcp-server:jar": GradleTaskParity(
         scope="ci",
         why=(
-            "McpServerEndToEndTest resolves build/libs/mcp-server.jar and skips "
-            "itself when the jar is absent. Building it is a CI concern; the "
-            "local loop validates compilation, not the packaged artifact."
+            "The end-to-end test spawns build/libs/mcp-server.jar, and the test "
+            "task now builds that JAR before the suite runs, so the artefact is "
+            "never missing and the test never skips itself. CI names it anyway: "
+            "the invocation stays self-contained and the artefact it measures is "
+            "visible in the log. The local loop does not run the module's tests "
+            "(see `:mcp-server:test`), so it never needs the packaged artifact."
         ),
     ),
     ":pro:detekt": GradleTaskParity(
