@@ -55,8 +55,21 @@ kotlin {
 dependencies {
     add("kspAndroid", libs.androidx.room3.compiler)
     add("kspJvm", libs.androidx.room3.compiler)
+    detektPlugins(project(":detekt-rules"))
 }
 
 room3 {
     schemaDirectory("$projectDir/schemas")
+}
+
+// detekt — same rules as every other module. The moved database files were in
+// `:shared`; its baseline is keyed by file name, so sharing it keeps the
+// repository's accepted debt suppressed after the move instead of reporting it
+// again as new.
+detekt {
+    config.setFrom(rootProject.file("config/detekt/detekt.yml"))
+    baseline = rootProject.file("config/detekt/baseline-shared.xml")
+    buildUponDefaultConfig = true
+    ignoreFailures = false
+    source.setFrom("src/commonMain/kotlin", "src/jvmMain/kotlin", "src/androidMain/kotlin")
 }

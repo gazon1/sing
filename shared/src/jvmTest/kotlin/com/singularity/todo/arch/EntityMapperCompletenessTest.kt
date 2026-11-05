@@ -41,30 +41,35 @@ private val ENTITY_DECLARATION =
     Regex("""@Entity\b[\s\S]{0,600}?\bdata class (\w+)\(""")
 
 private fun declaredEntities(): Set<String> {
-    val root =
-        System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
+    val roots = SourceScan.productionRoots()
+    check(roots.isNotEmpty()) {
+        "no production source root is configured — the entity-completeness rules would pass over zero entities"
+    }
     val blockComment = Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
     val lineComment = Regex("""//[^\n]*""")
-    return File(root)
-        .walkTopDown()
-        .filter { it.isFile && it.extension == "kt" }
-        .filterNot { it.path.contains("${File.separator}test${File.separator}") }
-        .flatMap { file ->
-            val source =
-                file
-                    .readText()
-                    .replace(blockComment, "")
-                    .replace(lineComment, "")
-            ENTITY_DECLARATION
-                .findAll(source)
-                .map { it.groupValues[1] }
-                .toList()
-                .asSequence()
-        }.toSet()
+    val declared =
+        roots
+            .asSequence()
+            .flatMap { root -> root.walkTopDown() }
+            .filter { it.isFile && it.extension == "kt" }
+            .filterNot { it.path.contains("${File.separator}test${File.separator}") }
+            .flatMap { file ->
+                val source =
+                    file
+                        .readText()
+                        .replace(blockComment, "")
+                        .replace(lineComment, "")
+                ENTITY_DECLARATION
+                    .findAll(source)
+                    .map { it.groupValues[1] }
+                    .toList()
+                    .asSequence()
+            }.toSet()
+    check(declared.isNotEmpty()) {
+        "no @Entity classes found under ${roots.map { it.path }} — " +
+            "the entity-completeness rules would pass over zero entities"
+    }
+    return declared
 }
 
 @Tag("slow")

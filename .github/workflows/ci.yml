@@ -83,14 +83,20 @@ jobs:
             android:
               - 'androidApp/**'
               - 'shared/src/android*/**'
+              - 'core-domain/**'
+              - 'core-database/**'
               - 'gradle.properties'
             shared:
               - 'shared/src/commonMain/**'
               - 'shared/src/androidMain/**'
               - 'shared/src/jvmMain/**'
+              - 'core-domain/**'
+              - 'core-database/**'
             desktop:
               - 'desktopApp/**'
               - 'shared/src/jvmMain/**'
+              - 'core-domain/**'
+              - 'core-database/**'
             adr:
               - 'docs/decisions/**'
               - 'openspec/changes/**'
@@ -571,6 +577,10 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
+      # The Android target compiles in this job (androidHostTest and the
+      # androidApp task), so the platform the build declares has to be present.
+      - uses: ./.github/actions/setup-android-sdk
+
       # Four outcomes, and the job says which one happened:
       #
       #   selected     the map named test classes, and they ran below
@@ -687,6 +697,10 @@ jobs:
       - uses: ./.github/actions/setup-jvm-gradle
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      # The suite compiles and runs the Android target (`:shared:testAndroidHostTest`,
+      # `:androidApp:test`), so the platform the build declares has to be present.
+      - uses: ./.github/actions/setup-android-sdk
 
       # Same action as the static job, one reason: this job runs
       # `python3 scripts/check-gate-wiring.py` ("Gates are wired and can fail"),
@@ -891,6 +905,7 @@ jobs:
             :mcp-server:jar \
             :shared:verifyToolSurface \
             :shared:jvmTest \
+            :core-domain:jvmTest \
             :shared:archTest \
             :shared:testAndroidHostTest \
             :desktopApp:test \
@@ -956,7 +971,7 @@ jobs:
           jvm=0
           host=0
           mcp=0
-          python3 scripts/check-test-runs.py --require shared:jvmTest,shared:archTest,desktopApp:test --since "$RUN_STARTED" --gradle-log build.log || jvm=$?
+          python3 scripts/check-test-runs.py --require shared:jvmTest,shared:archTest,core-domain:jvmTest,desktopApp:test --since "$RUN_STARTED" --gradle-log build.log || jvm=$?
           python3 scripts/check-test-runs.py --require shared:testAndroidHostTest --since "$RUN_STARTED" --gradle-log build.log || host=$?
           # The mcp-server module keeps ONE test: the end-to-end one, which spawns the
           # jar. It is slow, so the fast population has nothing to run in that module —
@@ -1257,6 +1272,7 @@ jobs:
           name: junit-results
           path: |
             shared/build/test-results/jvmTest/**/*.xml
+            core-domain/build/test-results/jvmTest/**/*.xml
             shared/build/test-results/testAndroidHostTest/**/*.xml
             desktopApp/build/test-results/test/**/*.xml
             mcp-server/build/test-results/test/**/*.xml
@@ -1368,6 +1384,10 @@ jobs:
       - uses: ./.github/actions/setup-jvm-gradle
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      # The Android variants compile in this job, so the platform the build
+      # declares has to be present before the first Gradle invocation.
+      - uses: ./.github/actions/setup-android-sdk
 
       # `-Pcoverage.enabled=false`: this job is on the pull-request path, and
       # the pull-request path carries no instrumented suite. The pro leg runs
