@@ -31,6 +31,9 @@ tags:
 # The user chooses the week.
 - tapOn:
     id: plans_granularity_week
+# The week section is the arrival signal for the seeded task: a section header
+# renders only when the section holds a task, so this wait is the task
+# arriving and not a proxy for it (the contract in helpers/seed.yaml).
 - runFlow:
     file: ../../helpers/plans-section.yaml
     env:
@@ -48,6 +51,7 @@ tags:
     env:
       ENTRY_ID: menu_plans
       DEST_ID: plans_screen
+# The same section, still there: the week grouping survived the round trip.
 - runFlow:
     file: ../../helpers/plans-section.yaml
     env:

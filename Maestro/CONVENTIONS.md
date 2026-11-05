@@ -91,7 +91,7 @@ their logic.
 | Helper | When to use |
 |---|---|
 | `launch-clean.yaml` | Any flow needing a fresh app state |
-| `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link |
+| `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link; it also carries the contract for waiting for what a flow seeded |
 | `seed-task.yaml` | Any flow needing one task titled "Buy milk" |
 | `relaunch.yaml` | Flows testing persistence (state survives process restart) |
 | `open-app-menu.yaml` | Flows opening the app menu (the bottom-bar Menu button) |
@@ -104,6 +104,13 @@ their logic.
 | `plans-section.yaml` | Flows waiting for a timeline section by its date tag |
 | `plans-section-gone.yaml` | Flows asserting that a timeline section is gone |
 | `backup-create-via-saf.yaml` | Backup flows creating an archive through the system save dialog |
+
+### Waiting for what you seeded
+
+A flow waits for the entity it seeded before it asserts on it. Which waits
+count — the entity's own row, or a container that renders only because the
+entity is in it — is written down in one place: the contract at the top of
+`helpers/seed.yaml`. Read it there; do not restate it in a flow.
 
 ### Sessions
 
