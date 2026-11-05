@@ -17,12 +17,13 @@ import kotlin.test.Test
  * message — a screen that only says "No notes yet" leaves the reader guessing
  * what the screen is for. The icon is optional, so the text-only form must
  * still render unchanged.
+ *
+ * A Compose UI harness counts as slow by the tag convention: it crosses the
+ * process boundary of a real window and can block. Every sibling desktop
+ * compose test (e.g. NotesFlowTest) carries @Tag("slow") + @Tag("slow:compose"),
+ * and this one drives runIsolatedComposeTest the same way — tagging it "fast"
+ * would admit it to the per-PR population it does not belong to.
  */
-// A Compose UI harness counts as slow by the tag convention: it crosses the
-// process boundary of a real window and can block. Every sibling desktop
-// compose test (e.g. NotesFlowTest) carries @Tag("slow") + @Tag("slow:compose"),
-// and this one drives runIsolatedComposeTest the same way — tagging it "fast"
-// would admit it to the per-PR population it does not belong to.
 @Tag("slow")
 @Tag("slow:compose")
 class EmptyStateTest {

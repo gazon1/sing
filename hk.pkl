@@ -1,0 +1,43 @@
+amends "package://github.com/jdx/hk/releases/download/v1.23.0/hk@1.23.0#/Config.pkl"
+
+fail_fast = true
+
+hooks {
+  ["pre-commit"] {
+    fix = false
+    stash = "none"
+
+    steps {
+      ["lint-staged"] {
+        check = "export PATH=/home/max/.local/share/mise/installs/npm-lint-staged/15.2.10/node_modules/.bin:/home/max/.config/orca/linux-orca-cli-shim:/home/max/.minimax-code/bin:/usr/lib/jvm/java-25-openjdk/bin:/home/max/.local/bin:/home/max/.config/orca/linux-orca-cli-shim:/home/max/.minimax-code/bin:/home/max/.local/share/pnpm/bin:/usr/lib/jvm/java-25-openjdk/bin:/home/max/.local/bin:/tmp/.mount_orca-lcPkIIo:/tmp/.mount_orca-lcPkIIo/usr/sbin:/tmp/.mount_orca-lDpkiHG:/tmp/.mount_orca-lDpkiHG/usr/sbin:/usr/local/bin:/usr/bin:/var/lib/snapd/snap/bin:/home/max/.fzf/bin:/home/max/Android/Sdk/platform-tools:/home/max/Android/Sdk/emulator:/home/max/Android/Sdk/tools:/home/max/Android/Sdk/tools/bin:/home/max/.cargo/bin:/home/max/bin:/home/max/.maestro/bin:/home/max/.nvm/versions/node/v24.14.0/bin:/home/max/.volta/bin:/home/max/.asdf/shims:/home/max/.fnm/aliases/default/bin:/home/max/.local/share/mise/shims:/home/max/.local/share/pnpm:/home/max/.yarn/bin:/home/max/.bun/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/sbin:/snap/bin:/home/linuxbrew/.linuxbrew/bin:/nix/var/nix/profiles/default/bin:/home/max/.nix-profile/bin:/home/max/.opencode/bin:/home/max/.vite-plus/bin:/home/max/.grok/bin:/home/max/.local/bin:/home/max/.local/bin:/home/max/Android/Sdk/platform-tools:/home/max/Android/Sdk/emulator:/home/max/Android/Sdk/tools:/home/max/Android/Sdk/tools/bin:/home/max/.cargo/bin:/home/max/bin:/home/max/.maestro/bin; if command -v heavy >/dev/null 2>&1; then heavy --timeout 300 --on-timeout run -- lint-staged; else lint-staged; fi"
+      }
+
+      ["compile-changed"] {
+        depends = "lint-staged"
+        check = "if command -v heavy >/dev/null 2>&1; then heavy --timeout 300 --on-timeout run -- python3 scripts/compile-changed.py; else python3 scripts/compile-changed.py; fi"
+      }
+    }
+  }
+
+  ["post-checkout"] {
+    fix = false
+    stash = "none"
+
+    steps {
+      ["post-checkout-tasks"] {
+        check = "bash scripts/hooks/post-checkout-tasks.sh"
+      }
+    }
+  }
+
+  ["post-merge"] {
+    fix = false
+    stash = "none"
+
+    steps {
+      ["post-merge-tasks"] {
+        check = "bash scripts/hooks/post-merge-tasks.sh"
+      }
+    }
+  }
+}

@@ -42,9 +42,7 @@ import androidx.compose.ui.semantics.SemanticsPropertyKey
  * off its column is to pin the column to the window — a `fillMaxSize()` outside the
  * cap, which the agenda's list has — and then the column and the bar are both the
  * window's width.
- */
-
-/**
+ *
  * The scroll states a desktop bar draws from, published on the container it is
  * attached to.
  *
