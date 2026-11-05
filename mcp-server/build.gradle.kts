@@ -192,6 +192,13 @@ tasks.withType<Test>().configureEach {
             .get()
             .asFile.absolutePath
     systemProperty("mcp-server.jar.path", jarPath)
+    // The fat JAR is an input of the end-to-end test, not a precondition the
+    // developer has to satisfy by hand. It used to be the latter: the test asked
+    // whether the JAR was there and skipped itself when it was not, and a skipped
+    // test is a silent green — the end-to-end coverage was gone and the run still
+    // reported success. Building it here makes the absence of the JAR a broken
+    // build, which is what it is.
+    dependsOn(tasks.named("jar"))
 }
 
 // Produce a fat JAR with all runtime deps merged
