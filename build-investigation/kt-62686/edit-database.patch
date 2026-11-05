@@ -1,0 +1,14 @@
+diff --git a/core-database/src/commonMain/kotlin/com/singularity/todo/feature/proposals/data/ProposalKindCodec.kt b/core-database/src/commonMain/kotlin/com/singularity/todo/feature/proposals/data/ProposalKindCodec.kt
+index 2ad9875f2..d2bcde240 100644
+--- a/core-database/src/commonMain/kotlin/com/singularity/todo/feature/proposals/data/ProposalKindCodec.kt
++++ b/core-database/src/commonMain/kotlin/com/singularity/todo/feature/proposals/data/ProposalKindCodec.kt
+@@ -336,7 +336,8 @@ private fun JsonObject.stringOrNull(key: String): String? =
+ /** The priority a row carries, read in any of the spellings the model writes. */
+ private fun readPriority(raw: String?): TaskPriority {
+     val text = raw?.trim().orEmpty()
+-    return TaskPriority.entries.firstOrNull { it.name.equals(text, ignoreCase = true) } ?: TaskPriority.None
++    val entries = TaskPriority.entries
++    return entries.firstOrNull { it.name.equals(text, ignoreCase = true) } ?: TaskPriority.None
+ }
+ 
+ /** The kind of work a row carries, read in any of the spellings the model writes. */
