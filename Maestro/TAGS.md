@@ -82,12 +82,14 @@ non-alphanumeric characters with `_`.
 |---|---|---|
 | `CHECKLIST_ADD_BUTTON` | `checklist_add_button` | |
 | `CHECKLIST_ADD_INPUT` | `checklist_add_input` | |
+| `CHECKLIST_EMPTY_HINT` | `checklist_empty_hint` | |
 | `CHECKLIST_INLINE_ADD_BUTTON` | `checklist_inline_add_button` | |
 | `CHECKLIST_INLINE_ADD_INPUT` | `checklist_inline_add_input` | |
 | `CHECKLIST_SHEET` | `checklist_sheet` | |
 | `FIRST_RUN_SECTION` | `first_run_section` | |
 | `LOGBOOK_ADD_NOTE_BUTTON` | `logbook_add_note_button` | |
 | `LOGBOOK_EMPTY` | `logbook_empty` | |
+| `LOGBOOK_EMPTY_HINT` | `logbook_empty_hint` | |
 | `LOGBOOK_SECTION` | `logbook_section` | |
 | `PRIORITY_OPTION_HIGH` | `priority_option_high` | |
 | `PRIORITY_OPTION_LOW` | `priority_option_low` | |
@@ -106,6 +108,7 @@ non-alphanumeric characters with `_`.
 | `RECURRENCE_OPTION_YEARLY` | `recurrence_option_yearly` | |
 | `RECURRENCE_OPTION_YEARLY_ON_DATE` | `recurrence_option_yearly_on_date` | |
 | `SHEET_CONFIRM` | `sheet_confirm` | |
+| `SUBTASKS_EMPTY_HINT` | `subtasks_empty_hint` | |
 | `SUBTASKS_SECTION` | `subtasks_section` | |
 | `SUBTASK_ADD_BUTTON` | `subtask_add_button` | |
 | `SUBTASK_ADD_INPUT` | `subtask_add_input` | |

@@ -339,6 +339,14 @@ object TestTags {
     const val TASK_CHECKLIST_SECTION = "task_checklist_section"
 
     /**
+     * The line the checklist section shows when it has no items.
+     *
+     * The section itself stays on screen — it carries the add-row — so the empty
+     * state has to say what it is rather than leave a count over nothing.
+     */
+    const val CHECKLIST_EMPTY_HINT = "checklist_empty_hint"
+
+    /**
      * Text input of the inline add-row in the task detail's checklist section.
      *
      * Separate from [CHECKLIST_ADD_INPUT], which belongs to the checklist sheet:
@@ -384,6 +392,9 @@ object TestTags {
 
     /** The subtasks section container in the task detail view. */
     const val SUBTASKS_SECTION = "subtasks_section"
+
+    /** The line the subtasks section shows when it has no subtasks. */
+    const val SUBTASKS_EMPTY_HINT = "subtasks_empty_hint"
 
     /** Text input for entering a new subtask title in the subtasks section. */
     const val SUBTASK_ADD_INPUT = "subtask_add_input"
@@ -1097,6 +1108,9 @@ object TestTags {
      * observable.
      */
     const val LOGBOOK_EMPTY = "logbook_empty"
+
+    /** The line the logbook shows when it has neither notes nor time entries. */
+    const val LOGBOOK_EMPTY_HINT = "logbook_empty_hint"
 
     /** The "+" button that opens the note editor with the task already attached. */
     const val LOGBOOK_ADD_NOTE_BUTTON = "logbook_add_note_button"

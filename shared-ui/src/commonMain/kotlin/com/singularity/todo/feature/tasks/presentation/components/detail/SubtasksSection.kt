@@ -37,7 +37,11 @@ import kotlinx.collections.immutable.persistentListOf
  *
  * The section is always visible when rendered (even when [subtasks] is empty),
  * because the "add subtask" input row is how a subtask is created in the first
- * place. Callers that want to suppress the section for tasks that are themselves
+ * place — a section that hid itself when the list was empty would take the way
+ * in with it. What an empty list must not do is report a count over nothing: it
+ * says so in a line of its own, under the section's title.
+ *
+ * Callers that want to suppress the section for tasks that are themselves
  * subtasks should do so before calling this composable.
  *
  * @param onAddSubtask Called when the user submits the "add subtask" input.
@@ -60,9 +64,15 @@ fun SubtasksSection(
     ExtraSectionCard(
         modifier = modifier.testTag(TestTags.SUBTASKS_SECTION),
         icon = { Text("\uD83D\uDCCB", style = MaterialTheme.typography.bodyMedium) },
-        label = "Subtasks ($completed/$total)",
+        label = if (subtasks.isEmpty()) "Subtasks" else "Subtasks ($completed/$total)",
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (subtasks.isEmpty()) {
+                    EmptySectionHint(
+                        text = "No subtasks yet. Add the first one below.",
+                        modifier = Modifier.testTag(TestTags.SUBTASKS_EMPTY_HINT),
+                    )
+                }
                 // Add-subtask input row — always present so the user can add the first subtask.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
