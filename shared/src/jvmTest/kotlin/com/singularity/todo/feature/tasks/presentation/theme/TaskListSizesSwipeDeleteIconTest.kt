@@ -61,7 +61,10 @@ class TaskListSizesSwipeDeleteIconTest {
     private val literalDp = Regex("""^val \w+\s*(?::\s*\w+\s*)?=\s*\d+(?:\.\d+)?\.dp$""")
 
     /** Строка объявления токена — без её KDoc, где минимум упоминается как причина. */
-    private fun declarationOf(fileName: String, tokenName: String): String =
+    private fun declarationOf(
+        fileName: String,
+        tokenName: String,
+    ): String =
         readSharedUiSource("feature/tasks/presentation/theme/$fileName")
             .lineSequence()
             .map { it.trim() }

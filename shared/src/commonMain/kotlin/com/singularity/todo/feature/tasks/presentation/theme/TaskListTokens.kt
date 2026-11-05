@@ -82,10 +82,11 @@ object TaskListSizes {
      */
     @Deprecated(
         message = "Общий минимум площади касания — core.ui.TouchTarget.MinSize.",
-        replaceWith = ReplaceWith(
-            expression = "TouchTarget.MinSize",
-            imports = arrayOf("com.singularity.todo.core.ui.TouchTarget"),
-        ),
+        replaceWith =
+            ReplaceWith(
+                expression = "TouchTarget.MinSize",
+                imports = arrayOf("com.singularity.todo.core.ui.TouchTarget"),
+            ),
     )
     val MinTouchTarget = TouchTarget.MinSize
 }

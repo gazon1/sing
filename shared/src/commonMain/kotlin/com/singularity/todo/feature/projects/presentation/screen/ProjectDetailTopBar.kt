@@ -21,8 +21,8 @@ import androidx.compose.ui.platform.testTag
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
-import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.domain.state.ProjectDetailUiState
+import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 
 /**
  * Top app bar for [ProjectDetailScreen].

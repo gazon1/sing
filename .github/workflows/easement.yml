@@ -1,0 +1,17 @@
+name: easement
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: mokevnin/easement@main
+        with:
+          diff: origin/main

@@ -22,6 +22,9 @@ import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.OverlayState
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
+import com.singularity.todo.feature.projects.domain.state.ProjectDetailIntent
+import com.singularity.todo.feature.projects.domain.state.ProjectDetailUiEvent
+import com.singularity.todo.feature.projects.domain.state.ProjectDetailUiState
 import com.singularity.todo.feature.projects.presentation.components.ActiveSheet
 import com.singularity.todo.feature.projects.presentation.components.ConfirmBlockedCloseDialog
 import com.singularity.todo.feature.projects.presentation.components.CurrentProjectContent
@@ -29,9 +32,6 @@ import com.singularity.todo.feature.projects.presentation.components.ProjectDeta
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailSheetsHost
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavigator
-import com.singularity.todo.feature.projects.domain.state.ProjectDetailIntent
-import com.singularity.todo.feature.projects.domain.state.ProjectDetailUiEvent
-import com.singularity.todo.feature.projects.domain.state.ProjectDetailUiState
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf

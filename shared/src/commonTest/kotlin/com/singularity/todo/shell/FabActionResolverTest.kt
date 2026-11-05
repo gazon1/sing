@@ -203,21 +203,22 @@ class FabActionResolverTest {
      * what it is. That is the point: the Upcoming tab once shipped with no
      * button because nobody said anything about it (#1959).
      */
-    private val everyAgendaStartRoute: List<AgendaStartRoute> = listOf(
-        AgendaStartRoute.Inbox,
-        AgendaStartRoute.Today,
-        AgendaStartRoute.Upcoming,
-        AgendaStartRoute.Project(ProjectId("project-1")),
-        AgendaStartRoute.Tag(TagId("tag-1")),
-        AgendaStartRoute.Tags(setOf(TagId("tag-1"), TagId("tag-2"))),
-        AgendaStartRoute.SavedAgendaList,
-        AgendaStartRoute.SavedAgendaResults(SavedAgendaViewId("view-1")),
-        AgendaStartRoute.SavedAgendaEdit(SavedAgendaViewId("view-1")),
-        AgendaStartRoute.SavedAgendaCreate,
-        AgendaStartRoute.Blocked,
-        AgendaStartRoute.Stagnant,
-        AgendaStartRoute.Overdue,
-    )
+    private val everyAgendaStartRoute: List<AgendaStartRoute> =
+        listOf(
+            AgendaStartRoute.Inbox,
+            AgendaStartRoute.Today,
+            AgendaStartRoute.Upcoming,
+            AgendaStartRoute.Project(ProjectId("project-1")),
+            AgendaStartRoute.Tag(TagId("tag-1")),
+            AgendaStartRoute.Tags(setOf(TagId("tag-1"), TagId("tag-2"))),
+            AgendaStartRoute.SavedAgendaList,
+            AgendaStartRoute.SavedAgendaResults(SavedAgendaViewId("view-1")),
+            AgendaStartRoute.SavedAgendaEdit(SavedAgendaViewId("view-1")),
+            AgendaStartRoute.SavedAgendaCreate,
+            AgendaStartRoute.Blocked,
+            AgendaStartRoute.Stagnant,
+            AgendaStartRoute.Overdue,
+        )
 
     /**
      * What each agenda route carries, stated route by route.
@@ -259,7 +260,10 @@ class FabActionResolverTest {
      * Asserts that the route offers the "Add task" action and that tapping it
      * opens the task editor with the due date the route is supposed to carry.
      */
-    private fun assertAddTaskAction(route: AgendaStartRoute, dueDate: LocalDate?) {
+    private fun assertAddTaskAction(
+        route: AgendaStartRoute,
+        dueDate: LocalDate?,
+    ) {
         navigatedTo = null
         val result = fabActionForNav3(AppDestination.AgendaGraph(route), today, navigate)
         assertEquals("Add task", result.label(), "$route must offer a way to create a task")
@@ -277,15 +281,20 @@ class FabActionResolverTest {
     fun everyAgendaStartRoute_resolvesToTheClassifiedAction() {
         everyAgendaStartRoute.forEach { route ->
             when (expectedFabFor(route)) {
-                ExpectedFab.None ->
+                ExpectedFab.None -> {
                     assertNull(
                         fabActionForNav3(AppDestination.AgendaGraph(route), today, navigate),
                         "$route must resolve to no action",
                     )
+                }
 
-                ExpectedFab.AddTaskDueToday -> assertAddTaskAction(route, today)
+                ExpectedFab.AddTaskDueToday -> {
+                    assertAddTaskAction(route, today)
+                }
 
-                ExpectedFab.AddTaskNoDueDate -> assertAddTaskAction(route, null)
+                ExpectedFab.AddTaskNoDueDate -> {
+                    assertAddTaskAction(route, null)
+                }
             }
         }
     }

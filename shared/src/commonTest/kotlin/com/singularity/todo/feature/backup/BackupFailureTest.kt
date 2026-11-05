@@ -89,10 +89,11 @@ class BackupFailureTest {
 
     @Test
     fun `a codec failure with a cause keeps the person's own words`() {
-        val failure = backupFailure(
-            ArchiveEnvelopeError.Unusable(IllegalStateException("no space left on device")),
-            fallback,
-        )
+        val failure =
+            backupFailure(
+                ArchiveEnvelopeError.Unusable(IllegalStateException("no space left on device")),
+                fallback,
+            )
 
         assertEquals(UNUSABLE_ARCHIVE, failure.code)
         assertEquals(

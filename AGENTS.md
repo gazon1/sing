@@ -241,3 +241,9 @@ policy — `docs/doc-maintenance.md`.
 
 Issue tracker — `docs/agents/issue-tracker.md`; доменные доки — `docs/agents/domain.md` (`CONTEXT.md`
 в корне, ADR-и в `docs/decisions/`). Список снятых скиллов и причина каждого — `docs/doc-maintenance.md`.
+
+## Easement (architecture quality gate)
+
+- Use the easement skill before adding a file or an import and whenever `easement check` fails.
+- After changing code, run `easement check`; it must exit 0.
+- Never edit easement.yml, regenerate the baseline or add an `easement:disable` comment without asking a human.
