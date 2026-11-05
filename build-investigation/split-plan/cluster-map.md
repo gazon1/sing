@@ -187,3 +187,9 @@ priced from both sides, that is true for the *features* and false for `core/ui`:
 
 So the ordering is: measure a `core/ui`-sized module first (Phase 2), then decide. Layer repair is the
 precondition for the features, not for the pilot.
+
+**What the gates then decided** (`cost-model.md`, `replay.md`, `kotlin-versions.md`): the price is linear in
+file count and dominated by the compiler, not by our plugins; the Kotlin version is not a lever (all four tested
+versions fall back); and the replay says a split improves the median edit by ~85 % while making the p80 *worse*
+(+8 % for 38 modules) because ABI edits cascade. No clean go — the next step is one real two-module build, and
+`core/ui` is the five-import change that produces it.

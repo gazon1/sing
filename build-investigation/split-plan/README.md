@@ -51,6 +51,9 @@ Exit codes: `2` settle not `UP-TO-DATE` · `3` tree dirty · `4` no usable repor
 | `cut-plan.txt` | what it costs to lift a cluster, and the greedy feedback arc set for the whole graph |
 | `commit-profile.txt` | what share of the history a split could shorten, and the renames that truncate it |
 | `cluster-map.md` | Phase 1 reading: what is hot, what is liftable, and what blocks it |
+| `kotlin-versions.md` | H9: the fallback on 2.4.10 / 2.4.20 / 2.4.21 / 2.5.0-Beta2, and KT-82893's state |
+| `cost-model/`, `cost-model.md` | the synthetic stand, the fitted `T = a + b·N`, and Gate E |
+| `replay.py`, `replay.md` | six months of history replayed against three hypothetical splits |
 | `results/env.txt` | toolchain and configuration the numbers belong to |
 
 The patched **source** is never committed: it exists only between `git apply` and `git apply -R` inside one cycle.
