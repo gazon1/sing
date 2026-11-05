@@ -1,5 +1,6 @@
 package com.singularity.todo.core.backup
 
+import com.singularity.todo.core.serialization.StableJson
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -9,6 +10,8 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @Tag("fast")
@@ -322,6 +325,62 @@ class BackupMigrationsTest {
         assertEquals("BLOCKS", result.dependencyAt(0).string("verb"), "the edge says what it means")
     }
 
+    /**
+     * A payload written at the first version restores as the rows the chain promised.
+     *
+     * The step tests read the JSON the chain writes; the DTO tests read rows built
+     * in code. Neither says what an old backup **restores as**, and the decoder
+     * between them is lenient: `StableJson` ignores a key the payload type does not
+     * know, so a field a step promises can be dropped there without a word and
+     * every other test in the tree stays green.
+     *
+     * This is the run that closes that gap. The payload is decoded the way the
+     * importer decodes it, and the rows that come back are asked what they carry —
+     * every task's workflow state, every edge's verb, and the fields the first
+     * version did not have. Then the chain's own output is compared with what the
+     * payload type reads for those rows, which is what fails when a step writes a
+     * field the reader cannot see.
+     */
+    @Test
+    fun aPayloadWrittenAtTheFirstVersionRestoresAsTheRowsTheChainPromised() {
+        val payload = decodeMigratedPayload(V1_PAYLOAD_WITH_EDGES.encodeToByteArray(), 1)
+
+        assertEquals(
+            BackupMigrations.CURRENT,
+            payload.schemaVersion,
+            "the reader gets the payload this build writes",
+        )
+        assertTheRowsTheChainPromised(payload)
+
+        val migrated = BackupMigrations.migrate(payload(V1_PAYLOAD_WITH_EDGES), 1)
+        assertEveryWrittenKeyIsRead(migrated, readBack(payload))
+    }
+
+    /**
+     * The join check notices a field the payload type does not carry.
+     *
+     * A green join test is worth something only if it can be red. Nothing is
+     * subtracted here: the check is asked what the chain writes that the reader
+     * does not carry, and the answer is the real gap — `parentTaskId`, which
+     * v1→v2 writes and `TaskDto` does not carry (#1998).
+     *
+     * The join test subtracts exactly that set and finds nothing else, so the two
+     * together say the gap is one key wide and no wider. When the payload type
+     * learns the field, this fails and the exception goes with it.
+     */
+    @Test
+    fun theJoinCheckNoticesAFieldThePayloadTypeDoesNotCarry() {
+        val payload = decodeMigratedPayload(V1_PAYLOAD_WITH_EDGES.encodeToByteArray(), 1)
+        val migrated = BackupMigrations.migrate(payload(V1_PAYLOAD_WITH_EDGES), 1)
+
+        assertEquals(
+            setOf("parentTaskId"),
+            lostKeys(migrated.rows(TASKS), readBack(payload).rows(TASKS)),
+            "the check must see the field the chain writes and the payload type does not carry; " +
+                "an empty set here means TaskDto carries parentTaskId now (#1998), and NOT_CARRIED goes with it",
+        )
+    }
+
     /** A payload as it would have been written at [version]. */
     private fun payloadAt(version: Int): JsonObject =
         payload("""{"schemaVersion":$version,"tasks":[{"id":"t1","title":"A task","createdAt":1,"updatedAt":1}]}""")
@@ -346,4 +405,192 @@ class BackupMigrationsTest {
     private fun JsonObject.noteAt(index: Int): JsonObject = array("notes")[index] as JsonObject
 
     private fun JsonObject.dependencyAt(index: Int): JsonObject = array("taskDependencies")[index] as JsonObject
+
+    /** The rows under [key], as objects. */
+    private fun JsonObject.rows(key: String): List<JsonObject> = array(key).map { it as JsonObject }
+
+    /**
+     * The payload type's own JSON for [payload]: every field it carries, holding
+     * the value the reader actually got.
+     *
+     * `StableJson` encodes defaults, so this is the payload type's whole field set
+     * and not only the fields the chain happened to write — which is what makes it
+     * usable as the reader's side of the comparison.
+     */
+    private fun readBack(payload: BackupPayload): JsonObject =
+        payload(StableJson.encodeToString(BackupPayload.serializer(), payload))
+
+    /**
+     * The keys the chain writes on a row that the payload type does not read back.
+     *
+     * [notCarried] is the declared gap, subtracted rather than left out of the
+     * comparison so a new uncarried key cannot hide behind the one everybody
+     * already knows about.
+     */
+    private fun lostKeys(
+        written: List<JsonObject>,
+        read: List<JsonObject>,
+        notCarried: Set<String> = emptySet(),
+    ): Set<String> =
+        written
+            .zip(read)
+            .flatMap { (writtenRow, readRow) -> writtenRow.keys - readRow.keys - notCarried }
+            .toSet()
+
+    /**
+     * Every key the chain writes is a key the payload type reads back, with the
+     * value the chain wrote.
+     *
+     * A key the chain writes that [read] does not carry was dropped by the decoder,
+     * and the restore never saw it; a key both carry with different values is a
+     * record the backup promised one thing and the restore another.
+     */
+    private fun assertEveryWrittenKeyIsRead(migrated: JsonObject, read: JsonObject) {
+        assertEquals(
+            emptySet<String>(),
+            migrated.keys - read.keys,
+            "the chain writes a payload field the payload type does not carry, so the restore drops it",
+        )
+        for (rowKey in ROW_KEYS) {
+            assertEquals(
+                emptySet<String>(),
+                lostKeys(migrated.rows(rowKey), read.rows(rowKey), NOT_CARRIED[rowKey].orEmpty()),
+                "the chain writes a $rowKey field the payload type does not carry, so the value it " +
+                    "promised is not the value the reader gets",
+            )
+            migrated
+                .rows(rowKey)
+                .zip(read.rows(rowKey))
+                .forEach { (writtenRow, readRow) ->
+                    writtenRow.forEach { (key, value) ->
+                        if (key in readRow) {
+                            assertEquals(
+                                value,
+                                readRow[key],
+                                "the $rowKey field `$key` reads back as something other than what the chain wrote",
+                            )
+                        }
+                    }
+                }
+        }
+    }
+
+    /**
+     * The rows the decoded payload carries, asked for what the chain promised them.
+     */
+    private fun assertTheRowsTheChainPromised(payload: BackupPayload) {
+        assertEquals(2, payload.tasks.size, "the chain keeps every task it was given")
+        payload.tasks.forEach { task ->
+            assertEquals(
+                "Open",
+                task.workflowState,
+                "v5→v6 says a task written before the state existed claims nothing, and every row carries Open",
+            )
+            assertNull(
+                task.estimateMinutes,
+                "v1→v2 fills in the estimate a v1 task never carried, and every row carries none",
+            )
+            assertNull(
+                task.recurrenceRule,
+                "v1→v2 fills in the recurrence a v1 task never carried, and every row carries none",
+            )
+            assertEquals(
+                emptyList<String>(),
+                task.outgoingLinks,
+                "v1→v2 fills in the links a v1 task never carried, and every row carries none",
+            )
+            assertEquals(
+                emptyList<String>(),
+                task.aiSuppressedTagIds,
+                "v1→v2 fills in the suppressed tags a v1 task never carried, and every row carries none",
+            )
+        }
+
+        assertEquals(2, payload.notes.size, "the chain keeps every note it was given")
+        payload.notes.forEach { note ->
+            assertFalse(note.isPinned, "v1→v2 fills in the pin a v1 note never carried, and no note is pinned")
+            assertNull(
+                note.pinnedAt,
+                "v1→v2 fills in the pin timestamp a v1 note never carried, and none carries one",
+            )
+            assertNull(note.color, "v1→v2 fills in the colour a v1 note never carried, and none carries one")
+            assertEquals(
+                0,
+                note.sortOrder,
+                "v1→v2 fills in the order a v1 note never carried, and each starts at zero",
+            )
+            assertEquals(
+                0,
+                note.wordCount,
+                "v1→v2 fills in the word count a v1 note never carried, and each starts at zero",
+            )
+            assertEquals(
+                0,
+                note.charCount,
+                "v1→v2 fills in the character count a v1 note never carried, and each starts at zero",
+            )
+            assertEquals(
+                emptyList<String>(),
+                note.outgoingLinks,
+                "v1→v2 fills in the links a v1 note never carried, and none carries one",
+            )
+            assertNull(note.taskId, "v1→v2 fills in the task link a v1 note never carried, and none carries one")
+        }
+
+        assertEquals(2, payload.taskDependencies.size, "the chain keeps every edge it was given")
+        payload.taskDependencies.forEach { edge ->
+            assertEquals(
+                "BLOCKS",
+                edge.verb,
+                "v4→v5 says an edge written without a verb is a block, and every row carries BLOCKS",
+            )
+        }
+
+        assertTrue(
+            payload.agendaViews.isEmpty(),
+            "v2→v3 says a v2 payload carries no saved views, and the payload carries none",
+        )
+        assertTrue(
+            payload.removals.isEmpty(),
+            "v6→v7 says nothing was removed, and nothing is what the payload carries",
+        )
+    }
+
+    private companion object {
+        /**
+         * A payload written at the first version, plus the dependency edges a v1
+         * payload could not carry.
+         *
+         * The edges are artificial and deliberate: the step that writes a verb only
+         * touches edges that are already there, so an edge is the only way to see
+         * what the chain says an edge of an old backup means. A real v1 payload
+         * restores the same way, with no edges to mean anything.
+         *
+         * Every list carries two rows: a step that writes a field on the first row
+         * and forgets the rest is exactly the bug a one-row fixture cannot see.
+         */
+        const val V1_PAYLOAD_WITH_EDGES =
+            """{"schemaVersion":1,""" +
+                """"tasks":[{"id":"t1","title":"A task","createdAt":1,"updatedAt":1},""" +
+                """{"id":"t2","title":"Another task","createdAt":1,"updatedAt":1}],""" +
+                """"notes":[{"id":"n1","title":"A note","createdAt":1,"updatedAt":1},""" +
+                """{"id":"n2","title":"Another note","createdAt":1,"updatedAt":1}],""" +
+                """"taskDependencies":[{"taskId":"t1","dependsOnTaskId":"t2"},""" +
+                """{"taskId":"t2","dependsOnTaskId":"t1"}]}"""
+
+        const val TASKS = "tasks"
+
+        /** The rows the chain writes fields on — every one of them is compared. */
+        val ROW_KEYS = listOf(TASKS, "notes", "taskDependencies")
+
+        /**
+         * The declared gap, by row kind: `v1ToV2` writes `parentTaskId` on a task and
+         * `TaskDto` does not carry it, so a restore drops it — #1998 owns the fix.
+         *
+         * The exception is one key on one row kind, and the join test's control
+         * proves the gap is still a gap: when the payload type learns the field,
+         * that test fails and this map goes with it.
+         */
+        val NOT_CARRIED: Map<String, Set<String>> = mapOf(TASKS to setOf("parentTaskId"))
+    }
 }

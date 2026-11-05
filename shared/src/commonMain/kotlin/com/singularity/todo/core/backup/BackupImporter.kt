@@ -26,7 +26,6 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.timetracking.data.TimeEntryDao
 import kotlinx.coroutines.CancellationException
-import kotlinx.serialization.json.jsonObject
 import kotlin.time.Clock
 
 /**
@@ -191,10 +190,10 @@ class BackupImporter(
             // unreadable payload says so.
             throw BackupPayloadError.SchemaTooOld(payload.schemaVersion)
         } else if (payload.schemaVersion < BackupFormat.SCHEMA_VERSION) {
-            val jsonObj = json.parseToJsonElement(payloadBytes.decodeToString()).jsonObject
-            val migrated = BackupMigrations.migrate(jsonObj, payload.schemaVersion)
-            val migratedBytes = json.encodeToString(migrated).encodeToByteArray()
-            json.decodeFromString(BackupPayload.serializer(), migratedBytes.decodeToString())
+            // The same decode the test that joins the chain to the payload type
+            // uses — one home, so the reader the test asserts on cannot become a
+            // lenient stand-in for the one a restore uses.
+            decodeMigratedPayload(payloadBytes, payload.schemaVersion)
         } else {
             payload
         }
