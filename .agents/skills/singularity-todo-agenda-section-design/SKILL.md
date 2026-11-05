@@ -64,6 +64,15 @@ The bottom bar shows three agenda tabs, and a task belongs to exactly one of the
 `AgendaPresets.All` above is **not** a tab — it holds every bucket, and it is
 the seed a new saved view starts from.
 
+The tabs cover a **horizon**, not the whole agenda: a task dated beyond next week
+is in none of them (ADR `2026-11-05-the-agenda-tabs-cover-a-horizon`). It is in
+the Plans timeline, in the Calendar and in a saved view seeded from `All`, and
+the Upcoming tab ends with a line that says so — `AgendaHorizonNote` in
+`shared-ui`, shown below the last section and below the empty state. Do not add
+a "Later" section to close the gap: the relative buckets have no open-ended
+range, and a catch-all section would make Upcoming the wide view under a tab
+name.
+
 Two rules keep the tabs apart:
 
 - **A tab never repeats another's bucket.** `Upcoming` used to open with

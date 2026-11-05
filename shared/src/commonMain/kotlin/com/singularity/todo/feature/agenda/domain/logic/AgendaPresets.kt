@@ -220,6 +220,14 @@ object AgendaPresets {
      * gone — the `Not` is what keeps the two tabs disjoint. "This Week" and "Next
      * Week" are disjoint ranges, so the last of them needs no `discard`; the
      * narrower buckets above them do, for the same reason as [All].
+     *
+     * The tab is a **horizon**, not the whole agenda: a task due further out than
+     * next week is deliberately in no tab. It is not lost — it is in the Plans
+     * timeline, in the Calendar, and in a saved view seeded from [All] — but the
+     * bottom bar answers "what is coming soon", and a task three weeks out is
+     * planned rather than coming up. [AgendaTabDisjointnessTest] pins that gap so
+     * it is not mistaken for a bug. See ADR
+     * `2026-11-05-the-agenda-tabs-cover-a-horizon`.
      */
     val Upcoming: AgendaDefinition =
         agenda("Upcoming") {
