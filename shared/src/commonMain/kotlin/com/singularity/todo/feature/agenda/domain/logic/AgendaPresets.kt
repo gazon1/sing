@@ -30,8 +30,15 @@ object AgendaPresets {
      * contains it. Without that, a task due today also matches "This Week" and
      * "This Month" and is rendered three times — which crashed the agenda's
      * `LazyColumn` on duplicate item keys, since `AgendaList` keys rows by task id
-     * alone. "This Month" is the final catch-all and deliberately does *not* discard;
-     * "No Date" sits after it but is disjoint (`dueDate == null`).
+     * alone. "This Month" deliberately does *not* discard — the month buckets are
+     * disjoint, so nothing after it can match what it holds; "No Date" sits last and
+     * is disjoint too (`dueDate == null`).
+     *
+     * The view reaches to the end of next month: "Next Month" is its last dated
+     * section. A task due after that is in no section of this view — the Calendar,
+     * the Plans timeline and a saved view with its own date range are where it is
+     * reached. The reach is decided in
+     * `docs/decisions/2026-11-05-the-wide-view-reaches-next-month.md`.
      *
      * This is the widest view there is — it holds the tasks of every other preset —
      * so it is *not* a bottom-bar tab. The three tabs are [Inbox], [Today] and
@@ -126,10 +133,22 @@ object AgendaPresets {
                     ),
             )
             section(
+                "next_month",
+                "Next Month",
+                Selector.DateBucket(RelativeBucket.NextMonth),
+                order = 6,
+                prefill =
+                    SectionPrefill(
+                        "next_month",
+                        "Next month",
+                        relativeDueDate = RelativeBucket.NextMonth,
+                    ),
+            )
+            section(
                 "no_date",
                 "No Date",
                 Selector.DateBucket(RelativeBucket.NoDate),
-                order = 6,
+                order = 7,
                 prefill = SectionPrefill("no_date", "No date"),
             )
         }
