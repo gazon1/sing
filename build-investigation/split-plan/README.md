@@ -46,11 +46,28 @@ Exit codes: `2` settle not `UP-TO-DATE` · `3` tree dirty · `4` no usable repor
 | `results/p0-in-process-N/result.txt`, `host.txt` | committed evidence: extracted report lines, task outcomes, host state |
 | `results/p0-in-process-N/*.log` | raw `--info` logs and the build report copy — local only, `*.log` is git-ignored |
 | `baseline.md` | Phase 0 table and the H0 verdict |
-| `analyse.py`, `hot-files.txt`, `hot-packages.txt`, `co-changes.txt`, `package-graph.txt`, `cluster-map.md` | Phase 1 |
+| `analyse.py` | Phase 1 analysis, stdlib only; `python3 analyse.py --since 2026-05-05 --out .` regenerates the five files below in about a second |
+| `hot-files.txt` `hot-packages.txt` `co-changes.txt` `package-graph.txt` `cluster-data.tsv` | Phase 1 outputs (files, packages, co-changes, import graph, cluster table) |
+| `cluster-map.md` | Phase 1 reading: what is hot, what is liftable, and what blocks it |
 | `results/env.txt` | toolchain and configuration the numbers belong to |
 
 The patched **source** is never committed: it exists only between `git apply` and `git apply -R` inside one cycle.
 The `.patch` file is committed, because the stand is not reproducible without it.
+
+## Phase 1
+
+```bash
+python3 build-investigation/split-plan/analyse.py --since 2026-05-05 --out build-investigation/split-plan
+```
+
+A pinned date, not `6 months ago`: the window has to reproduce. Three questions, one pass over the tree and one
+over `git log`: what changes most often (files, packages, clusters), what changes *together* (the coupling a split
+must not cut), and what imports what (packages and clusters, with the shortest cycle through each candidate).
+
+Production source sets are counted apart from test ones, packages that only test sources declare are not graph
+nodes (their code lives in another module), and an import is only resolved to a package when the remainder looks
+like a type or a member — otherwise `core.format.formatPadded` would fall back to the root package and invent an
+edge through it. The script exits non-zero if any of those invariants breaks.
 
 ## Numbers
 
