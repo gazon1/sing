@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.screen
 
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,7 +21,9 @@ import com.singularity.todo.feature.tasks.domain.state.DraftAttachment
 import com.singularity.todo.feature.tasks.domain.state.DraftChecklistItem
 import com.singularity.todo.feature.tasks.domain.state.DueDateOption
 import com.singularity.todo.feature.tasks.domain.state.TaskCreateIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskCreateSeed
 import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
+import com.singularity.todo.feature.tasks.domain.state.TaskTitleValidation
 import com.singularity.todo.feature.tasks.presentation.components.detail.AttachmentsCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.ChecklistCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
@@ -55,8 +58,20 @@ import kotlin.time.Instant
 fun TaskCreateScreen(
     initialDueDate: LocalDate?,
     draftKey: String? = null,
+    initialProjectId: ProjectId? = null,
+    initialTagIds: Set<TagId> = emptySet(),
 ) {
-    val vm: TaskCreateViewModel = koinViewModel { parametersOf(initialDueDate, draftKey) }
+    val vm: TaskCreateViewModel =
+        koinViewModel {
+            parametersOf(
+                TaskCreateSeed(
+                    initialDueDate = initialDueDate,
+                    draftKey = draftKey,
+                    initialProjectId = initialProjectId,
+                    initialTagIds = initialTagIds,
+                ),
+            )
+        }
     // The injected clock, not the system one. This screen hands `now` down to the
     // editor and stamps draft attachments with it, so a test that pins a clock in
     // Koin controls both. `koinInject` rather than a parameter: this is a nav
@@ -80,8 +95,13 @@ fun TaskCreateScreen(
         }
     }
 
+    val titleError = TaskTitleValidation.error(state.draft.title.text)
+
     LaunchedEffect(state.error) {
-        state.error?.let { snackbarHostState.showSnackbar(it) }
+        val message = state.error ?: return@LaunchedEffect
+        if (message != TaskTitleValidation.REQUIRED_MESSAGE) {
+            snackbarHostState.showSnackbar(message)
+        }
     }
 
     val guardedBack: () -> Unit = {
@@ -233,9 +253,8 @@ fun TaskCreateScreen(
         titleSource = state.draft.titleSource,
         descriptionSource = state.draft.descriptionSource,
         now = now,
-        // The state the rows open their sheets through. The editor renders the sheets
-        // from the same state, so the row that opens one and the host that shows it are
-        // looking at one thing.
+        titleError = titleError,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         sheets = sheets,
     )
 }

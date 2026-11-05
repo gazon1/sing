@@ -79,25 +79,18 @@ class FabActionResolverTest {
 <<<<<<< HEAD
 =======
     @Test
-    fun agendaGraph_savedAgendaResults_returnsAddTask() {
+    fun agendaGraph_savedAgendaResults_returnsNull() {
         val result =
             fabActionForNav3(
                 AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaResults(view)),
                 today,
                 navigate,
             )
-        assertEquals(
-            "Add task",
-            result.label(),
-            "a saved view's results screen lists tasks, so it carries the action (#2057)",
+        assertNull(
+            result,
+            "a saved view's results screen is not the shell's task list: #1952 and #1958 " +
+                "keep it buttonless, and FabActionResolver.kt records why that beat #2057",
         )
-        val nav = result.click()
-        assertEquals(
-            AppDestination.TasksStartRoute.Create(),
-            nav.start,
-            "and it creates a plain task, with no date prefilled — as on Inbox",
-        )
-        assertNull(nav.initialDueDate, "a saved view's results prefill no date")
     }
 
     @Test
@@ -193,19 +186,19 @@ class FabActionResolverTest {
             is AgendaStartRoute.Project,
             is AgendaStartRoute.Tag,
             is AgendaStartRoute.Tags,
-            // A saved view's results are a list of tasks — the view is a filter over
-            // the same agenda — so the screen carries the action, plain and undated
-            // (#2057). #1952 and #1958 asked for it buttonless; the newest
-            // classification won, and `FabActionResolver`'s branch records why. This
-            // line is the same decision seen from the test side: move one, move both.
-            is AgendaStartRoute.SavedAgendaResults,
             AgendaStartRoute.Blocked,
             AgendaStartRoute.Stagnant,
             AgendaStartRoute.Overdue,
             -> true
 
-            // The saved-view *management* screens are not task lists.
+            // The saved-view screens are not task lists — the list of views, the
+            // editor, the creator, and a view's *results*. The results screen is
+            // the contested one: #2057 asks for a button there, #1952 and #1958
+            // keep it buttonless. The majority won, and `FabActionResolver`'s
+            // saved-view branch records why. This line is the same decision seen
+            // from the test side: move one, move both.
             AgendaStartRoute.SavedAgendaList,
+            is AgendaStartRoute.SavedAgendaResults,
             is AgendaStartRoute.SavedAgendaEdit,
             AgendaStartRoute.SavedAgendaCreate,
             -> false
