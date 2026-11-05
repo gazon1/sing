@@ -219,9 +219,24 @@ class SequentialIdGenerator(private val prefix: String = "id") : IdGenerator {
 
 /**
  * In-memory [SyncDeadLetterDao].
+ *
+ * [failOnInsert] makes the shelf refuse every row, which is how a test proves that a
+ * record that cannot be written does not fail the pull around it.
  */
-class FakeSyncDeadLetterDao : SyncDeadLetterDao {
+class FakeSyncDeadLetterDao(
+    private val failOnInsert: Boolean = false,
+) : SyncDeadLetterDao {
     val rows = mutableListOf<SyncDeadLetterEntity>()
+
+    /**
+     * How many times the pull phase asked for a trim.
+     *
+     * The trim is once per pulled page, not once per shelved event, and that is a
+     * property of the caller rather than of the SQL — a fake that only counted rows
+     * could not tell the two apart.
+     */
+    var pruneCalls: Int = 0
+        private set
 
     override fun watch(): Flow<List<SyncDeadLetterEntity>> = MutableStateFlow(snapshot())
 
@@ -230,11 +245,73 @@ class FakeSyncDeadLetterDao : SyncDeadLetterDao {
     override suspend fun getAll(): List<SyncDeadLetterEntity> = snapshot()
 
     override suspend fun insert(entity: SyncDeadLetterEntity) {
+        if (failOnInsert) throw IllegalStateException("the shelf is not writable")
         rows.removeAll { it.patchId == entity.patchId }
         rows += entity
     }
 
-    override suspend fun delete(id: String): Int = if (rows.removeAll { it.patchId == id }) 1 else 0
+    /**
+     * `@Insert(onConflict = IGNORE)`: a row for this key already being here is what `-1`
+     * means, and it is what the caller reads as "this was a redelivery".
+     */
+    override suspend fun insertInboundIfAbsent(entity: SyncDeadLetterEntity): Long {
+        if (failOnInsert) throw IllegalStateException("the shelf is not writable")
+        if (rows.any { it.patchId == entity.patchId }) return -1L
+        rows += entity
+        return rows.size.toLong()
+    }
+
+    /** `UPDATE ... SET attempts = attempts + 1 WHERE ...`, owner-scoped like the SQL. */
+    override suspend fun bumpInboundDelivery(
+        id: String,
+        ownerId: String,
+    ): Int {
+        if (failOnInsert) throw IllegalStateException("the shelf is not writable")
+        val index = rows.indexOfFirst { it.patchId == id && it.ownerId == ownerId }
+        if (index < 0) return 0
+        rows[index] = rows[index].copy(attempts = rows[index].attempts + 1)
+        return 1
+    }
+
+    /**
+     * Keeps this owner's newest inbound rows and drops the rest, as the SQL does.
+     *
+     * Bounded per owner and filtered to the inbound key prefix, because the two are the
+     * parts of the statement that keep one account's flood from evicting another's
+     * evidence and from touching the outbound patches at all.
+     */
+    override suspend fun pruneInboundTo(
+        ownerId: String,
+        maxRows: Int,
+    ): Int {
+        pruneCalls++
+        if (failOnInsert) throw IllegalStateException("the shelf is not writable")
+        val doomed =
+            rows.filter { it.ownerId == ownerId && it.isInboundEvent }
+                .sortedByDescending { it.failedAt }
+                .drop(maxRows)
+                .map { it.patchId }
+                .toSet()
+        rows.removeAll { it.patchId in doomed }
+        return doomed.size
+    }
+
+    /**
+     * `DELETE ... WHERE patch_id = :id AND patch_id NOT LIKE 'pull:%'`.
+     *
+     * The filter is part of the contract, not of the test: this is the primitive a
+     * restore path calls, and an inbound-event key deletes nothing here. Without it the
+     * fake would let a test prove that an inbound row cannot be re-queued against
+     * behaviour the real DAO does not have.
+     */
+    override suspend fun delete(id: String): Int =
+        if (SyncDeadLetterEntity.isInboundEventKey(id)) {
+            0
+        } else if (rows.removeAll { it.patchId == id }) {
+            1
+        } else {
+            0
+        }
 
     override suspend fun deleteForOwner(ownerId: String): Int {
         val doomed = rows.filter { it.ownerId == ownerId }

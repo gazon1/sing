@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
@@ -38,14 +39,18 @@ import kotlin.test.assertTrue
  *
  * | Branch | Trigger | Expected outcome |
  * |---|---|---|
- * | Protocol version guard | protocolVersion > CURRENT | Skipped |
- * | Null payload | data == null | Skipped |
- * | JsonNull payload | data == JsonNull | Skipped |
- * | Non-object payload | data is not JsonObject | Skipped |
- * | applyRemote throws SerializationException | — | Skipped |
+ * | Protocol version guard | protocolVersion > CURRENT | Skipped, not corrupt |
+ * | Null payload | data == null | Skipped, not corrupt |
+ * | JsonNull payload | data == JsonNull | Skipped, not corrupt |
+ * | Non-object payload | data is not JsonObject | Skipped, corrupt |
+ * | applyRemote throws SerializationException | — | Skipped, corrupt |
  * | applyRemote throws other exception | — | Failed |
  * | DELETED → deleteDocument() → success | — | Applied |
  * | DELETED → deleteDocument() → failure | — | Failed |
+ *
+ * **Corrupt** means the payload was there and could not be read. The cursor advances
+ * either way, but a corrupt event is shelved in the dead-letter store — the pull phase
+ * reads the flag and records it — while a payload the server never sent is not.
  */
 @Tag("fast")
 class PullEventHandlerTest {
@@ -117,6 +122,7 @@ class PullEventHandlerTest {
                 "protocol version ${SyncProtocol.CURRENT_PROTOCOL_VERSION + 1} is newer than ${SyncProtocol.CURRENT_PROTOCOL_VERSION}",
                 outcome.reason,
             )
+            assertFalse(outcome.corrupt, "a newer protocol is not a corrupt payload")
         }
 
     @Test
@@ -149,6 +155,7 @@ class PullEventHandlerTest {
 
             assertIs<ApplyOutcome.Skipped>(outcome)
             assertEquals("the event carries no document", outcome.reason)
+            assertFalse(outcome.corrupt, "a payload the server never sent is not corruption")
         }
 
     @Test
@@ -162,6 +169,7 @@ class PullEventHandlerTest {
 
             assertIs<ApplyOutcome.Skipped>(outcome)
             assertEquals("the event carries no document", outcome.reason)
+            assertFalse(outcome.corrupt, "a payload the server never sent is not corruption")
         }
 
     @Test
@@ -175,6 +183,7 @@ class PullEventHandlerTest {
 
             assertIs<ApplyOutcome.Skipped>(outcome)
             assertEquals("the event payload is not a document", outcome.reason)
+            assertTrue(outcome.corrupt, "bytes that are not a document are corrupt bytes")
         }
 
     // ─── applyRemote outcomes ──────────────────────────────────────────
@@ -188,6 +197,7 @@ class PullEventHandlerTest {
 
             assertIs<ApplyOutcome.Skipped>(outcome)
             assertEquals("the event payload does not decode: Unrecognisable format", outcome.reason)
+            assertTrue(outcome.corrupt, "bytes that do not decode are corrupt bytes")
         }
 
     @Test
@@ -211,6 +221,11 @@ class PullEventHandlerTest {
 
             assertIs<ApplyOutcome.Skipped>(outcome)
             assertTrue(outcome.reason.contains("series id"), outcome.reason)
+            assertFalse(
+                outcome.corrupt,
+                "a document this build cannot use is not corrupt: it decodes, and the " +
+                    "sender's next push carries the fix",
+            )
             assertTrue(tasks.observeAll().first().isEmpty(), "the forbidden shape was not stored")
         }
 

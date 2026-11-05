@@ -177,14 +177,25 @@ sealed interface ApplyOutcome {
     data object Applied : ApplyOutcome
 
     /**
-     * This event cannot be applied and never will be — a payload that is absent or is
-     * not a document. Retrying re-delivers the same bytes, so the cursor advances past
-     * it and the event is counted as dropped.
+     * This event cannot be applied and never will be — a payload that is absent, is not
+     * a document, or does not decode. Retrying re-delivers the same bytes, so the
+     * cursor advances past it and the event is counted as dropped.
      *
      * Advancing is the whole point. A permanently unusable event that blocked the cursor
      * would stop the account syncing anything else, forever, over one bad row.
+     *
+     * @property corrupt whether the payload was present but unusable — the bytes could
+     *   not be turned into a document at all. A corrupt payload is skipped *and*
+     *   recorded: the cursor still advances, but the event is shelved in the dead-letter
+     *   store, so a remote change this device dropped does not vanish without a trace.
+     *   A skip that is not corrupt — a payload the server did not send, a document from
+     *   a newer protocol — is not shelved: nothing about it is lost work, and a shelf
+     *   full of them would be noise.
      */
-    data class Skipped(val reason: String) : ApplyOutcome
+    data class Skipped(
+        val reason: String,
+        val corrupt: Boolean = false,
+    ) : ApplyOutcome
 
     /**
      * This event could not be applied but a later attempt might succeed — a delete
@@ -350,6 +361,7 @@ internal class SyncEngine(
             scope = scope,
             hlcFactory = hlcFactory,
             shadowDao = shadowDao,
+            deadLetterDao = _deadLetterDao,
         ),
 ) : AutoCloseable {
     private class CompositeCloseable(
