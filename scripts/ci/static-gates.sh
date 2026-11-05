@@ -936,6 +936,8 @@ gate blocking "hideKeyboard follows an input" sgate hidekeyboard_follows_an_inpu
 gate blocking "maestro smoke suite matches the doc" sgate maestro_smoke_suite_matches_the_doc
 # A touch target is 48 dp, and the order of the modifier chain decides whether a fixed size caps the hit area or only shapes the picture: the expansion has to come before the size.
 gate blocking "touch targets meet minimum" python3 scripts/check-touch-targets.py
+# The minimum touch target has one home — the shared token in the core UI package — and the task list carries an alias of it for its own files. Outside the task list a touch target is expanded with the shared token and with nothing else: a literal, or the task list’s alias, is the number written down a second time.
+gate blocking "touch targets use the shared token" sgate touch_targets_use_the_shared_token
 # <<< END GENERATED: sgate render-static-gates >>>
 
 # ─── Collect all results and report ─────────────────────────────────────────

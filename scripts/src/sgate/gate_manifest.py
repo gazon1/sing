@@ -1183,6 +1183,17 @@ do.""",
                 'the expansion has to come before the size.'
             ),
         ),
+        'touch targets use the shared token': Placement(
+            kind=PlacementKind.STATIC,
+            command="sgate touch_targets_use_the_shared_token",
+            note=(
+                'The minimum touch target has one home — the shared token in the core '
+                'UI package — and the task list carries an alias of it for its own '
+                'files. Outside the task list a touch target is expanded with the '
+                'shared token and with nothing else: a literal, or the task list’s '
+                'alias, is the number written down a second time.'
+            ),
+        ),
 }
 
 #: The gates that are deliberately NOT a line in ``scripts/ci/static-gates.sh``.

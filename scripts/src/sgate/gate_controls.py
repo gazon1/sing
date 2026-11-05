@@ -986,6 +986,28 @@ SCRIPT_GATES = [
             "caps the hit area and the target stays small however the chain is read"
         ),
     ),
+    # The touch-target token gate: the minimum touch target has one home —
+    # the shared token in the core UI package — and the task list's alias is
+    # for the task list's own files. The chain gate reads the shape of the
+    # chain and not the token it names, so a literal `48.dp` or the task
+    # list's alias outside the task list passed every gate.
+    #
+    # The control plants a literal expansion in a file outside the task list:
+    # the same number written down a second time.
+    ScriptGate(
+        name="touch-target-token",
+        cmd=[sys.executable, "scripts/check-touch-target-token.py"],
+        sabotage_path=(
+            "shared-ui/src/commonMain/kotlin/com/singularity/todo/core/ui/"
+            "components/ColorSwatch.kt"
+        ),
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "the minimum touch target has one home, and nothing read the token a "
+            "call site named: a literal 48 dp outside the task list is the number "
+            "written down a second time, and it is that copy that drifts"
+        ),
+    ),
 ]
 
 @dataclass(frozen=True)
