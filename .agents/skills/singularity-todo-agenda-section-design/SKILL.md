@@ -59,6 +59,13 @@ The bottom bar shows three agenda tabs, and a task belongs to exactly one of the
 `AgendaPresets.All` above is **not** a tab — it holds every bucket, and it is
 the seed a new saved view starts from.
 
+The Upcoming tab's range stops at next week, so a task dated beyond that is in no
+tab at all: it is in the Calendar and in the Plans timeline. The Upcoming tab is
+the one that says so on the screen — the pointer sits at the end of its list, or
+under its empty state, and names those two surfaces in the app's own words. The
+preset's own documentation names the same two, so the screen and the code say the
+same thing.
+
 Two rules keep the tabs apart:
 
 - **A tab never repeats another's bucket.** `Upcoming` used to open with

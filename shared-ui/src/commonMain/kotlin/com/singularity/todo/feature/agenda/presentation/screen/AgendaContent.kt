@@ -82,6 +82,9 @@ import kotlinx.datetime.plus
  *
  * @param state The current agenda UI state.
  * @param title Title to display in the top app bar.
+ * @param showsBeyondNextWeekNote Whether the tab shows the pointer to the Calendar and
+ *   the Plans timeline. Only the tab whose own range stops at next week carries it —
+ *   the tab decides, the screen only says where the rest of the tasks are.
  * @param onIntent Called when the user performs an action.
  * @param onMultiDateCreate Called when the user taps the "task on several days"
  *   action. The screen opens the date picker; the content only offers the entry
@@ -97,6 +100,7 @@ fun AgendaContent(
     state: AgendaUiState,
     title: String,
     greeting: String = "",
+    showsBeyondNextWeekNote: Boolean = false,
     onIntent: (AgendaIntent) -> Unit,
     onSavedViewsClick: (() -> Unit)? = null,
     onMultiDateCreate: (() -> Unit)? = null,
@@ -296,11 +300,23 @@ fun AgendaContent(
 
                 is AgendaUiState.Loaded -> {
                     if (state.sections.isEmpty()) {
-                        EmptyState(
-                            title = "No tasks",
-                            subtitle = "You're all caught up — nothing due in this agenda",
-                            modifier = Modifier.padding(paddingValues),
-                        )
+                        // The empty state keeps the space and the pointer takes the line
+                        // under it: the note belongs to the tab, not to the emptiness.
+                        Column(
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(paddingValues),
+                        ) {
+                            EmptyState(
+                                title = "No tasks",
+                                subtitle = "You're all caught up — nothing due in this agenda",
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (showsBeyondNextWeekNote) {
+                                BeyondNextWeekNote()
+                            }
+                        }
                     } else {
                         AgendaList(
                             sections = state.sections,
@@ -309,6 +325,7 @@ fun AgendaContent(
                             onIntent = onIntent,
                             onOpenContextMenu = ::openContextMenu,
                             listState = listState,
+                            showsBeyondNextWeekNote = showsBeyondNextWeekNote,
                             modifier = Modifier.padding(paddingValues),
                         )
                     }
@@ -334,6 +351,7 @@ private fun AgendaList(
     onIntent: (AgendaIntent) -> Unit,
     onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
     listState: LazyListState,
+    showsBeyondNextWeekNote: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -403,6 +421,15 @@ private fun AgendaList(
                         )
                     },
                 )
+            }
+        }
+
+        // The last thing in the list: where a task dated further out than next week is.
+        // It sits at the end because that is where the person who has looked through
+        // the tab is looking.
+        if (showsBeyondNextWeekNote) {
+            item(key = "beyond-next-week-note") {
+                BeyondNextWeekNote()
             }
         }
     }
