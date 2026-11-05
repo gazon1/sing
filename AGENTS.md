@@ -18,8 +18,8 @@
 в начале, стоит один rebase пустого дерева; найденное на пуше — полную перепроверку
 готовой работы, потому что чужие коммиты меняют то, на что опиралась твоя.
 
-**Pre-commit через hk.** Локальные проверки гонятся через `hk` (закреплён в `mise.toml`): `lint-changed` → `compile-changed`.
-Фильтрация изменённых файлов остаётся в `scripts/lint-changed.py`/`scripts/compile-changed.py`, изоляция staged-дерева — в `staged-tree.py`.
+**Pre-commit через hk.** Локальные проверки гонятся через `hk` (закреплён в `mise.toml`): `lint-staged` → `compile-changed`.
+Фильтрация изменённых файлов для ktlint — `lint-staged` (`lint-staged.config.mjs`), выбор модулей для компиляции — `scripts/compile-changed.py`. Изоляция unstaged-изменений и проверка staged-содержимого обеспечивается hk stash (`fix = true`, `stash = "git"`).
 Установка: `mise install` (либо `mise exec -- git commit ...`, если `mise` не активирован). `hk.pkl` генерируется из `mise.toml` (`scripts/generate-hk-pkl.sh`). `just setup-hooks` остаётся источником установки хуков (`core.hooksPath`), без `hk install`.
 
 **`sgate checkout-state` — до того, как что-либо сделал, тоже.** Checkout на машине с

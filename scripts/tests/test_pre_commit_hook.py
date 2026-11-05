@@ -46,7 +46,7 @@ HOOK = REPO_ROOT / '.githooks' / 'pre-commit'
 #:
 #: The fixture copies the hook into a repository of its own, and the hook calls
 #: scripts that live in the tree it runs in. When the hook grew a dependency —
-#: `scripts/staged-tree.py`, which holds the working tree at the index — the
+#: hk stash (`fix=true, stash=git`), which isolates unstaged changes — the
 #: fixture did not know about it, and the hook failed in a repository that had
 #: no such file: the commit was refused for a reason that had nothing to do
 #: with the compile, and five tests said so at push time.

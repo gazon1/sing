@@ -2,6 +2,7 @@
 title: "The commit is checked on its own tree, and the working tree is held while it is"
 date: 2026-10-24
 status: accepted
+Superseded-By: 2026-11-05-pre-commit-hk-stash-lint-staged
 slug: the-commit-is-checked-on-its-own-tree
 ---
 
