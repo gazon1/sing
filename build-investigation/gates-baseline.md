@@ -56,3 +56,17 @@ records 15 detekt findings at the base commit; the Stage 4 tree reports 4 distin
 
 Not run in Stage 4, and no document content was changed by it. `build-investigation/baseline.md`
 records them as red at the base commit; that state is unchanged here, not masked.
+
+## Easement (arrived with the rebase)
+
+`easement check` is red with two pre-existing violations, both in test helpers:
+
+| Path | Rule | Why it is pre-existing |
+|---|---|---|
+| `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/agenda/AgendaStateScenarioSupport.kt:7` | `desktopApp` ↔ `shared` cycle | `desktopApp` test code imports `shared`; `shared` test code imports `desktopApp`'s copy of `CoroutineDiagnostics` |
+| `shared/src/jvmTest/kotlin/com/singularity/todo/test/FailureContextExtension.kt:3` | `shared → desktopApp` import | `CoroutineDiagnostics.kt` is duplicated in both `shared/src/jvmTest/.../test/helpers/` and `desktopApp/src/jvmTest/.../test/helpers/` |
+
+`easement check --diff origin/main` reports 1 violation (the cycle). Neither violation is caused by
+the cut: both files are unchanged from `origin/main`. `easement.yml` was not edited, and no
+artificial green is recorded.
+
