@@ -686,6 +686,16 @@ object TestTags {
     /** "No projects yet" empty text in the project picker sheet. */
     const val PROJECT_PICKER_EMPTY = "project_picker_empty"
 
+    /**
+     * The dismiss control on the project editor's icon and parent picker sheets.
+     *
+     * Both sheets are modal, and both could only be closed by picking a value or
+     * by tapping the scrim — so "cancel without changing anything" had no name a
+     * test or a screen reader could address. This tag names the control that
+     * dismisses a picker without picking.
+     */
+    const val PROJECT_PICKER_DISMISS = "project_picker_dismiss"
+
     /** "No projects yet" empty state title on the projects list screen. */
     const val PROJECTS_LIST_EMPTY = "projects_list_empty"
 

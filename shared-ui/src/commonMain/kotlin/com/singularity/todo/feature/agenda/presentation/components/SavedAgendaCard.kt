@@ -87,12 +87,17 @@ fun SavedAgendaCard(
                 )
             }
 
-            IconButton(onClick = { menuExpanded = true }) {
+            // The tag sits on the button, not on the "⋮" label: the label carries
+            // no click action of its own, so a test that addressed the label had to
+            // inject a click and hope the enclosing button received it.
+            IconButton(
+                onClick = { menuExpanded = true },
+                modifier = Modifier.testTag(TestTags.SAVED_AGENDA_OVERFLOW_BUTTON),
+            ) {
                 Text(
                     text = "⋮",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.testTag(TestTags.SAVED_AGENDA_OVERFLOW_BUTTON),
                 )
                 DropdownMenu(
                     expanded = menuExpanded,
