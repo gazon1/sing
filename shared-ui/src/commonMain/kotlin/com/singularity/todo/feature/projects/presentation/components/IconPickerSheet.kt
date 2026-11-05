@@ -11,9 +11,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -23,7 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
 
@@ -59,7 +65,20 @@ fun IconPickerSheet(
     onDismiss: () -> Unit,
 ) {
     Column(modifier = Modifier.padding(24.dp)) {
-        Text("Icon", style = MaterialTheme.typography.titleMedium)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // The sheet is modal and picking is the only way out of it otherwise,
+            // so "cancel without choosing" needs a control of its own. It is the
+            // same close affordance the editor sheets use, so a dismiss looks the
+            // same wherever it appears.
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag(TestTags.PROJECT_PICKER_DISMISS),
+            ) {
+                Icon(imageVector = Icons.Filled.Close, contentDescription = "Close")
+            }
+            Spacer(Modifier.width(8.dp))
+            Text("Icon", style = MaterialTheme.typography.titleMedium)
+        }
         Spacer(Modifier.height(16.dp))
 
         FlowRow(

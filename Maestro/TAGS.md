@@ -235,6 +235,7 @@ non-alphanumeric characters with `_`.
 | `PROJECT_EDITOR_NAME_INPUT` | `project_editor_name_input` | |
 | `PROJECT_EDITOR_NOTIFICATION_HOST` | `project_editor_notification_host` | |
 | `PROJECT_EDITOR_SAVE` | `project_editor_save` | |
+| `PROJECT_PICKER_DISMISS` | `project_picker_dismiss` | |
 | `PROJECT_PICKER_EMPTY` | `project_picker_empty` | |
 
 ### Settings
