@@ -201,6 +201,12 @@ object AgendaPresets {
      * gone — the `Not` is what keeps the two tabs disjoint. "This Week" and "Next
      * Week" are disjoint ranges, so the last of them needs no `discard`; the
      * narrower buckets above them do, for the same reason as [All].
+     *
+     * The range stops at next week, so a task dated beyond it is in no tab at all:
+     * it is in the Calendar and in the Plans timeline. This is the tab that says
+     * so on the screen — it is the one that promises what is coming, and it is
+     * where a person who has looked through it and not found their task is
+     * looking. The wording of that pointer lives with the screen that shows it.
      */
     val Upcoming: AgendaDefinition =
         agenda("Upcoming") {

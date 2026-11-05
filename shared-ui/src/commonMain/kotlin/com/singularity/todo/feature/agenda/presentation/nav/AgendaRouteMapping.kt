@@ -60,6 +60,9 @@ fun AgendaNavContent(
         is AgendaStartRoute.Upcoming -> {
             AgendaScreen(
                 definition = AgendaPresets.Upcoming,
+                // This tab's own range stops at next week, so it is the tab that
+                // says where a later task is — the Calendar and the Plans timeline.
+                showsBeyondNextWeekNote = true,
                 contextMenuHost = contextMenuHost,
             )
         }
