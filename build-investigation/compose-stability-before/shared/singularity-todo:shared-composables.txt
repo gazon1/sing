@@ -1,0 +1,3376 @@
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.App(
+  deepLinkTarget: DeepLinkTarget?
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.AppContent(
+  deepLinkTarget: DeepLinkTarget?
+  stable themeMode: ThemeMode
+  stable accent: SingularityAccents
+  stable fontSizeScale: Float
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.PlatformShell(
+  state: Nav3State
+  navigator: Navigator
+  navCallbacks: NavCallbacks
+)
+fun com.singularity.todo.core.notifications.rememberNotificationPermissionRequester()
+restartable skippable fun com.singularity.todo.core.ui.components.PlatformBackHandler(
+  unused stable enabled: Boolean
+  unused stable onBack: Function0<Unit>
+)
+fun com.singularity.todo.core.ui.components.platformVerticalScrollbar(
+  stable <this>: Modifier
+  stable state: LazyListState
+): Modifier
+fun com.singularity.todo.core.ui.components.platformVerticalScrollbar(
+  stable <this>: Modifier
+  stable state: ScrollState
+): Modifier
+fun com.singularity.todo.core.ui.components.platformScrollbarStyle()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.menu.ComposeTopMenuBar(
+  stable entries: ImmutableList<MenuNode>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.menu.TopMenuBarItem(
+  stable node: SubMenu
+  stable isOpen: Boolean
+  stable onOpenChange: Function1<Boolean, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.menu.TopMenuBarAction(
+  stable node: Action
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.menu.DropdownPanel(
+  stable content: @[ExtensionFunctionType] Function3<ColumnScope, Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.menu.TopMenuDropdownItem(
+  stable node: MenuNode
+  stable onAction: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.menu.DropdownActionRow(
+  stable node: Action
+  stable onAction: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.menu.DropdownSubMenuRow(
+  stable node: SubMenu
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.menu.ContextMenuHost(
+  stable openState: ContextMenuOpenState?
+  stable onDismiss: Function0<Unit>
+  stable entries: ImmutableList<MenuNode>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.menu.MenuPanel(
+  stable entries: ImmutableList<MenuNode>
+  stable onDismissAll: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.menu.MenuPanelItem(
+  stable node: MenuNode
+  stable onDismissAll: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.menu.ActionMenuRow(
+  stable node: Action
+  stable onClick: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.menu.SubMenuRow(
+  stable node: SubMenu
+  stable openSubMenu: Boolean
+  stable onOpenSubMenu: Function0<Unit>
+  stable onDismissAll: Function0<Unit>
+)
+fun com.singularity.todo.core.ui.menu.rememberHoverOpenState(
+  stable delayMs: Long
+  stable isOpen: Boolean
+  stable onOpen: Function0<Unit>
+): HoverOpenState
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.external.AcpExternalAgentScreen(
+  stable modifier: Modifier? = @static <expression>
+  stable onBack: Function0<Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.external.AcpExternalAgentScreenContent(
+  vm: AcpExternalAgentViewModel
+  stable modifier: Modifier? = @static <expression>
+  stable onBack: Function0<Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.external.ToolCallSummaryLine(
+  stable calls: ImmutableList<AgentToolCall>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.external.AgentInputRow(
+  state: AcpExternalAgentUiState
+  stable inputState: TextFieldState
+  stable onSend: Function0<Unit>
+  stable onCancel: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.external.AgentHeader(
+  state: AcpExternalAgentUiState
+  stable onSelect: Function1<String, Unit>
+  stable onConnect: Function0<Unit>
+  stable onDisconnect: Function0<Unit>
+  stable onBack: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.external.AgentCommand(
+  agent: AcpAgentProfile
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.external.ToolAccessWarning(
+  stable reason: String
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.external.TurnOutcomeLine(
+  outcome: AgentTurnOutcome
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.external.PermissionAnswerLine(
+  answer: AcpPermissionAnswer
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.external.PermissionSheet(
+  request: AcpPermissionRequest
+  stable onAllow: Function1<String, Unit>
+  stable onDeny: Function0<Unit>
+)
+fun com.singularity.todo.feature.calendarSync.auth.rememberGoogleConsent(
+  unused stable clientId: String?
+): GoogleConsent
+fun com.singularity.todo.feature.calendarSync.permission.rememberCalendarPermissionRequester()
+scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.nav.createJvmEntryProvider(
+  nav: NavCallbacks
+  stable today: LocalDate? = @dynamic <expression>
+  pomodoroTimer: PomodoroTimer? = @dynamic <expression>
+  pomodoroTaskList: PomodoroTaskListProvider? = @dynamic <expression>
+): Function1<AppDestination, NavEntry<AppDestination>>
+fun com.singularity.todo.feature.nav.rememberNavBackStackTyped(
+  unused unstable savedStateConfig: SavedStateConfiguration
+  start: T
+): NavBackStack<T>
+fun com.singularity.todo.feature.nav.rememberAppNavBackStack(
+  start: T
+): NavBackStack<T>
+fun com.singularity.todo.feature.nav.rememberNav3State()
+restartable skippable fun com.singularity.todo.feature.nav.SystemBackHandler(
+  unused stable enabled: Boolean
+  unused stable onBack: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.shell.DesktopShellNav3Root(
+  state: Nav3State
+  navigator: Navigator
+  navCallbacks: NavCallbacks
+  stable today: LocalDate
+  stable onCloseRequest: Function0<Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.shell.AboutDialog(
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.auth.AuthGuard(
+  authRepository: AuthRepository
+  stable content: Function2<Composer, Int, Unit>
+)
+fun com.singularity.todo.core.files.rememberAppFilePicker(
+  stable purpose: FilePickPurpose
+  stable onPicked: Function1<FilePickerResult?, Unit>
+): Function0<Unit>
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.refresh.RefreshableContent(
+  stable modifier: Modifier? = @static <expression>
+  viewModel: RefreshViewModel? = @dynamic <expression>
+  stable content: Function2<Composer, Int, Unit>
+)
+fun com.singularity.todo.core.refresh.rememberRefreshViewModelOrNull()
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.celebration.Celebration(
+  stable triggerKey: String
+  stable animationsEnabled: Boolean = @static true
+  stable hapticsEnabled: Boolean = @static true
+  haptic: Haptic? = @dynamic <expression>
+  stable content: Function2<Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.AiActionButton(
+  stable onClick: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.DeleteActionButton(
+  stable onClick: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.ReopenActionButton(
+  stable onClick: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.AiActionButtonLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.AiActionButtonDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.DeleteActionButtonLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.DeleteActionButtonDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable], [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.components.BackTopAppBar(
+  stable title: String
+  stable onBack: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable actions: Function2<Composer, Int, Unit>? = @static <expression>
+  stable content: Function3<PaddingValues, Composer, Int, Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.BackTopAppBarLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.BackTopAppBarDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.BackTopAppBarPurpleDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.BlockedCompletionDialog(
+  stable taskTitle: String
+  stable blockerTitles: ImmutableList<String>
+  stable onConfirm: Function0<Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.BlockedBulkCompletionDialog(
+  stable blockedTaskTitles: ImmutableList<String>
+  stable totalCount: Int
+  stable onConfirm: Function0<Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.ButtonSpinner(
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.ButtonSpinnerLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.ButtonSpinnerDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.ChatInputBar(
+  stable state: TextFieldState
+  stable onSend: Function0<Unit>
+  stable enabled: Boolean = @static true
+  stable placeholder: String? = @static "Ask the AI..."
+  stable maxLines: Int = @static 4
+  stable onStop: Function0<Unit>? = @static null
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.ChatInputBarLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.ChatInputBarWithTextDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.ChatInputBarDisabledPreview()
+restartable skippable fun com.singularity.todo.core.ui.components.CollectEvents(
+  flow: Flow<T>
+  stable onEvent: Function1<T, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.components.ColorSwatch(
+  stable color: Color
+  stable name: String
+  stable selected: Boolean
+  stable onClick: Function0<Unit>
+  stable size: Dp = @static <expression>
+  stable modifier: Modifier? = @static <expression>
+  stable contentColor: Color = @dynamic <expression>
+  stable content: Function2<Composer, Int, Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.ConfirmActionDialog(
+  stable title: String
+  stable text: String
+  stable confirmButtonText: String
+  stable onConfirm: Function0<Unit>
+  stable onDismiss: Function0<Unit>
+  stable dismissButtonText: String? = @static "Cancel"
+)
+fun com.singularity.todo.core.ui.components.rememberDialogState()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.DiscardChangesDialog(
+  stable onDiscard: Function0<Unit>
+  stable onKeepEditing: Function0<Unit>
+  stable title: String? = @static "Discard changes?"
+  stable text: String? = @static "You have unsaved changes. If you leave now, your changes will be lost."
+  stable discardButtonText: String? = @static "Discard"
+  stable keepEditingButtonText: String? = @static "Keep editing"
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable], [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.components.DragHandleRow(
+  stable text: String
+  stable modifier: Modifier? = @static <expression>
+  stable handleSide: HandleSide? = @static <expression>
+  stable padding: PaddingValues? = @static <expression>
+  stable subtitle: String? = @static null
+  stable onClick: Function0<Unit>? = @static null
+  stable handle: Function2<Composer, Int, Unit>? = @static <expression>
+  stable trailing: @[ExtensionFunctionType] Function3<RowScope, Composer, Int, Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.ContentColumn(
+  stable text: String
+  stable subtitle: String?
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.DragHandleIcon()
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.components.EmptyState(
+  stable title: String
+  stable modifier: Modifier? = @static <expression>
+  stable subtitle: String? = @static null
+  stable icon: ImageVector? = @static null
+  stable iconContentDescription: String? = @static null
+  stable actions: @[ExtensionFunctionType] Function3<ColumnScope, Composer, Int, Unit>? = @static null
+  stable testTag: String? = @static null
+)
+inline scheme("[0, [0]]") fun com.singularity.todo.core.ui.components.If(
+  stable condition: Boolean
+  stable content: Function2<Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.EmptyStateLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.EmptyStateDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.EmptyStateNoSubtitlePreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.EmptyStateWithActionsPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.EmptyStateWithActionsDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.LoadingIndicatorLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.LoadingIndicatorDarkPreview()
+readonly fun com.singularity.todo.core.ui.components.dueChipColors(
+  stable state: DueVisualState?
+): Pair<Color, Color>
+restartable skippable fun com.singularity.todo.core.ui.components.ImeAwareBackHandler(
+  stable enabled: Boolean = @static true
+  stable onBack: Function0<Unit>
+)
+restartable skippable fun com.singularity.todo.core.ui.components.ListPickerSheet(
+  stable title: String
+  stable onItemSelected: Function1<T, Unit>
+  stable onDismiss: Function0<Unit>
+  stable block: @[ExtensionFunctionType] Function1<ListPickerScope<T>, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.LoadingIndicator(
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.LoadingIndicatorLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.LoadingIndicatorDarkPreview()
+fun com.singularity.todo.core.ui.components.localizedDueDateWithTime(
+  stable date: LocalDate
+  stable time: LocalTime?
+): String
+fun com.singularity.todo.core.ui.components.localizedDateList(
+  dates: List<LocalDate>
+): String
+fun com.singularity.todo.core.ui.components.localizedShortDate(
+  stable date: LocalDate
+): String
+fun com.singularity.todo.core.ui.components.shortMonthName(
+  stable month: Month
+): String
+fun com.singularity.todo.core.ui.components.shortWeekdayName(
+  stable day: DayOfWeek
+): String
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.MessageBubble(
+  stable role: BubbleRole
+  stable content: String
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.MessageBubbleUserLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.MessageBubbleAssistantDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.MessageBubbleUserDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.MessageBubbleAssistantPurpleDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.NotificationHost(
+  events: Flow<T>
+  stable mapper: Function1<T, Notification>
+  stable onNavigateBack: Function0<Unit>? = @static null
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.NotificationHost(
+  events: Flow<Notification>
+  stable onNavigateBack: Function0<Unit>? = @static null
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.NotificationHostTextDialogPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.NotificationHostErrorDialogDarkPreview()
+fun com.singularity.todo.core.ui.components.rememberOverlayState()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.ResultDialog(
+  stable title: String
+  stable text: String
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.ResultDialogSuccessPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.ResultDialogErrorPreview()
+restartable skippable fun com.singularity.todo.core.ui.components.ClearStaleSlotsOnNavigation(
+  <this>: ScreenActionsHolder
+  unstable routeKey: Any?
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.SeriesMarker(
+  stable isSeries: Boolean
+  stable dates: Int? = @static null
+  stable modifier: Modifier? = @static <expression>
+  stable compact: Boolean = @static false
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.SettingsRadioRow(
+  stable title: String
+  stable selected: Boolean
+  stable onClick: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable subtitle: String? = @static null
+  stable testTag: String? = @static ""
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.components.SettingsSection(
+  stable title: String
+  stable modifier: Modifier? = @static <expression>
+  stable contentPadding: PaddingValues? = @static <expression>
+  stable verticalArrangement: Vertical? = @static <expression>
+  stable content: Function2<Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.components.SettingsRow(
+  stable title: String
+  stable modifier: Modifier? = @static <expression>
+  stable subtitle: String? = @static null
+  stable onClick: Function0<Unit>? = @static null
+  stable trailing: @[ExtensionFunctionType] Function3<RowScope, Composer, Int, Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.SettingsSwitchRow(
+  stable title: String
+  stable subtitle: String? = @static null
+  stable checked: Boolean
+  stable onCheckedChange: Function1<Boolean, Unit>?
+  stable modifier: Modifier? = @static <expression>
+  stable enabled: Boolean = @static true
+  stable testTag: String
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.SettingsValueRow(
+  stable title: String
+  stable value: String
+  stable onClick: Function0<Unit>
+  stable subtitle: String? = @static null
+  stable modifier: Modifier? = @static <expression>
+  stable testTag: String? = @static "settings_value_row"
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.SettingsActionRow(
+  stable title: String
+  stable onClick: Function0<Unit>
+  stable subtitle: String? = @static null
+  stable modifier: Modifier? = @static <expression>
+  stable testTag: String? = @static "settings_action_row"
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.SettingsSectionLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.SettingsSectionDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.SettingsRowLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.SettingsRowDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.SettingsValueRowPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.ShellBarTitle(
+  screenActions: ScreenActionsHolder
+  stable destinationTitle: String
+)
+restartable skippable fun com.singularity.todo.core.ui.components.ShellOverride(
+  stable title: Function2<Composer, Int, Unit>
+  stable navigationIcon: Function2<Composer, Int, Unit>? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable], [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.components.StatefulContent(
+  state: ContentState<T>
+  stable emptyTitle: String
+  stable emptySubtitle: String? = @static null
+  stable emptyActions: @[ExtensionFunctionType] Function3<ColumnScope, Composer, Int, Unit>? = @static null
+  stable emptyTestTag: String? = @static null
+  stable errorTitle: String? = @static "Something went wrong"
+  stable onRetry: Function0<Unit>? = @static null
+  stable modifier: Modifier? = @static <expression>
+  stable content: Function4<@[ParameterName(name = 'value')] T, @[ParameterName(name = 'modifier')] Modifier, Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.ErrorState(
+  stable title: String
+  error: AppError
+  stable onRetry: Function0<Unit>?
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.StatefulContentLoadingPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.StatefulContentEmptyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.StatefulContentErrorPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.StatefulContentReadyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.TaggedSnackbarHost(
+  stable hostState: SnackbarHostState
+  stable modifier: Modifier? = @static <expression>
+  stable countdownProgress: Float? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.TaggedSnackbar(
+  stable data: SnackbarData
+  stable countdownProgress: Float?
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.SnackbarWithAction(
+  stable data: SnackbarData
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable], [_], [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.components.TopAppBar(
+  stable title: Function2<Composer, Int, Unit>? = @static <expression>
+  stable modifier: Modifier? = @static <expression>
+  stable navigationIcon: Function2<Composer, Int, Unit>? = @static null
+  stable actions: @[ExtensionFunctionType] Function3<RowScope, Composer, Int, Unit>? = @static <expression>
+  stable windowInsets: WindowInsets? = @dynamic <expression>
+  stable colors: TopAppBarColors? = @static null
+  stable scrollBehavior: TopAppBarScrollBehavior? = @static null
+  stable expandedHeight: Dp = @dynamic <expression>
+  stable selectionTitle: String? = @static null
+  stable onExitSelection: Function0<Unit>? = @static null
+  stable overrideShell: Boolean = @static false
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.components.sheet.BottomSheetHost(
+  stable onDismiss: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable sheetState: SheetState? = @dynamic <expression>
+  stable content: @[ExtensionFunctionType] Function3<ColumnScope, Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.sheet.DatePickerSheet(
+  stable initialDate: LocalDate?
+  stable onDateSelected: Function1<LocalDate?, Unit>
+  stable onDismiss: Function0<Unit>
+  stable disabledDates: ImmutableSet<LocalDate>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable], [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.components.sheet.ListPickerSheet(
+  stable title: String
+  stable testTag: String? = @static null
+  items: ImmutableList<ListPickerItem<T>>
+  stable onItemSelected: Function1<T, Unit>
+  stable onDismiss: Function0<Unit>
+  stable header: @[ExtensionFunctionType] Function3<ColumnScope, Composer, Int, Unit>? = @static null
+  stable footer: @[ExtensionFunctionType] Function3<ColumnScope, Composer, Int, Unit>? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.sheet.ListPickerItemRow(
+  item: ListPickerItem<T>
+  stable onSelect: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.sheet.MultiDatePickerSheet(
+  stable initialDates: ImmutableSet<LocalDate>
+  stable onConfirm: Function1<ImmutableSet<LocalDate>, Unit>
+  stable onDismiss: Function0<Unit>
+  stable today: LocalDate
+  stable maxDates: Int
+  stable disabledDates: ImmutableSet<LocalDate>? = @static <expression>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.sheet.MonthHeader(
+  stable monthAnchor: LocalDate
+  stable onPrevious: Function0<Unit>
+  stable onNext: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.sheet.WeekdayHeaderRow()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.sheet.MonthGrid(
+  stable monthAnchor: LocalDate
+  stable today: LocalDate
+  stable selected: ImmutableSet<LocalDate>
+  stable disabledDates: ImmutableSet<LocalDate>? = @static <expression>
+  stable onDayClick: Function1<LocalDate, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.sheet.SelectionCounter(
+  stable selectedCount: Int
+  stable maxDates: Int
+  stable limitReached: Boolean
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.sheet.MultiDateCell(
+  stable date: LocalDate
+  stable isCurrentMonth: Boolean
+  stable isToday: Boolean
+  stable isSelected: Boolean
+  stable isDisabled: Boolean = @static false
+  stable onClick: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.components.sheet.MultiSelectSheet(
+  stable title: String
+  items: ImmutableList<MultiSelectItem<T>>
+  selectedKeys: ImmutableSet<T>
+  stable onToggle: Function1<T, Unit>
+  stable onConfirm: Function0<Unit>
+  stable onDismiss: Function0<Unit>
+  stable confirmLabel: String? = @static "Confirm"
+  stable confirmTestTag: String? = @static null
+  stable emptyMessage: String? = @static "Nothing to choose from yet"
+  stable footer: @[ExtensionFunctionType] Function3<ColumnScope, Composer, Int, Unit>? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.components.sheet.SheetScaffold(
+  stable modifier: Modifier? = @static <expression>
+  stable actions: SheetActions? = @static null
+  stable content: @[ExtensionFunctionType] Function3<ColumnScope, Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.sheet.SheetActionsRow(
+  stable actions: SheetActions
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.components.sheet.TimePickerSheet(
+  stable initialTime: LocalTime? = @static null
+  stable onTimeSelected: Function1<LocalTime?, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.detail.ConfirmationSheet(
+  stable title: String
+  stable message: String
+  stable confirmLabel: String? = @static "Delete"
+  stable dismissLabel: String? = @static "Cancel"
+  stable onConfirm: Function0<Unit>
+  stable onDismiss: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.detail.DetailMetaChip(
+  stable label: String
+  stable selected: Boolean = @static false
+  stable onClick: Function0<Unit>? = @static null
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[0, [0]]") fun com.singularity.todo.core.ui.detail.PickerSheetHost(
+  stable overlayState: OverlayState<S>
+  stable sheetContent: Function4<@[ParameterName(name = 'sheet')] S, @[ParameterName(name = 'onDismiss')] Function0<Unit>, Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.detail.SavedIndicator(
+  stable visible: Boolean
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.onboarding.SpotlightOverlay(
+  state: SpotlightTourState
+  stable step: SpotlightStep
+  stable stepPosition: Int
+  stable stepCount: Int
+  stable onNext: Function0<Unit>
+  stable onSkip: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.onboarding.SpotlightScrim(
+  hole: SpotlightHole
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.onboarding.SpotlightCard(
+  stable step: SpotlightStep
+  stable stepPosition: Int
+  stable stepCount: Int
+  stable onNext: Function0<Unit>
+  stable onSkip: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.onboarding.SpotlightOverlayPreview()
+fun com.singularity.todo.core.ui.onboarding.rememberSpotlightTour(
+  stable steps: ImmutableList<SpotlightStep>? = @dynamic <expression>
+  stable contentVersion: Int = @static 1
+  stable registry: SpotlightAnchorRegistry? = @static <expression>
+  settingsStore: OnboardingSettingsRepository? = @dynamic <expression>
+): SpotlightTourController
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.preview.PreviewThemed(
+  stable darkTheme: Boolean = @static false
+  stable accent: SingularityAccents? = @static <expression>
+  stable useSurface: Boolean = @static true
+  stable content: Function2<Composer, Int, Unit>
+)
+fun com.singularity.todo.core.ui.text.rememberAppUriHandler(
+  stable onInternalLink: Function1<Internal, Unit>? = @dynamic <expression>
+): UriHandler
+fun com.singularity.todo.core.ui.text.highlightedText(
+  stable text: String
+  stable ranges: ImmutableList<TextMatchRange>
+): AnnotatedString
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.text.LinkifiedText(
+  stable text: String
+  stable modifier: Modifier? = @static <expression>
+  stable style: TextStyle? = @dynamic <expression>
+  stable color: Color = @static <expression>
+  stable onInternalLink: Function1<Internal, Unit>? = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.text.SelectableText(
+  stable text: String
+  stable modifier: Modifier? = @static <expression>
+  stable style: TextStyle? = @dynamic <expression>
+  stable color: Color = @static <expression>
+  stable maxLines: Int = @static 2147483647
+  stable overflow: TextOverflow = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.core.ui.text.SelectableText(
+  stable text: AnnotatedString
+  stable modifier: Modifier? = @static <expression>
+  stable style: TextStyle? = @dynamic <expression>
+  stable color: Color = @static <expression>
+  stable maxLines: Int = @static 2147483647
+  stable overflow: TextOverflow = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.core.ui.text.SelectableTextGroup(
+  stable modifier: Modifier? = @static <expression>
+  stable content: Function2<Composer, Int, Unit>
+)
+restartable skippable scheme("[0, [0]]") fun com.singularity.todo.core.ui.text.UnselectableContent(
+  stable content: Function2<Composer, Int, Unit>
+)
+restartable skippable fun com.singularity.todo.core.ui.textfields.ObserveTextFieldEdits(
+  stable state: TextFieldState
+  stable onEdited: Function0<Unit>
+)
+fun com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState(
+  stable text: String
+): TextFieldState
+fun com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState(
+  stable source: OwnedText
+  stable onTextChanged: Function1<String, Unit>
+): TextFieldState
+fun com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState(
+  stable source: StaticText
+  stable onTextChanged: Function1<String, Unit>
+): TextFieldState
+fun com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState(
+  stable externalText: String
+  stable onTextChanged: Function1<String, Unit>
+  stable revision: Long?
+): TextFieldState
+fun com.singularity.todo.core.ui.theme.resolvedIsDark(
+  stable <this>: ThemeMode
+): Boolean
+restartable skippable scheme("[0, [0]]") fun com.singularity.todo.core.ui.theme.SingularityTheme(
+  stable themeMode: ThemeMode? = @static <expression>
+  stable accent: SingularityAccents? = @static <expression>
+  stable fontSizeScale: Float = @static 1.0f
+  stable content: Function2<Composer, Int, Unit>
+)
+fun com.singularity.todo.core.ui.theme.mutedTextColor()
+fun com.singularity.todo.core.ui.theme.dividerColor()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.components.SavedAgendaCard(
+  view: SavedAgendaView
+  stable onClick: Function0<Unit>
+  stable onDelete: Function0<Unit>
+  stable onEdit: Function0<Unit>
+  stable onCopyToProfile: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.components.SavedAgendaCardPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.components.SavedAgendaCardDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.components.SavedAgendaCardUnnamedPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.components.SectionEditorCard(
+  stable section: Section
+  unused stable index: Int
+  stable canMoveUp: Boolean
+  stable canMoveDown: Boolean
+  stable onMoveUp: Function0<Unit>
+  stable onMoveDown: Function0<Unit>
+  stable onDelete: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.agenda.presentation.nav.AgendaNavGraph(
+  start: AgendaStartRoute
+  stable onExitGraph: Function1<AppDestination?, Unit>
+  stable contextMenuHost: Function6<@[ParameterName(name = 'task')] TaskUi, @[ParameterName(name = 'offset')] DpOffset, @[ParameterName(name = 'onDismiss')] Function0<Unit>, @[ParameterName(name = 'onIntent')] Function1<AgendaIntent, Unit>, Composer, Int, Unit>
+  stable modifier: Modifier? = @static <expression>
+  backStack: NavBackStack<AgendaStartRoute>? = @static null
+)
+scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.agenda.presentation.nav.agendaScreenEntryProvider(
+  stable contextMenuHost: Function6<@[ParameterName(name = 'task')] TaskUi, @[ParameterName(name = 'offset')] DpOffset, @[ParameterName(name = 'onDismiss')] Function0<Unit>, @[ParameterName(name = 'onIntent')] Function1<AgendaIntent, Unit>, Composer, Int, Unit>
+): Function1<AgendaStartRoute, NavEntry<AgendaStartRoute>>
+restartable skippable scheme("[0, [0]]") fun com.singularity.todo.feature.agenda.presentation.nav.PreviewAgendaNavigator(
+  stable content: Function2<Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.agenda.presentation.nav.AgendaNavContent(
+  route: AgendaStartRoute
+  stable contextMenuHost: Function6<@[ParameterName(name = 'task')] TaskUi, @[ParameterName(name = 'offset')] DpOffset, @[ParameterName(name = 'onDismiss')] Function0<Unit>, @[ParameterName(name = 'onIntent')] Function1<AgendaIntent, Unit>, Composer, Int, Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.agenda.presentation.nav.TodayAgendaContent(
+  stable contextMenuHost: Function6<@[ParameterName(name = 'taskUi')] TaskUi, @[ParameterName(name = 'offset')] DpOffset, @[ParameterName(name = 'onDismiss')] Function0<Unit>, @[ParameterName(name = 'onIntent')] Function1<AgendaIntent, Unit>, Composer, Int, Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.agenda.presentation.screen.AgendaContent(
+  state: AgendaUiState
+  stable title: String
+  stable greeting: String? = @static ""
+  stable horizonNote: String? = @static null
+  stable onIntent: Function1<AgendaIntent, Unit>
+  stable onSavedViewsClick: Function0<Unit>? = @static null
+  stable onMultiDateCreate: Function0<Unit>? = @static null
+  stable onSaveCurrentClick: Function0<Unit>? = @static null
+  stable spotlightRegistry: SpotlightAnchorRegistry? = @static null
+  stable contextMenuHost: Function6<@[ParameterName(name = 'taskUi')] TaskUi, @[ParameterName(name = 'offset')] DpOffset, @[ParameterName(name = 'onDismiss')] Function0<Unit>, @[ParameterName(name = 'onIntent')] Function1<AgendaIntent, Unit>, Composer, Int, Unit>? = @static <expression>
+  stable modifier: Modifier? = @static <expression>
+  stable listState: LazyListState? = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.AgendaList(
+  stable sections: ImmutableList<RenderedSection>
+  stable isSelectionMode: Boolean
+  stable selectedTaskIds: ImmutableSet<TaskId>
+  stable horizonNote: String?
+  stable onIntent: Function1<AgendaIntent, Unit>
+  stable onOpenContextMenu: Function2<TaskUi, DpOffset, Unit>
+  stable listState: LazyListState
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.AgendaHorizonFootnote(
+  stable note: String
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.AgendaSectionHeader(
+  stable name: String
+  stable badge: Int?
+  stable onAddClick: Function0<Unit>?
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.AgendaContentLoadingPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.AgendaContentErrorPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.AgendaContentEmptyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.AgendaContentLoadedPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.AgendaContentSelectionModePreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.AgendaContentDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.agenda.presentation.screen.AgendaScreen(
+  definition: AgendaDefinition
+  stable modifier: Modifier? = @static <expression>
+  stable contextMenuHost: Function6<@[ParameterName(name = 'taskUi')] TaskUi, @[ParameterName(name = 'offset')] DpOffset, @[ParameterName(name = 'onDismiss')] Function0<Unit>, @[ParameterName(name = 'onIntent')] Function1<AgendaIntent, Unit>, Composer, Int, Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.BlockedBulkCloseDialog(
+  state: AgendaUiState
+  vm: AgendaViewModel
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.MultiDateTaskPicker(
+  stable today: LocalDate
+  stable onConfirm: Function1<Set<LocalDate>, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.BlockedCloseDialog(
+  state: AgendaUiState
+  vm: AgendaViewModel
+)
+restartable skippable fun com.singularity.todo.feature.agenda.presentation.screen.UndoSnackbar(
+  pendingDelete: PendingDelete?
+  stable snackbarHostState: SnackbarHostState
+  stable onUndo: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaContent(
+  state: SavedAgendaViewState
+  stable onIntent: Function1<SavedAgendaIntent, Unit>
+  stable onRequestDelete: Function0<Unit>
+  stable onRequestAddSection: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaEditor(
+  state: Editing
+  stable onIntent: Function1<SavedAgendaIntent, Unit>
+  stable onRequestDelete: Function0<Unit>
+  stable onRequestAddSection: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaEditorList(
+  state: Editing
+  stable onIntent: Function1<SavedAgendaIntent, Unit>
+  stable onRequestAddSection: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaNameField(
+  stable nameSource: StaticText
+  stable enabled: Boolean
+  stable onNameChange: Function1<String, Unit>
+  stable onDone: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaSectionsHeader(
+  stable onAdd: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaEmptySections(
+  stable onAdd: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaActionRow(
+  state: Editing
+  stable onSave: Function0<Unit>
+  stable onRequestDelete: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaContentLoadingPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaContentEditingPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaContentSavingPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaContentNotFoundPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaListScreen(
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.DialogsOverlay(
+  stable overlay: OverlayState<SavedAgendaDialog>
+  viewModel: SavedAgendaListViewModel
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.DeleteViewConfirmationDialog(
+  unused stable viewId: SavedAgendaViewId
+  stable viewName: String?
+  stable onConfirm: Function0<Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.ProfilePickerSheetHost(
+  stable viewId: SavedAgendaViewId
+  stable onDismiss: Function0<Unit>
+  stable onPick: Function1<ProfileId, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaListContent(
+  state: SavedAgendaListState
+  stable onViewSelected: Function1<SavedAgendaViewId, Unit>
+  stable onDelete: Function1<SavedAgendaViewId, Unit>
+  stable onEdit: Function1<SavedAgendaViewId, Unit>
+  stable onCopyToProfile: Function1<SavedAgendaViewId, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.ProfilePickerSheet(
+  unused stable viewId: SavedAgendaViewId
+  profileRepo: ProfileRepository
+  stable onDismiss: Function0<Unit>
+  stable onPick: Function1<ProfileId, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaListContentEmptyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaListContentLoadedPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaScreen(
+  mode: SavedAgendaScreenMode
+  stable modeHint: String
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaScreenBody(
+  state: SavedAgendaViewState
+  viewModel: SavedAgendaViewModel
+  navigator: AgendaNavigator
+  stable modeHint: String
+  stable modifier: Modifier
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.DialogsHost(
+  stable dialogs: DialogState<ActiveDialog>
+  stable pendingTemplate: SelectorTemplate?
+  stable onPendingTemplateChanged: Function1<SelectorTemplate?, Unit>
+  stable onDeleteConfirmed: Function0<Unit>
+  stable onAddSection: Function3<SelectorTemplate, Set<String>, List<SelectorOption>, Unit>
+  stable onBack: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.ConfirmDeleteDialog(
+  stable isVisible: Boolean
+  stable onConfirm: Function0<Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.ConfirmDiscardDialog(
+  stable isVisible: Boolean
+  stable onDiscard: Function0<Unit>
+  stable onKeepEditing: Function0<Unit>
+)
+restartable skippable fun com.singularity.todo.feature.agenda.presentation.screen.AddSectionSheet(
+  stable isVisible: Boolean
+  stable onPendingTemplateChanged: Function1<SelectorTemplate?, Unit>
+  stable onAddSection: Function3<SelectorTemplate, Set<String>, List<SelectorOption>, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.TemplateSheet(
+  stable template: SelectorTemplate
+  stable onConfirmed: Function3<SelectorTemplate, Set<String>, List<SelectorOption>, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.RegexpInputSheet(
+  stable initialPattern: String
+  stable onConfirm: Function1<String, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.DateRangePickerSheet(
+  stable initialFrom: LocalDate?
+  stable initialTo: LocalDate?
+  stable onConfirm: Function2<LocalDate, LocalDate, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.DateRangeConfirmDialog(
+  stable from: LocalDate
+  stable to: LocalDate
+  stable onConfirm: Function0<Unit>
+  stable onBack: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.agenda.presentation.screen.SelectorParameterSheet(
+  stable template: SelectorTemplate
+  stable onConfirm: Function3<@[ParameterName(name = 'chosen')] Set<String>, @[ParameterName(name = 'available')] List<SelectorOption>, @[ParameterName(name = 'matchAll')] Boolean, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.chat.ChatScreen(
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.chat.ChatScreenContent(
+  vm: ChatViewModel
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable fun com.singularity.todo.feature.ai.chat.GenuiMessageSurface(
+  stable surfaceId: SurfaceId
+  stable onSurfaceAction: Function2<String, JsonElement?, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.chat.ChatMessagesList(
+  stable messages: ImmutableList<ChatMessage>
+  stable isLoading: Boolean
+  stable onSurfaceAction: Function2<String, JsonElement?, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable fun com.singularity.todo.feature.ai.chat.FollowConversationEnd(
+  stable listState: LazyListState
+  stable tail: ConversationTail
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.chat.AgentActivitySection(
+  stable plan: ImmutableList<AgentPlanStep>
+  stable calls: ImmutableList<AgentToolCall>
+  outcome: AgentTurnOutcome?
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.chat.ThinkingIndicator()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.chat.ChatScreenLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.chat.ChatScreenLoadingPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.chat.ChatMessagesListDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.ui.AgentPlanCard(
+  stable steps: ImmutableList<AgentPlanStep>
+  stable modifier: Modifier? = @static <expression>
+)
+fun com.singularity.todo.feature.ai.ui.color(
+  stable <this>: PlanStepStatus
+): Color
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.usage.AiUsageScreen(
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.usage.UsageHeaderCard(
+  stable totalTokens: Long
+  stable totalCostMicros: Long?
+  stable profileName: String
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.usage.DailyUsageRow(
+  daily: DailyUsage
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.usage.ToolUsageRow(
+  tool: ToolUsage
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.usage.ModelUsageRow(
+  model: ModelUsage
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.ai.usage.AiUsageScreenPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.archive.ArchiveScreen(
+  viewModel: ArchiveViewModel? = @dynamic <expression>
+  stable onBack: Function0<Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.archive.ArchiveContentPreview(
+  state: ArchiveUiState
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.archive.ArchiveScreenContentPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.archive.ArchiveScreenEmptyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.archive.ArchiveScreenLoadingPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.AttachmentThumbnail(
+  stable localPath: String?
+  stable remoteUrl: String?
+  stable modifier: Modifier? = @static <expression>
+  stable contentDescription: String? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.AttachmentTile(
+  stable attachment: Attachment
+  stable onDelete: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable onOpen: Function0<Unit>? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.AttachmentTileFileLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.AttachmentTileUrlDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.AttachmentTileImagePurpleDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.annotation.AttachmentAnnotationPanel(
+  stable attachmentId: AttachmentId
+  stable documentText: String
+  stable modifier: Modifier? = @static <expression>
+  stable snackbarHostState: SnackbarHostState? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.annotation.AnnotationSheetContent(
+  state: Content
+  stable onIntent: IntentActions<AttachmentAnnotationIntent>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.annotation.AnnotationRow(
+  annotation: ResolvedAnnotation
+  stable onIntent: IntentActions<AttachmentAnnotationIntent>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.annotation.AnnotationEditorForm(
+  draft: AnnotationDraft
+  stable onIntent: IntentActions<AttachmentAnnotationIntent>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.annotation.AnnotationSheetContentPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.components.AttachmentsSheet(
+  unused stable taskId: TaskId?
+  stable attachments: ImmutableList<Attachment>
+  stable onAddUrl: Function2<String, String?, Unit>
+  stable onAttachFile: Function0<Unit>? = @static null
+  stable onDelete: Function1<AttachmentId, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.components.AttachmentsSheetEmptyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.components.AttachmentsSheetWithItemsPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.viewer.AttachmentViewerHost(
+  stable attachment: Attachment
+  fileSystem: FileSystem
+  fileOpener: FileOpener
+  fileSharePort: FileSharePort
+  stable onBack: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.viewer.NoHandlerScreen(
+  stable title: String
+  stable mimeType: String
+  stable onBack: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable onShare: Function0<Unit>? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.viewer.ExternalOpenScreen(
+  stable title: String
+  stable mimeType: String
+  stable onBack: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable onOpenExternally: Function0<Unit>? = @static null
+  stable onShare: Function0<Unit>? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.attachments.viewer.ViewerBody(
+  stable innerPadding: PaddingValues
+  stable content: @[ExtensionFunctionType] Function3<ColumnScope, Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.viewer.AttachmentViewerRoute(
+  stable attachmentId: AttachmentId
+  stable onBack: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.viewer.MissingAttachmentScreen(
+  stable onBack: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.viewer.CenteredSpinner(
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable fun com.singularity.todo.feature.attachments.viewer.ImageViewerScreen(
+  stable title: String
+  unstable imageModel: Any?
+  stable onBack: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.viewer.ViewerNotice(
+  stable message: String
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.viewer.ImageViewerMissingPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.attachments.viewer.TextViewerScreen(
+  stable title: String
+  stable path: String
+  fileSystem: FileSystem
+  stable onBack: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable onOpenExternally: Function0<Unit>? = @static null
+  stable overlay: Function3<@[ParameterName(name = 'documentText')] String, Composer, Int, Unit>? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.viewer.BoxedMessage(
+  state: TextViewerState
+  stable innerPadding: PaddingValues
+  stable isMarkdown: Boolean
+  stable onBack: Function0<Unit>
+  stable onOpenExternally: Function0<Unit>?
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.viewer.ViewerMessage(
+  stable title: String
+  stable body: String
+  stable actions: ImmutableList<ViewerAction>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.attachments.viewer.Centered(
+  stable content: Function2<Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.viewer.TextViewerUnavailablePreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.attachments.viewer.TextViewerTooLargePreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.AuthFormFields(
+  stable emailTag: String
+  stable passwordTag: String
+  stable submitTag: String
+  stable submitLabel: String
+  stable emailState: TextFieldState
+  stable passwordState: TextFieldState
+  stable isLoading: Boolean
+  stable errorMessage: String?
+  stable message: String? = @static null
+  stable onSubmit: Function0<Unit>
+  stable submitEnabled: Boolean = @static true
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.AuthFormFieldsPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.AuthFormFieldsWithMessagePreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.AuthFormFieldsLoadingPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.AuthFormFieldsDisabledPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.AuthFormFieldsErrorPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.AuthFormFieldsDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.ConfirmationPendingContent(
+  stable email: String
+  stable message: String?
+  stable isLoading: Boolean
+  stable onResend: Function0<Unit>
+  stable onBack: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.ConfirmationPendingPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.ConfirmationPendingWithMessagePreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.ConfirmationPendingLoadingPreview()
+fun com.singularity.todo.feature.auth.rememberLoginFormState()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.LoginScreen(
+  viewModel: AuthViewModel? = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.ServerConfigForm(
+  stable errorMessage: String?
+  stable onSave: Function2<String, String, Unit>
+  stable onContinueOffline: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.LoginScreenFormPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.LoginScreenLoadingPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.LoginScreenDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.LoginScreenMessagePreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.LoginScreenFormContent(
+  stable emailState: TextFieldState
+  stable passwordState: TextFieldState
+  stable isLoading: Boolean
+  stable errorMessage: String?
+  stable message: String? = @static null
+  stable isSignUp: Boolean
+  stable onSignIn: Function0<Unit>
+  stable onToggleMode: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.presentation.AttachAccountScreen(
+  viewModel: AuthViewModel? = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.presentation.AttachAccountScreenPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.presentation.AttachAccountScreenUnansweredPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.presentation.AttachAccountScreenContent(
+  stable emailState: TextFieldState
+  stable passwordState: TextFieldState
+  stable disposition: LocalDataDisposition?
+  stable isLoading: Boolean
+  stable errorMessage: String?
+  stable message: String? = @static null
+  stable onDispositionChange: Function1<LocalDataDisposition, Unit>
+  stable onSubmit: Function0<Unit>
+  stable onBack: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.presentation.AttachAccountForm(
+  stable emailState: TextFieldState
+  stable passwordState: TextFieldState
+  stable disposition: LocalDataDisposition?
+  stable isLoading: Boolean
+  stable errorMessage: String?
+  stable message: String?
+  stable onDispositionChange: Function1<LocalDataDisposition, Unit>
+  stable onSubmit: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.presentation.LocalDataChoice(
+  stable selected: LocalDataDisposition?
+  stable onSelect: Function1<LocalDataDisposition, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.presentation.DiscardConfirmation(
+  eraseCounts: EraseCounts
+  stable onConfirm: Function0<Unit>? = @static <expression>
+  stable onCancel: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.presentation.MagicLinkConfirmScreen(
+  stable prefillEmail: String? = @static ""
+  stable prefillToken: String? = @static ""
+  viewModel: AuthViewModel? = @dynamic <expression>
+)
+restartable skippable fun com.singularity.todo.feature.auth.presentation.MagicLinkConfirmEffects(
+  stable prefillEmail: String
+  stable prefillToken: String
+  stable emailState: TextFieldState
+  viewModel: AuthViewModel
+  stable onNavigateHome: Function0<Unit>
+  stable onError: Function1<String?, Unit>
+  stable onMessage: Function1<String?, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.presentation.MagicLinkPending(
+  stable email: String
+  stable message: String?
+  stable isLoading: Boolean
+  stable onResend: Function0<Unit>
+  stable onBack: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.auth.presentation.MagicLinkConfirmScaffold(
+  stable onBack: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable content: @[ExtensionFunctionType] Function3<ColumnScope, Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.presentation.MagicLinkBackButton(
+  stable onClick: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.presentation.MagicLinkVerifyForm(
+  stable emailState: TextFieldState
+  stable tokenState: TextFieldState
+  stable isLoading: Boolean
+  stable errorMessage: String?
+  stable message: String?
+  stable onFieldEdited: Function0<Unit>
+  stable onSubmit: Function0<Unit>
+  stable onResend: Function0<Unit>
+  stable emailEnabled: Boolean = @static true
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.presentation.MagicLinkConfirmScreenPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.auth.presentation.MagicLinkConfirmScreenContent(
+  stable emailState: TextFieldState
+  stable tokenState: TextFieldState
+  stable isLoading: Boolean
+  stable errorMessage: String?
+  stable message: String? = @static null
+  stable onFieldEdited: Function0<Unit>
+  stable onSubmit: Function0<Unit>
+  stable onResend: Function0<Unit>
+  stable onBack: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.backup.BackupScreen(
+  state: BackupUiState
+  events: Flow<BackupUiEvent>
+  stable onBack: Function0<Unit>
+  stable onCreateBackup: Function0<Unit>
+  stable onSelectRestoreFile: Function0<Unit>
+  stable onRestore: Function1<@[ParameterName(name = 'sourcePath')] String, Unit>
+  stable onDelete: Function1<BackupId, Unit>
+  stable onPush: Function2<BackupId, CharArray, Unit>
+  stable onSaveToFile: Function1<BackupId, Unit>
+  stable onExportSettings: Function0<Unit>
+  stable onSelectSettingsFile: Function0<Unit>
+  stable onShareSettingsJson: Function1<@[ParameterName(name = 'json')] String, Unit>
+  unused stable onImportSettings: Function1<@[ParameterName(name = 'jsonContent')] String, Unit>
+  stable onLoadRemoteBackups: Function0<Unit>
+  stable onRestoreFromCloud: Function2<@[ParameterName(name = 'remoteRef')] String, @[ParameterName(name = 'password')] CharArray, Unit>
+  stable onAuthorizeScheduledBackup: Function1<CharArray, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.backup.BackupListItem(
+  backup: BackupMetadata
+  stable onRestore: Function0<Unit>
+  stable onPush: Function0<Unit>
+  stable onSaveToFile: Function0<Unit>
+  stable onDelete: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.backup.BackupConfirmDialog(
+  stable title: String
+  stable text: String
+  stable confirmLabel: String
+  stable onConfirm: Function0<Unit>
+  stable onDismiss: Function0<Unit>
+  stable confirmColor: Color = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.backup.BackupPasswordDialog(
+  stable title: String
+  stable text: String
+  stable confirmLabel: String
+  stable onConfirm: Function1<CharArray, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.backup.BackupScreenContentPreview(
+  state: BackupUiState
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.backup.BackupScreenContentPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.backup.BackupScreenEmptyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.backup.BackupScreenWorkingPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.CalendarContentPreview(
+  state: CalendarUiState? = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.CalendarPreviewMonth()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.CalendarPreviewWeek()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.CalendarPreview4Days()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.CalendarPreviewDay()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.CalendarPreviewMiniOpen()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.CalendarSelectionBar(
+  stable selectedCount: Int
+  stable onCreateTask: Function0<Unit>
+  stable onCancel: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.CalendarTopBar(
+  state: Loaded
+  unused stable today: LocalDate
+  stable onIntent: Function1<CalendarIntent, Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable headerLabelOverride: String? = @static null
+  stable onBack: Function0<Unit>? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.CalendarBarTitle(
+  stable text: String
+  palette: CalendarPalette
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.CalendarControls(
+  palette: CalendarPalette
+  stable viewMode: CalendarViewMode
+  stable onIntent: Function1<CalendarIntent, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.MiniCalendarPanel(
+  stable monthAnchor: LocalDate
+  stable selectedDate: LocalDate
+  stable today: LocalDate
+  stable onDateSelected: Function1<LocalDate, Unit>
+  stable onClose: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.MiniDateCell(
+  stable date: LocalDate
+  stable isCurrentMonth: Boolean
+  stable isToday: Boolean
+  stable isSelected: Boolean
+  stable onClick: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.MonthGridView(
+  stable monthAnchor: LocalDate
+  stable today: LocalDate
+  stable selectedDate: LocalDate
+  stable tasksByDate: ImmutableMap<LocalDate, ImmutableList<CalendarTaskUi>>
+  stable onDayClick: Function1<LocalDate, Unit>
+  stable onTaskClick: Function1<CalendarTaskUi, Unit>
+  stable onMonthPageChanged: Function1<YearMonth, Unit>
+  stable onEmptyCellLongPress: Function1<LocalDate, Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable pageCount: Int = @static 240
+  stable pagerState: PagerState? = @dynamic <expression>
+  stable selectedDates: ImmutableSet<LocalDate>? = @static <expression>
+  stable onDayLongPress: Function1<LocalDate, Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.MonthGridPage(
+  stable pageAnchor: LocalDate
+  stable today: LocalDate
+  stable selectedDate: LocalDate
+  stable tasksByDate: ImmutableMap<LocalDate, ImmutableList<CalendarTaskUi>>
+  stable onDayClick: Function1<LocalDate, Unit>
+  stable onTaskClick: Function1<CalendarTaskUi, Unit>
+  stable onEmptyCellLongPress: Function1<LocalDate, Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable selectedDates: ImmutableSet<LocalDate>? = @static <expression>
+  stable onDayLongPress: Function1<LocalDate, Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.MonthDayCell(
+  stable date: LocalDate
+  stable isCurrentMonth: Boolean
+  stable isToday: Boolean
+  stable isSelected: Boolean
+  stable isDateSelected: Boolean
+  stable tasks: ImmutableList<CalendarTaskUi>
+  stable onClick: Function0<Unit>
+  stable onTaskClick: Function1<CalendarTaskUi, Unit>
+  stable onEmptyCellLongPress: Function1<LocalDate, Unit>
+  stable onDayLongPress: Function1<LocalDate, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.TaskChip(
+  stable task: CalendarTaskUi
+  stable isSelected: Boolean = @static false
+  stable onClick: Function0<Unit>? = @static <expression>
+  stable compact: Boolean = @static false
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.MoreTasksLabel(
+  stable count: Int
+  stable onClick: Function0<Unit>?
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.TimeGridView(
+  stable dates: ImmutableList<LocalDate>
+  stable tasksByDate: ImmutableMap<LocalDate, ImmutableList<CalendarTaskUi>>
+  stable today: LocalDate
+  stable selectedTaskId: String? = @static null
+  stable onTaskClick: Function1<CalendarTaskUi, Unit>? = @static <expression>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.DayHeaderCell(
+  stable date: LocalDate
+  stable isToday: Boolean
+  palette: CalendarPalette
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.AllDayCell(
+  stable tasks: ImmutableList<CalendarTaskUi>
+  stable selectedTaskId: String?
+  stable onTaskClick: Function1<CalendarTaskUi, Unit>
+  palette: CalendarPalette
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.HourRow(
+  stable hour: Int
+  stable dates: ImmutableList<LocalDate>
+  stable tasksByDate: ImmutableMap<LocalDate, ImmutableList<CalendarTaskUi>>
+  stable selectedTaskId: String?
+  stable onTaskClick: Function1<CalendarTaskUi, Unit>
+  palette: CalendarPalette
+  stable showNowLine: Boolean = @static false
+  stable nowMinute: Int = @static 0
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.components.calendar.ViewModeDropdown(
+  stable selected: CalendarViewMode
+  stable onSelect: Function1<CalendarViewMode, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.nav.CalendarNavGraph(
+  start: CalendarRoute
+  stable onExitGraph: Function1<AppDestination?, Unit>
+  stable modifier: Modifier? = @static <expression>
+  backStack: NavBackStack<CalendarRoute>? = @static null
+)
+scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.nav.calendarScreenEntryProvider()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.screen.CalendarContent(
+  state: CalendarUiState
+  stable onIntent: Function1<CalendarIntent, Unit>
+  unused stable onTaskClick: Function1<LocalDate, Unit>? = @static <expression>
+  stable onBack: Function0<Unit>? = @static null
+  stable modifier: Modifier? = @static <expression>
+  stable pagerState: PagerState? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.screen.CalendarGrid(
+  loadedState: Loaded
+  stable onIntent: Function1<CalendarIntent, Unit>
+  stable pagerState: PagerState?
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendar.presentation.screen.CalendarScreen(
+  stable anchorDate: LocalDate
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[0, [0]]") fun com.singularity.todo.feature.calendar.presentation.theme.ProvideCalendarPalette(
+  stable content: Function2<Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.CalendarAppPicker(
+  stable selectedAppPackage: String?
+  stable availableApps: ImmutableList<CalendarAppInfo>
+  stable onSelectApp: Function1<String?, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.AppRadioRow(
+  stable label: String
+  stable selected: Boolean
+  stable onClick: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.CalendarSyncSettingsScreen(
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.ProviderSelector(
+  stable selected: CalendarProvider
+  stable onSelect: Function1<CalendarProvider, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.SystemCalendarPanel(
+  state: CalendarSyncUiState
+  stable isSupported: Boolean
+  stable hasPermissions: Boolean
+  stable onRequestPermission: Function0<Unit>
+  stable onIntent: Function1<CalendarSyncIntent, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.SystemCalendarControls(
+  state: CalendarSyncUiState
+  stable onIntent: Function1<CalendarSyncIntent, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.SystemTargetCalendarSection(
+  state: CalendarSyncUiState
+  stable onIntent: Function1<CalendarSyncIntent, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.SystemStatusSections(
+  state: CalendarSyncUiState
+  stable onIntent: Function1<CalendarSyncIntent, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.GoogleCalendarPanel(
+  state: CalendarSyncUiState
+  stable onIntent: Function1<CalendarSyncIntent, Unit>
+  stable consentSupported: Boolean
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.GoogleClientIdSection(
+  state: CalendarSyncUiState
+  stable onIntent: Function1<CalendarSyncIntent, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.GoogleAccountSection(
+  state: CalendarSyncUiState
+  stable onIntent: Function1<CalendarSyncIntent, Unit>
+  stable consentSupported: Boolean
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.GoogleCalendarPickerSection(
+  state: CalendarSyncUiState
+  stable onIntent: Function1<CalendarSyncIntent, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.GoogleImportSection(
+  state: CalendarSyncUiState
+  stable onIntent: Function1<CalendarSyncIntent, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.GoogleSyncSection(
+  state: CalendarSyncUiState
+  stable onIntent: Function1<CalendarSyncIntent, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.PermissionGate(
+  stable onRequestPermission: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.UnavailableOnThisPlatform()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.calendarSync.presentation.RadioRow(
+  stable label: String
+  stable selected: Boolean
+  stable onClick: Function0<Unit>
+  stable enabled: Boolean = @static true
+  stable testTag: String? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.checklist.components.ChecklistEditorSheet(
+  unused stable taskId: TaskId?
+  stable items: ImmutableList<ChecklistItem>
+  stable onAdd: Function1<String, Unit>
+  stable onToggle: Function1<ChecklistItemId, Unit>
+  stable onDelete: Function1<ChecklistItemId, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.checklist.components.ChecklistAddRow(
+  stable onAdd: Function1<String, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.checklist.components.ChecklistEditorSheetEmptyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.checklist.components.ChecklistEditorSheetWithItemsPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.checklist.components.ChecklistItemRow(
+  stable text: String
+  stable checked: Boolean
+  stable onToggle: Function0<Unit>
+  stable onDelete: Function0<Unit>? = @static null
+  stable onOpen: Function0<Unit>? = @static null
+  stable tags: ChecklistRowTags? = @dynamic <expression>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.checklist.components.ChecklistItemRowLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.checklist.components.ChecklistItemRowDoneDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen(
+  unused stable playStoreUrl: String
+  stable onOpenStore: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable content: Function2<Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.gate.presentation.screen.AppVersionGateContent(
+  state: AppVersionGateState
+  stable onCheckAgain: Function0<Unit>
+  stable onOpenStore: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable content: Function2<Composer, Int, Unit>
+)
+restartable skippable fun com.singularity.todo.feature.genui.render.ComponentRegistry.render(
+  node: UiNode
+  ctx: DefaultDataContext
+  stable modifier: Modifier? = @static <expression>
+  <this>: ComponentRegistry
+)
+fun com.singularity.todo.feature.genui.render.rememberDataContext(
+  stable surfaceId: SurfaceId
+  controller: SurfaceController
+  registry: ComponentRegistry
+  stable onDataChange: Function3<SurfaceId, UiPath, JsonElement, Unit>? = @static null
+  clock: Clock
+): DefaultDataContext
+restartable skippable fun com.singularity.todo.feature.genui.render.GenuiSurface(
+  ctx: DefaultDataContext
+  stable modifier: Modifier? = @static <expression>
+)
+fun com.singularity.todo.feature.genui.render.templateResolver(
+  <this>: DefaultDataContext
+): TemplateResolver
+fun com.singularity.todo.feature.genui.render.resolveText(
+  <this>: DefaultDataContext
+  stable template: String
+): String
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.genui.render.app.TaskCardView(
+  card: TaskCard
+  ctx: DefaultDataContext
+  stable modifier: Modifier
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.genui.render.app.DueDateView(
+  due: DueDate
+  ctx: DefaultDataContext
+  stable modifier: Modifier
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.genui.render.app.ProjectChipView(
+  chip: ProjectChip
+  ctx: DefaultDataContext
+  stable modifier: Modifier
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.genui.render.app.Chip(
+  stable label: String
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable fun com.singularity.todo.feature.genui.render.material3.RenderSingle(
+  stable ref: NodeRef
+  ctx: DefaultDataContext
+  stable modifier: Modifier? = @static <expression>
+)
+readonly fun com.singularity.todo.feature.genui.render.material3.atoms.headingStyle(
+  stable level: Int
+): TextStyle
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.genui.render.material3.atoms.ModalView(
+  modal: Modal
+  ctx: DefaultDataContext
+  stable modifier: Modifier
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.genui.render.material3.input.BoundCheckbox(
+  c: Checkbox
+  ctx: DefaultDataContext
+  stable modifier: Modifier
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.genui.render.material3.input.BoundTextField(
+  f: TextField
+  ctx: DefaultDataContext
+  stable modifier: Modifier
+)
+fun com.singularity.todo.feature.nav.rememberInMemoryNavBackStack(
+  start: T
+): NavBackStack<T>
+fun com.singularity.todo.feature.nav.Nav3State.toDecoratedEntries(
+  stable entryProvider: Function1<AppDestination, NavEntry<AppDestination>>
+  unstable <this>: Nav3State
+): List<NavEntry<NavKey>>
+fun com.singularity.todo.feature.nav.Nav3State.toDecoratedEntries(
+  stable entryProvider: Function1<AppDestination, NavEntry<AppDestination>>
+  stable entryDecorators: ImmutableList<NavEntryDecorator<NavKey>>
+  unstable <this>: Nav3State
+): List<NavEntry<NavKey>>
+fun com.singularity.todo.feature.nav.rememberAppEntryDecorators()
+restartable skippable fun com.singularity.todo.feature.nav.TabReselectScrollReset(
+  route: NavKey
+  stable listState: LazyListState
+  state: Nav3State? = @dynamic <expression>
+)
+fun com.singularity.todo.feature.notes.rememberEditorSession(
+  state: Editing
+  stable onBodyChange: Function2<@[ParameterName(name = 'id')] String, @[ParameterName(name = 'html')] String, Unit>
+): EditorSession
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.components.ToolbarGlyph(
+  stable button: ToolbarButton
+  stable tint: Color
+)
+fun com.singularity.todo.feature.notes.components.activeActionTint(
+  stable isActive: Boolean
+): Color
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.components.EditorToolbar(
+  richTextState: RichTextState
+  stable onHtmlChange: Function0<Unit>
+  stable onAiClick: Function0<Unit>
+  stable onLinkClick: Function0<Unit>
+  stable onInternalLinkClick: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.components.InternalLinkPickerSheet(
+  onSearch: SuspendFunction1<String, List<LinkResult>>
+  stable onSelected: Function1<LinkResult, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.components.LinkResultItem(
+  result: LinkResult
+  stable onClick: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.components.InternalLinkPickerSheetPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.components.NoteCardContent(
+  stable note: Note
+  stable isSelected: Boolean
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable], [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.notes.components.NoteCard(
+  stable note: Note
+  stable onClick: Function0<Unit>
+  unused stable onLongClick: Function0<Unit>? = @static <expression>
+  stable isSelected: Boolean = @static false
+  stable modifier: Modifier? = @static <expression>
+  stable body: @[ExtensionFunctionType] Function3<RowScope, Composer, Int, Unit>? = @static <expression>
+  stable trailing: @[ExtensionFunctionType] Function3<RowScope, Composer, Int, Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.components.DefaultNoteCardBody(
+  stable <this>: RowScope
+  stable note: Note
+  unused stable isSelected: Boolean
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.components.DefaultNoteCardTrailing(
+  stable note: Note
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.components.NoteAiActionSheet(
+  stable onSelect: Function1<NoteAiAction, Unit>
+  stable onDismiss: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.components.AiActionItem(
+  stable icon: ImageVector
+  stable title: String
+  stable subtitle: String
+  unused stable onClick: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.nav.NotesNavGraph(
+  navCallbacks: NavCallbacks
+  start: NotesRoute? = @static <expression>
+  stable modifier: Modifier? = @static <expression>
+  backStack: NavBackStack<NotesRoute>? = @static null
+)
+scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.nav.notesScreenEntryProvider()
+restartable skippable scheme("[0, [0]]") fun com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper(
+  stable content: Function2<Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.LinkUrlDialog(
+  stable onConfirm: Function1<String, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.LinkUrlDialogPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.NoteEditorScreen(
+  route: Editor
+  viewModel: NoteEditor? = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.NoteEditorScreenContent(
+  editorState: DraftUiState<Editing>
+  stable onTitleChange: Function1<@[ParameterName(name = 'title')] String, Unit>
+  stable onBodyChange: Function1<@[ParameterName(name = 'html')] String, Unit>
+  stable onSaveNow: Function0<Unit>
+  stable onBack: Function0<Unit>
+  stable onShowAiSheet: Function0<Unit>
+  stable noteNotFound: Boolean = @static false
+  stable savedVisible: Boolean = @static false
+  searchNotesForLink: SuspendFunction1<String, List<LinkResult>>? = @static null
+  searchTasksForLink: SuspendFunction1<String, List<LinkResult>>? = @static null
+  stable onAiAction: Function1<NoteAiAction, Unit>? = @static null
+  stable showAiSheet: Boolean = @static false
+  stable onDismissAiSheet: Function0<Unit>? = @static <expression>
+  stable pendingProposals: ImmutableList<AiProposal>? = @static <expression>
+  stable onConfirmProposal: Function1<ProposalItemId, Unit>? = @static <expression>
+  stable onRejectProposal: Function2<ProposalItemId, String?, Unit>? = @static <expression>
+  stable onConfirmAllProposals: Function1<ProposalId, Unit>? = @static <expression>
+  stable onDismissProposal: Function1<ProposalId, Unit>? = @static <expression>
+  stable onEditProposal: Function2<ProposalItemId, String, Unit>? = @static null
+  stable proposalFailures: ImmutableMap<ProposalItemId, String>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.EditorTitleAndBody(
+  stable session: EditorSession
+  stable titleState: TextFieldState
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.NoteEditorScreenEditingPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.NoteEditorScreenDirtyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.NotePreviewScreen(
+  route: Preview
+  viewModel: NotePreview? = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.NotePreviewScreenContent(
+  state: NotePreviewState
+  stable onBack: Function0<Unit>
+  stable onEdit: Function0<Unit>
+  stable onDelete: Function0<Unit>
+  stable onBacklinksClick: Function0<Unit>
+  stable onNavigateToNote: Function1<NoteId, Unit>
+  stable onNavigateToTask: Function1<TaskId, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.MetaChipsRow(
+  stable note: Note
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.MetaLabel(
+  stable text: String
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.BacklinksSheet(
+  stable backlinks: ImmutableList<Note>
+  stable onNoteSelected: Function1<NoteId, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.NotePreviewBody(
+  stable html: String
+  stable modifier: Modifier? = @static <expression>
+  stable onNavigateToNote: Function1<NoteId, Unit>
+  stable onNavigateToTask: Function1<TaskId, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.NotePreviewLoadingPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.NotePreviewLoadedPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.NotesListScreen(
+  unused stable route: List
+  viewModel: NotesListViewModel? = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.NotesScreenContent(
+  state: NotesUiState
+  navigator: NotesNavigator
+  stable onCreateNote: Function1<@[ParameterName(name = 'title')] String, Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable actions: NotesActions? = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.FilterChipRow(
+  stable currentFilter: NoteFilter
+  stable onFilterChange: Function1<NoteFilter, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.SortDropdownMenu(
+  stable expanded: Boolean
+  stable currentOrder: NoteSortOrder
+  stable onSelect: Function1<NoteSortOrder, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.NoteSearchField(
+  stable querySource: StaticText
+  stable onQueryChange: Function1<String, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.QuickAddRow(
+  stable onSubmit: Function1<String, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.NoteList(
+  stable pinned: ImmutableList<Note>
+  stable unpinned: ImmutableList<Note>
+  stable templates: ImmutableList<Note>
+  stable dailyNotes: ImmutableList<Note>
+  stable isSelectionMode: Boolean
+  stable selectedIds: ImmutableSet<NoteId>
+  navigator: NotesNavigator
+  stable actions: NotesActions
+  stable currentFilter: NoteFilter
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.SwipeableNoteCard(
+  stable note: Note
+  stable isSelected: Boolean
+  stable isSelectionMode: Boolean
+  navigator: NotesNavigator
+  stable onLongClick: Function0<Unit>
+  stable onDelete: Function0<Unit>
+  stable onTogglePin: Function0<Unit>
+  stable onToggleSelection: Function0<Unit>
+  stable isArchived: Boolean = @static false
+  stable onUnarchive: Function0<Unit>? = @static <expression>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.SwipeBackground(
+  stable dismissValue: SwipeToDismissBoxValue
+  stable isArchived: Boolean
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.NotesScreenContentPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.notes.presentation.screen.NotesScreenEmptyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.plans.presentation.components.PlansSectionList(
+  sections: ImmutableList<TimelineSection>
+  stable onTaskClick: Function1<TaskId, Unit>
+  stable onToggleCompleted: Function1<TaskId, Unit>
+  stable onSwipeAway: Function1<TaskId, Unit>
+  stable onAddInSection: Function1<LocalDate, Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable listState: LazyListState? = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.plans.presentation.components.PlansSectionHeader(
+  section: TimelineSection
+  stable onAddClick: Function0<Unit>?
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.plans.presentation.components.PlansTaskRow(
+  rowItem: TimelineTask
+  stable onTaskClick: Function1<TaskId, Unit>
+  stable onToggleCompleted: Function1<TaskId, Unit>
+  stable onSwipeAway: Function1<TaskId, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [_]]") fun com.singularity.todo.feature.plans.presentation.screen.PlansContent(
+  state: PlansUiState
+  stable onIntent: Function1<PlansIntent, Unit>
+  stable onTaskClick: Function1<TaskId, Unit>
+  stable onToggleCompleted: Function1<TaskId, Unit>
+  stable onSwipeAway: Function1<TaskId, Unit>
+  stable onAddInSection: Function1<LocalDate, Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable snackbarHost: Function2<Composer, Int, Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.plans.presentation.screen.PlansGranularityControl(
+  stable granularity: PlansGranularity
+  stable onGranularityChange: Function1<PlansGranularity, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.plans.presentation.screen.PlansLoading()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.plans.presentation.screen.PlansMessage(
+  stable text: String
+  stable tag: String
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.plans.presentation.screen.PlansScreen(
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.pomodoro.PomodoroScreen(
+  timer: PomodoroTimer
+  taskListProvider: PomodoroTaskListProvider
+)
+fun com.singularity.todo.feature.pomodoro.phaseColorOf(
+  stable phase: PomodoroPhase
+): Color
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.pomodoro.TaskChipRow(
+  stable tasks: ImmutableList<Task>
+  stable selectedTaskId: String?
+  stable isSupported: Boolean
+  stable onTaskSelected: Function1<String, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.pomodoro.PhaseLabel(
+  stable phase: PomodoroPhase
+  stable phaseColor: Color
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.pomodoro.CircularProgressRing(
+  stable progress: Float
+  stable phaseColor: Color
+  stable remainingSeconds: Int
+  stable completedCycles: Int
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.pomodoro.PomodoroControls(
+  stable isRunning: Boolean
+  stable phaseColor: Color
+  stable onStop: Function0<Unit>
+  stable onPlayPause: Function0<Unit>
+  stable onSkip: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.pomodoro.PomodoroContentPreview(
+  pomodoroState: PomodoroState
+  stable tasks: ImmutableList<Task>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.pomodoro.PomodoroScreenWorkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.pomodoro.PomodoroScreenBreakPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.ProfileSwitcherScreen(
+  stable modifier: Modifier? = @static <expression>
+  stable onBack: Function0<Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.ProfileSwitcherContent(
+  viewModel: ProfileSwitcherViewModel
+  stable modifier: Modifier? = @static <expression>
+  stable onBack: Function0<Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.ProfileListContent(
+  stable profiles: ImmutableList<Profile>
+  stable activeProfileId: ProfileId
+  stable modifier: Modifier? = @static <expression>
+  stable onSelect: Function1<ProfileId, Unit>
+  stable onDeleteRequest: Function1<Profile, Unit>
+  stable onCreateClick: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.DeleteProfileDialog(
+  stable profile: Profile
+  stable onDismiss: Function0<Unit>
+  stable onConfirm: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.ProfileCard(
+  stable profile: Profile
+  stable isActive: Boolean
+  stable onSelect: Function0<Unit>
+  stable onDelete: Function0<Unit>?
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.CreateProfileDialog(
+  stable onDismiss: Function0<Unit>
+  stable onCreate: Function3<@[ParameterName(name = 'name')] String, @[ParameterName(name = 'emoji')] String, @[ParameterName(name = 'colorIdx')] Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.ProfileSwitcherScreenPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.ProfileSwitcherScreenDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.presentation.AccountSettingsScreen(
+  stable modifier: Modifier? = @static <expression>
+  vm: AccountSettingsViewModel? = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.presentation.AccountSettingsScreenLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.presentation.AccountSettingsScreenDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.presentation.AccountSettingsScreenPreviewContent(
+  stable activeProfile: Profile?
+  stable onNavigateToProfileSwitcher: Function0<Unit>
+  stable onChangePassword: Function0<Unit>
+  stable onSignOut: Function0<Unit>
+  session: Session? = @dynamic <expression>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.presentation.ActiveProfileSection(
+  stable profile: Profile
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.presentation.ChangePasswordSection(
+  stable onChangePassword: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.presentation.ProfileSwitcherSection(
+  stable onSwitchProfile: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.presentation.AttachAccountSection(
+  stable onAttachAccount: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.presentation.SignOutSection(
+  stable onSignOut: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.presentation.ChangePasswordScreen(
+  viewModel: ChangePasswordViewModel? = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.presentation.ChangePasswordScreenPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.presentation.ChangePasswordScreenContent(
+  stable passwordState: TextFieldState
+  stable isLoading: Boolean
+  stable errorMessage: String?
+  stable onFieldEdited: Function0<Unit>
+  stable onSubmit: Function0<Unit>
+  stable onBack: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.profile.presentation.ChangePasswordForm(
+  stable passwordState: TextFieldState
+  stable isLoading: Boolean
+  stable errorMessage: String?
+  stable onFieldEdited: Function0<Unit>
+  stable onSubmit: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.AttachmentPlaceholderSheet(
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.ChildProjectsSheet(
+  stable children: ImmutableList<Project>
+  stable onShowChildren: Function1<Project, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.ColorPickerSheet(
+  stable currentColor: Int
+  stable onPick: Function1<Int, Unit>
+  unused stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.ConfirmArchiveSheet(
+  stable isArchived: Boolean
+  stable onConfirm: Function0<Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.ConfirmCloseSheet(
+  stable openTaskCount: Int
+  stable onConfirm: Function0<Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.ConfirmBlockedCloseDialog(
+  stable blockedTaskTitles: ImmutableList<String>
+  stable openTaskCount: Int
+  stable onConfirm: Function0<Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.ConfirmDeleteSheet(
+  stable projectName: String
+  stable onConfirm: Function0<Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.EditorParentPickerSheet(
+  stable onPick: Function1<ProjectId?, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.IconPickerSheet(
+  stable currentIcon: String?
+  stable onPick: Function1<String?, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.EmojiSection(
+  stable currentIcon: String?
+  stable onPick: Function1<String?, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.InheritedTagGroupsSheet(
+  stable options: ImmutableList<TagGroupOption>
+  stable currentIds: ImmutableSet<TagGroupId>
+  stable onPick: Function1<Set<TagGroupId>, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.ParentPickerSheet(
+  stable options: ImmutableList<ParentOption>
+  unused stable currentParentId: ProjectId?
+  stable onPick: Function1<ProjectId?, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.ProjectCard(
+  stable project: Project
+  stable totalCount: Int = @static 0
+  stable completedCount: Int = @static 0
+  stable onClick: Function0<Unit>
+  stable actions: ProjectCardActions? = @dynamic <expression>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.ColorCircle(
+  stable color: Color
+  stable iconKey: String?
+  stable contentDescription: String? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.ProjectDetailSheetsHost(
+  activeSheet: ActiveSheet?
+  currentContent: CurrentProjectContent?
+  stable parentOptions: ImmutableList<ParentOption>
+  stable tagGroups: ImmutableList<TagGroupOption>
+  stable inheritedTagGroupIds: ImmutableSet<TagGroupId>
+  stable onSheetDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.ProjectIcon(
+  stable icon: String?
+  stable tint: Color
+  stable size: Dp
+  stable contentDescription: String? = @static null
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.ProjectTreeSection(
+  state: ProjectsTreeUiState
+  stable onToggleExpanded: Function1<ProjectId, Unit>
+  stable onOpenProject: Function1<ProjectId, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.ProjectTreeRow(
+  node: ProjectTreeNode
+  stable onToggleExpanded: Function0<Unit>
+  stable onOpen: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.components.ReminderPickerSheet(
+  stable currentOffset: ReminderOffset?
+  stable defaultOffset: ReminderOffset
+  stable onSelect: Function1<ReminderOffset, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.nav.ProjectsNavGraph(
+  start: ProjectsRoute
+  stable onExitGraph: Function1<AppDestination?, Unit>
+  stable modifier: Modifier? = @static <expression>
+  backStack: NavBackStack<ProjectsRoute>? = @static null
+)
+scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.nav.projectsScreenEntryProvider()
+restartable skippable scheme("[0, [0]]") fun com.singularity.todo.feature.projects.presentation.nav.ProjectsPreviewWrapper(
+  stable content: Function2<Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectBodySection(
+  ui: ProjectDetailUi
+  stable hideCompleted: Boolean
+  stable hideBlocked: Boolean
+  stable availableTasks: ImmutableList<Task>
+  stable actions: ProjectDetailActions
+  nav: ProjectsNavigator
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectTasksHeader(
+  stable totalCount: Int
+  stable hideCompleted: Boolean
+  stable hideBlocked: Boolean
+  stable actions: ProjectDetailActions
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectBottomActionBar(
+  stable isArchived: Boolean
+  stable actions: ProjectDetailActions
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectDetailQuickAddInput(
+  stable availableTasks: ImmutableList<Task>
+  stable actions: ProjectDetailActions
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.AddExistingTaskPopup(
+  stable tasks: ImmutableList<Task>
+  stable onPick: Function1<TaskId, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectDetailContent(
+  viewModel: ProjectDetailViewModel
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.BlockedCloseDialog(
+  content: Content?
+  stable actions: ProjectDetailActions
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectDetailSheets(
+  stable sheets: OverlayState<ActiveSheet>
+  content: Content?
+  stable actions: ProjectDetailActions
+)
+fun com.singularity.todo.feature.projects.presentation.screen.rememberProjectDetailActions(
+  stable sheets: OverlayState<ActiveSheet>
+  nav: ProjectsNavigator
+  viewModel: ProjectDetailViewModel
+): ProjectDetailActions
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectHeroSection(
+  ui: ProjectDetailUi
+  stable lastEditedAt: Instant?
+  stable now: Instant
+  stable nameSource: OwnedText
+  stable descriptionSource: OwnedText
+  stable actions: ProjectDetailActions
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectMetaChipsRow(
+  ui: ProjectDetailUi
+  stable actions: ProjectDetailActions
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectHeroSectionPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectMetaChipsRowPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectDetailScreen(
+  stable projectId: ProjectId
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectDetailTopBar(
+  state: ProjectDetailUiState
+  stable actions: ProjectDetailActions
+  stable onBack: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectEditorScreen(
+  stable projectId: ProjectId?
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectEditorContent(
+  viewModel: ProjectEditorViewModel
+  stable modifier: Modifier? = @static <expression>
+  stable onBack: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.IconPickerSheetHost(
+  stable visible: Boolean
+  stable currentIcon: String?
+  stable onPick: Function1<String?, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ParentPickerSheetHost(
+  stable visible: Boolean
+  stable onPick: Function1<ProjectId?, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.EditorTopBar(
+  stable isEditMode: Boolean
+  stable canSave: Boolean
+  stable onBack: Function0<Unit>
+  stable onSave: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.EditorErrorDialog(
+  stable message: String
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.IdentitySection(
+  stable nameSource: StaticText
+  stable descriptionSource: StaticText
+  stable errorMessage: String?
+  stable onNameChanged: Function1<String, Unit>
+  stable onDescriptionChanged: Function1<String, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.AppearanceSection(
+  stable selectedColor: Int
+  stable selectedIcon: String?
+  stable onColorSelected: Function1<Int, Unit>
+  stable onIconPickerRequested: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.OrganizationSection(
+  stable hasParent: Boolean
+  stable onParentPickerRequested: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectsScreen()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectSearchAndSortRow(
+  stable querySource: StaticText
+  stable sortOrder: ProjectSortOrder
+  stable onQueryChange: Function1<String, Unit>
+  stable onSortOrderChange: Function1<ProjectSortOrder, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectsContent(
+  state: ProjectsUiState
+  stable modifier: Modifier? = @static <expression>
+  stable onNavigateToProject: Function1<ProjectId, Unit>
+  stable onCreateProject: Function0<Unit>
+  stable onDelete: Function1<ProjectId, Unit>
+  stable onReviewClick: Function1<Project, Unit>
+  stable onReopen: Function1<ProjectId, Unit>
+  stable onRetry: Function0<Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ClosedProjectsSection(
+  stable closedProjects: ImmutableList<Project>
+  stable onReopen: Function1<ProjectId, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ClosedProjectRow(
+  stable project: Project
+  stable onReopen: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectList(
+  stable projects: ImmutableList<ProjectWithCounts>
+  stable closedProjects: ImmutableList<Project>
+  stable modifier: Modifier? = @static <expression>
+  stable onNavigateToProject: Function1<ProjectId, Unit>
+  unused stable onCreateProject: Function0<Unit>
+  stable onDelete: Function1<ProjectId, Unit>
+  stable onReviewClick: Function1<Project, Unit>
+  stable onReopen: Function1<ProjectId, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectsScreenContentPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectsScreenEmptyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.projects.presentation.screen.ProjectsScreenDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.proposals.presentation.ProposalsScreen(
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.proposals.presentation.components.ProposalCardsSection(
+  stable proposals: ImmutableList<AiProposal>
+  stable onConfirm: Function1<ProposalItemId, Unit>
+  stable onReject: Function2<ProposalItemId, String?, Unit>
+  stable onConfirmAll: Function1<ProposalId, Unit>
+  stable onDismiss: Function1<ProposalId, Unit>
+  stable onEdit: Function2<ProposalItemId, String, Unit>? = @static null
+  stable failures: ImmutableMap<ProposalItemId, String>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.proposals.presentation.components.ProposalCard(
+  stable proposal: AiProposal
+  stable onConfirm: Function1<ProposalItemId, Unit>
+  stable onReject: Function2<ProposalItemId, String?, Unit>
+  stable onConfirmAll: Function0<Unit>
+  stable onDismiss: Function0<Unit>
+  stable onEdit: Function2<ProposalItemId, String, Unit>? = @static null
+  stable failures: ImmutableMap<ProposalItemId, String>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.proposals.presentation.components.ProposalItemRow(
+  stable item: ProposalItem
+  stable isRejecting: Boolean
+  stable rejectionState: TextFieldState
+  stable isEditing: Boolean
+  stable editState: TextFieldState
+  stable canEdit: Boolean
+  stable failure: String?
+  stable onConfirm: Function0<Unit>
+  stable onStartReject: Function0<Unit>
+  stable onSendReject: Function0<Unit>
+  stable onCancelReject: Function0<Unit>
+  stable onStartEdit: Function0<Unit>
+  stable onSendEdit: Function0<Unit>
+  stable onCancelEdit: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.proposals.presentation.components.DecidedProposalItemRow(
+  stable item: ProposalItem
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.reminders.ReminderPicker(
+  stable selected: ReminderOffset
+  stable onSelect: Function1<ReminderOffset, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.SearchScreen(
+  viewModel: SearchViewModel? = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.SearchScreenContent(
+  state: SearchUiState
+  stable onIntent: Function1<SearchIntent, Unit>
+  navigator: SearchNavigator
+  stable modifier: Modifier? = @static <expression>
+  stable snackbarHostState: SnackbarHostState? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.SearchInputBar(
+  stable querySource: StaticText
+  stable onQueryChange: Function1<String, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.SearchSheetHosts(
+  stable showFilterSheet: Boolean
+  stable showSaveDialog: Boolean
+  stable searchToRename: Pair<SavedSearchId, String>?
+  activeFilter: SimpleFilter?
+  stable query: String
+  stable onDismissFilterSheet: Function0<Unit>
+  stable onApplyFilter: Function1<SimpleFilter?, Unit>
+  stable onDismissSaveDialog: Function0<Unit>
+  stable onSaveSearch: Function1<String, Unit>
+  stable onDismissRename: Function0<Unit>
+  stable onRename: Function2<SavedSearchId, String, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.SearchOutcome(
+  content: SearchContent
+  results: SearchResults
+  navigator: SearchNavigator
+  stable onPin: Function1<TaskId, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.SearchResultsList(
+  results: SearchResults
+  navigator: SearchNavigator
+  stable onPin: Function1<TaskId, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.SectionHeader(
+  stable title: String
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.SimpleResultCard(
+  stable title: String
+  stable onClick: Function0<Unit>
+  stable matchRanges: ImmutableList<TextMatchRange>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.SearchScreenEmptyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.SavedSearchesRowPreview()
+restartable skippable fun com.singularity.todo.feature.search.SearchEventsHandler(
+  viewModel: SearchViewModel
+  stable snackbarHostState: SnackbarHostState
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.SaveSearchDialog(
+  stable initialName: String
+  stable onDismiss: Function0<Unit>
+  stable onSave: Function1<String, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.RenameSearchDialog(
+  stable currentName: String
+  stable onDismiss: Function0<Unit>
+  stable onRename: Function1<String, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.SaveSearchDialogPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.RenameSearchDialogPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.SavedSearchesRow(
+  stable savedSearches: ImmutableList<SavedSearch>
+  stable activeSavedSearchId: SavedSearchId?
+  stable onLoadSearch: Function1<SavedSearchId, Unit>
+  stable onSaveClick: Function0<Unit>
+  stable onRename: Function2<SavedSearchId, String, Unit>
+  stable onDelete: Function1<SavedSearchId, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.SavedSearchChipWithMenu(
+  stable saved: SavedSearch
+  stable isActive: Boolean
+  stable onClick: Function0<Unit>
+  stable onRename: Function1<String, Unit>
+  stable onDelete: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.SavedSearchesRowPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.SavedSearchesRowEmptyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.SearchModeSwitch(
+  stable mode: SearchMode
+  stable onModeChange: Function1<SearchMode, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.SimpleFilterSheet(
+  initialFilter: SimpleFilter?
+  stable onApply: Function1<SimpleFilter?, Unit>
+  stable onDismiss: Function0<Unit>
+  stable sheetState: SheetState? = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.StateChips(
+  stable selected: ImmutableSet<TaskStatus>?
+  stable onSelectionChange: Function1<ImmutableSet<TaskStatus>?, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.PriorityChips(
+  stable selected: ImmutableSet<TaskPriority>
+  stable onSelectionChange: Function1<ImmutableSet<TaskPriority>, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.DueChips(
+  stable selected: DueCondition
+  stable onSelectionChange: Function1<DueCondition, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.SortChips(
+  stable sortOrder: SortOrder
+  stable sortDescending: Boolean
+  stable onSortOrderChange: Function1<SortOrder, Unit>
+  stable onSortDescendingChange: Function1<Boolean, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.SimpleFilterSheetPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.SimpleFilterSheetEmptyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.nav.SearchNavGraph(
+  navCallbacks: NavCallbacks
+  stable modifier: Modifier? = @static <expression>
+  backStack: NavBackStack<Search>? = @static null
+)
+scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.search.presentation.nav.searchScreenEntryProvider()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.SettingsScreen(
+  stable modifier: Modifier? = @static <expression>
+  navCallbacks: NavCallbacks? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [_]]") fun com.singularity.todo.feature.settings.SettingsContent(
+  state: Content
+  stable selectedTab: SettingsTab
+  stable onSelectTab: Function1<SettingsTab, Unit>
+  stable onIntent: Function1<SettingsIntent, Unit>
+  stable onOpenAttachmentsFolder: Function0<Unit>
+  stable attachmentsPath: String
+  onboarding: OnboardingSettingsRepository? = @static null
+  stable modifier: Modifier? = @static <expression>
+  stable previewOverrides: ImmutableMap<SettingsTab, Function2<Composer, Int, Unit>>? = @static <expression>
+  navCallbacks: NavCallbacks? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.BackupScreenWrapper(
+  stable onBack: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [_]]") fun com.singularity.todo.feature.settings.SettingsTabBody(
+  stable selectedTab: SettingsTab
+  state: Content
+  stable onIntent: Function1<SettingsIntent, Unit>
+  stable onOpenAttachmentsFolder: Function0<Unit>
+  stable attachmentsPath: String
+  onboarding: OnboardingSettingsRepository?
+  stable previewOverrides: ImmutableMap<SettingsTab, Function2<Composer, Int, Unit>>
+  navCallbacks: NavCallbacks?
+  stable onSelectTab: Function1<SettingsTab, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.SettingsNavRail(
+  stable selectedTab: SettingsTab
+  stable aiTestResult: AiTestResult
+  stable modifier: Modifier? = @static <expression>
+  stable onSelect: Function1<SettingsTab, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.SettingsTabDropdown(
+  stable selectedTab: SettingsTab
+  stable onSelect: Function1<SettingsTab, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.AiStatusBadge(
+  stable aiTestResult: AiTestResult
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.SettingsScreenPreview(
+  stable selectedTab: SettingsTab
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.SettingsScreenLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.SettingsScreenDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.presentation.nav.SettingsNavGraph(
+  navCallbacks: NavCallbacks
+  stable modifier: Modifier? = @static <expression>
+  backStack: NavBackStack<Settings>? = @static null
+)
+scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.presentation.nav.settingsScreenEntryProvider()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.AgendaSettingsScreen(
+  state: Content
+  stable onIntent: Function1<SettingsIntent, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.AgendaSettingsScreenLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.AiProviderSettingsScreen(
+  state: Content
+  stable onIntent: Function1<SettingsIntent, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.AiTestResultBanner(
+  stable result: AiTestResult
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.AiProviderSettingsScreenLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.AiProviderSettingsScreenConnectedPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.AiProviderSettingsScreenDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.FilesSettingsScreen(
+  stable attachmentsPath: String
+  stable onOpenAttachmentsFolder: Function0<Unit>
+  logExportEphemeral: LogExport? = @dynamic <expression>
+  stable onExportLogs: Function0<Unit>? = @static <expression>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.StorageSection(
+  stable attachmentsPath: String
+  stable onOpenAttachmentsFolder: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.LogsSection(
+  logExportEphemeral: LogExport
+  stable onExportLogs: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.AttachmentLimitsSection()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.SupportedFormatsSection()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.FilesSettingsScreenLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.FilesSettingsScreenDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen(
+  state: Content
+  stable onIntent: Function1<SettingsIntent, Unit>
+  stable modifier: Modifier? = @static <expression>
+  onboarding: OnboardingSettingsRepository? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.AccentColorPicker(
+  stable selected: SingularityAccents
+  stable onSelect: Function1<SingularityAccents, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.AccentSwatch(
+  stable accent: SingularityAccents
+  stable selected: Boolean
+  stable onClick: Function0<Unit>
+  stable testTag: String
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.FontSizeSlider(
+  stable value: Float
+  stable onValueChange: Function1<Float, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.ThemeModeSelector(
+  stable selected: ThemeMode
+  stable onSelect: Function1<ThemeMode, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.InterfaceSettingsScreenLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.InterfaceSettingsScreenDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.NotificationSettingsScreen(
+  state: Content
+  stable onIntent: Function1<SettingsIntent, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.NotificationSettingsScreenLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.NotificationSettingsScreenDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.TasksSettingsScreen(
+  state: Content
+  stable onIntent: Function1<SettingsIntent, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.StalenessThresholdSlider(
+  stable value: Int
+  stable onValueChange: Function1<Int, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen(
+  state: Content
+  stable onIntent: Function1<SettingsIntent, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.TimeSlider(
+  stable label: String
+  stable value: Int
+  stable onValueChange: Function1<Int, Unit>
+  stable formatter: Function1<Int, String>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreenLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreenDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreenShortDayPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.statistics.StatisticsScreen(
+  viewModel: StatisticsViewModel? = @dynamic <expression>
+  navCallbacks: NavCallbacks? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.statistics.TasksTabContent(
+  state: StatisticsUiState
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.statistics.TasksBarChart(
+  stable buckets: ImmutableList<DayBucket>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.statistics.InsightsTabContent(
+  viewModel: StatisticsViewModel
+  insightsState: InsightsData
+  stable rangeDays: Int
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.statistics.ProjectBreakdown(
+  stable projectBuckets: ImmutableList<ProjectInsightsBucket>
+  stable totalMs: Long
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.statistics.InsightsStackedBarChart(
+  stable buckets: ImmutableList<DayInsightsBucket>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.statistics.ProjectTimeRow(
+  stable name: String
+  stable totalMs: Long
+  stable color: Color
+  stable fraction: Double
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.statistics.StatCard(
+  stable title: String
+  stable value: String
+  stable modifier: Modifier? = @static <expression>
+  stable testTag: String? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.statistics.HealthTabContent(
+  health: TaskHealthSummary?
+  stable onBucketClick: Function1<TaskHealthBucket, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.statistics.StatisticsScreenLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.sync.presentation.SyncButton(
+  status: SyncEngineStatus
+  stable onClick: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.sync.presentation.SyncSettingsScreen(
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.sync.presentation.SyncSettingsContent(
+  state: SyncState
+  stable onIntent: Function1<SyncIntent, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.sync.presentation.SyncSettingsIdlePreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.sync.presentation.SyncSettingsOfflinePreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tags.TagsScreen(
+  viewModel: TagsViewModel
+  stable modifier: Modifier? = @static <expression>
+  stable onOpenTag: Function1<TagId, Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tags.TagList(
+  stable tags: ImmutableList<Tag>
+  stable onDelete: Function1<TagId, Unit>
+  stable onRename: Function1<Tag, Unit>
+  stable onOpen: Function1<TagId, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tags.TagCard(
+  stable tag: Tag
+  stable onDelete: Function0<Unit>
+  stable onRename: Function0<Unit>
+  stable onOpen: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tags.components.AddTagDialog(
+  stable onConfirm: Function2<@[ParameterName(name = 'name')] String, @[ParameterName(name = 'color')] Int, Unit>
+  stable onDismiss: Function0<Unit>
+  stable title: String? = @static "New Tag"
+  stable initialName: String? = @static ""
+  stable initialColor: Int = @static 0
+  stable confirmLabel: String? = @static "Create"
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tags.components.AddTagDialogCreatePreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tags.components.AddTagDialogRenamePreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tags.components.TagsPickerSheet(
+  stable selectedIds: ImmutableList<TagId>
+  stable onSelect: Function1<ImmutableList<TagId>, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tags.components.PickerButtons(
+  stable onDone: Function0<Unit>
+  stable onCancel: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tags.components.TagChoices(
+  stable allTags: ImmutableList<Tag>
+  stable selected: ImmutableList<TagId>
+  stable onToggle: Function1<Tag, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tags.components.CreateTagAction(
+  stable onCreate: Function0<Unit>
+  stable message: String?
+  stable messageIsFailure: Boolean
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tags.components.TagItem(
+  stable tag: Tag
+  stable isSelected: Boolean
+  stable onToggle: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tags.presentation.screen.TagGroupsScreen(
+  state: TagGroupsUiState
+  stable onDelete: Function1<TagGroupId, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tags.presentation.screen.TagGroupList(
+  stable groups: ImmutableList<TagGroup>
+  stable modifier: Modifier? = @static <expression>
+  stable onDelete: Function1<TagGroupId, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tags.presentation.screen.TagGroupCard(
+  stable group: TagGroup
+  stable onDelete: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.PriorityChip(
+  stable priority: TaskPriority
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.PriorityChipMediumPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.PriorityChipHighDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.PriorityChipUrgentPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.ProjectPickerSheet(
+  stable selectedId: ProjectId?
+  stable onSelect: Function1<ProjectId?, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.ProjectItem(
+  stable project: Project
+  stable isSelected: Boolean
+  stable onSelect: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet(
+  stable task: Task
+  stable onAction: Function1<TaskAiAction, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable], [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.tasks.presentation.components.TaskCard(
+  stable task: Task
+  stable onClick: Function0<Unit>
+  stable onLongClick: Function0<Unit>? = @static <expression>
+  stable actions: TaskCardActions? = @dynamic <expression>
+  stable modifier: Modifier? = @static <expression>
+  stable matchRanges: ImmutableList<TextMatchRange>? = @static <expression>
+  stable today: LocalDate? = @dynamic <expression>
+  stable blockedTaskIds: ImmutableSet<TaskId>? = @static <expression>
+  stable isBlocked: Boolean = @static false
+  stable markings: ImmutableSet<TaskMarking>? = @static null
+  stable body: @[ExtensionFunctionType] Function3<RowScope, Composer, Int, Unit>? = @static <expression>
+  stable trailing: @[ExtensionFunctionType] Function3<RowScope, Composer, Int, Unit>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.DefaultTaskCardBody(
+  stable <this>: RowScope
+  stable task: Task
+  stable actions: TaskCardActions
+  stable matchRanges: ImmutableList<TextMatchRange>? = @static <expression>
+  stable today: LocalDate? = @dynamic <expression>
+  stable blockedTaskIds: ImmutableSet<TaskId>? = @static <expression>
+  stable isBlocked: Boolean = @static false
+  stable markings: ImmutableSet<TaskMarking>? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.DefaultTaskCardTrailing(
+  stable task: Task
+  stable actions: TaskCardActions
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.ToggleButton(
+  stable isCompleted: Boolean
+  stable onClick: Function0<Unit>
+  stable taskTitle: String? = @static ""
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.TaskText(
+  stable task: Task
+  stable modifier: Modifier? = @static <expression>
+  stable matchRanges: ImmutableList<TextMatchRange>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.PinButton(
+  stable isPinned: Boolean
+  stable onClick: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.SubtaskChip(
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.TaskCardLightPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.TaskCardCompletedDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.TaskCardPinnedPurpleDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost(
+  stable title: String
+  stable onClose: Function0<Unit>
+  stable onConfirm: Function0<Unit>? = @static null
+  stable testTagConfirm: String? = @static null
+  stable sheetState: SheetState? = @dynamic <expression>
+  stable testTag: String? = @static null
+  stable content: @[ExtensionFunctionType] Function3<ColumnScope, Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.DependencyPickerSheet(
+  stable currentDeps: ImmutableMap<TaskId, DependencyVerb>
+  stable availableTasks: ImmutableList<Task>
+  stable onApply: Function1<ImmutableMap<TaskId, DependencyVerb>, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.DependencyItem(
+  stable task: Task
+  stable verb: DependencyVerb?
+  stable onToggle: Function1<TaskId, Unit>
+  stable onVerbChange: Function2<TaskId, DependencyVerb, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.EmptySectionHint(
+  stable text: String
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable], [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.tasks.presentation.components.detail.ExtraSectionCard(
+  stable icon: Function2<Composer, Int, Unit>
+  stable label: String
+  stable content: Function2<Composer, Int, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.FirstRunSection(
+  stable onWriteNote: Function0<Unit>? = @static null
+  stable onAddChecklist: Function0<Unit>? = @static null
+  stable onAskAi: Function0<Unit>? = @static null
+  stable modifier: Modifier? = @static <expression>
+  stable testTag: String? = @static "first_run_section"
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.tasks.presentation.components.detail.FirstRunChip(
+  stable icon: Function2<Composer, Int, Unit>
+  stable label: String
+  stable onClick: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard(
+  stable linkedNotes: ImmutableList<Note>
+  stable linkedTasks: ImmutableList<Task>
+  stable onOpenNote: Function1<NoteId, Unit>
+  stable onOpenTask: Function1<TaskId, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.BacklinkSection(
+  stable label: String
+  stable items: ImmutableList<String>
+  stable onItemClick: Function1<Int, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.LogbookSection(
+  stable entries: ImmutableList<LogbookEntry>
+  stable onOpenNote: Function1<NoteId, Unit>
+  stable onAddNote: Function1<TaskId, Unit>
+  stable currentTaskId: TaskId
+  stable now: Instant
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.LogbookEmptyCard(
+  stable onAddNote: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.LogbookHeader(
+  stable title: String
+  stable onAddNote: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.LogbookLoadedCard(
+  stable entries: ImmutableList<LogbookEntry>
+  stable onOpenNote: Function1<NoteId, Unit>
+  stable onAddNote: Function0<Unit>
+  stable now: Instant
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.LogbookNoteRow(
+  stable note: Note
+  stable onClick: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.LogbookTimeEntryRow(
+  entry: TimeEntry
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.RecurrencePickerSheet(
+  currentSpec: RecurrenceSpec?
+  stable anchorDate: LocalDate
+  stable onApply: Function1<RecurrenceSpec?, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.ModeSelector(
+  stable selectedBase: RecurrenceBase
+  stable onBaseChange: Function1<RecurrenceBase, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.FrequencySelector(
+  stable selectedType: SpecType
+  stable onSelectedTypeChange: Function1<SpecType, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.PreviewSection(
+  spec: RecurrenceSpec
+  stable anchorDate: LocalDate
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TerminationSection(
+  stable endDate: LocalDate?
+  stable anchorDate: LocalDate
+  stable onEndDateChange: Function1<LocalDate?, Unit>
+  stable onPickEndDate: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.IntervalEditor(
+  stable amount: Int
+  unstable unit: DateBased
+  stable type: SpecType
+  stable onAmountChange: Function1<Int, Unit>
+  stable onUnitChange: Function1<DateBased, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.WeekdayEditor(
+  stable selected: ImmutableSet<Int>
+  stable onChange: Function1<ImmutableSet<Int>, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.DayOfMonthEditor(
+  stable day: Int
+  stable onChange: Function1<Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.YearlyEditor(
+  stable month: Int
+  stable day: Int
+  stable onMonthChange: Function1<Int, Unit>
+  stable onDayChange: Function1<Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.RecurrencePickerSheetPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.RecurrencePickerSheetWeeklyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.SubtasksSection(
+  stable subtasks: ImmutableList<Task>
+  stable onToggle: Function1<Task, Unit>
+  stable onDelete: Function1<Task, Unit>
+  stable onOpen: Function1<Task, Unit>
+  stable onAddSubtask: Function1<String, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.SubtasksSectionEmptyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.SubtasksSectionWithItemsPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskAttributeCard(
+  stable icon: ImageVector
+  stable label: String
+  stable onClick: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable isActive: Boolean = @static false
+  stable iconTint: Color = @dynamic <expression>
+  stable textColor: Color = @dynamic <expression>
+  stable containerColor: Color = @dynamic <expression>
+  stable trailingContent: Function2<Composer, Int, Unit>? = @static null
+  stable testTag: String? = @static null
+  stable enabled: Boolean = @static true
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskDescriptionField.<no name provided>.Decoration(
+  stable innerTextField: Function2<Composer, Int, Unit>
+  stable <this>: <no name provided>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskDescriptionField(
+  stable descriptionState: TextFieldState
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskDescriptionFieldPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskDescriptionFieldEmptyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailRecurrenceSection(
+  recurrence: RecurrenceSpec
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailChecklistSection(
+  stable checklist: ImmutableList<ChecklistItem>
+  stable onToggle: Function1<ChecklistItem, Unit>
+  stable onDelete: Function1<ChecklistItemId, Unit>
+  stable onAddItem: Function1<String, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailAttachmentsSection(
+  stable attachments: ImmutableList<Attachment>
+  stable onOpenAttachments: Function0<Unit>? = @static null
+  stable onDelete: Function1<AttachmentId, Unit>? = @static null
+  stable onOpen: Function1<AttachmentId, Unit>? = @static null
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailProposalSection(
+  stable proposals: ImmutableList<AiProposal>
+  stable onConfirm: Function1<ProposalItemId, Unit>
+  stable onReject: Function2<ProposalItemId, String?, Unit>
+  stable onConfirmAll: Function1<ProposalId, Unit>
+  stable onDismiss: Function1<ProposalId, Unit>
+  stable onEdit: Function2<ProposalItemId, String, Unit>? = @static null
+  stable failures: ImmutableMap<ProposalItemId, String>? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailProposalSectionPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailTagsSection(
+  stable tags: ImmutableList<Tag>
+  stable onDeleteTag: Function1<TagId, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailTopBar(
+  stable onBackClick: Function0<Unit>
+  stable onMoreClick: Function0<Unit>? = @static null
+  stable onAiClick: Function0<Unit>? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable], [androidx.compose.ui.UiComposable], [_]]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent(
+  stable taskId: String
+  stable titleState: TextFieldState
+  stable isCompleted: Boolean
+  stable onCheckToggle: Function0<Unit>?
+  stable descriptionState: TextFieldState
+  stable priority: TaskPriority
+  stable onPriorityClear: Function0<Unit>?
+  stable dueDate: LocalDate?
+  stable dueTime: LocalTime?
+  stable dueDates: ImmutableList<LocalDate>? = @static <expression>
+  stable onDueDateClear: Function0<Unit>?
+  stable showDueDate: Boolean = @static true
+  stable onPriorityClick: Function0<Unit>? = @static null
+  stable onDueDateClick: Function0<Unit>? = @static null
+  stable startDate: LocalDate? = @static null
+  stable startTime: LocalTime? = @static null
+  startDateCallbacks: DateRowCallbacks? = @static null
+  stable project: ProjectId? = @static null
+  projectCallbacks: RowCallbacks<ProjectId?>? = @static null
+  stable tags: ImmutableList<TagId>? = @static <expression>
+  tagsCallbacks: RowCallbacks<List<TagId>>? = @static null
+  recurrence: RecurrenceSpec? = @static null
+  recurrenceCallbacks: RowCallbacks<RecurrenceSpec?>? = @static null
+  stable isPinned: Boolean = @static false
+  pinCallbacks: ToggleCallbacks? = @static null
+  stable estimateMinutes: Int? = @static null
+  estimateCallbacks: RowCallbacks<Int?>? = @static null
+  stable blockedBy: ImmutableSet<TaskId>? = @static <expression>
+  stable followsUp: ImmutableSet<TaskId>? = @static <expression>
+  stable workflowState: TaskWorkflowState? = @static <expression>
+  workflowStateCallbacks: RowCallbacks<TaskWorkflowState>? = @static null
+  stable availableTasks: ImmutableList<Task>? = @static <expression>
+  stable checklistCount: Int = @static 0
+  stable attachmentsCount: Int = @static 0
+  checklistCallbacks: ChecklistCallbacks? = @static null
+  attachmentsCallbacks: AttachmentsCallbacks? = @static null
+  stable showAttachmentsRow: Boolean = @static true
+  stable bannerSections: Function2<Composer, Int, Unit>? = @static null
+  stable extraSections: Function2<Composer, Int, Unit>?
+  stable bottomBar: Function2<Composer, Int, Unit>?
+  menuItems: ImmutableList<TaskEditorMenuItem>
+  stable onBack: Function0<Unit>
+  stable onAiClick: Function0<Unit>? = @static null
+  stable sheets: DialogState<TaskEditorSheet>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.StartDateRow(
+  stable startDate: LocalDate?
+  stable startTime: LocalTime?
+  callbacks: DateRowCallbacks
+  stable onStartDateClick: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent(
+  model: TaskEditorModel
+  stable titleSource: OwnedText
+  stable descriptionSource: OwnedText
+  stable onTitleChange: Function1<String, Unit>
+  stable onDescriptionChange: Function1<String, Unit>
+  callbacks: TaskEditorCallbacks
+  stable isCompleted: Boolean = @static false
+  stable now: Instant
+  stable sheets: DialogState<TaskEditorSheet>
+  stable showAttachmentsRow: Boolean = @static true
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskCreateEditorContent(
+  model: TaskEditorModel
+  stable titleSource: StaticText
+  stable descriptionSource: StaticText
+  stable onTitleChange: Function1<String, Unit>
+  stable onDescriptionChange: Function1<String, Unit>
+  callbacks: TaskEditorCallbacks
+  stable now: Instant
+  stable sheets: DialogState<TaskEditorSheet>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorScaffold(
+  model: TaskEditorModel
+  callbacks: TaskEditorCallbacks
+  stable titleState: TextFieldState
+  stable descriptionState: TextFieldState
+  stable isCompleted: Boolean
+  stable now: Instant
+  stable sheets: DialogState<TaskEditorSheet>
+  stable showAttachmentsRow: Boolean = @static true
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContentEmptyPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContentFilledPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContentDarkPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorDueDateRow(
+  stable dueDate: LocalDate?
+  stable dueTime: LocalTime?
+  stable onDueDateClick: Function0<Unit>?
+  stable onDueDateClear: Function0<Unit>?
+  stable modifier: Modifier? = @static <expression>
+  stable labelTestTag: String? = @static null
+  stable dueDates: ImmutableList<LocalDate>? = @static <expression>
+)
+fun com.singularity.todo.feature.tasks.presentation.components.detail.dueDateRowLabel(
+  stable date: LocalDate?
+  stable time: LocalTime?
+  dates: List<LocalDate>
+): String
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorEstimateRow(
+  stable estimateMinutes: Int?
+  stable onEstimateClick: Function0<Unit>?
+  stable onEstimateClear: Function0<Unit>?
+  stable modifier: Modifier? = @static <expression>
+)
+fun com.singularity.todo.feature.tasks.presentation.components.detail.estimateRowLabel(
+  stable minutes: Int?
+): String
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorEstimateSheet(
+  stable selected: Int?
+  stable onSelect: Function1<Int?, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorEstimateSheetPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorEstimateSheetNoEstimatePreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorPriorityRow(
+  stable priority: TaskPriority
+  stable onPriorityClick: Function0<Unit>?
+  stable onPriorityClear: Function0<Unit>?
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorPrioritySheet(
+  stable selected: TaskPriority
+  stable onSelect: Function1<TaskPriority, Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorSheetsHost(
+  model: TaskEditorModel
+  callbacks: TaskEditorCallbacks
+  activeSheet: TaskEditorSheet?
+  stable now: Instant
+  stable onSheetDismiss: Function0<Unit>
+  stable isCompleted: Boolean = @static false
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorDateSheet(
+  model: TaskEditorModel
+  callbacks: TaskEditorCallbacks
+  stable now: Instant
+  stable onSheetDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorRecurrenceSheet(
+  model: TaskEditorModel
+  callbacks: TaskEditorCallbacks
+  stable now: Instant
+  stable onSheetDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorStateSheet(
+  stable selected: TaskWorkflowState
+  stable onSelect: Function1<TaskWorkflowState, Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable enabled: Boolean = @static true
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskSaveBar(
+  stable isEnabled: Boolean
+  unused stable isLoading: Boolean = @static false
+  stable onSaveClick: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskSeriesCard(
+  stable members: ImmutableList<Task>
+  stable onOpenMember: Function1<TaskId, Unit>
+  stable onApplyToAll: Function0<Unit>
+  stable onDetach: Function0<Unit>
+  stable onDeleteSeries: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskTitleRow.<anonymous>.<no name provided>.Decoration(
+  stable innerTextField: Function2<Composer, Int, Unit>
+  stable <this>: <no name provided>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskTitleRow(
+  stable taskId: String
+  stable titleState: TextFieldState
+  stable isCompleted: Boolean
+  stable onCheckToggle: Function0<Unit>?
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskTitleRowPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.detail.TaskTitleRowCompletedPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.list.PriorityIndicator(
+  stable priority: TaskPriority
+  stable modifier: Modifier? = @static <expression>
+)
+fun com.singularity.todo.feature.tasks.presentation.components.list.priorityContentDescription(
+  stable priority: TaskPriority
+): String
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.list.PriorityIndicatorPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable, [androidx.compose.ui.UiComposable]]") fun com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow(
+  stable onDelete: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable backgroundShape: RoundedCornerShape? = @dynamic <expression>
+  stable secondaryClickModifier: Modifier? = @static <expression>
+  stable content: Function2<Composer, Int, Unit>
+  stable isSelectionMode: Boolean = @static false
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.list.TaskCheckbox(
+  stable isChecked: Boolean
+  stable onCheckedChange: Function1<Boolean, Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable accentColor: Color = @dynamic <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.list.TaskCheckboxPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.list.TaskMarkingsRow(
+  stable markings: ImmutableSet<TaskMarking>
+  stable modifier: Modifier? = @static <expression>
+)
+fun com.singularity.todo.feature.tasks.presentation.components.list.contentDescription(
+  stable <this>: TaskMarking
+): String
+fun com.singularity.todo.feature.tasks.presentation.components.list.tint(
+  stable <this>: TaskMarking
+): Color
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.list.TaskMetaRow(
+  stable dueLabel: String?
+  stable project: String?
+  stable markings: ImmutableSet<TaskMarking>
+  stable seriesDates: Int? = @static null
+  stable projectColor: Int? = @static null
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.list.ProjectBadge(
+  stable name: String
+  stable color: Int?
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.list.MetaSeparator()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.list.TaskMetaRowPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.list.TaskRowContent(
+  task: TaskUi
+  stable onToggleCompleted: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.list.TaskRowContentPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat(
+  task: TaskUi
+  stable onToggleCompleted: Function0<Unit>
+  stable onClick: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+  stable indentLevel: Int = @static 0
+  stable showDivider: Boolean = @static true
+  stable onLongClick: Function0<Unit>? = @static null
+  stable secondaryClickModifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlatPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.contextmenu.TaskContextMenuSheet(
+  task: TaskUi
+  stable onOpen: Function0<Unit>
+  stable onToggleComplete: Function0<Unit>
+  stable onTogglePin: Function0<Unit>
+  stable onArchive: Function0<Unit>
+  stable onDismiss: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.contextmenu.SheetRow(
+  stable label: String
+  stable actionId: String
+  stable onClick: Function0<Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.nav.TasksNavGraph(
+  start: TasksRoute
+  stable onExitGraph: Function1<AppDestination?, Unit>
+  stable modifier: Modifier? = @static <expression>
+  backStack: NavBackStack<TasksRoute>? = @static null
+)
+scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.nav.tasksScreenEntryProvider()
+restartable skippable scheme("[0, [0]]") fun com.singularity.todo.feature.tasks.presentation.nav.TasksPreviewWrapper(
+  stable content: Function2<Composer, Int, Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen(
+  stable initialDueDate: LocalDate?
+  stable draftKey: String? = @static null
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.screen.DiscardChangesDialogHost(
+  stable visible: Boolean
+  stable onDiscard: Function0<Unit>
+  stable onKeepEditing: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.screen.TaskDetailContent(
+  coordinator: TaskDetailCoordinator
+  stable modifier: Modifier? = @static <expression>
+  stable now: Instant
+)
+fun com.singularity.todo.feature.tasks.presentation.screen.buildDetailMenuItems(
+  stable isTrashed: Boolean
+  stable onIntent: Function1<Domain, Unit>
+): ImmutableList<TaskEditorMenuItem>
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.screen.LoadingState()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.screen.ErrorState(
+  stable message: String
+  stable onRetry: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen(
+  route: Detail
+  stable modifier: Modifier? = @static <expression>
+)
+fun com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor()
+fun com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColor()
+fun com.singularity.todo.feature.tasks.presentation.theme.elevatedSurfaceColor()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet(
+  stable taskStartedAtMs: Long?
+  stable now: Instant
+  stable onSave: Function4<@[ParameterName(name = 'startedAtMs')] Long, @[ParameterName(name = 'endedAtMs')] Long, @[ParameterName(name = 'kind')] TimeEntryKind, @[ParameterName(name = 'note')] String?, Unit>
+  stable onDismiss: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.timetracking.presentation.components.DateRow(
+  stable date: LocalDate?
+  stable label: String
+  stable modifier: Modifier? = @static <expression>
+  stable onClick: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.timetracking.presentation.components.TimeRow(
+  stable time: LocalTime?
+  stable label: String
+  stable modifier: Modifier? = @static <expression>
+  stable onClick: Function0<Unit>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheetPreview()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.timetracking.presentation.components.TimeTrackingSection(
+  state: TaskTimeSlotState
+  stable onStart: Function0<Unit>
+  stable onStop: Function0<Unit>
+  stable onAddManual: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.timetracking.presentation.components.TimeEntryRow(
+  entry: TimeEntry
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.feature.whatsnew.presentation.screen.WhatsNewScreen(
+  stable onDismiss: Function0<Unit>
+  stable modifier: Modifier? = @static <expression>
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.shell.MenuBottomSheet(
+  stable onDismiss: Function0<Unit>
+  currentDestination: AppDestination? = @static null
+  stable onSelect: Function1<AppDestination, Unit>
+  treeState: ProjectsTreeUiState
+  stable onToggleExpanded: Function1<ProjectId, Unit>
+  stable onOpenProject: Function1<ProjectId, Unit>
+  stable showAttachAccount: Boolean = @static false
+)
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.shell.SectionHeader(
+  stable title: String
+)
+fun com.singularity.todo.shell.iconContent(
+  <this>: MenuEntry
+): Function2<Composer, Int, Unit>?
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.shell.ProjectsMenuSection(
+  state: ProjectsTreeUiState
+  stable onToggleExpanded: Function1<ProjectId, Unit>
+  stable onOpenProject: Function1<ProjectId, Unit>
+  stable onOpenAllProjects: Function0<Unit>
+  stable headerModifier: Modifier? = @static <expression>
+  stable treeModifier: Modifier? = @static <expression>
+  stable itemModifier: Modifier? = @static <expression>
+)
+fun com.singularity.todo.shell.rememberIsAnonymousSession()
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.singularity.todo.shell.ShellSearchButton(
+  navigator: Navigator
+  stable modifier: Modifier? = @static <expression>
+)
