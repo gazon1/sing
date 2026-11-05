@@ -637,7 +637,8 @@ class AgendaEvaluatorMatrixTest {
      * | Tomorrow    | T03              |
      * | This Week   | T04, T05         |
      * | Next Week   | T06–T10          |
-     * | This Month  | T11–T14          |
+     * | This Month  | T11–T13          |
+     * | Next Month  | T14              |
      * | No Date     | T15, T16         |
      *
      * This is a meta-test: it validates the fixture itself, ensuring it is

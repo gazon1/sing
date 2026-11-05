@@ -2003,10 +2003,11 @@ def check_registry_wiring() -> list[str]:
         "ci.yml": (ROOT / ".github" / "workflows" / "ci.yml"),
         "check.sh": ROOT / "check.sh",
     }
-    # Two legitimate spellings, both of which *read* the registry:
+    # Three legitimate spellings, all of which *read* the registry:
     #   bash scripts/ci/static-gates.sh   — direct execution
     #   sgate run-all                     — the CLI dispatches from the same file
-    # The path must appear as an ARGUMENT to bash/sh (or run-all as the sgate
+    #   ./sg run-all                      — the same CLI, bound to this checkout
+    # The path must appear as an ARGUMENT to bash/sh (or run-all as the
     # subcommand), not merely anywhere in the file. A plain substring search is
     # satisfied by `see scripts/ci/static-gates.sh` in an error message, so
     # deleting the real call while leaving the prose would pass — the same "a
@@ -2015,15 +2016,20 @@ def check_registry_wiring() -> list[str]:
     # The `||` (or `;&`, etc.) lookahead is required to avoid false-positives from
     # comment lines and echo strings that merely mention "sgate run-all" without
     # actually invoking it.  After _strip_comments(), the only surviving mention
-    # is the echo line inside the error handler:  `see sgate run-all output above`.
+    # is the echo line inside the error handler:  `see ./sg run-all output above`.
     # Without the lookahead that line would incorrectly satisfy the pattern,
     # masking a sabotage of the actual call (e.g. `sgate run-x ||`).
     # Flags between the subcommand and the shell operator are part of the same
     # invocation: `sgate run-all --with-controls || exit 1` runs the registry,
     # with the control phase after it.
+    # The expectation is written in terms of the REGISTRY, not in terms of one
+    # command name: `check.sh` reaches the gate CLI through `./sg` (the console
+    # script on PATH belongs to whichever checkout was installed last), while
+    # `ci.yml` calls `sgate` from the venv it installs for itself. Both read the
+    # registry; the spelling is the surface's business, not this check's.
     invocation = re.compile(
         r"(?:^|\s)(?:bash|sh)\s+[\w./-]*scripts/ci/static-gates\.sh"
-        r"|(?:^|\s)sgate\s+run-all\b(?:\s+--[\w-]+)*(?=\s*[||;&])"
+        r"|(?:^|\s)(?:\./sg|sgate)\s+run-all\b(?:\s+--[\w-]+)*(?=\s*[||;&])"
     )
 
     for name, path in sorted(callers.items()):

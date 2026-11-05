@@ -27,6 +27,10 @@ import unittest
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 WRAPPER = REPO / "rm"
+#: The runner the wrapper loads by path, beside the binding. A fixture tree
+#: carries it for the same reason it carries the binding: a tree that does not
+#: hold the file the wrapper runs proves nothing about the wrapper.
+RUNNER = REPO / "scripts" / "checkout-entry.py"
 JUST_TESTS = REPO / ".just" / "tests" / "mod.just"
 JUST_TRACEABILITY = REPO / ".just" / "traceability" / "mod.just"
 CHECK_SH = REPO / "check.sh"
@@ -133,6 +137,9 @@ class RmWrapperTest(unittest.TestCase):
             os.chmod(root / "rm", 0o755)
             (root / "scripts" / "package-binding.py").write_text(
                 FOREIGN_BINDING, encoding="utf-8"
+            )
+            (root / "scripts" / "checkout-entry.py").write_text(
+                RUNNER.read_text(encoding="utf-8"), encoding="utf-8"
             )
             result = subprocess.run(
                 [str(root / "rm"), "--dry-run", "--tags", "tasks"],

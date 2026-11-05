@@ -132,6 +132,7 @@ Maestro/flows/tasks/15-prefill-from-inbox.yaml
 Maestro/flows/tasks/16-return-to-source-tab.yaml
 Maestro/flows/tasks/17-create-daily-recurring.yaml
 Maestro/flows/tasks/18-time-tracking-start-stop.yaml
+Maestro/flows/tasks/19-prefill-from-upcoming.yaml
 Maestro/flows/tasks/checklist/TASK-CHECK-01.yaml
 Maestro/flows/tasks/create-task.yaml
 Maestro/flows/tasks/logbook/TASK-LOG-01.yaml

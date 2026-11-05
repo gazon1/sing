@@ -11,15 +11,23 @@ object BackupMigrations {
     const val CURRENT = BackupFormat.SCHEMA_VERSION
 
     /**
-     * v1 → v2: Add fields that were missing from TaskDto and NoteDto in v1.
+     * v1 → v2: the fields the first version did not write.
      *
      * TaskDto gained: parentTaskId, estimateMinutes, recurrenceRule, outgoingLinks,
      *                  aiSuppressedTagIds
      * NoteDto gained:  isPinned, pinnedAt, color, sortOrder, wordCount, charCount,
      *                  outgoingLinks, taskId
      *
-     * All new fields default to null/empty-string/0 so that a v1 backup is fully
-     * restorable on a v2 client.
+     * Every field written here is one the payload's DTOs read. A key no DTO
+     * carries is dropped on decode (`ignoreUnknownKeys`), so the payload would
+     * promise a value its reader never gets — the reason this step and
+     * [TaskDto] are kept in step.
+     *
+     * `parentTaskId` is written as `null` on every task, and that is a statement
+     * about the archive rather than about the account: a v1 payload never
+     * carried the parent link, so the rows of a migrated v1 backup come back as
+     * top-level tasks. The step says so on every task instead of leaving the
+     * reader to the DTO's default, the same way the later steps do.
      */
     private val v1ToV2: (JsonObject) -> JsonObject = { payload ->
         val tasks =

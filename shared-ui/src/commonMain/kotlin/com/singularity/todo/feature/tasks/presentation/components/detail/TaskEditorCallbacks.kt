@@ -146,8 +146,21 @@ data class TaskEditorCallbacks(
      */
     val onTimeEntrySave: ((startedAtMs: Long, endedAtMs: Long, kind: TimeEntryKind, note: String?) -> Unit)?,
     /**
-     * Sections the editor does not know about — the checklist, the tags, the proposals,
-     * the logbook — rendered under the fields. Null means the editor shows nothing else.
+     * The offers the screen makes to the person: the first-run banner and the stack of
+     * pending AI proposals.
+     *
+     * They have a slot of their own because their place on the screen is a decision, not
+     * a side effect of what else the caller passes. Riding the same slot as the
+     * checklist, the subtasks and the attachments put an offer a person is meant to act
+     * on wherever that list happened to end, and the offer moved whenever the list did.
+     *
+     * The editor draws this slot directly under the title and the description, above the
+     * attribute rows, for every task. Null means the screen makes no offer.
+     */
+    val bannerSections: (@Composable () -> Unit)? = null,
+    /**
+     * Sections the editor does not know about — the checklist, the tags, the logbook —
+     * rendered under the fields. Null means the editor shows nothing else.
      */
     val extraSections: (@Composable () -> Unit)? = null,
     /** Bottom bar content — null means no bottom bar */

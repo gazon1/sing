@@ -35,15 +35,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.ContentStateMapper
+import com.singularity.todo.core.ui.components.ContentState
 import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.feature.tags.components.AddTagDialog
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Tags list screen.
@@ -154,7 +156,24 @@ private sealed interface TagDialog {
     data class Rename(val tag: Tag) : TagDialog
 }
 
-private fun TagsUiState.toContentState() = ContentStateMapper.tags(this)
+private fun TagsUiState.toContentState(): ContentState<ImmutableList<Tag>> =
+    when (this) {
+        is TagsUiState.Loading -> {
+            ContentState.Loading
+        }
+
+        is TagsUiState.Empty -> {
+            ContentState.Empty
+        }
+
+        is TagsUiState.Error -> {
+            ContentState.Error(AppError.Unknown(message, code = "tags.render.failed"))
+        }
+
+        is TagsUiState.Content -> {
+            ContentState.Ready(tags.toImmutableList())
+        }
+    }
 
 @Composable
 private fun TagList(

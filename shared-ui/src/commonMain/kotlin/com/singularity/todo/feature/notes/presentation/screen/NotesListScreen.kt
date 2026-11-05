@@ -68,18 +68,18 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.CollectEvents
-import com.singularity.todo.core.ui.components.ContentStateMapper
+import com.singularity.todo.core.ui.components.ContentState
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.platformVerticalScrollbar
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
-import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.theme.NoteSwipeColors
@@ -98,10 +98,12 @@ import com.singularity.todo.feature.notes.presentation.nav.NotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import com.singularity.todo.feature.notes.searchQuerySource
+import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -174,7 +176,24 @@ fun NotesListScreen(
 
 // ─── Content ────────────────────────────────────────────────────────────────
 
-private fun NotesUiState.toContentState() = ContentStateMapper.notes(this)
+private fun NotesUiState.toContentState(): ContentState<ImmutableList<Note>> =
+    when (this) {
+        is NotesUiState.Loading -> {
+            ContentState.Loading
+        }
+
+        is NotesUiState.Error -> {
+            ContentState.Error(AppError.Unknown(message, code = "notes.render.failed"))
+        }
+
+        is NotesUiState.Content -> {
+            if (list.isEmpty) {
+                ContentState.Empty
+            } else {
+                ContentState.Ready((list.pinned + list.unpinned).toImmutableList())
+            }
+        }
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

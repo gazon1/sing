@@ -135,6 +135,13 @@ scenarios:
   status: confirmed
   targets:
   - android
+- id: TASK-18
+  title: FAB from Upcoming tab does NOT pre-fill a due date
+  area: feature.tasks
+  priority: P1
+  status: confirmed
+  targets:
+  - android
 - id: TASK-CHECK-01
   title: Add a checklist item to a task
   area: feature.tasks
@@ -293,6 +300,10 @@ ask for a confirmation.
 
 #### Scenario: FAB from Inbox tab does NOT pre-fill a due date
 - **WHEN** the user creates a task from the Inbox tab
+- **THEN** no due date is set
+
+#### Scenario: FAB from Upcoming tab does NOT pre-fill a due date
+- **WHEN** the user creates a task from the Upcoming tab
 - **THEN** no due date is set
 
 #### Scenario: An attribute row in the editor that creates a task

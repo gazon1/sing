@@ -17,6 +17,17 @@ import androidx.compose.ui.graphics.Color
  */
 
 /**
+ * Verdict colours for actions that confirm or reject something.
+ *
+ * `Danger` is shared: the task list's `TaskSemanticColors` delegates to it, so
+ * the destructive red has one value rather than two. `Success` stays with the
+ * task list, because only the task list reads it.
+ */
+object ActionColors {
+    val Danger = Color(0xFFE5484D)
+}
+
+/**
  * AI provider connection status, for the settings badge.
  *
  * Three states, not two: a provider that has never been configured is neither

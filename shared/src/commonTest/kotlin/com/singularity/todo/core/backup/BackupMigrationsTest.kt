@@ -77,6 +77,56 @@ class BackupMigrationsTest {
     }
 
     /**
+     * Every field the chain writes is a field the row it writes it on can read.
+     *
+     * A key no DTO carries is dropped on decode — `ignoreUnknownKeys` is on — so
+     * the payload would promise a value the restore never gets, while a test that
+     * reads the migrated JSON stays green. This one compares what the chain added
+     * on each row against what that row declares it can read.
+     */
+    @Test
+    fun everyFieldTheChainWritesIsAFieldItsRowCanRead() {
+        val before =
+            payload(
+                """{"schemaVersion":1,"tasks":[{"id":"t1","title":"A task","createdAt":1,"updatedAt":1}],""" +
+                    """"notes":[{"id":"n1","title":"A note","createdAt":1,"updatedAt":1}],""" +
+                    """"taskDependencies":[{"taskId":"t1","dependsOnTaskId":"t2"}]}""",
+            )
+        val after = BackupMigrations.migrate(before, 1)
+
+        val writtenTasks = after.taskAt(0).keys - before.taskAt(0).keys
+        assertEquals(
+            emptySet(),
+            writtenTasks - TaskDto.readableFields(),
+            "the chain wrote a task field the payload's task row does not carry, so a restore would drop it",
+        )
+        assertTrue(
+            "parentTaskId" in writtenTasks,
+            "the parent link is one of the fields the chain exists to state",
+        )
+
+        val writtenNotes = after.noteAt(0).keys - before.noteAt(0).keys
+        assertEquals(
+            emptySet(),
+            writtenNotes - NoteDto.readableFields(),
+            "the chain wrote a note field the payload's note row does not carry, so a restore would drop it",
+        )
+
+        val writtenEdges = after.dependencyAt(0).keys - before.dependencyAt(0).keys
+        assertEquals(
+            emptySet(),
+            writtenEdges - TaskDependencyDto.readableFields(),
+            "the chain wrote an edge field the payload's edge row does not carry, so a restore would drop it",
+        )
+    }
+
+    /** The field names [this] serializer decodes — what the row can actually hear. */
+    private fun kotlinx.serialization.KSerializer<*>.readableFields(): Set<String> {
+        val descriptor = descriptor
+        return (0 until descriptor.elementsCount).mapTo(HashSet()) { descriptor.getElementName(it) }
+    }
+
+    /**
      * v2 → v3: a payload can carry the saved agenda views.
      *
      * A v2 payload knows about the dependency edges and nothing else. The new

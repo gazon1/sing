@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.theme
 
 import androidx.compose.ui.graphics.Color
+import com.singularity.todo.core.ui.theme.ActionColors
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 
 /*
@@ -57,9 +58,15 @@ private val PriorityColors =
 /** Muted but legible on both a light and a dark surface, so it is not a theme role. */
 val PriorityNoneColor: Color = PriorityColors.none
 
-/** Destructive actions. Paired with [TaskSemanticColors.Success] for the confirm/cancel pair. */
+/**
+ * Destructive actions. Paired with [TaskSemanticColors.Success] for the confirm/cancel pair.
+ *
+ * [Danger] is the one value the core context menu also paints, so it lives in
+ * `core.ui.theme.ActionColors` and this name points at it. [Success] is read
+ * only here, so it stays.
+ */
 object TaskSemanticColors {
-    val Danger = Color(0xFFE5484D)
+    val Danger = ActionColors.Danger
     val Success = Color(0xFF4CC38A)
 }
 

@@ -1,6 +1,6 @@
 @file:Suppress("UNUSED") // Part of the preview surface; methods are called by preview renderers.
 
-package com.singularity.todo.core.ui.preview
+package com.singularity.todo.preview
 
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.ProfileId

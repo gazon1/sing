@@ -1,12 +1,20 @@
 ---
 id: 2026-10-18-greeting-init-no-runblocking
 title: Compute greeting in init without runBlocking
-description: How AgendaViewModel initializes the time-of-day greeting without using runBlocking or LaunchedEffect in tests
-status: accepted
+description: How AgendaViewModel initialized the time-of-day greeting once, without runBlocking or LaunchedEffect in tests
+status: superseded
+superseded-by: 2026-10-19-greeting-observed-not-snapshotted
 deciders:
   - agent
 date: 2026-10-18
 ---
+
+> **Superseded.** This ADR describes a greeting computed *once*, when the ViewModel is
+> built. The greeting is now observed from the greeting-hours settings and combined into
+> the loaded state, so a settings change re-greets an agenda that is already open — see
+> `2026-10-19-greeting-observed-not-snapshotted.md`. The `NoRunBlockingRule` constraint
+> below still holds: nothing here reintroduces `runBlocking`.
+
 
 ## Context
 

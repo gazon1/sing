@@ -779,9 +779,9 @@ jobs:
       # list itself, and the coverage job keeps the aggregate.
       #
       # :mcp-server:jar is REQUIRED in this same invocation. McpServerEndToEndTest
-      # resolves build/libs/mcp-server.jar and skips itself when it is absent
-      # (McpServerEndToEndTest.kt:63) — a silent pass, not a failure, and the floor
-      # below is what catches it.
+      # resolves build/libs/mcp-server.jar, and the test task builds that JAR before
+      # the suite runs — but naming it here keeps the invocation self-contained and
+      # the artefact explicit.
       #
       # :pro:detekt is NOT here on purpose: :pro is only included under
       # -PwithPro=true (settings.gradle.kts:120-126), so it belongs to the matrix

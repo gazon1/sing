@@ -178,6 +178,9 @@ object TestTags {
     /** Empty state of the proposals screen. */
     const val PROPOSALS_EMPTY = "proposals_empty"
 
+    /** The stack of pending AI proposals on the task detail. */
+    const val TASK_DETAIL_PROPOSALS_SECTION = "task_detail_proposals_section"
+
     /** The "connect an account" entry in the menu. */
     const val MENU_ATTACH_ACCOUNT = "menu_attach_account"
 
@@ -339,6 +342,14 @@ object TestTags {
     const val TASK_CHECKLIST_SECTION = "task_checklist_section"
 
     /**
+     * The line the checklist section shows when it has no items.
+     *
+     * The section itself stays on screen — it carries the add-row — so the empty
+     * state has to say what it is rather than leave a count over nothing.
+     */
+    const val CHECKLIST_EMPTY_HINT = "checklist_empty_hint"
+
+    /**
      * Text input of the inline add-row in the task detail's checklist section.
      *
      * Separate from [CHECKLIST_ADD_INPUT], which belongs to the checklist sheet:
@@ -384,6 +395,9 @@ object TestTags {
 
     /** The subtasks section container in the task detail view. */
     const val SUBTASKS_SECTION = "subtasks_section"
+
+    /** The line the subtasks section shows when it has no subtasks. */
+    const val SUBTASKS_EMPTY_HINT = "subtasks_empty_hint"
 
     /** Text input for entering a new subtask title in the subtasks section. */
     const val SUBTASK_ADD_INPUT = "subtask_add_input"
@@ -685,6 +699,16 @@ object TestTags {
 
     /** "No projects yet" empty text in the project picker sheet. */
     const val PROJECT_PICKER_EMPTY = "project_picker_empty"
+
+    /**
+     * The dismiss control on the project editor's icon and parent picker sheets.
+     *
+     * Both sheets are modal, and both could only be closed by picking a value or
+     * by tapping the scrim — so "cancel without changing anything" had no name a
+     * test or a screen reader could address. This tag names the control that
+     * dismisses a picker without picking.
+     */
+    const val PROJECT_PICKER_DISMISS = "project_picker_dismiss"
 
     /** "No projects yet" empty state title on the projects list screen. */
     const val PROJECTS_LIST_EMPTY = "projects_list_empty"
@@ -1047,8 +1071,7 @@ object TestTags {
     // ─── Time tracking ─────────────────────────────────────────────────────
 
     /**
-     * Start/stop chip of [com.singularity.todo.feature.timetracking.presentation
-     * .components.TimeTrackingSection] on the task detail screen.
+     * Start/stop chip of the time-tracking section on the task detail screen.
      *
      * These two were added, removed and are now back, and the round trip is the
      * point worth keeping in mind. They were added for a desktop carrier that a
@@ -1098,6 +1121,9 @@ object TestTags {
      * observable.
      */
     const val LOGBOOK_EMPTY = "logbook_empty"
+
+    /** The line the logbook shows when it has neither notes nor time entries. */
+    const val LOGBOOK_EMPTY_HINT = "logbook_empty_hint"
 
     /** The "+" button that opens the note editor with the task already attached. */
     const val LOGBOOK_ADD_NOTE_BUTTON = "logbook_add_note_button"
