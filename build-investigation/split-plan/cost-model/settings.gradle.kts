@@ -30,3 +30,4 @@ dependencyResolutionManagement {
 rootProject.name = "split-plan-cost-model"
 
 include(":module")
+include(":module-b")

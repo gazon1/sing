@@ -13,8 +13,13 @@ import shutil
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "module", "build", "generated", "kotlin", "stand")
+MODULES = {"a": ("module", "stand"), "b": ("module-b", "standb")}
 EDITED = os.path.join(HERE, "module", "build", "generated", ".edit")
+
+
+def out_dir(key):
+    directory, package = MODULES[key]
+    return os.path.join(HERE, directory, "build", "generated", "kotlin", package)
 
 
 def average_file_lines(repo_root):
@@ -30,10 +35,10 @@ def average_file_lines(repo_root):
     return max(60, total_lines // max(total_files, 1))
 
 
-def file_text(index, target_lines, compose):
+def file_text(index, target_lines, compose, module="a"):
     """One class of ordinary Kotlin, about `target_lines` long, deterministic for a given index."""
-    lines = ["package stand", ""]
-    if compose:
+    lines = ["package standb", "import stand.Holder0", ""] if module == "b" else ["package stand", ""]
+    if compose and module == "a":
         lines.append("import androidx.compose.runtime.Composable")
         lines.append("")
     lines.append(f"class Holder{index}(private val seed: Int) {{")
@@ -53,10 +58,13 @@ def file_text(index, target_lines, compose):
             "    }",
             "",
         ]
-    lines.append(f"    fun describe(): String = \"holder-{index}\"")
+    if module == "b":
+        lines.append(f"    fun usesModuleA(): String = Holder0(seed).describe() + \"-b{index}\"")
+    else:
+        lines.append(f"    fun describe(): String = \"holder-{index}\"")
     lines.append("}")
     lines.append("")
-    if compose:
+    if compose and module == "a":
         lines += [
             "@Composable",
             f"fun label{index}(seed: Int): String = \"label{index}-\" + seed.toString()",
@@ -65,7 +73,8 @@ def file_text(index, target_lines, compose):
     return "\n".join(lines) + "\n"
 
 
-def generate(size, target_lines, compose):
+def generate(size, target_lines, compose, module="a"):
+    OUT = out_dir(module)
     if os.path.isdir(OUT):
         shutil.rmtree(OUT)
     os.makedirs(OUT)
@@ -73,7 +82,7 @@ def generate(size, target_lines, compose):
     for index in range(size):
         path = os.path.join(OUT, f"Holder{index}.kt")
         with open(path, "w", encoding="utf-8") as handle:
-            handle.write(file_text(index, target_lines, compose))
+            handle.write(file_text(index, target_lines, compose, module))
         written += 1
     actual = sorted(name for name in os.listdir(OUT) if name.endswith(".kt"))
     if len(actual) != size or written != size:
@@ -82,9 +91,20 @@ def generate(size, target_lines, compose):
 
 
 def edit(apply_it):
-    """Swap one expression inside a function body. No signature, visibility or call site changes."""
-    target = os.path.join(OUT, "Holder0.kt")
-    original, edited = os.path.join(EDITED, "Holder0.original.txt"), os.path.join(EDITED, "Holder0.edited.txt")
+    """Swap one expression inside a function body, in every generated module.
+
+    No signature, visibility or call site changes — the same body-only edit the :shared cycles use.
+    """
+    for key in MODULES:
+        if os.path.isdir(out_dir(key)):
+            edit_one(apply_it, out_dir(key))
+
+
+def edit_one(apply_it, out):
+    target = os.path.join(out, "Holder0.kt")
+    key = os.path.basename(out)
+    original = os.path.join(EDITED, f"{key}.original.txt")
+    edited = os.path.join(EDITED, f"{key}.edited.txt")
     if apply_it:
         before = open(target, encoding="utf-8").read()
         after = before.replace("            total -= 1", "            total -= 2", 1)
@@ -107,12 +127,36 @@ def edit(apply_it):
                 raise SystemExit("self-check failed: revert did not restore the file")
 
 
+def signature(apply_it):
+    """An ABI-only edit: a new public function in module a. Callers keep compiling, the ABI changes."""
+    out = out_dir("a")
+    target = os.path.join(out, "Holder0.kt")
+    original = os.path.join(EDITED, "a.signature.original.txt")
+    os.makedirs(EDITED, exist_ok=True)
+    if apply_it:
+        text = open(target, encoding="utf-8").read()
+        with open(original, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        edited = text.replace("    fun describe(): String",
+                              "    fun extraValue(): Int = seed\n\n    fun describe(): String", 1)
+        if edited == text:
+            raise SystemExit("self-check failed: the signature edit matched nothing")
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write(edited)
+    else:
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write(open(original, encoding="utf-8").read())
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--size", type=int)
     parser.add_argument("--edit", action="store_true")
     parser.add_argument("--revert", action="store_true")
+    parser.add_argument("--signature", action="store_true")
+    parser.add_argument("--signature-revert", action="store_true")
     parser.add_argument("--compose", action="store_true")
+    parser.add_argument("--module", choices=["a", "b"], default="a")
     parser.add_argument("--repo-root", default=os.path.abspath(os.path.join(HERE, "..", "..", "..")))
     args = parser.parse_args()
 
@@ -122,11 +166,17 @@ def main():
     if args.revert:
         edit(False)
         return 0
+    if args.signature:
+        signature(True)
+        return 0
+    if args.signature_revert:
+        signature(False)
+        return 0
     if args.size is None:
         parser.error("--size is required unless --edit/--revert")
     target = average_file_lines(args.repo_root)
-    names = generate(args.size, target, args.compose)
-    print(f"generated {len(names)} files of ~{target} lines under {OUT}")
+    names = generate(args.size, target, args.compose, args.module)
+    print(f"generated {len(names)} files of ~{target} lines under {out_dir(args.module)}")
     return 0
 
 
