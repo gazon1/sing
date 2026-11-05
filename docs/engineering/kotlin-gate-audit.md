@@ -38,7 +38,7 @@ Measured on the checkout at `674d1c1e`, no local state:
 |---|---|
 | `shared/src/jvmTest/kotlin/com/singularity/todo/arch/` | 48 files, 43 `*Test.kt` + 5 helpers, 12 937 lines |
 | Test methods across the 43 `*Test.kt` | 155 |
-| `:shared:jvmTest` | runs in `check.sh` step 3/9 and in the CI `tests` job; not a `static-gates.sh` gate |
+| `:shared:jvmTest` | runs in the loop's `shared:jvmTest` step and in the CI `tests` job; not a `static-gates.sh` gate |
 | `scripts/ci/static-gates.sh` | 30 gate lines; **none** references the `arch/` corpus |
 | `scripts/src/sgate/commands/_registry.py` | no entry, no control, no sabotage for any `arch/` file |
 | `config/docs/test-runs-baseline.txt` | counts `shared:jvmTest` as one number (1 836), not per class |

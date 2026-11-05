@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 # Keep hk.pkl version in lockstep with mise.toml
+#
+# The heredoc is quoted and piped through sed, so nothing but __VERSION__ is
+# substituted: expanding $PATH here wrote this machine's PATH into the
+# committed file once, and the hook then depended on a directory that exists on
+# one developer's laptop. sed reads the heredoc and writes the target in one
+# step, so an interrupted run leaves no temporary file behind.
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
@@ -11,24 +17,191 @@ if [ -z "$HK_VERSION" ]; then
   exit 1
 fi
 
-cat > hk.pkl <<EOF
-amends "package://github.com/jdx/hk/releases/download/v${HK_VERSION}/hk@${HK_VERSION}#/Config.pkl"
+sed "s/__VERSION__/${HK_VERSION}/g" > hk.pkl <<'EOF'
+amends "package://github.com/jdx/hk/releases/download/v__VERSION__/hk@__VERSION__#/Config.pkl"
 
 fail_fast = true
 
 hooks {
   ["pre-commit"] {
     fix = false
-    stash = "none"
+    stash = "git"
 
     steps {
-      ["lint-staged"] {
-        check = "export PATH=/home/max/.local/share/mise/installs/npm-lint-staged/15.2.10/node_modules/.bin:$PATH; if command -v heavy >/dev/null 2>&1; then heavy --timeout 300 --on-timeout run -- lint-staged; else lint-staged; fi"
+      ["ktlint"] {
+        glob = List("**/*.kt", "**/*.kts")
+        check = "if command -v heavy >/dev/null 2>&1; then heavy --timeout 300 --on-timeout run -- python3 scripts/ktlint-lint.py --require {{files}}; else python3 scripts/ktlint-lint.py --require {{files}}; fi"
       }
 
       ["compile-changed"] {
-        depends = "lint-staged"
+        depends = "ktlint"
         check = "if command -v heavy >/dev/null 2>&1; then heavy --timeout 300 --on-timeout run -- python3 scripts/compile-changed.py; else python3 scripts/compile-changed.py; fi"
+      }
+    }
+  }
+
+  ["check"] {
+    // The local verification loop: `./check.sh` runs it, and CI can run the
+    // same declaration with `hk check --all`.
+    //
+    // Every step is `exclusive`: two Gradle invocations at once fight over the
+    // shared module cache and the daemon, so hk waits for each step instead of
+    // running them in parallel. The order below is the order of the costs —
+    // cheap checks first, so a broken tree is cheap to find.
+    //
+    // Profiles carry the lanes, and the wrapper always passes exactly one:
+    //   full     — the whole loop (./check.sh)
+    //   affected — the whole loop over the tests the change can break
+    //   fast     — the checks this change can break, and nothing else
+    // A step that needs a lane says so; a step with a positive profile runs
+    // only there, one with `!name` runs everywhere but that lane.
+
+    steps {
+      ["static gates"] {
+        exclusive = true
+        check = "bash scripts/ci/preflight-gate-tools.sh && ./sg run-all"
+      }
+
+      ["ktlint (formatting)"] {
+        exclusive = true
+        check = "python3 scripts/ktlint-lint.py --require"
+      }
+
+      ["androidApp:compileDebugKotlin"] {
+        exclusive = true
+        check = "./gw :androidApp:compileDebugKotlin :androidApp:compileDebugAndroidTestKotlin --quiet"
+      }
+
+      ["shared:verifyToolSurface"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :shared:verifyToolSurface --quiet"
+      }
+
+      ["shared:verifySyncFieldAllowlist"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :shared:verifySyncFieldAllowlist --quiet"
+      }
+
+      ["shared:jvmTest"] {
+        exclusive = true
+        profiles = List("full")
+        check = "./gw :shared:jvmTest --quiet -Pcoverage.enabled=false || { bash scripts/ci/print-test-failures.sh shared/build/test-results; exit 1; }"
+      }
+
+      ["affected tests"] {
+        exclusive = true
+        profiles = List("!full")
+        check = "python3 scripts/test-impact-map.py --run --population fast --gradle ./gw || { bash scripts/ci/print-test-failures.sh shared/build/test-results; exit 1; }"
+      }
+
+      ["shared:archTest"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :shared:archTest --quiet -Pcoverage.enabled=false || { bash scripts/ci/print-test-failures.sh shared/build/test-results/archTest; exit 1; }"
+      }
+
+      ["shared:testAndroidHostTest"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :shared:testAndroidHostTest --quiet -Pcoverage.enabled=false"
+      }
+
+      ["desktopApp:test"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :desktopApp:test --quiet -Pcoverage.enabled=false"
+      }
+
+      ["adr-cli:test"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :adr-cli:test :adr-core:jvmTest --quiet -Pcoverage.enabled=false"
+      }
+
+      ["androidApp:assembleDebug"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :androidApp:assembleDebug --quiet"
+      }
+
+      ["executed test counts"] {
+        exclusive = true
+        profiles = List("full")
+        check = "python3 scripts/check-test-runs.py --require shared:jvmTest,shared:archTest,desktopApp:test --max-age 21600"
+      }
+
+      ["gate wiring"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "env GATE_WIRING_GRADLE=1 python3 scripts/check-gate-wiring.py"
+      }
+
+      ["gate script tests"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "python3 -m unittest discover -s scripts/tests"
+      }
+
+      ["gate liveness"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "python3 scripts/check-gate-liveness.py"
+      }
+
+      ["detekt-rules:test"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :detekt-rules:test --quiet"
+      }
+
+      ["tools:unwritten-properties:test"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :tools:unwritten-properties:test --quiet -Pcoverage.enabled=false"
+      }
+
+      ["detekt-rules:koverVerify"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw -q :detekt-rules:koverLog && ./gw :detekt-rules:koverVerify"
+      }
+
+      ["mcp-server:compileKotlin"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :mcp-server:compileKotlin --quiet"
+      }
+
+      ["detekt"] {
+        exclusive = true
+        profiles = List("full")
+        check = "./gw :shared:detekt :desktopApp:detekt :androidApp:detekt :detekt-rules:detekt --quiet"
+      }
+
+      ["detekt (changed files only)"] {
+        exclusive = true
+        profiles = List("!full")
+        check = "python3 scripts/lint-changed.py"
+      }
+
+      ["mcp-server:detekt"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :mcp-server:detekt --quiet"
+      }
+
+      ["adr-cli:detekt"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :adr-cli:detekt --quiet"
+      }
+
+      ["adr-core+core-base:detekt"] {
+        exclusive = true
+        profiles = List("!fast")
+        check = "./gw :adr-core:detekt :core-base:detekt --quiet"
       }
     }
   }

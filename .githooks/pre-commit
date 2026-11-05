@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Pre-commit hook: run checks via hk
 #
-# hk stash (fix=true, stash=git) handles unstaged changes; lint-staged
-# runs ktlint over staged Kotlin files; compile-changed compiles touched modules.
+# The steps are declared in hk.pkl: ktlint over the staged Kotlin files, then
+# compile-changed compiles the modules the commit touches. `stash = "git"`
+# holds unstaged changes aside while they run; untracked files are not held.
+# The wrapper carries no selection logic: hk owns it, and this file only says
+# which hook to run.
 
 set -e
 

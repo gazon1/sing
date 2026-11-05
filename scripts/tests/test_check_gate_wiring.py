@@ -786,7 +786,7 @@ class PartGTest(unittest.TestCase):
     def test_both_callers_invoke_the_registry(self):
         self.assertTrue(gw.GATE_REGISTRY.is_file(), 'fixture assumption: the gate registry ships')
         self.assertEqual(gw.check_registry_wiring(), [],
-                         'ci.yml and check.sh must both call scripts/ci/static-gates.sh')
+                         'ci.yml and hk.pkl must both call scripts/ci/static-gates.sh')
 
     def test_a_missing_registry_is_reported_by_path(self):
         # Not skipped when the registry happens to exist. The missing-registry
@@ -804,7 +804,7 @@ class PartGTest(unittest.TestCase):
         # Named by the path it could not find, so the message is actionable
         # without the reader having to know the canonical filename.
         self.assertIn('static-gates-absent.sh', errors[0])
-        self.assertIn('check.sh', errors[0])
+        self.assertIn('hk.pkl', errors[0])
 
     def test_a_caller_that_bypasses_the_registry_is_reported(self):
         # Rewrites check.sh's call away and restores it. The point is that dropping
@@ -816,8 +816,8 @@ class PartGTest(unittest.TestCase):
         # comment mentioning the registry does not satisfy it — which is the strictness
         # that makes this test meaningful.
         self.assertTrue(gw.GATE_REGISTRY.is_file(), 'fixture assumption: the gate registry ships')
-        check_sh = gw.ROOT / 'check.sh'
-        original = check_sh.read_text(encoding='utf-8')
+        surface = gw.ROOT / 'hk.pkl'
+        original = surface.read_text(encoding='utf-8')
         # Both spellings are legitimate; the file must contain one of them and
         # the rewrite must break whichever is present. Replace ALL occurrences:
         # the first `sgate run-all` in check.sh is a comment, and replacing only
@@ -840,14 +840,14 @@ class PartGTest(unittest.TestCase):
                 broken_text = broken_text.replace(spelling, broken)
                 broken_any = True
         if not broken_any:
-            self.fail('check.sh must invoke the registry (./sg run-all, '
+            self.fail('hk.pkl must invoke the registry (./sg run-all, '
                       'sgate run-all or bash scripts/ci/static-gates.sh) '
                       'to test this')
-        check_sh.write_text(broken_text, encoding='utf-8')
-        self.addCleanup(lambda: check_sh.write_text(original, encoding='utf-8'))
+        surface.write_text(broken_text, encoding='utf-8')
+        self.addCleanup(lambda: surface.write_text(original, encoding='utf-8'))
         errors = gw.check_registry_wiring()
-        self.assertTrue(any('check.sh' in e for e in errors),
-                        f'removing the check.sh call must be reported; got {errors}')
+        self.assertTrue(any('hk.pkl' in e for e in errors),
+                        f'removing the hk.pkl call must be reported; got {errors}')
 
 
 class PartETest(unittest.TestCase):
@@ -888,7 +888,7 @@ class PartHTest(unittest.TestCase):
         original_surfaces = gw._REACH_SURFACES
         gw.ROOT = tmp
         gw._REACH_SURFACES = (
-            [tmp / 'check.sh', tmp / 'scripts/ci/static-gates.sh', tmp / 'justfile']
+            [tmp / 'hk.pkl', tmp / 'scripts/ci/static-gates.sh', tmp / 'justfile']
             + sorted(tmp.glob('.just/**/*.just'))
             + sorted(tmp.glob('.github/workflows/*.yml'))
             + sorted(tmp.glob('.github/actions/*/action.yml'))
@@ -1001,10 +1001,10 @@ class PartITest(unittest.TestCase):
         gw.GRADLE_TASK_PARITY.clear()
         gw.GRADLE_TASK_PARITY.update(self._table)
 
-    def _surfaces(self, check_sh: str, ci_yml: str) -> None:
+    def _surfaces(self, local: str, ci_yml: str) -> None:
         tmp = pathlib.Path(self.enterContext(_tmpdir()))
         (tmp / '.github' / 'workflows').mkdir(parents=True)
-        (tmp / 'check.sh').write_text(check_sh, encoding='utf-8')
+        (tmp / 'hk.pkl').write_text(local, encoding='utf-8')
         (tmp / '.github' / 'workflows' / 'ci.yml').write_text(ci_yml, encoding='utf-8')
         original_root = gw.ROOT
         gw.ROOT = tmp
@@ -1057,7 +1057,7 @@ class PartITest(unittest.TestCase):
         errors = gw.check_gradle_task_parity()
         self.assertEqual(len(errors), 1, errors)
         self.assertIn(':androidApp:detekt', errors[0])
-        self.assertIn('check.sh', errors[0],
+        self.assertIn('hk.pkl', errors[0],
                       'the message must name the surface that has to add it')
 
     def test_the_real_surfaces_are_in_parity(self):
@@ -1151,11 +1151,11 @@ class PartIDerivedDetektListTest(unittest.TestCase):
         gw.GRADLE_TASK_PARITY.clear()
         gw.GRADLE_TASK_PARITY.update(self._table)
 
-    def _surfaces(self, check_sh: str, ci_yml: str, graph_modules: list[str]) -> None:
+    def _surfaces(self, local: str, ci_yml: str, graph_modules: list[str]) -> None:
         tmp = pathlib.Path(self.enterContext(_tmpdir()))
         (tmp / '.github' / 'workflows').mkdir(parents=True)
         (tmp / 'scripts').mkdir(parents=True)
-        (tmp / 'check.sh').write_text(check_sh, encoding='utf-8')
+        (tmp / 'hk.pkl').write_text(local, encoding='utf-8')
         (tmp / '.github' / 'workflows' / 'ci.yml').write_text(ci_yml, encoding='utf-8')
         (tmp / 'scripts' / 'changed-modules.py').write_text(
             'class ModuleChecks(dict):\n'
@@ -1210,7 +1210,7 @@ class PartIDerivedDetektListTest(unittest.TestCase):
     def test_the_derivation_does_not_apply_when_the_graph_is_absent(self):
         tmp = pathlib.Path(self.enterContext(_tmpdir()))
         (tmp / '.github' / 'workflows').mkdir(parents=True)
-        (tmp / 'check.sh').write_text('./gw :shared:detekt --quiet\n', encoding='utf-8')
+        (tmp / 'hk.pkl').write_text('./gw :shared:detekt --quiet\n', encoding='utf-8')
         (tmp / '.github' / 'workflows' / 'ci.yml').write_text(
             'jobs:\n  t:\n    steps:\n      - run: |\n'
             '          mapfile -t DETEKT_TASKS < <(python3 scripts/changed-modules.py '

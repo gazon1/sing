@@ -18,9 +18,11 @@
 в начале, стоит один rebase пустого дерева; найденное на пуше — полную перепроверку
 готовой работы, потому что чужие коммиты меняют то, на что опиралась твоя.
 
-**Pre-commit через hk.** Локальные проверки гонятся через `hk` (закреплён в `mise.toml`): `lint-staged` → `compile-changed`.
-Фильтрация изменённых файлов для ktlint — `lint-staged` (`lint-staged.config.mjs`), выбор модулей для компиляции — `scripts/compile-changed.py`. Изоляция unstaged-изменений и проверка staged-содержимого обеспечивается hk stash (`fix = true`, `stash = "git"`).
-Установка: `mise install` (либо `mise exec -- git commit ...`, если `mise` не активирован). `hk.pkl` генерируется из `mise.toml` (`scripts/generate-hk-pkl.sh`). `just setup-hooks` остаётся источником установки хуков (`core.hooksPath`), без `hk install`.
+**Pre-commit через hk.** Локальные проверки гонятся через `hk` (закреплён в `mise.toml`): `ktlint` → `compile-changed`.
+Файлы для ktlint выбирает hk (`glob` + `{{files}}` в `hk.pkl`), модули для компиляции — `scripts/compile-changed.py`. Изоляция unstaged-изменений — `stash = "git"` (untracked-файлы хук не прячет). ADR — `docs/decisions/2026-11-05-the-commit-runs-hk-steps-over-staged-files.md`.
+Установка: `mise install` (либо `mise exec -- git commit ...`, если `mise` не активирован). `hk.pkl` генерируется из `mise.toml` (`scripts/generate-hk-pkl.sh`), равенство генератора и файла держит `scripts/tests/test_hk_config.py`. `just setup-hooks` остаётся источником установки хуков (`core.hooksPath`), без `hk install`.
+
+**`./check.sh` — тот же декларатор.** Шаги локального цикла — `check` hook в `hk.pkl`; полосы `full` / `affected` / `fast` — профили, обёртка только выбирает профиль, пишет стоимость цикла и гоняет шаги с устройством. CI умеет тот же набор: `hk check --all`. ADR — `docs/decisions/2026-11-05-check-sh-is-an-hk-pipeline.md`.
 
 **`sgate checkout-state` — до того, как что-либо сделал, тоже.** Checkout на машине с
 несколькими клонами — общее состояние: он может нести чужие коммиты, которых нет в

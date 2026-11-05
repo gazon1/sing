@@ -202,7 +202,7 @@ class WaiverPremiseTest(unittest.TestCase):
     def test_a_surface_that_no_longer_names_the_task_is_reported(self):
         problems = self._premise('# the task moved to another script\n')
         self.assertTrue(problems)
-        self.assertIn('check.sh never names', problems[0])
+        self.assertIn('hk.pkl never names', problems[0])
 
     def test_a_control_that_proves_no_gradle_task_has_no_premise_to_check(self):
         control = FakeControl(argv=('{python}', 'scripts/check-x.py'))
