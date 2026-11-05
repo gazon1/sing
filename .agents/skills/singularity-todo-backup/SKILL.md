@@ -32,6 +32,7 @@ BackupImporter:  BackupCodec.import() → validate → migrate → DAOs upsert
 - `core/backup/BackupImporter.kt` — orchestrator: codec.import() → validate → migrate → DAOs upsert
 - `core/backup/RemoteBackupService.kt` — port + `RemoteBackupServiceImpl` (Supabase Storage; the archive is sealed on the device, so the server sees ciphertext)
 - `core/backup/ArchiveFormat.kt` — the **container's** versions (1 snapshot, 2 chain, 3 device-keyed chain): a versioning of its own, separate from `BackupFormat.SCHEMA_VERSION`
+- `feature/backup/BackupFailure.kt` — `backupFailure()`: the one place a backup failure becomes a code and a sentence
 - `feature/backup/BackupViewModel.kt` — MVI (`MviViewModel` + `BackupIntent`), takes the current user from `AuthRepository`
 - `feature/backup/BackupScreen.kt` — Scaffold with TopAppBar, buttons, LazyColumn of BackupListItem, SnackbarHost
 
@@ -100,22 +101,58 @@ import com.singularity.todo.core.backup.ArchiveEnvelopeError
 import com.singularity.todo.core.backup.BackupPayloadError
 import com.singularity.todo.core.backup.BackupStorageError
 
-// In UI (exhaustive over the backup's three families):
-when (val result = repository.import(opts)) {
-    is Result.success -> showSuccess()
-    is Result.failure -> when (val err = result.exceptionOrNull()) {
-        is ArchiveEnvelopeError -> showContainerError(err)  // the container: password, version, chain
-        is BackupPayloadError -> showPayloadError(err)      // what it carried: manifest, schema, checksum
-        is BackupStorageError -> showStorageError(err)      // the device's own files
-        else -> showUnexpectedError(err)
-    }
-}
+// In UI — the branch says which layer refused:
+val result = repository.import(sourcePath)
+result.fold(
+    onSuccess = { showSuccess() },
+    onFailure = { error ->
+        when (error) {
+            is ArchiveEnvelopeError -> onContainerRefused(error)  // the container: password, version, chain
+            is BackupPayloadError -> onPayloadRejected(error)      // what it carried: manifest, schema, checksum
+            is BackupStorageError -> onDeviceRefused(error)        // the device's own files
+            else -> onUnexpectedFailure(error)
+        }
+    },
+)
 ```
 
 Catching the root catches every family: `catch (error: BackupError)` is what
 most callers want, and what the remote backup service does. A caller that has to
 tell a container failure from a payload failure says which family it means, as
 above — and the case inside the family says what happened.
+
+### The one mapping
+
+The words a person reads and the code a report groups by come from one place:
+`backupFailure(error, fallback)` in `feature/backup/BackupFailure.kt` — in the
+backup **feature**, not in `core/backup/`, which owns the failure types and says
+nothing about how they read.
+
+```kotlin
+import com.singularity.todo.feature.backup.BackupFailure
+import com.singularity.todo.feature.backup.backupFailure
+
+// The words and the code come from the mapping, not from the caller:
+val failure: BackupFailure = backupFailure(error, BackupFailure("backup.restore_failed", "Import failed"))
+failure.code     // the crash report groups by this
+failure.message  // the person reads this
+```
+
+`BackupFailure(code, message)` carries both halves: the code says what kind of
+thing went wrong, the sentence says what happened to this person. A failure that
+is not one of the backup's own keeps the code and the sentence it came with, and
+the `fallback` says the rest.
+
+So the branch above is for deciding **which layer refused** — the container, what
+it carried, or the device's own files. The wording is the mapping's. A caller
+that only needs to know which layer refused may branch on the family and stop
+there; a caller that shows the failure to a person takes both halves from the
+mapping.
+
+A **new case inside a family** is a new branch in that one mapping, with its
+code and its sentence beside the others. That is where the work goes — not a
+new sentence in every screen that handles the family. A code that means one
+thing in the report and another on the screen is worse than no code at all.
 
 ## Migration Chain
 
