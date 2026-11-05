@@ -41,10 +41,10 @@ import com.singularity.todo.feature.projects.presentation.components.ProjectIcon
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.preview.PreviewSamples
-import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 /**
  * Hero section of [ProjectDetailScreen]: project icon, name editor, description editor,

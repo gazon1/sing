@@ -204,7 +204,8 @@ class JvmNotifierTest {
 
     /** The `PATH` this process was given, whatever the platform spells it. */
     private fun pathVariable(): String? =
-        System.getenv()
+        System
+            .getenv()
             .entries
             .firstOrNull { it.key.equals("PATH", ignoreCase = true) }
             ?.value

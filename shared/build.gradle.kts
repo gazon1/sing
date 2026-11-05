@@ -25,10 +25,11 @@ koinCompiler {
 }
 
 /** kotlinx-coroutines-debug agent for jvmTest only. */
-val coroutinesDebugAgent = configurations.create("coroutinesDebugAgent") {
-    isCanBeConsumed = false
-    isCanBeResolved = true
-}
+val coroutinesDebugAgent =
+    configurations.create("coroutinesDebugAgent") {
+        isCanBeConsumed = false
+        isCanBeResolved = true
+    }
 
 // The stability contract.
 val composeStabilityConfiguration: RegularFile =

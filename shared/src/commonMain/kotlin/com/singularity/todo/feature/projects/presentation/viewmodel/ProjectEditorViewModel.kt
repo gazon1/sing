@@ -10,11 +10,11 @@ import com.singularity.todo.feature.projects.domain.ProjectsDomain
 import com.singularity.todo.feature.projects.domain.model.CreateProjectInput
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
-import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.projects.domain.state.ProjectEditorIntent
 import com.singularity.todo.feature.projects.domain.state.ProjectEditorUiEvent
 import com.singularity.todo.feature.projects.domain.state.ProjectEditorUiState
+import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
+import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.firstOrNull
 

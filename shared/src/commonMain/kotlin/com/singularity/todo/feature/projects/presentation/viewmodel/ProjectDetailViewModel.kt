@@ -12,6 +12,10 @@ import com.singularity.todo.core.ui.debounce.Debouncer
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.state.ProjectCloseConfirmation
+import com.singularity.todo.feature.projects.domain.state.ProjectDetailIntent
+import com.singularity.todo.feature.projects.domain.state.ProjectDetailUiEvent
+import com.singularity.todo.feature.projects.domain.state.ProjectDetailUiState
 import com.singularity.todo.feature.projects.domain.usecase.CloseProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.ProjectCloseOutcome
@@ -19,10 +23,6 @@ import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.projects.presentation.model.ParentOption
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.model.TagGroupOption
-import com.singularity.todo.feature.projects.domain.state.ProjectCloseConfirmation
-import com.singularity.todo.feature.projects.domain.state.ProjectDetailIntent
-import com.singularity.todo.feature.projects.domain.state.ProjectDetailUiEvent
-import com.singularity.todo.feature.projects.domain.state.ProjectDetailUiState
 import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput

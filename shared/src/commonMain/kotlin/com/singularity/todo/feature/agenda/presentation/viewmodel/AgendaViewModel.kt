@@ -28,9 +28,9 @@ import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
-import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
 import com.singularity.todo.feature.tasks.domain.state.DueDateOption
 import com.singularity.todo.feature.tasks.domain.state.TaskDraft
+import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
@@ -305,23 +305,23 @@ class AgendaViewModel(
                         }
                     }
             }.collect { fresh ->
-                    // Reconciliation goes through `updateState`, which is CAS-backed,
-                    // because this collector and the selection handlers both write and
-                    // the scope is multi-threaded. Reading `_state.value` and then
-                    // `setState`-ing the result — which is what this used to do —
-                    // is a read-modify-write that can drop a concurrent selection.
-                    updateState { current ->
-                        val previous = (current as? AgendaUiState.Loaded)?.selectedTaskIds ?: persistentSetOf()
-                        // A task that has left the agenda — completed or deleted
-                        // elsewhere — must not stay selected: the id would otherwise
-                        // ride along into a later bulk delete.
-                        val kept = previous.intersect(fresh.taskIds()).toImmutableSet()
-                        fresh.copy(
-                            isSelectionMode = kept.isNotEmpty(),
-                            selectedTaskIds = kept,
-                        )
-                    }
+                // Reconciliation goes through `updateState`, which is CAS-backed,
+                // because this collector and the selection handlers both write and
+                // the scope is multi-threaded. Reading `_state.value` and then
+                // `setState`-ing the result — which is what this used to do —
+                // is a read-modify-write that can drop a concurrent selection.
+                updateState { current ->
+                    val previous = (current as? AgendaUiState.Loaded)?.selectedTaskIds ?: persistentSetOf()
+                    // A task that has left the agenda — completed or deleted
+                    // elsewhere — must not stay selected: the id would otherwise
+                    // ride along into a later bulk delete.
+                    val kept = previous.intersect(fresh.taskIds()).toImmutableSet()
+                    fresh.copy(
+                        isSelectionMode = kept.isNotEmpty(),
+                        selectedTaskIds = kept,
+                    )
                 }
+            }
         }
     }
 

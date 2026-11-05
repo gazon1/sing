@@ -96,22 +96,30 @@ internal fun fabActionForNav3(
                 AgendaStartRoute.Blocked,
                 AgendaStartRoute.Stagnant,
                 AgendaStartRoute.Overdue,
-                -> addTaskAction(navigate)
+                -> {
+                    addTaskAction(navigate)
+                }
 
                 is AgendaStartRoute.Project,
                 is AgendaStartRoute.Tag,
                 is AgendaStartRoute.Tags,
                 is AgendaStartRoute.SavedAgendaResults,
-                -> addTaskAction(navigate)
+                -> {
+                    addTaskAction(navigate)
+                }
 
                 // The screens that manage saved views are not task lists: listing
                 // views, editing one and creating one carry no action. A saved
                 // view's *results* are a list of tasks and are classified above.
                 AgendaStartRoute.SavedAgendaList,
                 AgendaStartRoute.SavedAgendaCreate,
-                -> null
+                -> {
+                    null
+                }
 
-                is AgendaStartRoute.SavedAgendaEdit -> null
+                is AgendaStartRoute.SavedAgendaEdit -> {
+                    null
+                }
             }
         }
 

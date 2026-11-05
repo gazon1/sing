@@ -420,7 +420,10 @@ class BackupMigrationsTest {
      * and the restore never saw it; a key both carry with different values is a
      * record the backup promised one thing and the restore another.
      */
-    private fun assertEveryWrittenKeyIsRead(migrated: JsonObject, read: JsonObject) {
+    private fun assertEveryWrittenKeyIsRead(
+        migrated: JsonObject,
+        read: JsonObject,
+    ) {
         assertEquals(
             emptySet<String>(),
             migrated.keys - read.keys,

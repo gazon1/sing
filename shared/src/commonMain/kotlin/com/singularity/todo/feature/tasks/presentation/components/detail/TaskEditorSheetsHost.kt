@@ -12,9 +12,9 @@ import com.singularity.todo.feature.checklist.components.ChecklistEditorSheet
 import com.singularity.todo.feature.tags.components.TagsPickerSheet
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesPlanner
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
+import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.components.ProjectPickerSheet
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
-import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
 import com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList

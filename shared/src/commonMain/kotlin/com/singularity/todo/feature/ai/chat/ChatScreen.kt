@@ -401,8 +401,11 @@ fun FollowConversationEnd(
                     left = listState.anchor
                     landed = true
                 }
+
                 // Nothing to record: there was nothing to show yet, or the reader took the list.
-                MoveOutcome.NothingToDo, MoveOutcome.TakenOver -> Unit
+                MoveOutcome.NothingToDo, MoveOutcome.TakenOver -> {
+                    Unit
+                }
             }
         }
     }
