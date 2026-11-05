@@ -210,6 +210,7 @@ android {
         libs.versions.sdk.compile
             .get()
             .toInt()
+    compileSdkMinor = 1
 
     defaultConfig {
         applicationId = "com.singularity.todo"

@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 
 /**
@@ -34,7 +35,10 @@ fun EditorParentPickerSheet(
     onPick: (ProjectId?) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.mapTestTagsAsResourceIds(),
+    ) {
         Column(modifier = Modifier.padding(24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // The sheet is modal and picking is the only way out of it otherwise,

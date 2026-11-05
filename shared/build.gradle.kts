@@ -10,10 +10,6 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinxSerialization)
-    // KSP for Room annotation processing
-    alias(libs.plugins.ksp)
-    // Room 3 KSP plugin (schema export)
-    alias(libs.plugins.room3)
     // Koin Compiler Plugin — validates classic DSL (single { ... }) at compile time.
     // No @Single/@Factory annotations needed; koin-annotations 4.x is incompatible (see AGENTS.md).
     alias(libs.plugins.koin.compiler)
@@ -21,7 +17,18 @@ plugins {
 }
 
 koinCompiler {
-    // userLogs = true // uncomment to see detected definitions during development
+    // The detector is a raw text match. This module's *test* sources build Koin
+    // applications for graph tests and name the entry point in one check, which the
+    // plugin reads as an aggregator and turns into a forced full-graph re-run on every
+    // build. A test compilation is not an aggregator, so that re-run is off here. The
+    // production entry point lives in the launch modules, not in this library.
+    // Per-module compileSafety stays on.
+    //
+    // The non-incremental edit is a different cause: the in-process execution
+    // strategy on a KMP module (KT-62686), not this flag. See ADR
+    // 2026-11-05-the-koin-plugin-forced-the-aggregator-compile-to-rerun.
+    strictSafety = false
+    strictSafetyForceOff = true
 }
 
 /** kotlinx-coroutines-debug agent for jvmTest only. */
@@ -136,6 +143,13 @@ kotlin {
             // `feature/ai/tools/AdrTools.kt` hand `AdrStorage.AdrFile` back to callers.
             api(project(":adr-core"))
 
+            // The pure domain models: :shared and :core-database compile against them.
+            api(project(":core-domain"))
+
+            // Room/KSP and the persistence layer. The feature data implementations and
+            // the DI graph use the AppDatabase/DAOs; KSP runs only in :core-database.
+            implementation(project(":core-database"))
+
             // Compose
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
@@ -170,10 +184,6 @@ kotlin {
 
             // Serialization
             implementation(libs.kotlinx.serialization.json)
-
-            // Room 3 (KMP)
-            implementation(libs.androidx.room3.runtime)
-            implementation(libs.androidx.sqlite)
 
             // Koin
             implementation(libs.koin.core)
@@ -279,10 +289,6 @@ kotlin {
             // are needed — in this project's own code, which asks Google for the grant.
             implementation(libs.play.services.auth)
 
-            // Room Android
-            implementation(libs.androidx.room3.runtime)
-            implementation(libs.androidx.sqlite.bundled)
-
             // Koin Android
             implementation(libs.koin.android)
 
@@ -343,13 +349,6 @@ kotlin {
             implementation(libs.kotlin.sdk)
             implementation(libs.ktor.io.jvm)
             implementation(libs.kotlinx.io.core.jvm)
-
-            // Bundled SQLite — same driver as Android, no external native dep required.
-            implementation(libs.androidx.sqlite.bundled)
-
-            // Room JVM
-            implementation(libs.androidx.room3.runtime)
-            implementation(libs.androidx.sqlite)
 
             // Kermit Koin integration (JVM-only)
             implementation(libs.kermit.koin)
@@ -697,6 +696,20 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
             .dir("src/commonMain/kotlin")
             .asFile.absolutePath,
     )
+    // The search grammar's rule and citations moved to :core-domain with core/search.
+    systemProperty(
+        "coreDomain.root",
+        rootProject.layout.projectDirectory
+            .dir("core-domain/src/commonMain/kotlin")
+            .asFile.absolutePath,
+    )
+    // The FTS DAO moved to :core-database; SearchCostDoesNotGrowTest reads it.
+    systemProperty(
+        "coreDatabase.root",
+        rootProject.layout.projectDirectory
+            .dir("core-database/src/commonMain/kotlin")
+            .asFile.absolutePath,
+    )
     // Absolute paths to :shared's own test sources and resources, for the tests that
     // read files rather than calling code.
     //
@@ -954,7 +967,7 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // The exported Room schemas, read at runtime by the generated round-trip test.
     //
     // `MigrationRoundTripSupport.schemaFile(version)` resolves
-    // `shared/schemas/com.singularity.todo.core.database.AppDatabase/<version>.json`
+    // `core-database/schemas/com.singularity.todo.core.database.AppDatabase/<version>.json`
     // and opens it. That tree is not a compile input of :shared, so the task's
     // up-to-date check did not see it: an export that changed — a re-export with
     // different columns, which is exactly the defect `check-room-schema-integrity.py`
@@ -964,7 +977,7 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // Declared as a directory rather than per version, because the test reads one file
     // per step and the set of steps changes with the chain.
     inputs
-        .dir(layout.projectDirectory.dir("schemas"))
+        .dir(layout.projectDirectory.dir("../core-database/schemas"))
         .withPropertyName("exportedRoomSchemas")
         .withPathSensitivity(PathSensitivity.RELATIVE)
     // The positive control of UnannotatedTestMemberTest reads a committed class that is
@@ -1031,11 +1044,6 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
 dependencies {
     coroutinesDebugAgent(libs.kotlinx.coroutines.debug)
     androidRuntimeClasspath(libs.compose.ui.tooling)
-
-    // Room 3 KSP compiler — per-target so AppDatabase_Impl is generated
-    // for both Android and JVM. JVM builds the same Room DB via BundledSQLiteDriver.
-    add("kspAndroid", libs.androidx.room3.compiler)
-    add("kspJvm", libs.androidx.room3.compiler)
 
     // androidHostTest — the Android/Robolectric-capable source set. Its only content is
     // AndroidManifest.xml; every test `testAndroidHostTest` executes comes from
@@ -1175,11 +1183,6 @@ afterEvaluate {
             "com/singularity/todo/core/files/AndroidFileSystemMoveTest.class",
         )
     }
-}
-
-// Room 3 KSP schema export
-room3 {
-    schemaDirectory("$projectDir/schemas")
 }
 
 // ---------------------------------------------------------------------------

@@ -292,7 +292,8 @@ class ProjectDetailViewModel(
                     },
                     // The parent stream does depend on a field, so it stays on the object.
                     _projectFlow.flatMapLatest { p ->
-                        if (p == null || p.parentId == null) flowOf(null) else projectRepo.observe(p.parentId)
+                        val parentId = p?.parentId
+                        if (p == null || parentId == null) flowOf(null) else projectRepo.observe(parentId)
                     },
                     visibilityFlow,
                 ) { project, tasks, childProjects, parent, visibility ->

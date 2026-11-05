@@ -2,7 +2,6 @@ package com.singularity.todo.arch
 
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import java.io.File
 import kotlin.test.fail
 
 /**
@@ -194,27 +193,20 @@ class TaskRowWriterTest {
 
     /** The entity declarations, read as code: comments and literal contents are blanked. */
     private val entitiesCode: String by lazy {
-        KotlinText.stripCode(
-            File(SourceScan.commonMainRoot(), "core/database/Entities.kt").readText(),
-        )
+        KotlinText.stripCode(SourceScan.fileNamed("Entities.kt").readText())
     }
 
     /** The repository, read as code: comments and literal contents are blanked. */
     private val repositoryCode: String by lazy {
         KotlinText.stripCode(
-            File(
-                SourceScan.commonMainRoot(),
-                "feature/tasks/data/TaskRepositoryImpl.kt",
-            ).readText(),
+            SourceScan.file("feature/tasks/data/TaskRepositoryImpl.kt").readText(),
         )
     }
 
     /** Every production source, for the checks that look at what else writes a column. */
     private val productionSource: String by lazy {
         SourceScan
-            .commonMainRoot()
-            .walkTopDown()
-            .filter { it.name.endsWith(".kt") }
+            .productionFiles()
             .joinToString("\n") { it.readText() }
     }
 

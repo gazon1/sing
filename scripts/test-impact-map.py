@@ -146,7 +146,7 @@ TREE_WIDE_MARKERS: tuple[str, ...] = (
 #: `BackupRulesTest` reads the Android backup rules. A change to a file in one
 #: of these can break such a gate, so it selects the tree-wide gates too.
 #:
-#: `shared/schemas/` is NOT here, and the omission is deliberate rather than an
+#: `core-database/schemas/` is NOT here, and the omission is deliberate rather than an
 #: oversight: the migration tests that read the exports reach them through
 #: `applyExportedSchema(N, …)`, a helper in another file, and they are
 #: `@Tag("slow")` — so no rule here selects them, and listing the directory
@@ -210,7 +210,7 @@ ROOT_MARKERS: tuple[tuple[str, str], ...] = (
 #: The paths each tree is made of. A change touches a tree when it touches one
 #: of its paths.
 TREE_PATHS: dict[str, tuple[str, ...]] = {
-    'commonMain': ('shared/src/commonMain/',),
+    'commonMain': ('shared/src/commonMain/', 'core-database/src/commonMain/', 'core-domain/src/commonMain/'),
     'testSources': ('shared/src/jvmTest/', 'shared/src/commonTest/'),
     'testResources': ('shared/src/jvmTest/resources/',),
     'maestro': ('Maestro/',),
@@ -231,6 +231,8 @@ COVERAGE_OFF = '-Pcoverage.enabled=false'
 #: The source sets that hold tests, and the module each belongs to.
 TEST_SOURCE_DIRS: dict[str, str] = {
     'shared/src/commonTest': 'shared',
+    'core-database/src/commonTest': 'core-database',
+    'core-domain/src/commonTest': 'core-domain',
     'shared/src/jvmTest': 'shared',
     'shared/src/androidHostTest': 'shared',
     'desktopApp/src/jvmTest': 'desktopApp',
@@ -240,6 +242,8 @@ TEST_SOURCE_DIRS: dict[str, str] = {
 #: The source sets that hold production code.
 PRODUCTION_SOURCE_DIRS: tuple[str, ...] = (
     'shared/src/commonMain',
+    'core-database/src/commonMain',
+    'core-domain/src/commonMain',
     'shared/src/jvmMain',
     'shared/src/androidMain',
     'androidApp/src/main',
@@ -274,6 +278,8 @@ GATE_AREAS: tuple[str, ...] = (
 #: runs it.
 SOURCE_SET_TASKS: dict[str, str] = {
     'shared/src/commonTest': ':shared:jvmTest',
+    'core-database/src/commonTest': ':core-database:jvmTest',
+    'core-domain/src/commonTest': ':core-domain:jvmTest',
     'shared/src/jvmTest': ':shared:jvmTest',
     'shared/src/androidHostTest': ':shared:testAndroidHostTest',
     'desktopApp/src/jvmTest': ':desktopApp:test',

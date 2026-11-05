@@ -183,5 +183,5 @@ keystore/
 # the repository needs lives under it, so there is nothing to gain by
 # tracking it.
 .local/
-
 node_modules/
+build-investigation/stage5-reports/full/

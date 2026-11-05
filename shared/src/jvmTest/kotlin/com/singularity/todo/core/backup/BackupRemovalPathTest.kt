@@ -221,6 +221,7 @@ class BackupRemovalPathTest {
                 importOptions {
                     sourcePath = path
                     targetUserId = owner
+                    ownerId = owner
                 },
             )
         assertTrue(restored.isSuccess, "the restore failed: ${restored.exceptionOrNull()}")

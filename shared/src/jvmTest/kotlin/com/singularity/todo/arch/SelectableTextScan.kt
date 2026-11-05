@@ -84,14 +84,7 @@ internal object SelectableTextScan {
      *
      * The tree mirrors the packages, so the path *is* the name.
      */
-    private fun relativePath(file: KoFileDeclaration): String {
-        val normalizedRoot = CommonMainKonsistScope.commonMainRoot.replace('\\', '/').trimEnd('/')
-        val under = file.path.replace('\\', '/').removePrefix("$normalizedRoot/")
-        return under.removePrefix("$PACKAGE_PREFIX/")
-    }
-
-    /** The package every path in this scan is relative to. */
-    private const val PACKAGE_PREFIX = "com/singularity/todo"
+    private fun relativePath(file: KoFileDeclaration): String = CommonMainKonsistScope.packagePath(file.path)
 
     /** Where the widgets live. No text surface lives here. */
     private const val WIDGETS_PACKAGE = "core/ui/text/"
