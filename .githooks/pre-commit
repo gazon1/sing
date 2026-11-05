@@ -125,18 +125,32 @@ python3 "$PLAN_DIR/staged-tree.py" hold --root "$ROOT" --plan "$PLAN" || {
 }
 
 echo "=== Pre-commit: linting the changed files ==="
-python3 scripts/lint-changed.py || {
-    echo "detekt (changed files) FAILED"
-    exit 1
-}
+if command -v heavy >/dev/null 2>&1; then
+    heavy --timeout 300 --on-timeout run -- python3 scripts/lint-changed.py || {
+        echo "detekt (changed files) FAILED"
+        exit 1
+    }
+else
+    python3 scripts/lint-changed.py || {
+        echo "detekt (changed files) FAILED"
+        exit 1
+    }
+fi
 
 echo "=== Pre-commit: compiling the modules the change touches ==="
 # The plan and the compile live in scripts/compile-changed.py: the module set
 # is computed from the module graph, and the script says what it compiled and
 # what it did not.
-python3 scripts/compile-changed.py || {
-    echo "compile-changed: FAILED"
-    exit 1
-}
+if command -v heavy >/dev/null 2>&1; then
+    heavy --timeout 300 --on-timeout run -- python3 scripts/compile-changed.py || {
+        echo "compile-changed: FAILED"
+        exit 1
+    }
+else
+    python3 scripts/compile-changed.py || {
+        echo "compile-changed: FAILED"
+        exit 1
+    }
+fi
 
 echo "=== Pre-commit OK ==="

@@ -78,6 +78,12 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Route heavy builds through the machine-wide semaphore unless already wrapped.
+if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]] && [[ -z "${HEAVY_HELD:-}" ]] && [[ -z "${GW_HEAVY_WRAPPED:-}" ]]; then
+  export GW_HEAVY_WRAPPED=1
+  exec heavy -- "$0" "$@"
+fi
+
 # An explicit GRADLE_USER_HOME wins — that is how someone opts out of the
 # wrapper entirely and keeps a hand-managed home, and it is also the case in CI,
 # where setup-gradle has already set one pointing at a cached directory.

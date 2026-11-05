@@ -242,6 +242,10 @@ policy — `docs/doc-maintenance.md`.
 Issue tracker — `docs/agents/issue-tracker.md`; доменные доки — `docs/agents/domain.md` (`CONTEXT.md`
 в корне, ADR-и в `docs/decisions/`). Список снятых скиллов и причина каждого — `docs/doc-maintenance.md`.
 
+## Build/test/lint discipline (heavy)
+
+Run tests, type checks, linters and builds through the project's tasks (`just ...`), or as `heavy -- <command>` when there is no task. `heavy` is a machine-wide counting semaphore for heavy commands (installed via `mise` from `mise.toml`). `./gw` self-wraps through `heavy` when present and not in `CI` (with `HEAVY_HELD`/`GW_HEAVY_WRAPPED` guards to avoid recursion). CI needs the binary present (it runs commands at once when `CI` is set, but `heavy` must be installed). In git hooks use `heavy --timeout 300 --on-timeout run -- ...` (600s for `pre-push-verdict.py`) so busy machines slow hooks down but never fail them; wrappers fall back to running directly if `heavy` is missing.
+
 ## Easement (architecture quality gate)
 
 - Use the easement skill before adding a file or an import and whenever `easement check` fails.
