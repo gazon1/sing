@@ -183,7 +183,7 @@ The fold used to skip a version it had no transform for, so a payload written at
 
 | Step | What it writes |
 |---|---|
-| v1 → v2 | tasks gain `parentTaskId`, `estimateMinutes`, `recurrenceRule`, `outgoingLinks`, `aiSuppressedTagIds`; notes gain `isPinned`, `pinnedAt`, `color`, `sortOrder`, `wordCount`, `charCount`, `outgoingLinks`, `taskId` (`parentTaskId` is among the fields the step writes, although today's `TaskDto` no longer carries it) |
+| v1 → v2 | tasks gain `parentTaskId` (`null` on every task — a v1 payload never carried the link, so a migrated backup's tasks come back top-level), `estimateMinutes`, `recurrenceRule`, `outgoingLinks`, `aiSuppressedTagIds`; notes gain `isPinned`, `pinnedAt`, `color`, `sortOrder`, `wordCount`, `charCount`, `outgoingLinks`, `taskId` |
 | v2 → v3 | `agendaViews` (an empty list when the payload has none) |
 | v3 → v4 | nothing but `schemaVersion` — the 8 new entity types default to empty |
 | v4 → v5 | `verb` on every entry of `taskDependencies` (`BLOCKS`) |
@@ -201,16 +201,11 @@ Every step also writes the `schemaVersion` it lands on, so the payload that come
 
 ## DTO vs Entity
 
-DTOs strip sync metadata on `toDto()`. Sync fields restored as defaults on `toEntity()`:
-```kotlin
-fun TaskEntity.toDto(): TaskDto = TaskDto(
-    id, title, description, priority, kind, projectId, dueDate, dueTime,
-    startDate, startTime, endDate, endTime, accentColor, emoji, completedAt,
-    someday, archivedAt, isPinned, estimateMinutes, recurrenceRule, seriesId,
-    workflowState, outgoingLinks, aiSuppressedTagIds, createdAt, updatedAt
-    // serverVersion, syncStatus, hlc — NOT included (defaults on restore)
-)
-```
+DTOs strip sync metadata on `toDto()`, and the sync fields come back as defaults on
+`toEntity()`. Apart from those, a row type carries **every** column its entity has —
+the type is the list, and this page does not keep a second copy of it. `parentTaskId`
+was the field that went missing that way, and a restore gave back a flat list of
+tasks: a column added to an entity belongs on its DTO in the same change.
 
 ## java.util.zip (NOT Kompress)
 
