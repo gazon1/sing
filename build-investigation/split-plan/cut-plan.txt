@@ -1,0 +1,88 @@
+# clusters=81 largest SCC=52
+# cost: edges (Y -> X) where Y is reachable from X — every one of them has to be cut to lift X
+# (the shortest cycle through X is one cycle, not the whole bill)
+
+# cuts	clusters lifted
+28	core/ui
+4	core/backup
+26	feature/tasks
+0	test/fakes
+0	core/observability
+0	(root)
+217	every core/* cluster
+
+# checks on the single cut an earlier draft claimed was enough for core/ui
+core/ui still in a cycle after cutting core/search -> feature/notes: yes
+largest SCC after every edge into core/di is removed: 50
+largest SCC after both of the above: 52
+
+# greedy feedback arc set (Eades-Lin-Smyth, an upper bound): 69 edges
+core/attachments -> feature/tasks
+core/auth -> core/sync
+core/auth -> feature/auth
+core/llm -> core/security
+core/log -> core/backup
+core/notifications -> feature/agenda
+core/repository -> feature/profile
+core/search -> feature/notes
+core/search -> feature/projects
+core/search -> feature/tags
+core/search -> feature/tasks
+core/settings -> core/notifications
+core/settings -> core/schedule
+core/settings -> feature/agenda
+core/settings -> feature/plans
+core/sync -> core/work
+core/sync -> feature/notes
+core/sync -> feature/projects
+core/sync -> feature/tags
+core/sync -> feature/tasks
+core/tasks -> core/settings
+core/tree -> feature/projects
+core/work -> core/backup
+feature/ai -> core/di
+feature/alarms -> feature/pomodoro
+feature/alarms -> feature/reminders
+feature/attachments -> feature/tasks
+feature/auth -> feature/nav
+feature/checklist -> feature/tasks
+feature/nav -> feature/agenda
+feature/nav -> feature/ai
+feature/nav -> feature/archive
+feature/nav -> feature/calendar
+feature/nav -> feature/notes
+feature/nav -> feature/projects
+feature/nav -> feature/search
+feature/nav -> feature/settings
+feature/nav -> feature/statistics
+feature/notes -> feature/ai
+feature/notes -> feature/search
+feature/plans -> feature/nav
+feature/pomodoro -> feature/tasks
+feature/profile -> core/refresh
+feature/profile -> core/wipe
+feature/profile -> feature/auth
+feature/profile -> feature/nav
+feature/profile -> feature/settings
+feature/profile -> preview
+feature/projects -> feature/ai
+feature/proposals -> feature/notes
+feature/proposals -> feature/projects
+feature/reminders -> feature/agenda
+feature/reminders -> feature/projects
+feature/reminders -> feature/tasks
+feature/tags -> feature/projects
+feature/tags -> feature/tasks
+feature/tasks -> feature/agenda
+feature/tasks -> feature/ai
+feature/tasks -> feature/nav
+feature/tasks -> feature/notes
+feature/tasks -> feature/projects
+feature/tasks -> feature/proposals
+feature/tasks -> feature/search
+feature/timetracking -> feature/tasks
+preview -> feature/agenda
+preview -> feature/notes
+preview -> feature/projects
+preview -> feature/reminders
+preview -> feature/tasks

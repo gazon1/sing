@@ -46,8 +46,10 @@ Exit codes: `2` settle not `UP-TO-DATE` · `3` tree dirty · `4` no usable repor
 | `results/p0-in-process-N/result.txt`, `host.txt` | committed evidence: extracted report lines, task outcomes, host state |
 | `results/p0-in-process-N/*.log` | raw `--info` logs and the build report copy — local only, `*.log` is git-ignored |
 | `baseline.md` | Phase 0 table and the H0 verdict |
-| `analyse.py` | Phase 1 analysis, stdlib only; `python3 analyse.py --since 2026-05-05 --out .` regenerates the five files below in about a second |
+| `analyse.py` | Phase 1 analysis, stdlib only; `python3 analyse.py --since 2026-05-05 --out .` regenerates the seven files below in about a second |
 | `hot-files.txt` `hot-packages.txt` `co-changes.txt` `package-graph.txt` `cluster-data.tsv` | Phase 1 outputs (files, packages, co-changes, import graph, cluster table) |
+| `cut-plan.txt` | what it costs to lift a cluster, and the greedy feedback arc set for the whole graph |
+| `commit-profile.txt` | what share of the history a split could shorten, and the renames that truncate it |
 | `cluster-map.md` | Phase 1 reading: what is hot, what is liftable, and what blocks it |
 | `results/env.txt` | toolchain and configuration the numbers belong to |
 

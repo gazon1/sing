@@ -381,6 +381,135 @@ def main():
         *("\t".join(str(row[column]) for column in COLUMNS) for row in pilot),
     ])
 
+    # ── what lifting a cluster actually costs ────────────────────────────────────────────────────
+    # A cluster X can only move if nothing it can reach imports it back: every edge (Y -> X) with Y
+    # reachable from X has to go. That is exact, and it is much larger than the shortest cycle
+    # through X — one cycle is not the whole bill.
+    cluster_edges = {(source, target) for source in cluster_out for target in cluster_out[source]}
+
+    def reachable_from(nodes):
+        seen, stack = set(), list(nodes)
+        while stack:
+            for nxt in cluster_out[stack.pop()]:
+                if nxt not in seen:
+                    seen.add(nxt)
+                    stack.append(nxt)
+        return seen
+
+    def lift_cuts(group):
+        back = reachable_from(group) - set(group)
+        return sorted((source, node) for node in group for source in cluster_in[node] if source in back)
+
+    def greedy_back_edges():
+        """Eades-Lin-Smyth: an ordering whose back edges break every cycle. An upper bound, not the minimum."""
+        remaining = {node: {m for m in cluster_out[node] if m in cluster_nodes} for node in cluster_nodes}
+        front, back = [], []
+        while remaining:
+            indegree = Counter()
+            for targets in remaining.values():
+                for target in targets & remaining.keys():
+                    indegree[target] += 1
+            sinks = sorted(node for node in remaining if not (remaining[node] & remaining.keys()))
+            if sinks:
+                back.append(sinks[0])
+                del remaining[sinks[0]]
+                continue
+            sources = sorted(node for node in remaining if indegree[node] == 0)
+            if sources:
+                front.append(sources[0])
+                del remaining[sources[0]]
+                continue
+            pick = max(sorted(remaining),
+                       key=lambda node: len(remaining[node] & remaining.keys()) - indegree[node])
+            front.append(pick)
+            del remaining[pick]
+        position = {node: index for index, node in enumerate(front + list(reversed(back)))}
+        return sorted((source, target) for source, target in cluster_edges
+                      if source in position and target in position and position[source] >= position[target])
+
+    in_scc = set(cluster_cycles[0]) if cluster_cycles else set()
+    scenarios = [
+        ("core/ui", {"core/ui"}),
+        ("core/backup", {"core/backup"}),
+        ("feature/tasks", {"feature/tasks"}),
+        ("test/fakes", {"test/fakes"}),
+        ("core/observability", {"core/observability"}),
+        ("(root)", {"(root)"}),
+        ("every core/* cluster", {node for node in cluster_nodes if node.startswith("core/")}),
+    ]
+    def without(cut):
+        source, target = cut
+        return {node: (targets - {target} if node == source else targets)
+                for node, targets in cluster_out.items()}
+
+    def largest_scc(adjacency):
+        groups = strongly_connected(adjacency, cluster_nodes)
+        return set(groups[0]) if groups else set()
+
+    back_edges = greedy_back_edges()
+    named_cut = largest_scc(without(("core/search", "feature/notes")))
+    di_lifted = largest_scc({node: (targets - {"core/di"}) for node, targets in cluster_out.items()})
+    aggregated = largest_scc({node: (targets - {"core/di"} if node == "core/search" else targets)
+                              for node, targets in cluster_out.items()})
+
+    write(os.path.join(out, "cut-plan.txt"), [
+        f"# clusters={len(cluster_nodes)} largest SCC={len(in_scc)}",
+        "# cost: edges (Y -> X) where Y is reachable from X — every one of them has to be cut to lift X",
+        "# (the shortest cycle through X is one cycle, not the whole bill)",
+        "",
+        "# cuts\tclusters lifted",
+        *(f"{len(lift_cuts(group & set(cluster_nodes)))}\t{name}" for name, group in scenarios
+          if group & set(cluster_nodes)),
+        "",
+        "# checks on the single cut an earlier draft claimed was enough for core/ui",
+        f"core/ui still in a cycle after cutting core/search -> feature/notes: {'yes' if 'core/ui' in named_cut else 'no'}",
+        f"largest SCC after every edge into core/di is removed: {len(di_lifted)}",
+        f"largest SCC after both of the above: {len(aggregated)}",
+        "",
+        f"# greedy feedback arc set (Eades-Lin-Smyth, an upper bound): {len(back_edges)} edges",
+        *(f"{source} -> {target}" for source, target in back_edges),
+    ])
+
+    # ── what share of the history a split could actually shorten ─────────────────────────────────
+    liftable = {cluster_of(package) for package in packages} - in_scc
+    total_commits = len(commits)
+    moved_paths = sum(1 for commit in commits if any(path not in files for path in commit))
+    test_only = sum(1 for commit in commits if not any(path in production for path in commit))
+    liftable_only = sum(
+        1 for commit in commits
+        if all(path in files for path in commit)
+        and {cluster_of_path[path] for path in commit} <= liftable
+        and any(path in production for path in commit))
+    fakes_only = sum(1 for commit in commits
+                     if all(path in files and cluster_of_path[path] == "test/fakes" for path in commit))
+    fakes_any = sum(1 for commit in commits if any(cluster_of_path.get(path) == "test/fakes" for path in commit))
+
+    renames = subprocess.run(
+        ["git", "log", f"--since={args.since}", "-M", "--name-status", "--pretty=format:COMMIT %H", "--", SRC],
+        capture_output=True, text=True, check=True, cwd=root).stdout
+    renamed_into = Counter()
+    for line in renames.splitlines():
+        parts = line.split("\t")
+        if len(parts) == 3 and parts[0].startswith("R") and parts[1].startswith(SRC) and parts[2].startswith(SRC):
+            renamed_into[cluster_of_path.get(parts[2], "(unknown)")] += 1
+    write(os.path.join(out, "commit-profile.txt"), [
+        f"# {total_commits} commits since '{args.since}' touching {SRC}",
+        f"# liftable = clusters outside the largest SCC ({len(liftable)} production clusters)",
+        "",
+        f"moved-path\t{moved_paths}\ttouches a path that no longer exists in the tree",
+        f"tests-only\t{test_only}\ttouches no production file",
+        f"liftable-only\t{liftable_only}\ttouches only liftable production clusters — the upper bound of a split",
+        f"fakes-only\t{fakes_only}\ttouches only test/fakes",
+        f"fakes-any\t{fakes_any}\ttouches test/fakes at all",
+        "",
+        "# renames inside the tree: history of the new path starts at the rename, so its cluster's",
+        "# commit count is a lower bound",
+        f"renames\t{sum(renamed_into.values())}\tfiles renamed within the tree during the window",
+        "# renames into\tcluster",
+        *(f"{count}\t{cluster}" for cluster, count in
+          sorted(renamed_into.items(), key=lambda item: (-item[1], item[0])) if cluster != "(unknown)"),
+    ])
+
     # ── self-checks ──────────────────────────────────────────────────────────────────────────────
     problems = []
     if len(packages) < 100:

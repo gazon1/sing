@@ -66,13 +66,15 @@ The thresholds were fixed before the numbers were seen and were not adjusted aft
 ## Spread against host load
 
 All counted cycles ran between 0.55 and 0.62 load per core — above the idle warm-up (0.10) and below
-the 1.0/core gate. The spread is 5.56 s (9.8 % of the median) and does **not** track load: the busiest
-cycle (0.62/core) took 62.161 s while 0.59/core took 56.840 s. So the 60 s median is a property of the
-commit and the module, not of the host.
+the 1.0/core gate. **Within that narrow band, load barely varied, so this run cannot separate load from
+noise.** No trend is visible (the busiest cycle at 0.62/core took 62.161 s, 0.59/core took 56.840 s),
+but no cycle above the gate was run, so "load does not matter" is not something these five points
+establish. What they do show is a spread of 5.56 s (9.8 % of the median) and a stable median.
 
-Consequence for later phases: a −30 % threshold (≈ 42 s) sits far outside this 5.6 s spread, so five
-cycles per configuration are enough for the plan's `3.4` significance rule. The warm-up cycle is kept
-in `SUMMARY.tsv` and excluded from the median by name.
+Consequence for later phases: a −30 % threshold (≈ 42 s) sits far outside that spread in this sample,
+so five cycles per configuration look sufficient for the plan's `3.4` rule. If a later configuration
+turns out to run near the gate or shows a wider spread, the load band has to be widened deliberately
+rather than inferred. The warm-up cycle is kept in `SUMMARY.tsv` and excluded from the median by name.
 
 ## Two notes on the instrument
 
