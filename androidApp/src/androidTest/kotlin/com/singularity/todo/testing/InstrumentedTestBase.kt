@@ -2,14 +2,23 @@ package com.singularity.todo.testing
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
+import com.singularity.todo.core.draft.DraftStore
+import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.ui.FailureBundleRule
 import com.singularity.todo.ui.StepRecorder
+import com.singularity.todo.ui.TAB_TIMEOUT_MS
+import com.singularity.todo.ui.awaitTag
 import com.singularity.todo.ui.awaitUiDevice
 import com.singularity.todo.ui.clearStepRecorder
 import com.singularity.todo.ui.setStepRecorder
+import com.singularity.todo.ui.tapTag
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
+import org.koin.core.context.GlobalContext
 
 /**
  * The wiring every instrumented test gets: the failure bundle and the step recorder.
@@ -94,6 +103,60 @@ abstract class InstrumentedTestBase {
     protected fun recordedSteps(): String = recorder.format()
 
     /**
+     * Opens the task editor on an empty draft.
+     *
+     * The task editor restores the draft it was last given, and the draft
+     * outlives a run on the device: an editor opened on a device that still
+     * carries the state of an earlier run opens with that text already in the
+     * title field. A test that asserts "the editor opens empty" has to make
+     * that true first — otherwise it measures the state of the device rather
+     * than the behaviour of the editor.
+     *
+     * The drafts are cleared through the app's own store, read from the app's
+     * Koin graph: the instrumentation runs in the app's process, so this is
+     * the store the editor restores from, under the same user scope.
+     *
+     * Only the editor's drafts are cleared — the key the create editor
+     * autosaves to, and the prefill keys the agenda and the calendar write
+     * for it. The store is deliberately **not** emptied: it shares its storage
+     * with the app's settings, so clearing the whole namespace would take the
+     * device's other state with it. Clearing the editor's drafts is not the
+     * same thing as wiping the device.
+     *
+     * The app must be running when this is called — the store is read from the
+     * app's dependency graph, and there is no graph before the app has
+     * started.
+     *
+     * @return the title input of the editor that was opened.
+     */
+    protected fun openTaskEditorWithAnEmptyDraft(): UiObject2 {
+        clearTaskEditorDrafts()
+        device.tapTag(TestTags.TASKS_FAB)
+        return device.awaitTag(
+            TestTags.TASK_EDITOR_TITLE_INPUT,
+            "the task editor's title input",
+            TAB_TIMEOUT_MS,
+        )
+    }
+
+    /**
+     * Empties the drafts the task editor restores from.
+     *
+     * The prefixes are the bare keys of the app's draft namespaces, and they
+     * are relative on purpose: the store that resolves in the graph is either
+     * the user-scoped wrapper or the bare DataStore store, and the wrapper
+     * prepends the user's prefix on the way in. A relative prefix is the only
+     * form that names the editor's drafts under both.
+     */
+    @Suppress("NoRunBlocking") // Instrumented test: the draft store is a suspend API.
+    private fun clearTaskEditorDrafts() {
+        runBlocking {
+            val store = GlobalContext.get().get<DraftStore>()
+            EDITOR_DRAFT_KEY_PREFIXES.forEach { prefix -> store.clearPrefix(prefix) }
+        }
+    }
+
+    /**
      * Installs the recorder before the test body runs.
      *
      * A `@Before` of the base class runs before the `@Before` of the subclass,
@@ -129,3 +192,22 @@ abstract class InstrumentedTestBase {
                 UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             }.getOrNull()
 }
+
+/**
+ * The draft keys the task create editor restores from.
+ *
+ * Four keys, and every one of them a draft the *task editor* consumes: the
+ * key it autosaves to, and the three the agenda and the calendar write for it
+ * when a task is started inside a section, on several dates, or from the
+ * agenda's own date picker.
+ *
+ * `agendaSection("")` is the prefix every section key starts with — the
+ * section id is the tail of it.
+ */
+private val EDITOR_DRAFT_KEY_PREFIXES =
+    listOf(
+        TaskDraftKeys.TASK_CREATE,
+        TaskDraftKeys.CALENDAR_MULTI_DATE,
+        TaskDraftKeys.AGENDA_MULTI_DATE,
+        TaskDraftKeys.agendaSection(""),
+    )

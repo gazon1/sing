@@ -50,13 +50,16 @@
 # something no other tier can (the real Keystore, the real Android shell), and this
 # one did not.
 #
-# The loss is acknowledged here rather than regenerated silently: the tier is 7
-# classes and 23 tests now, one class and three tests fewer than the eight and
-# twenty-six it was. `--update-floor --allow-drop` is the documented override for a
-# deliberate deletion; without it the tool refuses a drop, which is the point.
+# The loss is acknowledged here rather than regenerated silently: the tier is 8
+# classes and 25 tests now. `CreateTaskFlowTest` is not back — the scenario it
+# held is owned by the desktop tier — but the tier has one class it did not have
+# before that removal: `TaskEditorDraftTest` (two tests), which owns what only
+# a device can observe, an editor restoring a draft that outlived the process.
+# `--update-floor --allow-drop` is the documented override for a deliberate
+# deletion; without it the tool refuses a drop, which is the point.
 #
 # GENERATED:BEGIN — rewritten by --update-floor; do not hand-edit
-classes 7
-tests 23
+classes 8
+tests 25
 skipped 0
 # GENERATED:END
