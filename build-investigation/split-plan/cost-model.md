@@ -41,10 +41,16 @@ So the linear shape is right where it matters.
 compose-koin curve at N = 1238 -> 25.7 s vs :shared measured 60.055 s (-57 %)
 ```
 
-A synthetic module of the same size and plugin mix compiles **2.3× faster** than `:shared`. The stand has no resource
-generation, no `@Composable` UI tree, no Koin definitions, no 230-entry classpath, and its code is uniform. The curves are
-therefore used two ways in `replay.md`: raw (ratios only) and calibrated ×2.3 to the measured baseline, because a uniform
-scale changes no ratio but makes the absolute numbers comparable.
+A synthetic module of the same size and plugin mix compiles **2.3× faster** than `:shared`. The gap was chased down in
+`parity.md`: GC is not it (0.3 s of 34 s), the 230-entry classpath is not it (measured, +0.8 s), and code volume is not it
+(the stand analyses *more* lines). **Code shape** — `@Serializable` classes, the serialization compiler plugin, composable
+bodies with state — accounts for about 14 s; ~20 s is still unexplained, with the load difference between the two datasets
+(`:shared` at 0.55–0.62 per core, the stand at 0.07–0.25) as an uncontrolled candidate.
+
+The curves are therefore used two ways in `replay.md`: raw (ratios only) and calibrated ×2.3 to the measured baseline,
+because a uniform scale changes no ratio but makes the absolute numbers comparable. The direction of the bias is known:
+the stand prices *annotations*, not code, so every real module — including the ones a split would create — costs more
+than modelled, and the replay's absolute numbers are a floor.
 
 ## Gate E — the two assumptions the replay rests on
 
