@@ -20,6 +20,10 @@ pluginManagement {
 dependencyResolutionManagement {
     repositories {
         mavenCentral()
+        // Compose Multiplatform resolves its runtime through AndroidX, which publishes to Google's
+        // repository — the repository build has it too, so leaving it out would measure a build that
+        // cannot be the same build.
+        google()
     }
 }
 
