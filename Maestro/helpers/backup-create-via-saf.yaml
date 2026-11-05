@@ -3,6 +3,9 @@
 # Backup creation no longer writes to the app's hidden backupDir: it opens the
 # platform save dialog, and the archive lands where the user confirms. This
 # helper drives that dialog and waits for the snackbar the ViewModel emits.
+appId: com.singularity.todo
+name: backup-create-via-saf
+---
 - tapOn:
     id: backup_create_button
 - extendedWaitUntil:
