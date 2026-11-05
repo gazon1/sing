@@ -822,18 +822,28 @@ class PartGTest(unittest.TestCase):
         # the rewrite must break whichever is present. Replace ALL occurrences:
         # the first `sgate run-all` in check.sh is a comment, and replacing only
         # that leaves the real invocation on a later line.
-        invocation = 'sgate run-all'
-        legacy = 'bash scripts/ci/static-gates.sh'
-        if invocation in original:
-            broken = 'sgate run-eleven'
-        elif legacy in original:
-            broken = 'bash scripts/ci/other.sh'
-        else:
-            self.fail('check.sh must invoke the registry (sgate run-all or '
-                      'bash scripts/ci/static-gates.sh) to test this')
-        check_sh.write_text(original.replace(invocation if invocation in original else legacy,
-                                             broken),
-                            encoding='utf-8')
+        # The registry can be spelled several ways — `./sg run-all`,
+        # `sgate run-all`, `bash scripts/ci/static-gates.sh` — and the check
+        # is written in terms of the registry rather than in terms of one
+        # command name. So the sabotage breaks whichever spelling is actually
+        # there; breaking one and leaving another would leave the registry
+        # invoked and the check green about a call that is not there.
+        spellings = (
+            ('./sg run-all', './sg run-eleven'),
+            ('sgate run-all', 'sgate run-eleven'),
+            ('bash scripts/ci/static-gates.sh', 'bash scripts/ci/other.sh'),
+        )
+        broken_text = original
+        broken_any = False
+        for spelling, broken in spellings:
+            if spelling in broken_text:
+                broken_text = broken_text.replace(spelling, broken)
+                broken_any = True
+        if not broken_any:
+            self.fail('check.sh must invoke the registry (./sg run-all, '
+                      'sgate run-all or bash scripts/ci/static-gates.sh) '
+                      'to test this')
+        check_sh.write_text(broken_text, encoding='utf-8')
         self.addCleanup(lambda: check_sh.write_text(original, encoding='utf-8'))
         errors = gw.check_registry_wiring()
         self.assertTrue(any('check.sh' in e for e in errors),

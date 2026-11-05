@@ -61,13 +61,13 @@ RESULT_MAX_AGE=21600
 # is minutes on a machine that was already slow. Nobody could say so, because
 # nothing measured it.
 #
-# So every step below is timed, and the numbers are handed to `sgate gate-costs`,
+# So every step below is timed, and the numbers are handed to the gate CLI,
 # which publishes them (docs/testing/gate-costs.md) and compares them with the
 # recorded baseline. Nothing is run twice to be timed: these are the runs that
 # happened anyway.
 COST_DIR="$ROOT/build/diagnostics"
 # The fast lane measures itself into its own file. The full loop's record is
-# what `sgate gate-costs` publishes, and a fast run must not overwrite the
+# what the cost report publishes, and a fast run must not overwrite the
 # measurement of the loop it is not.
 if (( FAST )); then
     COST_FILE="$COST_DIR/fast-lane-steps.txt"
@@ -120,7 +120,7 @@ COVERAGE_OFF="-Pcoverage.enabled=false"
 #
 # Every script gate that needs no JVM and no build output lives in
 # scripts/ci/static-gates.sh, which the `static` job of ci.yml also runs.
-# sgate run-all reads that registry and dispatches each gate to its native
+# The registry is read by `run-all`, which dispatches each gate to its native
 # command (sgate <name>), inline shell, or inline Python — running all gates
 # in the registry in parallel. One registry, one interface, is the only
 # arrangement where a gate cannot silently vanish between surfaces.
@@ -134,13 +134,19 @@ COVERAGE_OFF="-Pcoverage.enabled=false"
 # ONE call site, called by both loops: the gate-wiring check asks whether
 # check.sh runs the registry, and two spellings of it in one file would let
 # either path be broken while the answer stayed "yes".
+#
+# `./sg`, not `sgate`: the console script is an editable install, and it belongs
+# to whichever checkout ran `pip install -e scripts/src/` last. The gates would
+# then run against that other tree — a different set of gates, reported green
+# about a checkout nobody is working on. The wrapper binds the packages to the
+# checkout it lives in. See `sg` and scripts/package-binding.py.
 run_static_gates() {
     bash scripts/ci/preflight-gate-tools.sh || {
         echo -e "${RED}the gate tooling is not installed — see the message above${NC}"
         return 1
     }
-    timed "static gates" sgate run-all || {
-        echo -e "${RED}a static gate failed — see sgate run-all output above${NC}"
+    timed "static gates" ./sg run-all || {
+        echo -e "${RED}a static gate failed — see ./sg run-all output above${NC}"
         return 1
     }
 }
@@ -698,7 +704,12 @@ echo -e "${YELLOW}=== what the loop cost ===${NC}"
 # The report, not a verdict: it names what got slower than the recorded baseline and
 # exits zero either way. The baseline itself lives in config/docs/gate-benchmarks.json
 # and is published in docs/testing/gate-costs.md.
-sgate gate-costs
+#
+# `./sg`, not `sgate`: the console script is an editable install, and it belongs
+# to whichever checkout was installed last — so the report would be about that
+# checkout's baseline, published here. The wrapper binds the packages to the
+# checkout it lives in. See `sg` and scripts/package-binding.py.
+./sg gate-costs
 
 echo ""
 echo -e "${GREEN}=== ALL CHECKS PASSED ===${NC}"
