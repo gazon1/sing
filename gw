@@ -92,10 +92,4 @@ if [[ -z "${GRADLE_USER_HOME:-}" ]]; then
     export GRADLE_USER_HOME="$("$root/scripts/setup-gradle-home.sh")"
 fi
 
-# The slot is taken by the script, NOT by this wrapper. Setting
-# SINGULARITY_GRADLE_SLOT_HELD here would make the script's very first check
-# ("a slot is already held") true, and the pool would never take a slot at all.
-if [ -n "${HEAVY_HELD:-}" ] || [ -n "${GW_HEAVY_WRAPPED:-}" ]; then
-  exec "$root/gradlew" "$@"
-fi
-exec "$root/scripts/gradle-slot.sh" "$root/gradlew" "$@"
+exec "$root/gradlew" "$@"
