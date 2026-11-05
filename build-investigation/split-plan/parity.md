@@ -24,16 +24,44 @@ Same N = 1,237, same Compose plugin, plus what `:shared`'s sources have and the 
 That change moved 24.4 s → 39.6 s. The compiler's own throughput shows the same thing: `Code generation lines per second`
 is **6,782** for `:shared` against **36,422** for the stand — 5.4× more work per output line on real code.
 
+## The phase breakdown: where the 31 s sits
+
+Both Build Reports carry the compiler's own `PERF:` lines, so the gap can be attributed without another experiment
+(`grep '^ *PERF:' results/<run>/report.log`):
+
+| phase | `:shared` (1,244 files / 166,175 lines) | stand, Compose + Koin (1,237 / 192,972) | ratio | delta |
+|---|---|---|---|---|
+| INIT | 265 ms | 131 ms | 2.0× | +0.1 s |
+| **ANALYZE** (frontend) | 23,113 ms | 17,222 ms | 1.34× | **+5.9 s** |
+| TRANSLATION to IR | 8,267 ms | 2,598 ms | 3.2× | **+5.7 s** |
+| IR LOWERING | 9,111 ms | 2,771 ms | 3.3× | **+6.3 s** |
+| **BACKEND** (codegen) | 15,389 ms | 2,526 ms | **6.1×** | **+12.9 s** |
+| sum of phases | 56,145 ms | 25,248 ms | 2.2× | **+30.9 s** |
+| GC (young) | 859 ms | 661 ms | — | +0.2 s |
+
+Throughput tells the same story in one line: analyzed lines per second are 7,190 against 11,205 (1.6×), but **generated
+lines per second are 10,798 against 76,371 (7×)**.
+
+**So the hypothesis the data supports is not "generics and type resolution" — the frontend is only 1.34× slower and worth
+5.9 s. It is code generation:** the backend does six times the work per file, and it is 42 % of the gap. The backend is
+where inlining, bridge methods and Compose's generated restart/bridge code live, and `:shared` is full of exactly that —
+`@JvmInline value class` ids, `inline` collection and flow operators, `@Composable` lambdas — while the stand's generated
+code has none of it.
+
+That also explains the negative results: codegen work does not scale with the classpath, which is why adding 230 jars
+changed nothing, and it does not scale with analyzed line count, which is why the stand could analyze more lines and still
+be twice as fast.
+
 ## What is still unexplained
 
-Roughly **20 s** of the 60.1 s. The remaining candidates, in the order they should be tested:
+**~2 s**, not 20: the phases account for 30.9 s of the 34.1 s gap, and GC for 0.2 s. The remainder is not worth chasing.
 
-1. **Deeper code complexity** — generics, inline functions, deep class hierarchies, `expect/actual`, Compose tree depth.
-   The stub reproduces the *annotations* of real code, not its graph.
-2. **Load, uncontrolled.** `:shared` was measured at 0.55–0.62 load per core; the stand at 0.07–0.25. Not 2.3×, but it is
-   a real difference between the two datasets and nobody has separated it.
-3. **The plugin set is still not identical** — `:shared` also applies kotlinx-serialization to real `@Serializable`
-   hierarchies and Compose to a real UI tree; the stand's Compose runtime dependency is `runtime` only.
+The uncontrolled load difference remains a caveat rather than a candidate: `:shared` ran at 0.55–0.62 load per core, the
+stand at 0.07–0.25. Cheap to settle if anyone needs it — re-run the six `:shared` cycles on a quiet host.
+
+The shape experiment's own report carries no `PERF:` section (`results/parity/shape-1237-*/report.log`), so its +15 s
+cannot be attributed to a phase; the measurement itself is sound (`Non-incremental`, `BUILD SUCCESSFUL in 40s`), only the
+breakdown is missing.
 
 ## Does this change the split decision?
 
