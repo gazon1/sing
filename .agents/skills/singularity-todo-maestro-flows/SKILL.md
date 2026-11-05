@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-maestro-flows
-description: Author and run Maestro UI flows for the Android app. Covers seeding fixtures through the DebugSeedActivity deep-link instead of typing into the editor, why Compose's controlled BasicTextField cannot be filled by Maestro, selector conventions (TestTags over text), adaptive scrolling (scrollUntilVisible instead of hardcoded swipe), Maestro 2.10 syntax quirks, the edit-build-install-run loop, phone-viewport constraints, diagnosing an element that exists in code but is unreachable on screen, menu navigation patterns, animation timing, and app behaviour facts flows encode. Use when writing, fixing, or debugging Maestro YAML under Maestro/, when asked to "add a UI test", or when a flow fails on device.
+description: Author and run Maestro UI flows for the Android app. Covers seeding fixtures through the DebugSeedActivity deep-link rather than typing them, why a fixture is seeded rather than typed, selector conventions (TestTags over text), adaptive scrolling (scrollUntilVisible instead of hardcoded swipe), Maestro 2.10 syntax quirks, the edit-build-install-run loop, phone-viewport constraints, diagnosing an element that exists in code but is unreachable on screen, menu navigation patterns, animation timing, and app behaviour facts flows encode. Use when writing, fixing, or debugging Maestro YAML under Maestro/, when asked to "add a UI test", or when a flow fails on device.
 ---
 
 # Maestro UI Flows
@@ -133,7 +133,7 @@ the row it names, so the title is the same in every run and the flow asserts on
 it (`task_item_<slug>`). A per-run value belongs to a title the flow *types*
 itself, not to a seeded one.
 
-The walkthrough — why typing a fixture into the editor does not work, the
+The walkthrough — why a fixture is seeded rather than typed, the
 `seed.yaml` query keys, the seed replacing the row it names, the run id and the
 runner's cleanup wipe — is in the runbook:
 [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them).
@@ -306,7 +306,7 @@ facts, the probe recipe and the failure tables. Read it when a flow needs data
 or misbehaves:
 
 - [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them) —
-  why typing a fixture into the editor does not work, the `seed.yaml` query keys,
+  why a fixture is seeded rather than typed, the `seed.yaml` query keys,
   the seed replacing the row it names, the run id and the runner's cleanup wipe,
   and why `launch-clean` does not clear the database.
 - [App behaviour facts flows encode](diagnosing-failures.md#app-behaviour-facts-flows-encode) —
