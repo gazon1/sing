@@ -32,12 +32,11 @@ kotlin {{
         kotlin.srcDir(layout.buildDirectory.dir("generated/kotlin"))
         dependencies {{ implementation("org.jetbrains.compose.runtime:runtime:1.12.2") }}
     }}
+    sourceSets["jvmMain"].dependencies {{ compileOnly(files({listed})) }}
 }}
 
 // The only difference from the compose curve: the jars :shared itself compiles against.
-dependencies {{
-    "jvmCompileOnly"(files({listed}))
-}}
+
 ''')
 PY
 
