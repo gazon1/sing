@@ -3,7 +3,7 @@
 # Canonical spec: scripts/src/traceability/scenarios/tasks/logbook/TASK-LOG-01.yaml
 #
 # The `scenario:TASK-LOG-01` tag below is the linkage, matched by exact string
-# comparison in run-maestro.
+# comparison in the runner (`./rm`).
 #
 # ## What this flow covers
 #

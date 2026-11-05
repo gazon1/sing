@@ -101,8 +101,10 @@ for the Maestro lane, and recipes that went through the wrapper.
 - The console scripts stay on `PATH` — they are the install, and the install
   still belongs to whichever checkout was installed last. The wrapper is what
   the recipes use, so the environment no longer decides what is measured.
-- The skills that tell an agent to run `ensure-emulator` from `PATH` still do:
-  the wrapper exists, but the documentation has not been swept yet.
+- The skills that tell an agent to run `ensure-emulator` from `PATH` were swept
+  on 2026-11-05: they name the wrapper (`./rm emulator`, `./rm`) and say why —
+  the console script belongs to the checkout that was installed last, the
+  wrapper names the current one.
 
 ## Links
 

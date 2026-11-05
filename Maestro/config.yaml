@@ -41,7 +41,7 @@ screenMetrics:
 
 # Per-attempt fixture identity.
 #
-# run-maestro overrides this with a fresh id on every attempt and declares it
+# the runner (`./rm`) overrides this with a fresh id on every attempt and declares it
 # to the flow. The run id is a value a flow can use — it names the attempt in
 # the runner's log — and not a cleanup key: the runner's cleanup is a wipe of
 # the active profile's content before each flow (scope `all`, the default;
