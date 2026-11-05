@@ -35,11 +35,11 @@ data class FabAction(val label: String, val onClick: () -> Unit)
  * and multi-tag drill-downs with that tag or tags, so the created task belongs to
  * the list it was created from.
  *
- * The saved-view management screens are not task lists, and none of them carries
- * a shell action: the list, the editor and the creator resolve to `null`. The
- * saved view's *results* screen does carry one, because it is a list of tasks —
- * see the branch below for why it is classified that way rather than with the
- * management screens (#2057, against #1952/#1958).
+ * The saved-view screens are not task lists, and none of them carries a shell
+ * action: the list, the results, the editor and the creator resolve to `null`.
+ * The results screen is the contested one — it does show tasks, but it shows
+ * the tasks a *view* selects, and the branch below says why the button does
+ * not belong there (#1952, #1958).
  *
  * @param today the date to pre-fill, supplied by the caller. Required rather than
  *   read here (#91): the shell knows the date it is rendering, and a resolver that
@@ -122,31 +122,34 @@ internal fun fabActionForNav3(
                     )
                 }
 
-                // A saved view's *results* screen is a list of tasks, so it gets
-                // the same action the tabs get: plain, no date (#2057). The
-                // management screens — listing views, editing one, creating one —
-                // are not task lists and keep no button; #1952, #1958 and #2057
-                // agree on those three.
+                // Saved-view management is not a task list: listing views,
+                // viewing, editing and creating a view all keep no button.
                 //
-                // #1952 and #1958 asked for the results screen to stay buttonless
-                // too; #2057 came later and put it among the task-listing routes,
-                // which is what it is — the saved view is a filter applied to the
-                // same agenda, and a person standing on it sees tasks. The batched
-                // briefs cannot all be met for this one route, and the newest
-                // classification wins. `FabActionResolverTest.expectedAddTask`
-                // holds the same decision from the test side: the resolver and
-                // that table are one decision and must move together, or the
-                // suite fails.
-                is AgendaStartRoute.SavedAgendaResults -> {
-                    FabAction(
-                        label = "Add task",
-                        onClick = {
-                            navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()))
-                        },
-                    )
-                }
-
+                // `SavedAgendaResults` is classified here too, and that is a
+                // resolved contradiction rather than an oversight (#1952 and
+                // #1958 versus #2057). #2057 puts "the route showing a saved
+                // view's results" among the task-listing routes and asks for an
+                // "Add task" action there. #1952 — the brief this change was
+                // opened against — asks the opposite, in so many words: "the
+                // saved-view agenda routes still draw no button, and a test
+                // says so". #1958 says the same thing twice, once as "the
+                // saved-views list, the saved-view editor and the saved-view
+                // results keep no shell button" and once in its out-of-scope
+                // line, which leaves "the saved-views screens and their own
+                // create button" alone. Two briefs to one is why this branch
+                // stays `null`: the results screen is a saved view applied to
+                // the agenda, and the view owns the way a task is added to it.
+                // A button here would create a task that satisfies no part of
+                // the view's own query — it would appear in the list only if it
+                // happened to match, which is not what the button promises.
+                //
+                // If #2057 is meant to win, move `SavedAgendaResults` into the
+                // "Add task" branch above *and* flip it in
+                // `FabActionResolverTest.expectedAddTask` — the resolver and
+                // that classification are the same decision and move together,
+                // or the suite fails.
                 AgendaStartRoute.SavedAgendaList,
+                is AgendaStartRoute.SavedAgendaResults,
                 is AgendaStartRoute.SavedAgendaEdit,
                 AgendaStartRoute.SavedAgendaCreate,
                 -> {

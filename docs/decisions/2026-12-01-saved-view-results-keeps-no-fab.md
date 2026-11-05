@@ -50,6 +50,11 @@ person pressed the button on.
   meant to win, move `SavedAgendaResults` into the "Add task" branch in
   `FabActionResolver.kt` *and* flip it in `FabActionResolverTest.expectedAddTask`,
   in one commit.
+- The branch was flipped that way once during the change, on the reading that the
+  newest classification wins, and flipped back: the brief this change answers is
+  #1952, and #1952 says in so many words that the saved-view agenda routes keep
+  no button. A route the brief covers explicitly does not get reclassified by a
+  sibling brief the brief does not mention.
 - #2057's first acceptance criterion is therefore literally unmet by this change.
   That is a recorded divergence, not an oversight.
 
