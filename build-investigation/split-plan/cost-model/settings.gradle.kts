@@ -8,6 +8,7 @@ pluginManagement {
     plugins {
         id("org.jetbrains.kotlin.multiplatform") version kotlinVersion
         id("org.jetbrains.kotlin.plugin.compose") version kotlinVersion
+        id("org.jetbrains.kotlin.plugin.serialization") version kotlinVersion
         id("org.jetbrains.compose") version composeVersion
         id("io.insert-koin.compiler.plugin") version koinPluginVersion
     }

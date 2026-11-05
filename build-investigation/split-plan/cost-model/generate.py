@@ -35,11 +35,16 @@ def average_file_lines(repo_root):
     return max(60, total_lines // max(total_files, 1))
 
 
-def file_text(index, target_lines, compose, module="a"):
+def file_text(index, target_lines, compose, module="a", serializable=False):
     """One class of ordinary Kotlin, about `target_lines` long, deterministic for a given index."""
     lines = ["package standb", "import stand.Holder0", ""] if module == "b" else ["package stand", ""]
     if compose and module == "a":
         lines.append("import androidx.compose.runtime.Composable")
+        lines.append("import androidx.compose.runtime.mutableStateOf")
+        lines.append("import androidx.compose.runtime.remember")
+        lines.append("")
+    if serializable and module == "a":
+        lines.append("import kotlinx.serialization.Serializable")
         lines.append("")
     lines.append(f"class Holder{index}(private val seed: Int) {{")
     lines.append("")
@@ -67,13 +72,29 @@ def file_text(index, target_lines, compose, module="a"):
     if compose and module == "a":
         lines += [
             "@Composable",
-            f"fun label{index}(seed: Int): String = \"label{index}-\" + seed.toString()",
+            f"fun label{index}(seed: Int): String {{",
+            f"    val state = remember {{ mutableStateOf(seed) }}",
+            "    if (state.value > 0) {",
+            "        state.value = state.value - 1",
+            "    }",
+            f'    return "label{index}-" + state.value.toString()',
+            "}",
+            "",
+        ]
+    if serializable and module == "a":
+        lines += [
+            "@Serializable",
+            f"data class Payload{index}(",
+            "    val id: String,",
+            "    val count: Int,",
+            "    val tags: List<String> = emptyList(),",
+            ")",
             "",
         ]
     return "\n".join(lines) + "\n"
 
 
-def generate(size, target_lines, compose, module="a"):
+def generate(size, target_lines, compose, module="a", serializable=False):
     OUT = out_dir(module)
     if os.path.isdir(OUT):
         shutil.rmtree(OUT)
@@ -82,7 +103,7 @@ def generate(size, target_lines, compose, module="a"):
     for index in range(size):
         path = os.path.join(OUT, f"Holder{index}.kt")
         with open(path, "w", encoding="utf-8") as handle:
-            handle.write(file_text(index, target_lines, compose, module))
+            handle.write(file_text(index, target_lines, compose, module, serializable))
         written += 1
     actual = sorted(name for name in os.listdir(OUT) if name.endswith(".kt"))
     if len(actual) != size or written != size:
@@ -156,6 +177,7 @@ def main():
     parser.add_argument("--signature", action="store_true")
     parser.add_argument("--signature-revert", action="store_true")
     parser.add_argument("--compose", action="store_true")
+    parser.add_argument("--serializable", action="store_true")
     parser.add_argument("--module", choices=["a", "b"], default="a")
     parser.add_argument("--repo-root", default=os.path.abspath(os.path.join(HERE, "..", "..", "..")))
     args = parser.parse_args()
@@ -175,7 +197,7 @@ def main():
     if args.size is None:
         parser.error("--size is required unless --edit/--revert")
     target = average_file_lines(args.repo_root)
-    names = generate(args.size, target, args.compose, args.module)
+    names = generate(args.size, target, args.compose, args.module, args.serializable)
     print(f"generated {len(names)} files of ~{target} lines under {out_dir(args.module)}")
     return 0
 
