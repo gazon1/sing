@@ -16,15 +16,22 @@ regressions. A systematic root-cause analysis showed a very different picture.
 | Class | Mechanism | Count | Example |
 |-------|-----------|-------|---------|
 | A | **Cascade from seed-task timeout** | ~14 flows | All flows depending on `task_item_buy_milk` failing simultaneously |
-| B | **Below-fold menu items + 5 s timeout** | 4 flows | `extendedWaitUntil menu_notes 5000` on phone AVD sheet |
+| B | **Below-fold menu items + 5 s timeout** | 9 flows | `extendedWaitUntil menu_notes 5000` on the phone AVD sheet, and the same below-the-fold wait on `menu_settings` |
 | C | **Hardcoded swipe coordinates** | 2 flows | `swipe 105,1600→105,800` on Moto G4 640dp screen |
 | D | **waitForAnimationToEnd: 2000 ms after PORTRAIT** | 1 flow | Rotation animation longer than 2 s on CI emulator |
-| E | **True product failures** | ~4 flows | Requires live device debugging |
+| E | **True product failures** | 4 flows | Requires live device debugging |
 
-**Key finding**: 27 of 30 failures were cascade from a single root cause — the
-`extendedWaitUntil` in `seed-task.yaml` using a 5-second timeout that is
+The runbook's failure table
+(`.agents/skills/singularity-todo-maestro-flows/diagnosing-failures.md`) uses
+these same letters — a letter names the same failure in both — and adds where
+each fix lives.
+
+**Key finding**: 26 of the 30 failures were Class A–D, the fixable ones, and
+the largest single cause among them was the seed cascade: the
+`extendedWaitUntil` in `seed-task.yaml` used a 5-second timeout that is
 insufficient on a loaded CI emulator for a cold-start + first-run migration +
-agenda composition + inbox navigation + task row appearance.
+agenda composition + inbox navigation + task row appearance, and took the ~14
+flows that depend on `task_item_buy_milk` down with it.
 
 ## Decisions
 
@@ -101,8 +108,9 @@ accurate diagnosis.
 ## Class E (2026-10-12, local emulator)
 
 The four Class E flows were investigated on `emulator-5554`. Three distinct
-defects surfaced — two in the product, one in the harness. Only one of them was
-in scope of "fix the failing test".
+defects surfaced — one in the flows (it hit two of them), one in the harness,
+one in the product. Only the flow-side one was in scope of "fix the failing
+test".
 
 ### 7. Compose's controlled BasicTextField discards injected text
 
@@ -324,7 +332,7 @@ obtain a device".
 
 ## Consequences
 
-- All 27 Class A–D failures are expected to pass on the next CI run.
+- All 26 Class A–D failures are expected to pass on the next CI run.
 - All 4 Class E flows pass locally (`EXIT=0` on `emulator-5554`).
 - `SheetScaffold` is now scrollable: check any sheet whose body relied on the
   column never overflowing.
