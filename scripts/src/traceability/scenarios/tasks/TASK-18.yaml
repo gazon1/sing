@@ -1,0 +1,19 @@
+# Scenario specification for TASK-18.
+
+id: TASK-18
+title: FAB from Upcoming tab does NOT pre-fill a due date
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  The app is on the Upcoming agenda tab.
+steps:
+  - Verify the "Add task" FAB is visible on the Upcoming tab.
+  - Tap the FAB to open the task composer.
+  - Enter a title and save.
+  - Open the Inbox tab and look for the saved task.
+expected: >-
+  The task composer opens with no due date prefilled, so the saved task is
+  undated: it appears in the Inbox tab's "No Date" section, not in a dated
+  section of the Upcoming tab.
