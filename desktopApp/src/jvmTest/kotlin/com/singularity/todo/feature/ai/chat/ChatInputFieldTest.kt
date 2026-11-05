@@ -31,11 +31,11 @@ import kotlin.test.Test
  * goes idle. The fake is bound in its place, and that binding is what makes the screen
  * testable at all: the reply is instant and local.
  *
- * The screen is driven through [ChatScreenContent] rather than navigated to: the chat
- * route is not part of the app's navigation graph — `AppDestination.AiChat` exists and
- * the menu offers it, but no screen is bound to it — so there is no way into it from a
- * flow test. The content composable takes the ViewModel as a parameter, which is the
- * house pattern for exactly this case.
+ * The screen is driven through [ChatScreenContent] rather than navigated to: this test
+ * is about the field, not about the route. The route is bound — `AppDestination.AiChat`
+ * draws `ChatScreen()` — and the menu opens it; the desktop flow test
+ * `AiChatNavigationFlowTest` covers that way in. The content composable takes the
+ * ViewModel as a parameter, which is the house pattern for exactly this case.
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
