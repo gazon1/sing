@@ -42,11 +42,11 @@ compose-koin curve at N = 1238 -> 25.7 s vs :shared measured 60.055 s (-57 %)
 ```
 
 A synthetic module of the same size and plugin mix compiles **2.3× faster** than `:shared`. `parity.md` attributes the
-gap from the compiler's own `PERF:` phases: GC is 0.2 s of it, the 230-entry classpath is +0.8 s (measured), and analyzed
-line count is negative (the stand analyzes *more*). The gap is **code generation**: the backend does 6.1× the work per file
-(+12.9 s of the 31 s), IR lowering 3.3× (+6.3 s), IR translation 3.2× (+5.7 s), and the frontend only 1.34× (+5.9 s). A
-reduced model of the cause: inlining and bridge code — `@JvmInline` ids, inline flow/collection operators, Compose restart
-lambdas — which synthetic code has none of.
+gap from the compiler's own `PERF:` phases: the GC difference is 0.2 s (and GC sits *inside* the phases, not beside
+them), the 230-entry classpath is +0.8 s (measured), and analyzed line count is negative (the stand analyzes *more*). The gap is **code generation**: the backend does 6.1× the work per file
+(+12.9 s of the 31 s), IR lowering 3.3× (+6.3 s), IR translation 3.2× (+5.7 s), and the frontend only 1.34× (+5.9 s).
+*Which* backend construct is responsible — serializers, Compose codegen, value classes, inline operators — is **not**
+established; #2605 measures it, and #2606 records that even removing the whole surplus is −21 %, below the −30 % bar.
 
 The curves are therefore used two ways in `replay.md`: raw (ratios only) and calibrated ×2.3 to the measured baseline,
 because a uniform scale changes no ratio but makes the absolute numbers comparable. The direction of the bias is known:

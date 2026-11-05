@@ -42,19 +42,38 @@ Both Build Reports carry the compiler's own `PERF:` lines, so the gap can be att
 Throughput tells the same story in one line: analyzed lines per second are 7,190 against 11,205 (1.6×), but **generated
 lines per second are 10,798 against 76,371 (7×)**.
 
-**So the hypothesis the data supports is not "generics and type resolution" — the frontend is only 1.34× slower and worth
-5.9 s. It is code generation:** the backend does six times the work per file, and it is 42 % of the gap. The backend is
-where inlining, bridge methods and Compose's generated restart/bridge code live, and `:shared` is full of exactly that —
-`@JvmInline value class` ids, `inline` collection and flow operators, `@Composable` lambdas — while the stand's generated
-code has none of it.
+**So the phase is code generation, not the frontend:** the backend does six times the work per file and is 42 % of the
+gap, while the frontend is only 1.34× slower.
+
+**What inside the backend is not established.** Candidates: the serialization plugin (a generated serializer per
+`@Serializable` class — 277 in `:shared`), Compose's generated restart/bridge code (868 `@Composable`), `@JvmInline` value
+classes for ids, and inline flow/collection operators. The shape experiment below raised the stand by 15 s but added
+serialization *and* Compose-shaped composables, **not** value classes or inline chains — so it cannot separate them, and
+its own report carried no `PERF:` block. This is localisation, not an explanation; #2605 measures which construct it is.
 
 That also explains the negative results: codegen work does not scale with the classpath, which is why adding 230 jars
 changed nothing, and it does not scale with analyzed line count, which is why the stand could analyze more lines and still
 be twice as fast.
 
+## Follow-ups filed
+
+- **#2605** — attribute the 12.9 s: re-run the shape configuration with a working `PERF:` block, and profile one `:shared`
+  compile under JFR to name the backend frames.
+- **#2606** — the ceiling: removing the entire backend surplus is 60.1 s → ~47.2 s, **−21 %**, below the −30 % the work was
+  justified against. The line closes unless #2605 names one cheaply removable construct.
+
 ## What is still unexplained
 
-**~2 s**, not 20: the phases account for 30.9 s of the 34.1 s gap, and GC for 0.2 s. The remainder is not worth chasing.
+The phases account for **30.90 s** of the 34.05 s gap. The rest is the time both compiles spend *outside* the reported
+phases — class loading, snapshot work, compiler setup — which is **3.91 s** for `:shared` and **0.76 s** for the stand,
+i.e. a 3.15 s difference. 30.90 + 3.15 = 34.05, so the arithmetic closes.
+
+**GC is inside those phases, not beside them**: the `PERF: GC time` lines are a breakdown of the same run, and the
+ANALYZE/BACKEND spans already contain the pauses. The GC *difference* between the two runs is 0.2 s, and that is the only
+GC number worth quoting.
+
+So the gap is localised, not explained: the report says **which phase** the surplus is in (the backend, +12.9 s), not
+**why**.
 
 The uncontrolled load difference remains a caveat rather than a candidate: `:shared` ran at 0.55–0.62 load per core, the
 stand at 0.07–0.25. Cheap to settle if anyone needs it — re-run the six `:shared` cycles on a quiet host.
