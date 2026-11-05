@@ -11,7 +11,7 @@ common:
     #!/usr/bin/env bash
     set -euo pipefail
     if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
-        heavy -- ./gw :shared:commonTest
+        ./gw :shared:commonTest
     else
         ./gw :shared:commonTest
     fi
@@ -91,7 +91,7 @@ jvm:
     #!/usr/bin/env bash
     set -euo pipefail
     if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
-        heavy -- ./gw :shared:jvmTest
+        ./gw :shared:jvmTest
     else
         ./gw :shared:jvmTest
     fi
@@ -106,7 +106,7 @@ detekt-rules:
     # NoDirectDispatchersRule's two failing tests survived — the rule could not fire at
     # all and nothing noticed. `:detekt-rules:test` is now also a CI step.
     if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
-        heavy -- ./gw :detekt-rules:test
+        ./gw :detekt-rules:test
     else
         ./gw :detekt-rules:test
     fi
@@ -149,7 +149,7 @@ android-host:
     #!/usr/bin/env bash
     set -euo pipefail
     if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
-        heavy -- ./gw :shared:testAndroidHostTest
+        ./gw :shared:testAndroidHostTest
     else
         ./gw :shared:testAndroidHostTest
     fi
@@ -171,7 +171,7 @@ test:
     #!/bin/bash
     set -euo pipefail
     if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
-        heavy -- ./gw test
+        ./gw test
     else
         ./gw test
     fi
@@ -204,7 +204,7 @@ clean:
     #!/bin/bash
     set -euo pipefail
     if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
-        heavy -- ./gw clean
+        ./gw clean
     else
         ./gw clean
     fi
@@ -299,7 +299,7 @@ detekt:
     # :mcp-server is here because a module with a baseline is a module that can
     # silently grow that baseline without anybody noticing — and mcp-server has one.
     if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
-        heavy -- ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt
+        ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt
     else
         ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt
     fi
@@ -340,9 +340,9 @@ detekt-fix:
     # this loop back into one call reintroduces that bug in a form nobody can see.
     if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
         for task in :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt; do
-            heavy -- ./gw "$task" --auto-correct --rerun-tasks --console=plain || true
+            ./gw "$task" --auto-correct --rerun-tasks --console=plain || true
         done
-        heavy -- ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt \
+        ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt \
             --console=plain
     else
         for task in :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt; do
