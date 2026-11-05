@@ -21,7 +21,18 @@ plugins {
 }
 
 koinCompiler {
-    // userLogs = true // uncomment to see detected definitions during development
+    // The detector is a raw text match. This module's *test* sources build Koin
+    // applications for graph tests and name the entry point in one check, which the
+    // plugin reads as an aggregator and turns into a forced full-graph re-run on every
+    // build. A test compilation is not an aggregator, so that re-run is off here. The
+    // production entry point lives in the launch modules, not in this library.
+    // Per-module compileSafety stays on.
+    //
+    // The non-incremental edit is a different cause: the in-process execution
+    // strategy on a KMP module (KT-62686), not this flag. See ADR
+    // 2026-11-05-the-koin-plugin-forced-the-aggregator-compile-to-rerun.
+    strictSafety = false
+    strictSafetyForceOff = true
 }
 
 /** kotlinx-coroutines-debug agent for jvmTest only. */
