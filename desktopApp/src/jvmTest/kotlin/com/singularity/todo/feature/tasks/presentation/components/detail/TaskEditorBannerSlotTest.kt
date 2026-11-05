@@ -8,10 +8,10 @@ import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import com.singularity.todo.test.helpers.unclippedBoundsOfTag
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.time.Instant
-import org.junit.jupiter.api.Tag
 
 /**
  * The editor's offer slot: the first-run banner and the pending AI proposals.

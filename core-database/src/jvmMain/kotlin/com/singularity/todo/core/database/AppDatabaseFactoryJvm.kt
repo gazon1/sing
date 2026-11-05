@@ -11,8 +11,8 @@ import androidx.sqlite.SQLiteDriver
  * literal `":memory:"` name. This is the smallest way to close that gap: the entry point
  * lives beside the seam, in the same package, and hands Room's in-memory builder to the
  * seam's one migration registration ([applyAppMigrations]). [AppDatabaseFactory] stays
- * the production entry point; `internal` keeps this out of the module's public JVM API,
- * and only the module's tests call it.
+ * the production entry point; this is a JVM-only test hook, called only by `:shared`'s
+ * jvmTest fixture (`DatabaseTestFixture.inMemory()`).
  *
  * There is no file to tune before opening, so the file-level PRAGMA
  * (`journal_mode = WAL`) does not apply here: an in-memory database uses the `memory`
@@ -23,7 +23,7 @@ import androidx.sqlite.SQLiteDriver
  * JVM tests reach this through `DatabaseTestFixture.inMemory()` in `shared/src/jvmTest`,
  * which also owns closing the database.
  */
-internal fun buildInMemoryAppDatabase(driver: SQLiteDriver): AppDatabase =
+fun buildInMemoryAppDatabase(driver: SQLiteDriver): AppDatabase =
     Room
         .inMemoryDatabaseBuilder<AppDatabase>()
         .setDriver(driver)

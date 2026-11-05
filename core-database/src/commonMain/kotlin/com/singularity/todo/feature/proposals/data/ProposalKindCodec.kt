@@ -79,7 +79,7 @@ private val payloadJson = Json.Default
  * @param raw the stored blob, exactly as it was found. It is kept inside the
  *   [ProposalItemKind.Unknown] so the row can be written back unchanged.
  */
-internal fun decodeKind(raw: String): ProposalItemKind {
+fun decodeKind(raw: String): ProposalItemKind {
     val obj =
         runCatching { payloadJson.parseToJsonElement(raw) as JsonObject }.getOrNull()
             ?: return ProposalItemKind.Unknown(raw, NOT_A_BLOB_REASON)
@@ -319,7 +319,7 @@ private fun decodeProposedNote(obj: JsonObject): ProposedNote =
  * model are the same declaration, so a field that changed is a field the
  * serializer changed with.
  */
-internal fun ProposalItemKind.toJsonString(): String = payloadJson.encodeToString(ProposalItemKind.serializer(), this)
+fun ProposalItemKind.toJsonString(): String = payloadJson.encodeToString(ProposalItemKind.serializer(), this)
 
 /** Splits a packed list column, dropping blanks. */
 private fun JsonObject.list(key: String): List<String> =

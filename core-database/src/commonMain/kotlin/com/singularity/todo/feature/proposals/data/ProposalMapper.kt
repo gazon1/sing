@@ -19,7 +19,7 @@ import kotlin.time.Instant
  * changes say it is (see [AiProposal.status]), and a summary row written before
  * the decisions does not get to say otherwise.
  */
-internal fun AiProposalEntity.toDomain(items: List<ProposalItem> = emptyList()): AiProposal =
+fun AiProposalEntity.toDomain(items: List<ProposalItem> = emptyList()): AiProposal =
     AiProposal(
         id = ProposalId(id),
         targetKind = ProposalTargetKind.read(targetKind),
@@ -44,7 +44,7 @@ internal fun AiProposalEntity.toDomain(items: List<ProposalItem> = emptyList()):
  * [ProposalItemStatus.Unknown], not "waiting" — a change that has already been
  * applied must not look like one that is still waiting to be applied.
  */
-internal fun ProposalItemEntity.toDomain(): ProposalItem =
+fun ProposalItemEntity.toDomain(): ProposalItem =
     ProposalItem(
         id = ProposalItemId(id),
         proposalId = ProposalId(proposalId),

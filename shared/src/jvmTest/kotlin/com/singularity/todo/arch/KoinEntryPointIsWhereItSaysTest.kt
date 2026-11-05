@@ -1,7 +1,6 @@
 package com.singularity.todo.arch
 
 import org.junit.jupiter.api.Tag
-import java.io.File
 import java.nio.file.Path
 import kotlin.io.path.exists
 import kotlin.io.path.readText

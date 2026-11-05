@@ -113,7 +113,7 @@ internal fun schemaFile(version: Int): File {
         System.getProperty("commonMain.root")
             ?: error("the commonMain.root system property is not set — see shared/build.gradle.kts")
     val module = File(root).parentFile.parentFile.parentFile
-    return File(module, "schemas/com.singularity.todo.core.database.AppDatabase/$version.json")
+    return File(module, "../core-database/schemas/com.singularity.todo.core.database.AppDatabase/$version.json")
 }
 
 /**

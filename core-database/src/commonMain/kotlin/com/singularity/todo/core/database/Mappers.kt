@@ -36,7 +36,7 @@ import kotlin.time.Instant
  * Two copies of "read the row, read the join, copy them together" is two places to
  * forget, and the failure is silent.
  */
-internal suspend fun projectWithInheritance(
+suspend fun projectWithInheritance(
     projectDao: ProjectDao,
     inheritedDao: ProjectInheritedTagGroupDao,
     projectId: String,
@@ -61,7 +61,7 @@ internal suspend fun projectWithInheritance(
  * Both statements are scoped through `projects.user_id`, which is what makes this
  * safe to call from the remote-apply path as well as from local writes.
  */
-internal suspend fun replaceInheritedTagGroups(
+suspend fun replaceInheritedTagGroups(
     inheritedDao: ProjectInheritedTagGroupDao,
     project: Project,
 ) {
@@ -75,29 +75,28 @@ internal suspend fun replaceInheritedTagGroups(
 /**
  * Epoch millis ↔ kotlinx.datetime types.
  */
-internal fun Long.toInstant(): Instant = Instant.fromEpochMilliseconds(this)
+fun Long.toInstant(): Instant = Instant.fromEpochMilliseconds(this)
 
-internal fun Long?.toInstantOrNull(): Instant? = this?.toInstant()
+fun Long?.toInstantOrNull(): Instant? = this?.toInstant()
 
-internal fun Instant.toEpochMillis(): Long = toEpochMilliseconds()
+fun Instant.toEpochMillis(): Long = toEpochMilliseconds()
 
-internal fun Instant?.toEpochMillisOrNull(): Long? = this?.toEpochMillis()
+fun Instant?.toEpochMillisOrNull(): Long? = this?.toEpochMillis()
 
 /**
  * ISO-8601 string ↔ kotlinx.datetime.LocalDate.
  */
-internal fun String?.toLocalDateOrNull(): LocalDate? = this?.let { LocalDate.parse(it) }
+fun String?.toLocalDateOrNull(): LocalDate? = this?.let { LocalDate.parse(it) }
 
-internal fun LocalDate?.toIsoOrNull(): String? = this?.toString()
+fun LocalDate?.toIsoOrNull(): String? = this?.toString()
 
 /**
  * ISO-8601 string (HH:mm:ss) ↔ kotlinx.datetime.LocalTime.
  * Uses [LocalTimeFormats.ISO] for stable, sortable wire format.
  */
-internal fun String?.toLocalTimeOrNull(): LocalTime? =
-    this?.takeIf { it.isNotBlank() }?.let { LocalTimeFormats.parse(it) }
+fun String?.toLocalTimeOrNull(): LocalTime? = this?.takeIf { it.isNotBlank() }?.let { LocalTimeFormats.parse(it) }
 
-internal fun LocalTime?.toLocalTimeIsoOrNull(): String? = this?.let { LocalTimeFormats.format(it) }
+fun LocalTime?.toLocalTimeIsoOrNull(): String? = this?.let { LocalTimeFormats.format(it) }
 
 /**
  * Typed ID factory from String (non-null — fails if blank).
@@ -115,8 +114,7 @@ internal inline fun <reified T : Any> String.toId(): T =
     }
 
 /** Returns null if string is null or blank. */
-internal fun String?.toProjectIdOrNull(): ProjectId? =
-    this?.takeIf { it.isNotBlank() }?.let { ProjectId.fromString(it) }
+fun String?.toProjectIdOrNull(): ProjectId? = this?.takeIf { it.isNotBlank() }?.let { ProjectId.fromString(it) }
 
 /**
  * The stored workflow state, read tolerantly.
@@ -126,7 +124,7 @@ internal fun String?.toProjectIdOrNull(): ProjectId? =
  * fourth state reads back as [TaskWorkflowState.Open] — "nothing claimed" —
  * rather than throwing on every list load.
  */
-internal fun String.toWorkflowState(): TaskWorkflowState =
+fun String.toWorkflowState(): TaskWorkflowState =
     TaskWorkflowState.entries.firstOrNull { it.name == this } ?: TaskWorkflowState.Open
 
 /**
@@ -134,7 +132,7 @@ internal fun String.toWorkflowState(): TaskWorkflowState =
  * Tags and blockedBy are populated from the bundled [TaskExtras] when loading lists.
  * A single task is read through the same extras, so both carry the same edges.
  */
-internal fun TaskEntity.toTask(
+fun TaskEntity.toTask(
     tags: List<TagId> = emptyList(),
     blockedBy: Set<TaskId> = emptySet(),
     followsUp: Set<TaskId> = emptySet(),
@@ -190,7 +188,7 @@ internal fun TaskEntity.toTask(
 /**
  * Converts a [ProjectEntity] to a domain [Project].
  */
-internal fun ProjectEntity.toProject(): Project =
+fun ProjectEntity.toProject(): Project =
     Project(
         id = ProjectId.fromString(id),
         name = name,
@@ -216,7 +214,7 @@ internal fun ProjectEntity.toProject(): Project =
 /**
  * Converts a [TagGroupEntity] to a domain [TagGroup].
  */
-internal fun TagGroupEntity.toTagGroup(): TagGroup =
+fun TagGroupEntity.toTagGroup(): TagGroup =
     TagGroup(
         id = TagGroupId.fromString(id),
         name = name,
@@ -232,7 +230,7 @@ internal fun TagGroupEntity.toTagGroup(): TagGroup =
 /**
  * Converts a domain [TagGroup] to a [TagGroupEntity] for persistence.
  */
-internal fun TagGroup.toEntity(): TagGroupEntity =
+fun TagGroup.toEntity(): TagGroupEntity =
     TagGroupEntity(
         id = id.value,
         userId = userId.value,

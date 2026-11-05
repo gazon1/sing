@@ -15,11 +15,11 @@ private val log = Logger.withTag("StaleDbCleaner")
  * corrupted file, an empty file and a database busy with another process all ended in the
  * same place: the user's database deleted.
  *
- * Internal rather than private, for the same reason as [deleteDatabaseFiles]: the reason the
- * probe leaves is the record the startup makes, and a record no test can read is a record
- * no change can be held to.
+ * Public rather than private because the test that reads it lives in `:shared`'s jvmTest:
+ * the reason the probe leaves is the record the startup makes, and a record no test can
+ * read is a record no change can be held to.
  */
-internal sealed interface ProbeOutcome {
+public sealed interface ProbeOutcome {
     /** The file carries the application's bookkeeping marker. It is the application's. */
     data object RoomManaged : ProbeOutcome
 
@@ -118,12 +118,12 @@ fun wipeIfNotRoomManaged(dbPath: String): Boolean {
  * the file could not be read as a database at all. There is no third possibility, and no
  * dependence on how a particular driver words its error messages.
  *
- * Internal rather than private, for the same reason as [deleteDatabaseFiles]: the reason
- * this leaves is the record the startup makes, and a record no test can read is a record
- * no change can be held to.
+ * Public rather than private because the test that reads it lives in `:shared`'s jvmTest:
+ * the reason this leaves is the record the startup makes, and a record no test can read
+ * is a record no change can be held to.
  */
 @Suppress("TooGenericExceptionCaught") // the probe is fail-safe: every way of failing means "uncertain"
-internal fun probe(dbPath: String): ProbeOutcome {
+public fun probe(dbPath: String): ProbeOutcome {
     when (val header = readHeader(dbPath)) {
         HeaderOutcome.Database -> {
             Unit
@@ -205,13 +205,13 @@ private fun readHeader(dbPath: String): HeaderOutcome =
  *
  * @return `true` if the database was deleted.
  *
- * Internal rather than private, for the same reason as the exported tool surfaces: the
- * rule about the companions is a contract, and a contract no test pins is a contract a
- * rename breaks. The public entry point cannot reach this branch with a database that
+ * Public rather than private because the test that pins the companion rule lives in
+ * `:shared`'s jvmTest: the rule is a contract, and a contract no test pins is a contract
+ * a rename breaks. The public entry point cannot reach this branch with a database that
  * cannot be deleted — the probe has already decided the file is a database — so the
  * test drives this function directly.
  */
-internal fun deleteDatabaseFiles(file: File): Boolean {
+public fun deleteDatabaseFiles(file: File): Boolean {
     if (!file.delete()) return false
     File("${file.path}-wal").delete()
     File("${file.path}-shm").delete()
