@@ -1,9 +1,16 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
@@ -44,15 +51,23 @@ fun TaskDetailProposalSection(
     onEdit: ((ProposalItemId, String) -> Unit)? = null,
     failures: ImmutableMap<ProposalItemId, String> = persistentMapOf(),
 ) {
-    ProposalCardsSection(
-        proposals = proposals,
-        onConfirm = onConfirm,
-        onReject = onReject,
-        onConfirmAll = onConfirmAll,
-        onDismiss = onDismiss,
-        onEdit = onEdit,
-        failures = failures,
-    )
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.TASK_DETAIL_PROPOSALS),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        ProposalCardsSection(
+            proposals = proposals,
+            onConfirm = onConfirm,
+            onReject = onReject,
+            onConfirmAll = onConfirmAll,
+            onDismiss = onDismiss,
+            onEdit = onEdit,
+            failures = failures,
+        )
+    }
 }
 
 // ===== Preview =====

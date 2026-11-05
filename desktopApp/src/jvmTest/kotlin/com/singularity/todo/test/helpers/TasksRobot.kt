@@ -4,9 +4,18 @@ import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.performClick
+import com.singularity.todo.core.ids.ProposalId
+import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.proposals.domain.model.AiProposal
+import com.singularity.todo.feature.proposals.domain.model.ProposalItem
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.ProposalSource
+import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
+import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskDocument
@@ -39,6 +48,13 @@ import kotlin.time.Instant
 class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin) {
     private var seq = 0
     private var seeded = 0
+    private var proposalSeq = 0
+
+    /** The task the robot seeded last — the one a proposal is attached to. */
+    private var lastTaskId: TaskId? = null
+
+    /** The instant the last seeded task was created at. */
+    private var lastTaskAt: Instant? = null
 
     /**
      * A task the agenda will render.
@@ -83,6 +99,50 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
             assertSeeded(koin, expected = ++seeded)
         }
 
+    /**
+     * A pending AI proposal on the task seeded last.
+     *
+     * The detail screen shows the proposals of the task it has open, so a proposal
+     * a flow cannot seed is a card no flow can see. The proposal carries one
+     * undecided change: a proposal whose changes are all decided is not waiting for
+     * anybody, and the card is not drawn for it.
+     *
+     * The proposal is written through the repository rather than through the AI
+     * layer, for the same reason the task is: the fixture must not depend on a
+     * model being asked.
+     */
+    suspend fun givenPendingProposal(): TasksRobot =
+        apply {
+            val taskId = lastTaskId ?: error("no task has been seeded yet — call given(...) first")
+            val at = lastTaskAt ?: SEED_EPOCH
+            val n = proposalSeq++
+            val proposalId = ProposalId.fromString("robot-proposal-$n")
+            val itemId = ProposalItemId.fromString("robot-proposal-item-$n")
+            val kind = ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High))
+            val proposal =
+                AiProposal(
+                    id = proposalId,
+                    targetKind = ProposalTargetKind.Task,
+                    targetId = taskId.value,
+                    userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value,
+                    source = ProposalSource.Detail,
+                    createdAt = at,
+                    updatedAt = at,
+                    items =
+                        listOf(
+                            ProposalItem.pending(
+                                id = itemId,
+                                proposalId = proposalId,
+                                kind = kind,
+                                targetId = taskId.value,
+                                humanSummary = kind.humanSummary,
+                                fingerprint = "set-priority-high-$n",
+                            ),
+                        ),
+                )
+            koin.get<ProposalRepository>().save(proposal).getOrThrow()
+        }
+
     /** Asserts the task is rendered in the agenda, waiting for the list to settle. */
     fun assertInAgenda(title: String): TasksRobot =
         apply {
@@ -106,6 +166,8 @@ class TasksRobot(private val test: DesktopComposeUiTest, private val koin: Koin)
         val n = seq++
         val at = SEED_EPOCH + n.seconds
         val taskId = TaskId("robot-task-$n")
+        lastTaskId = taskId
+        lastTaskAt = at
         val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
         val baseTask =
             testTask(

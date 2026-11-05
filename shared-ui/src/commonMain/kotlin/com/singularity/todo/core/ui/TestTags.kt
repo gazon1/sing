@@ -317,6 +317,17 @@ object TestTags {
     const val FIRST_RUN_SECTION = "first_run_section"
 
     /**
+     * The pending AI proposals on a task detail, as a list.
+     *
+     * The card is drawn in the upper slot — under the description, above the
+     * attribute rows — so a flow needs a selector that says "the proposals are
+     * here" without addressing the card's prose, which changes with every
+     * proposal. The tag names the list rather than a card, so it stays unique
+     * when a task carries more than one proposal.
+     */
+    const val TASK_DETAIL_PROPOSALS = "task_detail_proposals"
+
+    /**
      * The checklist bottom sheet (TaskEditorSheetHost with title "Checklist").
      *
      * Used in Maestro flows to wait for the sheet to appear before interacting

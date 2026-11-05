@@ -117,6 +117,7 @@ non-alphanumeric characters with `_`.
 | `TASK_CONTEXT_MENU_OPEN` | `task_action_open` | |
 | `TASK_CONTEXT_MENU_PIN` | `task_action_pin` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
+| `TASK_DETAIL_PROPOSALS` | `task_detail_proposals` | |
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
 | `TASK_EDITOR_ATTACHMENTS_ROW` | `task_editor_attachments_row` | |
 | `TASK_EDITOR_CHECKLIST_ROW` | `task_editor_checklist_row` | |
