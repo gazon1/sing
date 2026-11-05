@@ -227,6 +227,10 @@ jobs:
       # four earlier attempts at installing these was missing.
       # ktlint comes with it: the preflight below checks for it, and a preflight
       # that asks for a tool this job never installs fails on every run.
+      - name: Set up mise toolchain
+        uses: jdx/mise-action@v2
+        with:
+          install: true
       - name: Set up gate tooling
         uses: ./.github/actions/setup-python-tools
         with:

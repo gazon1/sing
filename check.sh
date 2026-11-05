@@ -22,6 +22,12 @@ set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
+# Toolchain: install the external binaries mise pins (actionlint, shellcheck, ...).
+# Optional: a checkout without mise keeps using whatever is already on PATH.
+if command -v mise >/dev/null 2>&1; then
+    mise install --quiet || true
+fi
+
 # ── The lanes ─────────────────────────────────────────────────────────────────
 #
 # `--affected` runs the tests this change can break and the detekt of the files
