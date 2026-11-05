@@ -664,6 +664,32 @@ EOF
         keep_suite_log "$suite_log" "$suite_log_kept"
     fi
 
+    # ── easement: architecture boundary check (against the pushed tree) ──
+    if [ -n "$tree" ]; then
+        easement_bin=""
+        if command -v easement >/dev/null 2>&1; then
+            easement_bin="easement"
+        elif command -v mise >/dev/null 2>&1; then
+            easement_bin="mise exec -- easement"
+        fi
+        if [ -z "$easement_bin" ]; then
+            echo "   easement: FAILED (easement is not installed)"
+            GATES_FAILED=1
+        else
+            easement_out="$(mktemp "${TMPDIR:-/tmp}/pre-push-easement-XXXXXX")"
+            if (cd "$tree" && without_hook_git_env $easement_bin check) >"$easement_out" 2>&1; then
+                echo "   easement: OK"
+            else
+                echo "   easement: FAILED"
+                GATES_FAILED=1
+                echo ""
+                echo "pre-push FAILED — easement check failed in the tree of $local_ref."
+                sed '/DEBUG/d' "$easement_out" | sed 's/^/   /'
+                echo "Run easement check to see violations, or push with --no-verify."
+            fi
+            rm -f "$easement_out"
+        fi
+    fi
 
 done
 
