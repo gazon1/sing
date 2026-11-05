@@ -55,6 +55,10 @@ set -euo pipefail
 # opt-out, and it is an explicit opt-out: the pool being off "because nobody
 # set the variable" was the mistake this line exists to prevent.
 slots_dir="${SINGULARITY_GRADLE_SLOTS_DIR:-${XDG_RUNTIME_DIR:-/tmp}/singularity-gradle-slots}"
+# If already serialized by heavy, skip the Gradle slot pool to avoid double queuing.
+if [ -n "${HEAVY_HELD:-}" ] || [ -n "${GW_HEAVY_WRAPPED:-}" ]; then
+    slots_dir=""
+fi
 slot_count="${SINGULARITY_GRADLE_SLOT_COUNT:-3}"
 wait_secs="${SINGULARITY_GRADLE_SLOT_WAIT_SECS:-1800}"
 readonly SLOT_TIMEOUT=97
