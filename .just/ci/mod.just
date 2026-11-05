@@ -93,7 +93,7 @@ tests:
     # another one to run what the schedule runs.
     population="${POPULATION:-fast}"
     if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
-        heavy -- ./gw --continue --no-parallel \
+        ./gw --continue --no-parallel \
             :mcp-server:jar \
             :shared:verifyToolSurface \
             :shared:jvmTest \
@@ -144,7 +144,7 @@ detekt:
     # branch — a CI action with a branch of its own. Locally the correction is
     # the pre-push hook's `--auto-correct` run.
     if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
-        heavy -- ./gw --continue --no-parallel \
+        ./gw --continue --no-parallel \
             :shared:detekt \
             :desktopApp:detekt \
             :androidApp:detekt \

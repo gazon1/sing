@@ -11,7 +11,7 @@ build VARIANT="debug":
     case "{{VARIANT}}" in
         debug)
             if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
-                heavy -- ./gw :androidApp:assembleDebug
+                ./gw :androidApp:assembleDebug
             else
                 ./gw :androidApp:assembleDebug
             fi
@@ -19,7 +19,7 @@ build VARIANT="debug":
             ;;
         release)
             if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
-                heavy -- ./gw :androidApp:assembleRelease
+                ./gw :androidApp:assembleRelease
             else
                 ./gw :androidApp:assembleRelease
             fi

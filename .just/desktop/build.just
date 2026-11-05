@@ -11,14 +11,14 @@ build TARGET="run":
     case "{{TARGET}}" in
         run)
             if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
-                heavy -- ./gw :desktopApp:run
+                ./gw :desktopApp:run
             else
                 ./gw :desktopApp:run
             fi
             ;;
         dist)
             if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
-                heavy -- ./gw :desktopApp:createDistributable
+                ./gw :desktopApp:createDistributable
             else
                 ./gw :desktopApp:createDistributable
             fi
@@ -26,7 +26,7 @@ build TARGET="run":
             ;;
         deb)
             if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
-                heavy -- ./gw :desktopApp:packageDeb
+                ./gw :desktopApp:packageDeb
             else
                 ./gw :desktopApp:packageDeb
             fi
