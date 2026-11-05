@@ -7,7 +7,7 @@
 # fresh process is asking for.
 #
 # The fixture-accumulation problem that `clearState` would have solved is solved
-# instead by the runner: `run-maestro` resets the app's content before every
+# instead by the runner: `./rm` resets the app's content before every
 # flow via `todo-debug://seed?reset=content`, which reaches the active
 # profile's tasks (archived ones included), notes, projects and saved agenda
 # views. The session, the profile and the auth state are left alone, so one
