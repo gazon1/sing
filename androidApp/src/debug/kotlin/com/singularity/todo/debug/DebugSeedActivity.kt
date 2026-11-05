@@ -7,6 +7,8 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.SecureSessionManager
 import com.singularity.todo.core.seed.NoteSeed
 import com.singularity.todo.core.seed.ProjectSeed
+import com.singularity.todo.core.seed.SeedQuery
+import com.singularity.todo.core.seed.SeedQueryReport
 import com.singularity.todo.core.seed.SeedWriter
 import com.singularity.todo.core.seed.TaskSeed
 import com.singularity.todo.core.wipe.ContentResetter
@@ -113,6 +115,15 @@ import kotlin.time.Instant
  * Cleanup and seeding are mutually exclusive: `cleanup` short-circuits the
  * entity-creating branches below.
  *
+ * A key the handler does not know is reported, not dropped in silence. The set
+ * of keys it knows is [SeedQuery.KNOWN_KEYS]; a query that carries a key
+ * outside it is answered with a finding that names the key, and the keys the
+ * handler does know are seeded all the same. The finding is what the health
+ * drill-down flow needed and did not have: it wrote `dependsOn=` where the
+ * handler reads `blockedBy=`, so the task it seeded carried no blocker and the
+ * Blocked bucket stayed empty — a symptom several steps away from the line
+ * that caused it.
+ *
  * Lives in `src/debug/` — excluded from release APKs.
  * Works warm or cold: Koin is started by the Application onCreate, and after
  * seeding the activity always brings [com.singularity.todo.MainActivity] up
@@ -126,6 +137,18 @@ class DebugSeedActivity :
         val uri = intent?.data ?: return finish()
 
         val params = parseParams(uri)
+        // What the query asked for and what the handler understood of it are
+        // two things, and the difference between them is reported before
+        // anything is seeded: a query that names a key the handler does not know
+        // still seeds the keys it does know, and the caller is told which one
+        // was dropped instead of finding out several steps later from a bucket
+        // that stayed empty.
+        reportFindings(
+            SeedQuery.inspect(
+                queryKeys = queryKeys(uri),
+                usableKeys = params.keys,
+            ),
+        )
         if (params.isEmpty()) return finish()
 
         try {
@@ -502,6 +525,46 @@ class DebugSeedActivity :
             projectsRepo.delete(it.id).onSuccess { removed++ }
         }
         android.util.Log.i("DebugSeedActivity", "cleanup($prefixes) removed $removed entities")
+    }
+
+    /**
+     * The keys the query carried, in the order it carried them.
+     *
+     * The list holds every key the query named, including a key whose value was
+     * empty and a key that carried no value at all: a known key with an empty
+     * value is not an unknown key, and the difference between the two is
+     * exactly what a caller who misspelled a key cannot see. [parseParams] drops
+     * both, so the keys are read here as well.
+     */
+    private fun queryKeys(uri: Uri): List<String> =
+        uri.encodedQuery
+            ?.split("&")
+            ?.map { part -> Uri.decode(part.split("=", limit = 2).first()).trim() }
+            ?.filter { it.isNotEmpty() }
+            ?: emptyList()
+
+    /**
+     * Reports what the handler did not understand of the query.
+     *
+     * The report names the key it is about — a finding that does not name its
+     * key leaves the caller to guess which of the query's keys was dropped. It
+     * is a warning, not a failure: the keys the handler does know are seeded
+     * all the same, so a query with one bad key and three good ones keeps the
+     * three.
+     *
+     * The finding reaches the caller twice, because a flow reads the app and
+     * not the log: it is logged under this activity's tag, and it is shown on
+     * the screen the flow's own seeded rows are on. It is not a dialog — a
+     * dialog would hold the app, and a flow whose seed carries a misspelled
+     * key would hang on it instead of failing on the assertion that follows.
+     */
+    private fun reportFindings(report: SeedQueryReport) {
+        val messages = report.messages()
+        if (messages.isEmpty()) return
+        messages.forEach { android.util.Log.w("DebugSeedActivity", it) }
+        android.widget.Toast
+            .makeText(this, messages.joinToString("\n"), android.widget.Toast.LENGTH_LONG)
+            .show()
     }
 
     private fun parseParams(uri: Uri): Map<String, String> =

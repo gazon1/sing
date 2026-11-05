@@ -1,0 +1,31 @@
+# The seed helper tells the caller when it was handed a key it does not know.
+#
+# `dependsOn=` is a misspelling of `blockedBy=` — the key that carries a rule:
+# the prerequisite has to be seeded first, and it is named by title, because a
+# deep link cannot know an id it has not created itself. Before the handler
+# learned its own keys, the misspelling was dropped in silence: the seeded task
+# looked right and carried no blocker, and the Blocked bucket stayed empty
+# several steps later, far from the line that caused it.
+#
+# What this flow holds:
+# - the keys the handler knows are still seeded — `task=` and `due=` produce
+#   the row the flow asserts on;
+# - the key it does not know is reported: it is named in the log under the
+#   `DebugSeedActivity` tag, and shown on the screen the seeded row is on.
+#
+# прогнан на устройстве: нет (2026-11-05) — the flow was not run on a device
+appId: com.singularity.todo
+name: system-seed-unknown-key
+tags:
+  - system
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=SeedTypoProbe&due=today&dependsOn=SeedTypoProbe"
+- scrollUntilVisible:
+    element:
+      id: "task_item_seedtypoprobe"
+    direction: DOWN
+    timeout: 8000

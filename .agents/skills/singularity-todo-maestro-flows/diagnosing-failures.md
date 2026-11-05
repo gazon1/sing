@@ -178,12 +178,25 @@ the action `inputText` depends on and broke entry outright.
 | Query key | Creates |
 |---|---|
 | `task=<title>` | a task |
-| `task=<title>&due=…` | task due `today` / `tomorrow` / `-1d` / `2026-10-01` |
-| `task=<title>&id=<id>` | a task that carries the named id — a deep link names an id, and a flow cannot know the id the app generated |
+| `desc=<text>` | sets the description of the seeded task |
+| `due=today` \| `tomorrow` \| `-1d` \| `+1d` \| `<YYYY-MM-DD>` | sets the due date of the seeded task |
+| `updatedAt=now` \| `-22d` \| `<ISO instant>` | stamps the task's created/updated timestamps — a task stamped in the past is what the *stagnant* bucket is defined by |
+| `id=<id>` | the id the seeded row carries — a deep link names an id, and a flow cannot know the id the app generated |
 | `note=<title>` | a note |
-| `note=<title>&linkTo=<task title>` | a note whose body links to the task of that title — the link is written as an anchor with the grammar's URL (`task://<id>`), so the note is one the editor could have produced |
+| `linkTo=<task title>` | makes the seeded note's body link to the task of that title — the link is written as an anchor with the grammar's URL (`task://<id>`), so the note is one the editor could have produced |
 | `project=<name>` | a project |
 | `profile=<name>` | a project profile and switches to it |
+| `blockedBy=<task title>` | makes the seeded task depend on the task of that title — a dependency on an incomplete task is what makes a task *blocked*, and the other task has to be seeded first |
+| `cleanup=<prefix>[,<prefix>…]` | deletes the rows whose title starts with one of the given prefixes |
+| `reset=content` | deletes every row of the active profile's content |
+| `session=anonymous` \| `signedout` \| `signedin` | changes the session, not the content |
+
+**A key that is not on this list is not understood.** The handler reports it by
+name — in the log under the `DebugSeedActivity` tag, and on the screen the
+seeded rows are on — and it seeds the keys it *does* know all the same. A
+misspelled `blockedBy=` (`dependsOn=`) used to be dropped in silence: the
+seeded task looked right and carried no blocker, and the Blocked bucket stayed
+empty several steps later.
 
 **An undated fixture lands in Inbox's "No Date" bucket, not Today.** A flow that
 seeds `task=Buy milk` with no `due` and then looks on Today finds nothing — tap

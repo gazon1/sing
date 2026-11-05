@@ -4,16 +4,27 @@
 #   env:
 #     QUERY: "task=Buy%20milk&due=today"
 #
-# QUERY is a URL-encoded deep-link query string:
-#   task=<title>              — create a task
-#   task=<title>&due=today    — task with due date
-#   task=<title>&due=tomorrow — task due tomorrow
-#   task=<title>&due=-1d      — task due yesterday
-#   task=<title>&due=2026-10-01 — exact date
-#   note=<title>              — create a note
-#   project=<name>           — create a project
-#   profile=<name>           — create and switch to a profile
-#   session=anonymous        — put the app into a local (offline) session
+# QUERY is a URL-encoded deep-link query string. Every key the seed link
+# understands is listed here — one key per line — and the handler knows no
+# others: a key that is not on this list is reported as an unknown key rather
+# than dropped in silence.
+#
+#   task=<title>            — create a task
+#   desc=<text>             — set the description of the seeded task
+#   due=today|tomorrow|-1d|+1d|<YYYY-MM-DD> — set the due date of the seeded task
+#   updatedAt=now|-22d|<ISO instant> — stamp the task's created/updated timestamps
+#   id=<id>                 — the id the seeded row carries
+#   note=<title>            — create a note
+#   linkTo=<task title>     — make the seeded note's body link to that task
+#   project=<name>          — create a project
+#   profile=<name>          — create and switch to a profile
+#   blockedBy=<task title>  — make the seeded task depend on that task
+#   cleanup=<prefix>[,<prefix>…] — delete the rows whose title starts with a prefix
+#   reset=content           — delete every row of the active profile's content
+#   session=anonymous|signedout|signedin — change the session, not the content
+#
+# `due=` takes `today`, `tomorrow`, `-1d`, `+1d` or an exact `YYYY-MM-DD`;
+# `updatedAt=` takes `now`, `-22d` or an ISO instant.
 #
 # This helper does NOT run launch-clean — the caller decides.
 #

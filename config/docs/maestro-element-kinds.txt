@@ -190,6 +190,7 @@ task_item_return_to_today item
 task_item_savedalpha2026 item
 task_item_sdnodate item
 task_item_seed_task item
+task_item_seedtypoprobe item
 task_item_signout_task item
 task_item_tasknodesc2026 item
 task_item_taskwithdesc2026 item
