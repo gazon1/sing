@@ -1,12 +1,21 @@
 @file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 
-package com.singularity.todo.core.sync
+package com.singularity.todo.test.fakes
 
+import com.singularity.todo.core.sync.BatchPushRequest
+import com.singularity.todo.core.sync.BatchPushResponse
+import com.singularity.todo.core.sync.PatchResult
+import com.singularity.todo.core.sync.SyncApiClient
+import com.singularity.todo.core.sync.SyncEvent
+import com.singularity.todo.core.sync.SyncEventType
+import com.singularity.todo.core.sync.SyncOutboxEntity
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlin.time.Clock
 
 /**
  * In-memory sync server shared by several [SyncApiClient] instances.
@@ -19,6 +28,21 @@ import kotlinx.serialization.json.buildJsonObject
  * protocol envelope. It is enough to prove a push on A reaches B's pull cursor;
  * it is not a replacement for Supabase. Upgrade when a carrier test needs
  * real cross-device merge.
+ *
+ * ## Why it lives in `commonMain` and not in a test source set
+ *
+ * A second app instance is a *desktop* scenario: one Koin graph per instance,
+ * each with its own database file, talking to one server. The fixture therefore
+ * has to be visible to `:desktopApp`'s test source set as well as to `:shared`'s
+ * own — and a test source set of one module is invisible to another. The
+ * cross-module home for a test double in this repository is
+ * `shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/`, where the
+ * other shared doubles (`FakeAppDatabase`, `FakeTextGen`, the fake
+ * repositories) already live.
+ *
+ * It is a double, not production code: nothing in the app resolves it, and the
+ * sync port it stands in for ([SyncApiClient]) is bound by the DI module, not by
+ * this class.
  */
 class SharedSyncServer {
     private val mutex = Mutex()
@@ -51,7 +75,7 @@ class SharedSyncServer {
                             entityType = patch.entityType,
                             eventType = if (patch.isDelete) SyncEventType.DELETED else SyncEventType.UPDATED,
                             data = data,
-                            createdAt = System.currentTimeMillis(),
+                            createdAt = Clock.System.now().toEpochMilliseconds(),
                             profileId = request.profileId,
                         )
                     PatchResult(patchId = patch.patchId, ok = true, newVersion = newLsn)
@@ -82,5 +106,5 @@ private class SharedSyncClient(private val server: SharedSyncServer, val authent
 
     override suspend fun testConnection(): Result<Unit> = server.testConnection()
 
-    override suspend fun getRemoteConfig(): kotlinx.serialization.json.JsonObject? = null
+    override suspend fun getRemoteConfig(): JsonObject? = null
 }
