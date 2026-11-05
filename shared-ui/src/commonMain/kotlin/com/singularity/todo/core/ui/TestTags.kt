@@ -178,6 +178,9 @@ object TestTags {
     /** Empty state of the proposals screen. */
     const val PROPOSALS_EMPTY = "proposals_empty"
 
+    /** The stack of pending AI proposals on the task detail. */
+    const val TASK_DETAIL_PROPOSALS_SECTION = "task_detail_proposals_section"
+
     /** The "connect an account" entry in the menu. */
     const val MENU_ATTACH_ACCOUNT = "menu_attach_account"
 

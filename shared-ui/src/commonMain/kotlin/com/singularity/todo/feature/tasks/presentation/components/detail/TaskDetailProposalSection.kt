@@ -1,9 +1,13 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
@@ -44,15 +48,21 @@ fun TaskDetailProposalSection(
     onEdit: ((ProposalItemId, String) -> Unit)? = null,
     failures: ImmutableMap<ProposalItemId, String> = persistentMapOf(),
 ) {
-    ProposalCardsSection(
-        proposals = proposals,
-        onConfirm = onConfirm,
-        onReject = onReject,
-        onConfirmAll = onConfirmAll,
-        onDismiss = onDismiss,
-        onEdit = onEdit,
-        failures = failures,
-    )
+    // The tag is on the stack and not on a card: what the screen shows or does not show
+    // is the stack, and a task with no pending proposals shows no stack at all.
+    Column(
+        modifier = Modifier.testTag(TestTags.TASK_DETAIL_PROPOSALS_SECTION),
+    ) {
+        ProposalCardsSection(
+            proposals = proposals,
+            onConfirm = onConfirm,
+            onReject = onReject,
+            onConfirmAll = onConfirmAll,
+            onDismiss = onDismiss,
+            onEdit = onEdit,
+            failures = failures,
+        )
+    }
 }
 
 // ===== Preview =====
