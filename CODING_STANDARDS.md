@@ -587,7 +587,9 @@ before the expansion caps the hit area — the order is the bug.
 - **Use the shared token.** `TouchTarget.MinSize = 48.dp`
   (`core/ui/TouchTarget.kt`) is the app-wide source of truth, and
   `Modifier.touchTarget()` defaults to it. The minimum is read from the core UI
-  package, never from a feature's theme package.
+  package, never from a feature's theme package. An expansion that names a
+  smaller minimum is not the minimum: `Modifier.touchTarget(40.dp)` expands the
+  target to 40 dp, and the gate reports it.
 - **A touch target is still a control.** Padding and hit expansion do not
   replace a real hit area. A `clickable`/`toggleable`/`IconButton` on a small
   node needs expansion, and the expansion must not be clipped by a
@@ -622,7 +624,7 @@ re-deriving them.
 | `catch (CancellationException)` before a general `catch` | detekt |
 | A swallowed exception keeps its cause | detekt `SwallowedException` |
 | Room schema changes bump `SCHEMA_VERSION` and add a migration | `scripts/check-room-schema-integrity.py` |
-| A chain that fixes a size below 48 dp expands the target before that size | `scripts/check-touch-targets.py` |
+| A chain that fixes a size below 48 dp expands the target to the minimum, before that size | `scripts/check-touch-targets.py` |
 | A touch target expands to 48 dp, and a size before the expansion caps it | `TouchTargetMeasurementTest` (+ `scripts/check-touch-targets.py` for the chain shape) |
 | New ports bind in both `PlatformModule.*.kt` | `scripts/check-platform-reference-ports.py` |
 

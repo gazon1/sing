@@ -23,7 +23,13 @@ minimum is a composition local), so a call site here writes
 the minimum and the order is correct".
 
 So the rule is one sentence: **a chain that fixes a size below 48 dp and
-carries an interactive modifier has to expand the target before that size.**
+carries an interactive modifier has to expand the target to the minimum,
+before that size.**
+
+The expansion has to *name* the minimum as well: `Modifier.touchTarget(40.dp)`
+expands the target to 40 dp, which is the size the rule forbids. An expansion
+that takes no argument names the helper's default — `TouchTarget.MinSize`,
+the shared 48 dp — and an expansion that names that token says the same thing.
 
 The gate reads the three forms a chain fixes its size in: `.size(N.dp)` sets
 both dimensions, `.width(N.dp)` and `.height(N.dp)` set one of them each. Each
@@ -62,6 +68,23 @@ plants each of them: a width below the minimum and a height below the minimum
 are both reported, and the chain that expands the target before the size is
 not.
 
+## What the third version of this gate could not see
+
+The third version read the chain properly, read the three forms a size takes
+and read the order of the chain — and still read only the *shape* of the
+expansion: `.touchTarget(` and `.minimumInteractiveComponentSize(` matched,
+and what was inside the parenthesis was never looked at. So a chain that
+expanded the target to a minimum below 48 dp counted as correctly expanded:
+
+    Modifier.touchTarget(40.dp).size(40.dp)   // the target is 40 dp
+
+The gate reads the argument now. An expansion that names a number below the
+minimum is a target below the minimum, and it is reported the way a small
+fixed size is reported — the file, the line and the value. An expansion that
+takes no argument names the helper's default, which is the shared minimum,
+and an expansion that names a token the gate cannot read is a reviewer's job:
+the same rule the gate already follows for a size it cannot read.
+
 ## What this gate reads
 
 The gate reads **production sources**. A target in a test never reaches a
@@ -93,6 +116,10 @@ planted against is a filter that can rot unnoticed.
   `requiredWidth(24.dp)`). Those cap the node as hard as the three forms
   above; the gate reads the three the codebase writes, and the rest is a
   reviewer's job.
+* An expansion whose argument is not a number (`touchTarget(MinSize)`,
+  `touchTarget(computed)`). The gate cannot resolve a token, so it takes the
+  expansion to name the minimum; a token that names a smaller value is a
+  reviewer's job, the same as a size the gate cannot read.
 * `IconButton` and the other Material controls, which enforce their own
   minimum. A size on one of them constrains the icon, not the target.
 
@@ -150,10 +177,22 @@ INTERACTIVE_RE = re.compile(
     r"\.(?:clickable|toggleable|combinedClickable|selectable)\s*[({]"
 )
 
-#: The expansion. It has to come *before* the size in the chain: applied
-#: after it, the size already caps the node and the expansion grows a target
-#: that is smaller than the minimum.
-EXPANSION_RE = re.compile(r"\.(?:touchTarget|minimumInteractiveComponentSize)\s*\(")
+#: The expansion, with the argument it names. It has to come *before* the
+#: size in the chain: applied after it, the size already caps the node and
+#: the expansion grows a target that is smaller than the minimum.
+#:
+#: The argument is read as well as the position. `.touchTarget(40.dp)` names
+#: a target below the minimum, and a gate that matched the call's shape
+#: alone counted it as correctly expanded — the chain looked right and the
+#: hit area was 40 dp.
+EXPANSION_RE = re.compile(
+    r"\.(?P<call>touchTarget|minimumInteractiveComponentSize)\s*"
+    r"\((?P<argument>[^)]*)\)"
+)
+
+#: A minimum in dp, as the gate reads it in an expansion's argument: the
+#: number and the unit, with or without a space between them.
+DP_LITERAL_RE = re.compile(r"(\d+(?:\.\d+)?)\s*\.dp")
 
 #: Build outputs: nothing in them ships to a device.
 SKIPPED_DIRS = frozenset({"build"})
@@ -206,31 +245,96 @@ def _chains(lines: list[str]) -> list[tuple[int, str]]:
     return chains
 
 
-def _violations(chain: str) -> list[tuple[int, float, str]]:
-    """The fixed sizes in a chain that make it a target below the minimum.
+def _expansion_minimum(match: re.Match[str]) -> float | None:
+    """The minimum an expansion names, in dp — None when it names none.
 
-    Each entry is (offset of the size in the chain, the size in dp, the
-    modifier that fixed it). A size is a violation when it is below the
-    minimum, when the chain carries an interactive modifier, and when nothing
-    expanded the target before it.
+    An expansion that takes no argument names the helper's default, which is
+    the shared minimum. An argument the gate cannot read — a token, a computed
+    value — is None as well: the gate reads literals, and a value it cannot
+    read is a reviewer's job, exactly as for a size it cannot read. What it
+    can read is a number, and a number below the minimum is a target a finger
+    cannot hit.
     """
-    sizes = list(SIZE_RE.finditer(chain))
-    if not sizes:
-        return []
+    argument = match.group("argument").strip()
+    if not argument:
+        return None
+    # A named argument carries the value after the `=`.
+    _, separator, value = argument.partition("=")
+    literal = DP_LITERAL_RE.fullmatch(value.strip() if separator else argument)
+    if literal is None:
+        return None
+    return float(literal.group(1))
+
+
+def _expands_to_the_minimum(match: re.Match[str]) -> bool:
+    """Whether an expansion expands the target to the minimum.
+
+    An expansion that names no minimum at all — the helper's default, or a
+    token the gate cannot read — is taken to name the shared minimum; one
+    that names a number below the minimum does not.
+    """
+    minimum = _expansion_minimum(match)
+    return minimum is None or minimum >= MIN_DP
+
+
+def _violations(chain: str) -> list[tuple[int, float, str]]:
+    """The findings in a chain, as (offset in the chain, the value in dp, the
+    detail of the finding).
+
+    A finding is one of two things: a fixed size below the minimum that
+    nothing expanded to the minimum before it, and an expansion that names a
+    minimum below the minimum — a target the chain never grows past.
+    """
     if not INTERACTIVE_RE.search(chain):
         # Nothing to hit: a fixed size on a decorative node is not a target.
         return []
-    expansions = [match.start() for match in EXPANSION_RE.finditer(chain)]
+
+    expansions = list(EXPANSION_RE.finditer(chain))
     found: list[tuple[int, float, str]] = []
-    for match in sizes:
+
+    # An expansion that names a minimum below the minimum: the chain asks for
+    # a target smaller than the one the rule asks for, whatever the order of
+    # the chain is.
+    named_below_minimum: list[float] = []
+    for match in expansions:
+        value = _expansion_minimum(match)
+        if value is None or value >= MIN_DP:
+            continue
+        named_below_minimum.append(value)
+        found.append(
+            (
+                match.start(),
+                value,
+                f"{match.group('call')}({value:g}dp) expands the target to "
+                f"{value:g}dp, which is below the {MIN_DP:g}dp minimum",
+            )
+        )
+
+    for match in SIZE_RE.finditer(chain):
         value = float(match.group(2))
         if value >= MIN_DP:
             continue
-        if any(offset < match.start() for offset in expansions):
-            # The target was expanded before the size constrained it, so the
-            # hit area is the minimum and the size only shapes the picture.
+        if value in named_below_minimum:
+            # The expansion named this value and was reported already.
             continue
-        found.append((match.start(), value, match.group(1)))
+        if any(
+            match.start() > expansion.start()
+            for expansion in expansions
+            if _expands_to_the_minimum(expansion)
+        ):
+            # The target was expanded to the minimum before the size
+            # constrained it, so the hit area is the minimum and the size
+            # only shapes the picture.
+            continue
+        found.append(
+            (
+                match.start(),
+                value,
+                f"{match.group(1)}({value:g}dp) is below the {MIN_DP:g}dp "
+                f"minimum, and no expansion to the minimum comes before it "
+                f"in the chain",
+            )
+        )
     return found
 
 
@@ -248,19 +352,14 @@ def scan(root: pathlib.Path) -> list[dict[str, object]]:
         except (OSError, UnicodeDecodeError):
             continue
         for first_line, chain in _chains(text.splitlines()):
-            for offset, value, modifier in _violations(chain):
+            for offset, value, detail in _violations(chain):
                 line = first_line + chain[:offset].count("\n")
                 findings.append(
                     {
                         "file": relative.as_posix(),
                         "line": line,
                         "dp": value,
-                        "detail": (
-                            f"{modifier}({value:g}dp) is below the {MIN_DP:g}dp "
-                            f"minimum, and no touchTarget()/"
-                            f"minimumInteractiveComponentSize() comes before it in "
-                            f"the chain"
-                        ),
+                        "detail": detail,
                     }
                 )
     return findings

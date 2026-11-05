@@ -148,6 +148,50 @@ private fun ProbeOnlyCorrect(onClick: () -> Unit) {
 }
 """
 
+#: An expansion that names a minimum below the minimum. The chain asks for a
+#: 40 dp target, so the hit area is 40 dp however the order of the chain
+#: reads. The gate used to match the call's shape and never read the
+#: argument, so this chain counted as correctly expanded.
+EXPANSION_BELOW_MIN = """\
+package com.singularity.todo.probe
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.touchTarget
+
+@Composable
+private fun ProbeExpansionBelowMinimum(onClick: () -> Unit) {
+    Icon(modifier = Modifier.touchTarget(40.dp).size(40.dp).clickable { onClick() })
+}
+"""
+
+#: The same chain, expanded to the minimum: by the helper's default, by the
+#: shared token, and by a token that names the same value. All three are the
+#: minimum, and none of them is a finding — a gate that reported one of them
+#: would push the codebase into removing the expansion, which is the
+#: opposite of what the rule asks for.
+EXPANSION_WITH_THE_MINIMUM = """\
+package com.singularity.todo.probe
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TouchTarget
+import com.singularity.todo.core.ui.touchTarget
+
+private val SharedMinimum = 48.dp
+
+@Composable
+private fun ProbeExpansionWithTheMinimum(onClick: () -> Unit) {
+    Icon(modifier = Modifier.touchTarget().size(40.dp).clickable { onClick() })
+    Icon(modifier = Modifier.touchTarget(TouchTarget.MinSize).size(40.dp).clickable { onClick() })
+    Icon(modifier = Modifier.touchTarget(SharedMinimum).size(40.dp).clickable { onClick() })
+}
+"""
+
 #: A chain that fixes its width below the minimum. `.width(24.dp)` is a size
 #: in the same sense `.size(24.dp)` is: it caps the node, and the node is a
 #: target a finger has to hit. The gate used to read `.size(...)` and nothing
@@ -381,6 +425,64 @@ class TouchTargetsPositiveControlTest(unittest.TestCase):
             result.stdout.count("Probe.kt"),
             1,
             f"exactly one chain in the file is a violation:\n{result.stdout}",
+        )
+
+
+    def test_an_expansion_below_the_minimum_is_reported(self):
+        """The expansion's argument is read, not just its call.
+
+        `.touchTarget(40.dp)` asks for a 40 dp target: the chain is expanded,
+        and what it is expanded to is below the minimum. The gate used to
+        match the call's shape and never read the argument, so this chain
+        counted as correctly expanded and the gate stayed green on it.
+        """
+        result = self._run_gate(EXPANSION_BELOW_MIN)
+        self.assertEqual(
+            result.returncode,
+            FOUND,
+            f"the gate must exit {FOUND} on an expansion below the minimum; "
+            f"it exited {result.returncode}.\nstdout:\n{result.stdout}"
+            f"\nstderr:\n{result.stderr}",
+        )
+        self.assertIn(
+            "Probe.kt",
+            result.stdout,
+            "the report must name the file the violation was planted in",
+        )
+        self.assertIn(
+            "touchTarget",
+            result.stdout,
+            "the report must name the offending call — the chain expands the "
+            "target to a minimum below the minimum, and that call is what a "
+            "reader has to change",
+        )
+        self.assertIn(
+            "40dp",
+            result.stdout,
+            "the report must name the value the expansion names — a finding "
+            "that does not say how small the target is is a finding nobody "
+            "can act on",
+        )
+        self.assertEqual(
+            result.stdout.count("Probe.kt"),
+            1,
+            f"the expansion and the size it names are one defect:\n{result.stdout}",
+        )
+
+    def test_an_expansion_with_the_minimum_is_not_reported(self):
+        """The shared minimum, however it is spelled, is not a finding.
+
+        The helper's default, the shared token and a token that names the same
+        value all expand the target to 48 dp. A gate that reported one of
+        them would push the codebase into removing the expansion, which is
+        the opposite of what the rule asks for.
+        """
+        result = self._run_gate(EXPANSION_WITH_THE_MINIMUM)
+        self.assertEqual(
+            result.returncode,
+            0,
+            f"the gate must be green on expansions to the minimum; it exited "
+            f"{result.returncode}.\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}",
         )
 
 
