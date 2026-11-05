@@ -1190,6 +1190,20 @@ _REGISTERED: tuple[GateSpec, ...] = (
             cmd_type=CmdType.PYTHON3,
             script=Path("scripts/check-touch-targets.py"),
         ),
+        # The minimum touch target has one home — the shared token in the core
+        # UI package — and the task list's alias is for the task list's own
+        # files. The chain gate reads the *shape* of a modifier chain and not
+        # the token it names, so nothing held the token: a literal `48.dp`, or
+        # the task list's alias, in a file outside the task list passed every
+        # gate, and the move that gave the minimum a single home could be
+        # undone by the next feature that reached for the task list's theme
+        # package.
+        GateSpec(
+            name="touch targets use the shared token",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-touch-target-token.py"),
+        ),
 )
 
 
@@ -2024,6 +2038,43 @@ GATE_CONTROLS: dict[str, Control] = {
                 'and the expansion has to come before the size: applied after it, the '
                 'size caps the hit area and the target stays small however the '
                 'modifier chain is read'
+            ),
+        ),
+        # touch-target-token: the minimum touch target has one home — the
+        # shared token in the core UI package — and the task list's alias is
+        # for the task list's own files. Nothing read the token a call site
+        # named: the chain gate reads the shape of the chain, so a literal
+        # `48.dp` or the task list's alias in a file outside the task list
+        # passed every gate, and the move that gave the minimum a single home
+        # was not protected against being undone.
+        #
+        # The control plants a literal expansion in a file outside the task
+        # list: the same 48 dp written down a second time, which is the copy
+        # that drifts. A literal is planted rather than the alias because the
+        # alias needs an import to be planted with, and the import is the
+        # second half of the rule.
+        'touch-target-token': Control(
+            kind='sabotage',
+            proves='scripts/check-touch-target-token.py',
+            argv=('{python}', 'scripts/check-touch-target-token.py',),
+            path=(
+                'shared-ui/src/commonMain/kotlin/com/singularity/todo/core/ui/'
+                'components/ColorSwatch.kt'
+            ),
+            edit=Edit(
+                kind='append',
+                new=(
+                    '\n'
+                    '@Composable\n'
+                    'private fun TouchTargetTokenProbe() {\n'
+                    '    Icon(modifier = Modifier.touchTarget(48.dp))\n'
+                    '}\n'
+                ),
+            ),
+            why=(
+                'the minimum touch target has one home, and nothing read the token '
+                'a call site named: a literal 48 dp outside the task list is the '
+                'number written down a second time, and it is that copy that drifts'
             ),
         ),
 }

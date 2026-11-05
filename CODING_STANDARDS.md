@@ -624,6 +624,7 @@ re-deriving them.
 | Room schema changes bump `SCHEMA_VERSION` and add a migration | `scripts/check-room-schema-integrity.py` |
 | A chain that fixes a size below 48 dp expands the target before that size | `scripts/check-touch-targets.py` |
 | A touch target expands to 48 dp, and a size before the expansion caps it | `TouchTargetMeasurementTest` (+ `scripts/check-touch-targets.py` for the chain shape) |
+| Outside the task list, a touch target is expanded with the shared token — `TouchTarget.MinSize` or the helper's default — and with nothing else | `scripts/check-touch-target-token.py` |
 | New ports bind in both `PlatformModule.*.kt` | `scripts/check-platform-reference-ports.py` |
 
 ---
