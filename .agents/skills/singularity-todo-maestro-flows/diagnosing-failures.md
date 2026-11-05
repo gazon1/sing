@@ -148,6 +148,11 @@ produces a cascade of failures that requires a full re-run to diagnose.
 
 ## Seed fixtures, never type them
 
+This section is the single home for the seeding walkthrough. `SKILL.md` carries only
+what authoring a flow needs — the seed-never-type rule and the pointer here — and does
+not restate the walkthrough: a walkthrough stated in both files is a walkthrough that
+will drift.
+
 **Seed through `helpers/seed.yaml`, which drives the `DebugSeedActivity` deep-link.
 Typing into a field works — several flows do it — but a *fixture* is seeded, not
 typed.**
