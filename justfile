@@ -14,7 +14,6 @@
 mod config   '.just/config'
 mod android  '.just/android'
 mod desktop  '.just/desktop'
-mod gradle   '.just/gradle'
 mod tests    '.just/tests'
 mod ci       '.just/ci'
 mod scripts  '.just/scripts'
