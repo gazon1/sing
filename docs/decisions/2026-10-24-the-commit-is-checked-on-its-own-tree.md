@@ -36,29 +36,12 @@ worktree has its own build directory and its own Gradle home, so a compile
 there starts cold. The price of every commit would be a full build, and the
 check that exists to make committing cheap would make it expensive.
 
-So the working tree is **held** instead of replaced. The unstaged changes are
-put aside, the index's content is written over the working tree, the check
-runs, and the working tree is put back exactly as it was. Same directory,
-same warm build cache, same speed — and the check sees the tree the commit
-will carry.
-
 ## Decision
 
-**The pre-commit hook holds the working tree at the index while it checks, and
-restores it on every exit path.**
-
-- `scripts/staged-tree.py hold` puts the unstaged work aside: the tracked
-  files whose working-tree content differs from the index are copied aside and
-  the index's version is written over them; the untracked files — the ones git
-  does not ignore — are moved aside, because a Kotlin file that was never
-  added is exactly the kind of thing that breaks a commit it does not belong
-  to.
-- `scripts/staged-tree.py restore` puts everything back, byte for byte. Gitignored
-  files are left alone: they are build output, not source.
-- The hook runs the restore from a **copy of the helper kept outside the
-  tree**. The helper may itself be an untracked file — the first commit that
-  adds it is exactly that — and a held tree has no helper in it to restore the
-  tree with.
+**The pre-commit hook uses hk stash (`fix = true, stash = "git"`) to isolate
+unstaged changes while it checks, and lint-staged runs ktlint over staged
+Kotlin files.** This supersedes the previous approach using
+`scripts/staged-tree.py`.
 - The restore runs on every exit path: a failure, an interrupt, a trap. The
   held bytes are somebody's uncommitted work, and a hook that keeps them is a
   hook that loses them.
