@@ -71,7 +71,8 @@ esac
   echo "module=$M"; echo "task=$T"; echo "strategy=$S"
   echo "commit=$(git rev-parse HEAD)"; echo "patch=$PATCH"; echo "gradle_exit=$status"
   echo "task_s=$task_s"; echo "wall_ms=$(( (end - start) / 1000000 ))"
-  grep -E "Non-incremental compilation will be performed|Incremental compilation completed|REBUILD_REASON|Classpath changes info|kotlin compiler using|kt files in compile iteration" \
+  # The source count is not a report field: it is the number of lines under "Compile iteration:".
+  grep -E "Non-incremental compilation will be performed|Incremental compilation completed|REBUILD_REASON|Classpath changes info|kotlin compiler using" \
     "$OUT/report.log" || true
   echo "--- tasks executed ---"
   grep -E "^> Task " "$OUT/3-measure.log" | sort -u || true
