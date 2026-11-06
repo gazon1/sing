@@ -1,8 +1,10 @@
 package com.singularity.todo
 
+import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.sync.BatchPushRequest
 import com.singularity.todo.core.sync.DeltaPatch
 import com.singularity.todo.core.sync.DocType
+import com.singularity.todo.core.sync.SyncApiClient
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -14,7 +16,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 
@@ -52,12 +56,33 @@ class TwoInstanceHarnessTest {
                     harness.instanceB.databasePath,
                     "the two instances must not open the same database file",
                 )
+                // The paths are strings the harness built. These two say the graphs
+                // actually use those files rather than the in-memory fake.
+                assertSame(
+                    harness.instanceA.database,
+                    harness.instanceA.koin.get<AppDatabase>(),
+                    "instance A's graph must resolve A's Room database",
+                )
+                assertSame(
+                    harness.instanceB.database,
+                    harness.instanceB.koin.get<AppDatabase>(),
+                    "instance B's graph must resolve B's Room database",
+                )
 
                 val taskId = TaskId("two-instance-task")
-                val userId =
+                val userA =
                     harness.instanceA.koin
                         .get<ProfileAwareCurrentUser>()
                         .scopedUserId.value
+                val userB =
+                    harness.instanceB.koin
+                        .get<ProfileAwareCurrentUser>()
+                        .scopedUserId.value
+                // Repository reads are owner-scoped. Unless both instances scope to
+                // the same user, B's null below also happens when the two graphs share
+                // one file, so the assertion would prove nothing.
+                assertEquals(userA, userB, "both instances must scope to the same user")
+                val userId = userA
                 val written =
                     harness.instanceA.koin.get<TaskRepository>().create(
                         Task(
@@ -102,6 +127,25 @@ class TwoInstanceHarnessTest {
                     harness.instanceB.account,
                     "both instances must act as the same account",
                 )
+                assertNotSame(
+                    harness.instanceA.syncClient,
+                    harness.instanceB.syncClient,
+                    "the instances must not share a client object",
+                )
+                // The push and pull below go through the graphs, not the handles the
+                // harness handed out. If the SyncApiClient override ever stopped
+                // winning, these two assertions fail instead of the test staying green
+                // while both graphs talk to the production transport.
+                assertSame(
+                    harness.instanceA.syncClient,
+                    harness.instanceA.koin.get<SyncApiClient>(),
+                    "instance A's graph must resolve the shared server's client",
+                )
+                assertSame(
+                    harness.instanceB.syncClient,
+                    harness.instanceB.koin.get<SyncApiClient>(),
+                    "instance B's graph must resolve the shared server's client",
+                )
 
                 val patch =
                     DeltaPatch(
@@ -111,7 +155,7 @@ class TwoInstanceHarnessTest {
                         baseVersion = 0L,
                     )
                 val response =
-                    harness.instanceA.syncClient.batchPush(
+                    harness.instanceA.koin.get<SyncApiClient>().batchPush(
                         BatchPushRequest(
                             deviceId = "device-a",
                             profileId = "profile-1",
@@ -120,7 +164,10 @@ class TwoInstanceHarnessTest {
                     )
                 assertTrue(response.results.single().ok, "the push must be accepted by the server")
 
-                val events = harness.instanceB.syncClient.getEventsSince(0L)
+                val events =
+                    harness.instanceB.koin
+                        .get<SyncApiClient>()
+                        .getEventsSince(0L)
                 assertEquals(1, events.size, "instance B must pull exactly the event instance A pushed")
                 assertEquals("task-1", events.single().entityId)
             }
