@@ -109,7 +109,11 @@ class StatisticsViewModel(
                     // in state and used by the insights side.
                     computeStatistics(completed, overdue, nowMs, 7)
                 }.catch { error ->
-                    crashReporter.report(error, TASK_STATISTICS_FAILED)
+                    // The failure crossed a channel hop, and a channel carries a *copy* of
+                    // the throwable — the original is its cause, so the copy is unwrapped
+                    // before it is reported.
+                    val reported = error.cause ?: error
+                    crashReporter.report(reported, TASK_STATISTICS_FAILED)
                     emit(StatisticsSnapshot(persistentListOf(), 0, 0, 0.0, 0))
                 }.collect { snapshot ->
                     updateState { it.copy(snapshot = snapshot, loading = false) }
@@ -155,7 +159,11 @@ class StatisticsViewModel(
                     lastActivityOf = lastTouched,
                 )
             }.catch { error ->
-                crashReporter.report(error, TASK_HEALTH_FAILED)
+                // The failure crossed a channel hop, and a channel carries a *copy* of
+                // the throwable — the original is its cause, so the copy is unwrapped
+                // before it is reported.
+                val reported = error.cause ?: error
+                crashReporter.report(reported, TASK_HEALTH_FAILED)
                 // Pure function — no exception expected, but report and fall back gracefully.
                 emit(TaskHealthSummary(emptyMap(), 0, null, null))
             }.collect { summary -> updateState { it.copy(health = summary) } }
@@ -201,7 +209,11 @@ class StatisticsViewModel(
                         )
                     }
                 }.catch { error ->
-                    crashReporter.report(error, TIME_INSIGHTS_FAILED)
+                    // The failure crossed a channel hop, and a channel carries a *copy* of
+                    // the throwable — the original is its cause, so the copy is unwrapped
+                    // before it is reported.
+                    val reported = error.cause ?: error
+                    crashReporter.report(reported, TIME_INSIGHTS_FAILED)
                     emit(StatisticsUiState.InsightsData())
                 }.collect { insights ->
                     updateState { it.copy(insights = insights, loading = false) }

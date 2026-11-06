@@ -2143,11 +2143,26 @@ class FakeProjectsRepository(
     var observeAllIncludingClosedCalls: Int = 0
         private set
 
+    /**
+     * The throwable the next observation fails with.
+     *
+     * Taken when the list is asked for, not when it is collected: the caller asks
+     * for a list per subscription, so the failure belongs to the ask. Null by
+     * default, so an existing test changes nothing.
+     */
+    var observeAllFailure: Throwable? = null
+
     override fun observeAll(): Flow<List<Project>> {
         observeAllCalls++
+        val failure = observeAllFailure
+        observeAllFailure = null
         return currentUser.observeForCurrentUser { uid ->
-            store.state.map { list ->
-                list.values.filter { it.userId == uid && !it.isDeleted && it.closedAt == null }
+            if (failure != null) {
+                flow<List<Project>> { throw failure }
+            } else {
+                store.state.map { list ->
+                    list.values.filter { it.userId == uid && !it.isDeleted && it.closedAt == null }
+                }
             }
         }
     }
