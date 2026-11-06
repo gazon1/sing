@@ -150,10 +150,6 @@ class TwoInstanceHarness private constructor(
         }
 
         /** One built instance: its handle, its graph and its database. */
-        private class Instance(
-            val handle: InstanceHandle,
-            val application: KoinApplication,
-            val database: AppDatabase,
-        )
+        private class Instance(val handle: InstanceHandle, val application: KoinApplication, val database: AppDatabase)
     }
 }

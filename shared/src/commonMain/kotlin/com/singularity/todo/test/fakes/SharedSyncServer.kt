@@ -116,7 +116,9 @@ class SharedSyncServer {
                     if (value == null) fields.remove(change.field) else fields[change.field] = value
                 }
 
-                FieldOp.UNSET -> fields.remove(change.field)
+                FieldOp.UNSET -> {
+                    fields.remove(change.field)
+                }
 
                 FieldOp.APPEND -> {
                     val current = fields[change.field] as? JsonArray
