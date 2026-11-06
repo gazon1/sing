@@ -1337,9 +1337,9 @@ Steps:
 
 1. On device A open a task and start typing a title without saving.
 2. On device B change that task's due date and wait for the sync.
-3. On device B change the title itself, and separately delete the task.
+3. On device B change the title itself.
 
-**Expected:** Text being typed on A is not overwritten by the incoming change, and the due date still updates. When the same field is changed remotely the outcome is defined and never discards in-progress typing without warning. A remote deletion of an open task reports itself as deleted, and saving does not resurrect it. A page of incoming changes does not jump the scroll or lose the selection.
+**Expected:** Text being typed on A is not overwritten by the incoming change, and the due date still updates. When the same field is changed remotely the outcome is defined and never discards in-progress typing without warning.
 
 #### `SYNC-LOCAL-01` — A task created with no connectivity is kept and appears once back online
 

@@ -1,9 +1,11 @@
 package com.singularity.todo.test.helpers
 
+import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.sync.SyncApiClient
+import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.SharedSyncServer
 import org.koin.core.Koin
 import org.koin.core.KoinApplication
@@ -25,17 +27,19 @@ import java.nio.file.Files
  *
  * So the two instances are built here, without a UI. What each one *is* is
  * deliberately the production thing — the same module list, the same
- * repositories, the same ports — with exactly two substitutions: the database
- * (a real Room file instead of the in-memory fake) and the sync client (the
- * shared fake server instead of the Supabase transport).
+ * repositories, the same ports — with exactly the substitutions a carrier needs:
+ * a per-instance real database (Room file, not the in-memory fake), a shared
+ * fake sync transport ([SyncApiClient] → [SharedSyncServer]), and a deterministic
+ * local auth seam ([AuthRepository] → [FakeAuthRepository]) so `signIn`/sync scope
+ * never touch Supabase or the network.
  *
  * ## How the substitutions are made
  *
- * Both go through the `overrides` seam of [buildDesktopAppKoin], which loads
+ * All go through the `overrides` seam of [buildDesktopAppKoin], which loads
  * last and therefore wins Koin's last-definition-wins rule. Nothing is rebound
  * behind the harness's back: the DAO bindings in the test platform module read
  * `get<AppDatabase>()`, so rebinding the database reaches every DAO, and the
- * `SyncApiClient` binding of the sync module is replaced wholesale.
+ * sync/auth bindings are replaced wholesale.
  *
  * The `UnitOfWork` is *not* replaced: the test platform module binds the
  * pass-through fake, which runs the block and changes nothing else — and the
@@ -133,6 +137,11 @@ class TwoInstanceHarness private constructor(
                 module {
                     single<AppDatabase> { database }
                     single<SyncApiClient> { client }
+                    // Deterministic local auth: carriers call signIn/syncOnce and must
+                    // never reach Supabase or the network. testPlatformModule() also
+                    // binds FakeAuthRepository(), but binding it here makes the harness
+                    // contract explicit regardless of module ordering.
+                    single<AuthRepository> { FakeAuthRepository() }
                 }
             val application = buildDesktopAppKoin(overrides = overrides)
             return Instance(

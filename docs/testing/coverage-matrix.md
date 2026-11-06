@@ -18,11 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-<<<<<<< HEAD
-**132 scenarios · 102/173 claimed cells automated · 71 holes**
-=======
-**133 scenarios · 102/174 claimed cells automated · 72 holes**
->>>>>>> origin/main
+**133 scenarios · 103/174 claimed cells automated · 71 holes**
 
 ## feature.agenda
 

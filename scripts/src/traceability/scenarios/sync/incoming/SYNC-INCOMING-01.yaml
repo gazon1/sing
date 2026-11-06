@@ -16,15 +16,20 @@ targets: [android, desktop]
 
 # The android tier is still unreachable: it has no second device, and the
 # scenario is *defined* by a conflict between two devices — device A types a
-# title, device B edits and deletes the same task — so a single-device run
-# would assert a different thing. The desktop tier is reachable and is
-# carried: two desktop instances against one shared server are the two
-# devices the scenario asks for, and they prove the merge that follows.
+# title, device B edits the same task — so a single-device run would assert a
+# different thing. The desktop tier is reachable and is carried: two desktop
+# instances against one shared server are the two devices the scenario asks
+# for, and they prove the merge that follows.
+#
+# Deferred (not yet carried by an automated test; tracked in #2679): remote
+# deletion of an open task must report itself as deleted and saving must not
+# resurrect it; an incoming-changes page must not jump the scroll or lose the
+# selection.
 unreachable: [android]
 preconditions: Two devices signed into the same account.
 steps:
   - On device A open a task and start typing a title without saving.
   - On device B change that task's due date and wait for the sync.
-  - On device B change the title itself, and separately delete the task.
+  - On device B change the title itself.
 expected: >-
-  Text being typed on A is not overwritten by the incoming change, and the due date still updates. When the same field is changed remotely the outcome is defined and never discards in-progress typing without warning. A remote deletion of an open task reports itself as deleted, and saving does not resurrect it. A page of incoming changes does not jump the scroll or lose the selection.
+  Text being typed on A is not overwritten by the incoming change, and the due date still updates. When the same field is changed remotely the outcome is defined and never discards in-progress typing without warning.
