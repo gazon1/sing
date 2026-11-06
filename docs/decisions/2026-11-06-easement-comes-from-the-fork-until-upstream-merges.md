@@ -1,9 +1,16 @@
 ---
 title: "Easement comes from the fork until upstream merges the fix"
 date: 2026-11-06
-status: accepted
+status: superseded
+superseded-by: 2026-11-07-easement-comes-from-a-fork-release
 tags: ["tooling", "architecture"]
 ---
+
+> **⚠️ SUPERSEDED** — see
+> [2026-11-07-easement-comes-from-a-fork-release](2026-11-07-easement-comes-from-a-fork-release.md).
+> The fork publishes a release of its own now, so the tool is taken from that
+> release instead of a branch built from source, and the CI gate runs the
+> fork's action too.
 
 # Easement comes from the fork until upstream merges the fix
 
