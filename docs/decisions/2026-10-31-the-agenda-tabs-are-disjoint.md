@@ -107,13 +107,11 @@ clock rather than pure data — the property every preset is supposed to have.
   `inbox` when the partition was written; ADR
   `2026-11-04-inbox-names-the-unscheduled-tab` renamed both, and the repository read
   now matches the name.)
-- Note: the work-day preset still replaces the Today tab's sections on a
-  working day, and it holds the timed tasks only. That is a separate
-  decision (ADR `2026-10-18-work-schedule-routing-today-screen`), and this
-  change does not touch it: the partition described here is the one the three
-  date-based presets make. A user who configures work hours gets a day plan
-  on the Today tab instead of the two date buckets — and the plan is
-  time-based rather than date-based, so it is not part of the partition.
+- Superseded (2026-11-05): the work-day preset no longer replaces the Today
+  tab's sections. The plan is layered inside the tab, which keeps owning
+  Overdue and Today on a working day — so the partition above holds for every
+  configuration, not only for the date-based presets. See ADR
+  `2026-11-05-the-work-day-plan-sits-inside-the-today-tab`.
 
 ## Links
 

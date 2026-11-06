@@ -2,6 +2,7 @@ package com.singularity.todo.feature.agenda.domain.logic
 
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
+import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.SectionPrefill
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.model.agenda
@@ -399,9 +400,10 @@ object AgendaPresets {
      *
      * [workingDays] is the set of days the user works on, as the "Working Days"
      * section in Settings defines it. On a working day the [workDay] preset
-     * applies; on a day off the [offDay] preset does, so a Saturday that is not
-     * a working day shows the plain date-based sections instead of
-     * morning/lunch/afternoon work blocks.
+     * applies; on a day off the [offDay] preset does. Both keep the tab's own
+     * date buckets — the work-day one adds the user's work blocks inside them
+     * rather than replacing them — so the bottom-bar tabs stay a partition of
+     * the tasks on every configuration.
      *
      * The set is the whole question: a user whose working week is not
      * "Monday to Friday, plus maybe the weekend" can say so, and the agenda
@@ -419,21 +421,28 @@ object AgendaPresets {
     ): AgendaDefinition = if (dayOfWeek in workingDays) workDay else offDay
 
     /**
-     * Work-day agenda split into morning work, lunch, and afternoon work blocks.
+     * The Today tab's agenda on a working day: the tab's own date buckets with
+     * the user's work hours layered inside them.
      *
-     * The definition is titled [Today]'s title. This preset is what the Today
-     * destination evaluates on a working day, so its header has to name that
-     * destination, not the preset: a title of its own ("Work Day") would make
-     * the header change its name at the weekend and disagree with the tab
-     * underneath.
+     * Configuring work hours does not take the tab's buckets away. The tab owns
+     * [RelativeBucket.Overdue] and [RelativeBucket.Today] on every day, and the
+     * morning / lunch / afternoon blocks are an *extra* section between them —
+     * what is late, then today's hours, then whatever today still holds outside
+     * those hours. That is what keeps the three bottom-bar tabs a partition of
+     * the tasks on a working day too (ADR
+     * `2026-11-05-the-work-day-plan-sits-inside-the-today-tab`).
      *
-     * Each block is a [Selector.TimeOfDay] that matches tasks with `dueTime` within
-     * the corresponding window. Tasks with no `dueTime` are excluded from all three
-     * blocks and must be handled by a separate section in the definition.
+     * The definition is [Today] with the blocks added, title included, so the
+     * header names the Today tab on a working day and on a day off alike.
      *
-     * Weekend handling ([weekendSat], [weekendSun]) is the caller's responsibility:
-     * pass a definition that includes or excludes the work-day preset based on the
-     * current day of week, or switch to a different preset on weekends.
+     * Each block is a [Selector.TimeOfDay] narrowed to today. A timed task due
+     * on another day belongs to the tab that owns that day, not to today's plan.
+     * Every block discards what it matches, so a task due today at 10:00 is
+     * listed in the morning block and not again under "Today"; a task due today
+     * outside the work hours falls through to "Today". Nothing is dropped.
+     *
+     * Whether today is one of the user's working days is [forToday]'s question,
+     * not this function's.
      *
      * @param dayStartMinutes Minutes from midnight for the work-day start (e.g. 540 = 09:00).
      * @param dayEndMinutes Minutes from midnight for the work-day end (e.g. 1020 = 17:00).
@@ -445,25 +454,49 @@ object AgendaPresets {
         dayEndMinutes: Int,
         lunchStartMinutes: Int,
         lunchEndMinutes: Int,
-    ): AgendaDefinition =
-        agenda(Today.title) {
-            section(
-                "work_morning",
-                "Work",
-                Selector.TimeOfDay(dayStartMinutes, lunchStartMinutes - 1),
-                order = 0,
+    ): AgendaDefinition {
+        val workBlocks =
+            listOf(
+                workBlock("work_morning", "Work", dayStartMinutes, lunchStartMinutes - 1),
+                workBlock("lunch", "Lunch", lunchStartMinutes, lunchEndMinutes),
+                workBlock("work_afternoon", "Work", lunchEndMinutes + 1, dayEndMinutes),
             )
-            section(
-                "lunch",
-                "Lunch",
-                Selector.TimeOfDay(lunchStartMinutes, lunchEndMinutes),
-                order = 1,
-            )
-            section(
-                "work_afternoon",
-                "Work",
-                Selector.TimeOfDay(lunchEndMinutes + 1, dayEndMinutes),
-                order = 2,
-            )
-        }
+        // Between "Overdue" and the rest of today: the blocks take today's timed
+        // tasks first, and "Today" collects what the work hours left over. A block
+        // declared after "Today" would render nothing, because that section does
+        // not discard. Split by the bucket the section owns, not by its id string,
+        // so renaming Today sections cannot silently reorder the tab.
+        val (overdue, restOfToday) =
+            Today.sections.partition { it.selector == Selector.DateBucket(RelativeBucket.Overdue) }
+        val sections =
+            (overdue + workBlocks + restOfToday)
+                .mapIndexed { index, section -> section.copy(order = index) }
+        return Today.copy(sections = sections)
+    }
+
+    /**
+     * One work block of the day plan: today's tasks whose `dueTime` falls inside
+     * the inclusive window [fromMinutes]..[toMinutes].
+     *
+     * The date half of the selector is what keeps the block to today. Without it
+     * a 10:00 task due next month would be listed in today's morning.
+     */
+    private fun workBlock(
+        id: String,
+        name: String,
+        fromMinutes: Int,
+        toMinutes: Int,
+    ): Section =
+        Section(
+            id = id,
+            name = name,
+            selector =
+                Selector.AllOf(
+                    listOf(
+                        Selector.DateBucket(RelativeBucket.Today),
+                        Selector.TimeOfDay(fromMinutes, toMinutes),
+                    ),
+                ),
+            discard = true,
+        )
 }
