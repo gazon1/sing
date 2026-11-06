@@ -413,7 +413,7 @@ private fun <T> mergeRows(
  * and `("a", "bc")` are different keys — and not a character that can occur in an
  * id *pair*, so that the key of one pair cannot be mistaken for the key of another.
  */
-private fun String.link(other: String): String = "$this$KEY_SEPARATOR$other"
+internal fun String.link(other: String): String = "$this$KEY_SEPARATOR$other"
 
 /**
  * The two ids a link table's key joins, as they were joined.

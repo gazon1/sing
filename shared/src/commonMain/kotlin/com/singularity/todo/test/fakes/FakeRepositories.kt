@@ -509,9 +509,12 @@ class FakeBackupRepository : BackupRepository {
         return exportResult
     }
 
-    override suspend fun import(sourcePath: String): Result<RestoreResult> {
+    override suspend fun import(
+        sourcePath: String,
+        keepExistingRows: Boolean,
+    ): Result<RestoreResult> {
         lastImportSourcePath = sourcePath
-        lastImportOptions = ImportOptions(sourcePath, UserId("test"))
+        lastImportOptions = ImportOptions(sourcePath, UserId("test"), keepExistingRows = keepExistingRows)
         return importResult
     }
 
