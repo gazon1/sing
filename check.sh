@@ -2,16 +2,20 @@
 # check.sh — the local verification loop.
 #
 # The steps are declared in `hk.pkl`, in the `check` hook: this file no longer
-# says WHAT to check. It maps a lane to a profile, hands hk's timing record to
-# the cost report, and runs the steps that need a device.
+# says WHAT to check. It maps a lane to a profile, runs the loop, and reports
+# what the loop cost.
 #
 # The same declaration is what CI can run with `hk check --all`
 # (https://hk.jdx.dev/ci.html). See
 # docs/decisions/2026-11-05-check-sh-is-an-hk-pipeline.md.
 #
-# Usage: SKIP_ADB=1 ./check.sh   # skip adb tests
-#        ./check.sh --fast      # the fast lane: only the checks this change can break
-#        ./check.sh --affected  # the full loop over the tests this change can break
+# The steps that need a device are not here: they are the `device` hook, run
+# with `hk run device`. Their failure is not this loop's verdict, and CI does
+# not run them.
+#
+# Usage: ./check.sh               # the whole loop
+#        ./check.sh --fast        # the fast lane: only the checks this change can break
+#        ./check.sh --affected    # the full loop over the tests this change can break
 #
 # NOTE: no --no-daemon here on purpose. A warm Gradle+Kotlin daemon keeps
 # incremental compilation across runs; --no-daemon forces a cold JVM every time.
@@ -80,54 +84,6 @@ hk check --all --profile "$LANE" || {
     echo -e "${RED}the ${LANE} lane FAILED — see the step named above${NC}"
     exit 1
 }
-
-# ── Optional: Android instrumentation on a real device ────────────────────────
-#
-# The instrumentation itself is optional here — its failure is not this
-# script's verdict — but the floor of the instrumented tier is checked where the
-# report is: a run that does not match what the tier is recorded to deliver is a
-# finding, and the report is the only place that fact exists.
-if [[ "${SKIP_ADB:-0}" != "1" ]] && adb devices | grep -q "device$"; then
-    echo ""
-    echo -e "${YELLOW}=== [opt] Android instrumentation on adb ===${NC}"
-    SERIAL=$(adb devices | awk 'NR>1 && $2=="device" {print $1; exit}')
-    if [[ -n "$SERIAL" ]]; then
-        echo "Running on device: $SERIAL"
-        ./gw :androidApp:connectedDebugAndroidTest \
-            -Pandroid.testInstrumentationRunnerArguments.device="$SERIAL" \
-            --quiet || true
-        echo -e "${GREEN}Android instrumentation completed${NC}"
-        if [[ -d androidApp/build/outputs/androidTest-results/connected ]]; then
-            python3 scripts/check-instrumented-test-floor.py || {
-                echo -e "${RED}the instrumented run and its floor disagree — see the gate's output above${NC}"
-                exit 1
-            }
-            echo -e "${GREEN}the instrumented run matches its floor${NC}"
-        fi
-    fi
-fi
-
-# ── Optional: Maestro UI flows ────────────────────────────────────────────────
-#
-# Opt-in (RUN_MAESTRO=1) rather than default: these need a booted device, and
-# the emulator cold-start path is not reliable enough to gate a local check on.
-if [[ "${RUN_MAESTRO:-0}" == "1" ]]; then
-    echo ""
-    echo -e "${YELLOW}=== [opt] Maestro UI flows ===${NC}"
-    if command -v maestro >/dev/null 2>&1; then
-        # `./rm`, not `run-maestro`: the console script is an editable install
-        # and belongs to whichever checkout was installed last. SKIP_INSTALL is
-        # the caller's decision: it defaults to installing, and suppressing that
-        # can green a run against a binary the device already held.
-        SERIAL="${SERIAL:-}" TAGS="${MAESTRO_TAGS:-smoke}" SKIP_INSTALL="${SKIP_INSTALL:-0}" \
-            ./rm || {
-            echo -e "${RED}Maestro flows FAILED${NC}"
-            exit 1
-        }
-    else
-        echo -e "${YELLOW}maestro CLI not on PATH — skipping${NC}"
-    fi
-fi
 
 echo ""
 echo -e "${YELLOW}=== what the loop cost ===${NC}"
