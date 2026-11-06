@@ -56,44 +56,27 @@ done
 # ── What this loop costs ──────────────────────────────────────────────────────
 #
 # The cost of the local loop is the sum of decisions nobody priced. hk records
-# the wall time of every step it runs; the cost report reads `name<TAB>ms`, so
-# this file converts once, on every exit path: a step that broke the build
-# still cost the time it took.
+# the wall time of every step it runs and writes that record to the file
+# $HK_TIMING_JSON names — after the hook, whether it passed or failed, so a
+# step that broke the build still costs the time it took. The cost report
+# reads that record as it is; nothing here translates it.
 #
 # The fast lane measures itself into its own file. The full loop's record is
 # what the cost report publishes, and a fast run must not overwrite the
 # measurement of the loop it is not.
 COST_DIR="$ROOT/build/diagnostics"
 if [[ "$LANE" == "fast" ]]; then
-    COST_FILE="$COST_DIR/fast-lane-steps.txt"
+    COST_FILE="$COST_DIR/fast-lane-steps.json"
 else
-    COST_FILE="$COST_DIR/cycle-steps.txt"
+    COST_FILE="$COST_DIR/cycle-steps.json"
 fi
-TIMING_FILE="$COST_DIR/hk-timing.json"
 mkdir -p "$COST_DIR"
-: >"$COST_FILE"
-rm -f "$TIMING_FILE"
-
-record_costs() {
-    [ -f "$TIMING_FILE" ] || return 0
-    python3 - "$TIMING_FILE" "$COST_FILE" <<'PY'
-import json
-import pathlib
-import sys
-
-timing, out = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
-steps = json.loads(timing.read_text(encoding='utf-8')).get('steps', {})
-out.write_text(
-    ''.join(f'{name}\t{entry["wall_time_ms"]}\n' for name, entry in steps.items()),
-    encoding='utf-8',
-)
-PY
-}
-trap record_costs EXIT
+rm -f "$COST_FILE"
+export HK_TIMING_JSON="$COST_FILE"
 
 echo -e "${YELLOW}=== check.sh [$LANE lane] — the steps are declared in hk.pkl ===${NC}"
 
-HK_TIMING_JSON="$TIMING_FILE" hk check --all --profile "$LANE" || {
+hk check --all --profile "$LANE" || {
     echo -e "${RED}the ${LANE} lane FAILED — see the step named above${NC}"
     exit 1
 }
