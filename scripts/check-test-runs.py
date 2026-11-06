@@ -18,7 +18,7 @@ no navigation test and no desktop flow test had ever run.
 `failOnNoDiscoveredTests` closes the "nothing ran" half. Neither catches a
 *partial* skip — 1500 of 1500 → 1400 of 1500 still passes both. This gate does:
 it compares the executed counts against a committed baseline and fails when a
-source set runs fewer classes or tests than the floor.
+source set runs fewer tests than the floor.
 
 ## The second half, and why the floor was not enough
 
@@ -89,12 +89,18 @@ falsely flagged as stale on a second consecutive run.
 
 `config/docs/test-runs-baseline.txt`, one line per source set:
 
-    <source-set> <classes> <tests> <max-skipped>
+    <source-set> <tests> <max-skipped>
+
+The class column is gone. The by-results check already fails when a declared
+class produced no report — by name, not by subtraction — which is the same
+defect the class floor was there to catch, and `tests` fires wherever
+`classes` would have. `load_baseline` still reads the older four-column shape,
+so an old file degrades to a parsed value rather than to a crash mid-run.
 
 Counts only XML reports that exist, so a source set that was never run is
 reported as missing rather than silently absent from the comparison.
 
-`classes` and `tests` are **floors**: running fewer means a suite stopped being
+`tests` is a **floor**: running fewer means a suite stopped being
 selected. `max-skipped` is a **ceiling**: it is 0 across the board, and any
 non-zero value is a defect, not a baseline to grow into.
 

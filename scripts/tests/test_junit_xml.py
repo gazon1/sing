@@ -140,11 +140,21 @@ class MessageAndTimeTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_message_is_truncated_to_the_limit(self):
-        """Kiwi's column is a TEXT field, not a log sink."""
+        """The summary line is bounded; the trace beside it is not."""
         long = "E" * (MESSAGE_LIMIT + 500)
         path = _write(self.dir, f'<testsuite><testcase classname="C" name="a()">'
                                 f'<failure message="{long}"/></testcase></testsuite>')
         self.assertEqual(len(parse_junit_file(path)[0].message), MESSAGE_LIMIT)
+
+    def test_truncation_does_not_touch_the_stacktrace(self):
+        """A long message may be cut; the trace is the evidence and stays whole."""
+        long = "E" * (MESSAGE_LIMIT + 500)
+        trace = "T" * (MESSAGE_LIMIT * 2)
+        path = _write(self.dir, f'<testsuite><testcase classname="C" name="a()">'
+                                f'<failure message="{long}">{trace}</failure></testcase></testsuite>')
+        result = parse_junit_file(path)[0]
+        self.assertEqual(len(result.message), MESSAGE_LIMIT)
+        self.assertEqual(result.stacktrace, trace)
 
     def test_elapsed_time_is_parsed(self):
         path = _write(self.dir,

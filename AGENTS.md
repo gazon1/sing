@@ -31,7 +31,6 @@
 
 **Механическая защита от divergence (#268):**
 
-
 **Правила ревью — в `CODING_STANDARDS.md`.** Файл читается на ревью, не при
 реализации: там то, что ни один гейт проверить не может (согласованность между
 файлами, «соответствует окружающему стилю», «сообщение говорит, что произошло»),
@@ -98,7 +97,7 @@ KOIN-W003 (graph unverifiable). Используй list composition:
 **Правила и рецепты тестов — `docs/architecture/tests.md`:** где живут тесты
 (`commonTest` выполняется внутри `:shared:jvmTest`), fake вместо моков, теги
 `fast`/`slow` и под-теги, харнесс ViewModel-тестов, диагностика падений
-(`build/diagnostics/<TestClass>/coroutines.txt`), BAN list, каталог тегов
+(`shared/build/diagnostics/<TestClass>/coroutines.txt`), BAN list, каталог тегов
 `Maestro/TAGS.md`, сканер тестов `scripts/scanning.py`. Иди туда, когда пишешь
 тест или разбираешь падение.
 
@@ -151,10 +150,12 @@ CI, ожидание прогона (`gh pr checks <pr> --watch --interval 60`),
 
 ## 🤖 Coroutine test failures
 
-Любой JVM-тест при падении пишет `build/diagnostics/<TestClass>/coroutines.txt` (состояние,
-контекст, job-иерархия, стектрейлы) — читай **первым**: кадры приложения раньше kotlinx указывают,
-где корутина была, умерла она там, где `lastObservedStackTrace`, а одинаковые стектрейсы — не
-доказательство утечки. ADR `2026-10-03-kotlinx-coroutines-debug.md`, разбор — шаг 5 `debugging-investigation`.
+Любой JVM-тест при падении пишет `shared/build/diagnostics/<TestClass>/coroutines.txt`
+(состояние, контекст, job-иерархия, стектрейлы) — читай **первым**: кадры приложения раньше
+kotlinx указывают, где корутина была, умерла она там, где `lastObservedStackTrace`, а одинаковые
+стектрейсы — не доказательство утечки. Desktop-тесты пишут свой бандл в
+`desktopApp/build/diagnostics/<TestClass>/`. ADR `2026-10-03-kotlinx-coroutines-debug.md`, разбор —
+шаг 5 `debugging-investigation`.
 
 ## ❌ Что НЕ делать
 

@@ -40,8 +40,8 @@ else
     uv venv "$VENV"
 fi
 
-echo "==> installing the gate suite (editable) and junitparser"
-VIRTUAL_ENV="$VENV" uv pip install --editable "$ROOT/scripts/src" junitparser
+echo "==> installing the gate suite (editable)"
+VIRTUAL_ENV="$VENV" uv pip install --editable "$ROOT/scripts/src"
 
 for tool in actionlint shellcheck yamllint lychee ktlint rumdl; do
     ln -sfn "$(command -v "$tool")" "$VENV/bin/$tool"

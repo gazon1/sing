@@ -52,6 +52,12 @@ records 15 detekt findings at the base commit; the Stage 4 tree reports 4 distin
 | `check-test-runs.py` | 56 tests pass; `core-domain:jvmTest` floor 5, `shared:archTest` 235, `shared:jvmTest` 4306 |
 | workflow exit-status / env-context gates | green |
 
+The counts in that row are the measurements of THIS tree, recorded so Stage 5 could tell
+"the split made it worse" from "it was already like this". They are not the floor. The
+floor is the smallest count a legitimate run produces, and it lives in one place:
+`config/docs/test-runs-baseline.txt`. A reader looking for the number the gate compares
+against must read that file, not this one.
+
 ## Doc gates
 
 Not run in Stage 4, and no document content was changed by it. `build-investigation/baseline.md`
@@ -69,4 +75,3 @@ records them as red at the base commit; that state is unchanged here, not masked
 `easement check --diff origin/main` reports 1 violation (the cycle). Neither violation is caused by
 the cut: both files are unchanged from `origin/main`. `easement.yml` was not edited, and no
 artificial green is recorded.
-
