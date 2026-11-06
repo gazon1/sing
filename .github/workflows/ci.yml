@@ -228,7 +228,7 @@ jobs:
       # uv manages the Python toolchain and project dependencies from pyproject.toml.
       # python-version is still declared so setup-python pins the interpreter;
       # uv reads it from there rather than managing its own version pins.
-      # venv + sgate + junitparser + yamllint + actionlint + shellcheck, once.
+      # venv + sgate + yamllint + actionlint + shellcheck, once.
       # See .github/actions/setup-python-tools/action.yml for what each of the
       # four earlier attempts at installing these was missing.
       # ktlint comes with it: the preflight below checks for it, and a preflight
@@ -243,7 +243,7 @@ jobs:
           with-kt-lint: 'true'
 
       # The gate-tooling preflight: every tool the gate suite shells out to
-      # (sgate, junitparser, lychee, yamllint, actionlint, shellcheck, ktlint)
+      # (sgate, lychee, yamllint, actionlint, shellcheck, ktlint)
       # must be present, and the preflight names the fix when one is not.
       #
       # It ran only in check.sh, so a CI job whose tool install silently
@@ -267,7 +267,8 @@ jobs:
       # run and `sgate run-all` (step 7) never ran — every static gate in
       # scripts/ci/static-gates.sh went unexecuted and a stale committed coverage
       # matrix merged unnoticed. A preflight that checks for tools before they
-      # are installed can only ever fail.
+      # are installed can only ever fail. (The junitparser check itself is gone
+      # now that the annotation step reads the repository's own JUnit reader.)
       - name: Preflight environment check
         uses: ./.github/actions/setup-repo-tools
 
@@ -921,14 +922,15 @@ jobs:
             ${{ github.event_name != 'pull_request' && '-Dretry.failOnPassedAfterRetry=true' || '' }} \
             2>&1 | tee build.log
 
-      # junitparser arrived with the tooling step above. It was installed here
-      # separately because that install kept failing for three different reasons
-      # in a row; one installer now serves both jobs.
-
       # Emit GitHub annotations per failing/retry-passed test from JUnit XML.
       # Reads EVERY module's JUnit XML (the glob is rooted at the repository, so
       # shared, mcp-server, desktopApp and any other module are all covered) and
       # emits ::error / ::notice commands carrying the failure MESSAGE.
+      #
+      # The parsing is the repository's own reader
+      # (scripts/src/traceability/junit_xml.py) — the same one the console
+      # reporter and the sync pipeline read — so the three of them cannot
+      # disagree about which tests failed.
       #
       # The path used to be the desktopApp directory alone, so a failure in
       # mcp-server or shared reached the log as "AssertionFailedError at
