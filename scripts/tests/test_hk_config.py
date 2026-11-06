@@ -1,7 +1,7 @@
 """Tests for `hk.pkl` — the git-event checks the project declares.
 
-The file is generated from `mise.toml`, and it is the only place that says
-which checks a commit runs. Two defects this file exists for:
+`hk.pkl` is the single source of the hook configuration: it is the only place
+that says which checks a commit runs. Two defects this file exists for:
 
   - the generator expanded `$PATH` into the committed file, so the config
     named one machine's tool directories and could not work on any other;
@@ -9,6 +9,11 @@ which checks a commit runs. Two defects this file exists for:
     to documentation that said `stash = "git"` — so a commit was checked
     against the working tree again, which is the exact regression the ADR of
     2026-10-24 fixed.
+
+The config itself is maintained by hand; `scripts/generate-hk-pkl.sh` does not
+write it, it only keeps the pinned hk version in the `amends` line in lockstep
+with `mise.toml`. The contract this file guards is therefore that lockstep, not
+a byte-for-byte regeneration.
 
 The text tests are the cheap half. The second class runs the real `hk`: a Pkl
 error passes every string test and then blocks every commit, and `hk` answers
@@ -18,6 +23,7 @@ inside the binary, so the run needs no network.
 
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -96,23 +102,54 @@ class HkConfigTest(unittest.TestCase):
         self.assertNotIn('/home/', self.text)
         self.assertNotIn('export PATH=', self.text)
 
-    def test_hk_pkl_is_what_the_generator_writes(self):
-        """A hand-edited config is drift; the generator is the copy that counts."""
+    def test_the_pinned_hk_version_matches_mise(self):
+        """The config amends the hk version mise installs.
+
+        hk validates the config against the package it amends. A version that
+        drifts from `mise.toml` means the committed file was checked by a
+        different hk than the one the machine runs.
+        """
+        version = self.mise_hk_version()
+
+        self.assertIn(f'amends "package://github.com/jdx/hk/releases/download/v{version}/hk@{version}#/Config.pkl"', self.text)
+
+    def test_the_generator_keeps_the_version_in_lockstep(self):
+        """The generator pins the version, and running it twice changes nothing.
+
+        The generator edits the committed file in place, so it has to be
+        idempotent: a hook that runs it on every checkout must not leave a
+        dirty tree behind, and a second run must find the version it just
+        wrote.
+        """
         with tempfile.TemporaryDirectory(prefix='hk-pkl-') as tmp:
             root = pathlib.Path(tmp) / 'repo'
             root.mkdir()
             subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=root, check=True, env=sandbox_env(root))
             shutil.copy(MISE, root / 'mise.toml')
+            shutil.copy(HK_PKL, root / 'hk.pkl')
             (root / 'scripts').mkdir()
             shutil.copy(GENERATOR, root / 'scripts' / 'generate-hk-pkl.sh')
-            subprocess.run(
-                ['bash', str(root / 'scripts' / 'generate-hk-pkl.sh')],
-                cwd=root,
-                check=True,
-                capture_output=True,
-                env=sandbox_env(root),
-            )
-            self.assertEqual(self.text, (root / 'hk.pkl').read_text(encoding='utf-8'))
+
+            for _ in range(2):
+                subprocess.run(
+                    ['bash', str(root / 'scripts' / 'generate-hk-pkl.sh')],
+                    cwd=root,
+                    check=True,
+                    capture_output=True,
+                    env=sandbox_env(root),
+                )
+
+            generated = (root / 'hk.pkl').read_text(encoding='utf-8')
+            self.assertEqual(self.text, generated)
+            self.assertIn(f'hk@{self.mise_hk_version()}#/', generated)
+
+    @staticmethod
+    def mise_hk_version() -> str:
+        """The hk version `mise.toml` pins."""
+        match = re.search(r'^\s*hk\s*=\s*"([^"]+)"', MISE.read_text(encoding='utf-8'), re.MULTILINE)
+        if match is None:
+            raise AssertionError('mise.toml pins no hk version')
+        return match.group(1)
 
 
 @unittest.skipUnless(HK, 'hk is not installed (mise install)')
