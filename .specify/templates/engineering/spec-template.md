@@ -97,6 +97,14 @@ _<What must not break: existing public APIs, persisted schemas, serialized forma
   was removed on 2026-10-19, and reused identifiers produced a traceability matrix that
   confidently reported the wrong requirement._
 
+## Knowledge impact
+
+`concept_impact` (required before archive):
+
+- **status:** created | updated | not_required
+- **concepts:** <list of knowledge concept ids, required when status is created or updated>
+- **rationale:** <required when status is not_required; describe why no knowledge concept is affected>
+
 ## Open questions
 
 1. <question blocking a correct plan> — <who resolves it, and when>
