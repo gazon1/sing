@@ -73,10 +73,14 @@ class ArchiveViewModel(
                     // goes to the reporter and the screen shows the message. Reporting from here
                     // rather than through catchTo: this is a Flow operator, not a suspend block
                     // that yields a Result.
-                    crashReporter.report(e, ARCHIVE_OBSERVE_FAILED)
+                    // The failure crossed a channel hop, and a channel carries a *copy* of
+                    // the throwable — the original is its cause, so the copy is unwrapped
+                    // before it is reported.
+                    val reported = e.cause ?: e
+                    crashReporter.report(reported, ARCHIVE_OBSERVE_FAILED)
                     updateState {
                         ArchiveUiState.Error(
-                            e.message
+                            reported.message
                                 ?: "Error",
                         )
                     }
