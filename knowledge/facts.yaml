@@ -113,3 +113,12 @@ facts:
   - id: K-log-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/log.md
+  - id: K-observability-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/observability.md
+  - id: K-platform-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/platform.md
+  - id: K-settingscore-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/settings-core.md
