@@ -64,7 +64,10 @@ them apart.
 - `TaskFilter.All` is the wider question — everything not in the trash, the deferred
   tasks included — and it keeps `watchActive`. The pomodoro picker reads it, because
   the filter it used to read resolved to the same query: the picker's contents did not
-  change with the rename.
+  change with the rename. Narrowing the picker to `NotDeferred` was considered on
+  2026-11-06 and rejected: the picker keeps the wide set, because hiding a task from
+  it hides work the user chose to keep visible, and a session on a deferred task is
+  the user's call to make.
 - The AI tool's selection vocabulary has `active_not_deferred` and no `inbox` of its
   own; `inbox` is a read-only alias that decodes as `active_not_deferred`. A caller
   that sends `inbox` gets that selection rather than an error, and the old name drains

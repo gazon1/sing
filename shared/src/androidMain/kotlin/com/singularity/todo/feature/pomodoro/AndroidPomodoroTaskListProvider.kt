@@ -24,10 +24,15 @@ import kotlinx.coroutines.launch
  * deferred ones included`), because a picker that silently narrows is a picker that
  * hides work.
  *
- * Showing the deferred tasks here may be the wrong product answer — a focus session on
- * a "someday" task is a strange thing — but changing it is not this rename's job, and
- * [com.singularity.todo.feature.tasks.domain.model.TaskFilter.NotDeferred] is the filter
- * that would say so.
+ * The deferred tasks stay in the picker. The question was asked on 2026-11-06, when the
+ * filter had just been renamed and [com.singularity.todo.feature.tasks.domain.model.TaskFilter.NotDeferred]
+ * had appeared as the filter that would narrow this set: the answer was to keep
+ * [com.singularity.todo.feature.tasks.domain.model.TaskFilter.All]. A focus session on a
+ * "someday" task is a strange thing, but the picker is a list of everything the user can
+ * start work on, and quietly hiding a task from it hides work the user chose to keep
+ * visible. Narrowing the picker is a product decision about what a focus session is for,
+ * not a naming one, and it is not made by a rename — so the set stays wide until that
+ * decision is made on purpose.
  *
  * It is *not* the agenda's Inbox tab: that one holds the undated tasks only.
  *
