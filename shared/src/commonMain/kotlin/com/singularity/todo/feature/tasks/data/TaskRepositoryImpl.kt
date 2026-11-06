@@ -68,7 +68,6 @@ class TaskRepositoryImpl(
             currentUser = currentUser,
             dependencyValidator = dependencyValidator,
             log = log,
-            clock = clock,
         )
 
     // ── Helpers ────────────────────────────────────────────────────────────────

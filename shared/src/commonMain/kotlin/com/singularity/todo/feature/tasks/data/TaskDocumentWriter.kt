@@ -25,7 +25,6 @@ class TaskDocumentWriter(
     private val currentUser: ProfileAwareCurrentUser,
     private val dependencyValidator: DependencyValidator,
     private val log: Logger,
-    private val clock: kotlin.time.Clock,
 ) {
     suspend fun writeParts(
         task: Task,
@@ -33,7 +32,9 @@ class TaskDocumentWriter(
     ) {
         val uid = currentUser.scopedUserId.value.value
         document.tags?.let { tags -> writeTags(task.id, tags, uid) }
-        saveOutgoingLinks(task.id, task.description)
+        // The row's own time, not the clock: a document write must not re-stamp
+        // a row whose timestamp is part of the state being written.
+        saveOutgoingLinks(task.id, task.description, task.updatedAt.toEpochMilliseconds())
         document.blockedBy?.let { deps -> writeBlockingDependencies(task.id, deps, uid) }
     }
 
@@ -52,12 +53,13 @@ class TaskDocumentWriter(
     private suspend fun saveOutgoingLinks(
         id: TaskId,
         description: String?,
+        updatedAt: Long,
     ) {
         val rows =
             taskDao.setOutgoingLinksForUser(
                 id = id.value,
                 linksJson = linksJsonOf(description),
-                updatedAt = clock.now().toEpochMilliseconds(),
+                updatedAt = updatedAt,
                 userId = currentUser.scopedUserId.value.value,
             )
         require(rows > 0) { "Outgoing links not written for $id — not found or not owned by current user" }
