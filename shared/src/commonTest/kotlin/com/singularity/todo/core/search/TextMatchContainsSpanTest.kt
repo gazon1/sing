@@ -21,7 +21,7 @@ import kotlin.test.assertNull
 class TextMatchContainsSpanTest {
     @Test
     fun `a term at the beginning of the text is found`() {
-        assertEquals(0..3, TextMatch.containsSpan("milk", "mil"))
+        assertEquals(0..2, TextMatch.containsSpan("milk", "mil"))
     }
 
     @Test
