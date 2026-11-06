@@ -145,9 +145,9 @@ else
 fi
 
 if have_binary rumdl; then
-    report ok rumdl "Markdown formatting (rumdl check/fmt, rumdl-changed)"
+    report ok rumdl "Markdown formatting (rumdl check/fmt)"
 else
-    report no rumdl "Markdown formatting (rumdl check/fmt, rumdl-changed)"
+    report no rumdl "Markdown formatting (rumdl check/fmt)"
 fi
 
 if [ "$missing" -gt 0 ]; then
