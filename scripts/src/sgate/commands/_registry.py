@@ -551,27 +551,6 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-maestro-behaviour-ownership.py"),
         script_args=("--check",),
-        control=Control(
-            kind="sabotage",
-            proves="scripts/check-maestro-behaviour-ownership.py",
-            argv=(
-                "{python}",
-                "scripts/check-maestro-behaviour-ownership.py",
-                "--check",
-            ),
-            path=".agents/skills/singularity-todo-maestro-flows/diagnosing-failures.md",
-            edit=Edit(
-                kind="replace",
-                old="(`task_context_menu_sheet`)",
-                new="(`task_context_menu_sheet_probe`)",
-                count=1,
-            ),
-            why=(
-                "a renamed tag in the authoritative behaviour section leaves every "
-                "flow written from that fact addressing an id no screen answers to, "
-                "and the failure lands on a device instead of in the gate"
-            ),
-        ),
     ),
     GateSpec(
         name="ui wait budgets are consistent",
@@ -2079,6 +2058,32 @@ GATE_CONTROLS: dict[str, Control] = {
                 'and the expansion has to come before the size: applied after it, the '
                 'size caps the hit area and the target stays small however the '
                 'modifier chain is read'
+            ),
+        ),
+        # The Maestro document pair: the runbook owns the app-behaviour facts and
+        # the skill body must not restate one. A renamed tag in the runbook's
+        # behaviour section is the exact drift the gate was written for, and it
+        # leaves every flow written from that fact addressing an id no screen
+        # answers to — the failure then lands on a device instead of in the gate.
+        'maestro-behaviour-ownership': Control(
+            kind='sabotage',
+            proves='scripts/check-maestro-behaviour-ownership.py',
+            argv=(
+                '{python}',
+                'scripts/check-maestro-behaviour-ownership.py',
+                '--check',
+            ),
+            path='.agents/skills/singularity-todo-maestro-flows/diagnosing-failures.md',
+            edit=Edit(
+                kind='replace',
+                old='(`task_context_menu_sheet`)',
+                new='(`task_context_menu_sheet_probe`)',
+                count=1,
+            ),
+            why=(
+                'a renamed tag in the authoritative behaviour section leaves every '
+                'flow written from that fact addressing an id no screen answers to, '
+                'and the failure lands on a device instead of in the gate'
             ),
         ),
 }

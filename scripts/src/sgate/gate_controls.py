@@ -633,6 +633,21 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
+        name="maestro-behaviour-ownership",
+        cmd=[
+            sys.executable,
+            "scripts/check-maestro-behaviour-ownership.py",
+            "--check",
+        ],
+        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
+        # this entry exists so Part B proves the gate can actually fail.
+        why=(
+            "the runbook is the single home for what the app does at a screen, and "
+            "a tag renamed in it leaves every flow written from that fact addressing "
+            "an id no screen answers to"
+        ),
+    ),
+    ScriptGate(
         name="ui-wait-budgets",
         cmd=[sys.executable, "scripts/check-ui-wait-budgets.py"],
         # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
