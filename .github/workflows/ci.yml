@@ -1368,12 +1368,21 @@ jobs:
       # Every module that ran a Gradle test task, not only desktopApp: the
       # shared suite is the largest one, and its HTML report was the one nobody
       # could open.
+      #
+      # The `css/` and `js/` directories travel with the pages: a Gradle HTML
+      # report is a small application, and an `index.html` opened without its
+      # stylesheet is a wall of unstyled text. The per-class pages are
+      # `index.html` too — `<report>/<fully.qualified.ClassName>/index.html` —
+      # so one glob covers the summary and the detail.
       - name: Upload HTML test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: html-reports-${{ github.run_id }}
-          path: "**/build/reports/tests/**/index.html"
+          path: |
+            **/build/reports/tests/**/index.html
+            **/build/reports/tests/**/css/**
+            **/build/reports/tests/**/js/**
           if-no-files-found: warn
           retention-days: 14
 
