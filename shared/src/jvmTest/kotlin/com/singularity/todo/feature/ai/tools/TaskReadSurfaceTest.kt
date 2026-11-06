@@ -287,6 +287,20 @@ class TaskReadSurfaceTest {
         }
 
     @Test
+    fun `the answer names the selection the way the wire does`() =
+        runTest {
+            val repo = FakeTaskRepository()
+            repo.seed(task("a"))
+            val output = read(tool(repo).execute(ListTasksInput(selection = TaskSelection.ACTIVE_NOT_DEFERRED)))
+
+            assertEquals(
+                "active_not_deferred",
+                output["selection"]!!.jsonPrimitive.content,
+                "the reader is told which set it got, under the name the wire knows",
+            )
+        }
+
+    @Test
     fun `the cursor names the selection it came from`() =
         runTest {
             val repo = FakeTaskRepository()

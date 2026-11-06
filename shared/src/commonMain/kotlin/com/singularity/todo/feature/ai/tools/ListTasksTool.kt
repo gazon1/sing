@@ -12,6 +12,7 @@ import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelection
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionRequest
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionResolver
+import com.singularity.todo.feature.tasks.domain.logic.wireName
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.first
@@ -104,7 +105,7 @@ class ListTasksTool(
 
         val output =
             ListTasksOutput(
-                selection = args.selection.name.lowercase(),
+                selection = args.selection.wireName,
                 total = selected.size,
                 nextCursor = nextCursor(start.offset, page.size, selected.size, fingerprint),
                 tasks =
@@ -196,8 +197,8 @@ class ListTasksTool(
                 "The result carries the number of tasks in the selection, how they are doing " +
                 "(overdue, blocked, stagnant), and a cursor for the next page. Pass the cursor " +
                 "back to continue; do not use a cursor from a different selection. A cursor " +
-                "minted before the active_not_deferred rename names a different selection, so " +
-                "it is refused and the list starts again from the beginning."
+                "names the selection it was reading, so a cursor from a different selection " +
+                "is refused and the list starts again from the beginning."
 
         /**
          * How many tasks a page holds unless the reader asks for fewer.

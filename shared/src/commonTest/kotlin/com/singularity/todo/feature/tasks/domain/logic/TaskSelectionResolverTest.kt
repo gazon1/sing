@@ -9,6 +9,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -72,6 +73,33 @@ class TaskSelectionResolverTest {
         assertFalse(
             selects(TaskSelection.ACTIVE_NOT_DEFERRED, deferred),
             "ACTIVE_NOT_DEFERRED is ACTIVE without the deferred tasks — one direction only",
+        )
+    }
+
+    /**
+     * The cursor names the selection the way the wire does.
+     *
+     * The fingerprint is what tells a cursor apart from another selection's cursor, so
+     * it has to be keyed on the name that does not change when the code is renamed: the
+     * wire name. Keyed on the constant's name, every rename of the enum would silently
+     * invalidate the cursors already handed out — the reader would be told the cursor
+     * was for a different selection and would start the list again.
+     */
+    @Test
+    fun `the cursor fingerprint names the selection by its wire name`() {
+        val fingerprint =
+            TaskSelectionResolver.fingerprint(
+                TaskSelectionRequest(selection = TaskSelection.ACTIVE_NOT_DEFERRED),
+            )
+
+        assertEquals(
+            "active_not_deferred",
+            fingerprint.substringBefore("|"),
+            "the fingerprint names the selection by its wire name",
+        )
+        assertFalse(
+            fingerprint.contains("ACTIVE_NOT_DEFERRED"),
+            "the constant's name is the code's word, not the wire's — a rename of it must not move the fingerprint",
         )
     }
 

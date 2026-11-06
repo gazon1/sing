@@ -66,14 +66,19 @@ enum class TaskSelection {
      *
      * ## What the alias does not cover: page cursors
      *
-     * A page cursor carries [TaskSelectionResolver.fingerprint], which is built from the
-     * enum constant's name. A cursor minted before the rename therefore says `INBOX`
-     * where this build expects `ACTIVE_NOT_DEFERRED`, and the tool refuses it as
-     * belonging to a different selection rather than continuing a list it cannot vouch
-     * for. That is fail-closed on purpose — the caller restarts the page and loses
-     * nothing but the offset. "A saved prompt keeps working" is a claim about the
-     * selection, not about cursors minted before the rename: the alias buys the
-     * selection, and a cursor is not a selection.
+     * A page cursor carries [TaskSelectionResolver.fingerprint], and the fingerprint
+     * names the selection by its **wire name** — `active_not_deferred`, the name the
+     * enum encodes under — not by the name of the Kotlin constant. So renaming the
+     * constant leaves the cursors alone: the wire name did not change, so neither does
+     * the fingerprint.
+     *
+     * A cursor minted by an older build — one that keyed the fingerprint on the
+     * constant's name — does not match, and the tool refuses it as belonging to a
+     * different selection rather than continuing a list it cannot vouch for. That is
+     * fail-closed on purpose — the caller restarts the page and loses nothing but the
+     * offset. "A saved prompt keeps working" is a claim about the selection, not about
+     * cursors minted by an older build: the alias buys the selection, and a cursor is
+     * not a selection.
      */
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     @SerialName("active_not_deferred")
@@ -120,6 +125,18 @@ enum class TaskSelection {
     @SerialName("all")
     ALL,
 }
+
+/**
+ * The name this selection travels under.
+ *
+ * The wire name, not the name of the Kotlin constant. The constant is the code's word
+ * for the thing and is free to change; the wire name is a contract — the models read
+ * it, the saved prompts hold it, the cursors are keyed on it. So the things that must
+ * survive a rename are keyed on this name and not on the constant.
+ */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+val TaskSelection.wireName: String
+    get() = TaskSelection.serializer().descriptor.getElementName(ordinal)
 
 /**
  * A selection, narrowed.
@@ -331,10 +348,15 @@ object TaskSelectionResolver {
      * The cursor says where in a list the reader was. That only means something if the
      * list is the same list, so the cursor carries what it was reading: a cursor from
      * one selection must not silently be used for another.
+     *
+     * The selection is named by its wire name, not by the name of the Kotlin constant.
+     * The constant may be renamed without the wire changing, and the cursors already
+     * handed out have to survive that rename — they are keyed on the name the wire
+     * knows, which is the name that did not change.
      */
     fun fingerprint(request: TaskSelectionRequest): String =
         listOf(
-            request.selection.name,
+            request.selection.wireName,
             request.projectId.orEmpty(),
             request.tagIds.sorted().joinToString(","),
             request.priorities.sorted().joinToString(","),
