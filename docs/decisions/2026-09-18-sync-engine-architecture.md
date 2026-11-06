@@ -8,6 +8,7 @@ tags: [sync, architecture, core, hlc, conflict-resolution]
 ## Context
 
 The app needs offline-first data synchronization with a Supabase backend. The main challenges are:
+
 1. **Conflict resolution** — concurrent edits to the same entity from multiple devices
 2. **Ordering** — causal ordering of events across distributed nodes
 3. **Offline outbox** — mutations must survive app crashes before being sent to the server
@@ -18,6 +19,7 @@ The app needs offline-first data synchronization with a Supabase backend. The ma
 ### HLC (Hybrid Logical Clock)
 
 Every entity mutation is stamped with a `Hlc` timestamp (see `HlcFactory` and `Hlc`). HLC provides:
+
 - **Causal ordering**: if event A happened-before event B, then `hlc(A) < hlc(B)`
 - **Liveness**: `hlc.now()` always increases even without wall-clock synchronization
 - **Portability**: pure Kotlin implementation, no native deps
@@ -27,6 +29,7 @@ Every entity mutation is stamped with a `Hlc` timestamp (see `HlcFactory` and `H
 ### SyncEngine (push side)
 
 `SyncEngine` is the orchestrator:
+
 1. Every mutation calls `syncEngine.enqueue(entity)` — writes a `DeltaPatch` to the local outbox (Room `SyncOutboxDao`)
 2. A coroutine job polls `push()` every **30 seconds** when signed in
 3. `push()` batches all pending patches and sends `BatchPushRequest` to Supabase
@@ -43,6 +46,7 @@ suspend fun updateTask(task: Task): Result<Unit> {
 ### ConflictResolver (server-side, documented here for clarity)
 
 The server uses `ConflictResolver.checksum(stateJson)` as a fast-reject heuristic:
+
 1. Client sends `shadowChecksum` = checksum of the entity state it last saw
 2. Server compares `shadowChecksum` against the current server state
 3. If they match → no conflict, apply the patch

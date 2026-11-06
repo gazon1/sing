@@ -62,7 +62,8 @@ daemon's classloader cache is Gradle-internal, the `detektBaseline` plugin-class
 needs a bisect, and #138 needs the order settled (#146) before its other two hypotheses are even
 worth testing. Filing the reproductions is worth more than filing a guess.
 
-#145 is the exception and is filed as a *boundary* rather than a fix: the inventory exists, the
+# 145 is the exception and is filed as a *boundary* rather than a fix: the inventory exists, the
+
 enforcement decision belongs to #135, and stating which half landed is more useful than a second
 gate that answers the same question.
 

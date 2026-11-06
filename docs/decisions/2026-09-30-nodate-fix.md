@@ -47,6 +47,7 @@ to race past it.
 Fix both the production class and the fake to seed `scopedUserId` synchronously:
 
 **Production** (`ProfileAwareCurrentUser`):
+
 ```kotlin
 // Before: _scopedUserId = MutableStateFlow(UserId.anonymous)  ← anonymous until collect
 // After:
@@ -59,6 +60,7 @@ private val _scopedUserId = MutableStateFlow(
 ```
 
 **Fake** (`FakeRepositories.kt`):
+
 ```kotlin
 // Before: FakeAuthRepository(initialSession = Session.Anonymous(UserId.anonymous))
 // After:

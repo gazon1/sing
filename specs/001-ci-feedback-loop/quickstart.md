@@ -14,6 +14,7 @@ Runnable validation scenarios that prove each FR works end-to-end. Each scenario
 **Prerequisite**: All gates in `static-gates.sh` use `sgate <command>` form.
 
 **Validate**:
+
 ```bash
 # List all gates via sgate
 PYTHONPATH=scripts/src python3 -m sgate gates --json | python3 -c "
@@ -37,17 +38,20 @@ for g in python_gates:
 **FR**: FR-001 (JUnit XML → GitHub annotation per failing test)
 
 **Prerequisites**:
+
 - A local Gradle test run that produces JUnit XML
 - GitHub CLI (`gh`) authenticated
 - A GitHub repository with CI set up
 
 **Setup**:
+
 ```bash
 # Run a single failing test to produce JUnit XML
 ./gradlew :shared:jvmTest --tests "com.singularity.SomeTest.someFailingMethod" 2>&1 | tail -5
 ```
 
 **Validate**:
+
 ```bash
 # Parse the JUnit XML and check that script produces annotation lines
 python3 scripts/junit-annotations.py \
@@ -65,9 +69,11 @@ python3 scripts/junit-annotations.py \
 **FR**: FR-002 (HTML test reports as CI artifacts)
 
 **Prerequisites**:
+
 - CI run completed with test reports generated
 
 **Validate**:
+
 ```bash
 # Check that HTML reports exist in the expected Gradle output locations
 find shared/build/reports/tests/test -name "index.html" | head -3
@@ -88,9 +94,11 @@ gh run view <run-id> --json artifacts --jq '.artifacts[] | select(.name == "html
 **FR**: FR-003 (path filters on PR trigger)
 
 **Prerequisites**:
+
 - A GitHub PR open on the repository
 
 **Validate**:
+
 ```bash
 # Open a PR that only touches scripts/**
 gh pr create --title "chore: update ci script" --body "." \
@@ -114,10 +122,12 @@ gh run list --workflow ci.yml --limit 5 --json name,status,conclusion
 **FR**: FR-004 (preflight composite action, path-gated)
 
 **Prerequisites**:
+
 - `.github/actions/setup-repo-tools/action.yml` exists
 - `singularity-adr` not on PATH (simulate by renaming it)
 
 **Validate locally**:
+
 ```bash
 # Simulate missing tool
 export PATH="${PATH/$(which singularity-adr)/}"
@@ -130,6 +140,7 @@ bash .github/actions/setup-repo-tools/action.yml
 ```
 
 **Validate in CI**:
+
 ```bash
 # Open a PR touching only scripts/**
 # CI preflight step should run and pass (or fail if tools missing)
@@ -146,10 +157,12 @@ gh run view <run-id> --json steps --jq '.steps[] | select(.name == "Preflight en
 **FR**: FR-005 (retry + retry-pass annotation)
 
 **Prerequisites**:
+
 - Desktop test suite runs with retry configured
 - A deliberately flaky test or a known flaky test (e.g., `TagsRenameUiTest`)
 
 **Validate**:
+
 ```bash
 # Run desktop tests with retry
 ./gradlew :desktopApp:test -Dretry.maxAttempts=2 2>&1 | grep -i "retry\|passed_on_retry\|TagsRename"
@@ -173,9 +186,11 @@ gh run view <run-id> --json steps --jq '.steps[] | select(.name | contains("retr
 **FR**: All FRs — integrated end-to-end
 
 **Prerequisites**:
+
 - All changes merged to `main`
 
 **Validate**:
+
 ```bash
 # Trigger nightly CI
 gh workflow run ci.yml --ref main

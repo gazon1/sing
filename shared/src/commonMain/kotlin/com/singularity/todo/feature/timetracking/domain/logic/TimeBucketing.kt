@@ -8,7 +8,6 @@ import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
 import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.minus
@@ -66,14 +65,13 @@ fun mergeIntervals(entries: List<TimeEntry>): List<TimeInterval> {
     if (workEntries.isEmpty()) return emptyList()
 
     // Build closed intervals from entries with endedAt
-    val intervals =
-        workEntries
-            .map { entry ->
-                TimeInterval(
-                    startMs = entry.startedAt.toEpochMilliseconds(),
-                    endMs = entry.endedAt!!.toEpochMilliseconds(),
-                )
-            }.sortedBy { it.startMs }
+    val intervals = workEntries.map { entry ->
+            TimeInterval(
+                startMs = entry.startedAt.toEpochMilliseconds(),
+                endMs = entry.endedAt!!.toEpochMilliseconds(),
+            )
+        }
+        .sortedBy { it.startMs }
 
     val result = mutableListOf<TimeInterval>()
     var current = intervals.first()
@@ -106,8 +104,7 @@ fun mergeIntervalsWithOpen(
 
     val allIntervals = mutableListOf<TimeInterval>()
 
-    entries
-        .filter { it.kind == TimeEntryKind.Work && it.endedAt != null }
+    entries.filter { it.kind == TimeEntryKind.Work && it.endedAt != null }
         .forEach { entry ->
             allIntervals.add(
                 TimeInterval(
@@ -120,20 +117,19 @@ fun mergeIntervalsWithOpen(
     open?.let { allIntervals.add(TimeInterval(it.startMs, nowMs)) }
 
     // Synthesize pseudo-entries for merge algorithm
-    val pseudoEntries =
-        allIntervals.map { interval ->
-            TimeEntry(
-                id = TimeEntryId("synth-${interval.startMs}"),
-                taskId = TaskId(""),
-                userId = UserId(""),
-                startedAt = Instant.fromEpochMilliseconds(interval.startMs),
-                endedAt = Instant.fromEpochMilliseconds(interval.endMs),
-                kind = TimeEntryKind.Work,
-                source = TimeEntrySource.Timer,
-                createdAt = Instant.fromEpochMilliseconds(0),
-                updatedAt = Instant.fromEpochMilliseconds(0),
-            )
-        }
+    val pseudoEntries = allIntervals.map { interval ->
+        TimeEntry(
+            id = TimeEntryId("synth-${interval.startMs}"),
+            taskId = TaskId(""),
+            userId = UserId(""),
+            startedAt = kotlin.time.Instant.fromEpochMilliseconds(interval.startMs),
+            endedAt = kotlin.time.Instant.fromEpochMilliseconds(interval.endMs),
+            kind = TimeEntryKind.Work,
+            source = TimeEntrySource.Timer,
+            createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+        )
+    }
 
     return mergeIntervals(pseudoEntries)
 }
@@ -158,17 +154,12 @@ fun splitAtMidnight(
     var cursor = interval.startMs
 
     while (cursor < interval.endMs) {
-        val cursorDate =
-            Instant
-                .fromEpochMilliseconds(cursor)
-                .toLocalDateTime(zone)
-                .date
+        val cursorDate = kotlin.time.Instant.fromEpochMilliseconds(cursor)
+            .toLocalDateTime(zone).date
 
-        val midnightTomorrow =
-            cursorDate
-                .plus(1, DateTimeUnit.DAY)
-                .atStartOfDayIn(zone)
-                .toEpochMilliseconds()
+        val midnightTomorrow = cursorDate.plus(1, DateTimeUnit.DAY)
+            .atStartOfDayIn(zone)
+            .toEpochMilliseconds()
 
         val endOfSlice = minOf(midnightTomorrow, interval.endMs)
         result.add(TimeInterval(cursor, endOfSlice))
@@ -187,8 +178,8 @@ fun splitAtMidnight(
  */
 data class TaskProgress(val totalWorkMs: Long, val estimateMinutes: Int?) {
     /** Progress as a fraction in 0.0..1.0, or null if no estimate. */
-    val fraction: Double? get() =
-        estimateMinutes?.let { est ->
+    val fraction: Double?
+        get() = estimateMinutes?.let { est ->
             if (est <= 0) {
                 null
             } else {
@@ -237,13 +228,9 @@ fun groupByDay(
     entries: List<TimeEntry>,
     zone: TimeZone,
 ): Map<String, List<TimeEntry>> =
-    entries
-        .filter { it.kind == TimeEntryKind.Work && it.endedAt != null }
+    entries.filter { it.kind == TimeEntryKind.Work && it.endedAt != null }
         .groupBy { entry ->
-            entry.startedAt
-                .toLocalDateTime(zone)
-                .date
-                .toString()
+            entry.startedAt.toLocalDateTime(zone).date.toString()
         }
 
 /**
@@ -274,31 +261,22 @@ fun bucketByDay(
     val dayMap = mutableMapOf<String, Long>()
     for (i in 0 until rangeDays) {
         val dayMs = nowMs - (i * TimeConstants.MILLIS_PER_DAY)
-        val date =
-            Instant
-                .fromEpochMilliseconds(dayMs)
-                .toLocalDateTime(zone)
-                .date
-                .toString()
+        val date = kotlin.time.Instant.fromEpochMilliseconds(dayMs)
+            .toLocalDateTime(zone).date.toString()
         dayMap[date] = 0L
     }
 
     // Sum durations per day from intervals
     intervals.forEach { interval ->
         // interval is guaranteed not to cross midnight (splitAtMidnight guarantees this)
-        val date =
-            Instant
-                .fromEpochMilliseconds(interval.startMs)
-                .toLocalDateTime(zone)
-                .date
-                .toString()
+        val date = kotlin.time.Instant.fromEpochMilliseconds(interval.startMs)
+            .toLocalDateTime(zone).date.toString()
         if (date in dayMap) {
             dayMap[date] = dayMap[date]!! + interval.durationMs
         }
     }
 
-    return dayMap.entries
-        .sortedBy { it.key }
+    return dayMap.entries.sortedBy { it.key }
         .map { (date, ms) -> DayInsightsBucket(date, ms) }
 }
 
@@ -313,8 +291,7 @@ fun groupByProject(
     entries: List<TimeEntry>,
     taskProjectMap: Map<String, String?>,
 ): Map<String?, List<TimeEntry>> =
-    entries
-        .filter { it.kind == TimeEntryKind.Work && it.endedAt != null }
+    entries.filter { it.kind == TimeEntryKind.Work && it.endedAt != null }
         .groupBy { entry -> taskProjectMap[entry.taskId.value] }
 
 /**

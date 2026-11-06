@@ -104,9 +104,11 @@ clock rather than pure data — the property every preset is supposed to have.
   date-based presets make. A user who configures work hours gets a day plan
   on the Today tab instead of the two date buckets — and the plan is
   time-based rather than date-based, so it is not part of the partition.
- 
+
 ## Links
 
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/logic/AgendaPresets.kt`
 - `shared/src/commonTest/kotlin/com/singularity/todo/feature/agenda/domain/AgendaTabDisjointnessTest.kt`
 - `.agents/skills/singularity-todo-agenda-section-design/SKILL.md`
+- `docs/decisions/2026-11-05-the-wide-view-reaches-next-month.md` — the wide
+  view's own reach, which reaches further than the bar's

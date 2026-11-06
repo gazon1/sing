@@ -76,6 +76,7 @@ The owner chose removal instead: the gate and its script are not wanted. Removal
 **Rationale**: Verified on this repository: `git log -- docs/decisions/` returns 365 commits in one spawn; `git cat-file --batch` resolves an arbitrary number of `<rev>:<path>` references in one spawn. This is the standard batch-read idiom and needs no new dependency.
 
 **Alternatives considered**:
+
 - `git log -p -- docs/decisions/` and parse patches — 1 spawn, but patch parsing must reconstruct full file state from partial diffs to read frontmatter, and a frontmatter block that never changed after an unrelated edit would need the earlier blob anyway. More parsing, same order of cost.
 - `git cat-file --batch-command` with `--filter` — faster on large corpora, but its filtering semantics differ for blobs at historical revisions and it is harder to reason about when a frontmatter field must be read exactly as it was. Rejected as premature; the simple form meets SC-001 with margin.
 - Retain per-record spawns and add a cache — rejects the class of defect rather than the instance; the cache adds a staleness failure mode and does not fix first-run cost.
@@ -89,6 +90,7 @@ The owner chose removal instead: the gate and its script are not wanted. Removal
 **Rationale**: Satisfies FR-004 without reintroducing per-path spawns. Rename detection from `--name-status` in the same pass is sufficient because a decision rename is a contiguous move, not a reorganisation.
 
 **Alternatives considered**:
+
 - Keep `--follow` for paths whose rename count exceeds a threshold — a hybrid that is correct but has two code paths to keep consistent, and the threshold is unmeasurable in advance. Rejected.
 
 ### Decision 3 — Aggregate probe budget
@@ -98,6 +100,7 @@ The owner chose removal instead: the gate and its script are not wanted. Removal
 **Rationale**: FR-006 requires that a gate the budget prevented from running is named. Reusing the existing `slow` verdict would conflate "ran and was slow" with "never ran" — exactly the verdict-merging that this gate's own history says produced a false red CI job.
 
 **Alternatives considered**:
+
 - Lower `PROBE_TIMEOUT` from 300 s — reduces the worst case linearly but does not bound it, and 300 s is load-bearing for genuinely slow healthy gates on cold CI runners. Insufficient alone; retained as a secondary lever.
 - Probe in parallel — reduces wall-clock but multiplies resident memory, which is the failure recorded in spec 012 SC-004. **Deliberately deferred**, not rejected: with the two ADR gates fixed, the serial sum is ~31 s and parallelism is not needed to meet SC-003. Revisit only if measurement after Part 1 shows otherwise. This is the plan's most consequential scoping decision and is stated as such so it can be contested.
 
@@ -108,6 +111,7 @@ The owner chose removal instead: the gate and its script are not wanted. Removal
 **Rationale**: `capture_output=True` currently holds a gate's entire output in memory. Measured: `gate scripts' own unit tests` runs 210 s and is verbose. It is skipped today, but the skip is a runtime judgement, not a guarantee — the bound must hold if that judgement changes.
 
 **Alternatives considered**:
+
 - Discard output and re-run failures — doubles the cost of exactly the case that matters most. Rejected.
 - Redirect to a temp file — equivalent memory profile to a cap for the common case, more filesystem churn. Rejected in favour of the cap, which is simpler to reason about and to test.
 

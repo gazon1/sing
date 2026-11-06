@@ -20,7 +20,7 @@ import java.time.Instant
  * It does not show execution history, does not explain TestScheduler semantics
  * (advanceUntilIdle vs runCurrent), and does not prove a coroutine is leaked.
  */
-object CoroutineDiagnostics {
+object DesktopCoroutineDiagnostics {
     fun dump(
         testClass: String?,
         attempt: Int,

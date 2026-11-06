@@ -8,6 +8,7 @@ status: accepted
 ## Context
 
 During a Gradle health audit we found 42 issues in `libs.versions.toml` and related build scripts:
+
 - Inconsistent naming: `kotlinx-coroutinesSwing` (camelCase), `compose-uiTooling` (mixed), `kotlin-testJunit` (mixed)
 - Dead entries: `supabaseVersion` (orphan duplicate), `koin-ksp-compiler` (Beta, INCOMPATIBLE with koin 4.x), `roborazzi` (never used), `compose-runtime-liveedit` (never used), and 6 more
 - Hardcoded version literals bypass the catalog: `androidx.navigation3:navigation3-runtime-android:1.1.1` in `shared/build.gradle.kts`, `io.modelcontextprotocol:kotlin-sdk:0.15.0` in `mcp-server/build.gradle.kts`

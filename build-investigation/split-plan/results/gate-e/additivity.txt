@@ -1,0 +1,8 @@
+size=100
+module_a_s=2.759
+module_b_s=2.630
+measured_wall_ms=6008
+serial_sum_s=5.389
+makespan_2w_s=2.759
+body_only_rebuilds_dependent=no
+signature_rebuilds_dependent=yes

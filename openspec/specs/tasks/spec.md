@@ -1,6 +1,7 @@
 # tasks Specification
 
 ## Purpose
+
 Manage the task lifecycle: create, edit, complete, delete, archive, and track
 time against individual tasks. The agenda organises tasks by date bucket; the
 editor exposes attributes (priority, due date, start date, project, tags,
@@ -135,6 +136,13 @@ scenarios:
   status: confirmed
   targets:
   - android
+- id: TASK-18
+  title: FAB from Upcoming tab does NOT pre-fill a due date
+  area: feature.tasks
+  priority: P1
+  status: confirmed
+  targets:
+  - android
 - id: TASK-CHECK-01
   title: Add a checklist item to a task
   area: feature.tasks
@@ -185,18 +193,22 @@ The system SHALL create a task from the FAB and SHALL place the new task in the
 Inbox when no due date was given.
 
 #### Scenario: Create a task from the FAB and see it in the Inbox
+
 - **WHEN** the user creates a task from the FAB without choosing a due date
 - **THEN** the task appears in the Inbox
 
 #### Scenario: Create a task with all attribute fields filled
+
 - **WHEN** the user fills every attribute field and saves
 - **THEN** the task is created with those attributes
 
 #### Scenario: Create a daily recurring task
+
 - **WHEN** the user creates a task with a daily recurrence
 - **THEN** the task repeats daily
 
 #### Scenario: Cyrillic task title is created, saved, and displayed correctly
+
 - **WHEN** the user enters a non-Latin title
 - **THEN** it is stored and rendered unchanged
 
@@ -206,10 +218,12 @@ The system SHALL open a task's detail screen when its row is tapped, and SHALL
 reject an empty title without modifying the existing one.
 
 #### Scenario: Tapping a task row opens its detail screen with the correct title
+
 - **WHEN** the user taps a task row
 - **THEN** the detail screen opens showing that task's title
 
 #### Scenario: Empty title is rejected; original title remains intact
+
 - **WHEN** the user clears the title and tries to save
 - **THEN** the save is rejected and the title is unchanged
 
@@ -220,18 +234,22 @@ detail screen's overflow menu, SHALL offer Undo after a delete, and SHALL archiv
 from the long-press context menu.
 
 #### Scenario: Tapping the checkbox toggles the task's completion state
+
 - **WHEN** the user taps a task's checkbox
 - **THEN** the task's completion state toggles
 
 #### Scenario: Delete a task from its detail screen overflow menu
+
 - **WHEN** the user deletes a task from its overflow menu
 - **THEN** the task is removed
 
 #### Scenario: Deleting a task shows an Undo snackbar and Undo restores it
+
 - **WHEN** the user deletes a task
 - **THEN** Undo is offered and restores the task when used
 
 #### Scenario: Long-press opens context menu; archive removes the task
+
 - **WHEN** the user long-presses a task and archives it
 - **THEN** the task is archived
 
@@ -276,52 +294,69 @@ commits its choice the moment it is made SHALL apply it that way, and SHALL NOT 
 ask for a confirmation.
 
 #### Scenario: Set task priority from the editor attribute row
+
 - **WHEN** the user picks a priority
 - **THEN** the task carries it
 
 #### Scenario: Set task due date from the editor attribute row
+
 - **WHEN** the user picks a due date
 - **THEN** the task carries it
 
 #### Scenario: Cancelling the date picker leaves the task undated
+
 - **WHEN** the user cancels the date picker
 - **THEN** the task has no due date
 
 #### Scenario: FAB from Today tab pre-fills the due date to Today
+
 - **WHEN** the user creates a task from the Today tab
 - **THEN** the due date defaults to today
 
 #### Scenario: FAB from Inbox tab does NOT pre-fill a due date
+
 - **WHEN** the user creates a task from the Inbox tab
 - **THEN** no due date is set
 
+#### Scenario: FAB from Upcoming tab does NOT pre-fill a due date
+
+- **WHEN** the user creates a task from the Upcoming tab
+- **THEN** no due date is set
+
 #### Scenario: An attribute row in the editor that creates a task
+
 - **WHEN** the user taps an attribute row
 - **THEN** the picker it names opens
 
 #### Scenario: A picker in the editor that opens an existing task
+
 - **WHEN** the user opens a picker that needs the task being edited
 - **THEN** the picker is given that task, not an empty one
 
 #### Scenario: A screen that opens a picker from an editor's row
+
 - **WHEN** a screen opens a picker from an editor's row
 - **THEN** it hands the editor the state the picker is opened through, and the picker
   opens
 
 #### Scenario: A checklist in the editor that creates a task
+
 - **WHEN** the user opens the checklist of a task being created
 - **THEN** the items of the draft are there, and an item the user adds shows up in the
   row that opened them
 
 #### Scenario: A row that says how many items there are
+
 - **WHEN** the editor draws a checklist or attachments row
 - **THEN** the row says how many items there are
 
 #### Scenario: A recurrence the user chose is committed
+
 - **WHEN** the user chooses a daily recurrence and confirms the sheet
 - **THEN** the task carries it, and the editor's recurrence row reports that it repeats
 
 #### Scenario: A sheet that holds an uncommitted choice
+
 - **WHEN** the user opens the recurrence sheet
 - **THEN** the sheet shows one header and one control that commits the chosen rule
 
@@ -331,10 +366,12 @@ The system SHALL place each task in the agenda bucket its due date belongs to,
 and SHALL return to the originating tab after a task is saved.
 
 #### Scenario: Tasks appear in the correct agenda date-bucket sections
+
 - **WHEN** tasks with different due dates are shown
 - **THEN** each appears under its own bucket
 
 #### Scenario: Creating from a tab returns to that tab after save
+
 - **WHEN** the user saves a task created from a tab
 - **THEN** that tab is shown again
 
@@ -344,10 +381,12 @@ The system SHALL support checklist items and subtasks on a task, each with its
 own lifecycle.
 
 #### Scenario: Add a checklist item to a task
+
 - **WHEN** the user adds a checklist item
 - **THEN** it appears on the task
 
 #### Scenario: Subtask lifecycle — add, toggle, delete
+
 - **WHEN** the user adds, toggles and deletes a subtask
 - **THEN** each operation is reflected on the task
 
@@ -357,10 +396,12 @@ The system SHALL let the user start a time-tracking session from a task and stop
 it again.
 
 #### Scenario: Start and stop a time-tracking session on a task
+
 - **WHEN** the user starts and then stops a session
 - **THEN** the elapsed time is recorded against the task
 
 #### Scenario: Start a timer on a task from its detail view
+
 - **WHEN** the user starts a timer from the task's detail view
 - **THEN** the timer runs for that task
 
@@ -424,7 +465,7 @@ name would move every weekend worker to the wrong week.
 #### Scenario: A choice made before the working week was a set
 
 - **Given** a user who turned the "Saturday" switch on before the section held
-      a set
+  a set
 - **When** their working days are read
 - **Then** Saturday is one of their working days
 - **And** Sunday is not
@@ -583,8 +624,8 @@ sentence, enforced.
 
 - **Given** a task that follows up on another task
 - **When** the app reports on the task in the badge, in a saved view that selects
-      blocked tasks, in the health summary, in the filter that hides blocked
-      tasks, and in the list of dependencies offered for editing
+  blocked tasks, in the health summary, in the filter that hides blocked
+  tasks, and in the list of dependencies offered for editing
 - **Then** none of them reports the task as blocked
 
 ### Requirement: Closing a task with an unfinished prerequisite asks first
@@ -640,7 +681,7 @@ the graph is out of date.
 
 - **Given** a task with a prerequisite that is still open
 - **When** the user closes it from the agenda, from the agenda's context menu,
-      from the task's own screen, or from the task's list of subtasks
+  from the task's own screen, or from the task's list of subtasks
 - **Then** the task stays open
 - **And** the user is asked, and the open prerequisite is named
 
@@ -1450,6 +1491,7 @@ about the members at all.
 - **THEN** the task that carries the tag still carries it
 
 ### Requirement: A refused edge is said out loud
+
 When the system refuses an edge of a document because it would close a cycle,
 it SHALL record the refusal, and the rest of the document SHALL still be
 applied.

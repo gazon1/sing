@@ -27,8 +27,8 @@ its helper tools — and the gates are described here, once.
 | waiver references resolve | blocking | `scripts/check-waiver-references.py` | check-waiver-references.py — a waiver whose premise is prose is a waiver that... | — | — |
 | test-task external inputs declared | blocking | `scripts/check-test-task-inputs.py` | check-test-task-inputs.py — a test task that reads a tree must declare it as ... | — | — |
 | declared dependencies are used | blocking | `scripts/check-dependency-usage.py` | Dependency-usage gate: a declared dependency that nothing imports (#205). | — | — |
-| room schema integrity | blocking | `scripts/check-room-schema-integrity.py` | check-room-schema-integrity.py — prove the declared schema, the exported
-sche... | — | — |
+| room schema integrity | blocking | `scripts/check-room-schema-integrity.py` | check-room-schema-integrity.py — prove the declared schema, the exported |  |  |
+| sche... | — | — |  |  |  |
 | tag entity constructions include nameNormalized | blocking | `scripts/ci/check-tag-entity-normalized.py` | Fail if a TagEntity(...) construction omits nameNormalized. | — | — |
 | migration index names follow convention | blocking | `scripts/ci/check-migration-naming.py` | Cheap migration-naming checks: partial indexes must be named index_<table>_<c... | — | — |
 | gates are alive | blocking | `scripts/check-gate-liveness.py` | check-gate-liveness.py — a gate is green because it passed, or because it died? | — | — |
@@ -58,6 +58,7 @@ sche... | — | — |
 | detekt baseline ratchet | blocking | `scripts/check-baseline-ratchet.py` | check-baseline-ratchet.py — a detekt baseline may shrink, never grow. | — | — |
 | lint rules are declared decisions | blocking | `scripts/check-rule-intent.py` | check-rule-intent.py — a rule that reports findings must be a rule you chose. | — | — |
 | file-level suppressions explain themselves | blocking | `scripts/check-suppression-intent.py` | check-suppression-intent.py — a file-level suppression must say what it is hi... | — | — |
+| quality page states the enforced thresholds | blocking | `scripts/check-quality-thresholds.py` | check-quality-thresholds.py — the quality page must state the thresholds the ... | — | — |
 | scenario specs valid | blocking | `traceability` | scenario specs valid | — | — |
 | coverage matrix current | blocking | `traceability` | coverage matrix current | — | — |
 | coverage holes did not grow | blocking | `scripts/check-traceability-ratchet.py` | check-traceability-ratchet.py — scenario coverage holes may shrink, never grow. | — | — |
@@ -68,6 +69,7 @@ sche... | — | — |
 | maestro selectors valid | blocking | `scripts/ci/validate-maestro-selectors.py` | Validates Maestro flow id: selectors against the TestTags.kt catalogue. | — | — |
 | maestro keyboard commands have something to hide | blocking | `scripts/check-maestro-keyboard-commands.py` | check-maestro-keyboard-commands.py — a `hideKeyboard` must have something to ... | — | — |
 | maestro flows do not name a pixel | blocking | `scripts/check-maestro-screen-geometry.py` | check-maestro-screen-geometry.py — a flow must not name a pixel. | — | — |
+| maestro seeded titles are stable | blocking | `scripts/check-maestro-seeded-titles.py` | check-maestro-seeded-titles.py — a seeded fixture title carries no template v... | — | — |
 | a pull request carries the review of an agent | blocking | `scripts/ci/check-agent-review.py` | check-agent-review.py — a pull request carries the review of a separate agent. | — | — |
 | maestro results are within the floor | blocking | `scripts/ci/check-maestro-results.py` | check-maestro-results.py — measure a Maestro run against a committed floor. | — | — |
 | profile reset inventory is true | blocking | `scripts/ci/check-profile-reset-inventory.py` | check-profile-reset-inventory.py — keep the profile reset's table list true. | — | — |

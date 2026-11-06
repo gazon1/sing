@@ -246,9 +246,12 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
     ":mcp-server:jar": GradleTaskParity(
         scope="ci",
         why=(
-            "McpServerEndToEndTest resolves build/libs/mcp-server.jar and skips "
-            "itself when the jar is absent. Building it is a CI concern; the "
-            "local loop validates compilation, not the packaged artifact."
+            "The end-to-end test spawns build/libs/mcp-server.jar, and the test "
+            "task now builds that JAR before the suite runs, so the artefact is "
+            "never missing and the test never skips itself. CI names it anyway: "
+            "the invocation stays self-contained and the artefact it measures is "
+            "visible in the log. The local loop does not run the module's tests "
+            "(see `:mcp-server:test`), so it never needs the packaged artifact."
         ),
     ),
     ":pro:detekt": GradleTaskParity(
@@ -683,6 +686,12 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-suppression-intent.py"),
     ),
+    GateSpec(
+        name="quality page states the enforced thresholds",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-quality-thresholds.py"),
+    ),
     # ── Scenario traceability ──────────────────────────────────────────────────────
     # These two used to be `cmd_type=CmdType.PATH, path_cmd=("traceability", …)`.
     # There is no `traceability` executable: `[project.scripts]` in
@@ -761,6 +770,16 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-maestro-screen-geometry.py"),
     ),
+    # The seed replaces the row its title names, so a title holding `${RUN_ID}`
+    # names a row that has never existed: the seed creates a new one instead of
+    # updating the old, and every run leaves its own behind. The rule lived in
+    # the decision record and in the flow configuration; nothing read the flows.
+    GateSpec(
+        name="maestro seeded titles are stable",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-maestro-seeded-titles.py"),
+    ),
     GateSpec(
         name="a pull request carries the review of an agent",
         mode=GateMode.BLOCKING,
@@ -832,6 +851,13 @@ _REGISTERED: tuple[GateSpec, ...] = (
         # stop anything: the references it names keep pointing at the wrong
         # place until a reader follows one and finds nothing.
         script_args=("--strict",),
+    ),
+    GateSpec(
+        name="documentation concepts are valid",
+        mode=GateMode.ADVISORY,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/documentation/check.py"),
+        script_args=("verify", "--quiet"),
     ),
     # doc links: the lychee gate. A shell gate, like `detekt registrations`
     # above — lychee is a Rust binary, not a Python script, and the wrapper
@@ -1619,6 +1645,12 @@ GATE_CONTROLS: dict[str, Control] = {
     'openspec-stale': Control(kind='sabotage', proves='scripts/check-openspec-stale.py', argv=('{python}', 'scripts/check-openspec-stale.py'), path='openspec/changes/detekt-rule-has-positive-control', edit=Edit(kind='age_dir', days=30), why='an active change nobody has returned to in three weeks is a decision deferred past the point of usefulness'),
     'rule-intent': Control(kind='sabotage', proves='scripts/check-rule-intent.py', argv=('{python}', 'scripts/check-rule-intent.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>TotallyMadeUpRule:Probe.kt:1</ID>\n  </CurrentIssues>', count=1), why='a rule producing findings that nobody declared means it is running on detekt\'s defaults, unchosen. The edit is the one the twin in check-gate-wiring.py applies: the two copies of a control are the same control until one of them is edited, and the copy that rotted here named a detekt.yml pattern that has not been in the file since the rules were reorganised — so the registry described a sabotage that would have raised "matched nothing" if it had ever been the copy that ran'),
     'suppression-intent': Control(kind='sabotage', proves='scripts/check-suppression-intent.py', argv=('{python}', 'scripts/check-suppression-intent.py'), path='shared/src/jvmMain/kotlin/com/singularity/todo/feature/pomodoro/JvmPomodoroTimer.kt', edit=Edit(kind='strip_suppression_reason'), why='a file-level suppression with no recorded reason switches a rule off for every future call in that file'),
+    # quality-thresholds: the sabotage puts back the value the page actually
+    # carried — `TooManyFunctions` claiming a file default of 10 — so the control
+    # reproduces the drift the gate exists to catch rather than an invented one.
+    # It edits the DEFAULT column, and the unit tests prove the Here column
+    # separately: a single control can only prove one of the two comparisons.
+    'quality-thresholds': Control(kind='sabotage', proves='scripts/check-quality-thresholds.py', argv=('{python}', 'scripts/check-quality-thresholds.py'), path='docs/architecture/quality.md', edit=Edit(kind='replace', old='allowedFunctionsPerFile=11', new='allowedFunctionsPerFile=10', count=1), why='the page stated a detekt default that the pinned detekt does not ship, and nothing compared the two — a stated default that disagrees with the jar the build resolves is a claim the next reader trusts'),
     'workflow-exit-status': Control(
         kind='sabotage',
         proves='scripts/check-workflow-exit-status.py',
@@ -1877,6 +1909,27 @@ GATE_CONTROLS: dict[str, Control] = {
             ),
             why=(
                 "a dismissal that precedes the input saves an empty draft and closes the editor — the flow passes and the user's words are gone"
+            ),
+        ),
+        # A seeded title that carries the run id names a row the seed can never
+        # replace: the runner mints a fresh id on every attempt, so the row the
+        # title names has never existed, each run creates a fresh row instead of
+        # updating the old one, and the rows of earlier runs stay behind. The
+        # probe stamps the id onto a real seed call, which is the state the gate
+        # exists to reject.
+        'maestro-seeded-titles': Control(
+            kind='sabotage',
+            proves='scripts/check-maestro-seeded-titles.py',
+            argv=('{python}', 'scripts/check-maestro-seeded-titles.py',),
+            path='Maestro/flows/attachments/01-add-url.yaml',
+            edit=Edit(
+                kind='replace',
+                old='QUERY: "task=AttachTestTask2026"',
+                new='QUERY: "task=${RUN_ID}_AttachTestTask2026"',
+                count=1,
+            ),
+            why=(
+                "a seeded title that carries the run id names a row the seed can never replace — each run creates a fresh row instead of updating the old one, and the rows of earlier runs stay behind"
             ),
         ),
         # A tag row that carries no normalized name is a tag that cannot be found

@@ -28,7 +28,7 @@ class NotesScreenTest {
     private val testUserId = UserId("test-user")
     private val epoch = Instant.fromEpochMilliseconds(0)
 
-    /** Replicates [com.singularity.todo.core.ui.preview.PreviewSamples.note] but public. */
+    /** Replicates [com.singularity.todo.preview.PreviewSamples.note] but public. */
     private fun sampleNote(
         id: String = "n1",
         title: String = "Ideas",
@@ -43,7 +43,7 @@ class NotesScreenTest {
         updatedAt = epoch,
     )
 
-    /** Replicates [com.singularity.todo.core.ui.preview.PreviewSamples.folderNote] but public. */
+    /** Replicates [com.singularity.todo.preview.PreviewSamples.folderNote] but public. */
     private fun sampleFolderNote(
         id: String = "n2",
         title: String = "Work",
@@ -59,7 +59,7 @@ class NotesScreenTest {
         updatedAt = epoch,
     )
 
-    /** Replicates [com.singularity.todo.core.ui.preview.PreviewSamples.archivedNote] but public. */
+    /** Replicates [com.singularity.todo.preview.PreviewSamples.archivedNote] but public. */
     private fun sampleArchivedNote(
         id: String = "n3",
         title: String = "Old Note",

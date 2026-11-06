@@ -1,0 +1,277 @@
+package com.singularity.todo.feature.tasks.presentation.components
+
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.platform.systemToday
+import com.singularity.todo.core.search.SearchColumn
+import com.singularity.todo.core.search.TextMatchRange
+import com.singularity.todo.core.search.inColumn
+import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.AiActionButton
+import com.singularity.todo.core.ui.components.DeleteActionButton
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.highlightedText
+import com.singularity.todo.feature.tasks.domain.logic.computeTaskMarkings
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskMarking
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.presentation.components.list.TaskMarkingsRow
+import com.singularity.todo.preview.PreviewSamples
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.datetime.LocalDate
+
+/**
+ * Card representation of a single task. Stateless — every piece of behavior is
+ * supplied via [onClick] (whole-row tap) and [actions] (per-button callbacks).
+ *
+ * Supports slot customization via [body] and [trailing] parameters following
+ * Material 3 naming convention (`body` for main content, `trailing` for actions).
+ *
+ * @param body    Main content slot — defaults to [DefaultTaskCardBody].
+ * @param trailing Actions slot — defaults to [DefaultTaskCardTrailing].
+ * @param matchRanges Where the search matched this task, if it was found by
+ *   one. The card draws the range that falls in the title; a match in the
+ *   description is not drawn in the title, because the title does not carry it.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun TaskCard(
+    task: Task,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit = {},
+    actions: TaskCardActions = TaskCardActions(),
+    modifier: Modifier = Modifier,
+    matchRanges: ImmutableList<TextMatchRange> = persistentListOf(),
+    today: LocalDate = systemToday(),
+    blockedTaskIds: ImmutableSet<TaskId> = persistentSetOf(),
+    isBlocked: Boolean = false,
+    markings: ImmutableSet<TaskMarking>? = null,
+    body: @Composable RowScope.() -> Unit = {
+        DefaultTaskCardBody(task, actions, matchRanges, today, blockedTaskIds, isBlocked, markings)
+    },
+    trailing: @Composable RowScope.() -> Unit = { DefaultTaskCardTrailing(task, actions) },
+) {
+    Card(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag(TestTags.taskItem(task.title))
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    if (task.isPinned) {
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    },
+            ),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            body()
+            Spacer(modifier = Modifier.padding(start = 4.dp))
+            trailing()
+        }
+    }
+}
+
+/**
+ * Default body content for [TaskCard] — toggle, title text, and meta chips.
+ * Marked as [Composable][Composable] with [RowScope] receiver so callers
+ * can use [Modifier.weight] inside the slot.
+ */
+@Composable
+internal fun RowScope.DefaultTaskCardBody(
+    task: Task,
+    actions: TaskCardActions,
+    matchRanges: ImmutableList<TextMatchRange> = persistentListOf(),
+    today: LocalDate = systemToday(),
+    blockedTaskIds: ImmutableSet<TaskId> = persistentSetOf(),
+    isBlocked: Boolean = false,
+    markings: ImmutableSet<TaskMarking>? = null,
+) {
+    val computedMarkings: ImmutableSet<TaskMarking> =
+        markings
+            ?: computeTaskMarkings(task, today, isBlocked || task.id in blockedTaskIds)
+    actions.onToggle?.let { onToggle ->
+        ToggleButton(isCompleted = task.isCompleted, onClick = onToggle, taskTitle = task.title)
+    }
+    TaskText(task = task, modifier = Modifier.weight(1f), matchRanges = matchRanges)
+    if (task.parentTaskId != null) {
+        SubtaskChip()
+    }
+    PriorityChip(priority = task.priority)
+    TaskMarkingsRow(markings = computedMarkings)
+}
+
+/**
+ * Default trailing actions for [TaskCard] — pin, AI, delete buttons.
+ * Each button is conditionally rendered only when the corresponding callback is non-null.
+ */
+@Composable
+internal fun DefaultTaskCardTrailing(
+    task: Task,
+    actions: TaskCardActions,
+) {
+    actions.onPin?.let { PinButton(isPinned = task.isPinned, onClick = it) }
+    actions.onAiClick?.let { AiActionButton(onClick = it) }
+    actions.onDelete?.let { DeleteActionButton(onClick = it) }
+}
+
+@Composable
+private fun ToggleButton(
+    isCompleted: Boolean,
+    onClick: () -> Unit,
+    taskTitle: String = "",
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.testTag(TestTags.taskCheckbox(taskTitle)),
+    ) {
+        Icon(
+            imageVector = if (isCompleted) Icons.Filled.Check else Icons.Filled.RadioButtonUnchecked,
+            contentDescription = "Toggle complete",
+            tint =
+                if (isCompleted) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+        )
+    }
+}
+
+@Composable
+private fun TaskText(
+    task: Task,
+    modifier: Modifier = Modifier,
+    matchRanges: ImmutableList<TextMatchRange> = persistentListOf(),
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = highlightedText(task.title, matchRanges.inColumn(SearchColumn.TITLE)),
+            style = MaterialTheme.typography.bodyLarge,
+            textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        task.dueDate?.let { date ->
+            Text(
+                text = date.toString(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PinButton(
+    isPinned: Boolean,
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick) {
+        Icon(
+            imageVector = Icons.Filled.PushPin,
+            contentDescription = if (isPinned) "Unpin" else "Pin",
+            tint =
+                if (isPinned) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+        )
+    }
+}
+
+/**
+ * Marker for tasks that are sub-tasks (have a parentTaskId).
+ *
+ * A plain label, not an [AssistChip]: a chip is a control with a ripple and a pressed
+ * state, and this is a static badge. The previous `AssistChip(onClick = {})` was
+ * tappable and inert — tapping the badge did nothing at all.
+ */
+@Composable
+private fun SubtaskChip(modifier: Modifier = Modifier) {
+    Text(
+        text = "Sub-task",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSecondaryContainer,
+        modifier =
+            modifier
+                .background(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = MaterialTheme.shapes.extraSmall,
+                ).padding(horizontal = 6.dp, vertical = 2.dp),
+    )
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TaskCardLightPreview() =
+    PreviewThemed(darkTheme = false) {
+        TaskCard(
+            task = PreviewSamples.task(),
+            onClick = {},
+            onLongClick = {},
+        )
+    }
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TaskCardCompletedDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        TaskCard(
+            task = PreviewSamples.task(completed = true),
+            onClick = {},
+            onLongClick = {},
+        )
+    }
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TaskCardPinnedPurpleDarkPreview() =
+    PreviewThemed(
+        darkTheme = true,
+        accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple,
+    ) {
+        TaskCard(
+            task = PreviewSamples.task(pinned = true, priority = TaskPriority.High),
+            onClick = {},
+            onLongClick = {},
+        )
+    }

@@ -102,6 +102,7 @@ fun settingsToggles() = runTest {
 ```
 
 `TestVmContext` provides:
+
 - `act { vm.onIntent(...) }` — executes action then `advanceUntilIdle()`
 - `assertIs<T>()` — asserts current state is type `T`
 - `assert { predicate }` — asserts predicate on current state
@@ -232,6 +233,7 @@ fun summarize_fails_showsError() = runTest {
 ```
 
 **Available `FakeTextGen` constructors:**
+
 ```kotlin
 FakeTextGen(output = "some text")                    // success
 FakeTextGen(failureMessage = "error")               // failure
@@ -271,6 +273,7 @@ class UserScopedWriteExtTest {
 ```
 
 **Key points:**
+
 - `FakeProfileAwareCurrentUser(initialUserId = ...)` seeds the scoped userId directly
 - `assertFailsWith<CrossUserWriteException>` (not `IllegalArgumentException`) — the extension throws `CrossUserWriteException` explicitly, not `require()`
 - No `runTest { }` wrapper needed — these are synchronous tests
@@ -322,6 +325,7 @@ fun example() = runTest {
 `backgroundScope` and `this` (TestScope) share the same `TestDispatcher`, so `advanceUntilIdle()` does flush both. The problem is **lifecycle/cancellation order**: `backgroundScope` outlives the test body, making failures non-deterministic.
 
 **When `backgroundScope` IS appropriate:**
+
 - Long-running fake helpers that should be auto-cancelled at test teardown
 - A `FakeFooRepository` that emits on a timer
 - Never for the VM itself

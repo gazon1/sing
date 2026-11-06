@@ -1,0 +1,34 @@
+module=module
+task=:module:compileKotlinJvm
+strategy=in-process
+commit=2a9720a659f55af3db4588f0eda9a8c10f16e83e
+patch=
+gradle_exit=0
+task_s=24.174
+wall_ms=24764
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+  Classpath changes info passed from Gradle task: NoChanges
+  Non-incremental compilation will be performed: Incremental compilation might be incorrect (KT-62686)
+  Finished executing kotlin compiler using IN_PROCESS strategy
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+--- tasks executed ---
+> Task :module:checkJvmMainComposeLibrariesCompatibility
+> Task :module:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :module:compileKotlinJvm
+> Task :module:convertXmlValueResourcesForCommonMain NO-SOURCE
+> Task :module:convertXmlValueResourcesForJvmMain NO-SOURCE
+> Task :module:copyNonXmlValueResourcesForCommonMain NO-SOURCE
+> Task :module:copyNonXmlValueResourcesForJvmMain NO-SOURCE
+> Task :module:generateActualResourceCollectorsForJvmMain SKIPPED
+> Task :module:generateComposeResClass SKIPPED
+> Task :module:generateExpectResourceCollectorsForCommonMain SKIPPED
+> Task :module:generateResourceAccessorsForCommonMain SKIPPED
+> Task :module:generateResourceAccessorsForJvmMain SKIPPED
+> Task :module:kmpPartiallyResolvedDependenciesChecker
+> Task :module:prepareComposeResourcesTaskForCommonMain NO-SOURCE
+> Task :module:prepareComposeResourcesTaskForJvmMain NO-SOURCE
+--- host ---
+before loadavg=3.25 3.82 3.10 cpu_pressure=some avg10=0.18 avg60=0.03 avg300=0.06 total=1064243880;full avg10=0.00 avg60=0.00 avg300=0.00 total=0; gradle_daemons=3 kotlin_daemons=0
+0
+after loadavg=3.10 3.74 3.09 cpu_pressure=some avg10=0.01 avg60=0.02 avg300=0.06 total=1064330773;full avg10=0.00 avg60=0.00 avg300=0.00 total=0; gradle_daemons=3 kotlin_daemons=0
+0

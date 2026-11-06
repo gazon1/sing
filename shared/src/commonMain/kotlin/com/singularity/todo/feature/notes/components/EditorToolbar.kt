@@ -192,40 +192,69 @@ internal data class ToolbarButton(
  */
 internal fun toolbarButtonFor(action: EditorAction): ToolbarButton =
     when (action) {
-        EditorAction.Bold -> ToolbarButton(action, Icons.Filled.FormatBold, "Bold")
+        EditorAction.Bold -> {
+            ToolbarButton(action, Icons.Filled.FormatBold, "Bold")
+        }
 
-        EditorAction.Italic -> ToolbarButton(action, Icons.Filled.FormatItalic, "Italic")
+        EditorAction.Italic -> {
+            ToolbarButton(action, Icons.Filled.FormatItalic, "Italic")
+        }
 
-        EditorAction.Underline -> ToolbarButton(action, Icons.Filled.FormatUnderlined, "Underline")
+        EditorAction.Underline -> {
+            ToolbarButton(action, Icons.Filled.FormatUnderlined, "Underline")
+        }
 
-        EditorAction.Strike -> ToolbarButton(action, Icons.Filled.FormatStrikethrough, "Strikethrough")
+        EditorAction.Strike -> {
+            ToolbarButton(action, Icons.Filled.FormatStrikethrough, "Strikethrough")
+        }
 
-        EditorAction.H1 -> ToolbarButton(action, Icons.Filled.Title, "Heading 1", glyph = "H1")
+        EditorAction.H1 -> {
+            ToolbarButton(action, Icons.Filled.Title, "Heading 1", glyph = "H1")
+        }
 
-        EditorAction.H2 -> ToolbarButton(action, Icons.Filled.Title, "Heading 2", glyph = "H2")
+        EditorAction.H2 -> {
+            ToolbarButton(action, Icons.Filled.Title, "Heading 2", glyph = "H2")
+        }
 
-        EditorAction.H3 -> ToolbarButton(action, Icons.Filled.Title, "Heading 3", glyph = "H3")
+        EditorAction.H3 -> {
+            ToolbarButton(action, Icons.Filled.Title, "Heading 3", glyph = "H3")
+        }
 
-        EditorAction.Bullet ->
+        EditorAction.Bullet -> {
             ToolbarButton(action, Icons.AutoMirrored.Filled.FormatListBulleted, "Bullet list")
+        }
 
-        EditorAction.Ordered -> ToolbarButton(action, Icons.Filled.FormatListNumbered, "Numbered list")
+        EditorAction.Ordered -> {
+            ToolbarButton(action, Icons.Filled.FormatListNumbered, "Numbered list")
+        }
 
-        EditorAction.Code -> ToolbarButton(action, Icons.Filled.Code, "Inline code")
+        EditorAction.Code -> {
+            ToolbarButton(action, Icons.Filled.Code, "Inline code")
+        }
 
-        EditorAction.Quote -> ToolbarButton(action, Icons.Filled.FormatQuote, "Blockquote")
+        EditorAction.Quote -> {
+            ToolbarButton(action, Icons.Filled.FormatQuote, "Blockquote")
+        }
 
-        EditorAction.AlignLeft ->
+        EditorAction.AlignLeft -> {
             ToolbarButton(action, Icons.AutoMirrored.Filled.FormatAlignLeft, "Align left")
+        }
 
-        EditorAction.AlignCenter -> ToolbarButton(action, Icons.Filled.FormatAlignCenter, "Align center")
+        EditorAction.AlignCenter -> {
+            ToolbarButton(action, Icons.Filled.FormatAlignCenter, "Align center")
+        }
 
-        EditorAction.AlignRight ->
+        EditorAction.AlignRight -> {
             ToolbarButton(action, Icons.AutoMirrored.Filled.FormatAlignRight, "Align right")
+        }
 
-        EditorAction.ExternalLink -> ToolbarButton(action, Icons.Filled.Link, "External link")
+        EditorAction.ExternalLink -> {
+            ToolbarButton(action, Icons.Filled.Link, "External link")
+        }
 
-        EditorAction.InternalLink -> ToolbarButton(action, Icons.Filled.Link, "Internal link")
+        EditorAction.InternalLink -> {
+            ToolbarButton(action, Icons.Filled.Link, "Internal link")
+        }
     }
 
 /** The row, from [EditorAction.primary]. */
@@ -239,7 +268,10 @@ private val overflowButtons: List<ToolbarButton> = EditorAction.overflow.map(::t
  * icon for everything else.
  */
 @Composable
-private fun ToolbarGlyph(button: ToolbarButton, tint: Color) {
+private fun ToolbarGlyph(
+    button: ToolbarButton,
+    tint: Color,
+) {
     val glyph = button.glyph
     if (glyph == null) {
         Icon(button.icon, contentDescription = null, tint = tint)

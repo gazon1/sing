@@ -14,7 +14,6 @@
 mod config   '.just/config'
 mod android  '.just/android'
 mod desktop  '.just/desktop'
-mod gradle   '.just/gradle'
 mod tests    '.just/tests'
 mod ci       '.just/ci'
 mod scripts  '.just/scripts'
@@ -77,6 +76,10 @@ alias gate   := tests::gate
 alias lint       := tests::lint
 alias lint-changed := tests::lint-changed
 alias detekt-fix := tests::detekt-fix
+alias mdcheck    := tests::rumdl
+alias mdfmt      := tests::rumdl-fix
+alias mdcheck-changed := tests::rumdl-changed
+alias mdfmt-changed   := tests::rumdl-changed-fix
 
 # ----- Docs shortcuts -----
 alias docs-audit  := tests::docs-audit

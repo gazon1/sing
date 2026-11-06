@@ -1,7 +1,6 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.database.ChecklistItemEntity
-import com.singularity.todo.core.database.LocalTimeFormats
 import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
@@ -9,6 +8,7 @@ import com.singularity.todo.core.database.TaskReminderEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.toLocalTimeOrNull
 import com.singularity.todo.core.database.toWorkflowState
+import com.singularity.todo.core.format.LocalTimeFormats
 import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
 import kotlinx.datetime.LocalTime
 import kotlinx.serialization.Serializable
@@ -27,6 +27,16 @@ data class TaskDto(
     val priority: String = "None",
     val kind: String = "Task",
     val projectId: String? = null,
+    /**
+     * The id of the task this one is a child of; `null` for a top-level task.
+     *
+     * A backup that dropped it gave back a flat list of tasks on restore: the
+     * dates survived, the hierarchy did not. A parent that is not part of the
+     * same restore — deleted, or never written by this archive — comes back as
+     * `null` (see [withResolvedParent]), so this field is the link the account
+     * held, not a promise that the parent is in the payload too.
+     */
+    val parentTaskId: String? = null,
     val dueDate: String? = null,
     @Serializable(with = LocalTimeSerializer::class)
     val dueTime: LocalTime? = null,
@@ -75,6 +85,7 @@ fun TaskEntity.toDto(): TaskDto =
         priority = priority.name,
         kind = kind.name,
         projectId = projectId,
+        parentTaskId = parentTaskId,
         dueDate = dueDate,
         dueTime = dueTime.toLocalTimeOrNull(),
         startDate = startDate,
@@ -109,6 +120,7 @@ fun TaskDto.toEntity(userId: String): TaskEntity =
             com.singularity.todo.feature.tasks.domain.model.TaskKind
                 .valueOf(kind),
         projectId = projectId,
+        parentTaskId = parentTaskId,
         dueDate = dueDate,
         dueTime = dueTime?.let { LocalTimeFormats.format(it) },
         startDate = startDate,
@@ -132,6 +144,19 @@ fun TaskDto.toEntity(userId: String): TaskEntity =
         userId = userId,
         sync = SyncColumns(), // a restore is a fresh import: sync state is not carried by a backup
     )
+
+/**
+ * The task with a parent link that names a task this restore will not write
+ * cleared.
+ *
+ * A parent can be gone by the time the archive is read: the row was deleted, or
+ * the export never included it. The task comes back as a top-level task rather
+ * than as the child of a task nothing will ever write — the restore keeps the
+ * hierarchy it can prove, and a dangling id would hide the task from every list
+ * that asks for top-level tasks.
+ */
+fun TaskDto.withResolvedParent(knownTaskIds: Set<String>): TaskDto =
+    if (parentTaskId != null && parentTaskId !in knownTaskIds) copy(parentTaskId = null) else this
 // ─── TaskTagDto ───────────────────────────────────────────────────────────────
 
 @Serializable

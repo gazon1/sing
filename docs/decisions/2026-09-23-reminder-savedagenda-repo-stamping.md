@@ -38,6 +38,7 @@ override suspend fun upsert(reminder: Reminder): Result<Unit> = runCatching {
 ### B.2 `Reminder.userId` stays required
 
 **Not** made nullable. `Reminder.userId: UserId` is required because:
+
 - `ReminderScheduler.schedule(reminder)` needs the `userId` to construct the alarm key (`"reminder:${userId.value}:${reminderId.value}"`).
 - Making it nullable would touch every construction site.
 

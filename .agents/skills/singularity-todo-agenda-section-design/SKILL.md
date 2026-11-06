@@ -19,6 +19,7 @@ sections never see them.
 ## The `discard` flag is required for overlapping buckets
 
 "Tomorrow" (bucket: `RelativeBucket.Tomorrow`) overlaps with:
+
 - "Today" — no overlap (bucket is exclusive)
 - "This Week" — **overlaps**: tomorrow is always within this week
 - "This Month" — **overlaps**: tomorrow is always within this month
@@ -41,10 +42,15 @@ val All = agenda("All") {
     section("Tomorrow",  RelativeBucket.Tomorrow,  discard = true)  // tomorrow ∈ ThisWeek, ThisMonth
     section("This Week", RelativeBucket.ThisWeek,   discard = true)  // tomorrow ∈ ThisMonth
     section("Next Week", RelativeBucket.NextWeek,   discard = true)  // next-week ∈ ThisMonth
-    section("This Month",RelativeBucket.ThisMonth,  discard = false) // terminal: no range covers it
+    section("This Month",RelativeBucket.ThisMonth,  discard = false) // the months are disjoint
+    section("Next Month",RelativeBucket.NextMonth, discard = false) // terminal dated bucket
     section("No Date",   RelativeBucket.NoDate,    discard = false) // terminal
 }
 ```
+
+The wide view reaches to the end of next month — "Next Month" is its last dated
+section, and a task due after that is in none of them. That reach is decided in
+`docs/decisions/2026-11-05-the-wide-view-reaches-next-month.md`.
 
 ## The three tabs are disjoint
 
@@ -58,6 +64,15 @@ The bottom bar shows three agenda tabs, and a task belongs to exactly one of the
 
 `AgendaPresets.All` above is **not** a tab — it holds every bucket, and it is
 the seed a new saved view starts from.
+
+The tabs cover a **horizon**, not the whole agenda: a task dated beyond next week
+is in none of them (ADR `2026-11-05-the-agenda-tabs-cover-a-horizon`). It is in
+the Plans timeline, in the Calendar and in a saved view seeded from `All`, and
+the Upcoming tab ends with a line that says so — `AgendaHorizonNote` in
+`shared-ui`, shown below the last section and below the empty state. Do not add
+a "Later" section to close the gap: the relative buckets have no open-ended
+range, and a catch-all section would make Upcoming the wide view under a tab
+name.
 
 Two rules keep the tabs apart:
 
@@ -100,9 +115,10 @@ declare the same section, and every task shows up in exactly one of them.
 | `Yesterday` | Nothing narrow — `Today` excludes it |
 | `Today` | Nothing narrow |
 | `Tomorrow` | `ThisWeek`, `ThisMonth` |
-| `ThisWeek` | `ThisMonth` |
-| `NextWeek` | `ThisMonth` |
-| `ThisMonth` | Nothing broad |
+| `ThisWeek` | `ThisMonth` — and `NextMonth` at the month edge, when the week runs into it |
+| `NextWeek` | `ThisMonth` — and `NextMonth` at the month edge |
+| `ThisMonth` | Nothing broad — the months are disjoint |
+| `NextMonth` | Nothing broad |
 | `NoDate` | Nothing — null never overlaps with any date |
 
 ## Defensive item keys
@@ -121,5 +137,6 @@ render duplicate-looking rows instead of crashing.
 ## Related
 
 - `docs/decisions/2026-09-30-agenda-section-discard-missing.md`
+- `docs/decisions/2026-11-05-the-wide-view-reaches-next-month.md` — the wide view's reach
 - `AgendaPresets.kt` — the preset definitions
 - `AgendaEvaluator.kt` — the evaluation loop

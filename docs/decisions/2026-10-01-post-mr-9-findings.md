@@ -24,6 +24,7 @@ status: accepted
 ### Why not wired
 
 Gradle 9's included-build classpath isolation creates a chicken-and-egg:
+
 1. Convention build needs plugin repos from root's `pluginManagement`
 2. Convention plugins published via `gradlePlugin { }` can't be resolved from root until the convention build is compiled
 3. Compiling the convention build requires Gradle to already be resolving the root build's plugins

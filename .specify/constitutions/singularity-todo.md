@@ -41,6 +41,7 @@ Non-zero exit = broken contract. Fix before proceeding.
 Accepted ADRs are **never edited**. Changes create new ADRs with `supersedes` links.
 
 To revisit a decision:
+
 1. Create a new ADR with Status: `accepted, supersedes NNNN`
 2. Do NOT touch the prior ADR file
 
@@ -82,11 +83,13 @@ Use fakes from `test/fakes/` instead of mocks.
 Every non-trivial change follows: **proposal → specs → design → adr → tasks → implement → converge**
 
 Run with:
+
 ```bash
 specify workflow run openspec-change --input slug=<slug>,title=<title>
 ```
 
 For ADR-only changes (no spec-level behavior change):
+
 ```bash
 specify workflow run adr-create --input slug=<slug>,title=<title>
 ```
@@ -101,14 +104,14 @@ specify workflow run adr-create --input slug=<slug>,title=<title>
 
 ## Decision Criteria
 
-### An ADR IS required when:
+### An ADR IS required when
 
 - Architectural pattern change (DI, navigation, data layer)
 - New cross-cutting concern
 - External dependency upgrade with behavioral change
 - Deprecation of existing capability
 
-### An ADR is NOT required for:
+### An ADR is NOT required for
 
 - Bug fixes with no behavior change
 - Test-only changes

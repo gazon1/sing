@@ -85,7 +85,7 @@ class TasksDomainTest {
                 tagIds = tagIds,
                 dueDate = dueDate,
                 dueTime =
-                    com.singularity.todo.core.database.LocalTimeFormats
+                    com.singularity.todo.core.format.LocalTimeFormats
                         .parse("14:00:00"),
                 someday = false,
             )
@@ -99,7 +99,7 @@ class TasksDomainTest {
         assertEquals(tagIds, input.tagIds)
         assertEquals(dueDate, input.dueDate)
         assertEquals(
-            com.singularity.todo.core.database.LocalTimeFormats
+            com.singularity.todo.core.format.LocalTimeFormats
                 .parse("14:00:00"),
             input.dueTime,
         )

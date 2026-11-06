@@ -58,6 +58,7 @@ private suspend fun persist(html: String, title: String, id: String, navigateBac
 **Step 3 — Repository interface.**
 
 `NotesRepository` gets a new method:
+
 ```kotlin
 suspend fun setOutgoingLinks(id: NoteId, links: List<String>): Result<Unit>
 ```
@@ -71,12 +72,14 @@ A future PR may extract links directly from the paragraph tree if the library ex
 ## Consequences
 
 ### Positive
+
 - `getBacklinkNotes` now returns real results — backlinks in `NotePreview` and `InternalLinkPickerSheet` will work
 - The `outgoing_links` column is populated on every save, keeping backlinks current
 - No schema migration needed
 - No new dependencies
 
 ### Negative
+
 - Regex over HTML is less elegant than walking the paragraph tree, but the paragraph tree is internal
 
 ## Links

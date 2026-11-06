@@ -15,12 +15,14 @@ outcome, and the agent's plan — and **SHALL NOT** carry the raw payload of a t
 do not need the arguments the agent passed, and the arguments are where user content lives.
 
 #### Scenario: A tool call appears with an outcome
+
 - The agent calls a tool
 - An activity entry appears carrying the tool's name and that it is running
 - A later entry carries that the call completed or failed
 - The raw arguments are not part of the activity
 
 #### Scenario: The answer is assembled from its pieces
+
 - The agent's answer arrives in several pieces
 - The pieces are added to the message
 - The message ends up holding the whole answer
@@ -37,22 +39,26 @@ spinner that never stops teaches the reader that the app is broken. Exactly one 
 means the outcome cannot be argued with: there is a fact about how the turn ended.
 
 #### Scenario: A normal answer completes
+
 - The agent answers
 - The turn is completed
 - The loading indicator is gone
 
 #### Scenario: A turn whose stream dies is failed
+
 - The agent's stream ends without an answer
 - The turn is failed
 - The turn is not reported as completed
 
 #### Scenario: The user cancels
+
 - The user cancels a running turn
 - The turn is cancelled
 - The answer produced so far is still there
 - The loading indicator is gone
 
 #### Scenario: An outcome does not change
+
 - The turn has already reached an outcome
 - A late event arrives
 - The outcome is unchanged
@@ -68,6 +74,7 @@ the reader to guess whether the agent did the thing, and the agent's own prose i
 reliable witness for its own tools.
 
 #### Scenario: A failing tool is visible
+
 - A tool throws
 - Its card shows that it failed
 - The turn continues or ends with an outcome; either way the failure was visible
@@ -85,11 +92,13 @@ a screen that was about to be shared, photographed, or screenshotted. The reader
 know *what* was touched, not *the whole thing*.
 
 #### Scenario: The summary names the thing, not its content
+
 - A tool touches a note
 - The card names the note and the fields it touched
 - The card does not show the note's text
 
 #### Scenario: The raw detail is opt-in
+
 - A card has more detail than the summary
 - The detail is not shown at first
 - The reader asks for it and then sees it, bounded in length
@@ -104,6 +113,7 @@ The same presentation of an agent's activity **SHALL** be used by every screen t
 and the reader has to learn the difference between them for no benefit.
 
 #### Scenario: One presentation, two surfaces
+
 - The built-in chat shows an agent's activity
 - The external-agent screen shows an agent's activity
 - Both use the same cards

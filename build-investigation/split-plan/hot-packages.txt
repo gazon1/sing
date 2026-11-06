@@ -1,0 +1,345 @@
+# 1428 commits since '2026-05-05'
+
+# commits	files	tests	lines	package   (files and lines count production sources only)
+333	24	3	3610	com.singularity.todo.core.di
+279	25	7	10504	com.singularity.todo.test.fakes
+200	0	63	0	com.singularity.todo.arch
+158	17	10	2705	com.singularity.todo.core.ui
+153	40	52	5524	com.singularity.todo.core.sync
+137	50	28	7052	com.singularity.todo.core.backup
+125	4	3	1120	com.singularity.todo.feature.settings
+120	26	0	4845	com.singularity.todo.feature.tasks.presentation.components.detail
+104	6	2	1676	com.singularity.todo.feature.agenda.presentation.viewmodel
+102	6	6	1501	com.singularity.todo.feature.notes.presentation.viewmodel
+101	43	10	3803	com.singularity.todo.core.ui.components
+95	7	0	2601	com.singularity.todo.feature.agenda.presentation.screen
+95	4	7	1290	com.singularity.todo.feature.search
+92	32	16	2432	com.singularity.todo.feature.nav
+89	45	12	4508	com.singularity.todo.feature.ai.tools
+89	7	4	1580	com.singularity.todo.feature.backup
+89	3	2	1084	com.singularity.todo.feature.tasks.presentation.viewmodel
+87	6	0	1878	com.singularity.todo.feature.notes.presentation.screen
+87	1	18	215	com.singularity.todo.feature.tasks
+84	4	3	1231	com.singularity.todo.feature.tasks.data
+83	7	4	1646	com.singularity.todo.feature.projects.presentation.viewmodel
+82	7	0	1993	com.singularity.todo.feature.projects.presentation.screen
+78	9	5	1340	com.singularity.todo.feature.profile
+78	4	5	546	com.singularity.todo.feature.tags
+73	3	0	1131	com.singularity.todo.feature.tasks.presentation.screen
+64	13	11	1892	com.singularity.todo.feature.tasks.presentation.viewmodel.slot
+62	6	4	267	com.singularity.todo.feature.agenda
+62	6	8	522	com.singularity.todo.feature.notes
+61	12	3	1673	com.singularity.todo.core.settings
+61	8	3	1136	com.singularity.todo.shell
+60	0	8	0	com.singularity.todo.feature.projects
+59	0	32	0	com.singularity.todo.core.database
+59	4	5	1396	com.singularity.todo.feature.ai.chat
+57	4	2	1051	com.singularity.todo.feature.statistics
+56	15	11	2876	com.singularity.todo.core.auth
+55	4	0	762	com.singularity.todo
+54	7	0	1449	com.singularity.todo.feature.settings.screens
+53	3	2	382	com.singularity.todo.feature.archive
+49	17	7	2902	com.singularity.todo.feature.auth
+49	15	9	2099	com.singularity.todo.feature.tasks.domain.logic
+45	10	2	1103	com.singularity.todo.feature.pomodoro
+43	24	9	1404	com.singularity.todo.core.files
+42	13	2	1466	com.singularity.todo.feature.tasks.domain.usecase
+42	7	1	864	com.singularity.todo.feature.tasks.presentation.components
+40	0	15	0	com.singularity.todo.feature.agenda.domain
+40	8	8	909	com.singularity.todo.feature.ai
+39	2	12	324	com.singularity.todo.feature.tasks.domain
+38	7	3	571	com.singularity.todo.core.attachments
+38	7	0	617	com.singularity.todo.feature.agenda.domain.model
+38	20	1	1579	com.singularity.todo.feature.projects.presentation.components
+37	13	4	777	com.singularity.todo.core.log
+37	8	0	1479	com.singularity.todo.feature.calendar.presentation.components.calendar
+37	2	0	311	com.singularity.todo.feature.calendar.presentation.viewmodel
+35	4	1	349	com.singularity.todo.feature.attachments
+34	4	1	989	com.singularity.todo.feature.notes.components
+32	10	2	743	com.singularity.todo.feature.agenda.presentation.nav
+31	1	3	144	com.singularity.todo.feature.calendar
+31	4	0	659	com.singularity.todo.feature.profile.presentation
+31	2	0	421	com.singularity.todo.feature.projects.data
+31	13	8	1302	com.singularity.todo.feature.reminders
+30	3	0	674	com.singularity.todo.feature.agenda.domain.logic
+29	2	0	424	com.singularity.todo.feature.tags.data
+28	2	0	305	com.singularity.todo.feature.tasks.domain.port
+27	5	3	702	com.singularity.todo.feature.agenda.domain.selector
+27	7	0	1102	com.singularity.todo.feature.tasks.presentation.components.list
+26	10	3	632	com.singularity.todo.core.notifications
+26	18	11	2241	com.singularity.todo.feature.search.query
+25	10	9	1187	com.singularity.todo.core.security
+25	8	0	1028	com.singularity.todo.core.ui.components.sheet
+25	3	1	467	com.singularity.todo.feature.tasks.presentation.contextmenu
+25	0	13	0	com.singularity.todo.test.helpers
+24	5	4	375	com.singularity.todo.core.error
+24	10	4	744	com.singularity.todo.core.observability
+24	2	0	332	com.singularity.todo.feature.ai.usage
+24	4	0	873	com.singularity.todo.feature.search.presentation
+24	3	0	580	com.singularity.todo.feature.sync.presentation
+22	1	1	228	com.singularity.todo.feature.gate.presentation.viewmodel
+21	5	0	1525	com.singularity.todo.feature.proposals.domain.usecase
+20	8	2	851	com.singularity.todo.core.ui.menu
+20	2	0	342	com.singularity.todo.feature.checklist.components
+20	1	0	596	com.singularity.todo.feature.notes.data
+20	1	1	128	com.singularity.todo.feature.tags.presentation.viewmodel
+20	5	0	311	com.singularity.todo.feature.tasks.presentation.nav
+19	11	5	1193	com.singularity.todo.core.work
+19	2	0	172	com.singularity.todo.feature.projects.domain.port
+18	6	0	551	com.singularity.todo.feature.genui.render
+18	1	10	92	com.singularity.todo.feature.proposals
+18	1	0	95	com.singularity.todo.feature.tasks.presentation.model
+18	4	2	276	com.singularity.todo.feature.tasks.presentation.theme
+18	29	12	2535	com.singularity.todo.mcp
+17	5	0	315	com.singularity.todo.feature.projects.presentation.nav
+16	0	3	0	com.singularity.todo.core.ui.mvi
+16	5	3	479	com.singularity.todo.core.ui.theme
+16	7	2	845	com.singularity.todo.feature.proposals.presentation
+16	3	0	358	com.singularity.todo.feature.search.data
+16	2	0	582	com.singularity.todo.feature.tags.components
+16	11	0	564	com.singularity.todo.feature.tasks.domain.model
+15	4	1	250	com.singularity.todo.core.draft
+15	4	2	268	com.singularity.todo.core.sync.work
+15	2	0	285	com.singularity.todo.feature.calendar.presentation.screen
+15	5	3	293	com.singularity.todo.feature.genui.render.material3.atoms
+15	1	3	281	com.singularity.todo.feature.proposals.data
+14	3	0	226	com.singularity.todo.feature.alarms
+14	3	3	255	com.singularity.todo.feature.genui.surface
+14	4	1	207	com.singularity.todo.feature.notes.presentation.nav
+14	0	1	0	com.singularity.todo.feature.sync
+13	5	2	420	com.singularity.todo.core.coroutines
+13	2	0	301	com.singularity.todo.feature.agenda.presentation.components
+13	1	0	282	com.singularity.todo.feature.attachments.components
+13	2	0	898	com.singularity.todo.feature.auth.presentation
+13	4	0	178	com.singularity.todo.feature.calendar.presentation.nav
+13	4	0	205	com.singularity.todo.feature.genui.render.material3.input
+13	3	3	442	com.singularity.todo.feature.genui.schema
+13	2	0	568	com.singularity.todo.feature.timetracking.presentation.components
+12	2	0	71	com.singularity.todo.feature.agenda.domain.port
+12	1	0	193	com.singularity.todo.feature.ai.use_cases
+12	2	1	752	com.singularity.todo.feature.attachments.annotation
+12	1	0	169	com.singularity.todo.feature.checklist.data
+11	1	1	19	com.singularity.todo.core.ids
+11	9	2	750	com.singularity.todo.core.llm
+11	3	2	196	com.singularity.todo.core.repository
+11	3	1	394	com.singularity.todo.feature.genui.parser
+11	4	1	238	com.singularity.todo.feature.projects.domain.usecase
+11	4	0	155	com.singularity.todo.feature.search.presentation.nav
+11	0	4	0	com.singularity.todo.test
+10	2	4	104	com.singularity.todo.core.search
+10	2	0	299	com.singularity.todo.feature.calendar.domain.logic
+10	3	2	1966	com.singularity.todo.feature.calendarSync.presentation
+10	6	2	974	com.singularity.todo.feature.genui.catalog
+10	1	1	172	com.singularity.todo.feature.notes.domain.editor
+10	1	0	198	com.singularity.todo.feature.notes.domain.port
+10	0	1	0	com.singularity.todo.feature.search.presentation.viewmodel
+10	3	0	131	com.singularity.todo.feature.settings.presentation.nav
+10	1	0	153	com.singularity.todo.feature.tags.presentation.screen
+10	1	0	177	com.singularity.todo.feature.whatsnew.presentation.screen
+9	2	4	587	com.singularity.todo.core.process
+9	3	1	252	com.singularity.todo.core.wipe
+9	14	5	1841	com.singularity.todo.feature.genui.core
+9	2	0	101	com.singularity.todo.feature.genui.render.material3
+9	1	1	38	com.singularity.todo.feature.notes.domain
+9	1	0	45	com.singularity.todo.feature.notes.presentation
+9	1	1	101	com.singularity.todo.feature.projects.domain
+9	3	0	170	com.singularity.todo.feature.tags.domain.usecase
+9	1	0	160	com.singularity.todo.feature.timetracking.data
+8	5	3	500	com.singularity.todo.core.ai
+8	3	1	467	com.singularity.todo.core.config
+8	2	2	323	com.singularity.todo.core.ui.featureSlot
+8	2	0	198	com.singularity.todo.feature.agenda.data
+8	1	1	279	com.singularity.todo.feature.ai.prompts
+8	4	1	93	com.singularity.todo.feature.calendar.domain.model
+8	1	0	83	com.singularity.todo.feature.calendar.presentation.theme
+8	22	7	1907	com.singularity.todo.feature.calendarSync.auth
+8	1	3	42	com.singularity.todo.feature.checklist
+8	1	0	78	com.singularity.todo.feature.projects.presentation.model
+8	3	0	456	com.singularity.todo.feature.proposals.domain.logic
+8	1	0	160	com.singularity.todo.feature.proposals.domain.port
+8	1	0	302	com.singularity.todo.feature.proposals.presentation.components
+8	1	1	211	com.singularity.todo.feature.timetracking.presentation.slot
+7	1	1	116	com.singularity.todo.core.graph
+7	1	0	74	com.singularity.todo.core.ui.debounce
+7	6	2	501	com.singularity.todo.core.ui.text
+7	4	2	596	com.singularity.todo.core.ui.textfields
+7	1	0	199	com.singularity.todo.feature.ai.data
+7	5	2	1751	com.singularity.todo.feature.ai.external
+7	1	0	58	com.singularity.todo.feature.archive.data
+7	4	2	895	com.singularity.todo.feature.attachments.viewer
+7	1	0	149	com.singularity.todo.feature.gate.presentation.screen
+7	1	0	151	com.singularity.todo.feature.notes.presentation.components
+7	3	0	275	com.singularity.todo.feature.reminders.data
+7	1	1	93	com.singularity.todo.feature.tags.domain
+7	0	1	0	com.singularity.todo.feature.tasks.components
+7	1	0	49	com.singularity.todo.feature.whatsnew.presentation
+7	2	0	558	com.singularity.todo.test.stubs
+6	7	1	431	com.singularity.todo.core.schedule
+6	1	1	408	com.singularity.todo.core.seed
+6	7	4	882	com.singularity.todo.core.ui.onboarding
+6	1	1	117	com.singularity.todo.feature.ai.ui
+6	8	0	319	com.singularity.todo.feature.nav.entries
+6	1	0	175	com.singularity.todo.feature.plans.presentation.components
+6	0	1	0	com.singularity.todo.feature.tasks.usecase
+5	3	1	199	com.singularity.todo.core.appearance
+5	4	1	280	com.singularity.todo.core.billing
+5	1	1	98	com.singularity.todo.core.transport
+5	1	0	108	com.singularity.todo.core.ui.celebration
+5	5	0	237	com.singularity.todo.core.ui.detail
+5	3	0	76	com.singularity.todo.core.version
+5	9	5	1983	com.singularity.todo.feature.ai.acp
+5	1	0	29	com.singularity.todo.feature.ai.di
+5	1	0	45	com.singularity.todo.feature.genui.di
+5	2	0	260	com.singularity.todo.feature.plans.presentation.screen
+5	1	0	127	com.singularity.todo.feature.timetracking.domain.port
+4	3	1	257	com.singularity.todo.core.analytics
+4	1	0	26	com.singularity.todo.core.appearance.di
+4	9	3	497	com.singularity.todo.core.auth.oauth
+4	7	3	599	com.singularity.todo.core.refresh
+4	4	0	160	com.singularity.todo.core.tasks
+4	1	0	245	com.singularity.todo.feature.calendarSync.di
+4	1	0	48	com.singularity.todo.feature.checklist.domain.port
+4	1	0	31	com.singularity.todo.feature.gate
+4	1	0	221	com.singularity.todo.feature.genui.render.app
+4	5	0	111	com.singularity.todo.feature.genui.render.material3.layout
+4	4	1	99	com.singularity.todo.feature.nav.deeplink
+4	2	1	169	com.singularity.todo.feature.notes.domain.model
+4	3	0	245	com.singularity.todo.feature.plans.domain.logic
+4	1	0	30	com.singularity.todo.feature.plans.presentation.model
+4	5	1	248	com.singularity.todo.feature.plans.presentation.viewmodel
+4	2	0	134	com.singularity.todo.feature.projects.presentation.theme
+4	2	0	152	com.singularity.todo.feature.reminders.domain.port
+4	2	0	43	com.singularity.todo.feature.search.domain
+4	2	0	81	com.singularity.todo.feature.search.domain.port
+4	1	0	64	com.singularity.todo.feature.tags.domain.port
+3	1	0	37	com.singularity.todo.core.platform
+3	3	0	68	com.singularity.todo.core.platform.haptics
+3	2	1	58	com.singularity.todo.core.text
+3	2	0	246	com.singularity.todo.core.tree
+3	1	0	20	com.singularity.todo.feature.archive.domain.port
+3	7	0	517	com.singularity.todo.feature.calendarSync.data
+3	9	9	1337	com.singularity.todo.feature.calendarSync.domain.logic
+3	5	0	318	com.singularity.todo.feature.calendarSync.domain.port
+3	3	0	125	com.singularity.todo.feature.calendarSync.permission
+3	7	6	1374	com.singularity.todo.feature.calendarSync.sync
+3	8	0	630	com.singularity.todo.feature.calendarSync.work
+3	3	0	435	com.singularity.todo.feature.genui.engine
+3	3	1	516	com.singularity.todo.feature.genui.function
+3	1	0	46	com.singularity.todo.feature.notes.domain.logic
+3	1	0	50	com.singularity.todo.feature.plans.data
+3	0	4	0	com.singularity.todo.feature.plans.domain
+3	4	0	107	com.singularity.todo.feature.plans.domain.model
+3	1	0	37	com.singularity.todo.feature.profile.domain.port
+3	2	1	94	com.singularity.todo.mcp.errors
+2	0	1	0	com.singularity.todo.arch.fixtures
+2	3	1	340	com.singularity.todo.core.attachments.annotation
+2	1	0	47	com.singularity.todo.core.datastore
+2	0	2	0	com.singularity.todo.core.links
+2	1	0	191	com.singularity.todo.core.mcp
+2	3	0	106	com.singularity.todo.core.network
+2	1	0	46	com.singularity.todo.feature.ai.acp.di
+2	0	1	0	com.singularity.todo.feature.calendarSync
+2	2	1	553	com.singularity.todo.feature.calendarSync.data.google
+2	7	1	351	com.singularity.todo.feature.calendarSync.domain.model
+2	5	1	118	com.singularity.todo.feature.calendarSync.error
+2	1	0	46	com.singularity.todo.feature.plans
+2	1	0	19	com.singularity.todo.feature.plans.domain.port
+2	1	1	132	com.singularity.todo.feature.projects.domain.logic
+2	2	0	52	com.singularity.todo.feature.projects.domain.model
+2	1	0	26	com.singularity.todo.feature.tags.domain.model
+2	10	1	895	com.singularity.todo.feature.tasks.domain.state
+2	1	0	339	com.singularity.todo.feature.timetracking.domain.logic
+2	1	0	53	com.singularity.todo.feature.timetracking.domain.model
+2	1	0	14	com.singularity.todo.feature.whatsnew.di
+2	2	1	185	com.singularity.todo.mcp.schema
+1	0	1	0	com.singularity.todo.core.format
+1	1	0	11	com.singularity.todo.core.reminders
+1	1	0	39	com.singularity.todo.core.ui.preview
+1	3	0	165	com.singularity.todo.feature.calendar.domain.state
+1	1	0	31	com.singularity.todo.feature.gate.domain.state
+1	7	0	455	com.singularity.todo.feature.projects.domain.state
+1	1	0	35	com.singularity.todo.feature.tasks.domain.util
+1	2	0	302	com.singularity.todo.preview
+
+# commits	files	tests	cluster
+367	131	64	feature/tasks
+333	24	3	core/di
+279	25	7	test/fakes
+261	108	38	core/ui
+221	50	26	feature/agenda
+200	0	64	arch
+197	35	19	feature/notes
+171	79	34	feature/ai
+170	61	16	feature/projects
+160	14	3	feature/settings
+155	44	54	core/sync
+137	50	28	core/backup
+130	37	19	feature/search
+115	16	7	feature/tags
+95	14	5	feature/profile
+93	44	17	feature/nav
+90	27	4	feature/calendar
+89	7	4	feature/backup
+61	12	3	core/settings
+61	8	3	shell
+59	0	32	core/database
+58	24	14	core/auth
+57	5	2	feature/archive
+57	4	2	feature/statistics
+55	4	0	(root)
+55	11	4	feature/attachments
+55	19	7	feature/auth
+54	59	18	feature/genui
+45	10	2	feature/pomodoro
+43	24	9	core/files
+39	19	15	feature/proposals
+38	10	4	core/attachments
+37	13	4	core/log
+35	18	8	feature/reminders
+32	5	3	feature/checklist
+29	3	1	feature/sync
+26	10	3	core/notifications
+25	10	9	core/security
+25	0	13	test/helpers
+24	5	4	core/error
+24	10	4	core/observability
+22	4	1	feature/gate
+22	7	1	feature/timetracking
+19	11	5	core/work
+18	79	28	feature/calendarSync
+18	33	14	mcp
+15	4	1	core/draft
+14	3	0	feature/alarms
+13	5	2	core/coroutines
+12	3	0	feature/whatsnew
+11	1	1	core/ids
+11	9	2	core/llm
+11	3	2	core/repository
+11	0	4	test
+10	2	4	core/search
+9	2	4	core/process
+9	3	1	core/wipe
+9	19	5	feature/plans
+8	5	3	core/ai
+8	3	1	core/config
+7	1	1	core/graph
+7	2	0	test/stubs
+6	4	1	core/appearance
+6	4	0	core/platform
+6	7	1	core/schedule
+6	1	1	core/seed
+5	4	1	core/billing
+5	1	1	core/transport
+5	3	0	core/version
+4	3	1	core/analytics
+4	7	3	core/refresh
+4	4	0	core/tasks
+3	2	1	core/text
+3	2	0	core/tree
+2	1	0	core/datastore
+2	0	2	core/links
+2	1	0	core/mcp
+2	3	0	core/network
+1	0	1	core/format
+1	1	0	core/reminders
+1	2	0	preview

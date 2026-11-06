@@ -12,11 +12,13 @@ The `SavedAgendaViewModel.onSave()` for Edit mode updated the draft's `isDirty` 
 ## Decision
 
 1. Added `DraftState.markSaved()` to `SavedAgendaViewModel.kt`:
+
    ```kotlin
    fun markSaved() {
        _state.update { it.copy(originalName = it.name, originalSections = it.sections) }
    }
    ```
+
    `onSave()` success path now calls `draftState.markSaved()` to clear `isDirty` immediately on save.
 
 2. Factory functions (`newSavedView`, `edit`, `copyToProfile`) were considered for `SavedAgendaView` companion object but were **not added** due to a persistent KMP metadata resolution issue: extension functions on the companion object compiled in isolation but failed when the file was referenced from the JVM test source set with "Unresolved reference" errors. The decision is pragmatic — inline `copy()` calls remain in VMs, factory functions are deferred.

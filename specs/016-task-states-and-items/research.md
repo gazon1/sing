@@ -21,6 +21,7 @@ sync document already selects from `tasks`; a join would land on the hot path of
 them for a value that belongs to the row.
 
 **Alternatives considered**:
+
 - *A `task_workflow_states` table* — rejected: a one-to-one relation is a column with
   extra machinery, and it would need its own migration, its own DAO and its own join on
   every read.
@@ -57,6 +58,7 @@ words, and `Migration45To46` exists solely to add `tasks.series_id` without the 
 A new column on `tasks` is the same shape of change and needs the same treatment.
 
 **Alternatives considered**:
+
 - `AutoMigration(46 → 47)` — rejected: it nulls `notes.task_id` on every upgrade.
 - *A separate table* (D1) — rejected there; but note it would also have avoided this
   constraint, which is why D1 was decided on its own merits rather than on this one.
@@ -132,6 +134,7 @@ but it cannot carry a workflow state, and it cannot express "this task is in pro
 blocked" as one coherent set.
 
 **Alternatives considered**:
+
 - *Make `AgendaBadge` a set and reuse it* — rejected: it lives in the agenda feature, and
   the task list cannot depend on the agenda (the agenda already depends on the tasks). The
   vocabulary has to live in the tasks feature or below.
@@ -156,6 +159,7 @@ context is testable without a database, a ViewModel or a clock, and it can be th
 answer to "which markings apply" for both surfaces.
 
 **Alternatives considered**:
+
 - *Compute in SQL* — rejected: blocked-ness spans `tasks` and `task_dependencies` and
   needs a join plus a "is the prerequisite finished" test; the agenda already does this in
   memory once per evaluation, and doing it once and sharing it is cheaper than doing it
@@ -231,6 +235,7 @@ time: a view saved on a device that has the new selectors, read on a device that
 would otherwise fail the whole saved-views list.
 
 **Alternatives considered**:
+
 - *Make the decoder skip unknown sections* — rejected: `SelectorSerializer` decodes one
   selector to one selector; there is no list level at which it could skip, and inventing a
   sentinel variant would put a lie into the domain.
@@ -306,6 +311,7 @@ Adding the new id to `selected` therefore applies the tag to the task with **no 
 the sheet host, the coordinator or the intent path.
 
 **Alternatives considered**:
+
 - *A task-detail-scoped ViewModel* — rejected: it would need a new Koin binding and a new
   entry in the deliberately narrow `TaskDetailDeps` bundle, for a flow the sheet can
   complete on its own.
@@ -331,6 +337,7 @@ anywhere except the write-time `trim()` in `CreateTagUseCase`), so the rule has 
 written down. It is stated in `TagDomain` next to the other name rules.
 
 **Alternatives considered**:
+
 - *Exact-match only* — rejected: it lets two visually identical tags exist, which is the
   outcome the requirement is trying to prevent.
 - *A unique index on `tags.name`* — rejected for this feature: it would need a migration

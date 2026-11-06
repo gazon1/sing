@@ -12,8 +12,7 @@ Connect `build-logic/convention` to the main build when **both** are true:
    five modules. A new shared convention is worth the overhead when a sixth module
    would otherwise copy the same plugin block.
 
-2. **(b) Gradle closed the included-build isolation gap.** Track [gradle/gradle#34896](
-   https://github.com/gradle/gradle/issues/34896). When a stable Gradle release ships
+2. **(b) Gradle closed the included-build isolation gap.** Track [gradle/gradle#34896](https://github.com/gradle/gradle/issues/34896). When a stable Gradle release ships
    a resolution that eliminates the `pluginManagement` + classpath-isolation conflict,
    the migration steps below apply.
 
@@ -35,6 +34,7 @@ Before wiring, verify all four plugins exist and are documented:
 ## Why not yet applied
 
 Gradle 9's classpath isolation for included builds means:
+
 1. The `kotlin-dsl` plugin needs its own `pluginManagement` block with all plugin repositories
 2. Convention plugins published via `gradlePlugin { }` can't be resolved from the root build without additional configuration
 3. The resolution order creates a chicken-and-egg problem: the root build needs the convention plugins, but they can't be built until the root build resolves plugin dependencies
@@ -50,6 +50,7 @@ Gradle 9's classpath isolation for included builds means:
 ### Step 1: Wire convention build in `settings.gradle.kts`
 
 Add to `pluginManagement` block:
+
 ```kotlin
 includeBuild("build-logic/convention")
 ```
@@ -57,6 +58,7 @@ includeBuild("build-logic/convention")
 ### Step 2: Apply `common-deps-convention` in root `build.gradle.kts`
 
 Replace plugins block:
+
 ```kotlin
 // BEFORE
 plugins {
@@ -77,6 +79,7 @@ Remove `allprojects { configurations.all { resolutionStrategy { ... } } }` block
 ### Step 3: Migrate module build files
 
 **`shared/build.gradle.kts`**:
+
 ```kotlin
 // BEFORE
 plugins {
@@ -101,6 +104,7 @@ plugins {
 ```
 
 **`androidApp/build.gradle.kts`**:
+
 ```kotlin
 // BEFORE
 plugins {
@@ -116,6 +120,7 @@ plugins {
 ```
 
 **`desktopApp/build.gradle.kts`**:
+
 ```kotlin
 // BEFORE
 plugins {
@@ -134,6 +139,7 @@ plugins {
 ```
 
 **`mcp-server/build.gradle.kts`**:
+
 ```kotlin
 // BEFORE
 plugins {

@@ -13,22 +13,22 @@ Formatting was a detekt plugin: `dev.detekt:detekt-rules-ktlint-wrapper` was
 declared in nine build files, and the whole `ktlint:` section of
 `config/detekt/detekt.yml` configured it. Two consequences, both measured:
 
-* **The cheap half was expensive.** `:shared:detekt` took **4 min 36 s** on
+- **The cheap half was expensive.** `:shared:detekt` took **4 min 36 s** on
   2026-11-02. A question about one file — "is this formatted?" — was answered
   in minutes, and the answer arrived together with a verdict about a tree the
   author did not touch.
-* **The tree was not clean anyway.** The wrapper reported 248 findings on the
+- **The tree was not clean anyway.** The wrapper reported 248 findings on the
   tree as it stood, and the `ktlint:` section was the only reason the detekt
   run was slow: the semantic rules are a fraction of that time.
 
 The tool that was supposed to replace it did not work. `ktrs` (a Rust rewrite
 of ktlint) was tried first and rejected on measurements, not on taste:
 
-* `when-entry-bracing` loses the conditions of a `when` entry — it rewrites
+- `when-entry-bracing` loses the conditions of a `when` entry — it rewrites
   code that means something else;
-* `standard:indent` crashes with `IllegalArgumentException: Stack should be
+- `standard:indent` crashes with `IllegalArgumentException: Stack should be
   empty` under `--format`;
-* it does not implement `no-unused-imports`.
+- it does not implement `no-unused-imports`.
 
 ## Idea
 

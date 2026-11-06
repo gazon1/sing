@@ -46,6 +46,7 @@ The prefill uses `todayInSystemZone()` from `core.platform`, which is already in
 ### Tests updated
 
 `FabActionResolverTest`:
+
 - `agendaGraph_inbox_returnsAddTask` — asserts `initialDueDate == null`
 - `agendaGraph_today_returnsAddTask_withTodayDueDate` — asserts `initialDueDate == today`
 

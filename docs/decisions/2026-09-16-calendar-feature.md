@@ -27,6 +27,7 @@ data class ByDateRange(
 ```
 
 `TaskDomain.matchesFilter` handles it:
+
 ```kotlin
 is TaskFilter.ByDateRange -> task.dueDate != null &&
         task.dueDate >= filter.from && task.dueDate <= filter.to && !task.isTrashed
@@ -56,6 +57,7 @@ data class CalendarTaskUi(
 ### 3. Pure Date Arithmetic (`CalendarDateMath.kt`)
 
 All date logic is side-effect-free and unit-tested:
+
 - `monthGridDates(anyDateInMonth)` → 42 dates (6 weeks, Mon-anchored)
 - `visibleRange(anchor, viewMode)` → date range per mode
 - `goNext / goPrevious` → navigation
@@ -63,6 +65,7 @@ All date logic is side-effect-free and unit-tested:
 - `firstDayOfMonth / lastDayOfMonth`
 
 Month arithmetic (no `plus(1, DateTimeUnit.MONTH)`):
+
 ```kotlin
 val nextMonthOrdinal = date.month.ordinal + 1
 val nextMonth = if (nextMonthOrdinal == 12) Month.JANUARY
@@ -72,6 +75,7 @@ val nextMonth = if (nextMonthOrdinal == 12) Month.JANUARY
 ### 4. `CalendarTaskMapper`
 
 Transforms `Task → CalendarTaskUi`:
+
 - `isCompleted → DONE`
 - `dueDate < today && !completed → OVERDUE`
 - `dueDate == today → PENDING`
@@ -103,6 +107,7 @@ Task click → `AppDestination.TasksGraph(TasksStartRoute.Detail(taskId.value))`
 Calendar start route serializable: `CalendarStartRoute.Month(anchor)`.
 
 Platform-specific back stack:
+
 - **Android:** `navSavedStateConfig` + `rememberViewModelStoreNavEntryDecorator` + `BackHandler`
 - **JVM:** `rememberInMemoryNavBackStack` (no SavedStateConfig)
 
@@ -118,6 +123,7 @@ class CalendarViewModel(
 ```
 
 State flow:
+
 ```kotlin
 currentUser.scopedUserId
     .flatMapLatest { userId ->
@@ -167,6 +173,7 @@ fun calendarModule(): Module = module {
 ## Consequences
 
 ### Positive
+
 - No new repository or DAO methods — `ByDateRange` filter reuses existing `watchTasks`.
 - Pure date arithmetic fully unit-tested with no Compose or Koin dependencies.
 - Slot-API (`CalendarContent` separate from `CalendarScreen`) enables preview without Koin.
@@ -174,6 +181,7 @@ fun calendarModule(): Module = module {
 - Nested nav3 graph keeps task-click navigation encapsulated.
 
 ### Negative
+
 - `isRecurring` is always `false` in `CalendarTaskUi` — requires per-task
   `ReminderRepository` lookup which would be N queries.
 - `startAt`/`endAt`/`allDay` fields don't exist in the `Task` domain model
@@ -181,6 +189,7 @@ fun calendarModule(): Module = module {
 - `weight` modifier requires careful structuring inside `Row { Column(weight) }`.
 
 ### Deferred
+
 - Horizontal swipe between dates.
 - `startAt`/`endAt`/`allDay`/`recurrence` in `Task` (Room migration).
 - Expand-day-list (tap day in month view to show all tasks).

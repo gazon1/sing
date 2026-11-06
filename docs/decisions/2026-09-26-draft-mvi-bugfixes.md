@@ -47,6 +47,7 @@ override fun save() {
 The override also duplicated error handling logic already handled by `DraftMviViewModel.save()`.
 
 **Fix:** Remove the override. Rely on `persist()` + `onSaved()`:
+
 - `persist()` → `repo.upsert()` + `Either<AppError, Unit>`
 - `onSaved()` → `emit(NotesUiEvent.SavedPulse)`
 
@@ -59,6 +60,7 @@ emitted from the broken override. Any code path that called the framework's `sav
 (including the base class implementation) would NOT emit `SavedPulse`.
 
 **Fix:** Add `onSaved()` override:
+
 ```kotlin
 override suspend fun onSaved() {
     emit(NotesUiEvent.SavedPulse)

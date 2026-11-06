@@ -8,7 +8,7 @@ nothing here repeats an issue that is already open.
 
 ---
 
-## What this repo does:
+## What this repo does
 
 Singularity Todo is a personal task manager written once in Kotlin Multiplatform
 and shipped as an Android app and a desktop app. It keeps its data in a local
@@ -29,9 +29,12 @@ shell scripts under `scripts/`, 908 decision records, 1,138 GitHub issues, and
 2,886 commits since the first commit on 2026-09-02.
 
 **Issues filed from this audit:** #1717, #1718, #1719, #1720 (must fix);
-#1721–#1728 (should fix); #1729, #1730 (nice to have). Finding 13 was folded
+
+# 1721–#1728 (should fix); #1729, #1730 (nice to have). Finding 13 was folded
+
 into #1519 as a comment rather than filed as a near-duplicate. #1401, #1462 and
-#1519 carry answers as comments.
+
+# 1519 carry answers as comments
 
 **On the code itself:** this is a carefully built repository. The sync engine
 carries comments explaining why each race is safe; the AI tools make every
@@ -46,7 +49,7 @@ to catch defects, and that machinery is currently off.
 
 ## Must fix
 
-### 1. `main` does not compile — and has not since 2026-10-31  `#1717`
+### 1. `main` does not compile — and has not since 2026-10-31 `#1717`
 
 **What this is:** commit `32d860dd` (PR #1698) added a `ShellOverride` composable
 that publishes a title and a navigation icon to the Android shell bar.
@@ -92,7 +95,7 @@ not the break).
 
 ---
 
-### 2. `main` has no merge gate at all, and the plan that would have added it was never carried out  `#1718`
+### 2. `main` has no merge gate at all, and the plan that would have added it was never carried out `#1718`
 
 **What this is:** a GitHub branch-protection rule requiring the `CI gate` check.
 
@@ -150,7 +153,7 @@ public"*.
 
 ---
 
-### 3. `AGENTS.md` and two open issues state the opposite of what is true  `#1719`
+### 3. `AGENTS.md` and two open issues state the opposite of what is true `#1719`
 
 **What this is:** the instruction file every agent reads before touching the
 repository.
@@ -174,7 +177,8 @@ there is no rule.
 
 **Fix:** one line in `AGENTS.md`, changed to say that branch protection is off
 and that a merge carries no enforcement until the rule exists. Then close
-#1401 and #1462 with that fact as the answer to their questions.
+
+# 1401 and #1462 with that fact as the answer to their questions
 
 **If we skip it:** every future session inherits a false model of how this
 repository is protected, and reasons from it. This is the belief that let 113
@@ -182,7 +186,7 @@ red merges look like normal.
 
 ---
 
-### 4. The nightly full-suite run can be cancelled by the next push, and a cancelled night tells nobody  `#1720`
+## 4. The nightly full-suite run can be cancelled by the next push, and a cancelled night tells nobody `#1720`
 
 **What this is:** the scheduled CI run at 01:00 UTC, the one run that exercises
 the whole suite rather than the changed part.
@@ -247,7 +251,7 @@ tracks the nightly being cancelled by a push, or the cancelled run being silent.
 
 ## Should fix
 
-### 5. A failed export leaves a half-written archive behind, and the next scheduled push uploads it as the newest backup  `#1721`
+### 5. A failed export leaves a half-written archive behind, and the next scheduled push uploads it as the newest backup `#1721`
 
 **What this is:** `BackupExporter.export` writes the zip straight to
 `options.destPath`.
@@ -270,7 +274,7 @@ person believes the backup worked.
 
 ---
 
-### 6. A restored attachment is never checked against the checksum the archive already carries  `#1722`
+### 6. A restored attachment is never checked against the checksum the archive already carries `#1722`
 
 **What this is:** `BackupImporter.applyAttachments` restores an attachment when
 its bytes are present in the zip.
@@ -290,7 +294,7 @@ file and reports success — the one failure mode a backup exists to prevent.
 
 ---
 
-### 7. The Android backup decoder has no decompression budget; the JVM one does  `#1723`
+### 7. The Android backup decoder has no decompression budget; the JVM one does `#1723`
 
 **What this is:** `AndroidBackupCodec` and `JvmBackupCodec` are near-copies of
 the same decoder.
@@ -311,7 +315,7 @@ guard against it.
 
 ---
 
-### 8. The backup schema chain silently skips two versions  `#1724`
+### 8. The backup schema chain silently skips two versions `#1724`
 
 **What this is:** `BackupMigrations.migrations` registers transforms for
 versions 1, 3, 4 and 6.
@@ -332,7 +336,7 @@ backups with the wrong data, and the symptom is "my data is wrong" rather than
 
 ---
 
-### 9. The JVM keyring read trims the secret and reports an empty value as absent  `#1725`
+### 9. The JVM keyring read trims the secret and reports an empty value as absent `#1725`
 
 **What this is:** `secretToolRead` post-processes what the keyring returns.
 
@@ -353,7 +357,7 @@ corrupted.
 
 ---
 
-### 10. The keyring and its fallback file can disagree, and the older value in the file wins  `#1726`
+### 10. The keyring and its fallback file can disagree, and the older value in the file wins `#1726`
 
 **What this is:** `JvmSecureStorage` keeps two stores — the OS keyring and
 `~/.config/singularity/secure.bin`.
@@ -376,7 +380,7 @@ revoked or outdated credential — an old API key, an old refresh token.
 
 ---
 
-### 11. The `CI gate` check does not wait for the ADR gate, so it would ignore a red one  `#1727`
+### 11. The `CI gate` check does not wait for the ADR gate, so it would ignore a red one `#1727`
 
 **What this is:** the `ci-gate` job, the one Stage 1 makes required.
 
@@ -399,7 +403,7 @@ gate becomes invisible — and the ADR corpus is the project's memory.
 
 ---
 
-### 12. The backup package carries four dead declarations, and one of them lies  `#1728`
+### 12. The backup package carries four dead declarations, and one of them lies `#1728`
 
 **What this is:** symbols that survived the package's refactoring.
 
@@ -420,7 +424,7 @@ overwrite with no warning.
 
 ---
 
-### 13. The archive container's two platform copies have already drifted once, in the security-relevant direction  — folded into `#1519`
+### 13. The archive container's two platform copies have already drifted once, in the security-relevant direction — folded into `#1519`
 
 **What this is:** `JvmArchiveCrypto` (128 lines) and `AndroidArchiveCrypto`
 (133 lines) are byte-for-byte copies of the same implementation.
@@ -442,7 +446,7 @@ open it".
 
 ## Nice to have
 
-### 14. The only test of the backup migration chain asserts nothing about any migration  `#1729`
+### 14. The only test of the backup migration chain asserts nothing about any migration `#1729`
 
 **What this is:** `BackupMigrationsTest` has two tests, and both assert
 `result.containsKey("tasks")`.
@@ -462,7 +466,7 @@ part that decides what an old backup restores as.
 
 ---
 
-### 15. A contract test named for the missing-manifest case never exercises it  `#1730`
+### 15. A contract test named for the missing-manifest case never exercises it `#1730`
 
 **What this is:** `BackupCodecContractTest` has a test called
 `import fails with MalformedManifest when manifest entry is missing`.

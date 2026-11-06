@@ -3951,6 +3951,5 @@ class FakeArchiveRepository : ArchiveRepository {
     /** When set, the archive answers with this instead of succeeding with zero rows. */
     var archiveCompletedTasksOverride: Result<Int>? = null
 
-    override suspend fun archiveCompletedTasks(): Result<Int> =
-        archiveCompletedTasksOverride ?: Result.success(0)
+    override suspend fun archiveCompletedTasks(): Result<Int> = archiveCompletedTasksOverride ?: Result.success(0)
 }

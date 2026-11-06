@@ -3,6 +3,7 @@ title: Nav3 KMP Migration (Android + JVM Desktop)
 date: 2026-09-11
 status: accepted
 ---
+
 # Nav3 KMP Migration (Android + JVM Desktop)
 
 ## Context
@@ -10,6 +11,7 @@ status: accepted
 The app used Navigation Compose (Nav2) on Android with a dead Nav2 implementation on Desktop. Android was being migrated to Navigation 3 (terrakok nav3-recipes multiplestacks pattern) but the Desktop stayed on Nav2.
 
 ## Decision
+
 ### 1. `App` is expect/actual at top level
 
 `App` is the expect/actual seam (common → android → jvm), not individual shell functions. This avoids the problem where a common module referencing a function that only exists on one platform.
@@ -28,6 +30,7 @@ expect @Composable fun App()
 ### 2. `Nav3State` + `Navigator` in commonMain
 
 `Nav3State` and `Navigator` are in `feature/nav/Nav3State.kt` (commonMain). Platform-specific is only the `rememberNav3State` factory:
+
 - Android: no-arg `rememberNavBackStack(key)` — platform provides SavedState automatically
 - JVM: requires `SavedStateConfiguration` with serializers for all `AppDestination` subclasses
 
@@ -42,12 +45,14 @@ The koin `navigation {}` DSL has a classpath conflict where the multiplatform me
 ### 5. `PomodoroTimer` interface + platform implementations
 
 `PomodoroTimer` is an interface in commonMain because Android's implementation uses `ViewModel` (not available on JVM). Platform bindings:
+
 - Android: `AndroidPomodoroTimer(get(), get(), get())` — a ViewModel scoped by `viewModel { }` in DI
 - JVM: `JvmPomodoroTimer()` — no-op placeholder since timer requires AlarmManager
 
 ### 6. `TasksScreenEntry` sealed class with `FromProject`
 
 `TasksByProject` nav entry was hardcoded to `TasksScreenEntry.FromToday`. Fixed by:
+
 - Changed `TasksScreenEntry` from enum to `sealed class` with `FromProject(projectId: ProjectId)`
 - `TasksScreen` applies the entry filter on first composition via `LaunchedEffect`
 - Both Android and JVM nav entries now pass `FromProject(ProjectId.fromString(route.projectId))`

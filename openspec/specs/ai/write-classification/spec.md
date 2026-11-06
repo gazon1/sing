@@ -19,11 +19,13 @@ that is kept by the discipline of whoever wrote each tool is a promise that deca
 the behaviour in the registry turns it into something the build checks.
 
 #### Scenario: A tool with no declared behaviour does not build
+
 - A tool is added without declaring how it writes
 - The consistency check fails
 - The behaviour must be chosen before the tool can ship
 
 #### Scenario: The declared set and the exposed set agree
+
 - The registry lists the tools an agent can call
 - Every one of them declares a write behaviour
 - A tool present in one and missing from the other fails the check
@@ -41,11 +43,13 @@ what makes the exception reviewable — by a person reading the registry, withou
 tool's code.
 
 #### Scenario: An exception carries a reason
+
 - A tool declares that it writes directly
 - It states why it sits outside the proposal pipeline
 - The reason appears in the registry
 
 #### Scenario: An exception without a reason does not build
+
 - A tool declares that it writes directly and states no reason
 - The consistency check fails
 - The reason must be written before the tool can ship
@@ -61,11 +65,13 @@ the user confirms the proposal, and a declined proposal **SHALL** leave the data
 and then offers a proposal has not asked anything.
 
 #### Scenario: A confirmed proposal is applied
+
 - An agent calls a tool that changes the user's data
 - A proposal appears and the user confirms it
 - The data changes
 
 #### Scenario: A declined proposal changes nothing
+
 - An agent calls a tool that changes the user's data
 - A proposal appears and the user declines it
 - The data is exactly as it was
@@ -81,6 +87,7 @@ every other write to the user's data, whatever route the agent took to make it.
 write. An agent connected from outside the application has no privileged path.
 
 #### Scenario: An external agent's write is proposed
+
 - An agent running outside the application asks for a change to the user's data
 - A proposal appears in the application
 - The change lands only after the user confirms it
@@ -96,6 +103,7 @@ the tool's name, its domain, its annotations, and its write behaviour.
 registry that omits how a tool writes answers half the question.
 
 #### Scenario: The registry is complete
+
 - The registry is compared against the tools actually exposed to agents
 - Both sets are the same
 - The comparison passes
@@ -110,11 +118,13 @@ writes without reading the catalogue's source.
 against anything else. The export is the one artifact a gate and a reader can both open.
 
 #### Scenario: The export carries the behaviour
+
 - The tool surface is exported from the compiled declarations
 - Every tool in it carries its write behaviour
 - A tool that writes directly carries its reason too
 
 #### Scenario: The exported surface is regenerated
+
 - A tool's declared behaviour changes
 - The surface is regenerated
 - The committed surface says what the compiler says
@@ -131,11 +141,13 @@ forbidden in the others. A rule that is written down and not checked is a rule t
 the moment somebody is in a hurry.
 
 #### Scenario: An exception without a reason is refused
+
 - A catalogue entry declares a direct write and carries no reason
 - The catalogue is loaded
 - The load fails, naming the tool
 
 #### Scenario: A reason that does not apply is refused
+
 - A catalogue entry declares that the tool does not write and carries a reason
 - The catalogue is loaded
 - The load fails, naming the tool
@@ -152,11 +164,13 @@ tool declared an exception that no longer writes is a finding.
 what turns "the tool proposes" into something the build knows.
 
 #### Scenario: A tool writes and does not declare it
+
 - A tool writes the user's data directly
 - The catalogue does not declare it a direct-write exception
 - The check fails, naming the tool
 
 #### Scenario: A declared exception no longer writes
+
 - The catalogue declares a tool a direct-write exception
 - The tool no longer writes
 - The check fails, naming the tool
@@ -175,17 +189,20 @@ that fails on what it cannot see teaches its readers to ignore it, and a reader 
 ignores it stops reading.
 
 #### Scenario: A write is outside the check's reach
+
 - A tool declares that it writes directly
 - The check cannot place the write on the user's own data
 - The check names the tool among the exceptions it could not verify
 
 #### Scenario: A named exception is not failed by what the check cannot see
+
 - A tool declares that it writes directly
 - The check cannot place the write on the user's own data
 - The tool is named among the exceptions the check could not verify
 - The check does not fail it
 
 #### Scenario: An unnamed exception is not left in silence
+
 - A tool declares that it writes directly
 - The check cannot place the write on the user's own data
 - The tool is not named among the exceptions the check could not verify
@@ -204,12 +221,14 @@ writes anyway, or that deletes the row it proposed to delete, passes every test 
 looks at the confirmation path.
 
 #### Scenario: A proposal-gated creation is confirmed
+
 - An agent calls a proposal-gated creation tool
 - A proposal appears and the user's data is unchanged
 - The user confirms the proposal
 - The data changes
 
 #### Scenario: A proposal-gated deletion is refused
+
 - An agent calls a proposal-gated deletion tool
 - A proposal appears and the thing is still there
 - The user refuses the proposal

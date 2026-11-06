@@ -30,6 +30,7 @@ This skill is the **single source of truth** for all Notes-specific UX patterns.
 **Reference:** TickTick — a small "Saved" pill appears top-right of the editor after autosave, fades after 1.2s.
 
 **VM side — `SavedPulse` event:**
+
 ```kotlin
 // NotesUiEvent.kt
 sealed interface NotesUiEvent {
@@ -59,6 +60,7 @@ private fun scheduleAutosave(id: String) {
 ```
 
 **Screen side — Animatable fade:**
+
 ```kotlin
 @Composable
 fun NoteEditorScreen(...) {
@@ -81,6 +83,7 @@ fun NoteEditorScreen(...) {
 ```
 
 **Pure formatter for relative time:**
+
 ```kotlin
 // core/ui/components/Formatters.kt
 internal fun formatSavedRelative(now: Instant, savedAt: Instant): String {
@@ -100,6 +103,7 @@ internal fun formatSavedRelative(now: Instant, savedAt: Instant): String {
 **Implementation:** See `singularity-todo-rich-editor` skill — "Sticky Bottom Toolbar" section.
 
 **Toolbar button layout:**
+
 ```
 [ B ] [ I ] [ U ] [ • ] [ </> ] [ ⋯ ]           [ ✨ ]
  primary row                          overflow  AI
@@ -112,6 +116,7 @@ internal fun formatSavedRelative(now: Instant, savedAt: Instant): String {
 **Reference:** TickTick task detail — `<title> + chips row` above content.
 
 **In NoteEditorScreen:**
+
 ```
 ┌──────────────────────────────────────────────┐
 │ ← Note                            ✓ Saved   │  ← TopAppBar
@@ -128,6 +133,7 @@ internal fun formatSavedRelative(now: Instant, savedAt: Instant): String {
 ```
 
 **Meta chips implementation:**
+
 ```kotlin
 @Composable
 private fun MetaChipsRow(
@@ -167,6 +173,7 @@ private fun MetaChipsRow(
 ```
 
 **Pure helpers:**
+
 ```kotlin
 // feature/notes/NoteFormatters.kt
 internal fun formatRelativeShort(now: Instant, then: Instant): String {
@@ -193,11 +200,13 @@ internal fun charCount(html: String): Int =
 **Reference:** Apple Notes folder hierarchy, Bear nested tags.
 
 **Navigation model:**
+
 - `NotesScreen` renders root-level notes + folders (where `parentNoteId = null`)
 - Tapping a folder card pushes `NotesScreen(folderId = folderNote.id)` onto the nav back stack
 - Back stack handles naturally via per-tab navigation (ADR `2026-09-05-android-bottom-nav`)
 
 **Folder card:**
+
 ```kotlin
 @Composable
 fun FolderCard(
@@ -237,6 +246,7 @@ fun FolderCard(
 ```
 
 **FAB chooser (ModalBottomSheet) — Phase 3:**
+
 ```kotlin
 // In fabActionFor on Notes destination:
 ModalBottomSheet(onDismissRequest = { /* hide */ }) {
@@ -297,6 +307,7 @@ private fun NoteTagRow(
 **Reference:** Obsidian `[[wikilink]]`, Notion `@mention`.
 
 **URL scheme:**
+
 ```
 note://{noteId}   → displayed as [[Note Title]] in editor
 task://{taskId}   → displayed as [[Task Title]] in editor
@@ -321,11 +332,13 @@ See `singularity-todo-rich-editor` skill for full implementation details.
 **Reference:** Obsidian — shows all notes that link to the current note.
 
 **Architecture:**
+
 - `NotePreview` VM observes the note via `repo.watchNote(id)` and fetches backlinks via `linkRepo.getBacklinkNotes(noteId)`
 - `NotePreviewScreen` shows `RichText(state)` (read-only) and a `BacklinksSheet` ModalBottomSheet
 - `BacklinksSheet` shows `ListItem` per linking note with extracted preview snippet
 
 **DAO query:**
+
 ```sql
 SELECT * FROM notes
 WHERE deleted_at IS NULL
@@ -342,6 +355,7 @@ LIMIT 20
 **Separation:** `NoteView` (read-only) ≠ `NoteEditor` (edit). Two separate routes and ViewModels.
 
 **Screen layout:**
+
 ```
 ┌──────────────────────────────────────────────┐
 │ ← Back    Backlinks(3)    ⋮ (Edit/Delete)  │  ← TopAppBar
@@ -359,6 +373,7 @@ LIMIT 20
 ```
 
 **BottomAppBar actions:**
+
 - FilledTonalButton "Edit" → navigates to `NoteEditor(noteId)`
 - OutlinedButton "Backlinks(count)" → opens `BacklinksSheet`
 - OutlinedButton "Delete" → AlertDialog confirmation → soft delete → navigate back

@@ -11,8 +11,10 @@ import com.singularity.todo.core.backup.BackupCursorStore
 import com.singularity.todo.core.backup.BackupExporter
 import com.singularity.todo.core.backup.BackupImporter
 import com.singularity.todo.core.backup.JvmBackupCodec
+import com.singularity.todo.core.backup.TaskDto
 import com.singularity.todo.core.backup.exportOptions
 import com.singularity.todo.core.backup.importOptions
+import com.singularity.todo.core.backup.toEntity
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
@@ -40,6 +42,7 @@ import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 
@@ -137,6 +140,140 @@ class BackupRoundTripTest {
                 "the state the user claimed for the task's work must survive the round trip",
             )
         }
+
+    /**
+     * A sub-task comes back under the same parent it was exported with.
+     *
+     * The parent link is a column and a domain field, but the payload used to
+     * have nowhere to put it: a restored account came back flat — every task
+     * was there, the hierarchy was not.
+     */
+    @Test
+    fun `a sub-task comes back under the same parent`() =
+        runTest {
+            val owner = UserId("backup-user")
+            seedSubtask(owner)
+
+            val fs = JvmFileSystem()
+            val destPath = File(tempDir, "sub-task.zip").absolutePath
+
+            val exported =
+                exporter(fs).export(
+                    exportOptions {
+                        this.userId = owner
+                        this.destPath = destPath
+                        includeAttachments = false
+                    },
+                )
+            assertTrue(exported.isSuccess, "export failed: ${exported.exceptionOrNull()}")
+
+            val restored =
+                importer(fs).import(
+                    importOptions {
+                        sourcePath = destPath
+                        targetUserId = owner
+                    },
+                )
+            assertTrue(restored.isSuccess, "import failed: ${restored.exceptionOrNull()}")
+
+            val parents =
+                targetDb.taskDao().listAllForUser(owner.value).associate { it.id to it.parentTaskId }
+            assertEquals(
+                "round-trip-parent",
+                parents["round-trip-child"],
+                "a restored sub-task must be a child of the same parent it had before the export",
+            )
+        }
+
+    /**
+     * A sub-task whose parent is not in the archive comes back top-level.
+     *
+     * A row can name a parent that no longer exists — the parent was deleted, or
+     * it never made it into the archive. The restore must not fail over it, and
+     * must not leave the task pointing at a row nothing writes: a dangling id
+     * would hide the task from every list that asks for top-level tasks.
+     */
+    @Test
+    fun `a sub-task whose parent is not in the archive comes back as a top-level task`() =
+        runTest {
+            val owner = UserId("backup-user")
+            val now = Clock.System.now().toEpochMilliseconds()
+            sourceDb.taskDao().upsert(
+                TaskDto(
+                    id = "orphan-child",
+                    title = "Orphan sub-task",
+                    createdAt = now,
+                    updatedAt = now,
+                ).toEntity(owner.value).copy(parentTaskId = "parent-that-is-gone"),
+            )
+
+            val fs = JvmFileSystem()
+            val destPath = File(tempDir, "orphan.zip").absolutePath
+
+            val exported =
+                exporter(fs).export(
+                    exportOptions {
+                        this.userId = owner
+                        this.destPath = destPath
+                        includeAttachments = false
+                    },
+                )
+            assertTrue(exported.isSuccess, "export failed: ${exported.exceptionOrNull()}")
+
+            val restored =
+                importer(fs).import(
+                    importOptions {
+                        sourcePath = destPath
+                        targetUserId = owner
+                    },
+                )
+            assertTrue(
+                restored.isSuccess,
+                "the restore failed over a parent the archive does not carry: ${restored.exceptionOrNull()}",
+            )
+
+            val orphan = targetDb.taskDao().listAllForUser(owner.value).single { it.id == "orphan-child" }
+            assertNull(
+                orphan.parentTaskId,
+                "a parent the restore does not write leaves the task top-level, not pointing at a row nothing writes",
+            )
+        }
+
+    /** Writes a parent and the sub-task that hangs off it into the source database. */
+    private suspend fun seedSubtask(owner: UserId) {
+        val auth = FakeAuthRepository(Session.Anonymous(owner))
+        val currentUser = FakeProfileAwareCurrentUser(auth)
+        val repository =
+            TaskRepositoryImpl(
+                taskDao = sourceDb.taskDao(),
+                textIndex = sourceDb.textIndex(currentUser),
+                clock = Clock.System,
+                currentUser = currentUser,
+                syncRepository = FakeSyncRepository(),
+                dependencyValidator = DependencyValidatorImpl(sourceDb.taskDao(), currentUser),
+                unitOfWork = FakeUnitOfWork(),
+            )
+        val now = Clock.System.now()
+        repository.create(
+            Task(
+                id = TaskId("round-trip-parent"),
+                title = "The parent",
+                userId = owner,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+        repository.create(
+            Task(
+                id = TaskId("round-trip-child"),
+                title = "The sub-task",
+                userId = owner,
+                createdAt = now,
+                updatedAt = now,
+                parentTaskId = TaskId("round-trip-parent"),
+            ),
+        )
+    }
 
     /**
      * Exporting never reads the archive — or an attachment — back into memory.

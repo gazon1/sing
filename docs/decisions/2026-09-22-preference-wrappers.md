@@ -8,6 +8,7 @@ tags: [settings, architecture, datastore, kotlin]
 ## Context
 
 Each per-section `*SettingsRepository` had ~15 lines of boilerplate per field:
+
 ```kotlin
 // Before: repetitive per-field boilerplate
 private val enabledKey = booleanPreferencesKey("namespace.enabled")
@@ -57,6 +58,7 @@ value class IntPref internal constructor(private val spec: PrefSpec<Int>) {
 ```
 
 `PrefSpec<T>` is an internal data class holding the 4 pieces of data:
+
 ```kotlin
 internal data class PrefSpec<T>(
     val dataStore: DataStore<Preferences>,
@@ -80,6 +82,7 @@ abstract class BaseSettingsRepository(internal val dataStore: DataStore<Preferen
 ```
 
 Each concrete repository inherits `BaseSettingsRepository` and calls factory methods:
+
 ```kotlin
 class DataStoreNotificationsSettingsRepository(dataStore: DataStore<Preferences>)
     : BaseSettingsRepository(dataStore), NotificationsSettingsRepository {

@@ -14,6 +14,7 @@ R23 required an ADR for `feature/genui/` — catalog, parser, render, schema.
 ## Decision
 
 The GenUI subsystem is implemented in `shared/src/commonMain/kotlin/com/singularity/todo/feature/genui/`:
+
 - `catalog/` — the component catalog
 - `parser/` — GenUI DSL parser
 - `render/` — renderer

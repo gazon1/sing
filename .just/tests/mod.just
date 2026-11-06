@@ -8,12 +8,16 @@ SKIP_ADB := env_var_or_default("SKIP_ADB", "0")
 [doc('Run commonMain tests (pure Kotlin, no platform)')]
 [working-directory(justfile_directory())]
 common:
-    #!/bin/bash
+    #!/usr/bin/env bash
     set -euo pipefail
-    ./gw :shared:commonTest
+    if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
+        ./gw :shared:commonTest
+    else
+        ./gw :shared:commonTest
+    fi
 
 [group('tests')]
-[doc('Run only the checks this change makes worth running')]
+[doc('Run only the checks this change can break')]
 [working-directory(justfile_directory())]
 affected:
     #!/bin/bash
@@ -84,9 +88,13 @@ impact:
 [doc('Run jvmTest (Room + SQLite on JVM)')]
 [working-directory(justfile_directory())]
 jvm:
-    #!/bin/bash
+    #!/usr/bin/env bash
     set -euo pipefail
-    ./gw :shared:jvmTest
+    if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
+        ./gw :shared:jvmTest
+    else
+        ./gw :shared:jvmTest
+    fi
 
 [group('tests')]
 [doc('Run the tests for the custom detekt rules')]
@@ -97,7 +105,11 @@ detekt-rules:
     # Added 2026-10-05: this was never run by any recipe or CI job, which is how
     # NoDirectDispatchersRule's two failing tests survived — the rule could not fire at
     # all and nothing noticed. `:detekt-rules:test` is now also a CI step.
-    ./gw :detekt-rules:test
+    if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
+        ./gw :detekt-rules:test
+    else
+        ./gw :detekt-rules:test
+    fi
 
 [group('tests')]
 [doc('Run the gate-script tests (docs/governance gates)')]
@@ -134,9 +146,13 @@ gate-scripts:
 [doc('Run testAndroidHostTest (Robolectric, no device needed)')]
 [working-directory(justfile_directory())]
 android-host:
-    #!/bin/bash
+    #!/usr/bin/env bash
     set -euo pipefail
-    ./gw :shared:testAndroidHostTest
+    if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
+        ./gw :shared:testAndroidHostTest
+    else
+        ./gw :shared:testAndroidHostTest
+    fi
 
 [group('tests')]
 [doc('Run common + jvm + android-host tests')]
@@ -154,7 +170,11 @@ shared:
 test:
     #!/bin/bash
     set -euo pipefail
-    ./gw test
+    if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
+        ./gw test
+    else
+        ./gw test
+    fi
 
 [group('tests')]
 [doc('Run full check: tests + assembleDebug + lint (respects $SKIP_ADB)')]
@@ -183,7 +203,11 @@ check-affected:
 clean:
     #!/bin/bash
     set -euo pipefail
-    ./gw clean
+    if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
+        ./gw clean
+    else
+        ./gw clean
+    fi
 
 # ---------------------------------------------------------------------------
 # gate — the one command that means "the gates are green"
@@ -274,7 +298,11 @@ detekt:
     # pointed at a directory that does not exist, and this recipe never named it.
     # :mcp-server is here because a module with a baseline is a module that can
     # silently grow that baseline without anybody noticing — and mcp-server has one.
-    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt
+    if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
+        ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt
+    else
+        ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt
+    fi
 
 [group('lint')]
 [doc('Correct what detekt can correct, then report what is left')]
@@ -310,11 +338,19 @@ detekt-fix:
     # invocation, so a task list silently corrects one module and skips the rest —
     # which looks exactly like the inertness ADR 2026-10-09 recorded. Collapsing
     # this loop back into one call reintroduces that bug in a form nobody can see.
-    for task in :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt; do
-        ./gw "$task" --auto-correct --rerun-tasks --console=plain || true
-    done
-    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt \
-        --console=plain
+    if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
+        for task in :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt; do
+            ./gw "$task" --auto-correct --rerun-tasks --console=plain || true
+        done
+        ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt \
+            --console=plain
+    else
+        for task in :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt; do
+            ./gw "$task" --auto-correct --rerun-tasks --console=plain || true
+        done
+        ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt \
+            --console=plain
+    fi
 
 [group('lint')]
 [doc('Generate detekt baseline files (capture current violations)')]
@@ -325,7 +361,81 @@ detekt-baseline:
     ./gw :shared:detektBaseline :desktopApp:detektBaseline :androidApp:detektBaseline :mcp-server:detektBaseline
 
 [group('lint')]
-[doc('Alias for the lint suite (ktlint and detekt)')]
+[doc('Check Markdown formatting with rumdl')]
+[working-directory(justfile_directory())]
+rumdl:
+    #!/bin/bash
+    set -euo pipefail
+    if ! command -v rumdl >/dev/null 2>&1; then
+        echo "rumdl is not installed — run: mise install (or put rumdl on PATH)." >&2
+        exit 1
+    fi
+    rumdl check .
+
+[group('lint')]
+[doc('Format Markdown files with rumdl')]
+[working-directory(justfile_directory())]
+rumdl-fix:
+    #!/bin/bash
+    set -euo pipefail
+    if ! command -v rumdl >/dev/null 2>&1; then
+        echo "rumdl is not installed — run: mise install (or put rumdl on PATH)." >&2
+        exit 1
+    fi
+    rumdl fmt .
+
+[group('lint')]
+[doc('Check changed Markdown files with rumdl (merge-base + working tree + untracked)')]
+[working-directory(justfile_directory())]
+rumdl-changed:
+    #!/bin/bash
+    set -euo pipefail
+    if ! command -v rumdl >/dev/null 2>&1; then
+        echo "rumdl is not installed — run: mise install." >&2
+        exit 1
+    fi
+    base="${LINT_BASE:-origin/main}"
+    mb="$(git merge-base "$base" HEAD 2>/dev/null)" || { echo "rumdl-changed: cannot resolve merge-base for '$base' (fetch it, or set LINT_BASE)" >&2; exit 1; }
+    mapfile -d '' files < <(
+        { git diff --name-only --diff-filter=ACMR -z "$mb" -- '*.md';
+          git ls-files --others --exclude-standard -z -- '*.md'; } | awk -v RS='\0' -v ORS='\0' '!seen[$0]++'
+    )
+    existing=()
+    for f in "${files[@]}"; do [ -f "$f" ] && existing+=("$f"); done
+    if [ "${#existing[@]}" -eq 0 ]; then
+        echo "rumdl-changed: no Markdown files to check."
+        exit 0
+    fi
+    echo "rumdl-changed: checking ${#existing[@]} Markdown file(s)…"
+    rumdl check "${existing[@]}"
+
+[group('lint')]
+[doc('Format changed Markdown files with rumdl')]
+[working-directory(justfile_directory())]
+rumdl-changed-fix:
+    #!/bin/bash
+    set -euo pipefail
+    if ! command -v rumdl >/dev/null 2>&1; then
+        echo "rumdl is not installed — run: mise install." >&2
+        exit 1
+    fi
+    base="${LINT_BASE:-origin/main}"
+    mb="$(git merge-base "$base" HEAD 2>/dev/null)" || { echo "rumdl-changed: cannot resolve merge-base for '$base' (fetch it, or set LINT_BASE)" >&2; exit 1; }
+    mapfile -d '' files < <(
+        { git diff --name-only --diff-filter=ACMR -z "$mb" -- '*.md';
+          git ls-files --others --exclude-standard -z -- '*.md'; } | awk -v RS='\0' -v ORS='\0' '!seen[$0]++'
+    )
+    existing=()
+    for f in "${files[@]}"; do [ -f "$f" ] && existing+=("$f"); done
+    if [ "${#existing[@]}" -eq 0 ]; then
+        echo "rumdl-changed: no Markdown files to fix."
+        exit 0
+    fi
+    echo "rumdl-changed: formatting ${#existing[@]} Markdown file(s)…"
+    rumdl check --fix "${existing[@]}"
+
+[group('lint')]
+[doc('Alias for the lint suite (ktlint and detekt); md via mdcheck/mdcheck-changed')]
 lint: ktlint detekt
 
 [group('lint')]
@@ -379,10 +489,10 @@ docs-audit:
     python3 scripts/check-provenance.py --self-test || status=1
     echo ""
     echo "=== DIGEST freshness ==="
-    ./scripts/refresh-decisions-digest.sh
+    python3 scripts/refresh-decisions-digest.py
     echo ""
     echo "=== Source tree drift ==="
-    ./scripts/print-source-tree.sh --output /tmp/source-tree.md
+    python3 scripts/print-source-tree.py --output /tmp/source-tree.md
     echo "(source tree written to /tmp/source-tree.md for manual diff)"
     exit $status
 
@@ -393,7 +503,7 @@ docs-regen:
     #!/bin/bash
     set -euo pipefail
     ./scripts/regen-skills-catalog.sh
-    ./scripts/refresh-decisions-digest.sh
+    python3 scripts/refresh-decisions-digest.py
     echo "docs-regen: regenerated SKILLS-CATALOG.md, DIGEST.md and DIGEST-full.md"
 
 [group('tests')]

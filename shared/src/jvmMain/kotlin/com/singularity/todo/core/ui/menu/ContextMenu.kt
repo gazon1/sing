@@ -32,9 +32,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import com.singularity.todo.core.ui.theme.ActionColors
+import com.singularity.todo.core.ui.theme.dividerColor
 import com.singularity.todo.core.ui.touchTarget
-import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
-import com.singularity.todo.feature.tasks.presentation.theme.dividerColor
 import kotlinx.collections.immutable.ImmutableList
 
 /** State that opens a context menu at a given screen offset. */
@@ -141,7 +141,7 @@ private fun ActionMenuRow(
 ) {
     val textColor =
         if (node.enabled) {
-            if (node.danger) TaskSemanticColors.Danger else MaterialTheme.colorScheme.onSurface
+            if (node.danger) ActionColors.Danger else MaterialTheme.colorScheme.onSurface
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
         }
