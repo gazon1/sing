@@ -36,6 +36,7 @@ the call, only in the PR that added the suppression — if anyone remembered to
 add one.
 
 The honest alternatives were:
+
 1. **Extend the rule** to `System.currentTimeMillis()`. This requires baseline entries
    for all 14 additional findings. Baselining is the correct action for genuine
    pre-existing violations, but the baseline itself would be invisible in a PR,

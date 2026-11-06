@@ -1,6 +1,7 @@
 # internal-link-grammar Specification
 
 ## Purpose
+
 An internal link is how one note or task points at another: `task://<id>`,
 `note://<id>`. Three features write and read them — the notes editor, the task
 description, and the navigation layer that opens the target — and the database
@@ -33,11 +34,13 @@ link resolve to the same reference; a rule check that no second copy of the gram
 exists outside the owner.
 
 #### Scenario: One link, one answer
+
 - A link to a task is written in the editor as markup
 - The same link is written in free text in a task description
 - Both resolve to the same reference
 
 #### Scenario: A new surface does not invent a grammar
+
 - A new screen renders text that may contain links
 - It reads links through the shared definition
 - It does not add a copy
@@ -58,6 +61,7 @@ gets two different answers about whether the link exists.
 recognised wherever links are recognised.
 
 #### Scenario: A pasted link is a link
+
 - The user pastes a link into a note's body
 - The note lists that link among its outgoing links
 
@@ -78,11 +82,13 @@ the wildcards do not bite, and nothing in the contract says they always will be.
 single wildcard character does not match.
 
 #### Scenario: A near-miss identifier does not match
+
 - A stored link points at task "abc"
 - A query asks for task "a_c"
 - No row is returned
 
 #### Scenario: The exact identifier matches
+
 - A stored link points at task "abc"
 - A query asks for task "abc"
 - The row is returned
@@ -102,11 +108,13 @@ that swallows the tap, or opens the wrong thing, survives.
 test that a tap on a link to a deleted target leaves the user where they were.
 
 #### Scenario: Tapping a link to an existing note
+
 - A note's body links to another note
 - The user taps the link
 - The other note opens
 
 #### Scenario: Tapping a link to something that was deleted
+
 - A note's body links to a task that has since been deleted
 - The user taps the link
 - Nothing opens, and the note stays on screen

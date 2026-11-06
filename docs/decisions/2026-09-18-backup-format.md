@@ -43,6 +43,7 @@ backup_<profileId>_<timestamp>.zip
 ```
 
 Checksum validation on import:
+
 1. `payloadChecksum` verified against actual SHA-256 of `payload.json` bytes
 2. `formatVersion` must be ≤ `BackupFormat.FORMAT_VERSION` — else throw `UnsupportedFormatVersion`
 3. `schemaVersion` must be ≤ `BackupFormat.SCHEMA_VERSION` — else throw `UnsupportedSchemaVersion`

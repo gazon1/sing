@@ -12,6 +12,7 @@ tags: [mcp, tools, koog, idempotency]
 MCP-сервер экспортирует 17+ tools. Среди них write-tools: `create_task`, `update_task`, `delete_task`, `create_note`, `update_note`, `delete_note`, `create_project`, `update_project`, `create_tag`, `delete_tag`, `write_adr`.
 
 Проблемы, которые нужно решить:
+
 1. **Idempotency** — повторный `create_task` с тем же `idempotency_key` должен возвращать существующую задачу, а не создавать дубликат
 2. **Dry-run mode** — AI-агенты хотят preview перед применением
 3. **Authorization** — какой профиль / userId использует агент?
@@ -55,6 +56,7 @@ class CreateTaskTool(
 ```
 
 **Tool annotations** на каждом tool:
+
 - `@ToolAnnotation(readOnly = false, destructive = false, idempotent = true)` — create
 - `@ToolAnnotation(readOnly = false, destructive = true, idempotent = false)` — delete
 - `@ToolAnnotation(readOnly = false, destructive = false, idempotent = true)` — update

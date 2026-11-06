@@ -178,6 +178,7 @@ build the persisted session is unnecessary and can mask the bypass, hence the se
 reset the runner does between flows.
 
 ## Links
+
 - `docs/decisions/2026-10-07-the-instrumentation-tier-ran-in-no-ci-job.md` — why
   the tier is a separate workflow rather than a registry gate
 - `docs/decisions/2026-10-20-android-instrumented-smoke-on-every-pr.md` — why

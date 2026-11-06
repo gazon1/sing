@@ -8,6 +8,7 @@ description: Debounced inline-edit pattern for document-style detail screens. Co
 ## The Pattern
 
 Document-style detail screens allow users to tap a title or description and edit it inline. Changes must be:
+
 1. **Debounced** — don't save on every keystroke
 2. **Silent** — don't spam the user with "Saved" notifications
 3. **Feedback-visible** — the user must know their change was saved, subtly
@@ -17,6 +18,7 @@ This skill documents the correct implementation.
 ## The Bug: Saved-Spam
 
 `TaskDetailViewModel.kt:100` had this pattern:
+
 ```kotlin
 // ❌ WRONG — Saved event emitted on EVERY debounced keystroke
 viewModelScope.launch {
@@ -225,6 +227,7 @@ fun deleteProject() {
 ## Why Not Use a "Saving..." Indicator?
 
 TickTick uses a subtle "Saved X ago" pill — no "Saving..." spinner. The rationale:
+
 1. The save is nearly instant (<100ms for local DB)
 2. "Saving..." implies the save might fail — it rarely does
 3. "Saved X ago" tells the user it **did** save and when

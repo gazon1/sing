@@ -42,6 +42,7 @@ the line before committing. Never merge with it present.
 ### 2a. Three desktop flow tests lack `checkA11y = true`
 
 **Affected files**:
+
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/agenda/SavedAgendaCreateFlowTest.kt`
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/agenda/AgendaBadgePolicyFlowTest.kt`
 
@@ -75,6 +76,7 @@ meaning the ViewModel instance will survive navigation away and back, potentiall
 holding stale state.
 
 **Audit command**:
+
 ```bash
 grep -rn "koinInject<.*ViewModel" shared/src/commonMain/
 ```
@@ -120,6 +122,7 @@ in composable calls. It is currently set to `active: false` (warn-only, no build
 failure). The rule correctly skips `@Preview` functions.
 
 **Activation criteria** (all must be true before promoting to `active: true`):
+
 1. All 119 `@Preview` functions in the project use `noopClick` (or are otherwise exempt)
 2. All production `onClick = {}` occurrences found by the bulk scan have been resolved
 3. The rule has been run with `active: true` on a clean codebase for ≥ 1 week with no
@@ -183,6 +186,7 @@ correct uses in the codebase.
 After MR-3, the bulk count was reduced from ~143 production occurrences to
 approximately 39 files with 1–3 occurrences each. The remaining instances
 are in components where:
+
 - The click handler is genuinely no-op (e.g., a disabled state in a preview)
 - The component is a low-level atomic UI element that does not own its state
 - Replacing `{}` with `noopClick` would be mechanical and add no value

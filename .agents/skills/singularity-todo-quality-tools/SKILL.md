@@ -97,6 +97,7 @@ ktlint_standard_backing-property-naming = disabled   # the canonical `_state`
 
 **Common ktlint rule IDs** (kebab-case; the key that switches one off is
 `ktlint_standard_<rule-id> = disabled`):
+
 - `no-wildcard-imports` — forbids `import foo.*`
 - `max-line-length` — line length (set `max_line_length = 120` in `.editorconfig`)
 - `indent` — indentation (default: 4 spaces, respects `.editorconfig`)
@@ -114,14 +115,17 @@ git diff gradle/libs.versions.toml
 ```
 
 **Common mistake:** adding a second `[plugins]` or `[libraries]` section. Use the correct TOML structure:
+
 - All version pins go in `[versions]`
 - All library declarations go in `[libraries]`
 - All plugin declarations go in `[plugins]` (single section, no duplicates)
 
 **After any change:**
+
 ```bash
 ./gradlew :shared:detekt --no-configuration-cache --no-daemon 2>&1 | grep -i 'TOML\|error' | head -5
 ```
+
 If you see "TOML syntax error" or "plugins previously defined at line X" — you created a duplicate section.
 
 ## Custom rules (`detekt-rules` module)
@@ -167,7 +171,6 @@ Details: `singularity-todo-detekt-rules-authoring` skill.
 - `singularity-todo-kotlin-idioms` — covers Kotlin idioms that ktlint enforces
 - `singularity-todo-koin-dsl` — Koin 4.x DSL canonical patterns
 - `singularity-todo-worktree-isolation` — git worktree isolation for refactoring branches
-
 
 ## Auto-correct convergence
 

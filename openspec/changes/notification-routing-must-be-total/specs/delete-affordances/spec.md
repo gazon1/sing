@@ -44,12 +44,12 @@ with a delete swipe that simply deletes looks like every other app.
 - **When** the screen is added
 - **Then** a check reports any delete path with neither affordance
 - **And** the check names the file and the action, so the omission is not
-      discovered by a user
+  discovered by a user
 
 #### Scenario: A bulk delete spans two classes
 
 - **Given** a multi-select delete where some selected items are reversible and
-      some are not
+  some are not
 - **When** the user confirms
 - **Then** the confirmation states which is which
 - **And** it does not present one summary dialog that hides the difference

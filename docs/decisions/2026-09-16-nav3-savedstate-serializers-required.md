@@ -15,6 +15,7 @@ The shared factory introduced in `2026-09-16-nav3-shared-state-factory-and-local
 The Android overload `rememberNavBackStack(vararg elements)` (Android-only, defined in `navigation3-runtime-android`) takes a different code path: a reflection-based `NavKeySerializer` that uses `Class.forName(name).kotlin.serializer()` to resolve subtypes on the fly. Android worked by accident as long as that overload was used, but the moment we passed `SavedStateConfiguration` into the common overload (to opt into real `SavedStateRegistry` persistence), Android shared the same fate as JVM — it just hadn't been exercised in a real rotation / process-death scenario yet.
 
 Nested graphs had the same bug locally:
+
 - `TasksNavGraph.jvm.kt`, `ProjectsNavGraph.jvm.kt`, `NotesNavGraph.jvm.kt` already used a polymorphic `serializersModule` — those happened to work because they were the first places someone hit the failure and fixed it.
 - `SettingsNavGraph.jvm.kt`, `SearchNavGraph.jvm.kt` used `SavedStateConfiguration { }` for a single-element stack of an `@Serializable`-less `data object : NavKey`. They crashed even before the top-level factory did.
 

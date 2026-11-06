@@ -7,7 +7,7 @@ description: Lightweight decision-log workflow for this project. Instead of a sk
 
 This project captures architectural knowledge as **short dated entries** rather than as a growing pile of narrow "how-to" skills. The agent reads the consolidated `DIGEST.md` at session start; the human reads individual entries when they want the reasoning.
 
-#### File layout
+## File layout
 
 ```
 docs/decisions/
@@ -20,7 +20,7 @@ docs/decisions/
 
 File name: `YYYY-MM-DD-<short-slug>.md`. One slug per decision. Multiple decisions from the same day → multiple files, all with the same date prefix.
 
-#### Entry format
+### Entry format
 
 ```. Runkotlin
 ---
@@ -87,16 +87,20 @@ If unsure, write a one-paragraph entry — small is fine. Missing a decision is 
 #### Refresh workflow
 
 1. **Record the decision** as you make it — through a tool, not by writing `.md` by hand:
+
    ```bash
    singularity-adr new <slug> <title> [tag ...]   # or the write_adr MCP tool
    ```
+
    A hand-written file skips `AdrStorage`, and `AdrStorage` is what guarantees the
    frontmatter contract (`config/docs/adr-corpus.json`) — which is exactly how a
    corpus ends up with keys the normalizer rejects. Commit each entry as you go.
 2. **Refresh the digest** before any non-trivial agent task, or after a batch of new entries:
+
    ```bash
    ./scripts/refresh-decisions-digest.sh
    ```
+
 3. **Commit the refreshed `DIGEST.md`** in the same commit as the entries it consolidates, when reasonable.
 
 The script is idempotent — running it on an already-fresh tree is a no-op that exits 0.
@@ -151,12 +155,14 @@ touch the decision log:
 #### Tools (optional, documented — not installed)
 
 - **`mdq`** — Markdown Query. CLI tool for grepping the decision corpus. Available at [github.com/megabreezy/mdq](https://github.com/megabreezy/mdq) (`brew install mdq` / `pip install mdq`). Not installed in this workspace; documented only.
+
   ```bash
   # Query the digest
   mdq "koin" docs/decisions/DIGEST.md
   # Search across all entries
   mdq "OpenAIModels" docs/decisions/*.md
   ```
+
   If you prefer not to use it, `grep` and `awk` work fine against the raw files.
   If you run `mdq` ad-hoc, the digest is pre-filtered for critical rules — start there.
 
@@ -181,11 +187,13 @@ depends only on `(HostEnvironmentPort, Clock, TimeZoneProvider)` — no database
 ### Output format
 
 `write_adr` returns:
+
 ```json
 {"slug":"2026-09-05-koog-both-platforms","path":"/abs/path/docs/decisions/2026-09-05-koog-both-platforms.md","title":"Koog on both platforms"}
 ```
 
 Frontmatter written (includes `status: open`):
+
 ```yaml
 ---
 title: "Koog on both platforms"

@@ -44,12 +44,14 @@ interface SyncApiClient {
 ```
 
 `PushPhase.push()` now:
+
 1. Makes a mutable copy: `val mPending = pending.toMutableList()`
 2. Calls `api.batchPush(ready.request)`
 3. Calls `api.onBeforeResponseLoop(mPending, response)`
 4. Derives patches from `mPending`, which now reflects any mutations
 
 **Benefits:**
+
 - `SyncApiClient` has a named, documented seam that has meaning in production (logging, metrics, optimistic UI)
 - `pending` in `PushPlan.Ready` is back to `List` — the plan is an immutable snapshot
 - The test sets `api.onBeforeResponseLoop = { pending, _ -> pending.removeIf { ... } }` — no override needed

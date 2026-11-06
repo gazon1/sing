@@ -23,6 +23,7 @@ was already used`.
 
 The Inbox preset had no `discard = true` on any of its narrow bucket sections
 (Today, Yesterday, Tomorrow, This Week, Next Week). A task due tomorrow matched:
+
 - "Today" section (bucket: `RelativeBucket.Today` — false for tomorrow, actually fine)
 - "Tomorrow" section (bucket: `RelativeBucket.Tomorrow` — true)
 - "This Month" section (range: `RelativeBucket.ThisMonth` — true for tomorrow)

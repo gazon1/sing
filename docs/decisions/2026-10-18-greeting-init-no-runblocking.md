@@ -15,7 +15,6 @@ date: 2026-10-18
 > `2026-10-19-greeting-observed-not-snapshotted.md`. The `NoRunBlockingRule` constraint
 > below still holds: nothing here reintroduces `runBlocking`.
 
-
 ## Context
 
 `AgendaViewModel.computeGreeting()` is a suspend function that reads two flow values

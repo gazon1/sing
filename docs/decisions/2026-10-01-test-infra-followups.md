@@ -29,6 +29,7 @@ searching for the wrong ID.
 **Fix.** Changed to `task_action_mark_as_completed`. Committed directly to the MR branch.
 
 **Verification.**
+
 ```bash
 python3 Maestro/scripts/check-tags.sh  # passes
 # slug("Mark as completed") = "mark_as_completed" ✓
@@ -123,11 +124,14 @@ but the reason text should be audited against the current flow behavior.
 ## 5. ktlint `FunctionSignature` / `WrappingRule` conflict in `TestTagsWiringTest`
 
 **What.** The function:
+
 ```kotlin
 private fun declaredConstants(): List<Pair<String, String>> =
     TestTagsCatalog.staticTags()
 ```
+
 triggers two conflicting ktlint rules:
+
 - `WrappingRule`: putting `= TestTagsCatalog.staticTags()` on the same line as
   the signature exceeds the 120-char line limit
 - `FunctionSignature`: putting `=` on a new line triggers "first line of body

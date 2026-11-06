@@ -160,6 +160,9 @@ docs/decisions/DIGEST-full.md
 .env
 keystore/
 
+# rumdl cache (local tool state)
+.rumdl_cache/
+
 # Python build metadata from `pip install -e scripts/src/`.
 # scripts/src/sgate/sgate.egg-info was committed once and then contradicted the
 # real project definition; the egg-info is regenerated on every install and must

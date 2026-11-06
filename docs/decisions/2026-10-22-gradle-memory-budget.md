@@ -478,7 +478,9 @@ The arithmetic that fixes the ceiling is the one the record carries: `./gw`
 holds one of three machine-wide build slots and each slot has its own daemon,
 so three builds at once reserve
 
-    3 × (6144 MB daemon + forks × 1536 MB)
+```
+3 × (6144 MB daemon + forks × 1536 MB)
+```
 
 which is 36 GB at four forks and 54 GB at eight. The second is 87% of the
 machine's RAM with the IDE, the OS and the other worktrees still to come — so

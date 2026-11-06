@@ -200,6 +200,7 @@ This pattern generalises to:
 | User | Task (all) | `COUNT(*) WHERE user_id = u.id` |
 
 For Tags ↔ Notes (many-to-many), the JOIN includes the cross-ref table:
+
 ```sql
 SELECT t.*, COUNT(nt.note_id) AS noteCount
 FROM tags t

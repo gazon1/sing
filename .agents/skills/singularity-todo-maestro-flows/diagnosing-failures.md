@@ -80,10 +80,12 @@ separates them.
 2. **Assertion failure:** read the captured hierarchy —
    `~/.maestro/tests/<timestamp>/<flow-name>/screen-hierarchy/<step>.json`.
    Extract what was actually on screen:
+
    ```bash
    grep -o '"resource-id" : "[^"]*"' <step>.json | sort -u
    grep -o '"text" : "[^"]*"' <step>.json | sort -u
    ```
+
    Compare against `Maestro/TAGS.md` — usually the id is mis-cased, below the
    fold, or on a screen the previous step never opened.
 3. **Nothing on screen but the home screen** — the app crashed earlier in the
@@ -105,6 +107,7 @@ timing variance (cold start), and a `known-bug` tag marks the flow while a real 
 is tracked.
 
 Do NOT use retry when:
+
 - Multiple flows fail simultaneously with the same selector — this is a cascade,
   not independent variance. Check `seed-task.yaml` first.
 - The failure is `Not found` rather than `Not visible` — retry does not help.
@@ -117,6 +120,7 @@ The most common cascade failure mode in this suite: `seed-task.yaml` times out,
 `seed-task.yaml`. Every other flow just used that fixture.
 
 **How to recognise it:**
+
 - 14 flows all failing with the same `Not visible: task_item_buy_milk` at the
   same step position (immediately after seed).
 - The failure appeared after a CI runner was under load (seed takes longer when

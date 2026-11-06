@@ -54,6 +54,7 @@ If `CrossUserWriteException` semantics are preferred, add a read-first `assertCa
   `delete`/`archive` (throw `IllegalArgumentException`) is documented
 
 ## Links
+
 - Write-pipeline skill: `assertCanWrite` section
 - `NotesRepositoryImpl.delete:82`, `.restore:94`, `.archive:205`
 - `TaskRepositoryImpl.delete:268`, `.softDelete:277`

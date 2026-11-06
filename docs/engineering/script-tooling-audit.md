@@ -148,6 +148,7 @@ recognised, 26 silently skipped**. The skipped ones are real, current flows:
       text: "Example Article"
     timeout: 5000
 ```
+
 ```yaml
 # Maestro/flows/agenda/07-copy-to-profile.yaml:53
 - extendedWaitUntil:
@@ -514,7 +515,6 @@ Five defects, each independently mergeable, landed on 2026-10-20:
 - **F2** — the Maestro wait scanner skipped 26 of 435 waits and said nothing. It is now
   a YAML parse, and the text waits it cannot price are counted against a floor.
 
-
 ### What the second round of fixes changed (F9)
 
 **F9 — four `sgate` adapters now read their producer's JSON contract.** Two
@@ -541,7 +541,6 @@ while its help text promised "Dry-run: print result without exiting non-zero". I
 reports the verdict and exits 0, in both the human and the JSON path.
 
 ADR: `docs/decisions/2026-10-20-f9-adapters-read-the-contract.md`.
-
 
 ### What the third round of fixes changed (the contract, closed)
 
@@ -575,7 +574,6 @@ verdict. It carries `passed` now.
 
 ADR: `docs/decisions/2026-10-21-one-owner-of-stdout.md`.
 
-
 ### The findings, as issues
 
 Every finding above is filed, so that a reader of this document can follow the
@@ -594,6 +592,7 @@ work without reading this document:
 | F12 | [#777](https://github.com/gazon1/sing/issues/777) | `measure-baseline-composition.py`: wire it or delete it — **done 2026-10-21** |
 | F13 | [#778](https://github.com/gazon1/sing/issues/778) | 12 gate scripts have no unit test — **done 2026-10-21** |
 | — | [#772](https://github.com/gazon1/sing/issues/772) | `sgate run-all` should read the payload, not only the exit code |
+
 ### What the fourth round of fixes changed (F5, F6, F7)
 
 **One implementation per question.** Four questions in this repository had two answers,
@@ -638,7 +637,6 @@ the rest of the dead code in the next round rather than in this one.
 
 ADR: `docs/decisions/2026-10-21-one-implementation-per-question.md`.
 
-
 ### What the fifth and sixth rounds of fixes changed (F8, F12, F13)
 
 **The fifth round deleted what nothing calls.** The `emulator` package re-exported eight
@@ -673,7 +671,6 @@ although it promises to assert the opposite, `check-hooks-path.py` checks
 `.githooks` instead of the configured path, and `check-gate-registries.py` imported
 `click` twice. Issues #807, #808 and #809 carry the first three; the fourth went
 with the seventh round.
-
 
 ### What the seventh round of fixes changed (F10, F11)
 
@@ -713,7 +710,6 @@ the declaration, and `check-gate-registries.py` compares it with the wrapper's
 own `MEMBERS` list.
 
 ADR: `docs/decisions/2026-10-21-one-manifest-and-one-placement-table.md`.
-
 
 ## What was measured and rejected
 
@@ -771,7 +767,6 @@ F10 and F11 stay out of that round. They are the ones that remove duplication
 rather than relocate it, and every gate name and mode moves when they land — that
 wants its own change record and its own before/after count of both registries.
 
-
 ### Sizing the remaining work
 
 Measured on 2026-10-20, so the next round starts from numbers rather than from a
@@ -794,7 +789,6 @@ The cheapest meaningful next round is F6 + F7 (about 40 lines, no behaviour chan
 followed by F8 + F12 (deletions). F10 and F11 are the ones that actually
 remove duplication rather than relocate it, and they are the ones that want their
 own change record.
-
 
 ## Evidence and limits
 
@@ -845,6 +839,3 @@ two checkouts of it.
   corpus coherent without reading the gates
 - `docs/decisions/2026-10-19-ast-grep-for-kotlin-parsing-in-python-gates.md` — the
   measured rejection of a Kotlin parser in Python gates, which F5 upholds
-
-
-

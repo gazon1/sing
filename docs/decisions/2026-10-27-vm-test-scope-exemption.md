@@ -59,11 +59,13 @@ either test is later refactored to use `testVm { }` or another pattern that elim
 ## Consequences
 
 **Positive:**
+
 - The convention scanner no longer produces false failures for these two files.
 - The two-way stale check ensures exemptions don't outlive their necessity.
 - The reason is documented inline, so future maintainers understand why.
 
 **Negative:**
+
 - Two test files remain in the hand-rolled scope pattern. If `TestVmContext` is
   extended to expose `backgroundScope` and the raw VM in the future, these exemptions
   should be removed and the files migrated.
@@ -71,6 +73,7 @@ either test is later refactored to use `testVm { }` or another pattern that elim
 ## Future Work
 
 When `TestVmContext` or `testVm { }` grows support for:
+
 1. Access to the raw VM instance
 2. A `backgroundScope`-equivalent for fire-and-forget event collection
 

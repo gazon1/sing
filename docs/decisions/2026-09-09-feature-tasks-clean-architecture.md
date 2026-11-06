@@ -21,6 +21,7 @@ feature/tasks/
 ```
 
 Problems:
+
 - **Cross-feature imports**: `presentation.something` could import `data.something` directly, bypassing domain
 - **No layer discipline**: Room DAOs, business rules, and Compose UI all in the same package
 - **Test coupling**: tests imported from the root package, brittle to refactoring

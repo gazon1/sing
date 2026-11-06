@@ -48,90 +48,39 @@ import subprocess
 import sys
 
 ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from git_changed import changed_paths as _changed_paths  # noqa: E402
+
+
+def changed_paths(base: str, pathspec=(), staged_only: bool = False) -> list[str]:
+    """Wrapper so tests can monkeypatch ``ROOT`` (legacy API)."""
+    return _changed_paths(base, pathspec=pathspec, staged_only=staged_only, root=ROOT, cwd=ROOT)
 
 # The modules that run detekt. Each one gets a `detektChanged` task; a module
 # with no changed file has nothing to analyse, and its task is skipped.
 TASKS: list[str] = [
-    ':shared:detektChanged',
-    ':desktopApp:detektChanged',
-    ':androidApp:detektChanged',
-    ':mcp-server:detektChanged',
-    ':detekt-rules:detektChanged',
-    ':core-base:detektChanged',
-    ':adr-core:detektChanged',
-    ':adr-cli:detektChanged',
+    ":shared:detektChanged",
+    ":desktopApp:detektChanged",
+    ":androidApp:detektChanged",
+    ":mcp-server:detektChanged",
+    ":detekt-rules:detektChanged",
+    ":core-base:detektChanged",
+    ":adr-core:detektChanged",
+    ":adr-cli:detektChanged",
 ]
 
 # The detekt console report: "<severity>: <RuleId> - [<message>] at <file>:<line>:<column>".
 # The message is truncated by detekt itself ("..."), so the report file is the
 # place to read the whole one.
 FINDING = re.compile(
-    r'^(?P<severity>[ew]):\s+(?P<rule>[\w.]+)\s+-\s+\[(?P<message>.*)\]\s+at\s+'
-    r'(?P<file>.+?):(?P<line>\d+):(?P<column>\d+)\s*$'
+    r"^(?P<severity>[ew]):\s+(?P<rule>[\w.]+)\s+-\s+\[(?P<message>.*)\]\s+at\s+"
+    r"(?P<file>.+?):(?P<line>\d+):(?P<column>\d+)\s*$"
 )
 
 # The colour codes detekt's console output carries; they are noise in a report
 # a human reads, and they break the pattern above.
-ANSI = re.compile(r'\x1b\[[0-9;]*m')
-
-
-def git_paths(*args: str) -> tuple[int, list[str]]:
-    """Run git for a list of paths and return (exit code, the paths).
-
-    The `-z` format is the one that does not quote: git writes a path with a
-    space, a quote or a backslash in quotes, and a quoted path does not name a
-    file — the lint would silently not look at the file that was just written.
-    """
-    process = subprocess.run(
-        ['git', *args],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return process.returncode, [part for part in process.stdout.split('\0') if part]
-
-
-def changed_paths(base: str) -> list[str]:
-    """The paths this change touches: committed and uncommitted alike.
-
-    A change that is not committed yet is still a change, and a lint that only
-    looked at the commits would report nothing about the work in front of the
-    developer — which is exactly the state the pre-commit hook runs in.
-    """
-    paths: list[str] = []
-
-    # The commits on this branch, measured against the merge base with the base
-    # branch. `A...B` is the three-dot form: the diff starts at the merge base.
-    code, committed = git_paths('diff', '--name-only', '-z', f'{base}...HEAD')
-    if code == 0:
-        paths.extend(committed)
-    else:
-        print(
-            f"lint-changed: cannot compare against '{base}' — "
-            f"only the working tree is linted (fetch it, or pass --base)",
-            file=sys.stderr,
-        )
-
-    # The working tree: staged and unstaged changes to tracked files.
-    code, tracked = git_paths('diff', '--name-only', '-z', 'HEAD')
-    if code == 0:
-        paths.extend(tracked)
-
-    # The working tree: files that are not tracked yet. `git status` would
-    # report a new directory as one entry, which would hide the Kotlin files
-    # inside it; `ls-files` reports them one by one.
-    code, untracked = git_paths('ls-files', '--others', '--exclude-standard', '-z')
-    if code == 0:
-        paths.extend(untracked)
-
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for path in paths:
-        if path not in seen:
-            seen.add(path)
-            ordered.append(path)
-    return ordered
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def kotlin_files(paths: list[str]) -> list[pathlib.Path]:
@@ -143,7 +92,7 @@ def kotlin_files(paths: list[str]) -> list[pathlib.Path]:
     """
     files: list[pathlib.Path] = []
     for path in paths:
-        if not (path.endswith('.kt') or path.endswith('.kts')):
+        if not (path.endswith(".kt") or path.endswith(".kts")):
             continue
         absolute = ROOT / path
         if absolute.is_file():
@@ -157,21 +106,21 @@ def ktlint_command(files: list[pathlib.Path]) -> list[str]:
     The same script the CI job and the pre-push hook run, so the three
     surfaces cannot disagree about what the formatting rules are.
     """
-    launcher = os.environ.get('LINT_CHANGED_KTLINT')
+    launcher = os.environ.get("LINT_CHANGED_KTLINT")
     if not launcher:
         launcher = sys.executable
     return [
         launcher,
-        str(ROOT / 'scripts' / 'ktlint-lint.py'),
+        str(ROOT / "scripts" / "ktlint-lint.py"),
         *[str(path.relative_to(ROOT)) for path in files],
     ]
 
 
 def gradle_command(files: list[pathlib.Path]) -> list[str]:
     """The Gradle invocation that lints exactly these files."""
-    launcher = os.environ.get('LINT_CHANGED_GRADLE')
+    launcher = os.environ.get("LINT_CHANGED_GRADLE")
     if not launcher:
-        launcher = './gw' if (ROOT / 'gw').is_file() else './gradlew'
+        launcher = "./gw" if (ROOT / "gw").is_file() else "./gradlew"
 
     paths = [str(path.relative_to(ROOT)) for path in files]
     # The list travels as a Gradle property. It is a comma-separated list
@@ -184,18 +133,18 @@ def gradle_command(files: list[pathlib.Path]) -> list[str]:
     # A path with a comma in it would break the separator, so such a list goes
     # through a file instead — correctness first, and the case does not arise
     # in this repository.
-    if any(',' in path for path in paths):
-        list_file = ROOT / 'build' / 'diagnostics' / 'lint-changed-files.txt'
+    if any("," in path for path in paths):
+        list_file = ROOT / "build" / "diagnostics" / "lint-changed-files.txt"
         list_file.parent.mkdir(parents=True, exist_ok=True)
-        list_file.write_text('\n'.join(paths) + '\n', encoding='utf-8')
-        property = f'-PdetektChangedFilesFile={list_file}'
+        list_file.write_text("\n".join(paths) + "\n", encoding="utf-8")
+        property = f"-PdetektChangedFilesFile={list_file}"
     else:
-        property = '-PdetektChangedFiles=' + ','.join(paths)
+        property = "-PdetektChangedFiles=" + ",".join(paths)
 
-    cmd = [launcher, *TASKS, property, '--console=plain']
-    if os.environ.get('LINT_CHANGED_NO_HEAVY') == '1' or not shutil.which('heavy'):
+    cmd = [launcher, *TASKS, property, "--console=plain"]
+    if os.environ.get("LINT_CHANGED_NO_HEAVY") == "1" or not shutil.which("heavy"):
         return cmd
-    return ['heavy', '--timeout', '300', '--on-timeout', 'run', '--', *cmd]
+    return ["heavy", "--timeout", "300", "--on-timeout", "run", "--", *cmd]
 
 
 def findings_of(output: str) -> list[dict[str, str]]:
@@ -207,15 +156,15 @@ def findings_of(output: str) -> list[dict[str, str]]:
     found: list[dict[str, str]] = []
     seen: set[tuple[str, str, str, str]] = set()
     for raw_line in output.splitlines():
-        line = ANSI.sub('', raw_line).strip()
+        line = ANSI.sub("", raw_line).strip()
         match = FINDING.match(line)
         if not match:
             continue
         key = (
-            match.group('rule'),
-            match.group('file'),
-            match.group('line'),
-            match.group('column'),
+            match.group("rule"),
+            match.group("file"),
+            match.group("line"),
+            match.group("column"),
         )
         if key in seen:
             continue
@@ -233,21 +182,21 @@ def relative(path: str) -> str:
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument(
-        '--base',
-        default=os.environ.get('LINT_BASE', 'origin/main'),
-        help='What the change is measured against (default: origin/main).',
+        "--base",
+        default=os.environ.get("LINT_BASE", "origin/main"),
+        help="What the change is measured against (default: origin/main).",
     )
     parser.add_argument(
-        '--list',
-        action='store_true',
-        help='Print the changed Kotlin files and lint nothing.',
+        "--list",
+        action="store_true",
+        help="Print the changed Kotlin files and lint nothing.",
     )
     parser.add_argument(
-        '--print-command',
-        action='store_true',
-        help='Print the Gradle command and run nothing.',
+        "--print-command",
+        action="store_true",
+        help="Print the Gradle command and run nothing.",
     )
     args = parser.parse_args(argv)
 
@@ -260,20 +209,20 @@ def main(argv: list[str]) -> int:
         return 0
 
     if not files:
-        print('lint-changed: no changed Kotlin files — nothing to lint.')
+        print("lint-changed: no changed Kotlin files — nothing to lint.")
         return 0
 
     print(f"lint-changed: {len(files)} changed Kotlin file(s) against '{args.base}':")
     for path in relative_paths:
-        print(f'  {path}')
+        print(f"  {path}")
 
     command = gradle_command(files)
 
     if args.print_command:
-        print(' '.join(command))
+        print(" ".join(command))
         return 0
 
-    print('lint-changed: running the scoped detekt…')
+    print("lint-changed: running the scoped detekt…")
     process = subprocess.run(
         command,
         cwd=ROOT,
@@ -286,17 +235,17 @@ def main(argv: list[str]) -> int:
     findings = findings_of(output)
 
     if not findings:
-        print('lint-changed: no findings.')
+        print("lint-changed: no findings.")
         ktlint_code = run_ktlint(files)
         return 0 if process.returncode == 0 and ktlint_code == 0 else 1
 
-    print(f'\nlint-changed: {len(findings)} finding(s):')
+    print(f"\nlint-changed: {len(findings)} finding(s):")
     for finding in findings:
         print(
             f"  {relative(finding['file'])}:{finding['line']}:{finding['column']}  "
             f"{finding['rule']}  {finding['message']}"
         )
-    print('\nThe report with the whole messages: <module>/build/reports/detekt/changed.md')
+    print("\nThe report with the whole messages: <module>/build/reports/detekt/changed.md")
     run_ktlint(files)
     return 1
 
@@ -304,7 +253,7 @@ def main(argv: list[str]) -> int:
 def run_ktlint(files: list[pathlib.Path]) -> int:
     """The formatting check over the changed files. 0 when there is nothing to report."""
     command = ktlint_command(files)
-    print('\nlint-changed: running ktlint over the changed files…')
+    print("\nlint-changed: running ktlint over the changed files…")
     process = subprocess.run(
         command,
         cwd=ROOT,
@@ -313,5 +262,5 @@ def run_ktlint(files: list[pathlib.Path]) -> int:
     return process.returncode
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))

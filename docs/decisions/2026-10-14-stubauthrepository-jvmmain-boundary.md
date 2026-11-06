@@ -23,6 +23,7 @@ The question: should `StubAuthRepository` be available in `jvmMain` (or `commonM
 **There is no JVM E2E target.** Maestro flows run against an Android APK installed in an emulator. Desktop E2E is not a current requirement. JVM tests that need a stub `AuthRepository` use `FakeAuthRepository`, which is already in `commonMain` and covers all `AuthRepository` operations.
 
 **The existing boundary is correct by design.** The test doubles follow the established pattern:
+
 - `FakeAuthRepository` in `commonMain` → JVM unit tests (pure Kotlin, no Android dependencies)
 - `StubAuthRepository` in `androidMain` → Android E2E tests (uses Android system properties)
 

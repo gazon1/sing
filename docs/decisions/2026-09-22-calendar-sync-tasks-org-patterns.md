@@ -35,6 +35,7 @@ Introduce a `SyncSource` enum with five cases:
 `upgrade(other)` picks the strongest of two concurrent triggers: `showIndicator` takes priority, then `immediate`.
 
 `CalendarSyncOrchestrator` is a Koin `single` that owns:
+
 - `Channel<SyncSource>(UNLIMITED)` — incoming triggers (never blocks callers)
 - `MutableStateFlow<SyncSource?>` — strongest pending source for UI indicator
 - 1-second debounced collector that calls `scheduler.enqueueSync()` only when `DirtyHashProvider.hash()` differs from the last handoff
@@ -75,11 +76,13 @@ CalendarSyncException (sealed)
 ## Consequences
 
 ### Improved
+
 - No more write storms from rapid task edits
 - UI can show "Syncing…" indicator during `Manual`/`ConfigChanged` syncs
 - Settings screen can show specific recovery actions per failure type
 
 ### Deferred
+
 - cTag/ETag two-way diff (needs CalDAV server)
 - VtodoCache local-edit guard (needs two-way sync)
 - Per-collection 3-way merge (needs attachments/tags bidirectional)

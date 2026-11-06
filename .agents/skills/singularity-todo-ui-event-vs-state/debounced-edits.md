@@ -46,6 +46,7 @@ TopAppBar(
 ### When to emit `Saved` / pulse events
 
 Only emit `SavedUiEvent` or `SavedPulse` when:
+
 1. The user performs an **explicit action** (taps checkbox, confirms date picker, applies AI suggestion)
 2. A **bulk operation** completes (archive all, delete selected)
 3. A **navigation-triggered save** occurs (user taps Back and unsaved changes auto-flush)

@@ -206,11 +206,11 @@ almost exactly:
 
 > **One agent builds. A second reviews. A third tests. A guard keeps all three out of what they
 > must never touch.**
-
+>
 > It runs in its own git worktree and stops with checked work and a draft pull request waiting for
 > you. Works with Claude Code, Codex, Gemini CLI, Cursor, Copilot, Windsurf, **Pi** and anything
 > that reads `AGENTS.md`.
-
+>
 > **The guard blocks tool calls directly on Claude Code and Pi.**
 
 And it already does two things the plan was going to build: a failed check goes back to the

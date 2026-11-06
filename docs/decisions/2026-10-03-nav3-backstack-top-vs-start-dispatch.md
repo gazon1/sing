@@ -145,4 +145,3 @@ and that neither of them pushes it twice.
 
 The dead rule was removed from `ArchitectureTest.kt` rather than left in place: a rule that
 cannot see the file it is about is a comment that looks like a check.
-

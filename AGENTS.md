@@ -38,6 +38,7 @@
 перепроверяй, а не откатывай. `git fetch origin && git log --oneline HEAD..origin/main`.
 
 **Механическая защита от divergence (#268):**
+
 - `pre-rebase` hook (`.githooks/pre-rebase`) — блокирует rebase на локальный main,
   который отстаёт от `origin/main`; предупреждает о неpushнутых коммитах.
 - Проверки divergence в CI больше нет: runner checkout'ит detached-коммит без трекинговой
@@ -134,6 +135,7 @@ KOIN-W003 (graph unverifiable). Используй list composition:
 тест или разбираешь падение.
 
 Миграционные тесты помечены `@Tag("slow")`; запуск: `./gw :shared:jvmTest -Ptest.tags=slow`.
+
 ## expect/actual порты
 
 Порт — интерфейс в `commonMain`, два actual, `single<Port>` в обоих
@@ -154,13 +156,13 @@ KOIN-W003 (graph unverifiable). Используй list composition:
 проверки их результата. Нужен там, где правка живёт на сервере: политики RLS
 бакета `backups` и таблица `google_calendar_grants`.
 
-
 **Реестр гейтов — единственный список.** `scripts/ci/static-gates.sh` и
 `docs/scripts/gate-registry.md` генерируются из него, руками их не правь. Новый
 гейт = одна запись в реестре + строка
 `gate blocking|advisory <name> <cmd>`; `|| true` на строке `gate` запрещён.
 Branch protection требует **один** check — `CI gate`. Как зарегистрировать гейт —
 `docs/architecture/registering-a-gate.md`.
+
 ## CI/CD
 
 **CI/CD — `docs/architecture/ci.md`:** реестр гейтов и его проекции, поверхности

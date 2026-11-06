@@ -20,16 +20,16 @@ After the Tier 3 sync PR (`2026-09-23-sync-pull-handlers-and-ui.md`) landed, a c
 5. **No snackbar collector in `SyncConfigScreen`** — error banner was the only error UI; no auto-dismiss.
 6. **`Test connection` button was a no-op** — `onClick = { /* TODO: test connection */ }`.
 7. **Failure snackbar race condition** — `allowSnackbarOnFailure` is reset before snackbar can fire on second consecutive failure.
-9. **`syncNow()` not debounced inside the launch** — pressing twice in quick succession launches two parallel `syncOnce()` calls.
-16. **`SyncButton` rotation animation restarted on recomposition** — `rememberInfiniteTransition` runs as long as the call-site is composed; a status change during animation discards the in-flight transition.
-19. **`syncOnce()` exception escapes the launch block** — `try { ... } finally { ... }` had no `catch`, so a thrown exception (e.g. `getOrThrow()` on a failed `Result`) crashed the coroutine and surfaced as an uncaught test failure.
+8. **`syncNow()` not debounced inside the launch** — pressing twice in quick succession launches two parallel `syncOnce()` calls.
+9. **`SyncButton` rotation animation restarted on recomposition** — `rememberInfiniteTransition` runs as long as the call-site is composed; a status change during animation discards the in-flight transition.
+10. **`syncOnce()` exception escapes the launch block** — `try { ... } finally { ... }` had no `catch`, so a thrown exception (e.g. `getOrThrow()` on a failed `Result`) crashed the coroutine and surfaced as an uncaught test failure.
 
 ### Sync Integrity Bugs (FIX 8, 11, 12, 20)
 
 8. **`SyncBootstrapper.handleDeleted` is a stub** — silently drops DELETED events without applying them; the engine thinks the local entity still exists.
-11. **No `testConnection()` API** — users have no way to verify sync server connectivity without triggering a full sync cycle.
-12. **`lastSuccessfulSyncAt` only updated on push** — `pull()` updates `lastLsn` but never stamps `lastSuccessfulSyncAt`, so the UI shows a stale timestamp after a successful pull.
-20. **`decodeFromString(data.toString())` instead of `decodeFromJsonElement(obj)`** — the latter is the correct kotlinx.serialization idiom and avoids a redundant toString→parse round-trip.
+9. **`SyncButton` rotation animation restarted on recomposition** — `rememberInfiniteTransition` runs as long as the call-site is composed; a status change during animation discards the in-flight transition.
+10. **`syncOnce()` exception escapes the launch block** — `try { ... } finally { ... }` had no `catch`, so a thrown exception (e.g. `getOrThrow()` on a failed `Result`) crashed the coroutine and surfaced as an uncaught test failure.
+11. **(list numbering normalized by rumdl MD029; original item 20)** `decodeFromString(data.toString())` instead of `decodeFromJsonElement(obj)` — the latter is the correct kotlinx.serialization idiom and avoids a redundant toString→parse round-trip.
 
 ### Cross-Feature VM Bugs (consolidation)
 

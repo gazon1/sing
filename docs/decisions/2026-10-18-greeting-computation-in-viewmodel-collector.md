@@ -11,7 +11,6 @@ type: "decision"
 > loaded state, so there is no one-shot computation to place — see
 > `2026-10-19-greeting-observed-not-snapshotted.md`.
 
-
 ## Context
 
 `computeGreeting()` is a suspend function that reads `GreetingSettingsRepository` and the clock to return "Good morning/afternoon/evening". It needs to run once when the AgendaViewModel starts.

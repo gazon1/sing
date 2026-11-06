@@ -33,6 +33,13 @@ hooks {
         check = "if command -v heavy >/dev/null 2>&1; then heavy --timeout 300 --on-timeout run -- python3 scripts/ktlint-lint.py --require {{files}}; else python3 scripts/ktlint-lint.py --require {{files}}; fi"
       }
 
+      ["rumdl (markdown, staged)"] {
+        // Check-only (advisory by policy): scoped to staged *.md via {{files}}.
+        // Does not auto-fix; skip when rumdl is not installed.
+        glob = List("**/*.md")
+        check = "if command -v rumdl >/dev/null 2>&1; then rumdl check {{files}}; else echo 'rumdl not installed — skipping markdown check (mise install)'; fi"
+      }
+
       ["compile-changed"] {
         depends = "ktlint"
         check = "if command -v heavy >/dev/null 2>&1; then heavy --timeout 300 --on-timeout run -- python3 scripts/compile-changed.py; else python3 scripts/compile-changed.py; fi"

@@ -9,6 +9,7 @@ This file defines when and how to write and update documentation for the Singula
 ### When to write an ADR
 
 Write an ADR when:
+
 - A new architectural decision is made (new port, new pattern, new platform)
 - An existing pattern is changed or deprecated
 - A technical approach was tried and rejected (record the rejection reason)
@@ -249,6 +250,7 @@ reading that ADR first.
 | `docs/decisions/DIGEST-full.md` | Auto-generated decision index | `refresh-decisions-digest.sh` |
 
 Update these when:
+
 - New feature adds a new package or expect/actual declaration
 - DI pattern changes
 - Build commands change

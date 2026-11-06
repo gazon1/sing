@@ -11,7 +11,6 @@
 The `description` field is the index — skill loaders discover skills by it, so it should
 state *which tasks need the skill*, not summarise its contents.
 
-
 ## Project skills — `singularity-todo-*`
 
 | Skill | Lines | Description |
@@ -144,4 +143,3 @@ state *which tasks need the skill*, not summarise its contents.
 | `ux-a11y-review` | 124 | Accessibility and UX review checklist for UI changes — contrast, touch targets, content descriptions, keyboard navigation, screen reader support. |
 | `wayfinder` | 136 | Plan a huge chunk of work (more than one agent session can hold) as a shared map of decision tickets on your issue tracker, and resolve them one at a time until the way to the destination is clear. |
 | `writing-for-agents` | 80 | Writing documents for agents. |
-

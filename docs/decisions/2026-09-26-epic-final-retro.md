@@ -15,6 +15,7 @@ Epic `docs-and-skills-hygiene` completed. 11 PRs across 3 phases.
 ### Phase 0 — Hygiene (PR-0.0 to PR-0.4) ✅
 
 All 4 PRs completed. Key outcomes:
+
 - 7 detekt custom rule sets wired and registered
 - Baseline established, `warningsAsErrors: true`
 - KDoc enforcement rules (ViewModelMustHaveKDoc, RepositoryInterfaceMustHaveKDoc)
@@ -99,6 +100,7 @@ All 4 PRs completed. Key outcomes:
 | Pre-existing bugs fixed | 2 |
 
 ## Consequences
+
 - Skill size check (wc -c) to be added to CI
 - `just docs-audit` to run `normalize-adr-frontmatter.sh --apply` in CI
 - Worktree: verify `jvmTest` passes before starting each PR

@@ -118,7 +118,7 @@ Recorded on 2026-11-03T15:13:39Z — cpus=16, javaHome=/usr/lib/jvm/java-25-open
 | Gate: workflow env context resolves | 920 ms |
 | Gate: workflow steps keep their exit status | 1.1 s |
 
-### The instrumented coverage run
+## The instrumented coverage run
 
 Measured on 2026-10-22 — 16 vCPU, warm Gradle cache.
 
