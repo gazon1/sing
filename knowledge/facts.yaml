@@ -56,3 +56,15 @@ facts:
   - id: K-settings-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/settings.md
+  - id: K-calendar-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/calendar.md
+  - id: K-checklist-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/checklist.md
+  - id: K-genui-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/genui.md
+  - id: K-ai-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/ai.md
