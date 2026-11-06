@@ -39,13 +39,16 @@ the bar named something the tab underneath does not (#1954).
 The tab owns Overdue and Today on every day, and on a working day the work
 blocks are extra sections between them:
 
-| Section | Selector | Discards? |
-|---|---|---|
-| Overdue | `DateBucket(Overdue)` | yes |
-| Work | `AllOf(DateBucket(Today), TimeOfDay(dayStart, lunchStart - 1))` | yes |
-| Lunch | `AllOf(DateBucket(Today), TimeOfDay(lunchStart, lunchEnd))` | yes |
-| Work | `AllOf(DateBucket(Today), TimeOfDay(lunchEnd + 1, dayEnd))` | yes |
-| Today | `DateBucket(Today)` | no |
+| Section | Selector | Discards? | Prefill |
+|---|---|---|---|
+| Overdue | `DateBucket(Overdue)` | yes | inherited from Today |
+| Work | `AllOf(DateBucket(Today), TimeOfDay(dayStart, lunchStart - 1))` | yes | none |
+| Lunch | `AllOf(DateBucket(Today), TimeOfDay(lunchStart, lunchEnd))` | yes | none |
+| Work | `AllOf(DateBucket(Today), TimeOfDay(lunchEnd + 1, dayEnd))` | yes | none |
+| Today | `DateBucket(Today)` | no | inherited from Today |
+
+Work/Lunch/Work set no `SectionPrefill`, so they have no inline create
+affordance (the same as the previous preset's behaviour).
 
 Three things follow from that shape, and each of them is load-bearing:
 

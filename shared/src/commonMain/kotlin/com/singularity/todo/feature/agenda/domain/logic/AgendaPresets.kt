@@ -464,8 +464,10 @@ object AgendaPresets {
         // Between "Overdue" and the rest of today: the blocks take today's timed
         // tasks first, and "Today" collects what the work hours left over. A block
         // declared after "Today" would render nothing, because that section does
-        // not discard.
-        val (overdue, restOfToday) = Today.sections.partition { it.id == "overdue" }
+        // not discard. Split by the bucket the section owns, not by its id string,
+        // so renaming Today sections cannot silently reorder the tab.
+        val (overdue, restOfToday) =
+            Today.sections.partition { it.selector == Selector.DateBucket(RelativeBucket.Overdue) }
         val sections =
             (overdue + workBlocks + restOfToday)
                 .mapIndexed { index, section -> section.copy(order = index) }

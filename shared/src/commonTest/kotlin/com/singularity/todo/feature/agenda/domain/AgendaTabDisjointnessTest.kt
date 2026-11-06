@@ -5,6 +5,8 @@ import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
+import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
+import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -212,10 +214,16 @@ class AgendaTabDisjointnessTest {
             todayTab(workingDay = false).sections.map { it.name },
             "a day off shows the tab's own buckets and nothing else",
         )
+        val workDaySections = todayTab(workingDay = true).sections.sortedBy { it.order }
         assertEquals(
             listOf("Overdue", "Work", "Lunch", "Work", "Today"),
-            todayTab(workingDay = true).sections.sortedBy { it.order }.map { it.name },
+            workDaySections.map { it.name },
             "a working day keeps the tab's buckets and puts the work blocks between them",
+        )
+        assertEquals(
+            Selector.DateBucket(RelativeBucket.Overdue),
+            workDaySections.first().selector,
+            "the work-day tab must lead with the Overdue bucket, not depend on a section id string",
         )
     }
 
