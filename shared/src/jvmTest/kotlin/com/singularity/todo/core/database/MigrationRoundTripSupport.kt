@@ -2,7 +2,6 @@ package com.singularity.todo.core.database
 
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
-import com.singularity.todo.core.database.contract.createSqlDriver
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -12,7 +11,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
-import java.nio.file.Files
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -80,23 +78,15 @@ private const val TABLE_NAME = "\${TABLE_NAME}"
  */
 internal fun roundTripFrom(version: Int) =
     runTest {
-        val directory = Files.createTempDirectory("room-round-trip-$version-").toFile()
-        val dbPath = File(directory, "fixture.db").absolutePath
-        try {
-            seedFixture(version, dbPath)
-            val database = AppDatabaseFactory.build(createSqlDriver(), dbPath)
-            try {
-                assertEquals(
-                    1L,
-                    anchorCount(database),
-                    "the anchor row must survive the chain from v$version — a migration that " +
-                        "produces the right schema and loses the data is still a broken upgrade",
-                )
-            } finally {
-                database.close()
-            }
-        } finally {
-            directory.deleteRecursively()
+        DatabaseTestFixture.onDisk().use { fixture ->
+            seedFixture(version, fixture)
+            val database = fixture.database()
+            assertEquals(
+                1L,
+                anchorCount(database),
+                "the anchor row must survive the chain from v$version — a migration that " +
+                    "produces the right schema and loses the data is still a broken upgrade",
+            )
         }
     }
 
@@ -170,10 +160,10 @@ private fun exportedSchema(version: Int): JsonObject {
  */
 private fun seedFixture(
     version: Int,
-    dbPath: String,
+    fixture: DatabaseTestFixture,
 ) {
     val database = exportedSchema(version)
-    createSqlDriver().open(dbPath).use { connection ->
+    fixture.connect().use { connection ->
         applyExportedSchema(version, connection)
         insertAnchor(connection, database)
     }

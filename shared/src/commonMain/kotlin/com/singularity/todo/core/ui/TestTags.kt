@@ -477,6 +477,15 @@ object TestTags {
     const val AGENDA_SAVE_CURRENT_BUTTON = "agenda_save_current_button"
 
     /**
+     * The agenda's time-of-day greeting.
+     *
+     * It lives in the screen body, not in the bar's title slot: on Android the shared
+     * bar wrapper draws no bar of its own and drops a screen's title slot, so a
+     * greeting drawn there was never seen on Android at all — only on desktop.
+     */
+    const val AGENDA_GREETING = "agenda_greeting"
+
+    /**
      * The line at the end of the Upcoming tab that says where a task dated beyond
      * next week is seen. It is the user-facing half of the decision recorded in
      * `2026-11-05-the-agenda-tabs-cover-a-horizon`.

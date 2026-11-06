@@ -1,8 +1,7 @@
 package com.singularity.todo.feature.proposals.data
 
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
@@ -17,8 +16,6 @@ import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -46,22 +43,18 @@ class ProposalRepositoryReleaseTest {
     private val user = UserId("release-user")
     private val other = UserId("someone-else")
 
-    private val tempDirLazy = lazy { Files.createTempDirectory("singularity-proposal-release-").toFile() }
-    private val tempDir: File by tempDirLazy
+    private val fixtureLazy = lazy { DatabaseTestFixture.inMemory() }
+    private val fixture: DatabaseTestFixture by fixtureLazy
 
     private val dbLazy =
         lazy {
-            AppDatabaseFactory.build(
-                driver = createSqlDriver(),
-                dbPath = File(tempDir, "proposals.db").absolutePath,
-            )
+            fixture.database()
         }
     private val db: AppDatabase by dbLazy
 
     @AfterTest
     fun tearDown() {
-        if (dbLazy.isInitialized()) db.close()
-        if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
+        if (fixtureLazy.isInitialized()) fixture.close()
     }
 
     private fun repository(forUser: UserId) =

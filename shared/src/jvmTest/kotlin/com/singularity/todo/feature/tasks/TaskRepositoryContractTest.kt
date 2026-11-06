@@ -4,8 +4,7 @@ package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
@@ -28,8 +27,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -385,23 +382,16 @@ class RoomTaskRepositoryContractTest : TaskRepositoryContractTest() {
     // One database per test class, shared across all test methods — same shape as the
     // sibling Room tests (AppDatabaseFactoryJvmTest, DesktopRestartSmokeTest).
     //
-    // A real temp FILE, not ":memory:": Room rejects the literal name ":memory:" in
-    // `databaseBuilder` and only accepts in-memory databases through
-    // `Room.inMemoryDatabaseBuilder<T>()`, which is a JVM-only API — unreachable from
-    // the commonMain `AppDatabaseFactory`. A temp file exercises the production path
-    // end to end, including `applyOnceToFile` (WAL) and the registered migrations.
-    private val tempDirLazy =
-        lazy {
-            Files.createTempDirectory("singularity-task-contract-").toFile()
-        }
-    private val tempDir: File by tempDirLazy
+    // The database comes from the fixture, and it lives in memory: this class is
+    // about the repository's behaviour, not about the file. The tests that are
+    // about the file — the migration ones, the restart one — ask the fixture for
+    // a file-backed database instead.
+    private val fixtureLazy = lazy { DatabaseTestFixture.inMemory() }
+    private val fixture: DatabaseTestFixture by fixtureLazy
 
     private val dbLazy =
         lazy {
-            AppDatabaseFactory.build(
-                driver = createSqlDriver(),
-                dbPath = File(tempDir, "tasks.db").absolutePath,
-            )
+            fixture.database()
         }
     private val db: AppDatabase by dbLazy
 
@@ -412,8 +402,7 @@ class RoomTaskRepositoryContractTest : TaskRepositoryContractTest() {
     // ran is not charged for creating a database just to close it.
     @AfterTest
     fun tearDown() {
-        if (dbLazy.isInitialized()) db.close()
-        if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
+        if (fixtureLazy.isInitialized()) fixture.close()
     }
 
     override suspend fun newRepository(userId: UserId): TaskRepository {

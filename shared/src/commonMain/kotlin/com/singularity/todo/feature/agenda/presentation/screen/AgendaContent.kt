@@ -201,18 +201,7 @@ fun AgendaContent(
                     )
                 } else {
                     TopAppBar(
-                        title = {
-                            Column {
-                                Text(title)
-                                if (greeting.isNotEmpty()) {
-                                    Text(
-                                        text = greeting,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        },
+                        title = { Text(title) },
                         actions = {
                             if (onMultiDateCreate != null) {
                                 IconButton(
@@ -301,37 +290,53 @@ fun AgendaContent(
                 }
 
                 is AgendaUiState.Loaded -> {
-                    if (state.sections.isEmpty()) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .padding(paddingValues),
-                        ) {
-                            EmptyState(
-                                title = "No tasks",
-                                subtitle = "You're all caught up — nothing due in this agenda",
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues),
+                    ) {
+                        if (!isSelectionMode && greeting.isNotEmpty()) {
+                            Text(
+                                text = greeting,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                        .testTag(TestTags.AGENDA_GREETING),
                             )
-                            // An empty Upcoming tab is exactly where a user looks for
-                            // what is missing from it, so the pointer belongs here too.
-                            horizonNote?.let { note ->
-                                AgendaHorizonFootnote(
-                                    note = note,
-                                    modifier = Modifier.align(Alignment.BottomCenter),
+                        }
+                        Box(modifier = Modifier.weight(1f)) {
+                            if (state.sections.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                ) {
+                                    EmptyState(
+                                        title = "No tasks",
+                                        subtitle = "You're all caught up — nothing due in this agenda",
+                                    )
+                                    horizonNote?.let { note ->
+                                        AgendaHorizonFootnote(
+                                            note = note,
+                                            modifier = Modifier.align(Alignment.BottomCenter),
+                                        )
+                                    }
+                                }
+                            } else {
+                                AgendaList(
+                                    sections = state.sections,
+                                    isSelectionMode = isSelectionMode,
+                                    selectedTaskIds = selectedTaskIds,
+                                    horizonNote = horizonNote,
+                                    onIntent = onIntent,
+                                    onOpenContextMenu = ::openContextMenu,
+                                    listState = listState,
+                                    modifier = Modifier,
                                 )
                             }
                         }
-                    } else {
-                        AgendaList(
-                            sections = state.sections,
-                            isSelectionMode = isSelectionMode,
-                            selectedTaskIds = selectedTaskIds,
-                            horizonNote = horizonNote,
-                            onIntent = onIntent,
-                            onOpenContextMenu = ::openContextMenu,
-                            listState = listState,
-                            modifier = Modifier.padding(paddingValues),
-                        )
                     }
                 }
             }

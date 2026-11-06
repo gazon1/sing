@@ -1,13 +1,11 @@
 package com.singularity.todo.core.database
 
 import androidx.sqlite.execSQL
-import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.search.TextMatchQuery
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -36,24 +34,22 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:migration")
 class Migration42To43Test {
-    private lateinit var tempDir: File
-    private lateinit var dbPath: String
+    private lateinit var fixture: DatabaseTestFixture
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("migration42to43-").toFile()
-        dbPath = File(tempDir, "fixture.db").absolutePath
+        fixture = DatabaseTestFixture.onDisk()
     }
 
     @AfterTest
     fun tearDown() {
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     private fun sharedDir(): File = File(System.getProperty("commonMain.root")!!).parentFile.parentFile.parentFile
 
     private fun openMigrated(): AppDatabase {
-        createSqlDriver().open(dbPath).use { connection ->
+        fixture.connect().use { connection ->
             applyExportedSchema(42, connection)
             // A task that exists *before* the upgrade: the migration has to put
             // it into the index it creates.
@@ -72,7 +68,7 @@ class Migration42To43Test {
                 """.trimIndent(),
             )
         }
-        return AppDatabaseFactory.build(createSqlDriver(), dbPath)
+        return fixture.database()
     }
 
     @Test

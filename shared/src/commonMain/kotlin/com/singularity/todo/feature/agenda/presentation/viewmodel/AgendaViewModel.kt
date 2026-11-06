@@ -8,7 +8,7 @@ import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
-import com.singularity.todo.core.platform.localTimeAt
+import com.singularity.todo.core.platform.localHourFlow
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.text.FieldOwnedText
@@ -35,6 +35,7 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -157,28 +158,49 @@ class AgendaViewModel(
     private val deleteSequence = AtomicInt(0)
 
     /**
-     * The greeting the agenda shows, kept in step with the configured hours.
+     * The greeting as the clock and the configured hours define it, right now.
      *
-     * This is the *only* place the greeting is written, and the state pipeline reads it
-     * as an input (the `combine` in [init]) rather than copying it into a [Loaded] it is
-     * building. That distinction is the whole fix: a greeting snapshotted at map time and
-     * then published through the CAS is an older value than the one a concurrent settings
-     * emission has already put here, and nothing re-emits it afterwards — the screen keeps
-     * the stale greeting for the rest of its life. Read as an input, a settings change is
-     * a new emission, so the state converges on the newest greeting no matter when the
-     * task list happens to publish.
+     * Three inputs, because the value depends on all three: the hour boundary the
+     * user configured for the morning, the one for the afternoon, and the hour it is
+     * — each observed rather than read once. [localHourFlow] re-emits at every hour
+     * boundary, so a screen left open across noon follows it; the settings flows
+     * re-emit on a change made in Settings, so the user does not have to leave the
+     * agenda to see their own configuration.
      *
-     * Uses [MutableStateFlow] so the value is observable from tests without a Compose
-     * runtime. It starts *empty* rather than with a guess: the old "Good evening"
-     * placeholder was the most likely outcome, but it is still a greeting nobody
-     * configured, and one that survives an unreadable settings store is a confidently
-     * wrong one. Empty means "no greeting to draw yet", and the screen draws the bar
-     * title alone until the hours arrive.
+     * ## One writer, and it is the state builder
+     * This flow is an *input* of the `combine` that produces every
+     * [AgendaUiState.Loaded], so the greeting travels inside the emission that carries
+     * it. It deliberately does not publish into the state on a path of its own: two
+     * writers — one for the greeting, one for the task list — race across
+     * `flatMapLatest`'s channel hop, and a list emission built from an earlier greeting
+     * can land *after* the greeting did and revert the screen to the hour before the
+     * boundary. Nothing repairs that until the next hour or the next settings change,
+     * which is the defect this whole change exists to remove, made intermittent.
      *
-     * @see <docs/decisions/2026-10-19-greeting-observed-not-snapshotted.md>
+     * A failed read degrades to the empty greeting. That is the promise the one-shot
+     * computation made, kept: no greeting, never a stale one, and never an exception
+     * escaping a collector nobody is watching.
      */
-    private val _greeting = MutableStateFlow("")
-    val greeting: StateFlow<String> = _greeting.asStateFlow()
+    private val greetingFlow: Flow<String> =
+        combine(
+            deps.greetingSettings.morningEndHour,
+            deps.greetingSettings.afternoonEndHour,
+            localHourFlow(deps.clock, deps.timeZone.current()),
+        ) { morningEnd, afternoonEnd, hour ->
+            when {
+                hour < morningEnd -> "Good morning"
+                hour < afternoonEnd -> "Good afternoon"
+                else -> "Good evening"
+            }
+        }.catch {
+            // A failed read degrades to the empty greeting and ends the observation, as
+            // the one-shot computation did: no greeting, never a stale one, never an
+            // exception escaping a collector nobody is watching. Ending the flow is safe
+            // here because it is an *input* of the combine that builds every `Loaded`:
+            // `combine` keeps the last value of an input that has completed, so the
+            // agenda's list keeps updating with "no greeting" attached.
+            emit("")
+        }
 
     /**
      * The task list the current evaluation was made against.
@@ -201,45 +223,6 @@ class AgendaViewModel(
     private val reloadTrigger = ReloadTrigger()
 
     init {
-        // The greeting is *observed*, not computed once: the thresholds live in a
-        // settings repository the settings screen can change while this screen is open,
-        // and the agenda has to follow it. This collector does one thing — write the
-        // latest greeting into [_greeting]. It does not touch the state: the state reads
-        // [_greeting] as an *input* (the `combine` below), which is what makes the
-        // greeting a single-writer field instead of two writers racing over one Loaded.
-        //
-        // Going through [_greeting] rather than combining the two settings flows into the
-        // state pipeline directly is also what keeps a settings failure from taking the
-        // list with it: `combine` completes when any upstream completes, and [_greeting]
-        // is a StateFlow that never does.
-        //
-        // Both flows re-emit. In production they are DataStore-backed preferences
-        // (`IntPref.flow` collects `dataStore.data`, which re-emits on every write,
-        // including a write made by another process); in tests they are StateFlows.
-        //
-        // A settings flow that fails emits one empty greeting and ends: "no greeting"
-        // is the documented degradation, and a wrong greeting is worse than none. It is
-        // not a reason to take the ViewModel's scope down, so the failure is caught
-        // here rather than reaching the scope's failure handler. Cancellation is not
-        // caught — [catch] rethrows the coroutine's own cancellation.
-        //
-        // [catch] is terminal, so one failure ends greeting updates for the life of this
-        // ViewModel: the bar keeps the greeting it has until the user leaves the screen.
-        // The alternative — resubscribing — would spin against a store that is still
-        // broken, and the production failure is already narrowed by the preference
-        // wrappers, which turn a read error into the default value
-        // (`Flow<Preferences>.catchDataStoreIoError`). What reaches here is a defect,
-        // and it degrades the subtitle rather than the list.
-        scope.launch {
-            combine(
-                deps.greetingSettings.morningEndHour,
-                deps.greetingSettings.afternoonEndHour,
-            ) { morningEnd, afternoonEnd -> morningEnd to afternoonEnd }
-                .map { (morningEnd, afternoonEnd) -> computeGreeting(morningEnd, afternoonEnd) }
-                .catch { emit("") }
-                .collect { greeting -> _greeting.value = greeting }
-        }
-
         scope.launch {
             // The failure handling sits INSIDE the trigger's branch, and that is the
             // whole difference between a retry that works and one that does not.
@@ -286,23 +269,24 @@ class AgendaViewModel(
                         // settings change a *new emission*, so the state converges on the
                         // newest greeting whatever the interleaving.
                         combine(
-                            combine(
-                                deps.taskRepo
-                                    .observeByFilter(TaskFilter.All)
-                                    .distinctUntilChanged(), // skip recompute when task list unchanged
-                                deps.projectsRepository.observeAllIncludingClosed(),
-                            ) { tasks, projects -> tasks to projects }
-                                .onEach { (tasks, _) -> latestTasks.value = tasks }
-                                .map { (tasks, projects) ->
-                                    val projectsById = projects.associateBy { it.id.value }
-                                    AgendaEvaluator
-                                        .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
-                                        .toImmutableList()
-                                },
-                            _greeting,
-                        ) { sections, greeting ->
-                            AgendaUiState.Loaded(sections = sections, today = today, greeting = greeting)
-                        }
+                            deps.taskRepo
+                                .observeByFilter(TaskFilter.All)
+                                .distinctUntilChanged(), // skip recompute when task list unchanged
+                            deps.projectsRepository.observeAllIncludingClosed(),
+                        ) { tasks, projects -> tasks to projects }
+                            .onEach { (tasks, _) -> latestTasks.value = tasks }
+                            .map { (tasks, projects) ->
+                                val projectsById = projects.associateBy { it.id.value }
+                                AgendaUiState.Loaded(
+                                    sections =
+                                        AgendaEvaluator
+                                            .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
+                                            .toImmutableList(),
+                                    today = today,
+                                    greeting = "",
+                                )
+                            }
+                            .combine(greetingFlow) { loaded, greeting -> loaded.copy(greeting = greeting) }
                     }
             }.collect { fresh ->
                 // Reconciliation goes through `updateState`, which is CAS-backed,
@@ -324,27 +308,6 @@ class AgendaViewModel(
             }
         }
     }
-
-    /**
-     * The time-of-day greeting for [morningEnd] and [afternoonEnd], against the clock
-     * hour *now*.
-     *
-     * Degrades to no greeting (`""`) when it cannot be computed: an unknown hour must
-     * not produce a confidently wrong "Good morning".
-     */
-    private suspend fun computeGreeting(
-        morningEnd: Int,
-        afternoonEnd: Int,
-    ): String =
-        runCatchingCancellable {
-            // localTimeAt(Clock, TimeZone) hides the kotlinx-datetime bridge internally.
-            val hour = localTimeAt(deps.clock, deps.timeZone.current()).hour
-            when {
-                hour < morningEnd -> "Good morning"
-                hour < afternoonEnd -> "Good afternoon"
-                else -> "Good evening"
-            }
-        }.getOrElse { "" }
 
     private fun AgendaUiState.Loaded.taskIds(): Set<TaskId> =
         sections.flatMapTo(mutableSetOf()) { section -> section.tasks.map { it.task.id } }

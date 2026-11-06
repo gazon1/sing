@@ -46,6 +46,7 @@ import com.singularity.todo.core.security.JvmArchiveCrypto
 import com.singularity.todo.core.security.JvmSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsDataStoreMigration
+import com.singularity.todo.core.settings.SettingsMigrationGate
 import com.singularity.todo.core.sync.DelayLoopSyncPeriodicTrigger
 import com.singularity.todo.core.sync.SyncCoordinator
 import com.singularity.todo.core.sync.SyncPeriodicTrigger
@@ -91,7 +92,22 @@ import java.io.File
  * DAOs wired through Koin.
  */
 actual fun platformModule(): Module =
+    jvmPlatformModule(applicationRoot = File(System.getProperty("user.home")))
+
+/**
+ * The JVM platform bindings, with every file rooted at [applicationRoot].
+ *
+ * Production passes the user's home. A test passes a temporary directory, so the same
+ * bindings — database, DataStore files, backups/logs/attachments, host environment —
+ * can be resolved without reading, writing or deleting anything under the developer's
+ * real home. `user.home` is process-global and cannot be redirected per test: two tests
+ * that set it race for it. Passing the root is what makes isolation possible.
+ */
+fun jvmPlatformModule(applicationRoot: File): Module =
     module {
+        // `~/.singularity-todo`, under whichever root this module was given.
+        val applicationDir = File(applicationRoot, ".singularity-todo")
+
         // ─── Dispatchers ──────────────────────────────────────────────────────
 
         // The dispatcher the heavy work runs on: sealing an archive, exporting one,
@@ -102,11 +118,8 @@ actual fun platformModule(): Module =
         // ─── Room Database ────────────────────────────────────────────────────
 
         single<AppDatabase> {
-            val dbPath = System.getProperty("user.home") + "/.singularity-todo/singularity-todo.db"
-            java.io
-                .File(dbPath)
-                .parentFile
-                ?.mkdirs()
+            val dbPath = File(applicationDir, "singularity-todo.db").path
+            applicationDir.mkdirs()
             // On the JVM the path may contain a pre-Room hand-rolled SQLite file
             // (user_version=0, wrong column set). Wipe it before Room opens the connection
             // so fallbackToDestructiveMigration can recreate the schema cleanly.
@@ -160,23 +173,32 @@ actual fun platformModule(): Module =
         // file path regardless of how many times PreferenceDataStoreFactory.create {}
         // is called. This prevents "multiple DataStores active for the same file"
         // errors in tests where platformModule() may be called more than once.
-        val userHome = System.getProperty("user.home")
         val userSettingsDs: DataStore<Preferences> =
-            cachedJvmDataStore(File(userHome, ".singularity-todo/user_settings.preferences_pb"))
+            cachedJvmDataStore(File(applicationDir, "user_settings.preferences_pb"))
         val stateDs: DataStore<Preferences> =
-            cachedJvmDataStore(File(userHome, ".singularity-todo/state.preferences_pb"))
+            cachedJvmDataStore(File(applicationDir, "state.preferences_pb"))
         val settingsLegacyDs: DataStore<Preferences> =
-            cachedJvmDataStore(File(userHome, ".singularity-todo/settings.preferences_pb"))
+            cachedJvmDataStore(File(applicationDir, "settings.preferences_pb"))
 
         // One-shot migration: v0 flat-key settings → v1 split + namespaced.
         // Idempotent: skips if state.preferences_pb already has settings_schema_version.
-        // Non-blocking: runs on Dispatchers.IO, does not stall Koin startup scope.
-        CoroutineScope(Dispatchers.IO).let { bgScope ->
-            SettingsDataStoreMigration(settingsLegacyDs, userSettingsDs, stateDs).runDeferred(bgScope)
+        //
+        // Bound, not started. Running it here meant a background migration against the
+        // user's real settings files every time the module was *built* — including in a
+        // test that only compares registrations. The settings bindings below start it on
+        // first use; see SettingsMigrationGate.
+        single {
+            SettingsMigrationGate(
+                migration = SettingsDataStoreMigration(settingsLegacyDs, userSettingsDs, stateDs),
+                scope = CoroutineScope(get<CoroutineDispatcher>()),
+            )
         }
 
         // Named DataStore bindings — used by SettingsRepository and migration.
-        single(qualifier = named("user_settings")) { userSettingsDs }
+        single(qualifier = named("user_settings")) {
+            get<SettingsMigrationGate>().ensureStarted()
+            userSettingsDs
+        }
         single(qualifier = named("state")) { stateDs }
         single(qualifier = named("settings")) { settingsLegacyDs }
 
@@ -186,18 +208,23 @@ actual fun platformModule(): Module =
         // tool server an external agent is handed — without that file saying anything
         // about the profile the user is working in. See ActiveProfileState.
         single(qualifier = named("profile_state")) {
-            cachedJvmDataStore(File(userHome, ".singularity-todo/profile_state.preferences_pb"))
+            cachedJvmDataStore(File(applicationDir, "profile_state.preferences_pb"))
         }
 
         // Primary DataStore<Preferences> binding — what SettingsRepository consumes.
-        single<DataStore<Preferences>> { userSettingsDs }
+        // Resolving it is the first use of the settings, so it is also what starts the
+        // one-shot migration.
+        single<DataStore<Preferences>> {
+            get<SettingsMigrationGate>().ensureStarted()
+            userSettingsDs
+        }
 
         // Separate file for the calendar-sync settings, mirroring the Android binding.
         // Google's chosen calendar lives here, and without it the desktop trigger's first
         // cycle cannot resolve GoogleSyncCoordinator — a missing DataStore that surfaces as
         // "background sync silently does nothing" rather than as a startup crash.
         single(qualifier = named("calendar_sync")) {
-            cachedJvmDataStore(File(userHome, ".singularity-todo/calendar_sync.preferences_pb"))
+            cachedJvmDataStore(File(applicationDir, "calendar_sync.preferences_pb"))
         }
 
         // ─── Platform Ports ────────────────────────────────────────────────
@@ -214,7 +241,7 @@ actual fun platformModule(): Module =
 
         single<FileSystem> { JvmFileSystem() }
 
-        single<HostEnvironmentPort> { JvmHostEnvironment() }
+        single<HostEnvironmentPort> { JvmHostEnvironment(userHome = applicationRoot.absolutePath) }
 
         // The tool-call records. The same writer serves the desktop app and the MCP server,
         // which is why it lives in the platform module rather than in one of them: two
@@ -228,7 +255,9 @@ actual fun platformModule(): Module =
 
         single { ToolCallRecorder(log = get(), nowEpochMillis = { System.currentTimeMillis() }) }
 
-        single<FileRevealer> { JvmFileRevealer() }
+        // The revealer opens the same directory the attachment storage writes to, so it
+        // takes the bound directory rather than computing a second copy of the path.
+        single<FileRevealer> { JvmFileRevealer(attachmentsDirectory = get(AttachmentDirQualifier)) }
         single<FileOpener> { JvmFileOpener() }
 
         single<FileSourceFactory> { JvmFileSourceFactory() }
@@ -252,12 +281,12 @@ actual fun platformModule(): Module =
         // injection throws inside composition and Compose retries every frame.
         single<CrashReportingPort> { JvmCrashReportingPort() }
 
-        single<String>(BackupDirQualifier) { userHome + "/.singularity-todo/backups" }
+        single<String>(BackupDirQualifier) { File(applicationDir, "backups").path }
 
-        single<String>(LogDirQualifier) { userHome + "/.singularity-todo/logs" }
+        single<String>(LogDirQualifier) { File(applicationDir, "logs").path }
 
         // The same folder the desktop's file revealer opens.
-        single<String>(AttachmentDirQualifier) { userHome + "/.singularity-todo/attachments" }
+        single<String>(AttachmentDirQualifier) { File(applicationDir, "attachments").path }
 
         single { LogBundleExporter(get(LogDirQualifier), get(), get()) }
 

@@ -4,8 +4,7 @@ package com.singularity.todo.feature.search
 
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.search.SearchMode
@@ -25,8 +24,6 @@ import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -53,7 +50,7 @@ import kotlin.time.Clock
 class SearchSurfacesStateTheirModeTest {
     private val user = UserId("u1")
 
-    private lateinit var tempDir: File
+    private lateinit var fixture: DatabaseTestFixture
     private lateinit var db: AppDatabase
     private lateinit var notes: NotesRepositoryImpl
     private lateinit var tasks: TaskRepositoryImpl
@@ -63,8 +60,8 @@ class SearchSurfacesStateTheirModeTest {
     @BeforeTest
     fun setUp() =
         runTest {
-            tempDir = Files.createTempDirectory("singularity-search-modes-").toFile()
-            db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
+            fixture = DatabaseTestFixture.inMemory()
+            db = fixture.database()
             val currentUser =
                 FakeProfileAwareCurrentUser(
                     FakeAuthRepository(Session.Anonymous(user)),
@@ -100,8 +97,7 @@ class SearchSurfacesStateTheirModeTest {
 
     @AfterTest
     fun tearDown() {
-        db.close()
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     @Test
