@@ -5,12 +5,16 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
+import androidx.test.uiautomator.By
 import com.singularity.todo.MainActivity
 import com.singularity.todo.core.draft.DraftStore
+import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.feature.tasks.domain.state.TaskDraft
 import com.singularity.todo.testing.InstrumentedTestBase
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -19,7 +23,7 @@ import org.junit.runner.RunWith
 import org.koin.core.context.GlobalContext
 
 /**
- * The task editor opens on an empty draft.
+ * The draft the device carries, and the harness's way of getting rid of it.
  *
  * ## What this proves, and what only the device can prove
  *
@@ -35,34 +39,67 @@ import org.koin.core.context.GlobalContext
  * that outlived the process, persisted on the device, being restored by the
  * editor when it opens.
  *
- * ## Why the draft is seeded here
+ * ## The two tests
  *
- * The test writes a draft into the app's own store before opening the editor.
- * Without that, the assertion would only be meaningful on a device that
- * happens to carry a leftover draft — on a clean device it would pass for the
- * wrong reason. With it, the assertion is the same on every device: either the
- * drafts are cleared and the editor opens empty, or they are not and the
- * editor opens with the seeded text.
+ * [the_editor_restores_the_draft_the_device_persisted] seeds a draft and opens
+ * the editor **without** clearing it, so the assertion is on the restoration
+ * path itself rather than on the harness helper.
  *
- * @see InstrumentedTestBase.openTaskEditorWithAnEmptyDraft
+ * [the_clearing_touches_the_editors_drafts_and_nothing_else] is the other half:
+ * the helper empties the editor's drafts, and the `DataStore` it shares with
+ * the app's settings is left alone.
  */
 @RunWith(AndroidJUnit4::class)
 @LargeTest
 class TaskEditorDraftTest : InstrumentedTestBase() {
     /**
-     * The editor opens empty once the drafts are cleared.
+     * The editor restores the draft the device persisted.
+     *
+     * The draft is written into the app's own store before the editor opens,
+     * so the assertion is the same on every device: the editor either restores
+     * the seeded text or it does not.
      */
     @Test
-    fun the_editor_opens_with_an_empty_draft() {
+    fun the_editor_restores_the_draft_the_device_persisted() {
         val scenario = launchApp()
         try {
             seedDraft(TaskDraftKeys.TASK_CREATE, LEFTOVER_TITLE)
+
+            openTaskEditor()
+
+            val restored =
+                device.awaitObject(
+                    By.res(TestTags.TASK_EDITOR_TITLE_INPUT).text(LEFTOVER_TITLE),
+                    "the task editor's title input carrying the persisted draft",
+                    TAB_TIMEOUT_MS,
+                )
             assertEquals(
-                "the draft must be in the store before the editor is opened, or the " +
-                    "assertion below would hold for the wrong reason",
+                "the editor must restore the draft that outlived the process",
                 LEFTOVER_TITLE,
-                loadDraft(TaskDraftKeys.TASK_CREATE)?.title?.text,
+                restored.text,
             )
+        } finally {
+            scenario.close()
+            clearTaskEditorDrafts()
+        }
+    }
+
+    /**
+     * The drafts that are cleared are the editor's, and only the editor's.
+     *
+     * The store the editor restores from shares its `DataStore` with the app's
+     * settings, so a clear that emptied the store's namespace would take the
+     * device's settings with it. The probe is a real app setting: it has to
+     * survive the clear, because "the editor's drafts are gone" and "the store
+     * was emptied" are different things, and only the second one is a bug.
+     */
+    @Test
+    fun the_clearing_touches_the_editors_drafts_and_nothing_else() {
+        val scenario = launchApp()
+        val previousStaleness = stalenessThreshold()
+        try {
+            seedDraft(TaskDraftKeys.TASK_CREATE, LEFTOVER_TITLE)
+            setStalenessThreshold(PROBE_STALENESS_DAYS)
 
             val titleInput = openTaskEditorWithAnEmptyDraft()
 
@@ -70,43 +107,20 @@ class TaskEditorDraftTest : InstrumentedTestBase() {
                 "the editor must open empty once the drafts are cleared, got: ${titleInput.text}",
                 titleInput.text.isEmpty(),
             )
-        } finally {
-            scenario.close()
-        }
-    }
-
-    /**
-     * The drafts that are cleared are the editor's, and only the editor's.
-     *
-     * The store the editor restores from shares its storage with the app's
-     * settings, so a clear that emptied the store's namespace would take the
-     * device's other state with it. The probe below is a draft under a key
-     * that is not the editor's: it has to survive the clear, because "the
-     * editor's drafts are gone" and "the store was emptied" are different
-     * things, and only the second one is a bug.
-     */
-    @Test
-    fun the_clearing_touches_the_editors_drafts_and_nothing_else() {
-        val scenario = launchApp()
-        try {
-            seedDraft(TaskDraftKeys.TASK_CREATE, LEFTOVER_TITLE)
-            seedDraft(PROBE_KEY, PROBE_TITLE)
-
-            openTaskEditorWithAnEmptyDraft()
-
             val editorDraft = loadDraft(TaskDraftKeys.TASK_CREATE)
             assertTrue(
                 "the editor's own draft must be gone, got: ${editorDraft?.title?.text}",
                 editorDraft?.title?.text != LEFTOVER_TITLE,
             )
             assertEquals(
-                "a draft that is not the editor's must survive the clear",
-                PROBE_TITLE,
-                loadDraft(PROBE_KEY)?.title?.text,
+                "an app setting is not a draft and must survive the clear",
+                PROBE_STALENESS_DAYS,
+                stalenessThreshold(),
             )
         } finally {
-            clearDraft(PROBE_KEY)
             scenario.close()
+            clearTaskEditorDrafts()
+            setStalenessThreshold(previousStaleness)
         }
     }
 
@@ -143,7 +157,7 @@ class TaskEditorDraftTest : InstrumentedTestBase() {
         title: String,
     ) {
         runBlocking {
-            GlobalContext.get().get<DraftStore>().save(
+            draftStore().save(
                 key,
                 TaskDraft(title = FieldOwnedText.empty().seeded(title)),
                 TaskDraft.serializer(),
@@ -155,40 +169,32 @@ class TaskEditorDraftTest : InstrumentedTestBase() {
      * The draft the store holds under [key], if it holds one.
      */
     @Suppress("NoRunBlocking") // Instrumented test: the draft store is a suspend API.
-    private fun loadDraft(key: String): TaskDraft? {
-        return runBlocking {
-            GlobalContext.get().get<DraftStore>().load(key, TaskDraft.serializer())
-        }
-    }
+    private fun loadDraft(key: String): TaskDraft? =
+        runBlocking { draftStore().load(key, TaskDraft.serializer()) }
+
+    private fun draftStore(): DraftStore = GlobalContext.get().get()
 
     /**
-     * Takes the probe out of the store again.
+     * The current value of a real app setting, used as the boundary probe.
      *
-     * The probe is written into the app's own storage, so it is taken out of
-     * it — a test that leaves a key behind leaves the next test a device that
-     * is not the device it expects.
+     * It shares the `DataStore` with the draft store, so a clear that reached
+     * the whole namespace would reset it.
      */
-    @Suppress("NoRunBlocking") // Instrumented test: the draft store is a suspend API.
-    private fun clearDraft(key: String) {
-        runBlocking {
-            GlobalContext.get().get<DraftStore>().clear(key)
-        }
+    @Suppress("NoRunBlocking") // Instrumented test: the settings API is suspend.
+    private fun stalenessThreshold(): Int = runBlocking { settings().stalenessThresholdDays.first() }
+
+    @Suppress("NoRunBlocking") // Instrumented test: the settings API is suspend.
+    private fun setStalenessThreshold(value: Int) {
+        runBlocking { settings().setStalenessThresholdDays(value) }
     }
 
+    private fun settings(): SettingsRepository = GlobalContext.get().get()
+
     companion object {
-        /** The title of the draft that must not survive the clear. */
+        /** The title of the draft that must be restored, and later cleared. */
         private const val LEFTOVER_TITLE = "Leftover draft"
 
-        /** The title of the draft that must survive the clear. */
-        private const val PROBE_TITLE = "Another feature's draft"
-
-        /**
-         * A draft key that is not the editor's.
-         *
-         * A probe, and nothing more: it names a namespace the editor does not
-         * read, so it can only be touched by a clear that reaches beyond the
-         * editor's drafts.
-         */
-        private const val PROBE_KEY = "another_feature_draft"
+        /** A setting value that is not the default, so its survival is visible. */
+        private const val PROBE_STALENESS_DAYS = 37
     }
 }

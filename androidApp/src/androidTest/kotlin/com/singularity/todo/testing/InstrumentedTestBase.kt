@@ -9,6 +9,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.ui.FailureBundleRule
 import com.singularity.todo.ui.StepRecorder
 import com.singularity.todo.ui.TAB_TIMEOUT_MS
+import com.singularity.todo.ui.TODAY_TAB
+import com.singularity.todo.ui.awaitShell
 import com.singularity.todo.ui.awaitTag
 import com.singularity.todo.ui.awaitUiDevice
 import com.singularity.todo.ui.clearStepRecorder
@@ -108,29 +110,38 @@ abstract class InstrumentedTestBase {
      * The task editor restores the draft it was last given, and the draft
      * outlives a run on the device: an editor opened on a device that still
      * carries the state of an earlier run opens with that text already in the
-     * title field. A test that asserts "the editor opens empty" has to make
+     * title field. A test that needs the editor to start empty has to make
      * that true first — otherwise it measures the state of the device rather
      * than the behaviour of the editor.
      *
      * The drafts are cleared through the app's own store, read from the app's
-     * Koin graph: the instrumentation runs in the app's process, so this is
-     * the store the editor restores from, under the same user scope.
+     * Koin graph: the instrumentation runs in the app's process, so this is the
+     * store the editor restores from, under the same user scope.
      *
-     * Only the editor's drafts are cleared — the key the create editor
-     * autosaves to, and the prefill keys the agenda and the calendar write
-     * for it. The store is deliberately **not** emptied: it shares its storage
-     * with the app's settings, so clearing the whole namespace would take the
-     * device's other state with it. Clearing the editor's drafts is not the
-     * same thing as wiping the device.
-     *
-     * The app must be running when this is called — the store is read from the
-     * app's dependency graph, and there is no graph before the app has
-     * started.
+     * The shell is waited for before the store is touched: the store is read
+     * from the app's dependency graph, and there is no graph before the app
+     * has started.
      *
      * @return the title input of the editor that was opened.
      */
     protected fun openTaskEditorWithAnEmptyDraft(): UiObject2 {
+        device.awaitShell()
         clearTaskEditorDrafts()
+        return openTaskEditor()
+    }
+
+    /**
+     * Opens the task editor, restoring whatever draft the device carries.
+     *
+     * The shell is waited for and the Today tab selected first: the FAB lives
+     * on the shell, and a test that inherited another tab from an earlier run
+     * would otherwise fail on a missing FAB instead of opening the editor.
+     *
+     * @return the title input of the editor that was opened.
+     */
+    protected fun openTaskEditor(): UiObject2 {
+        device.awaitShell()
+        device.tapTag(TODAY_TAB)
         device.tapTag(TestTags.TASKS_FAB)
         return device.awaitTag(
             TestTags.TASK_EDITOR_TITLE_INPUT,
@@ -142,14 +153,26 @@ abstract class InstrumentedTestBase {
     /**
      * Empties the drafts the task editor restores from.
      *
-     * The prefixes are the bare keys of the app's draft namespaces, and they
-     * are relative on purpose: the store that resolves in the graph is either
-     * the user-scoped wrapper or the bare DataStore store, and the wrapper
-     * prepends the user's prefix on the way in. A relative prefix is the only
-     * form that names the editor's drafts under both.
+     * The keys are the bare keys of the app's draft namespaces, and the store
+     * is the port the editor injects: `single<DraftStore>` resolves to the
+     * user-scoped wrapper, which prepends the current user's prefix on every
+     * call. Both sides name the same keys because both pass bare keys — the
+     * wrapper scopes the helper's clear and the editor's restore to the same
+     * user.
+     *
+     * Only the editor's drafts are cleared — the key the create editor
+     * autosaves to, and the prefill keys the agenda and the calendar write
+     * for it. The store is deliberately **not** emptied: it shares its
+     * `DataStore` with the app's settings, so clearing the whole namespace
+     * would take the device's other state with it. Clearing the editor's
+     * drafts is not the same thing as wiping the device.
+     *
+     * Exposed to subclasses so a test that lets the editor autosave can clear
+     * it in its own teardown: the editor autosaves on close, and a draft left
+     * behind is the device state this exists to remove.
      */
     @Suppress("NoRunBlocking") // Instrumented test: the draft store is a suspend API.
-    private fun clearTaskEditorDrafts() {
+    protected fun clearTaskEditorDrafts() {
         runBlocking {
             val store = GlobalContext.get().get<DraftStore>()
             EDITOR_DRAFT_KEY_PREFIXES.forEach { prefix -> store.clearPrefix(prefix) }

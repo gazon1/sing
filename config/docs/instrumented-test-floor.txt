@@ -53,8 +53,10 @@
 # The loss is acknowledged here rather than regenerated silently: the tier is 8
 # classes and 25 tests now. `CreateTaskFlowTest` is not back — the scenario it
 # held is owned by the desktop tier — but the tier has one class it did not have
-# before that removal: `TaskEditorDraftTest` (two tests), which owns what only
-# a device can observe, an editor restoring a draft that outlived the process.
+# before that removal: `TaskEditorDraftTest`. One of its two tests owns what only
+# a device can observe — an editor restoring a draft that outlived the process —
+# and the other holds the harness helper to its boundary: the editor's drafts are
+# cleared and the `DataStore` the app's settings share is not emptied.
 # `--update-floor --allow-drop` is the documented override for a deliberate
 # deletion; without it the tool refuses a drop, which is the point.
 #

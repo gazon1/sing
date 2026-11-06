@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import com.singularity.todo.MainActivity
 import com.singularity.todo.testing.InstrumentedTestBase
+import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -38,6 +39,18 @@ class EditorBackGuardTest : InstrumentedTestBase() {
     fun setup() {
         device.executeShellCommand("input keyevent KEYCODE_WAKEUP")
         device.executeShellCommand("input keyevent 82") // unlock
+    }
+
+    /**
+     * Takes the draft the editor autosaved on close out of the store again.
+     *
+     * The editor autosaves what it was given, so this class leaves a draft on
+     * the device unless its teardown removes it — and a draft left behind is
+     * the state the shared helper exists to eliminate.
+     */
+    @After
+    fun clearDrafts() {
+        clearTaskEditorDrafts()
     }
 
     @Test
@@ -105,7 +118,6 @@ class EditorBackGuardTest : InstrumentedTestBase() {
                 MainActivity::class.java,
             )
         val scenario = ActivityScenario.launch<MainActivity>(intent)
-        device.awaitShell()
         openTaskEditorWithAnEmptyDraft()
         return scenario
     }
