@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-emulator-launch
-description: Launch and recover the Android emulator on this dev host. Covers the verified launch command, why each flag is there, proving the process is alive, crash triage by signature, and — most importantly — recovery when the host's gfxstream bug kills it mid-session. Use whenever an emulator is needed (Maestro flows, adb verification, screenshots) and one is not running or has died. For scripted runs prefer ensure-emulator, which does all of this.
+description: Launch and recover the Android emulator on this dev host. Covers the verified launch command, why each flag is there, proving the process is alive, crash triage by signature, and — most importantly — recovery when the host's gfxstream bug kills it mid-session. Use whenever an emulator is needed (Maestro flows, adb verification, screenshots) and one is not running or has died. For scripted runs prefer `./rm emulator`, which does all of this.
 ---
 
 # Emulator Launch and Recovery (this host)
@@ -18,18 +18,18 @@ skill `singularity-todo-android-cli`.
 
 ## Use the script, not this file, for anything scripted
 
-`ensure-emulator` prints a ready serial on stdout, or starts the AVD
+`./rm emulator` prints a ready serial on stdout, or starts the AVD
 with the verified flags, waits for boot, and prints the serial. It is the
 recovery primitive for the whole repo:
 
 ```bash
-SERIAL=$(ensure-emulator)     # start if needed, wait for boot
-run-maestro                   # runs per-flow and relaunches on its own
+SERIAL=$(./rm emulator)       # start if needed, wait for boot
+./rm                          # runs per-flow and relaunches on its own
 ```
 
 **Where it lives:** `scripts/src/emulator/` — the CLI is `_cli.py`, and
 `acquire_device` in `_startup.py` is the primitive every caller goes through
-(`ensure-emulator`, the Maestro CLI, the Maestro runner, the e2e script). The
+(`emulator._cli`, the Maestro CLI, `emulator.maestro._cli`, the e2e script). The
 preparation it does — waking the device, unlocking it, and putting the soft
 keyboard away — is `prepare_device` in the same file. Change it there, not in
 a caller: it used to be written three times, and the copy that was missing was
@@ -37,28 +37,27 @@ the one that mattered, because the AVD that had just been restarted came up
 with the keyboard on and every flow measured after that measured a
 half-covered screen.
 
-**Where the command comes from:** both are console scripts of this repository's
-package (`scripts/src/pyproject.toml` declares them), so they are installed
-into the gate tooling venv of the checkout that installed them —
-`~/.venvs/singularity-todo-<checkout>/bin`. That directory has to be on PATH:
+**Where the command comes from:** `./rm` is the checkout-bound wrapper (`rm` at
+the repository root), so run it from there. It binds this checkout's
+`scripts/src` packages before it runs anything, and refuses with the package's
+name when one resolves to another checkout, so the answer does not depend on
+which checkout was installed last.
 
-```bash
-export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
-```
-
-`bash scripts/ci/setup-local-tools.sh` creates the venv. The command is not on
-PATH by default, and a checkout with no venv of its own has no
-`ensure-emulator` at all — which is the right way round: the command belongs to
-the tree it came from.
+The console scripts themselves are still installed: `scripts/src/pyproject.toml`
+declares them, and the gate tooling venv of this checkout
+(`~/.venvs/singularity-todo-<checkout>/bin`, created by
+`bash scripts/ci/setup-local-tools.sh`) has them on PATH while that venv is
+active. That is the reason to type `./rm` instead: an editable install answers
+from whichever checkout installed it last, and `./rm` binds this one.
 
 **Pinning `SERIAL` does not switch recovery off.** A pinned-but-unready *emulator*
-is exactly the crash case recovery exists for, so `SERIAL=emulator-5554
-ensure-emulator` restarts the AVD instead of reporting failure. Only a pinned
-*physical* device stays a hard error, because starting an AVD would land on
-`emulator-5554` and not match.
+is exactly the crash case recovery exists for, so
+`SERIAL=emulator-5554 ./rm emulator` restarts the AVD instead of reporting
+failure. Only a pinned *physical* device stays a hard error, because starting an
+AVD would land on `emulator-5554` and not match.
 
-`run-maestro` acquires a device itself when none is ready — it does **not** need
-`SERIAL` exported, and does not need `ensure-emulator` run first. It reports which
+`./rm` acquires a device itself when none is ready — it does **not** need
+`SERIAL` exported, and does not need `./rm emulator` run first. It reports which
 acquisition outcome ended the run (crashed / boot timeout / lock timeout), not one
 generic failure.
 
@@ -81,7 +80,7 @@ script does what it does.
 Run the script, not a hand-typed command:
 
 ```bash
-SERIAL=$(ensure-emulator)   # clears stale locks, launches, waits for boot
+SERIAL=$(./rm emulator)     # clears stale locks, launches, waits for boot
 ```
 
 That is the whole launch procedure — a crashed run leaves the AVD locked and a
@@ -90,7 +89,7 @@ second qemu refuses to start, so the script `pkill`es the zombie, removes
 header, with each flag's reason next to it):
 
 ```bash
-# what ensure-emulator executes — do not retype it
+# what ./rm emulator executes — do not retype it
 emulator -avd Medium_Phone -no-snapshot-load -no-boot-anim \
   -camera-back none -camera-front none -no-audio > /tmp/emu.log 2>&1 &
 sleep 10    # keep this shell call alive; see "Process survival"
@@ -138,7 +137,7 @@ death happens under Maestro. Do not re-run these experiments; the record is in
 final mitigation until an emulator release fixes `TextureResize`.
 
 No configuration both boots and avoids it. So the answer is recovery, not
-prevention: `run-maestro` runs one flow per Maestro invocation and
+prevention: `./rm` runs one flow per Maestro invocation and
 relaunches the AVD when the device is lost, so one crash costs at most one flow
 instead of the whole suite. Full reasoning:
 `docs/decisions/2026-09-29-emulator-crash-recovery-runner.md`.
@@ -154,7 +153,7 @@ for p in /proc/[0-9]*; do exe=$(readlink "$p/exe" 2>/dev/null); case "$exe" in
 ```
 
 Inside a **script file** `pgrep -f` is safe — the invoking process's command
-line is just `bash script.sh` — which is why `ensure-emulator` uses it.
+line is just `bash script.sh` — which is why `./rm emulator` uses it.
 
 A background-task harness may report the emulator task "failed" while qemu
 itself survives: the wrapper exits, the emulator does not. The `/proc` scan is
@@ -192,20 +191,20 @@ fine against an already-running emulator.
 | Startup `amdgpu: The CS has been rejected (-22)` + `IOT instruction` | Mesa/kernel regression on AMD Renoir — **a different, already-fixed problem**; do not confuse it with the above. `2026-09-28-emulator-mesa-radeon-cs-rejected.md` |
 | Startup SIGSEGV with `-gpu software` / `-gpu swangle` / `-no-window` | Known dead ends on this AVD. Use the recipe as written. |
 | `Running multiple emulators with the same AVD` | A zombie qemu still holds the AVD. `pkill`, then remove `~/.android/avd/<AVD>.avd/*.lock`. |
-| Device listed but every flow fails in ~10 ms | The device died and is gone. `adb devices` confirms; `ensure-emulator` relaunches it. |
+| Device listed but every flow fails in ~10 ms | The device died and is gone. `adb devices` confirms; `./rm emulator` relaunches it. |
 | System "keeps stopping" dialog on the device | The **app** crashed. `adb logcat -d -b crash` names the real bug. |
 
 ## After a mid-session death
 
 ```bash
-SERIAL=$(ensure-emulator)     # relaunches and waits for boot
+SERIAL=$(./rm emulator)       # relaunches and waits for boot
 adb -s "$SERIAL" shell settings put secure show_ime_with_hard_keyboard 0
 adb -s "$SERIAL" install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
 ```
 
 ## Related
 
-- `ensure-emulator` — the recovery primitive (new)
+- `./rm emulator` — the recovery primitive
 - `docs/decisions/2026-09-29-emulator-crash-recovery-runner.md` — the control run
 - `docs/decisions/2026-09-29-emulator-launch-recipe.md` — the launch flags
 - `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md` — a different GPU fault

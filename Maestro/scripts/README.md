@@ -16,4 +16,8 @@ The single source of truth for device management is `scripts/src/emulator/`:
 - `ensure-emulator` → `python3 -m emulator._cli`
 - `run-maestro` → `python3 -m emulator.maestro._cli`
 
+Both are console scripts of an editable install, so they answer from whichever
+checkout installed them last. Run them through `./rm` from the repository root
+— `./rm emulator` and `./rm` — which binds this checkout's packages first.
+
 For Maestro flow validation, use `scripts/ci/validate-maestro-selectors.py` (the blocking gate in CI and pre-push hook).

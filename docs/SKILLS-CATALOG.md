@@ -15,9 +15,9 @@ state *which tasks need the skill*, not summarise its contents.
 
 | Skill | Lines | Description |
 |---|---:|---|
-| `singularity-todo-adb-screen-unlock` | 97 | How to wake and unlock a physical Android device connected via adb before UI verification. |
-| `singularity-todo-adb-workflow` | 175 | Full adb workflow for UI verification on a physical Android device connected via USB. |
-| `singularity-todo-agenda-section-design` | 141 | Agenda section design — bucket selectors, discard semantics, and LazyColumn key safety. |
+| `singularity-todo-adb-screen-unlock` | 96 | How to wake and unlock a physical Android device connected via adb before UI verification. |
+| `singularity-todo-adb-workflow` | 174 | Full adb workflow for UI verification on a physical Android device connected via USB. |
+| `singularity-todo-agenda-section-design` | 147 | Agenda section design — bucket selectors, discard semantics, and LazyColumn key safety. |
 | `singularity-todo-ai-action-registry-pattern` | 309 | AI action slot-API pattern for Singularity Todo. |
 | `singularity-todo-ai-tool` | 433 | Koog AI tool creation pattern for the Singularity Todo KMP app. |
 | `singularity-todo-android-cli` | 187 | Use when working with Android CLI commands, Android Studio integration, or Journeys for Android app development. |
@@ -42,7 +42,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-domain-logic-pattern` | 178 | Documents the pattern for pure business-logic classes placed in feature/X/domain/logic/. |
 | `singularity-todo-draft-restoration` | 428 | How to implement State Restoration for any form or editor screen in Singularity Todo. |
 | `singularity-todo-dsl-pattern` | 225 | Kotlin DSL patterns used in this project. |
-| `singularity-todo-emulator-launch` | 212 | Launch and recover the Android emulator on this dev host. |
+| `singularity-todo-emulator-launch` | 211 | Launch and recover the Android emulator on this dev host. |
 | `singularity-todo-feature-scaffold` | 457 | Feature scaffold pattern for the Singularity Todo KMP app. |
 | `singularity-todo-genui-catalog` | 195 | How to add, change or remove a component in the GenUI catalog — the one declaration that generates the prompt, the validator and the JSON Schema, plus the renderer that must agree with it. |
 | `singularity-todo-icon-registry` | 274 | KMP-native pattern for user-facing icon selection registries (project icons, tag emoji, priority icons, note color icons). |
@@ -55,7 +55,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-koog-agent` | 249 | KMP-native AI agent pattern using JetBrains Koog 1.1.1 with SimpleTool<T>, expect/actual PromptExecutor, ToolRegistry, and Koin auto-registration. |
 | `singularity-todo-kotlin-idioms` | 457 | Kotlin boilerplate-reduction catalog for Kotlin 2.4. |
 | `singularity-todo-llm-usage-tracking` | 332 | LLM token usage tracking in Singularity Todo KMP. |
-| `singularity-todo-maestro-flows` | 370 | Author and run Maestro UI flows for the Android app. |
+| `singularity-todo-maestro-flows` | 367 | Author and run Maestro UI flows for the Android app. |
 | `singularity-todo-mcp-dogfooding` | 284 | How the AI agent should use the Singularity Todo MCP server to track its own multi-step plans via tasks/projects/tags/ADRs. |
 | `singularity-todo-mcp-init` | 276 | MCP init command pattern for Singularity Todo KMP. |
 | `singularity-todo-monthly-doc-audit` | 113 | Monthly or pre-release sweep of the documentation ecosystem in this repo. |
@@ -86,7 +86,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-task-callback-groups` | 326 | Decision tree for grouping callbacks in Composable function signatures — when to use raw lambdas (≤3 params), when to use a @JvmInline value class Action hierarchy (outgoing events), and when to avoid data class "parameter objects" that group unrelated callbacks. |
 | `singularity-todo-task-detail-ux` | 278 | Document-style vs form-style UX pattern for task detail screens. |
 | `singularity-todo-test-flaky-prevention` | 303 | Rules to prevent test flakiness in the Singularity Todo project. |
-| `singularity-todo-test-helpers` | 353 | Standardized test helpers and patterns for ViewModel tests in this project. |
+| `singularity-todo-test-helpers` | 382 | Standardized test helpers and patterns for ViewModel tests in this project. |
 | `singularity-todo-test-tag-strategy` | 273 | Decide which JUnit tag a test class carries, and how the fast/slow split is applied in Gradle, CI and local runs. |
 | `singularity-todo-testable-vm` | 474 | Testable ViewModel pattern for Singularity Todo KMP app. |
 | `singularity-todo-text-field-states` | 313 | How to add or change a text field in Singularity Todo. |
@@ -122,7 +122,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `implement-spec` | 38 | Implement the result of /to-spec and /to-tickets in code. |
 | `improve-codebase-architecture` | 69 | Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick. |
 | `loop-me` | 29 | Grill me about specs for the workflows I want to build, within this workspace. |
-| `progress-journal` | 112 | Update PROGRESS.md during and after an epic — retro entries, PR status, blockers. |
+| `progress-journal` | 112 | Track an epic's progress in its issue — retro entries, PR status, blockers. |
 | `prototype` | 25 | Build a throwaway prototype to answer a design question. |
 | `research` | 11 | Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. |
 | `retro` | 42 | Conduct a retrospective on a coding session. |

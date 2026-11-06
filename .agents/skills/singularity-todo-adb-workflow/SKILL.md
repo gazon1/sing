@@ -33,18 +33,17 @@ adb -s $SERIAL shell getprop ro.build.version.sdk
 The `grep -v '^emulator-'` matters: with an AVD running, `head -1` would hand you
 the emulator and you would verify the wrong device.
 
-**Emulator work does not belong in this skill.** `ensure-emulator` is
+**Emulator work does not belong in this skill.** `./rm emulator` is
 the repo's single device-recovery primitive, and it deliberately is not used here:
 when no ready device exists it *starts the AVD*, while this skill's target is
 hardware someone plugged in. If you want the script to look at this phone, pin it —
-`SERIAL="$SERIAL" ensure-emulator` validates readiness and fails loudly
-rather than booting an emulator. For an AVD target, use the script directly or the
+`SERIAL="$SERIAL" ./rm emulator` validates readiness and fails loudly
+rather than booting an emulator. For an AVD target, use `./rm emulator` or the
 `singularity-todo-emulator-launch` skill.
 
-The command is a console script of this repository's package, so it lives in the
-gate tooling venv of this checkout (`~/.venvs/singularity-todo-<checkout>/bin`) —
-that directory has to be on PATH before `ensure-emulator` resolves. See
-`singularity-todo-emulator-launch` for the one-liner.
+The command is bound to this checkout by `./rm`, run from the repository root,
+so it needs no PATH entry and cannot answer from another checkout. See
+`singularity-todo-emulator-launch` for where it lives and why.
 
 ### Step 2 — Build + install (if APK changed)
 
@@ -170,7 +169,7 @@ This skill is the physical-device counterpart to the `android-emulator:android-d
 | Situation | Use |
 |---|---|
 | Physical phone/tablet connected | This skill (adb direct) |
-| AVD / emulator | `ensure-emulator`, documented by `singularity-todo-emulator-launch` (the MCP start tool times out on this host) |
+| AVD / emulator | `./rm emulator`, documented by `singularity-todo-emulator-launch` (the MCP start tool times out on this host) |
 | Quick tap/screenshot on known serial | MCP tools with `serial=` |
 | Full verification run (build + install + wake + screenshot + logs) | This skill |
-| Starting a fresh AVD | `ensure-emulator` (not `android-emulator:android-dev`) |
+| Starting a fresh AVD | `./rm emulator` (not `android-emulator:android-dev`) |

@@ -137,7 +137,7 @@ alone.
 ## Reproducing a run locally
 
 ```bash
-ensure-emulator                                  # the repo's single recovery primitive
+./rm emulator                                    # the repo's single recovery primitive
 ANDROID_SERIAL=emulator-5554 python3 scripts/run-android-ui-tests.py
 ```
 
