@@ -187,4 +187,12 @@ MSG
     exit 1
 fi
 
+# hk version lockstep: mise.toml and hk.pkl must agree.
+hk_mise="$(grep -E '^\\s*hk\\s*=' mise.toml 2>/dev/null | sed -E 's/.*=\\s*"([^"]+)".*/\\1/')"
+hk_pkl="$(grep -E 'amends .*hk@' hk.pkl 2>/dev/null | sed -E 's/.*hk@([^#]+)#.*/\\1/')"
+if [ -n "$hk_mise" ] && [ -n "$hk_pkl" ] && [ "$hk_mise" != "$hk_pkl" ]; then
+    echo "  hk version mismatch: mise.toml=$hk_mise hk.pkl=$hk_pkl" >&2
+    exit 1
+fi
+
 echo "  all present."
