@@ -182,14 +182,18 @@ tasks.withType<Test>().configureEach {
         "-XX:HeapDumpPath=build/test-heap-dumps",
     )
     // Allure test reporting — results written to build/allure-results/
-    // See shared/build.gradle.kts for the full explanation of why workingDir is used
-    // instead of the allure.results.directory system property.
+    // The listener reads `allure.results.directory` from the system properties, so
+    // the results land flat in this directory instead of one level deeper
+    // (`build/allure-results/allure-results/`), which is what every upload glob
+    // and the report generator expect. See shared/build.gradle.kts for the full
+    // explanation — and for why `workingDir` stays anyway.
     val allureDir =
         layout.buildDirectory
             .dir("allure-results")
             .get()
             .asFile
-    workingDir = allureDir.also { it.mkdirs() }
+    systemProperty("allure.results.directory", allureDir.also { it.mkdirs() }.absolutePath)
+    workingDir = allureDir
     // Absolute path to the fat JAR, needed by McpServerEndToEndTest because
     // workingDir above is build/allure-results/ and the test would otherwise look
     // for the JAR at build/allure-results/build/libs/mcp-server.jar.

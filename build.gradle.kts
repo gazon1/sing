@@ -390,6 +390,83 @@ allprojects {
 }
 
 // ---------------------------------------------------------------------------
+// The Allure report
+// ---------------------------------------------------------------------------
+//
+// Three modules already collect Allure results — the `allure-junit5` agent sits
+// on the test classpath in :shared, :desktopApp and :mcp-server — and CI
+// already uploads the raw JSON. What nobody could do with it was READ it: a
+// pile of `*-result.json` files is not a report.
+//
+// The generator is a Maven artifact, not a binary on PATH. `allure-commandline`
+// publishes a POM whose jar carries `io.qameta.allure.CommandLine`, and the
+// report generation itself lives in the transitive `allure-generator`.
+// Resolving it through Gradle means no PATH assumption, no toolchain pin, and
+// the same classpath the build already resolves for everything else.
+//
+// The task deliberately does NOT depend on the test tasks. It aggregates the
+// results that are on disk. In CI the suite has already run; making the report
+// depend on the tests would re-run them whenever this invocation differs from
+// the one that produced them — a different `-Ptest.population` makes the test
+// task out of date, and the report would cost a second full suite.
+val allureCommandline by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+
+dependencies {
+    allureCommandline(libs.allure.commandline)
+}
+
+// The modules that carry the Allure agent. Named explicitly rather than
+// derived from "every subproject": a module that lost the agent would then
+// quietly contribute nothing, and the report would just be shorter.
+val allureResultModules = listOf("shared", "desktopApp", "mcp-server")
+
+val allureMergedResults = layout.buildDirectory.dir("allure-results-merged")
+val allureReportDirectory = layout.buildDirectory.dir("reports/allure")
+
+// The generator reads one directory and does NOT recurse into it — pointing it
+// at a tree of per-module directories produces an EMPTY report and exit code 0,
+// which is the quietest possible failure. So the results are merged into one
+// flat directory first.
+val allureMergeResults by tasks.registering(Sync::class) {
+    description = "Collects the Allure results of every module into one directory."
+    group = "reporting"
+    from(
+        allureResultModules.map { module ->
+            layout.projectDirectory.dir(module).dir("build/allure-results")
+        },
+    ) {
+        include("**/*-result.json")
+        include("**/*-attachment.*")
+        // Flatten. The generator reads ONE directory and does not recurse, so a
+        // file that stays one level down is a file the report never shows — and
+        // the symptom is an empty report with exit code 0. The names are UUIDs,
+        // so flattening cannot make two modules collide.
+        eachFile { path = name }
+    }
+    into(allureMergedResults)
+}
+
+tasks.register<JavaExec>("allureReport") {
+    description = "Generates the Allure HTML report from the collected results."
+    group = "reporting"
+    dependsOn(allureMergeResults)
+    classpath = files(allureCommandline)
+    mainClass.set("io.qameta.allure.CommandLine")
+    args(
+        "generate",
+        "--clean",
+        "-o",
+        allureReportDirectory.get().asFile.absolutePath,
+        allureMergedResults.get().asFile.absolutePath,
+    )
+    inputs.dir(allureMergedResults)
+    outputs.dir(allureReportDirectory)
+}
+
+// ---------------------------------------------------------------------------
 // Aggregated code coverage
 // ---------------------------------------------------------------------------
 // koverVerify is registered by the settings-level `kover.aggregation` plugin on every

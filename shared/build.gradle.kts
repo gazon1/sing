@@ -772,17 +772,28 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
             .asFile.absolutePath,
     )
     // Allure test reporting — results written to build/allure-results/
-    // allure-kotlin's `allure.results.directory` key is NOT read by allure-junit5's listener;
-    // the listener computes its results path relative to the forked JVM's working directory.
-    // Setting workingDir on the forked JVM makes it write to <module>/build/allure-results/,
-    // which is where the CI upload step and the existing .gitignore `**/build/` entry
-    // expect it. The directory is per-task to avoid collisions when tests run in parallel.
+    //
+    // The listener reads `allure.results.directory` from the SYSTEM PROPERTIES:
+    // `AllureLifecycle.getDefaultWriter()` asks `PropertiesUtils.loadAllureProperties()`,
+    // which is the classpath `allure.properties` plus `System.getProperties()`, and
+    // falls back to a working-directory-relative `allure-results` only when the key
+    // is absent. The comment that used to stand here claimed the key was NOT read
+    // and that the path was always relative to the forked JVM's working directory.
+    // That is wrong, and it cost a directory level: the results landed in
+    // `build/allure-results/allure-results/` — one level deeper than every upload
+    // glob, every report command and the CI artifact path expected.
+    //
+    // `workingDir` stays, because it answers a different question: the tests read
+    // files relative to the module, and the working directory is what made those
+    // paths resolve. The property decides where the RESULTS go; the working
+    // directory decides where the test's own relative paths go.
     val allureDir =
         layout.buildDirectory
             .dir("allure-results")
             .get()
             .asFile
-    workingDir = allureDir.also { it.mkdirs() }
+    systemProperty("allure.results.directory", allureDir.also { it.mkdirs() }.absolutePath)
+    workingDir = allureDir
     // The tests above read files OUTSIDE :shared while they run, so those trees are
     // inputs to this task whether or not they feed the compiler. Without this, editing
     // a desktopApp or mcp-server test leaves :shared:jvmTest UP-TO-DATE, and an

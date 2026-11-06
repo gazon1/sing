@@ -139,6 +139,11 @@ konsist = "0.18.1"
 
 # Allure test reporting
 allure = "2.35.5"
+# The Allure CLI that renders the HTML report. A separate artifact from the
+# agent above, and it is versioned separately on purpose: the agent is on the
+# test classpath and cannot move without a test-suite change, the CLI only
+# reads the results the agent wrote. Nothing requires the two to agree.
+allure-commandline = "2.46.1"
 
 # Lint / Quality tools
 detekt = "2.0.0-alpha.6"
@@ -288,6 +293,8 @@ kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.
 
 # Allure test reporting — JUnit 5 listener generates JSON results
 allure-kotlin-junit5 = { module = "io.qameta.allure:allure-junit5", version.ref = "allure" }
+# Allure test reporting — the CLI that turns those results into the HTML report
+allure-commandline = { module = "io.qameta.allure:allure-commandline", version.ref = "allure-commandline" }
 
 # Okio — file I/O for FileLogWriter
 okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
