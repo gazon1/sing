@@ -67,12 +67,16 @@ working directory is what made those paths resolve. The property decides where
 the **results** go; the working directory decides where the test's own relative
 paths go. Two different questions.
 
-**The task.** The root build has two tasks:
+**The task.** The root build has three tasks:
 
 - `allureMergeResults` (a `Sync`) collects `*-result.json` and
   `*-attachment.*` from the three modules that carry the agent into
   `build/allure-results-merged/`, flattened. The flattening is not cosmetic:
   a file that stays one level down is a file the generator never sees.
+- `allureRequireResults` fails the build when no module produced a result.
+  It is a separate task rather than a `doLast` on the merge, because a
+  `doLast` never runs when the merge is `NO-SOURCE` — and "no source" is
+  exactly the case the check is for.
 - `allureReport` (a `JavaExec`) runs `io.qameta.allure.CommandLine generate
   --clean -o build/reports/allure build/allure-results-merged` with the CLI
   resolved from the `allureCommandline` configuration.
@@ -119,6 +123,22 @@ means the generator is pointed at a directory whose contents it will read. The
 failure mode that produced an empty report with exit code 0 — pointing it at a
 tree — is no longer reachable from the build.
 
+The other empty report — the generator pointed at a directory with *nothing* in
+it — is reachable, and it is the quietest one of all: a complete-looking HTML
+page with zero tests, exit code 0, uploaded to CI as `allure-report-<run_id>`.
+A human opens it and reads "nothing ran" as "nothing failed". So a separate
+task, `allureRequireResults`, fails the build when no module produced a
+result, and `allureReport` depends on it.
+
+The check counts the **source** directories, not the merged one. A `Sync` that
+has no source does not clean its destination either, so a previous run's
+results would still sit in `build/allure-results-merged/` and the merged
+directory would look populated even though nothing ran now. Counting the
+sources catches that too. The count is over all three modules together:
+`mcp-server` legitimately contributes nothing (its only test class is
+`@Tag("slow")`), so a per-module requirement would fail the build for a
+module that is behaving correctly.
+
 ## Consequences
 
 - CI produces a readable report per run; the raw results stay available.
@@ -128,16 +148,19 @@ tree — is no longer reachable from the build.
 - The merge task names the modules that carry the agent explicitly
   (`:shared`, `:desktopApp`, `:mcp-server`). A module that lost the agent
   would otherwise contribute nothing and the report would just be shorter.
+- The build fails when no module produced a result, rather than producing an
+  empty report that reads like a clean run. The check is the separate task
+  `allureRequireResults`, over the source directories of all three modules.
 - The Allure **agent** version (`2.35.5`) and the **CLI** version (`2.46.1`)
   differ. That is intended; see the decision above.
-- **Rollback**: delete the two tasks and the CI step, and remove the
+- **Rollback**: delete the three tasks and the CI step, and remove the
   `allure-commandline` entry from the catalogue. The results keep being
   collected and keep being uploaded — the report is an addition to them, not a
   replacement, so removing it costs the rendered HTML and nothing else.
 
 ## Links
 
-- `build.gradle.kts` — `allureMergeResults`, `allureReport`
+- `build.gradle.kts` — `allureMergeResults`, `allureRequireResults`, `allureReport`
 - `shared/build.gradle.kts`, `mcp-server/build.gradle.kts` — the results
   directory
 - `gradle/libs.versions.toml` — `allure-commandline`

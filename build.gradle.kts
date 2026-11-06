@@ -449,10 +449,62 @@ val allureMergeResults by tasks.registering(Sync::class) {
     into(allureMergedResults)
 }
 
+// The empty report.
+//
+// The generator pointed at a directory with nothing in it writes a
+// complete-looking HTML page with zero tests and exits 0, and CI uploads it
+// as `allure-report-<run_id>`. A human opens it and reads "nothing ran" as
+// "nothing failed". So the build refuses to produce one.
+//
+// The check is a separate task, and it counts the SOURCE directories rather
+// than the merged one:
+//
+// - A `doLast` on the merge task would never run when there is no source at
+//   all — Gradle reports such a task as `NO-SOURCE` and skips its actions —
+//   which is exactly the case the check is for.
+// - A `Sync` with no source does not clean its destination either, so a
+//   previous run's results would still be there and the report would show
+//   them. Counting the sources catches that too: no module has results, the
+//   build stops, and the stale report is never rendered.
+//
+// `mcp-server` legitimately contributes nothing (its only test class is
+// `@Tag("slow")`), so the count is over all modules together.
+val allureRequireResults =
+    tasks.register("allureRequireResults") {
+        description = "Fails when the suite produced no Allure results to report."
+        group = "reporting"
+        dependsOn(allureMergeResults)
+        // Resolved to plain files here, at configuration time: a closure that
+        // reached for a script-level property would capture the Gradle script
+        // object, and the configuration cache refuses to serialize it.
+        val moduleResultDirs =
+            allureResultModules.map { module ->
+                layout.projectDirectory
+                    .dir(module)
+                    .dir("build/allure-results")
+                    .asFile
+            }
+        doLast {
+            val collected =
+                moduleResultDirs.sumOf { dir ->
+                    dir.listFiles { file -> file.name.endsWith("-result.json") }?.size ?: 0
+                }
+            if (collected == 0) {
+                throw GradleException(
+                    "No Allure results to report: none of " +
+                        "${moduleResultDirs.joinToString(", ")} holds a *-result.json. " +
+                        "The report would be an empty page that looks like a clean run. " +
+                        "Run the test tasks first, and check that every module's results " +
+                        "land in <module>/build/allure-results/.",
+                )
+            }
+        }
+    }
+
 tasks.register<JavaExec>("allureReport") {
     description = "Generates the Allure HTML report from the collected results."
     group = "reporting"
-    dependsOn(allureMergeResults)
+    dependsOn(allureRequireResults)
     classpath = files(allureCommandline)
     mainClass.set("io.qameta.allure.CommandLine")
     args(
