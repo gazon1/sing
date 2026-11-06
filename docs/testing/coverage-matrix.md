@@ -18,7 +18,11 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
+<<<<<<< HEAD
 **132 scenarios · 102/173 claimed cells automated · 71 holes**
+=======
+**133 scenarios · 102/174 claimed cells automated · 72 holes**
+>>>>>>> origin/main
 
 ## feature.agenda
 
@@ -233,6 +237,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `TASK-15` | FAB from Inbox tab does NOT pre-fill a due date | ○ | — | The task is saved with no due date and appears in the No Date section. After saving, the user is returned to the Inbox… |
 | `TASK-16` | Creating from a tab returns to that tab after save | ○ | — | The save operation returns to the originating tab. The Today task is in the Today section and the Inbox task is in the… |
 | `TASK-17` | Start and stop a time-tracking session on a task | ○ | — | The chip swaps from Start to Stop in place while the timer is running, and returns to Start when stopped. No crash… |
+| `TASK-18` | FAB from Upcoming tab does NOT pre-fill a due date | ● | — | The task composer opens with no due date prefilled, so the saved task is undated: it appears in the Inbox tab's "No… |
 | `TASK-CHECK-01` | Add a checklist item to a task | ● | — | The item is listed on the task screen with a real checkbox, the tick is kept, and the list survives leaving the task… |
 | `TASK-ITEM-01` | Work through a task's subtasks and checklist items in place | — | ● | Both lists are on the task screen, every row carries a real checkbox, the checklist count reads one finished of two… |
 | `TASK-ITEM-02` | A checklist item and a subtask do not change each other | — | ● | Ticking the checklist item leaves the subtask unfinished and the task unfinished, and ticking the subtask leaves the… |

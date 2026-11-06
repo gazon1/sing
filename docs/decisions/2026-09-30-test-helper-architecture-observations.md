@@ -155,4 +155,4 @@ unit test to `DesktopNavigation` itself.
 - [x] Fix unnecessary cast in `CreateTaskFlowTest.kt:139`
 - [x] Consolidate `ContextMenuTest.kt` `@OptIn` to file-level
 - [ ] (Optional) Migrate remaining class-level `@OptIn` to file-level in
-        existing files when touching them for other reasons
+      existing files when touching them for other reasons

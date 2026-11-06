@@ -1,11 +1,8 @@
 package com.singularity.todo.core.database
 
 import androidx.sqlite.execSQL
-import com.singularity.todo.core.database.contract.createSqlDriver
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -14,22 +11,20 @@ import kotlin.test.assertTrue
 
 @Tag("slow")
 class Migration47To48Test {
-    private lateinit var tempDir: File
-    private lateinit var dbPath: String
+    private lateinit var fixture: DatabaseTestFixture
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("migration47to48-").toFile()
-        dbPath = File(tempDir, "fixture.db").absolutePath
+        fixture = DatabaseTestFixture.onDisk()
     }
 
     @AfterTest
     fun tearDown() {
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     private fun openMigrated(): AppDatabase {
-        createSqlDriver().open(dbPath).use { connection ->
+        fixture.connect().use { connection ->
             applyExportedSchema(47, connection)
             // Two live tags that are the same label apart from case/trim.
             connection.execSQL(
@@ -55,7 +50,7 @@ class Migration47To48Test {
             connection.execSQL("INSERT INTO task_tags (task_id, tag_id) VALUES ('task-a', 't1')")
             connection.execSQL("INSERT INTO task_tags (task_id, tag_id) VALUES ('task-b', 't2')")
         }
-        return AppDatabaseFactory.build(createSqlDriver(), dbPath)
+        return fixture.database()
     }
 
     @Test

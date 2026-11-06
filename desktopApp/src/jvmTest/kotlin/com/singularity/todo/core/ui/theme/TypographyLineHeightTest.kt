@@ -66,7 +66,7 @@ class TypographyLineHeightTest {
         val typography = createTypography(1.5f)
 
         assertEquals(96.sp, typography.displayLarge.lineHeight)
-        assertEquals(36.sp, typography.headlineMedium.lineHeight)
+        assertEquals(54.sp, typography.headlineMedium.lineHeight)
         assertEquals(30.sp, typography.bodyMedium.lineHeight)
         assertEquals(21.sp, typography.labelSmall.lineHeight)
     }

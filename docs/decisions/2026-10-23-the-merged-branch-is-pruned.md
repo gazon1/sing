@@ -27,7 +27,9 @@ not stale — it is simply invisible to the two commands that are supposed to
 clean up after a merge.
 
 The result is that local branches accumulate. The pull requests #1019,
-#1020, #1021, #1022, #1023, #1024, #1030, #1031 and #1035 were merged by
+
+# 1020, #1021, #1022, #1023, #1024, #1030, #1031 and #1035 were merged by
+
 squash, and seven of their branches were still in the checkout afterwards —
 the branches of #1030 and #1035 had already been deleted by hand. Those nine
 pull requests are a sample, not the scale.

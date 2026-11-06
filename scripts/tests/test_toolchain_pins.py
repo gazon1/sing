@@ -46,14 +46,15 @@ CONSUMERS = (
     ROOT / ".github" / "actions" / "setup-python-tools" / "action.yml",
 )
 
-#: The five tools the gate suite shells out to, and the key each one is pinned
-#: under. The keys are part of the contract: both consumers read them.
+#: The pinned gate/tooling binaries, and the key each one is pinned under.
+#: The keys are part of the contract: both consumers read them.
 EXPECTED_KEYS = (
     "LYCHEE_BIN_VERSION",
     "YAMLLINT_VERSION",
     "SHELLCHECK_PY_VERSION",
     "ACTIONLINT_VERSION",
     "KTLINT_VERSION",
+    "RUMDL_VERSION",
 )
 
 #: Directories that hold build output, caches or vendored tool state. They are
@@ -81,6 +82,7 @@ SKIP_DIRS = frozenset(
         ".pytest_cache",
         ".ruff_cache",
         ".mypy_cache",
+        ".rumdl_cache",
     }
 )
 
@@ -101,6 +103,11 @@ ALLOWED_DUPLICATES = {
         "spelling as the ktlint pin. Two different tools, two different "
         "releases, one string."
     ),
+    "mise.toml": (
+        "mise pins the same external binaries for developer machines; "
+        "config/toolchain-versions.env is the source of truth for gate "
+        "install paths (setup-local-tools.sh / CI action)."
+    ),
     ".agents/skills/singularity-todo-quality-tools/SKILL.md": (
         "skill page: prose that tells the reader which versions CI installs"
     ),
@@ -113,6 +120,9 @@ ALLOWED_DUPLICATES = {
     "docs/decisions/2026-11-02-ktlint-cli-replaces-the-detekt-formatting-layer.md": (
         "ADR: the historical record of the decision to adopt ktlint CLI, with "
         "the release it was pinned to"
+    ),
+    "docs/decisions/2026-11-03-the-formatting-rules-have-one-owner.md": (
+        "ADR: the historical record naming the ktlint release probed"
     ),
     "openspec/changes/archive/2026-10-25-the-gates-run-on-every-machine/proposal.md": (
         "change proposal: the historical record of the proposal"
@@ -211,12 +221,12 @@ class PinsFileTest(unittest.TestCase):
     def test_pins_file_exists(self):
         self.assertTrue(PINS_FILE.is_file(), f"missing {PINS_FILE}")
 
-    def test_declares_exactly_the_five_tools(self):
+    def test_declares_exactly_the_pinned_tools(self):
         pins = read_pins()
         self.assertEqual(
             sorted(EXPECTED_KEYS),
             sorted(pins),
-            f"{PINS_FILE.name} must declare exactly the five pinned tools",
+            f"{PINS_FILE.name} must declare exactly the pinned tools",
         )
 
     def test_every_pin_has_a_version(self):

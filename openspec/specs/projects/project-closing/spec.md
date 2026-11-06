@@ -1,6 +1,7 @@
 # projects/project-closing Specification
 
 ## Purpose
+
 Closing a project, which is distinct from archiving it and from deleting
 it: closing takes the project's still-open tasks with it, asks first when
 one of them is blocked, lands as a whole, and leaves a closed project

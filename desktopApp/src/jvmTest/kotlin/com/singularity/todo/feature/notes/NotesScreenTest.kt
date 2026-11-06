@@ -9,9 +9,9 @@ import com.singularity.todo.feature.notes.presentation.nav.PreviewNotesNavigator
 import com.singularity.todo.feature.notes.presentation.screen.SwipeableNoteCard
 import com.singularity.todo.test.helpers.assertTagExists
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.time.Instant
-import org.junit.jupiter.api.Tag
 
 /**
  * Desktop JVM Compose UI tests for [SwipeableNoteCard].

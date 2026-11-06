@@ -865,7 +865,7 @@ gate blocking "screen state collections" python3 scripts/check-screen-state-coll
 #
 # The tool is Deno, and it is not on every machine: the gate is skipped where
 # Deno is absent, and the skip says so rather than passing quietly.
-gate blocking "the edge functions' own tests" deno test supabase/functions/google-oauth-exchange/
+gate blocking "the edge functions' own tests" deno test infra/supabase/functions/google-oauth-exchange/
 #
 # A `hideKeyboard` is a BACK keypress when there is no keyboard to hide.
 #

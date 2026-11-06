@@ -26,11 +26,13 @@ The `TextGenPort` interface decouples the UI from the underlying AI provider. Al
 Koog's `PromptExecutor` is JVM-only (requires OkHttp). Use expect/actual to keep `TextGenPort` in `commonMain`:
 
 **commonMain** (`KoogPromptExecutorFactory.kt`):
+
 ```kotlin
 expect fun createKoogPromptExecutor(): PromptExecutor
 ```
 
 **jvmMain** (`JvmKoogFactory.kt`):
+
 ```kotlin
 actual fun createKoogPromptExecutor(): PromptExecutor {
     val settings = OpenAIClientSettings()
@@ -46,6 +48,7 @@ actual fun createKoogPromptExecutor(): PromptExecutor {
 ```
 
 **androidMain** (`core/di/KoogPromptExecutorFactory.kt` — the actual throws):
+
 ```kotlin
 actual fun createKoogPromptExecutor(): PromptExecutor {
     error("Koog PromptExecutor is not available on Android")
@@ -53,6 +56,7 @@ actual fun createKoogPromptExecutor(): PromptExecutor {
 ```
 
 Required deps in `jvmMain.dependencies`:
+
 ```kotlin
 implementation(libs.koog.http.client.okhttp)
 implementation(libs.koog.prompt.executor.openai.client.jvm)
@@ -94,6 +98,7 @@ class KoogAgentService(
 ```
 
 Key Koog 1.1.1 API facts:
+
 - **Entry point**: `AIAgent.builder()` (not `AIAgentServiceBuilder`)
 - **`promptExecutor.execute(prompt, model, tools)`** returns `Message.Assistant`
 - **Extract text**: `response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }`
@@ -163,6 +168,7 @@ prompt(Prompt.Empty, KoogClock.System) {
 ```
 
 **Common mistakes**:
+
 - `Prompt.EMPTY` → wrong, use `Prompt.Empty` (Kotlin is case-sensitive)
 - `KoogClock.SYSTEM` → wrong, use `KoogClock.System`
 - `prompt { system(); user() }` (1-arg) → doesn't exist; must be 2-arg: `prompt(Prompt.Empty, KoogClock.System) { }`
@@ -201,6 +207,7 @@ The aggregation binding stays the same (`single<Set<...>> { getAll<...>() }`)
 because `@IntoSet` does not exist in Koin 4.x.
 
 ⚠️ **Avoid these patterns** (documented in `singularity-todo-koin-dsl` skill):
+
 - `@Single` (rename in your head to `@Singleton` — `@Single` doesn't exist in 4.x)
 - `@IntoSet` (doesn't exist in 4.x — was a 2.x feature; use `getAll<T>()` instead)
 - `koin-annotations-compiler` artifact (doesn't exist for 4.x — use `koin-gradle-plugin`)

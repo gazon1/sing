@@ -52,6 +52,7 @@ inline fun <T, K, V> List<T>.cascadeUp(
 ```
 
 Применения:
+
 - `Task.cascadeProjectColor(allProjects)` — проект может наследовать цвет родителя.
 - `Task.cascadeDefaultTags(allProjects)` — теги проекта как default для задачи.
 - `AgendaEvaluator.matches` — новый флаг `inheritTags` в `Selector.Tags` (соответствует `org-agenda-use-tag-inheritance`).
@@ -76,6 +77,7 @@ fun <T> List<T>.traverseDepthFirst(
 ```
 
 Применения:
+
 - `TaskRepositoryImpl.listSubtree(parent, allTasks)` с `SkipSubtree` если count уже > threshold.
 - `AgendaContent` — заменить `indentLevel = if (task.parentTaskId != null) 1 else 0` на visitor.
 - `ProjectsViewModel` — render дерева проектов (уже 1-level `parentId`) с lazy expand.

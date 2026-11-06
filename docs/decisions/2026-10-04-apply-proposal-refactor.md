@@ -28,26 +28,32 @@ Every new `ProposalItemKind` variant (e.g. `SetNoteField`, `DeleteNote`, `Extrac
 Split into three layers, each focused on one responsibility:
 
 ### 1. `ProposalPlanner` — pure transformation, no I/O
+
 ```
 ProposalItem → ProposalPlan
 ```
+
 Receives a stored `ProposalItem`, validates the target entity exists, returns a `ProposalPlan`. No Room, no network. Fully testable with fakes.
 
 **Public surface:** `plan(item): ProposalPlan`
 
 ### 2. `ProposalDispatch` — executes a validated plan
+
 ```
 ProposalPlan → Unit (side-effect)
 ```
+
 Pure execution against repositories. No routing logic.
 
 **Public surface:** `dispatch(plan, userId)`
 
 ### 3. `ApplyProposalItemUseCase` — orchestrates claim + plan + dispatch
+
 ```
 confirm(itemId) = claim → plan → dispatch
 reject(itemId)  = claim → persist
 ```
+
 Thin orchestrator using the above two.
 
 ## Alternative Considered: Visitor Pattern

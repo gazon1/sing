@@ -1,0 +1,5 @@
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+Total time for Kotlin tasks: 76.960 s (98.7 % of all tasks time)
+  Source changes: Known(modified=[/home/max/.commandcode/worktrees/singularity_cllone_kmp-d5855506b1fb/core-domain-cut/shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/screen/TaskCreateScreen.kt, /home/max/.commandcode/worktrees/singularity_cllone_kmp-d5855506b1fb/core-domain-cut/shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/screen/TaskCreateScreen.kt], removed=[], forDependencies=false)
+  Classpath changes info passed from Gradle task: NoChanges
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)

@@ -23,7 +23,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,8 +35,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ClearStaleSlotsOnNavigation
 import com.singularity.todo.core.ui.components.LocalScreenActions
 import com.singularity.todo.core.ui.components.ScreenActionsHolder
+import com.singularity.todo.core.ui.components.ShellBarTitle
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
@@ -172,20 +173,11 @@ fun androidShellNav3Root(
                 // The blank-tree diagnostic (REQ-DN-004) is recorded by
                 // `toDecoratedEntries` itself, before its unresolvable-entry fallback.
                 val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
-                LaunchedEffect(state.topLevelRoute) {
-                    // A screen without its own TopAppBar never publishes actions, so clear the
-                    // slot on every navigation to avoid stale buttons from the previous screen.
-                    screenActions.actions = null
-                    screenActions.selectionTitle = null
-                    screenActions.onExitSelection = null
-                    // The same is true of a published bar: the screen that owned
-                    // it is gone, and the shell must go back to its own title
-                    // rather than keep naming the month of a screen the user
-                    // has left.
-                    screenActions.title = null
-                    screenActions.navigationIcon = null
-                    screenActions.override = false
-                }
+                // A screen without its own TopAppBar never publishes actions, so drop the
+                // slot on every navigation to avoid stale buttons from the previous screen.
+                // The published title is not touched: the screen that published it releases
+                // it when it leaves, and the holder keeps a newer screen's title.
+                screenActions.ClearStaleSlotsOnNavigation(state.topLevelRoute)
 
                 CompositionLocalProvider(LocalNav3State provides state, LocalScreenActions provides screenActions) {
                     NavDisplay(
@@ -261,27 +253,6 @@ private fun ShellTopBar(
                 containerColor = MaterialTheme.colorScheme.surface,
             ),
     )
-}
-
-/**
- * The title of the shell bar.
- *
- * A screen that owns its own bar publishes it here, and the shell draws it
- * instead of the destination's name: the month the calendar is on says more
- * than the word "Calendar".
- */
-@Composable
-private fun ShellBarTitle(
-    screenActions: ScreenActionsHolder,
-    destinationTitle: String,
-) {
-    val selection = screenActions.selectionTitle
-    val publishedTitle = screenActions.title
-    when {
-        selection != null -> Text(selection)
-        screenActions.override && publishedTitle != null -> publishedTitle.invoke()
-        else -> Text(destinationTitle)
-    }
 }
 
 /**

@@ -8,7 +8,7 @@ Three dismissal surfaces, one rule: **pick based on consequence severity, not sc
 | **`ModalBottomSheet`** | >3 options, scrollable content, pickers (color, icon, date, parent) | Color picker, parent project picker, date picker |
 | **`AlertDialog`** | Binary confirm/dismiss with irreversible consequence | Delete confirmation, archive confirmation |
 
-### Decision tree
+## Decision tree
 
 ```
 Does the action have irreversible consequences (delete, archive, discard)?

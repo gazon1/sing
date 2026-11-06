@@ -216,7 +216,7 @@ data class FailureBundle(val testClassSimpleName: String, val attempt: Int, val 
             // Coroutine dump — kotlinx-coroutines-debug agent snapshot; see CoroutineDiagnostics
             runCatchingCancellable {
                 writeFile(bundle.coroutinesFile) {
-                    CoroutineDiagnostics.dump(testClassSimpleName, attempt)
+                    DesktopCoroutineDiagnostics.dump(testClassSimpleName, attempt)
                 }
             }
 

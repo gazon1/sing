@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-maestro-flows
-description: Author and run Maestro UI flows for the Android app. Covers seeding fixtures through the DebugSeedActivity deep-link instead of typing into the editor, why Compose's controlled BasicTextField cannot be filled by Maestro, selector conventions (TestTags over text), adaptive scrolling (scrollUntilVisible instead of hardcoded swipe), Maestro 2.10 syntax quirks, the edit-build-install-run loop, phone-viewport constraints, diagnosing an element that exists in code but is unreachable on screen, menu navigation patterns, animation timing, and app behaviour facts flows encode. Use when writing, fixing, or debugging Maestro YAML under Maestro/, when asked to "add a UI test", or when a flow fails on device.
+description: Author and run Maestro UI flows for the Android app. Covers seeding fixtures through the DebugSeedActivity deep-link rather than typing them, why a fixture is seeded rather than typed, selector conventions (TestTags over text), adaptive scrolling (scrollUntilVisible instead of hardcoded swipe), Maestro 2.10 syntax quirks, the edit-build-install-run loop, phone-viewport constraints, diagnosing an element that exists in code but is unreachable on screen, menu navigation patterns, animation timing, and app behaviour facts flows encode. Use when writing, fixing, or debugging Maestro YAML under Maestro/, when asked to "add a UI test", or when a flow fails on device.
 ---
 
 # Maestro UI Flows
@@ -133,7 +133,7 @@ the row it names, so the title is the same in every run and the flow asserts on
 it (`task_item_<slug>`). A per-run value belongs to a title the flow *types*
 itself, not to a seeded one.
 
-The walkthrough — why typing a fixture into the editor does not work, the
+The walkthrough — why a fixture is seeded rather than typed, the
 `seed.yaml` query keys, the seed replacing the row it names, the run id and the
 runner's cleanup wipe — is in the runbook:
 [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them).
@@ -163,6 +163,7 @@ Use `scrollUntilVisible` with a direction for anything that might be below the f
 ```
 
 **Direction convention:**
+
 - `direction: DOWN` — target item is near the bottom of the sheet (most menu items)
 - `direction: UP` — target item is at the top; Maestro scrolls from the centre,
   so UP works for items that are above the centre but below the visible top
@@ -172,6 +173,7 @@ Use `scrollUntilVisible` with a direction for anything that might be below the f
 load.
 
 The old hardcoded swipe pattern is retired:
+
 ```yaml
 # OLD — do not use. Breaks on phone viewports (y=1600 is out-of-bounds on 640px height).
 - swipe:
@@ -190,12 +192,14 @@ tapOn id: <target_item>
 ```
 
 **Items requiring scroll on phone viewport** (below the fold on 320×640):
+
 - `menu_notes`, `menu_statistics`, `menu_ai_chat` — Destinations section, below fold
 - `menu_settings`, `menu_profiles`, `menu_quick_search` — Account section, visible
   without scroll on most screens BUT `menu_settings` still uses scrollUntilVisible
   in existing flows for consistency and robustness
 
 **Items that are always visible without scrolling:**
+
 - `menu_archive`, `menu_search` — visible on most phone screens
 
 ### `wm size` changes the logical size, not the physical one
@@ -306,7 +310,7 @@ facts, the probe recipe and the failure tables. Read it when a flow needs data
 or misbehaves:
 
 - [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them) —
-  why typing a fixture into the editor does not work, the `seed.yaml` query keys,
+  why a fixture is seeded rather than typed, the `seed.yaml` query keys,
   the seed replacing the row it names, the run id and the runner's cleanup wipe,
   and why `launch-clean` does not clear the database.
 - [App behaviour facts flows encode](diagnosing-failures.md#app-behaviour-facts-flows-encode) —

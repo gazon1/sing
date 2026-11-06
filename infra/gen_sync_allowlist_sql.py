@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generates supabase/sync_field_allowlist_seed.sql from the derived
+Generates infra/supabase/sync_field_allowlist_seed.sql from the derived
 sync field lists.
 
 The lists are derived in Kotlin, from the models themselves, and exported to
@@ -14,7 +14,7 @@ checked the file compared it with the same truncated list. A parser that
 misreads the source cannot be caught by a check that reads the same source.
 
 Usage: python3 infra/gen_sync_allowlist_sql.py <project-root>
-Output: supabase/sync_field_allowlist_seed.sql
+Output: infra/supabase/sync_field_allowlist_seed.sql
 """
 import json
 import os
@@ -22,7 +22,7 @@ import sys
 
 root = sys.argv[1] if len(sys.argv) > 1 else "."
 export_path = os.path.join(root, "config/docs/sync-field-allowlist.json")
-output_path = os.path.join(root, "supabase/sync_field_allowlist_seed.sql")
+output_path = os.path.join(root, "infra/supabase/sync_field_allowlist_seed.sql")
 
 with open(export_path) as f:
     export = json.load(f)
@@ -41,7 +41,7 @@ lines.append("-- Re-run: python3 infra/gen_sync_allowlist_sql.py")
 lines.append("--")
 lines.append("-- This file DESCRIBES the field table the server is expected to hold; it is")
 lines.append("-- not a migration to apply. The live table is seeded by the dated")
-lines.append("-- migrations in supabase/migrations/, which the gate reads statement by")
+lines.append("-- migrations in infra/supabase/migrations/, which the gate reads statement by")
 lines.append("-- statement — and whatever it cannot read there it reports, so a row of the")
 lines.append("-- table it did not see is a failure with a name on it, not a row that")
 lines.append("-- quietly disappears. Applying this file on a database")

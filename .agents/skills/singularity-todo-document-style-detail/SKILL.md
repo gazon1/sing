@@ -35,6 +35,7 @@ Every document-style detail screen follows this vertical structure:
 ```
 
 **Naming convention for sub-composables:**
+
 - `XxxHeroSection` — Section 1
 - `XxxMetaChipsRow` — Section 2
 - `XxxBodySection` — Section 3 (or more specific: `XxxTasksList`, `XxxChecklistSection`, etc.)
@@ -43,6 +44,7 @@ Every document-style detail screen follows this vertical structure:
 ## The 4-Section Decomposition Rule
 
 **Maximum 4 sub-components per detail screen.** If you find yourself writing more, consolidate:
+
 - Icon + color → `XxxAppearanceSection`
 - Parent + due date → `XxxOrganizationSection`
 - See `singularity-todo-shared-ui-components` for the full rule.
@@ -175,10 +177,12 @@ fun formatSavedRelative(now: Instant, lastEditedAt: Instant?): String = when {
 ### When to emit Saved events
 
 Emit `Saved` events **only** for:
+
 - Explicit user action (Save button click, Delete confirmation, Archive toggle)
 - Non-debounced operations
 
 Never emit for:
+
 - Debounced inline edits (title, description)
 - Auto-save operations
 

@@ -14,7 +14,7 @@ class PriorityColorTest {
     @Test
     fun `None priority has a defined tertiary color`() {
         // None maps to PriorityNone = TextTertiary = Color(0xFF5C6270), not Color.Unspecified
-        assertEquals(Color(0xFF5C6270), priorityColor(TaskPriority.None))
+        assertEquals(Color(0xFF8B94A6), priorityColor(TaskPriority.None))
     }
 
     @Test

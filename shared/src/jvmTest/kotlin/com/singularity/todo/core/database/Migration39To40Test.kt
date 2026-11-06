@@ -1,6 +1,5 @@
 package com.singularity.todo.core.database
 
-import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncStateEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncTaskMapEntity
@@ -8,8 +7,6 @@ import com.singularity.todo.feature.calendarSync.data.GoogleEventShadowEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -42,23 +39,21 @@ import kotlin.test.assertNull
 @Tag("slow")
 @Tag("slow:migration")
 class Migration39To40Test {
-    private lateinit var tempDir: File
-    private lateinit var dbPath: String
+    private lateinit var fixture: DatabaseTestFixture
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("migration39to40-").toFile()
-        dbPath = File(tempDir, "fixture.db").absolutePath
+        fixture = DatabaseTestFixture.onDisk()
     }
 
     @AfterTest
     fun tearDown() {
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     private fun openMigrated(): AppDatabase {
-        createSqlDriver().open(dbPath).use { applyExportedSchema(39, it) }
-        return AppDatabaseFactory.build(createSqlDriver(), dbPath)
+        fixture.connect().use { applyExportedSchema(39, it) }
+        return fixture.database()
     }
 
     @Test

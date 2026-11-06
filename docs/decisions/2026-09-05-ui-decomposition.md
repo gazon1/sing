@@ -3,6 +3,7 @@ title: UI Decomposition — reusable widgets, per-feature events, use-case extra
 date: 2026-09-05
 status: accepted
 ---
+
 # UI Decomposition — reusable widgets, per-feature events, use-case extraction
 
 ## Context
@@ -68,6 +69,7 @@ class DelayAutosaveScheduler(delayMs: Long = 500L) : AutosaveScheduler
 ### E. scopeOverride для тестируемости
 
 VMs с `scopeOverride`:
+
 - ✅ `TasksViewModel`
 - ✅ `NotesViewModel`
 - ✅ `ProjectsViewModel` (добавлен в этой сессии)

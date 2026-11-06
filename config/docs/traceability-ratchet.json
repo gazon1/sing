@@ -1,11 +1,11 @@
 {
   "measurement": "python3 -m traceability validate — specs + links only, no stand, no network, no test run (scripts/check-traceability-ratchet.py recomputes both numbers from the same package that renders the matrix)",
-  "measured_at": "2026-11-05",
-  "commit": "desktop carrier for SYNC-INCOMING-01",
+  "measured_at": "2026-11-06",
+  "commit": "merge main; desktop carrier for SYNC-INCOMING-01 (#2572)",
   "corpus": {
-    "specs": 131,
+    "specs": 133,
     "claimed_cells": 260,
-    "carriers": 101
+    "carriers": 103
   },
   "floors": [
     {

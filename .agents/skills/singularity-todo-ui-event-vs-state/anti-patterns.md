@@ -3,6 +3,7 @@
 ## Anti-patterns
 
 **Do NOT use `mutableStateOf` for domain-derived strings:**
+
 ```kotlin
 // ❌ WRONG — mirrors VM state in Composable
 @Composable
@@ -30,6 +31,7 @@ ResultDialog("AI Result", dialogText) { dialogText = null }
 ```
 
 **Do NOT use Pulse events for replayable state:**
+
 ```kotlin
 // ❌ WRONG — savedPulse should not replay; use StateFlow for replayable saves
 val lastSaveTime: StateFlow<Instant?> = MutableStateFlow(null)

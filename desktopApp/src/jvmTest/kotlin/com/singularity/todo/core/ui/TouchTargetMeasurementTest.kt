@@ -138,7 +138,11 @@ class TouchTargetMeasurementTest {
      * Half a dp is far below any difference the rule cares about (48 against
      * 20, or 60 against 48) and far above the conversion error.
      */
-    private fun assertDp(expected: Dp, actual: Dp, what: String) {
+    private fun assertDp(
+        expected: Dp,
+        actual: Dp,
+        what: String,
+    ) {
         assertEquals(expected.value, actual.value, 0.5f, what)
     }
 

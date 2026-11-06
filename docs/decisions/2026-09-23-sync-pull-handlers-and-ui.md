@@ -73,6 +73,7 @@ internal class SyncBootstrapper(
 ```
 
 Key points:
+
 - `handleEvent` is a shared helper that catches exceptions, checks `eventType`, and delegates to the typed `applyRemote` lambda
 - Deleted events are currently skipped (soft-delete not wired to remote events — Tier 4)
 - Failures return `ApplyOutcome.Conflict` (not `Applied`) so the pull summary reflects reality
@@ -91,6 +92,7 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
 ```
 
 The method:
+
 - Takes a fully-hydrated domain object (with `serverVersion` and `hlc` already set by the pull handler)
 - Writes directly to the DAO without emitting `_changes` (the pull handler is not a user action — observers don't need to react)
 - Returns the entity as-written (same reference for `Task`, constructed for `Note`/`Project`/`Tag`)
@@ -197,6 +199,7 @@ sealed interface SyncEffect {
 ```
 
 Key design decisions:
+
 - **`allowSnackbarOnFailure` debounce**: snackbar shown only after a sync cycle completes (not during). Set `true` when status transitions `Running → Idle`, reset to `false` when entering `Running`. Prevents spamming snackbars during long sync.
 - Reads initial state from `SyncPrefs` synchronously in `buildState()` (called from constructor) — avoids async init flicker
 - Collects `repository.status` and `repository.lastPull` as reactive streams
@@ -237,6 +240,7 @@ fun SyncButton(
 ```
 
 States:
+
 - **Idle** → static cloud-done
 - **Pushing/Pulling** → rotating refresh (continuous spin via `rememberInfiniteTransition`)
 - **NoConnection** → static cloud-off (no animation, outline tint)
@@ -245,6 +249,7 @@ States:
 ### 7. SyncConfigScreen
 
 A settings panel with:
+
 - Status line + last-synced timestamp
 - Auto-sync toggle (Switch) — starts/stops scheduled sync
 - Interval slider (15/30/60/120 min) — visible only when auto-sync is on
@@ -263,6 +268,7 @@ viewModel { SyncViewModel(get(), get(), get()) }
 ```
 
 `SyncRepository` is injected into all four repository implementations (new constructor parameter). DI module updated:
+
 - `TasksDiModule.kt`: `TaskRepositoryImpl(get(), get(), get(), get())` (added `SyncRepository`)
 - `NotesDiModule.kt`: `RoomNotesRepository(get(), get(), get(), get())`
 - `ProjectsDiModule.kt`: `ProjectsRepositoryImpl(get(), get(), get(), get())`
@@ -292,6 +298,7 @@ This is required for compilation — any test that constructs a repository now n
 - Pull handler for `DELETED` events is a stub — entities are not soft-deleted from remote events yet
 
 ## Consequences
+
 - `SyncableEntity` in `core/sync/` while domain models are in `feature/*/domain/` — domain → infra dependency. Accepted tradeoff: sync is a cross-cutting concern and the interface lives near the engine.
 - `Task.toJson()` uses `encodeToJsonElement` — this is `StableJson` which uses `encodeDefaults = true`, meaning default `serverVersion = 0` and `hlc = null` are always serialized. This is correct for the sync protocol (server needs to know the base version).
 - `SyncButton` rotation animation uses `rememberInfiniteTransition` — the animation restarts on recomposition with a different `status`. Acceptable because `status` is a stable key.

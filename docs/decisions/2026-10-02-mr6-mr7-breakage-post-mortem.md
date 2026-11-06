@@ -54,6 +54,7 @@ handles missing fields.
 **Severity: build breakage for all downstream work**
 
 A background agent attempting MR-7 produced:
+
 - Incomplete `ApplyProposalItemUseCase.kt` with wrong imports (`TagsRepository` vs
   `TagsRepository` from a non-existent package)
 - Incorrect `FakeTimeTrackingRepository` override for `createManualEntry` (missing
@@ -93,6 +94,7 @@ exposed it.
 interface method signature, and `FakeTimeTrackingRepository` updated to match.
 
 ## Decision
+
 ### 1. `Section.id` stays nullable with `effectiveId` derivation
 
 `Section.id` remains `String? = null`. All code that needs a guaranteed non-null
@@ -103,6 +105,7 @@ migration needed.
 
 MR-7 (`ai_proposal` + `ai_proposal_item` tables) requires the entity
 reconstruction fixes from MR-0-B to be stable. Specifically:
+
 - `ChecklistRepositoryImpl.toggleItem` reconstruction fix (rows > 0 check)
 - `createBatch` separating insert from update (preserving `createdAt`)
 - `TagGroupRepositoryImpl` transaction fix
@@ -114,6 +117,7 @@ batch could silently lose data on reconstruction.
 ### 3. All agents must run after verifying preconditions
 
 Before running an agent for MR-N, confirm:
+
 1. `shared:jvmTest` is green on the current branch
 2. Any MR-M that is a prerequisite (per the plan) is committed
 3. `./gradlew :shared:compileKotlinJvm --rerun-tasks` succeeds after the agent's

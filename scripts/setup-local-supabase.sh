@@ -75,7 +75,7 @@ docker compose up -d 2>&1 | tail -5
 
 # 5. Apply migrations
 echo "Applying migrations..."
-for sql in "$REPO_ROOT"/supabase/migrations/*.sql; do
+for sql in "$REPO_ROOT"/infra/supabase/migrations/*.sql; do
     echo "  $sql"
     docker exec -i supabase-db psql -U postgres -d postgres -q < "$sql" 2>&1 | tail -2
 done

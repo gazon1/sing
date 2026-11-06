@@ -569,6 +569,7 @@ scenarios:
 
 - A note that lost its attachment in an earlier build cannot be recognised as a former
   logbook note, so the fix does not restore old attachments.
+
 ```
 
 **`specs/015-fix-task-logbook/checklists/requirements.md`** — чек-лист из скилла
@@ -716,6 +717,7 @@ Alternatives: завести OpenSpec «на всякий случай» — л�
 ```
 
 Инварианты:
+
 - `NOT_PERSISTED` → в БД нет ни одной строки; логбук пуст;
 - переход в `ATTACHED` возможен **только** через `createForTask` (запись, несущая `task_id`);
 - из `ATTACHED` сохранения идут через `updateContent` — `task_id` не меняется;
@@ -728,6 +730,7 @@ Alternatives: завести OpenSpec «на всякий случай» — л�
 ### 1.2 `contracts/note-attachment-write.md`
 
 Форма сигнатуры порта; гарантии; вызывающие; отвергнутые альтернативы. Гарантии:
+
 1. `createForTask(id, taskId, …)` создаёт заметку **с** `task_id = taskId` и **с** `id = id`.
 2. Ни один путь записи содержимого не меняет `task_id` существующей строки.
 3. `updateContent` меняет только `title`, `body_markdown`, `body_html`, `word_count`,
@@ -762,9 +765,11 @@ Alternatives: завести OpenSpec «на всякий случай» — л�
 ## 11. Тесты и критерии приёмки
 
 ### T1 — репозиторный (реальный SQLite, тег `slow`)
+
 `shared/src/jvmTest/kotlin/com/singularity/todo/feature/notes/NotesRepositoryLogbookAttachmentTest.kt`
 (шаблон — `NotesRepositorySyncTest.kt`: `createSqlDriver()` + временный файл; **нужно завести
 строку задачи**, иначе FK `notes.task_id → tasks(id)` не даст вставить заметку):
+
 1. `createForTask(id, taskId, "План", …)` → `watchForTask(taskId)` возвращает ровно эту заметку,
    `taskId` задан;
 2. точечный UPDATE-путь (`updateContent`) → заметка **остаётся** в `watchForTask`;
@@ -775,8 +780,10 @@ Alternatives: завести OpenSpec «на всякий случай» — л�
 4. заметка без привязки в `watchForTask` не появляется; заметка чужой задачи — тоже.
 
 ### T2 — VM-тест редактора (тег `fast`)
+
 `shared/src/commonTest/kotlin/com/singularity/todo/feature/notes/presentation/viewmodel/NoteEditorLogbookAttachmentTest.kt`
 (харнесс — по образцу `NoteEditorTest.kt`, `FakeNotesRepository`):
+
 1. после `createNoteForTask(taskId)` в репозитории **нет** заметок (решение №2);
 2. после правки заголовка и прогона автосейва (`advanceTimeBy` > дебаунса + `runCurrent`) в
    репозитории появляется заметка с `taskId == taskId` и набранным заголовком;
@@ -784,11 +791,13 @@ Alternatives: завести OpenSpec «на всякий случай» — л�
 4. `onAutosaved` не снимает `isNew` для незатронутого черновика.
 
 ### T3 — коллектор логбука (тег `fast`)
+
 `shared/src/commonTest/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/slot/TaskLogbookCollectorTest.kt`
 (файла в дереве нет): пусто → `Empty`; прикреплённая заметка → `Loaded`; чужая задача → не
 попадает; заметка только со ссылкой на задачу → не попадает.
 
 ### Критерии приёмки
+
 - **AC-1.** Заметка из логбука после первого сохранения видна в логбуке с набранным заголовком.
 - **AC-2.** До первого сохранения в логбуке нет ни одной строки.
 - **AC-3.** Привязка переживает правки, возврат в задачу, перезапуск приложения.

@@ -2,15 +2,15 @@
 title: "Greeting Computation — Init vs Collector placement"
 date: "2026-10-18"
 status: "superseded"
-superseded-by: "2026-10-19-greeting-observed-not-snapshotted"
+superseded-by: "2026-11-05-the-greeting-follows-the-clock-and-the-settings"
 type: "decision"
 ---
 
-> **Superseded.** This ADR is about where to compute a greeting that is computed *once*.
-> The greeting is now observed from the greeting-hours settings and combined into the
-> loaded state, so there is no one-shot computation to place — see
-> `2026-10-19-greeting-observed-not-snapshotted.md`.
-
+> **Superseded (2026-11-05):** the greeting is no longer computed once, on the first
+> collector emission. It is a flow over the observed greeting-hour settings and the
+> clock's hour, published into the live `Loaded` state, so a boundary crossing or a
+> settings change re-renders it without the ViewModel being recreated. See
+> `2026-11-05-the-greeting-follows-the-clock-and-the-settings.md`.
 
 ## Context
 

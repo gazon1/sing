@@ -2,10 +2,6 @@ package com.singularity.todo.arch
 
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.Paths
-import kotlin.io.path.readText
 import kotlin.test.assertTrue
 
 /**
@@ -35,18 +31,10 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SelectorSerializerCoverageTest {
-    private val commonMainRoot: Path =
-        run {
-            val root =
-                System.getProperty("commonMain.root")
-                    ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
-            Paths.get(root)
-        }
-
     private fun source(relativePath: String): String {
-        val file = commonMainRoot.resolve(relativePath)
+        val file = SourceScan.file(relativePath.removePrefix("com/singularity/todo/"))
         assertTrue(
-            Files.exists(file),
+            file.isFile,
             "expected source file at $file — the test's path resolution is broken, " +
                 "and a scan of nothing would pass vacuously",
         )

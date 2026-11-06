@@ -33,6 +33,7 @@ Full 11-stage rework. Key technical decisions:
 ### Stage 1 — Room Schema v10→v11
 
 Schema migration adds `idempotency_key TEXT UNIQUE` and removes `is_notebook`. One migration (10→11), not two separate migrations. `ProjectDao` gains:
+
 - `watchAllWithCounts`: `SELECT p.*, COUNT(t.id) totalCount, SUM(CASE WHEN t.completed_at IS NOT NULL THEN 1 ELSE 0 END) completedCount FROM projects p LEFT JOIN tasks t ON t.project_id = p.id WHERE p.deleted_at IS NULL AND p.user_id = :uid GROUP BY p.id`
 - `watchByParent(parentId)`: children of a given parent
 - `setParent(id, parentId)`: move project under new parent (with domain-layer 1-level invariant check)
@@ -49,6 +50,7 @@ Schema migration adds `idempotency_key TEXT UNIQUE` and removes `is_notebook`. O
 **UpdateProjectUseCase overload**: `invoke(id, transform: (Project) -> Project, clock): Result<Unit>` — enables callers to do read-modify-write atomically. Also applies to `UpdateTaskUseCase`.
 
 **ProjectDetailUi**: combined read model:
+
 ```kotlin
 data class ProjectDetailUi(
     val project: Project,
@@ -99,6 +101,7 @@ New `AppDestination.TasksByProject(projectId: String)` route. `TasksByProjectVie
 ### Stage 6 — Cross-link TaskDetailScreen → ProjectDetailScreen
 
 In `TaskDetailScreen` (not in generic `MetaChipsRow`):
+
 ```kotlin
 Row(verticalAlignment = CenterVertically) {
     FilterChip(project.name, onClick = { /* open project sheet */ })
@@ -107,6 +110,7 @@ Row(verticalAlignment = CenterVertically) {
     }
 }
 ```
+
 Overflow menu item: "Open project" (`Icons.AutoMirrored.Filled.OpenInNew`). `onNavigateToProject: (ProjectId) -> Unit` callback added to `TaskDetailScreen`.
 
 ### Stage 7 — ProjectEditorScreen (create + edit, 4 sub-components)
@@ -185,4 +189,3 @@ Overflow menu item: "Open project" (`Icons.AutoMirrored.Filled.OpenInNew`). `onN
 ## Links
 
 skill:singularity-todo-document-style-detail, skill:singularity-todo-cross-feature-navigation, skill:singularity-todo-icon-registry, skill:singularity-todo-inline-edit-saved-feedback, skill:singularity-todo-relational-counts, skill:singularity-todo-task-detail-ux, skill:singularity-todo-shared-ui-components, skill:singularity-todo-ui-event-vs-state, skill:singularity-todo-feature-scaffold, skill:singularity-todo-room-migration, skill:singularity-todo-koin-di, skill:singularity-todo-mcp-server, docs/decisions/2026-09-07-task-detail-document-style.md, docs/decisions/DIGEST.md
-

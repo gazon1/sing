@@ -16,21 +16,25 @@ by telling the assistant to stop. The answer to a proposal is "yes" or "no" abou
 specific change, and it belongs next to the change.
 
 #### Scenario: The waiting changes are listed
+
 - A change has been proposed and not yet decided
 - The Review screen lists it
 - The screen is reachable from the menu
 
 #### Scenario: The user applies a change
+
 - The user applies a change
 - The change is applied through the app's usual path
 - The change is no longer waiting
 
 #### Scenario: The user turns a change down
+
 - The user turns a change down
 - Nothing is applied
 - The change is no longer waiting
 
 #### Scenario: Nothing to review
+
 - No change is waiting
 - The screen says so
 
@@ -47,10 +51,12 @@ user already has, in the task. What helps is the one physical move, and the sign
 it is done — because a step nobody can check is a step nobody can be finished with.
 
 #### Scenario: The answer is one action
+
 - The assistant asks for the first step of a task
 - The answer names one action
 - The answer says what finishes that action
 
 #### Scenario: A thought is not an action
+
 - The task begins with "figure out the pricing"
 - The action is something physical, not the figuring

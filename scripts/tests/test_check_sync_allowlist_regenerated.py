@@ -118,7 +118,7 @@ def generated_seed(export: dict) -> str:
         if result.returncode != 0:
             raise AssertionError(f"the generator failed: {result.stderr}")
         return (
-            root / "supabase/sync_field_allowlist_seed.sql"
+            root / "infra/supabase/sync_field_allowlist_seed.sql"
         ).read_text(encoding="utf-8")
 
 
@@ -144,11 +144,11 @@ class AllowlistTreeTest(unittest.TestCase):
         export.parent.mkdir(parents=True)
         export.write_text(json.dumps(EXPORT, indent=4), encoding="utf-8")
         self.export = export
-        self.migrations = self.root / "supabase/migrations"
+        self.migrations = self.root / "infra/supabase/migrations"
         self.migration = self.migrations / "2026-10-07-sync_schema.sql"
         self.migrations.mkdir(parents=True, exist_ok=True)
         self.migration.write_text(SERVER_MIGRATION, encoding="utf-8")
-        self.seed = self.root / "supabase/sync_field_allowlist_seed.sql"
+        self.seed = self.root / "infra/supabase/sync_field_allowlist_seed.sql"
         self.seed.parent.mkdir(parents=True, exist_ok=True)
 
     def write_seed(self, text):
@@ -240,7 +240,7 @@ class SelfTestTest(AllowlistTreeTest):
             identity.write_text(
                 "import sys, pathlib\n"
                 "root = pathlib.Path(sys.argv[1])\n"
-                "target = root / 'supabase/sync_field_allowlist_seed.sql'\n"
+                "target = root / 'infra/supabase/sync_field_allowlist_seed.sql'\n"
                 "target.parent.mkdir(parents=True, exist_ok=True)\n"
                 "target.write_text(target.read_text())\n",
                 encoding="utf-8",

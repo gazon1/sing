@@ -1,0 +1,66 @@
+module=shared
+task=:shared:compileKotlinJvm
+strategy=in-process
+commit=2b4cf83185bb10c9aa6b6e0128aebd41b92dd889
+patch=build-investigation/split-plan/patches/task-repository-body-only.patch
+gradle_exit=0
+task_s=60.055
+wall_ms=61383
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+  Classpath changes info passed from Gradle task: NoChanges
+  Non-incremental compilation will be performed: Incremental compilation might be incorrect (KT-62686)
+  Finished executing kotlin compiler using IN_PROCESS strategy
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+--- tasks executed ---
+> Task :adr-core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :adr-core:compileJvmMainJava NO-SOURCE
+> Task :adr-core:compileKotlinJvm UP-TO-DATE
+> Task :adr-core:jvmJar UP-TO-DATE
+> Task :adr-core:jvmMainClasses UP-TO-DATE
+> Task :adr-core:jvmProcessResources NO-SOURCE
+> Task :adr-core:kmpPartiallyResolvedDependenciesChecker
+> Task :adr-core:processJvmMainResources SKIPPED
+> Task :core-base:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core-base:compileJvmMainJava NO-SOURCE
+> Task :core-base:compileKotlinJvm UP-TO-DATE
+> Task :core-base:jvmJar UP-TO-DATE
+> Task :core-base:jvmMainClasses UP-TO-DATE
+> Task :core-base:jvmProcessResources NO-SOURCE
+> Task :core-base:kmpPartiallyResolvedDependenciesChecker
+> Task :core-base:processJvmMainResources SKIPPED
+> Task :core-database:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core-database:compileJvmMainJava NO-SOURCE
+> Task :core-database:compileKotlinJvm UP-TO-DATE
+> Task :core-database:copyRoomSchemas NO-SOURCE
+> Task :core-database:jvmJar UP-TO-DATE
+> Task :core-database:jvmMainClasses UP-TO-DATE
+> Task :core-database:jvmProcessResources NO-SOURCE
+> Task :core-database:kmpPartiallyResolvedDependenciesChecker
+> Task :core-database:kspKotlinJvm UP-TO-DATE
+> Task :core-database:processJvmMainResources SKIPPED
+> Task :core-domain:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core-domain:compileJvmMainJava NO-SOURCE
+> Task :core-domain:compileKotlinJvm UP-TO-DATE
+> Task :core-domain:jvmJar UP-TO-DATE
+> Task :core-domain:jvmMainClasses UP-TO-DATE
+> Task :core-domain:jvmProcessResources NO-SOURCE
+> Task :core-domain:kmpPartiallyResolvedDependenciesChecker
+> Task :core-domain:processJvmMainResources SKIPPED
+> Task :shared:checkJvmMainComposeLibrariesCompatibility
+> Task :shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :shared:compileKotlinJvm
+> Task :shared:convertXmlValueResourcesForCommonMain UP-TO-DATE
+> Task :shared:convertXmlValueResourcesForJvmMain NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForCommonMain UP-TO-DATE
+> Task :shared:copyNonXmlValueResourcesForJvmMain NO-SOURCE
+> Task :shared:generateActualResourceCollectorsForJvmMain UP-TO-DATE
+> Task :shared:generateComposeResClass UP-TO-DATE
+> Task :shared:generateExpectResourceCollectorsForCommonMain UP-TO-DATE
+> Task :shared:generateResourceAccessorsForCommonMain UP-TO-DATE
+> Task :shared:generateResourceAccessorsForJvmMain NO-SOURCE
+> Task :shared:kmpPartiallyResolvedDependenciesChecker
+> Task :shared:prepareComposeResourcesTaskForCommonMain UP-TO-DATE
+> Task :shared:prepareComposeResourcesTaskForJvmMain NO-SOURCE
+--- host ---
+before loadavg=8.77 6.38 3.95 cpu_pressure=some avg10=3.25 avg60=2.77 avg300=1.77 total=1025105734;full avg10=0.00 avg60=0.00 avg300=0.00 total=0; gradle_daemons=2 kotlin_daemons=1
+after loadavg=9.48 7.16 4.39 cpu_pressure=some avg10=1.67 avg60=2.62 avg300=1.95 total=1027137626;full avg10=0.00 avg60=0.00 avg300=0.00 total=0; gradle_daemons=2 kotlin_daemons=1

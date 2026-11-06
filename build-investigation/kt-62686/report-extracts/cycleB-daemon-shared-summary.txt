@@ -1,0 +1,64 @@
+=== head (task info, strategy, classpath changes) ===
+Task ':shared:compileKotlinJvm' finished in 53.384 s
+Task info:
+  Kotlin language version: 2.4
+Compilation log for task ':shared:compileKotlinJvm':
+  [KOTLIN] Kotlin compiler class: org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
+  [KOTLIN] Kotlin compiler classpath: /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/.gradle-user-home/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-build-tools-compat/2.4.10/a6a145a14d4fdec0cccc964e99d84f4c7cd13169/kotlin-build-tools-compat-2.4.10.jar:/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/.gradle-user-home/caches/modules-2/files-2.1/org.jetbrains.ko
+  Kotlin compile daemon JVM options: 
+  Compiling using the daemon strategy
+  found daemon on port 17558 (98285 ms old), trying to connect
+  connected to the daemon
+  successfully leased a compile session (id = 6)
+  Kotlin compile daemon JVM options: [-Xmx6144M, -XX:ReservedCodeCacheSize=320m, --Djava.awt.headless=true, --Djava.rmi.server.hostname=127.0.0.1, --ea, --Dkotlin.daemon.custom.run.files.path.for.tests=/home/max/.local/share/kotlin/daemon, --XX:+UseCodeCacheFlushing, --XX:+UseParallelGC, --Dkotlin.daemon.initiator.marker.file=/tmp/kotlin-compiler-client-5600519086790087235-is-running, ---add-expor
+  Kotlin compiler args: -Xallow-no-source-files -classpath /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/adr-core/build/libs/adr-core-jvm.jar:/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-database/build/libs/core-database-jvm.jar:/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/build/libs/core-domain-jvm.jar:/home/max/orca/workspaces/si
+  Options for KOTLIN DAEMON: IncrementalCompilationOptions(super=CompilationOptions(compilerMode=INCREMENTAL_COMPILER, targetPlatform=JVM, reportCategories=[0], reportSeverity=2, requestedCompilationResults=[0, 3, 2], kotlinScriptExtensions=[], generateCompilerRefIndex=false), sourceChanges=org.jetbrains.kotlin.buildtools.api.SourcesChanges$Known@66d46b9, classpathChanges=NoChanges, workingDir=/ho
+  Output:
+/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/singularity_todo/shared/generated/resources/ActualResourceCollectorsKt.class
+Sources:
+/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/generated/compose/resourceGenerator/kotlin/jvmMainResourceCollectors/singularity_todo/shared/generated/resources/ActualResourceCollectors.kt
+  Output:
+/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/AppKt.class
+Sources:
+/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/jvmMain/kotlin/com/singularity/todo/App.kt
+  Output:
+/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/AppKt$AppContent$navCallbacks$1$1.class
+Sources:
+
+=== bailout path / incremental status ===
+32295:  Source changes: Known(modified=[/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/singularity/todo/core/log/RedactingLogWriter.kt, /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/singularity/todo/core
+32297:  Process SignatureChanged(fqName = .kotlin_module)
+32298:  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/core/log/RedactingLogWriter.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/singularity/
+32300:  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/core/log/RedactingLogWriter$RedactedThrowable.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotli
+32302:  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/com/singularity/todo/core/log/RedactingLogWriter$Companion.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/si
+32304:  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/build/classes/kotlin/jvm/main/META-INF/singularity-todo_shared.kotlin_module on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/shared/src/commonMain/kotlin/com/singularity/todo/cor
+32306:  Reverting changes
+32308:  Non-incremental compilation will be performed: Incremental compilation might be incorrect (KT-62686)
+
+=== tail (metrics, rebuild reason) ===
+  Spent time before task action: 0.064 s
+  Start gradle worker: 0.004 s
+Size metrics:
+    Analysis lines per second: 8328
+  Total size of the cache directory: 13.9 MB
+    Number of classpath entries: 230
+    Size of classpath snapshot: 15.3 MB
+    Code generation lines per second: 7707
+  Total compiler iteration: 1
+    Number of cache hits when loading classpath entry snapshots: 230
+  Number of times classpath snapshot is loaded: 1
+  Number of times classpath snapshot is shrunk and saved after compilation: 1
+    Size of shrunk classpath snapshot: 1.3 MB
+    ABI snapshot size: 18 B
+    Number of lines analyzed: 166177
+  Start time of task action: 2026-11-05T18:35:16
+Build attributes:
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+GC metrics:
+  PS MarkSweep:
+    GC count: 6
+    GC time: 1.910 s
+  PS Scavenge:
+    GC count: 15
+    GC time: 0.581 s
+

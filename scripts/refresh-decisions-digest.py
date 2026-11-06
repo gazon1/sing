@@ -6,7 +6,7 @@ Two files, two jobs:
   DIGEST.md      — the always-loaded orientation layer, bounded by kind.
   DIGEST-full.md — the complete index, folded so it does not grow with the corpus.
 
-Run via: ./scripts/refresh-decisions-digest.sh
+Run via: python3 ./scripts/refresh-decisions-digest.py
 Or directly: python3 ./scripts/refresh-decisions-digest.py
 """
 
@@ -623,7 +623,7 @@ def render_full_digest(corpus: Corpus) -> list[str]:
     out: list[str] = []
     out.append("# Decision Log — full index")
     out.append("")
-    out.append("Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.sh` to rebuild.")
+    out.append("Auto-generated from `docs/decisions/`. Run `python3 ./scripts/refresh-decisions-digest.py` to rebuild.")
     out.append("")
     out.append(
         "The complete index: every decision in the corpus, once, with its title and its "
@@ -740,7 +740,7 @@ def render_orientation(corpus: Corpus, live_decisions: list[Path]) -> list[str]:
     light.append("# Documentation map")
     light.append("")
     light.append(
-        "Auto-generated. Rebuild: `./scripts/refresh-decisions-digest.sh`. "
+        "Auto-generated. Rebuild: `python3 ./scripts/refresh-decisions-digest.py`. "
         "Complete decision index: `docs/decisions/DIGEST-full.md`.")
     light.append("")
     light.append("## Where to look")

@@ -103,6 +103,7 @@ class <Tool>Tool(
 ```
 
 **IdempotencyCache implementation:**
+
 ```kotlin
 // shared/src/commonMain/.../core/observability/IdempotencyCache.kt
 interface IdempotencyCache {
@@ -306,12 +307,14 @@ data class ListTasksOutput(
 If a tool's input schema changes (new field, renamed field, changed type):
 
 1. **Bump `schemaVersion`** in the tool annotation:
+
    ```kotlin
    companion object {
        const val NAME = "tasks.create"
        const val SCHEMA_VERSION = 2  // incremented on breaking change
    }
    ```
+
 2. **Maintain backwards compatibility** for at least 1 major version — old clients with old schemas should get a `Validation` error with a helpful message, not crash.
 3. Document the migration in the tool's `description`.
 

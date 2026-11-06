@@ -1,0 +1,308 @@
+# 1428 commits since '2026-05-05', .kt files under shared/src
+# 1966 present in the tree, 791 moved out during the window
+# capped at the top 200 and 100: a full list is one `analyse.py` run away
+
+# commits	set	path
+187	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/FakeRepositories.kt
+127	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt
+113	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/FakeAppDatabase.kt
+98	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt
+92	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/di/TasksDiModule.kt
+83	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/settings/SettingsScreen.kt
+77	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/di/Modules.kt
+76	androidMain	shared/src/androidMain/kotlin/com/singularity/todo/core/di/PlatformModule.android.kt
+71	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/data/TaskRepositoryImpl.kt
+68	jvmMain	shared/src/jvmMain/kotlin/com/singularity/todo/core/di/PlatformModule.jvm.kt
+61	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/viewmodel/AgendaViewModel.kt
+61	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskEditorContent.kt
+57	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/search/SearchScreen.kt
+54	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncEngine.kt
+53	androidMain	shared/src/androidMain/kotlin/com/singularity/todo/core/di/AiToolsModule.android.kt
+53	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/presentation/viewmodel/NoteEditor.kt
+53	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/viewmodel/ProjectDetailViewModel.kt
+51	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/screen/TaskDetailContent.kt
+49	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/nav/AppDestination.kt
+49	jvmMain	shared/src/jvmMain/kotlin/com/singularity/todo/core/di/AiToolsModule.jvm.kt
+48	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/presentation/screen/NoteEditorScreen.kt
+48	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/presentation/viewmodel/NotesListViewModel.kt
+47	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/TaskCreateViewModel.kt
+45	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/settings/SettingsViewModel.kt
+43	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/screen/AgendaContent.kt
+43	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/viewmodel/SavedAgendaViewModel.kt
+43	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/backup/BackupViewModel.kt
+43	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/presentation/screen/NotesListScreen.kt
+41	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/search/SearchViewModel.kt
+40	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tags/TagsViewModel.kt
+40	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/TaskDetailCoordinator.kt
+39	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/viewmodel/SavedAgendaListViewModel.kt
+39	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/viewmodel/ProjectsViewModel.kt
+37	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupRepository.kt
+37	jvmMain	shared/src/jvmMain/kotlin/com/singularity/todo/feature/nav/JvmNavEntries.kt
+36	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupImporter.kt
+36	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/screen/SavedAgendaScreen.kt
+36	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/projects/ProjectDetailViewModelTest.kt
+35	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/statistics/StatisticsViewModel.kt
+35	commonTest	shared/src/commonTest/kotlin/com/singularity/todo/feature/agenda/presentation/viewmodel/AgendaViewModelTest.kt
+34	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/di/NotesDiModule.kt
+34	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/di/ProjectsDiModule.kt
+34	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/screen/SavedAgendaListScreen.kt
+34	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/backup/BackupScreen.kt
+34	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/screen/ProjectDetailContent.kt
+34	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/screen/TaskCreateScreen.kt
+33	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupExporter.kt
+33	jvmMain	shared/src/jvmMain/kotlin/com/singularity/todo/shell/DesktopShellNav3.kt
+33	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/arch/ArchitectureTest.kt
+32	androidMain	shared/src/androidMain/kotlin/com/singularity/todo/feature/nav/AndroidNavEntries.kt
+32	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/screen/ProjectEditorScreen.kt
+32	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/TaskCreateViewModelTest.kt
+31	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/AgendaDiModule.kt
+31	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar/presentation/viewmodel/CalendarViewModel.kt
+31	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/viewmodel/ProjectEditorViewModel.kt
+31	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/projects/ProjectsViewModelTest.kt
+30	androidMain	shared/src/androidMain/kotlin/com/singularity/todo/AndroidShellNav3.kt
+30	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/profile/ProfileSwitcherScreen.kt
+30	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/data/ProjectsRepositoryImpl.kt
+30	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tags/TagsScreen.kt
+30	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/backup/BackupViewModelTest.kt
+29	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/screen/AgendaScreen.kt
+29	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/chat/ChatScreen.kt
+29	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/chat/ChatViewModel.kt
+29	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/archive/ArchiveScreen.kt
+29	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/presentation/screen/NotePreviewScreen.kt
+29	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/profile/ProfileSwitcherViewModel.kt
+28	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/screen/ProjectsScreen.kt
+28	commonTest	shared/src/commonTest/kotlin/com/singularity/todo/feature/notes/presentation/viewmodel/NoteEditorTest.kt
+28	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/core/sync/SyncEngineFakes.kt
+28	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/settings/SettingsViewModelTest.kt
+27	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/di/TagsDiModule.kt
+27	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/attachments/AttachmentsViewModel.kt
+27	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/presentation/viewmodel/NotePreview.kt
+27	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/search/SearchUseCase.kt
+26	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar/presentation/components/calendar/MonthGridView.kt
+26	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/port/TaskRepository.kt
+26	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/TaskCreateDebounceTest.kt
+25	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/settings/SettingsRepository.kt
+25	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/KoogAgentService.kt
+25	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/archive/ArchiveViewModel.kt
+25	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/auth/AuthViewModel.kt
+25	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/pomodoro/PomodoroScreen.kt
+25	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/agenda/SavedAgendaViewModelTest.kt
+24	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/auth/LoginScreen.kt
+23	androidMain	shared/src/androidMain/kotlin/com/singularity/todo/App.kt
+23	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/auth/AuthRepository.kt
+23	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/ui/DraftMviViewModel.kt
+23	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/statistics/StatisticsScreen.kt
+23	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/sync/presentation/SyncViewModel.kt
+23	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskEditorSheetsHost.kt
+23	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/shell/MenuBottomSheet.kt
+23	commonTest	shared/src/commonTest/kotlin/com/singularity/todo/feature/ai/chat/ChatViewModelTest.kt
+22	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncBootstrapper.kt
+22	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/nav/Nav3State.kt
+22	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/arch/EntityMapperCompletenessTest.kt
+22	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/core/ui/TagsMd.kt
+21	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/attachments/AttachmentRepository.kt
+21	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/sync/PushPhase.kt
+21	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/settings/SettingsUiState.kt
+21	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/settings/screens/AiProviderSettingsScreen.kt
+21	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/settings/screens/InterfaceSettingsScreen.kt
+21	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tags/data/TagsRepositoryImpl.kt
+21	jvmMain	shared/src/jvmMain/kotlin/com/singularity/todo/App.kt
+21	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/core/sync/TestUtils.kt
+20	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/usage/AiUsageViewModel.kt
+20	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/data/NotesRepositoryImpl.kt
+20	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tags/data/TagGroupRepositoryImpl.kt
+20	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/tools/WriteToolsTest.kt
+20	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/notes/NotesListViewModelTest.kt
+19	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/ui/MviViewModel.kt
+19	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/logic/AgendaPresets.kt
+19	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/nav/AgendaRouteMapping.kt
+19	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/tools/UpdateTaskTool.kt
+19	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar/presentation/components/calendar/TimeGridView.kt
+19	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/gate/presentation/viewmodel/AppVersionGateViewModel.kt
+19	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/TaskDomain.kt
+19	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskTitleRow.kt
+19	commonTest	shared/src/commonTest/kotlin/com/singularity/todo/feature/ai/tools/ReadToolsProfileAwareTest.kt
+19	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/calendar/CalendarViewModelTest.kt
+19	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/statistics/StatisticsViewModelTest.kt
+18	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/settings/SettingsBundle.kt
+18	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/logic/AgendaEvaluator.kt
+18	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/model/AgendaUiState.kt
+18	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/profile/ProfileAwareCurrentUser.kt
+18	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/domain/port/ProjectsRepository.kt
+18	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/screen/ProjectDetailBody.kt
+18	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskEditorCallbacks.kt
+18	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/model/TaskUi.kt
+18	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/slot/TaskEntitySlot.kt
+18	commonTest	shared/src/commonTest/kotlin/com/singularity/todo/feature/nav/DestinationKindTest.kt
+18	commonTest	shared/src/commonTest/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/slot/SlotTestFixtures.kt
+17	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/App.kt
+17	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/backup/EncryptedArchive.kt
+17	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/tools/DecomposeAndCreateTool.kt
+17	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/profile/ProfileRepositoryImpl.kt
+17	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/profile/presentation/AccountSettingsViewModel.kt
+17	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/screen/ProjectDetailHero.kt
+17	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/usecase/CreateTaskFromDraft.kt
+17	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/RecurrencePickerSheet.kt
+17	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/arch/TextFieldRewriteContractTest.kt
+17	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/core/sync/SyncEngineStorageFailureTest.kt
+17	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/notes/presentation/viewmodel/NotePreviewTest.kt
+17	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/projects/ProjectEditorViewModelTest.kt
+16	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/backup/RemoteBackupService.kt
+16	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/sync/HlcFactory.kt
+16	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/viewmodel/AgendaDeps.kt
+16	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/tools/CreateTaskTool.kt
+16	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/settings/screens/WorkScheduleSettingsScreen.kt
+16	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tags/presentation/viewmodel/TagGroupsViewModel.kt
+16	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/LogbookSection.kt
+16	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/list/TaskRowContent.kt
+16	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/list/TaskRowFlat.kt
+16	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/slot/TaskChildrenSlot.kt
+16	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/shell/FabActionResolver.kt
+16	commonTest	shared/src/commonTest/kotlin/com/singularity/todo/core/backup/BackupDtoTest.kt
+15	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupOptions.kt
+15	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/RussianDateFormatter.kt
+15	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/SettingsSection.kt
+15	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/tools/CreateProjectTool.kt
+15	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/list/TaskMetaRow.kt
+15	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/slot/TaskAiSlot.kt
+15	commonTest	shared/src/commonTest/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/TaskDetailCoordinatorTest.kt
+15	commonTest	shared/src/commonTest/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/slot/TaskChildrenSlotTest.kt
+15	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/core/sync/SyncEnginePullTest.kt
+15	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/projects/ProjectsUseCaseTest.kt
+15	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/TaskRepositoryContractTest.kt
+14	androidMain	shared/src/androidMain/kotlin/com/singularity/todo/core/notifications/AndroidNotifier.kt
+14	androidMain	shared/src/androidMain/kotlin/com/singularity/todo/feature/alarms/AlarmReceiver.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupError.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/error/AppError.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/files/FileSystem.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/NotificationHost.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/StatefulContent.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/sheet/DatePickerSheet.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/model/AgendaIntent.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/selector/SelectorMatcher.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/tools/CreateNoteTool.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar/presentation/screen/CalendarScreen.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/genui/render/DefaultDataContext.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/profile/presentation/AccountSettingsScreen.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/components/ProjectDetailActions.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/components/ProjectDetailSheetsHost.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/screen/ProjectDetailScreen.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/proposals/domain/usecase/ApplyProposalItemUseCase.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/search/query/SearchQueryResolver.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskDetailTopBar.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskEditorModel.kt
+14	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/nav/TasksNavigator.kt
+14	commonTest	shared/src/commonTest/kotlin/com/singularity/todo/core/backup/BackupMigrationsTest.kt
+14	commonTest	shared/src/commonTest/kotlin/com/singularity/todo/feature/agenda/domain/AgendaEvaluatorTest.kt
+14	commonTest	shared/src/commonTest/kotlin/com/singularity/todo/shell/FabActionResolverTest.kt
+14	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/agenda/SavedAgendaViewsRepositoryImplTest.kt
+14	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/projects/ProjectLifecycleIntegrationTest.kt
+14	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/sync/SyncViewModelTest.kt
+14	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/TaskLifecycleIntegrationTest.kt
+14	jvmTest	shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/TasksDomainTest.kt
+13	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupFormat.kt
+13	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupMigrations.kt
+13	commonMain	shared/src/commonMain/kotlin/com/singularity/todo/core/log/FileLogWriter.kt
+
+# moved out of the tree during the window — history only, not candidates
+# commits	path
+75	shared/src/commonMain/kotlin/com/singularity/todo/core/database/Daos.kt
+58	shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt
+53	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/TaskDetail.kt
+38	shared/src/commonMain/kotlin/com/singularity/todo/core/database/Entities.kt
+34	shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/Ids.kt
+33	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/state/TaskDetailIntent.kt
+32	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/screen/TaskDetailViewScreen.kt
+30	shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/TaskDetailViewModelTest.kt
+28	shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupDtos.kt
+27	shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/NotesRepository.kt
+26	shared/src/commonMain/kotlin/com/singularity/todo/core/database/Migrations.kt
+26	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/Task.kt
+26	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/state/TaskDetailUiState.kt
+24	shared/src/commonMain/kotlin/com/singularity/todo/core/database/Mappers.kt
+24	shared/src/commonMain/kotlin/com/singularity/todo/core/ui/preview/PreviewSamples.kt
+23	shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/NotesViewModel.kt
+23	shared/src/jvmTest/kotlin/com/singularity/todo/test/KoinGraphValidationTest.kt
+21	shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabaseFactory.kt
+21	shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar_sync/presentation/CalendarSyncViewModel.kt
+21	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/TaskDetailState.kt
+20	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/TaskList.kt
+19	shared/src/commonMain/kotlin/com/singularity/todo/core/platform/Clock.kt
+19	shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/NotesScreen.kt
+19	shared/src/jvmMain/kotlin/com/singularity/todo/feature/agenda/presentation/nav/AgendaNavGraph.jvm.kt
+18	shared/src/commonMain/kotlin/com/singularity/todo/core/di/AiToolsDiModule.kt
+18	shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/NoteEditorScreen.kt
+18	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/ProjectDetailScreen.kt
+18	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskDetailScreen.kt
+18	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TasksViewModel.kt
+17	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskEditorViewModel.kt
+17	shared/src/commonMain/kotlin/com/singularity/todo/shell/AppNavHost.kt
+17	shared/src/jvmTest/kotlin/com/singularity/todo/core/di/DiGraphTest.kt
+16	shared/src/androidMain/kotlin/com/singularity/todo/feature/agenda/presentation/nav/AgendaNavGraph.android.kt
+16	shared/src/androidMain/kotlin/com/singularity/todo/feature/tasks/presentation/nav/TasksNavGraph.android.kt
+16	shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncOutbox.kt
+16	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/ProjectsViewModel.kt
+16	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskDetailViewModel.kt
+16	shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/TasksViewModelTest.kt
+15	shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar_sync/di/CalendarSyncDiModule.kt
+15	shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar_sync/presentation/CalendarSyncSettingsScreen.kt
+15	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/state/ProjectsUiState.kt
+15	shared/src/commonMain/kotlin/com/singularity/todo/feature/reminders/RoomReminderRepository.kt
+14	shared/src/commonMain/kotlin/com/singularity/todo/core/attachments/AttachmentDao.kt
+14	shared/src/commonMain/kotlin/com/singularity/todo/core/auth/SessionStore.kt
+14	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/ProjectDetailViewModel.kt
+14	shared/src/commonMain/kotlin/com/singularity/todo/feature/tags/Ids.kt
+13	shared/src/androidMain/kotlin/com/singularity/todo/feature/projects/presentation/nav/ProjectsNavGraph.android.kt
+13	shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/ProjectPickerSheet.kt
+13	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/model/Selector.kt
+13	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/state/ProjectDetailIntent.kt
+13	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/state/TaskCreateIntent.kt
+13	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/state/TaskCreateUiState.kt
+13	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/state/TaskDetailUiEvent.kt
+13	shared/src/jvmTest/kotlin/com/singularity/todo/core/di/JvmAiDiGraphTest.kt
+12	shared/src/androidMain/kotlin/com/singularity/todo/feature/notes/presentation/nav/NotesNavGraph.android.kt
+12	shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/ContentStateMapper.kt
+12	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/data/RoomSavedAgendaViewsRepository.kt
+12	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/ProjectsScreen.kt
+12	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/domain/model/Project.kt
+12	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/state/ProjectDetailUiState.kt
+12	shared/src/commonMain/kotlin/com/singularity/todo/feature/proposals/domain/model/ProposalItemKind.kt
+12	shared/src/commonMain/kotlin/com/singularity/todo/feature/tags/TagsRepository.kt
+12	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TasksScreen.kt
+12	shared/src/jvmTest/kotlin/com/singularity/todo/feature/notes/NotesViewModelTest.kt
+11	shared/src/androidMain/kotlin/com/singularity/todo/feature/calendar_sync/work/CalendarSyncWorker.kt
+11	shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/TagPickerSheet.kt
+11	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/model/SelectorSerializer.kt
+11	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskRepository.kt
+10	shared/src/androidMain/kotlin/com/singularity/todo/feature/search/presentation/nav/SearchNavGraph.android.kt
+10	shared/src/androidMain/kotlin/com/singularity/todo/feature/settings/presentation/nav/SettingsNavGraph.android.kt
+10	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/components/ReorderableSectionList.kt
+10	shared/src/commonMain/kotlin/com/singularity/todo/feature/checklist/ChecklistEditorViewModel.kt
+10	shared/src/commonMain/kotlin/com/singularity/todo/feature/reminders/ReminderRepository.kt
+10	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/screen/TaskListScreen.kt
+10	shared/src/jvmMain/kotlin/com/singularity/todo/feature/tasks/presentation/nav/TasksNavGraph.jvm.kt
+10	shared/src/jvmTest/kotlin/com/singularity/todo/test/DesktopPlatformGraph.kt
+9	shared/src/androidMain/kotlin/com/singularity/todo/feature/calendar/presentation/nav/CalendarNavGraph.android.kt
+9	shared/src/commonMain/kotlin/com/singularity/todo/core/di/AppModule.kt
+9	shared/src/commonMain/kotlin/com/singularity/todo/feature/nav/Navigation.kt
+9	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/ProjectEditorScreen.kt
+9	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/state/ProjectEditorUiState.kt
+9	shared/src/commonMain/kotlin/com/singularity/todo/feature/proposals/data/ProposalMapper.kt
+9	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskEditorScreen.kt
+9	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/logic/RecurrenceParser.kt
+9	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/RecurrenceSpec.kt
+9	shared/src/commonMain/kotlin/com/singularity/todo/shell/DesktopShell.kt
+9	shared/src/jvmMain/kotlin/com/singularity/todo/feature/notes/presentation/nav/NotesNavGraph.jvm.kt
+9	shared/src/jvmTest/kotlin/com/singularity/todo/core/sync/SyncRepositoryCoalescingTest.kt
+9	shared/src/jvmTest/kotlin/com/singularity/todo/feature/reminders/ReminderSchedulerTest.kt
+9	shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/TaskEditorViewModelTest.kt
+8	shared/src/androidMain/kotlin/com/singularity/todo/core/notifications/AndroidNotificationPort.kt
+8	shared/src/androidMain/kotlin/com/singularity/todo/core/platform/Clock.android.kt
+8	shared/src/androidMain/kotlin/com/singularity/todo/feature/calendar_sync/data/AndroidCalendarProvider.kt
+8	shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncShadow.kt
+8	shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/selector/SelectorBadge.kt
+8	shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar_sync/domain/logic/CalendarEventMapper.kt
+8	shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/Ids.kt
+8	shared/src/commonMain/kotlin/com/singularity/todo/feature/proposals/domain/model/ProposalValues.kt
+8	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/Ids.kt
+8	shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskDetailViewContent.kt

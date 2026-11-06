@@ -51,6 +51,7 @@ The app has performance issues that are hard to diagnose without a structured pr
 ### Startup profiling
 
 For cold start issues:
+
 1. Use `adb shell am start -W -n` to measure launch time
 2. Use systrace to see which init step is slowest
 3. Common culprits: first sync, DB migration, SecureStorage decryption

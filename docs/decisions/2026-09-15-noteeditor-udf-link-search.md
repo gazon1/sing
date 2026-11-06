@@ -19,6 +19,7 @@ The Composable was doing I/O and holding domain state (search results), which vi
 1. **Remove `koinInject` for `InternalLinkRepository` and `ProfileAwareCurrentUser` from `NoteEditorScreen`.** These were only used for link search; no other use case needed them at the Composable level.
 
 2. **Add search methods to `NoteEditorViewModel`:**
+
    ```kotlin
    suspend fun searchNotesForLink(query: String): List<LinkResult> {
        return linkRepo.searchNotes(userId.value, query)
@@ -34,6 +35,7 @@ The Composable was doing I/O and holding domain state (search results), which vi
 3. **Change `NoteEditorScreen` signature** — replace `linkRepo: InternalLinkRepository` and `currentUser: ProfileAwareCurrentUser` parameters with `searchNotesForLink: (suspend (String) -> List<LinkResult>)?` and `searchTasksForLink: (suspend (String) -> List<LinkResult>)?`.
 
 4. **Update `NoteEditorScreenContent`** — the `onSearch` lambda now calls the VM methods:
+
    ```kotlin
    onSearch = { q ->
        val notes = searchNotesForLink?.invoke(q) ?: emptyList()

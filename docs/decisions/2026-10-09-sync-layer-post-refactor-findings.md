@@ -43,6 +43,7 @@ This is backward-compatible: the only caller (`SyncEngine.push()`) already passe
 **File:** `core/sync/SyncEngine.kt:456–467`
 
 Both `NotRun` arms were genuinely unreachable but carried `exceptionOrNull()!!` which would NPE if a future refactor inadvertently called those paths. Fixed by:
+
 1. Replacing `!!` with direct property access (`pushResult.error`, `pullResult.error`) — eliminates the NPE
 2. Adding `@Suppress("UNREACHABLE_CODE")` — makes the intentional suppression explicit
 
@@ -157,8 +158,6 @@ Impact is low (writes are always atomic), but the warning helps diagnose sync sk
 Eight core sync components had 0% test coverage: `SyncEngine`, `SyncCoordinator`, `PushPhase`, `PullPhase`, `SyncBootstrapper`, `SyncRunner`, `SyncEngineState`, `HandlerRegistry`. Tests were added in the zero-coverage PR.
 
 Priority order followed: `HandlerRegistry` → `SyncEngineState` → `SyncCoordinator` → `PushPhase` → `PullPhase` → `SyncEngine`.
-
-
 
 The following were investigated and found to be correct:
 

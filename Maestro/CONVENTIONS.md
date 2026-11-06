@@ -222,7 +222,9 @@ six, four of the six paths it named did not exist, and the tag had meanwhile
 spread to dozens of flows. Nobody noticed, because the tag is what selects and
 the prose is what people plan against. To see the flows:
 
-    python3 scripts/check-maestro-smoke-suite.py --list
+```
+python3 scripts/check-maestro-smoke-suite.py --list
+```
 
 The suite runs on the shard count `config/docs/e2e-shards.txt` gives it, so a
 pull request pays well under half of what one full-suite shard pays. It used to

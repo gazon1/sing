@@ -29,7 +29,9 @@ import com.singularity.todo.feature.reminders.JvmReminderRearm
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.usecase.RepairRecurringSeriesUseCase
+import com.singularity.todo.mcp.ToolServerKoinStartup
 import com.singularity.todo.mcp.runToolServer
+import com.singularity.todo.mcp.toolServerModules
 import com.singularity.todo.shell.LocalWindowCloseRequest
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
@@ -46,6 +48,20 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 
 private const val RELEASES_URL = "https://github.com/singularity-todo/singularity/releases"
+
+/**
+ * The composition root of the tool-server mode.
+ *
+ * The GUI starts its own container further down; the server mode is a different process
+ * job and starts the set the server needs. Both are launchers, so neither belongs in the
+ * shared library.
+ */
+private val ToolServerKoin =
+    ToolServerKoinStartup { fixedProfileId ->
+        startKoin {
+            modules(toolServerModules(fixedProfileId))
+        }
+    }
 
 /**
  * Desktop entry point, and the fire executor a `systemd --user` reminder unit invokes.
@@ -84,7 +100,7 @@ fun main(args: Array<String>) {
     // happen on every machine where nobody remembered to install it.
     if (args.any { it == McpServerCommandProvider.TOOL_SERVER_FLAG }) {
         prepareDataDirectory()
-        runToolServer(args)
+        runToolServer(args, ToolServerKoin)
         return
     }
 

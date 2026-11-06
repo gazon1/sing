@@ -14,6 +14,7 @@ tags: [agenda, ui, scope]
 после `val sectionPrefill = section.prefill ?: return`.
 
 `SectionPrefill` содержит:
+
 - `sectionId: String` — ключ для DraftStore
 - `title: String?` — подсказка заголовка
 - `dueDate: LocalDate?` — подсказка даты

@@ -14,6 +14,7 @@ status: accepted
 ## Idea
 
 Варианты:
+
 1. **Оставить `TaskListFilter` как есть** — presentation enum, DSL определяет свой `TaskStatus` отдельно. Дублирование имён, путаница.
 2. **Удалить `TaskListFilter`, переиспользовать `TaskStatus` everywhere** — единый источник истины для completion status во всех слоях. Требует rename в call-sites.
 3. **Выделить `TaskStatus` в domain/model как единый тип** (этот ADR) — `TaskListFilter` удаляется, `TaskStatus` живёт в `domain/model/`, используется и в UI, и в DSL.
@@ -24,6 +25,7 @@ status: accepted
 Создать `enum class TaskStatus { All, Active, Completed }` в `feature/tasks/domain/model/TaskStatus.kt`.
 
 Все call-sites обновлены:
+
 - `TasksViewModel` (`TaskList.kt`): `_statusFilter: MutableStateFlow(TaskStatus.All)`
 - `TaskFilterChips.kt`: параметры `selected: TaskStatus`, `onSelect: (TaskStatus) -> Unit`
 - `TaskListScreen.kt`: `counts: Map<TaskStatus, Int>`

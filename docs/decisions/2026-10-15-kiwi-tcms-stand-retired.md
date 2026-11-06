@@ -28,6 +28,7 @@ without a private setup guide.
 `infra/kiwi/` itself does not exist in this repo — there is nothing to delete. The
 four kiwi-related ADRs (`2026-10-05-kiwi-*`) are retained as historical records of
 the design work. They are not deleted because:
+
 - they document decisions that shaped the scenario traceability layer
 - deleting them would break `check-adr-references.py` (there are live links to them)
 - they serve as context for the arch-test fixtures that still reference kiwi paths

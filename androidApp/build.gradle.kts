@@ -33,7 +33,6 @@ kotlin {
 
 dependencies {
     implementation(project(":shared"))
-            implementation(project(":shared-ui"))
 
     // The custom rule sets (via :detekt-rules plugin / ServiceLoader). Without this, no
     // project rule applies to androidApp at all.
@@ -211,6 +210,7 @@ android {
         libs.versions.sdk.compile
             .get()
             .toInt()
+    compileSdkMinor = 1
 
     defaultConfig {
         applicationId = "com.singularity.todo"

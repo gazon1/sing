@@ -30,8 +30,17 @@ object BackupFormat {
      * version moved because a payload that *can* say a row is gone is a shape the
      * older client does not know, and an older client that met one would restore
      * a row that the backup says is not there any more.
+     *
+     * v8: a task and a note name their values by contract, not by the name of
+     * the Kotlin constant. A v7 payload spelled a task's priority `High` and its
+     * workflow state `NextUp` — the constant's name — so renaming the constant
+     * would have renamed the format under the user's feet. A v8 payload spells
+     * them `high` and `next_up`: lower case, like every other name that travels
+     * off the device. The step rewrites the old spellings, so a v7 backup still
+     * restores; and the reader accepts both spellings, so a payload that meets
+     * the reader under either name is read as what it says.
      */
-    const val SCHEMA_VERSION = 7 // entity shape version — full field parity for TaskDto and NoteDto
+    const val SCHEMA_VERSION = 8 // entity shape version — full field parity for TaskDto and NoteDto
 
     /** Oldest schema version this client can restore. Backups with schemaVersion < this are rejected. */
     const val MIN_SUPPORTED_SCHEMA_VERSION = 1

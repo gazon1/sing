@@ -41,6 +41,7 @@ All operations are suspending (they may do I/O). `isHardwareBacked()` returns `t
 ## JVM Implementation — JvmSecureStorage
 
 **Linux path** (primary):
+
 ```kotlin
 fun write(key: String, value: String) {
     val process = ProcessBuilder("secret-tool", "store",
@@ -57,6 +58,7 @@ fun write(key: String, value: String) {
 `secret-tool` stores in the user's GNOME keyring (or compatible D-Bus secret service). Requires `libsecret-1-dev` on the system.
 
 **All JVM fallback** (when `secret-tool` is absent or fails):
+
 - Encrypted file at `~/.config/singularity/secure.bin`
 - Key derived via **PBKDF2WithHmacSHA256**: 100k iterations, 16-byte random salt stored in the file header
 - AES-GCM (256-bit key) — authenticated encryption, no padding concerns
