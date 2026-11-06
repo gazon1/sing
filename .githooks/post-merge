@@ -6,6 +6,13 @@ ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
 if ! command -v hk >/dev/null 2>&1; then
+    if command -v mise >/dev/null 2>&1; then
+        echo "post-merge: hk not found — running 'mise install'..." >&2
+        mise install >&2 || true
+    fi
+fi
+
+if ! command -v hk >/dev/null 2>&1; then
     echo "post-merge: hk is required but not found. Run 'mise install'." >&2
     exit 0
 fi
