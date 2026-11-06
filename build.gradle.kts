@@ -1,5 +1,6 @@
 import dev.detekt.gradle.Detekt
 import dev.detekt.gradle.extensions.DetektExtension
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import java.io.File
 
 plugins {
@@ -343,6 +344,48 @@ subprojects {
 allprojects {
     tasks.withType<Test>().configureEach {
         outputs.cacheIf { false }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The report every test task writes
+// ---------------------------------------------------------------------------
+//
+// Three settings that decide what a failed test LOOKS like, and that every
+// module has to agree on — because the reporters read the reports, and a
+// report whose shape depends on which module produced it is a report that
+// has to be understood twice.
+//
+// 1. `mergeReruns` — a retried test is ONE testcase with a `<flakyFailure>`
+//    child, not two testcases. Without it the XML holds a failed testcase and
+//    a passed one under the same name, the count floor sees two tests where
+//    there is one, and the CI reporter cannot tell "passed on retry" from
+//    "failed and then somebody ran it again". The reader in
+//    `scripts/src/traceability/junit_xml.py` reads `<flakyFailure>` as retry
+//    HISTORY, so a module that does not merge its reruns reports a retried
+//    failure as a plain failure. Two modules set this by hand; it belongs to
+//    every test task.
+//
+// 2. `exceptionFormat = FULL` — Gradle's default prints the exception's
+//    `toString()` and a truncated trace. The trace is the evidence: a
+//    developer who reads the CI log has to find the failing frame in it, and
+//    a summary where the evidence is is the defect this audit found.
+//
+// 3. There is no third knob: Gradle's `maxStackTraceLines` is gone from the
+//    `Test` task (it was a Gradle 2.x property, and `FULL` prints the whole
+//    trace without a cap). The audit that proposed it had remembered a
+//    property that no longer exists.
+//
+// The tag selection is NOT here, and cannot be: a module whose test classes
+// are untagged would discover nothing under an explicit tag list, and a
+// module whose only class is `@Tag("slow")` discovers nothing without one.
+// The selection stays where the module knows the shape of its own tests.
+allprojects {
+    tasks.withType<Test>().configureEach {
+        reports.junitXml.mergeReruns.set(true)
+        testLogging {
+            exceptionFormat = TestExceptionFormat.FULL
+        }
     }
 }
 

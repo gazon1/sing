@@ -481,8 +481,8 @@ val archTest =
         // The fork count is set in the `jvmTest`/`archTest` block below, where both
         // tasks are configured together: one fork for this one, four for the rest.
         // The merge is the same — a retried class must not be counted twice by the
-        // run floor.
-        reports.junitXml.mergeReruns.set(true)
+        // run floor. `mergeReruns` itself is set for every test task in the root
+        // `build.gradle.kts`; this line only records that this task depends on it.
     }
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
@@ -627,7 +627,8 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // into one <testcase> with a <flakyFailure> child, matching desktopApp. Without it
     // a retried shared test produces two <testcase> elements, and check-test-runs.py
     // counts both — the flake-rate aggregator reads the <flakyFailure> signal instead.
-    reports.junitXml.mergeReruns.set(true)
+    // The setting itself lives in the root `build.gradle.kts`, where every test task
+    // gets it; the reader in `scripts/src/traceability/junit_xml.py` depends on it.
 
     // The architecture gates run in `archTest` — they read the whole tree, and the
     // Konsist scope they build is per-JVM. See the `archTest` task above.

@@ -160,6 +160,13 @@ tasks.withType<Test>().configureEach {
             }
         }
     }
+    // No `failOnNoDiscoveredTests = true` here, unlike every other module.
+    // This module's only test class is `@Tag("slow")`, and the default filter
+    // above EXCLUDES slow — so the default run of this module discovers
+    // nothing by design, and the flag would turn a correct "this module has
+    // no fast tests" into a failed build. The floor in
+    // `config/docs/test-runs-baseline.txt` records `0 0` for the same reason.
+    // The fix is a second untagged fast test class, not a flag.
     // Was the default ~512 MB, then 3 GB. The heap is MEASURED, not chosen: the full
     // population dies with `OutOfMemoryError: Java heap space` at 1024 MB (with the
     // Kover agent attached), and 1536 MB carries the whole suite without one.

@@ -48,6 +48,11 @@ kotlin {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    // Discovering nothing is a configuration error, not a pass. The same rule
+    // the other modules carry — see `shared/build.gradle.kts` for the incident
+    // it comes from. This module's single test class is `@Tag("fast")` and
+    // this task applies no tag filter, so it always discovers it.
+    failOnNoDiscoveredTests = true
 }
 
 // detekt — same rules as every other module. The moved domain models were in
