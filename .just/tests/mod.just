@@ -177,13 +177,21 @@ test:
     fi
 
 [group('tests')]
-[doc('Run full check: tests + assembleDebug + lint (respects $SKIP_ADB)')]
+[doc('Run full check: tests + assembleDebug + lint')]
 [working-directory(justfile_directory())]
 check:
     #!/bin/bash
     set -euo pipefail
     # check.sh already runs detekt (step [7/7]); lint here would run it a second time.
-    SKIP_ADB={{SKIP_ADB}} ./check.sh
+    ./check.sh
+
+[group('tests')]
+[doc('Run the fast lane: the checks this change can break, and nothing else')]
+[working-directory(justfile_directory())]
+check-fast:
+    #!/bin/bash
+    set -euo pipefail
+    ./check.sh --fast
 
 [group('tests')]
 [doc('Run the affected lane: the tests this change can break, and the detekt of the files it touches')]
@@ -195,7 +203,27 @@ check-affected:
     # is still the full one. The tests come from scripts/test-impact-map.py — the
     # same selection CI's "Affected tests" job asks — and the detekt from
     # scripts/lint-changed.py.
-    SKIP_ADB={{SKIP_ADB}} ./check.sh --affected
+    ./check.sh --affected
+
+[group('tests')]
+[doc('Run the device lane: the instrumented tier on a device, its floor, and the Maestro flows')]
+[working-directory(justfile_directory())]
+check-device:
+    #!/bin/bash
+    set -euo pipefail
+    # The device steps are not part of the loop: they need hardware, and their
+    # failure is not the loop's verdict. `hk run device` runs the `device` hook.
+    SKIP_ADB={{SKIP_ADB}} hk run device
+
+[group('tests')]
+[doc('Report what the last measured loop cost')]
+[working-directory(justfile_directory())]
+cost:
+    #!/bin/bash
+    set -euo pipefail
+    # A report, not a verdict: it names what got slower than the recorded baseline
+    # and exits zero either way.
+    ./sg gate-costs
 
 [group('tests')]
 [doc('Clean build artifacts')]
@@ -231,7 +259,7 @@ gate:
     banner() { echo -e "\n\033[1;36m══ $* ══\033[0m\n"; }
 
     banner "1/3 check.sh (tests + Android assemble + docs)"
-    SKIP_ADB={{SKIP_ADB}} ./check.sh
+    ./check.sh
 
     # check.sh runs detekt as its own step, so this is a no-op re-run on a warm
     # build and a real check on a cold one. It is here because "I ran check.sh"

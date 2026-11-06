@@ -234,6 +234,7 @@ reading that ADR first.
 | `task-snapshot-testing` | Roborazzi never integrated; notes superseded | `2026-09-30-roborazzi-not-built-superseded` |
 | `kiwi-tcm-stand` | infra/kiwi/ was local-only, never committed; skill pointed to non-existent infra | `2026-10-15-kiwi-tcms-stand-retired` |
 | `sync`, `notifications`, `mcp-server`, `kmp-platform-specific` | described code state, not a procedure — now documents | `2026-10-15-reference-skills-become-documents` |
+| `singularity-todo-tech-debt-refactor` | the epic it planned is finished — a plan that has been executed is a record, not a procedure | `2026-11-06-the-tech-debt-skill-is-retired` |
 
 ---
 

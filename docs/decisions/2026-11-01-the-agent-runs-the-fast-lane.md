@@ -84,7 +84,7 @@ thing without the rewrite: this loop, for this job.
 
 - The repository's review skill, its AFK contract and the runner's gate list
   name `./check.sh --fast`.
-- The fast lane writes its timings to `build/diagnostics/fast-lane-steps.txt`,
+- The fast lane writes its timings to `build/diagnostics/fast-lane-steps.json`,
   not to the full loop's record: `sgate gate-costs` publishes the latter, and a
   fast run must not overwrite the measurement of the loop it is not.
 - `--affected` and `--fast` share one implementation of the affected selection

@@ -1074,7 +1074,7 @@ _REGISTERED: tuple[GateSpec, ...] = (
             why=(
                 "the gate reads the instrumented run's report, and the report exists "
                 "only where the emulator ran: in CI that is the device-tests workflow, "
-                "and locally it is the optional adb step of check.sh. It cannot live "
+                "and locally it is the optional `device` hook step of hk.pkl. It cannot live "
                 "in the shared registry — the static CI job has no build output at all, "
                 "so a gate there would fail on every run for want of a report. The CI "
                 "invocation is therefore not visible to the parity check, which reads "
