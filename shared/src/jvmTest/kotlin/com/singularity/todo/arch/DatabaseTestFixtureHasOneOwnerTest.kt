@@ -24,9 +24,11 @@ import kotlin.test.assertTrue
  *
  * ## How the rule is checked
  *
- * Lexically, over the sources of `jvmTest`. A check that cannot fail reports
- * success having checked nothing, so the check has a positive control: the
- * fixture itself does everything the rule forbids, and it is the one file
+ * Lexically, over the sources this module's JVM tests run: `jvmTest` and
+ * `commonTest` (the latter executes inside `:shared:jvmTest`, so a DB opened
+ * there is the same duplication this rule forbids). A check that cannot fail
+ * reports success having checked nothing, so the check has a positive control:
+ * the fixture itself does everything the rule forbids, and it is the one file
  * allowed to.
  *
  * The exemption is pinned to the owner's path, not its name: a second copy of
@@ -46,9 +48,6 @@ class DatabaseTestFixtureHasOneOwnerTest {
 
     /** This file: it names what it forbids, so it cannot be held to it. */
     private val guardPath = "arch/DatabaseTestFixtureHasOneOwnerTest.kt"
-
-    /** The factory's own test carries the name in its class name; it is not an owner. */
-    private val factoryTestPath = "core/database/AppDatabaseFactoryJvmTest.kt"
 
     /** What opens a database. */
     private val databaseOpenings =
@@ -71,7 +70,7 @@ class DatabaseTestFixtureHasOneOwnerTest {
     @Test
     fun `there is exactly one DatabaseTestFixture, at the owner path`() {
         val copies =
-            jvmTestSources
+            testSources
                 .map { it.first }
                 .filter { it.name == "DatabaseTestFixture.kt" }
 
@@ -122,7 +121,7 @@ class DatabaseTestFixtureHasOneOwnerTest {
         // empty tree, or over matchers that no longer match anything — a gate
         // that cannot fail is not a gate.
         val fixture =
-            jvmTestSources.firstOrNull { it.first.isAt(ownerPath) }
+            testSources.firstOrNull { it.first.isAt(ownerPath) }
                 ?: error("$ownerPath is missing — the tests have no owner")
 
         assertTrue(
@@ -136,20 +135,19 @@ class DatabaseTestFixtureHasOneOwnerTest {
         )
     }
 
-    /** Every Kotlin file of this module's `jvmTest` sources, comments stripped. */
-    private val jvmTestSources: List<Pair<File, String>> by lazy {
-        SourceScan
-            .jvmTestSourcesRoot()
-            .walkTopDown()
-            .filter { it.isFile && it.name.endsWith(".kt") }
-            .map { it to KotlinText.stripComments(it.readText()) }
-            .toList()
+    /** Every Kotlin file of this module's JVM test run: `jvmTest` and `commonTest`. */
+    private val testSources: List<Pair<File, String>> by lazy {
+        listOf(SourceScan.jvmTestSourcesRoot(), SourceScan.commonTestSourcesRoot())
+            .flatMap { root ->
+                root
+                    .walkTopDown()
+                    .filter { it.isFile && it.name.endsWith(".kt") }
+                    .toList()
+            }.map { it to KotlinText.stripComments(it.readText()) }
     }
 
     private fun exemptableSources(): List<Pair<File, String>> =
-        jvmTestSources.filterNot {
-            it.first.isAt(ownerPath) || it.first.isAt(guardPath) || it.first.isAt(factoryTestPath)
-        }
+        testSources.filterNot { it.first.isAt(ownerPath) || it.first.isAt(guardPath) }
 
     private fun File.isAt(relativePath: String): Boolean =
         path.replace(File.separatorChar, '/').endsWith("/$relativePath")

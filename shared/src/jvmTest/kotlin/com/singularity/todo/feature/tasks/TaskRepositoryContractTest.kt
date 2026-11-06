@@ -504,7 +504,7 @@ class FakeTaskRepositoryContractTest : TaskRepositoryContractTest() {
 @Tag("slow")
 class RoomTaskRepositoryContractTest : TaskRepositoryContractTest() {
     // One database per test class, shared across all test methods — same shape as the
-    // sibling Room tests (AppDatabaseFactoryJvmTest, DesktopRestartSmokeTest).
+    // sibling Room tests (JvmDatabaseSeamTest, DesktopRestartSmokeTest).
     //
     // The database comes from the fixture, and it lives in memory: this class is
     // about the repository's behaviour, not about the file. The tests that are
