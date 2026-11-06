@@ -71,7 +71,7 @@ triage list) and therefore has no status to resolve.
 1. **DIGEST.md is derived, not a record**: it is auto-generated and gitignored, and it is a cache of the dated entries below it — never the source of truth. Never edit it by hand; run `scripts/refresh-decisions-digest.py` (which takes no arguments).
 2. **No orphaned `superseded-by`**: If an ADR has `superseded-by`, the target ADR must exist
 3. **No `open` ADRs older than 30 days**: If `open`, either resolve it to `accepted` or move it to `deferred` with a revisit trigger. Enforced by the shared gate registry (`scripts/ci/static-gates.sh`).
-4. **All ADRs must have `status:`** from the vocabulary above: run `scripts/normalize-adr-frontmatter.sh` (report only) or add `--apply` to write. An unknown flag is a usage error, not a shrug.
+4. **All ADRs must have `status:`** from the vocabulary above: run `python3 scripts/normalize-adr-frontmatter.py` (report only) or add `--apply` to write. An unknown flag is a usage error, not a shrug.
 5. **A new ADR is born `open`** and stays `open` until someone records a resolution. `open` is the only defensible birth state: a decision nobody has argued about yet has not been made. Set a terminal status at write time only when the evidence already exists. Declared as `frontmatter.newAdrStatus` in `config/docs/adr-corpus.json`; the writer reads it rather than hardcoding it (#518).
 6. **The frontmatter contract is declared, not owned by a writer.** Keys, key order and the birth status live in `config/docs/adr-corpus.json`. `AdrStorage.writeAdr` and `updateAdr` refuse a key outside the allowlist rather than writing a file `normalize-adr-frontmatter.py` will later reject as structurally broken. Adding a frontmatter key means editing that one JSON file (#518).
 7. **Deleting or moving an ADR requires the reference gate**: run `python3 scripts/check-adr-references.py` first. A dated-ADR slug cited in prose carries no path, so `check-doc-dead-refs.py` cannot see it.
@@ -165,10 +165,10 @@ does not. Architecture changes always require both an ADR and a spec.
 just docs-audit
 
 # Normalize frontmatter (apply changes)
-./scripts/normalize-adr-frontmatter.sh --apply
+python3 scripts/normalize-adr-frontmatter.py --apply
 
 # Refresh DIGEST
-./scripts/refresh-decisions-digest.sh
+python3 scripts/refresh-decisions-digest.py
 
 # Check for stale open/deferred ADRs
 grep -r "status: open\|status: deferred" docs/decisions/
@@ -246,8 +246,8 @@ reading that ADR first.
 | `CODING_STANDARDS.md` | Judgement rules a reviewing agent applies (read at review, not at implementation) | All contributors |
 | `README.md` | Project intro + quickstart | All contributors |
 | `docs/architecture/*.md` | How each subsystem works *now* | Whoever changes it |
-| `docs/decisions/DIGEST.md` | Auto-generated orientation layer | `refresh-decisions-digest.sh` |
-| `docs/decisions/DIGEST-full.md` | Auto-generated decision index | `refresh-decisions-digest.sh` |
+| `docs/decisions/DIGEST.md` | Auto-generated orientation layer | `refresh-decisions-digest.py` |
+| `docs/decisions/DIGEST-full.md` | Auto-generated decision index | `refresh-decisions-digest.py` |
 
 Update these when:
 

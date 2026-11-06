@@ -106,7 +106,7 @@ run_task() {
     shift 2
     local log rc=0
     log="$(mktemp)"
-    ./gradlew "${GRADLE[@]}" ":$module:$task" "$@" >"$log" 2>&1 || rc=$?
+    ./gw "${GRADLE[@]}" ":$module:$task" "$@" >"$log" 2>&1 || rc=$?
 
     if ! grep -qE "^> Task :$module:$task( |$)" "$log"; then
         echo "  ✗ :$module:$task did not run (exit $rc)" >&2

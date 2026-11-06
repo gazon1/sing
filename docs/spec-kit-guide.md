@@ -131,7 +131,7 @@ specify workflow run openspec-change \
 После каждого `implement` автоматически:
 
 1. `singularity-adr validate` — валидирует корпус ADR
-2. `./scripts/refresh-decisions-digest.sh` — обновляет DIGEST.md
+2. `python3 scripts/refresh-decisions-digest.py` — обновляет DIGEST.md
 
 ---
 
@@ -259,7 +259,7 @@ hooks:
     - singularity-adr validate         # перед implement
   after_implement:
     - singularity-adr validate         # после implement
-    - ./scripts/refresh-decisions-digest.sh  # обновить DIGEST.md
+    - python3 scripts/refresh-decisions-digest.py  # обновить DIGEST.md
 ```
 
 Все hooks **optional=false** кроме `refresh-digest`.
@@ -481,7 +481,7 @@ docs/decisions/           # ADR-файлы (НЕ в openspec/)
 scripts/
   openspec-import-all.py  # bulk import в registry
   check-speckit-issue-registry.py  # advisory gate
-  refresh-decisions-digest.sh       # обновление DIGEST
+   refresh-decisions-digest.py   # обновление DIGEST
 ```
 
 ---

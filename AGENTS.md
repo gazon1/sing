@@ -11,7 +11,7 @@
 
 **`DIGEST.md` генерируется, а не лежит в репозитории.** Файла нет в свежом клоне: он
 собирается из `docs/decisions/` и лежит в `.gitignore`. Нет файла — запусти
-`./scripts/refresh-decisions-digest.sh` (или `just setup-hooks`, чтобы хуки
+`python3 scripts/refresh-decisions-digest.py` (или `just setup-hooks`, чтобы хуки
 перегенерировали его сами при checkout/merge) и прочитай его тогда.
 
 **`git fetch` — до того, как что-либо сделал, а не на пуше.** Расхождение, найденное
@@ -232,7 +232,7 @@ CI, ожидание прогона (`gh pr checks <pr> --watch --interval 60`),
 ## 🧠 Decision log
 
 Если задача меняет архитектуру, контракт или обнаруживает неочевидный workaround — создай запись в
-`docs/decisions/YYYY-MM-DD-<slug>.md` и пересобери digest (`./scripts/refresh-decisions-digest.sh`).
+`docs/decisions/YYYY-MM-DD-<slug>.md` и пересобери digest (`python3 scripts/refresh-decisions-digest.py`).
 **Писать:** выбор между несколькими разумными вариантами; неочевидный workaround; изменение
 контракта между слоями. **Не писать:** опечатки, форматирование, новый use case по существующему
 паттерну. Формат: frontmatter + `Context / Idea / Decision / Rationale / Consequences / Links`;

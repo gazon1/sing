@@ -166,7 +166,7 @@ Describing the toolbox itself:
      tags=["<area>", "<tag>"],
      body="## Idea\n<...>\n\n## Decision\n<...>\n\n## Rationale\n<...>\n\n## Consequences\n<...>\n",
    )
-2. Then run scripts/refresh-decisions-digest.sh locally so
+2. Then run python3 scripts/refresh-decisions-digest.py locally so
    docs/decisions/DIGEST.md picks up the new ADR.
 ```
 

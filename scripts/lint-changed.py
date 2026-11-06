@@ -42,7 +42,6 @@ from __future__ import annotations
 import argparse
 import os
 import pathlib
-import re
 import shutil
 import subprocess
 import sys
@@ -76,17 +75,10 @@ TASKS: list[str] = [
     ":adr-cli:detektChanged",
 ]
 
-# The detekt console report: "<severity>: <RuleId> - [<message>] at <file>:<line>:<column>".
-# The message is truncated by detekt itself ("..."), so the report file is the
-# place to read the whole one.
-FINDING = re.compile(
-    r"^(?P<severity>[ew]):\s+(?P<rule>[\w.]+)\s+-\s+\[(?P<message>.*)\]\s+at\s+"
-    r"(?P<file>.+?):(?P<line>\d+):(?P<column>\d+)\s*$"
-)
-
-# The colour codes detekt's console output carries; they are noise in a report
-# a human reads, and they break the pattern above.
-ANSI = re.compile(r"\x1b\[[0-9;]*m")
+# detekt writes one checkstyle report per module under
+# <module>/build/reports/detekt/changed.xml — that is the machine-readable
+# source of findings, not the console text.
+REPORT_NAME = "changed.xml"
 
 
 def kotlin_files(paths: list[str]) -> list[pathlib.Path]:
@@ -153,29 +145,52 @@ def gradle_command(files: list[pathlib.Path]) -> list[str]:
     return ["heavy", "--timeout", "300", "--on-timeout", "run", "--", *cmd]
 
 
-def findings_of(output: str) -> list[dict[str, str]]:
-    """The findings in a Gradle log, deduplicated and in the order they appear.
+import xml.etree.ElementTree as ET
 
-    detekt prints the findings twice — once grouped by rule set, once grouped by
-    file — so the same finding arrives twice and has to be collapsed.
+
+def module_dirs() -> list[str]:
+    """The module directories that run detektChanged."""
+    return [task.strip(":").split(":")[0] for task in TASKS]
+
+
+def findings_of_reports() -> list[dict[str, str]]:
+    """The findings in the detekt checkstyle reports, deduplicated.
+
+    Each module writes <module>/build/reports/detekt/changed.xml. A finding
+    there is the same finding CI reports, with the full message (not the
+    truncated console one).
     """
     found: list[dict[str, str]] = []
     seen: set[tuple[str, str, str, str]] = set()
-    for raw_line in output.splitlines():
-        line = ANSI.sub("", raw_line).strip()
-        match = FINDING.match(line)
-        if not match:
+    for module in module_dirs():
+        report = ROOT / module / "build" / "reports" / "detekt" / REPORT_NAME
+        if not report.is_file():
             continue
-        key = (
-            match.group("rule"),
-            match.group("file"),
-            match.group("line"),
-            match.group("column"),
-        )
-        if key in seen:
+        try:
+            root = ET.parse(report).getroot()
+        except ET.ParseError:
             continue
-        seen.add(key)
-        found.append(match.groupdict())
+        for file_element in root:
+            filename = file_element.get("name", "")
+            for error in file_element:
+                rule = (error.get("source", "") or error.tag).removeprefix("detekt.")
+                line = error.get("line", "0")
+                column = error.get("column", "0")
+                message = error.get("message", "")
+                key = (rule, filename, line, column)
+                if key in seen:
+                    continue
+                seen.add(key)
+                found.append(
+                    {
+                        "severity": error.get("severity", "warning"),
+                        "rule": rule,
+                        "message": message,
+                        "file": filename,
+                        "line": line,
+                        "column": column,
+                    }
+                )
     return found
 
 
@@ -237,8 +252,15 @@ def main(argv: list[str]) -> int:
         check=False,
     )
 
-    output = process.stdout + process.stderr
-    findings = findings_of(output)
+    findings = findings_of_reports()
+
+    if process.returncode != 0 and not findings:
+        print("lint-changed: detekt failed to run (exit %d)." % process.returncode)
+        tail = (process.stderr or process.stdout).splitlines()[-20:]
+        for line in tail:
+            print("  " + line)
+        run_ktlint(files)
+        return 1
 
     if not findings:
         print("lint-changed: no findings.")
