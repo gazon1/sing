@@ -398,19 +398,22 @@ class CalendarSyncViewModel(
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<CalendarSyncUiState, CalendarSyncIntent, Nothing>(
-    initialState = CalendarSyncUiState(
-        importWindow = importWindow,
-        // The panel needs four seams, and it is offered only when all four can
-        // do their job here. Each port answers for itself, so the answer does not
-        // depend on which one the screen happened to ask first: the provider that
-        // talks to the calendar, the repository that stores the preference, the
-        // queries that list the apps to write into, and the scheduler that runs
-        // the sync afterwards.
-        deviceSyncSupported = calendarProvider.isSupported && syncRepo.isSupported && appQueries.isSupported && scheduler.isSupported,
-    ),
-    crashReporter = crashReporter,
-    scope = scope,
-) {
+        initialState =
+            CalendarSyncUiState(
+                importWindow = importWindow,
+                // The panel needs four seams, and it is offered only when all four can
+                // do their job here. Each port answers for itself, so the answer does not
+                // depend on which one the screen happened to ask first: the provider that
+                // talks to the calendar, the repository that stores the preference, the
+                // queries that list the apps to write into, and the scheduler that runs
+                // the sync afterwards.
+                deviceSyncSupported =
+                    calendarProvider.isSupported && syncRepo.isSupported && appQueries.isSupported &&
+                        scheduler.isSupported,
+            ),
+        crashReporter = crashReporter,
+        scope = scope,
+    ) {
     // MviViewModel handles addCloseable(scope) — no manual call needed
 
     /**
@@ -463,8 +466,9 @@ class CalendarSyncViewModel(
                 // and the field takes it as it stands. Nothing configured is
                 // nothing to seed — the field stays empty until the person types.
                 it.copy(
-                    googleClientId = clientId?.let { id -> it.googleClientId.seeded(id) }
-                        ?: it.googleClientId,
+                    googleClientId =
+                        clientId?.let { id -> it.googleClientId.seeded(id) }
+                            ?: it.googleClientId,
                     googleConfiguredClientId = clientId,
                 )
             }
@@ -493,7 +497,7 @@ class CalendarSyncViewModel(
                 syncGoogleNow()
             }
 
-            is CalendarSyncIntent.RequestPermission -> { /* UI layer */
+            is CalendarSyncIntent.RequestPermission -> { // UI layer
             }
 
             is CalendarSyncIntent.SetPermission -> {
@@ -592,10 +596,13 @@ class CalendarSyncViewModel(
                         // The device is disconnected either way — the person asked for
                         // that, and the local credential is gone. What failed is the
                         // server's half, and the user is the only one who can cancel it.
-                        googleDisconnectError = revoked.exceptionOrNull()
-                            ?.let { error ->
-                                "The account was disconnected on this device, but the grant was not " + "revoked: ${error.message ?: error::class.simpleName}"
-                            },
+                        googleDisconnectError =
+                            revoked
+                                .exceptionOrNull()
+                                ?.let { error ->
+                                    "The account was disconnected on this device, but the grant was not " +
+                                        "revoked: ${error.message ?: error::class.simpleName}"
+                                },
                     )
                 }
                 return@launch
@@ -622,19 +629,20 @@ class CalendarSyncViewModel(
     private fun connectGoogle() {
         vmScope.launch {
             updateState { it.copy(googleAuthorizing = true, googleSignInError = null) }
-            googleAuthorization.beginAuthorization()
+            googleAuthorization
+                .beginAuthorization()
                 .onSuccess { pending ->
                     pendingAuthorization = pending
                     updateState { it.copy(googleAuthorizationRequest = pending.request) }
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     Logger.w(error) { "The Google sign-in could not be prepared" }
                     updateState {
                         it.copy(
                             googleAuthorizing = false,
                             googleConnected = false,
-                            googleSignInError = error.message
-                                ?: "The Google sign-in did not finish",
+                            googleSignInError =
+                                error.message
+                                    ?: "The Google sign-in did not finish",
                         )
                     }
                 }
@@ -662,7 +670,8 @@ class CalendarSyncViewModel(
             return
         }
         vmScope.launch {
-            googleAuthorization.redeem(pending, grant, currentUser.current.value)
+            googleAuthorization
+                .redeem(pending, grant, currentUser.current.value)
                 .onSuccess { credentials ->
                     pendingAuthorization = null
                     updateState {
@@ -676,8 +685,7 @@ class CalendarSyncViewModel(
                         )
                     }
                     refreshGoogleConnection()
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     Logger.w(error) { "The Google grant could not be redeemed" }
                     pendingAuthorization = null
                     updateState {
@@ -685,8 +693,9 @@ class CalendarSyncViewModel(
                             googleAuthorizing = false,
                             googleAuthorizationRequest = null,
                             googleConnected = false,
-                            googleSignInError = error.message
-                                ?: "The Google sign-in did not finish",
+                            googleSignInError =
+                                error.message
+                                    ?: "The Google sign-in did not finish",
                         )
                     }
                 }
@@ -736,7 +745,8 @@ class CalendarSyncViewModel(
                 updateState { it.copy(googleError = "A client id cannot be empty") }
                 return@launch
             }
-            runCatchingCancellable { googleAuthorization.storeClientId(trimmed) }.onSuccess {
+            runCatchingCancellable { googleAuthorization.storeClientId(trimmed) }
+                .onSuccess {
                     updateState {
                         it.copy(
                             // The user's own text, trimmed: the field's text, and
@@ -746,13 +756,13 @@ class CalendarSyncViewModel(
                             googleError = null,
                         )
                     }
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     Logger.w(error) { "The Google client id could not be saved" }
                     updateState {
                         it.copy(
-                            googleError = error.message
-                                ?: "The client id could not be saved"
+                            googleError =
+                                error.message
+                                    ?: "The client id could not be saved",
                         )
                     }
                 }
@@ -810,8 +820,9 @@ class CalendarSyncViewModel(
                     it.copy(
                         isLoading = false,
                         googleCalendars = emptyList(),
-                        googleError = error.message
-                            ?: "Could not reach Google Calendar",
+                        googleError =
+                            error.message
+                                ?: "Could not reach Google Calendar",
                     )
                 },
             )
@@ -828,27 +839,29 @@ class CalendarSyncViewModel(
             updateState { it.copy(isLoading = true) }
 
             // Load calendar apps and calendars in parallel
-            val apps = if (appQueries.isSupported) {
-                try {
-                    appQueries.listInstalled()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    // Swallowed into an empty list, so the picker silently shows no apps and the
-                    // only trace was a warn line nothing reads.
-                    Logger.w(e) { "Failed to list installed calendar apps" }
-                    crashReporter.report(e, LIST_APPS_FAILED)
+            val apps =
+                if (appQueries.isSupported) {
+                    try {
+                        appQueries.listInstalled()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        // Swallowed into an empty list, so the picker silently shows no apps and the
+                        // only trace was a warn line nothing reads.
+                        Logger.w(e) { "Failed to list installed calendar apps" }
+                        crashReporter.report(e, LIST_APPS_FAILED)
+                        emptyList()
+                    }
+                } else {
+                    // The port says it cannot do its job here. Asking anyway would answer
+                    // "you have no calendar apps" — an artifact of the platform, not a fact
+                    // about the user.
                     emptyList()
                 }
-            } else {
-                // The port says it cannot do its job here. Asking anyway would answer
-                // "you have no calendar apps" — an artifact of the platform, not a fact
-                // about the user.
-                emptyList()
-            }
             val calendarsResult = calendarProvider.getAvailableCalendars()
 
-            calendarsResult.onSuccess { calendars ->
+            calendarsResult
+                .onSuccess { calendars ->
                     updateState {
                         it.copy(
                             availableCalendars = calendars,
@@ -856,8 +869,7 @@ class CalendarSyncViewModel(
                             isLoading = false,
                         )
                     }
-                }
-                .onFailure {
+                }.onFailure {
                     // Nothing is set to "unsupported" here, and deliberately: the platform
                     // gate is the conjunction of the seams' own `isSupported` flags,
                     // which the screen reads and which know the answer without making a
@@ -937,10 +949,12 @@ class CalendarSyncViewModel(
                             // Converted here, at the one seam where the two Instant
                             // types meet, rather than making either side carry a
                             // conversion it has no other use for.
-                            googleLastSyncedAt = kotlin.time.Instant.fromEpochMilliseconds(
-                                googleSync.completedAt()
-                                    .toEpochMilliseconds(),
-                            ),
+                            googleLastSyncedAt =
+                                kotlin.time.Instant.fromEpochMilliseconds(
+                                    googleSync
+                                        .completedAt()
+                                        .toEpochMilliseconds(),
+                                ),
                         )
                     }
 

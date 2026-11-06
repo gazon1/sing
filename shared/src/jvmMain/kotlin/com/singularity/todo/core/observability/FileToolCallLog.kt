@@ -28,9 +28,11 @@ import java.nio.file.attribute.PosixFilePermissions
  */
 class JvmFileToolCallLog(
     private val directory: String,
-    private val processToken: String = ProcessHandle.current()
-        .pid()
-        .toString(),
+    private val processToken: String =
+        ProcessHandle
+            .current()
+            .pid()
+            .toString(),
     private val nowEpochMillis: () -> Long = { System.currentTimeMillis() },
 ) : ToolCallLog {
     private val dir = File(directory)
@@ -53,7 +55,8 @@ class JvmFileToolCallLog(
      */
     fun purgeExpired(retentionDays: Int = ToolCallRecordPolicy.RETENTION_DAYS) {
         val cutoff = nowEpochMillis() - retentionDays * 24L * 60L * 60L * 1000L
-        dir.listFiles()
+        dir
+            .listFiles()
             ?.forEach { file ->
                 if (!file.isFile || !file.name.endsWith(SUFFIX)) return@forEach
                 if (file.lastModified() >= cutoff) return@forEach
@@ -62,8 +65,11 @@ class JvmFileToolCallLog(
     }
 
     private fun fileFor(epochMillis: Long): File {
-        val day = kotlin.time.Instant.fromEpochMilliseconds(epochMillis)
-            .toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val day =
+            kotlin.time.Instant
+                .fromEpochMilliseconds(epochMillis)
+                .toLocalDateTime(TimeZone.currentSystemDefault())
+                .date
         return File(dir, "$day-$processToken$SUFFIX")
     }
 

@@ -75,8 +75,9 @@ object GoogleEventTaskMapper {
         val end = event.endsAt?.toLocalDateTime(timeZone)
 
         return TaskDraft(
-            title = event.title?.takeIf { it.isNotBlank() }
-                ?: UNTITLED,
+            title =
+                event.title?.takeIf { it.isNotBlank() }
+                    ?: UNTITLED,
             description = event.description?.takeIf { it.isNotBlank() },
             dueDate = start?.date,
             // An all-day event has a date, not a moment. See the class comment.
@@ -99,8 +100,9 @@ object GoogleEventTaskMapper {
         now: kotlin.time.Instant,
         timeZone: TimeZone,
     ): Task? {
-        val draft = draftFor(event, timeZone)
-            ?: return null
+        val draft =
+            draftFor(event, timeZone)
+                ?: return null
         // An event with no start becomes an unscheduled task rather than nothing: the user
         // can still see it, rename it, and give it a date. Dropping it would lose a real
         // appointment that Google simply did not put a time on.
@@ -161,7 +163,7 @@ object GoogleEventTaskMapper {
         DueDate,
         DueTime,
         EndDate,
-        EndTime
+        EndTime,
     }
 
     /**
@@ -198,18 +200,19 @@ object GoogleEventTaskMapper {
         val isAllDay = remote.allDay == true
 
         return TaskEdits(
-            changed = buildSet {
-                if (title != null) add(TaskField.Title)
-                if (description != null) add(TaskField.Description)
-                if (start != null) {
-                    add(TaskField.DueDate)
-                    add(TaskField.DueTime)
-                }
-                if (end != null) {
-                    add(TaskField.EndDate)
-                    add(TaskField.EndTime)
-                }
-            },
+            changed =
+                buildSet {
+                    if (title != null) add(TaskField.Title)
+                    if (description != null) add(TaskField.Description)
+                    if (start != null) {
+                        add(TaskField.DueDate)
+                        add(TaskField.DueTime)
+                    }
+                    if (end != null) {
+                        add(TaskField.EndDate)
+                        add(TaskField.EndTime)
+                    }
+                },
             title = title?.value as? String,
             description = description?.value as? String,
             dueDate = startLocal?.date,

@@ -12,7 +12,6 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.exception.AuthErrorCode
 import io.github.jan.supabase.auth.exception.AuthRestException
 import io.github.jan.supabase.auth.exception.NoSessionFoundException
-import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.providers.builtin.OTP
 import io.github.jan.supabase.auth.status.SessionSource
 import io.github.jan.supabase.auth.status.SessionStatus
@@ -76,7 +75,9 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
      * is the honest shape, and it is why this class takes the provider rather than
      * the plugin.
      */
-    private suspend fun auth(): Auth = clients.auth() ?: throw AuthFailure.notConfigured()
+    private suspend fun auth(): Auth =
+        clients.auth()
+            ?: throw AuthFailure.notConfigured()
 
     /**
      * KMPAuth's backend over the one client.
@@ -100,19 +101,23 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
         password: String,
     ): Result<RemoteSession> =
         call("sign up") {
-            val user = backend().signUp(email, password).getOrThrow()
+            val user =
+                backend()
+                    .signUp(email, password)
+                    .getOrThrow()
             val session = auth().currentSessionOrNull()
-            session?.toRemote() ?: RemoteSession(
-                userId = user.uid,
-                // A blank address is how the repository is told that the account exists
-                // but there is no session to use yet: a sign-up that needs the address
-                // confirmed leaves the device signed out, and the screen has to say
-                // "check your mail" rather than "that failed".
-                email = "",
-                accessToken = "",
-                refreshToken = "",
-                isAnonymous = false,
-            )
+            session?.toRemote()
+                ?: RemoteSession(
+                    userId = user.uid,
+                    // A blank address is how the repository is told that the account exists
+                    // but there is no session to use yet: a sign-up that needs the address
+                    // confirmed leaves the device signed out, and the screen has to say
+                    // "check your mail" rather than "that failed".
+                    email = "",
+                    accessToken = "",
+                    refreshToken = "",
+                    isAnonymous = false,
+                )
         }
 
     override suspend fun signIn(
@@ -120,8 +125,12 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
         password: String,
     ): Result<RemoteSession> =
         call("sign in") {
-            backend().signIn(AuthCredential.EmailPassword(email = email, password = password)).getOrThrow()
-            auth().currentSessionOrNull()?.toRemote()
+            backend()
+                .signIn(AuthCredential.EmailPassword(email = email, password = password))
+                .getOrThrow()
+            auth()
+                .currentSessionOrNull()
+                ?.toRemote()
         }
 
     override suspend fun updatePassword(newPassword: String): Result<Unit> =
@@ -143,7 +152,6 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
                 // correctly surfaces the error rather than silently creating a ghost.
                 createUser = false
             }
-            Unit
         }
 
     override suspend fun verifyMagicLink(
@@ -153,8 +161,7 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
         runCatchingCancellable {
             val auth = auth()
             // Exchange the token from the magic link URL for a session.
-            val result = auth.verifyEmailOtp(OtpType.Email.MAGIC_LINK, email, token)
-            when (result) {
+            when (val result = auth.verifyEmailOtp(OtpType.Email.MAGIC_LINK, email, token)) {
                 is OtpVerifyResult.Authenticated -> result.session.toRemote()
                 is OtpVerifyResult.VerifiedNoSession -> throw AuthFailure.verifiedWithoutSession()
             }
@@ -185,8 +192,9 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
                     // the plugin clears the session it holds before it lets that through,
                     // so the local end has already happened by the time the exception
                     // reaches this catch.
-                    runCatchingCancellable { client.auth.clearSession() }
-                        .onFailure { log.w(it) { "Could not clear the local session after a failed sign out" } }
+                    runCatchingCancellable {
+                        client.auth.clearSession()
+                    }.onFailure { log.w(it) { "Could not clear the local session after a failed sign out" } }
                     throw e
                 }
             }
@@ -216,7 +224,9 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
         runCatchingCancellable {
             val auth = auth()
             try {
-                auth.refreshSession(refreshToken).toRemote()
+                auth
+                    .refreshSession(refreshToken)
+                    .toRemote()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Throwable) {
@@ -257,7 +267,7 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
         val auth = auth()
         val session =
             try {
-                auth.sessionManager?.loadSession()
+                auth.sessionManager.loadSession()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: NoSessionFoundException) {
@@ -267,7 +277,8 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
                 // the session could not be read rather than that there is none.
                 log.d(e) { "The credential store holds no session" }
                 null
-            } ?: return null
+            }
+                ?: return null
         auth.importSession(session, autoRefresh = false, source = SessionSource.Storage)
         return session.toRemoteOrNull()
     }
@@ -309,7 +320,8 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
         block: suspend () -> T?,
     ): Result<T> =
         runCatchingCancellable {
-            block() ?: throw AuthFailure.noSession(what)
+            block()
+                ?: throw AuthFailure.noSession(what)
         }.onFailure { e ->
             if (e !is CancellationException) {
                 log.w(e) { "Auth $what failed" }
@@ -324,7 +336,9 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
      * the first, and only the project can say what the answer means.
      */
     private fun Throwable.refreshFailureReason(): RefreshFailureReason {
-        val rest = this as? RestException ?: return RefreshFailureReason.Transient
+        val rest =
+            this as? RestException
+                ?: return RefreshFailureReason.Transient
         val code = (this as? AuthRestException)?.errorCode
         // The refresh endpoint answers 400 for a token it will not accept, and for
         // nothing else. That is the fallback for the answer that arrives without the
@@ -360,13 +374,17 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
      * one would file the user's rows under an owner that does not exist.
      */
     private fun io.github.jan.supabase.auth.user.UserSession.toRemoteOrNull(): RemoteSession? {
-        val owner = user ?: return null
+        val owner =
+            user
+                ?: return null
         return RemoteSession(
             userId = owner.id,
             email = owner.email,
             accessToken = accessToken,
             refreshToken = refreshToken,
-            isAnonymous = owner.isAnonymous ?: false,
+            isAnonymous =
+                owner.isAnonymous
+                    ?: false,
         )
     }
 

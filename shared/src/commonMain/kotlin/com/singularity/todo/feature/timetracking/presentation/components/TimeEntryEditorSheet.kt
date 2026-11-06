@@ -63,16 +63,18 @@ fun TimeEntryEditorSheet(
     onDismiss: () -> Unit,
 ) {
     // Default: start = task creation time, end = now
-    val defaultStart = taskStartedAtMs?.let {
-        Instant.fromEpochMilliseconds(it)
-            .toLocalDateTime(TimeZone.currentSystemDefault())
-    }
+    val defaultStart =
+        taskStartedAtMs?.let {
+            Instant
+                .fromEpochMilliseconds(it)
+                .toLocalDateTime(TimeZone.currentSystemDefault())
+        }
     val defaultEnd = now.toLocalDateTime(TimeZone.currentSystemDefault())
 
     var startedDate by mutableStateOf(defaultStart?.date)
     var startedTime by mutableStateOf(
         defaultStart?.time
-            ?: LocalTime(9, 0)
+            ?: LocalTime(9, 0),
     )
     var endedDate by mutableStateOf(defaultEnd.date)
     var endedTime by mutableStateOf(defaultEnd.time)
@@ -122,34 +124,41 @@ fun TimeEntryEditorSheet(
     } else {
         BottomSheetHost(onDismiss = onDismiss) {
             SheetScaffold(
-                actions = SheetActions(
-                    onCancel = onDismiss,
-                    onConfirm = {
-                        val startDt = combine(startedDate, startedTime)
-                        val endDt = combine(endedDate, endedTime)
-                        if (startDt != null && endDt != null) {
-                            val startedAtMs = startDt.toInstant(
-                                TimeZone.currentSystemDefault(),
-                            )
-                                .toEpochMilliseconds()
-                            val endedAtMs = endDt.toInstant(
-                                TimeZone.currentSystemDefault(),
-                            )
-                                .toEpochMilliseconds()
-                            onSave(
-                                startedAtMs,
-                                endedAtMs,
-                                kind,
-                                noteState.text.toString()
-                                    .ifBlank { null })
-                        }
-                    },
-                    onClear = onDismiss,
-                ),
+                actions =
+                    SheetActions(
+                        onCancel = onDismiss,
+                        onConfirm = {
+                            val startDt = combine(startedDate, startedTime)
+                            val endDt = combine(endedDate, endedTime)
+                            if (startDt != null && endDt != null) {
+                                val startedAtMs =
+                                    startDt
+                                        .toInstant(
+                                            TimeZone.currentSystemDefault(),
+                                        ).toEpochMilliseconds()
+                                val endedAtMs =
+                                    endDt
+                                        .toInstant(
+                                            TimeZone.currentSystemDefault(),
+                                        ).toEpochMilliseconds()
+                                onSave(
+                                    startedAtMs,
+                                    endedAtMs,
+                                    kind,
+                                    noteState.text
+                                        .toString()
+                                        .ifBlank { null },
+                                )
+                            }
+                        },
+                        onClear = onDismiss,
+                    ),
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     // Start row
@@ -236,8 +245,10 @@ private fun DateRow(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier = modifier.clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+        modifier =
+            modifier
+                .clickable(onClick = onClick)
+                .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
@@ -252,8 +263,9 @@ private fun DateRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = date?.toString()
-                    ?: "Select",
+                text =
+                    date?.toString()
+                        ?: "Select",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (date != null) FontWeight.Medium else FontWeight.Normal,
             )
@@ -269,8 +281,10 @@ private fun TimeRow(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier = modifier.clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+        modifier =
+            modifier
+                .clickable(onClick = onClick)
+                .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
@@ -285,9 +299,11 @@ private fun TimeRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = time?.toString()
-                    ?.take(5)
-                    ?: "Select",
+                text =
+                    time
+                        ?.toString()
+                        ?.take(5)
+                        ?: "Select",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (time != null) FontWeight.Medium else FontWeight.Normal,
             )

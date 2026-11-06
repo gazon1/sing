@@ -81,7 +81,6 @@ import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreviewStat
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Clock
@@ -98,7 +97,6 @@ private sealed interface NotePreviewSheet {
 
 // ─── Screen entry ──────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotePreviewScreen(
     route: NotesRoute.Preview,
@@ -154,7 +152,6 @@ fun NotePreviewScreen(
 
 // ─── Content ─────────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalRichTextApi::class)
 @Composable
 fun NotePreviewScreenContent(
     state: NotePreviewState,
@@ -504,7 +501,7 @@ private fun NotePreviewLoadingPreview() =
         )
     }
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun NotePreviewLoadedPreview() =
     NotesPreviewWrapper {
