@@ -17,6 +17,8 @@
 #
 # The attach path itself is covered by Maestro/flows/auth/07-account-attach.yaml
 # (scenario AUTH-ATTACH-01), which needs an anonymous session to exist at all.
+#
+# прогнан на устройстве: да (2026-11-06) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: smoke-account-tab
 tags:
@@ -38,11 +40,11 @@ tags:
     env:
       TAB_ID: settings_tab_account
 
-# The Account tab is open: its account section is on the screen.
+# The Account tab is open: its sign-out action is on the screen. The button's
+# own `auth_sign_out_button` tag is below the section card, which merges its
+# descendants; the visible label is what Maestro can see.
 - extendedWaitUntil:
-    visible:
-      id: auth_sign_out_button
+    visible: "Sign out"
     timeout: 8000
-- assertVisible:
-    id: auth_sign_out_button
+- assertVisible: "Sign out"
 - takeScreenshot: smoke/03-account-tab
