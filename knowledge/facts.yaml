@@ -128,3 +128,12 @@ facts:
   - id: K-taskscore-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/tasks-core.md
+  - id: K-billing-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/billing.md
+  - id: K-draft-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/draft.md
+  - id: K-error-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/error.md
