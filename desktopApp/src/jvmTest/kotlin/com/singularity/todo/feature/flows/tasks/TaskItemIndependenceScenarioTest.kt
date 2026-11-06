@@ -13,9 +13,11 @@ import com.singularity.todo.feature.flows.tasks.TaskItemScenarioSupport.seedChec
 import com.singularity.todo.feature.flows.tasks.TaskItemScenarioSupport.seedParent
 import com.singularity.todo.feature.flows.tasks.TaskItemScenarioSupport.seedSubtask
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.awaitCheckboxChecked
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.clickCheckbox
+import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.isCheckboxChecked
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
@@ -93,5 +95,15 @@ class TaskItemIndependenceScenarioTest {
                 koin.get<TaskRepository>().get(child.id)?.isCompleted == true,
                 "the subtask must be finished — it was ticked",
             )
+
+            // A subtask's *text* opens the subtask: it is a task and keeps a
+            // screen of its own, so its title is the way in and must really
+            // navigate. The parent's checklist row is on the parent's screen and
+            // nowhere else, so its absence is what says the child's screen is
+            // now the one being shown — a row whose title click was dropped would
+            // leave the parent standing and this assertion would see Milk.
+            scrollToTag(TestTags.subtaskItem(CHILD))
+            clickTag(TestTags.subtaskItem(CHILD))
+            assertTagNotExists(TestTags.checklistItemCheckbox(id = MILK, title = MILK))
         }
 }

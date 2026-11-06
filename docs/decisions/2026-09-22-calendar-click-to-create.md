@@ -16,6 +16,7 @@ MR-3 builds on MR-2a (Task schema v16 with startDate/endDate/accentColor/emoji) 
 ### MR-3a — `ReminderRepository` in `CalendarDeps`
 
 **`ReminderDao`** gets a new query:
+
 ```kotlin
 @Query("""
     SELECT DISTINCT task_id FROM task_reminders
@@ -25,6 +26,7 @@ fun watchRecurringTaskIds(userId: String): Flow<List<String>>
 ```
 
 **`ReminderRepository`** gets a new interface method:
+
 ```kotlin
 fun observeRecurringTaskIds(): Flow<Set<TaskId>>
 ```
@@ -34,10 +36,13 @@ Returns `Set<TaskId>` (not `List`) — dedup since Room `DISTINCT` still returns
 **`CalendarDeps`** adds `reminderRepo: ReminderRepository`.
 
 **`CalendarViewModel`** state flow changes from:
+
 ```kotlin
 _calendarState.flatMapLatest { cal -> tasksFlow(cal.visibleDates) }
 ```
+
 to:
+
 ```kotlin
 combine(_calendarState, reminderRepo.observeRecurringTaskIds()) { cal, recurringIds ->
     cal to recurringIds
@@ -55,16 +60,19 @@ combine(_calendarState, reminderRepo.observeRecurringTaskIds()) { cal, recurring
 ### MR-3b — Click-to-create on long-press
 
 **New intent:**
+
 ```kotlin
 data class EmptyCellLongPressed(val date: LocalDate) : CalendarIntent
 ```
 
 **New UI event:**
+
 ```kotlin
 data class ShowCreateTaskSheet(val initialDueDate: LocalDate) : CalendarUiEvent
 ```
 
 **`CalendarNavigator.openCreateTask(date)`** navigates to the outer `TasksGraph`:
+
 ```kotlin
 open fun openCreateTask(initialDueDate: LocalDate) {
     onExitGraph(
@@ -77,6 +85,7 @@ open fun openCreateTask(initialDueDate: LocalDate) {
 ```
 
 **`MonthDayCell`** uses `combinedClickable` with a guard:
+
 ```kotlin
 val hasNoTasks = tasks.isEmpty() && isCurrentMonth
 Box(

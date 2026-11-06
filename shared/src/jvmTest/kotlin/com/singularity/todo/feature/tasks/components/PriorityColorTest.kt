@@ -14,7 +14,7 @@ class PriorityColorTest {
     @Test
     fun `None priority has a defined tertiary color`() {
         // None maps to PriorityNone = TextTertiary = Color(0xFF5C6270), not Color.Unspecified
-        assertEquals(Color(0xFF5C6270), priorityColor(TaskPriority.None))
+        assertEquals(Color(0xFF8B94A6), priorityColor(TaskPriority.None))
     }
 
     @Test
@@ -28,10 +28,10 @@ class PriorityColorTest {
 
     @Test
     fun `specific priority colors are stable`() {
-        // Encoded ARGB values — change intentionally if palette changes.
-        assertEquals(0xFF5B8DEF.toInt(), priorityColor(TaskPriority.Low).toArgb())
-        assertEquals(0xFFF5A623.toInt(), priorityColor(TaskPriority.Medium).toArgb())
-        assertEquals(0xFFE5484D.toInt(), priorityColor(TaskPriority.High).toArgb())
+        // Unified palette - same across all screens
+        assertEquals(0xFF6FCF97.toInt(), priorityColor(TaskPriority.Low).toArgb())
+        assertEquals(0xFFF2C94C.toInt(), priorityColor(TaskPriority.Medium).toArgb())
+        assertEquals(0xFFEB5757.toInt(), priorityColor(TaskPriority.High).toArgb())
         assertEquals(0xFFFF6B6B.toInt(), priorityColor(TaskPriority.Urgent).toArgb())
     }
 }

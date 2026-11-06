@@ -67,6 +67,10 @@ fun backupFailure(
             BackupFailure(CHAIN_TOO_LONG, "That archive carries more changes than this app reads")
         }
 
+        is ArchiveEnvelopeError.Unusable -> {
+            BackupFailure(UNUSABLE_ARCHIVE, "That archive could not be read or written")
+        }
+
         is BackupPayloadError.ChecksumMismatch -> {
             BackupFailure(CHECKSUM_MISMATCH, "That archive's contents do not match its manifest")
         }
@@ -123,6 +127,9 @@ const val BROKEN_CHAIN = "backup.broken_chain"
 
 /** The chain of changes is longer than this app reads. */
 const val CHAIN_TOO_LONG = "backup.chain_too_long"
+
+/** The archive's bytes could not be read from the source, or written to the sink. */
+const val UNUSABLE_ARCHIVE = "backup.unusable_archive"
 
 /** The contents do not match the manifest. */
 const val CHECKSUM_MISMATCH = "backup.checksum_mismatch"

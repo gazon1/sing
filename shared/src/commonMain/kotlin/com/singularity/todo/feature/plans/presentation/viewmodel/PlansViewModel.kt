@@ -68,8 +68,12 @@ class PlansViewModel(
                         today = today,
                     )
                 }.catch { throwable ->
-                    crashReporter.report(throwable, LOAD_FAILED)
-                    setState(PlansUiState.Error(throwable.message ?: "Could not load the plan"))
+                    // The failure crossed a channel hop, and a channel carries a *copy* of
+                    // the throwable — the original is its cause, so the copy is unwrapped
+                    // before it is reported.
+                    val reported = throwable.cause ?: throwable
+                    crashReporter.report(reported, LOAD_FAILED)
+                    setState(PlansUiState.Error(reported.message ?: "Could not load the plan"))
                 }.collect { loaded -> setState(loaded) }
         }
     }

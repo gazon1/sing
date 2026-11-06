@@ -19,7 +19,7 @@ import kotlin.test.assertTrue
  * ## Why the contract is worth a test of its own
  *
  * The Edge Function lives in this repository, under
- * `supabase/functions/google-oauth-exchange`, and the app is its client. The two
+ * `infra/supabase/functions/google-oauth-exchange`, and the app is its client. The two
  * can drift apart silently: a renamed action is an answer the function does not
  * understand, and a wrong status code turns "the grant is already gone" into a
  * failure the person reads as "something went wrong".

@@ -9,6 +9,7 @@ Migrate a ViewModel from manual `override fun onCleared() { scope.cancel() }` to
 `AutoCloseableCoroutineScope` + `ViewModel.addCloseable()` (lifecycle 2.8+).
 
 Use this skill when:
+
 - Creating a **new** Tier-1 ViewModel (only cleanup is scope cancellation)
 - Reviewing a PR that adds a new VM with manual `onCleared()`
 - Auditing existing VMs for missing cleanup
@@ -59,11 +60,13 @@ override fun onCleared() {
 **In the VM file:**
 
 1. Add import:
+
    ```kotlin
    import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
    ```
 
 2. Change constructor parameter:
+
    ```kotlin
    // Before
    private val scope: CoroutineScope,
@@ -73,6 +76,7 @@ override fun onCleared() {
    ```
 
 3. Add `init` block after constructor parameters:
+
    ```kotlin
    ) : ViewModel() {
        init {
@@ -81,6 +85,7 @@ override fun onCleared() {
    ```
 
 4. Update production secondary constructor:
+
    ```kotlin
    // Before
    scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
@@ -137,6 +142,7 @@ return MyViewModel(deps, ..., scope = testScope(scope))
 ```
 
 Add import if not already present:
+
 ```kotlin
 import com.singularity.todo.core.coroutines.testScope
 ```

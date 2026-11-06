@@ -19,9 +19,15 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Due%20tomorrow&due=tomorrow"
-- tapOn:
-    id: nav_tab_plans
+- runFlow:
+    file: ../../helpers/open-menu-item.yaml
+    env:
+      ENTRY_ID: menu_plans
+      DEST_ID: plans_screen
 # A section for today, and a section for tomorrow — two days, two sections.
+# The section is the arrival signal for the task in it: a section header
+# renders only when the section holds a task, so this wait is the seeded task
+# arriving and not a proxy for it (the contract in helpers/seed.yaml).
 - runFlow:
     file: ../../helpers/plans-section.yaml
     env:

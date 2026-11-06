@@ -10,7 +10,6 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -24,7 +23,7 @@ import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.preview.PreviewThemed
 
 /**
- * Shared email + password + feedback + submit UI for all auth form screens.
+ * Shared email + password + submit UI for all auth form screens.
  *
  * Both [LoginScreen] and [AttachAccountScreen] render the same field structure
  * with different tags, button labels, and submit actions. Centralising the layout
@@ -43,8 +42,6 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
  *                           [ConfirmationPendingContent] instead. This parameter is kept
  *                           only to avoid breaking callers and will be removed in a future
  *                           release. Do not pass it; the component defaults to enabled.
- * @param errorMessage       Non-null error message to display, or null to show nothing.
- * @param message            Non-null neutral (non-error) message to display, or null.
  * @param onSubmit           Called when the submit button is clicked.
  */
 @Composable
@@ -56,8 +53,6 @@ fun AuthFormFields(
     emailState: TextFieldState,
     passwordState: TextFieldState,
     isLoading: Boolean,
-    errorMessage: String?,
-    message: String? = null,
     onSubmit: () -> Unit,
     /**
      * Extra condition for the submit button, beyond both fields being filled.
@@ -93,26 +88,6 @@ fun AuthFormFields(
             textObfuscationMode = TextObfuscationMode.Hidden,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         )
-
-        if (errorMessage != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = errorMessage,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.testTag(TestTags.AUTH_ERROR_TEXT),
-            )
-        }
-
-        if (message != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = message,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.testTag(TestTags.AUTH_MESSAGE_TEXT),
-            )
-        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -155,26 +130,6 @@ private fun AuthFormFieldsPreview() =
             emailState = rememberTextFieldState("user@example.com"),
             passwordState = rememberTextFieldState("password"),
             isLoading = false,
-            errorMessage = null,
-            message = null,
-            onSubmit = {},
-        )
-    }
-
-@androidx.compose.ui.tooling.preview.Preview
-@Composable
-private fun AuthFormFieldsWithMessagePreview() =
-    PreviewThemed(darkTheme = false) {
-        AuthFormFields(
-            emailTag = "auth_email",
-            passwordTag = "auth_password",
-            submitTag = "auth_submit",
-            submitLabel = "Sign In",
-            emailState = rememberTextFieldState("user@example.com"),
-            passwordState = rememberTextFieldState("password"),
-            isLoading = false,
-            errorMessage = null,
-            message = "Account created. Check your email to confirm the address.",
             onSubmit = {},
         )
     }
@@ -191,8 +146,6 @@ private fun AuthFormFieldsLoadingPreview() =
             emailState = rememberTextFieldState("user@example.com"),
             passwordState = rememberTextFieldState("password"),
             isLoading = true,
-            errorMessage = null,
-            message = null,
             onSubmit = {},
         )
     }
@@ -209,26 +162,6 @@ private fun AuthFormFieldsDisabledPreview() =
             emailState = rememberTextFieldState("user@example.com"),
             passwordState = rememberTextFieldState("password"),
             isLoading = false,
-            errorMessage = null,
-            message = null,
-            onSubmit = {},
-        )
-    }
-
-@androidx.compose.ui.tooling.preview.Preview
-@Composable
-private fun AuthFormFieldsErrorPreview() =
-    PreviewThemed(darkTheme = false) {
-        AuthFormFields(
-            emailTag = "auth_email",
-            passwordTag = "auth_password",
-            submitTag = "auth_submit",
-            submitLabel = "Sign In",
-            emailState = rememberTextFieldState("user@example.com"),
-            passwordState = rememberTextFieldState("wrong-password"),
-            isLoading = false,
-            errorMessage = "Invalid email or password.",
-            message = null,
             onSubmit = {},
         )
     }
@@ -245,8 +178,6 @@ private fun AuthFormFieldsDarkPreview() =
             emailState = rememberTextFieldState("user@example.com"),
             passwordState = rememberTextFieldState("password"),
             isLoading = false,
-            errorMessage = null,
-            message = null,
             onSubmit = {},
         )
     }

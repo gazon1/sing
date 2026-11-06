@@ -1,0 +1,15 @@
+diff --git a/shared/src/commonMain/kotlin/com/singularity/todo/core/log/RedactingLogWriter.kt b/shared/src/commonMain/kotlin/com/singularity/todo/core/log/RedactingLogWriter.kt
+index ec73de216..37c1d242f 100644
+--- a/shared/src/commonMain/kotlin/com/singularity/todo/core/log/RedactingLogWriter.kt
++++ b/shared/src/commonMain/kotlin/com/singularity/todo/core/log/RedactingLogWriter.kt
+@@ -75,8 +75,9 @@ class RedactingLogWriter(private val delegate: LogWriter) : LogWriter() {
+     }
+ 
+     private fun redact(text: String): String {
++        val patterns = REDACTION_PATTERNS
+         var result = text
+-        for ((pattern, replacement) in REDACTION_PATTERNS) {
++        for ((pattern, replacement) in patterns) {
+             result = pattern.replace(result, replacement)
+         }
+         return result

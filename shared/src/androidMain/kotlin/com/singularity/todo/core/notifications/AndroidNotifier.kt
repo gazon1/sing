@@ -54,14 +54,24 @@ class AndroidNotifier(
      * wrong in exactly the situation where the user is trying to fix it.
      *
      * Cost is one binder call, on a path that already builds a `Notification`.
+     *
+     * ## Why the rule is not here
+     *
+     * Which cells of the permission matrix hold is a fact about every device, not
+     * about Android's `Context`, so it lives in common code
+     * ([NotificationSupport]) and is asserted once, on the JVM. This class supplies
+     * the two facts only the platform can read: the API level and the current grant.
      */
     override val isSupported: Boolean
         get() =
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS,
-                ) == PackageManager.PERMISSION_GRANTED
+            NotificationSupport.isSupported(
+                sdkInt = Build.VERSION.SDK_INT,
+                permissionGranted =
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.POST_NOTIFICATIONS,
+                    ) == PackageManager.PERMISSION_GRANTED,
+            )
 
     private val notificationManager: NotificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

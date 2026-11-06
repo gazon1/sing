@@ -140,9 +140,10 @@ from sgate.gatekit.scenarios import (  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 
-SCHEMA_DIR = ROOT / "shared/schemas/com.singularity.todo.core.database.AppDatabase"
-APP_DATABASE = ROOT / "shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
-FACTORY = ROOT / "shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabaseFactory.kt"
+SCHEMA_RELATIVE = Path("core-database/schemas/com.singularity.todo.core.database.AppDatabase")
+SCHEMA_DIR = ROOT / SCHEMA_RELATIVE
+APP_DATABASE = ROOT / "core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
+FACTORY = ROOT / "core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabaseFactory.kt"
 
 # Version pairs that legitimately have no `AutoMigration` entry, because the
 # migration is a manual `Migration` registered via `addMigrations` and needs
@@ -234,7 +235,7 @@ _AUTO_MIGRATION_RE = re.compile(r"AutoMigration\(\s*from\s*=\s*(\d+)\s*,\s*to\s*
 # The argument list contains nested calls — `addMigrations(Migration31To32())` —
 # so a `[^)]*` class stops at the inner paren and reads as empty. Scan forward
 # and balance the parens instead.
-_ADD_MIGRATIONS_RE = re.compile(r"\.addMigrations\(")
+_ADD_MIGRATIONS_RE = re.compile(r"\baddMigrations\s*\(")
 _TABLE_NAME_RE = re.compile(r'tableName\s*=\s*"([^"]+)"')
 
 
@@ -348,7 +349,7 @@ def source_table_names(root: Path) -> set[str]:
     code declares against the set the head export records.
     """
     names: set[str] = set()
-    src = root / "shared/src/commonMain/kotlin/com/singularity/todo"
+    src = root / "core-database/src/commonMain/kotlin/com/singularity/todo"
     if not src.is_dir():
         return names
     for path in src.rglob("*.kt"):
@@ -513,12 +514,12 @@ def check_columns_agree(schema_dir: Path, declared_version: int | None, root: Pa
     if exported_entities is None:
         return [Violation("columns-agree", f"{exports[head].name} is not readable Room schema JSON")]
 
-    declared = room_entities(root / "shared/src", "commonMain")
+    declared = room_entities(root / "core-database/src", "commonMain")
     if not declared:
         return [
             Violation(
                 "columns-agree",
-                "no @Entity classes found in shared/src/commonMain — the comparison would "
+                "no @Entity classes found in :core-database commonMain — the comparison would "
                 "check nothing, which reads as a pass",
             )
         ]
@@ -572,7 +573,7 @@ def check_columns_agree(schema_dir: Path, declared_version: int | None, root: Pa
 def check_manual_list_matches_factory(manual_names: set[str], root: Path) -> list[Violation]:
     """The MANUAL_MIGRATIONS list must not name a class that does not exist."""
     out: list[Violation] = []
-    src = root / "shared/src/commonMain/kotlin/com/singularity/todo/core/database"
+    src = root / "core-database/src/commonMain/kotlin/com/singularity/todo/core/database"
     for pair, cls in MANUAL_MIGRATIONS.items():
         if not (src / f"{cls}.kt").is_file():
             out.append(
@@ -662,7 +663,7 @@ def migration_steps(root: Path) -> list[tuple[int, int]]:
     floor. The floor is where the promise starts: below it the app has no
     migration to offer, and a database there cannot be upgraded at all.
     """
-    schema_dir = root / "shared/schemas/com.singularity.todo.core.database.AppDatabase"
+    schema_dir = root / SCHEMA_RELATIVE
     versions = sorted(exported_versions(schema_dir))
     floor = get_floor()
     steps: list[tuple[int, int]] = []
@@ -889,10 +890,10 @@ def check_not_vacuous(schema_dir: Path, root: Path) -> list[Violation]:
                 f"matches nothing must not be reported as a pass",
             )
         )
-    if not (root / "shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt").is_file():
+    if not (root / "core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt").is_file():
         out.append(Violation("not-vacuous", "AppDatabase.kt is missing; nothing was checked"))
     if not source_table_names(root):
-        out.append(Violation("not-vacuous", "no entity table names found in shared source; rule 3 is inert"))
+        out.append(Violation("not-vacuous", "no entity table names found in :core-database source; rule 3 is inert"))
     return out
 
 
@@ -929,9 +930,9 @@ def check_floor_is_consistent(auto: set[tuple[int, int]], declared_version: int 
 
 
 def run_all(root: Path) -> list[Violation]:
-    schema_dir = root / "shared/schemas/com.singularity.todo.core.database.AppDatabase"
-    app_db = root / "shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
-    factory = root / "shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabaseFactory.kt"
+    schema_dir = root / SCHEMA_RELATIVE
+    app_db = root / "core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
+    factory = root / "core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabaseFactory.kt"
 
     if not app_db.is_file():
         return [Violation("setup", f"{app_db} is missing")]
@@ -961,11 +962,11 @@ def run_all(root: Path) -> list[Violation]:
 
 def _make_compliant(root: Path) -> None:
     """A minimal tree that passes every rule."""
-    schema_dir = root / "shared/schemas/com.singularity.todo.core.database.AppDatabase"
+    schema_dir = root / SCHEMA_RELATIVE
     schema_dir.mkdir(parents=True)
-    db_dir = root / "shared/src/commonMain/kotlin/com/singularity/todo/core/database"
+    db_dir = root / "core-database/src/commonMain/kotlin/com/singularity/todo/core/database"
     db_dir.mkdir(parents=True)
-    ent_dir = root / "shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks"
+    ent_dir = root / "core-database/src/commonMain/kotlin/com/singularity/todo/feature/tasks"
     ent_dir.mkdir(parents=True)
 
     (ent_dir / "TaskEntity.kt").write_text(
@@ -1056,7 +1057,7 @@ def _bump_export_to_six(root: Path) -> None:
     for every user with an existing database — a crash at first query, invisible
     to a test suite that creates its own database.
     """
-    schema_dir = root / "shared/schemas/com.singularity.todo.core.database.AppDatabase"
+    schema_dir = root / SCHEMA_RELATIVE
     (schema_dir / "7.json").write_text(
         json.dumps(
             {
@@ -1067,7 +1068,7 @@ def _bump_export_to_six(root: Path) -> None:
             }
         )
     )
-    (root / "shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/SyncShadowEntity.kt").write_text(
+    (root / "core-database/src/commonMain/kotlin/com/singularity/todo/feature/tasks/SyncShadowEntity.kt").write_text(
         '@Entity(tableName = "sync_shadow")\nclass SyncShadowEntity\n'
     )
 
@@ -1102,29 +1103,29 @@ def self_test() -> int:
             MANUAL_MIGRATIONS.update(saved_manual)
 
     def _drop_auto_migration(root: Path) -> None:
-        p = root / "shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
+        p = root / "core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
         p.write_text(p.read_text().replace("AutoMigration(from = 5, to = 6, spec = Migration5To6::class),", ""))
 
     def _extra_table_in_export(root: Path) -> None:
-        schema_dir = root / "shared/schemas/com.singularity.todo.core.database.AppDatabase"
+        schema_dir = root / SCHEMA_RELATIVE
         (schema_dir / "6.json").write_text(
             json.dumps({"database": {"version": 6, "entities": [{"tableName": "tasks"}, {"tableName": "ghost"}]}})
         )
 
     def _bump_annotation_past_export(root: Path) -> None:
-        p = root / "shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
+        p = root / "core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
         p.write_text(p.read_text().replace("SCHEMA_VERSION = 6", "SCHEMA_VERSION = 7"))
 
     def _unparseable_version(root: Path) -> None:
-        p = root / "shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
+        p = root / "core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
         p.write_text(p.read_text().replace("SCHEMA_VERSION = 6", "SCHEMA_VERSION = ???"))
 
     def _empty_schema_dir(root: Path) -> None:
-        for p in (root / "shared/schemas/com.singularity.todo.core.database.AppDatabase").glob("*.json"):
+        for p in (root / SCHEMA_RELATIVE).glob("*.json"):
             p.unlink()
 
     def _no_entities_in_source(root: Path) -> None:
-        p = root / "shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskEntity.kt"
+        p = root / "core-database/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskEntity.kt"
         p.write_text("class TaskEntity\n")
 
     def _manual_not_registered(root: Path) -> None:
@@ -1141,7 +1142,7 @@ def self_test() -> int:
         MANUAL_MIGRATIONS.clear()
         MANUAL_MIGRATIONS[(5, 6)] = "Migration5To6"
         try:
-            p = root / "shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabaseFactory.kt"
+            p = root / "core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabaseFactory.kt"
             p.write_text(p.read_text().replace(".addMigrations(Migration5To6())\n        ", ""))
         except Exception:  # pragma: no cover - restore before propagating
             MANUAL_MIGRATIONS.clear()
@@ -1150,7 +1151,7 @@ def self_test() -> int:
 
     def _stale_floor(root: Path) -> None:
         """A migration starts below the declared floor — the floor has gone stale."""
-        db = root / "shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
+        db = root / "core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
         db.write_text(
             db.read_text().replace(
                 "AutoMigration(from = 5, to = 6, spec = Migration5To6::class),",
@@ -1193,12 +1194,12 @@ def self_test() -> int:
         after a build, on the second minute of CI, on the branch that made
         the change. Before the rule, the export was compared with itself.
         """
-        p = root / "shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskEntity.kt"
+        p = root / "core-database/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskEntity.kt"
         p.write_text(p.read_text().replace("val id: String", "val id: String, val title: String"))
 
     def _table_in_entity_not_in_export(root: Path) -> None:
         """A new table was declared and the export was not re-exported."""
-        p = root / "shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/GhostEntity.kt"
+        p = root / "core-database/src/commonMain/kotlin/com/singularity/todo/feature/tasks/GhostEntity.kt"
         p.write_text('@Entity(tableName = "ghosts")\nclass GhostEntity(val id: String)\n')
 
     def _stale_scenario_test(root: Path) -> None:
@@ -1237,7 +1238,7 @@ def self_test() -> int:
         This is the defect the v16 export carried: a database built from that
         DDL already has the column, and the migration that adds it fails.
         """
-        path = root / "shared/schemas/com.singularity.todo.core.database.AppDatabase/6.json"
+        path = root / SCHEMA_RELATIVE / "6.json"
         data = json.loads(path.read_text())
         entity = data["database"]["entities"][0]
         entity["createSql"] = entity["createSql"].replace(
@@ -1380,7 +1381,7 @@ def cli(ctx: click.Context, run_self_test: bool, emit_json: bool, do_write: bool
         raise ctx.exit(VALIDATION_FAILURE)
 
     version = parse_schema_version((ROOT / str(
-        "shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
+        "core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
     )).read_text())
     count = len(exported_versions(SCHEMA_DIR))
     if emit_json:

@@ -3,6 +3,7 @@ title: Simplified SettingsViewModel — no reactive collection
 date: 2026-09-10
 status: accepted
 ---
+
 # Simplified SettingsViewModel — no reactive collection
 
 ## Context
@@ -43,6 +44,7 @@ class SettingsViewModel(
 ```
 
 **Key rules:**
+
 - State is built once at init from `.value` of `MutableStateFlow` fields in `FakeSettingsRepository` / `DataStoreSettingsRepository`
 - Each `processIntent` writes to repository, then updates `_state` synchronously via `updateState { it.copy(...) }`
 - No `combine`, no `stateIn`, no reactive collection

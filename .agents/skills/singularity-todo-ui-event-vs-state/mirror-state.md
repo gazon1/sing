@@ -22,6 +22,7 @@ TextField(
 ```
 
 In the VM:
+
 ```kotlin
 private val _draftTitle = MutableStateFlow("")
 val draftTitle: StateFlow<String> = _draftTitle.asStateFlow()
@@ -78,6 +79,7 @@ InternalLinkPickerSheet(
 ```
 
 In the VM:
+
 ```kotlin
 fun searchNotesForLink(query: String): Flow<List<LinkResult>> =
     internalLinkRepo.searchNotes(currentUser.scopedUserId.value, query)
@@ -102,6 +104,7 @@ val filteredTasks by vm.filteredAvailableTasks(queryFlow).collectAsStateWithLife
 ```
 
 In the VM:
+
 ```kotlin
 private val _queryForAddTask = MutableStateFlow("")
 val filteredAvailableTasks: (StateFlow<String>) -> StateFlow<List<Task>> = { queryFlow ->

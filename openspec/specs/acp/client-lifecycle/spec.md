@@ -23,11 +23,13 @@ suspend, and a terminate that waited for a close that was waiting for an agent w
 a terminate that never fires.
 
 #### Scenario: A close lands during a connect
+
 - A connect is in flight
 - A close is requested
 - The client ends in one of the two states, and never in a half-updated one
 
 #### Scenario: A terminate lands during a close
+
 - A close is in flight
 - A terminate is requested
 - The client ends in one of the two states, and never in a half-updated one
@@ -43,6 +45,7 @@ cannot observe a value that a transition is midway through writing.
 outside it. A read of a field that is not itself safe is a race the lock only hides.
 
 #### Scenario: A turn reads the client while a transition runs
+
 - A turn reads the client's session
 - A close runs at the same time
 - The read sees a whole value, never a torn one
@@ -59,6 +62,7 @@ The test has to name the scenario — a turn in flight, a close during it — or
 something else.
 
 #### Scenario: The client is closed during a turn
+
 - A turn is running against a live agent
 - The client is closed
 - The turn ends, and the client is left in a state a caller can reason about
@@ -77,16 +81,19 @@ it, and produce nothing for it", because an update that invented an activity wou
 card on the reader's screen that nothing justified.
 
 #### Scenario: The agent announces its authentication state
+
 - The agent answers the handshake
 - The agent sends a notification this application made no request for
 - The conversation continues, and the reader is told nothing about the notification
 
 #### Scenario: The agent announces its available commands
+
 - The session is open
 - The agent sends a notification this application made no request for
 - The conversation continues, and the reader is told nothing about the notification
 
 #### Scenario: The agent announces in the middle of a turn
+
 - The reader has asked the agent something, and the turn is running
 - The agent sends a notification this application made no request for
 - The turn continues, and the reader is told nothing about the notification — the only

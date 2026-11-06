@@ -23,10 +23,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.add_estimate
+import singularity_todo.shared.generated.resources.reset_estimate
 
 /**
  * Renders the estimate attribute row in the task editor.
- * Tapping the row opens the [com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet.Estimate] sheet.
+ * Tapping the row opens the [com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet.Estimate] sheet.
  *
  * @param estimateMinutes Current estimate in minutes, or `null` if not set.
  * @param onEstimateClick Called when the row is tapped to open the estimate picker sheet.
@@ -82,7 +86,7 @@ fun TaskEditorEstimateRow(
             IconButton(onClick = onEstimateClear) {
                 Icon(
                     imageVector = Icons.Filled.Close,
-                    contentDescription = "Сбросить оценку",
+                    contentDescription = stringResource(Res.string.reset_estimate),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -92,8 +96,9 @@ fun TaskEditorEstimateRow(
     }
 }
 
+@Composable
 internal fun estimateRowLabel(minutes: Int?): String {
-    if (minutes == null) return "Добавить оценку"
+    if (minutes == null) return stringResource(Res.string.add_estimate)
     return formatEstimate(minutes)
 }
 

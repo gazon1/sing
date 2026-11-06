@@ -1,6 +1,7 @@
 # backup/dependency-graph Specification
 
 ## Purpose
+
 A backup of the dependency graph that keeps what an edge means. The verb
 travels with the edge, so a relation that follows up on another comes
 back from a restore as the relation that follows up.

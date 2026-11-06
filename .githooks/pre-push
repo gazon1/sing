@@ -165,6 +165,8 @@ cleanup() {
     if [ -n "$TMP_ROOT" ]; then
         rm -rf "$TMP_ROOT"
     fi
+    # Clean up per-ref temp files (promise output, touched-md list) on any exit.
+    rm -f "${PROMISE_OUT:-}" "${PROMISE_TOUCHED_MD_FILE:-}" 2>/dev/null || true
     # 141 is SIGPIPE: a pipeline in this hook was closed before it finished
     # writing, and under `pipefail` the pipeline reports it. It is not a gate
     # verdict — the gates print their own — so it is named here rather than left
@@ -383,14 +385,29 @@ for i in "${!PUSH_REFS[@]}"; do
     # `git diff`: the range is the pushed commits, and a file that a commit
     # touched is a file this push carries.
     PROMISE_TOUCHED="$(git log --name-only --pretty=format: "${PROMISE_RANGE[@]}" 2>/dev/null || true)"
+    # Touched Markdown files (newline-delimited), for gates that check only the
+    # pushed .md set (rumdl). Written to a temp file when needed via @TOUCHED_MD@.
+    PROMISE_TOUCHED_MD="$(printf '%s\n' "$PROMISE_TOUCHED" | grep -E '\.md$' | sed '/^$/d' || true)"
+    PROMISE_TOUCHED_MD_FILE=""
 
-    # promise_touched <path> — did this push touch that path?
+    # promise_touched <pattern> — did this push touch a path matching pattern?
+    #
+    # By default the pattern is a prefix (anchored to start). A pattern
+    # containing an escaped dot/anchor like `\.md$` is treated as a full regex
+    # (suffix/contains), so file-extension checks work.
     #
     # `grep -c` and not `grep -q`: `-q` closes the pipe on the first hit, the
     # writer takes SIGPIPE, and with `pipefail` the pipeline reports 141 —
     # which is a broken pipe, not an answer.
     promise_touched() {
-        printf '%s\n' "$PROMISE_TOUCHED" | grep -c "^$1" >/dev/null
+        case "$1" in
+            *\\.*\$|*\\.*)
+                printf '%s\n' "$PROMISE_TOUCHED" | grep -cE "$1" >/dev/null
+                ;;
+            *)
+                printf '%s\n' "$PROMISE_TOUCHED" | grep -c "^$1" >/dev/null
+                ;;
+        esac
     }
 
     # The output of a promise check, kept for the failure message.
@@ -523,9 +540,20 @@ for i in "${!PUSH_REFS[@]}"; do
 
             # The arguments, and the message the hook prints when the gate
             # fails.
+            if [[ "$step_args" == *"@TOUCHED_MD@"* ]] && [ -z "$PROMISE_TOUCHED_MD_FILE" ]; then
+                PROMISE_TOUCHED_MD_FILE="$(mktemp "${TMPDIR:-/tmp}/pre-push-touched-md-XXXXXX")"
+                if [ -n "$PROMISE_TOUCHED_MD" ]; then
+                    printf '%s\n' "$PROMISE_TOUCHED_MD" > "$PROMISE_TOUCHED_MD_FILE"
+                else
+                    : > "$PROMISE_TOUCHED_MD_FILE"
+                fi
+            fi
             step_argv=()
             for step_arg in $step_args; do
-                step_argv+=("${step_arg//@TREE@/$tree}")
+                step_arg="${step_arg//@TREE@/$tree}"
+                step_arg="${step_arg//@BASE@/${remote_sha:-$ZERO_SHA}}"
+                step_arg="${step_arg//@TOUCHED_MD@/$PROMISE_TOUCHED_MD_FILE}"
+                step_argv+=("$step_arg")
             done
             step_message="${step_message//@REF@/$local_ref}"
             step_message="${step_message//@TREE@/$tree}"
@@ -584,6 +612,7 @@ EOF
         fi
     fi
     rm -f "$PROMISE_OUT"
+    [ -n "${PROMISE_TOUCHED_MD_FILE:-}" ] && rm -f "$PROMISE_TOUCHED_MD_FILE"
 
     # ── The gate suite's own tests ───────────────────────────────────────
     #
@@ -664,6 +693,32 @@ EOF
         keep_suite_log "$suite_log" "$suite_log_kept"
     fi
 
+    # ── easement: architecture boundary check (against the pushed tree) ──
+    if [ -n "$tree" ]; then
+        easement_bin=""
+        if command -v easement >/dev/null 2>&1; then
+            easement_bin="easement"
+        elif command -v mise >/dev/null 2>&1; then
+            easement_bin="mise exec -- easement"
+        fi
+        if [ -z "$easement_bin" ]; then
+            echo "   easement: FAILED (easement is not installed)"
+            GATES_FAILED=1
+        else
+            easement_out="$(mktemp "${TMPDIR:-/tmp}/pre-push-easement-XXXXXX")"
+            if (cd "$tree" && without_hook_git_env $easement_bin check) >"$easement_out" 2>&1; then
+                echo "   easement: OK"
+            else
+                echo "   easement: FAILED"
+                GATES_FAILED=1
+                echo ""
+                echo "pre-push FAILED — easement check failed in the tree of $local_ref."
+                sed '/DEBUG/d' "$easement_out" | sed 's/^/   /'
+                echo "Run easement check to see violations, or push with --no-verify."
+            fi
+            rm -f "$easement_out"
+        fi
+    fi
 
 done
 
@@ -838,20 +893,39 @@ for i in "${!PUSH_REFS[@]}"; do
     verdict_rc=0
     verdict_out=""
     if [ -n "$base" ]; then
-        verdict_out="$(python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
-            --sha "$local_sha" \
-            --repo "$REPO_ROOT" \
-            --fallback-tree "$fallback" \
-            --base "$base" \
-            --branch "$local_branch" \
-            --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
+        if command -v heavy >/dev/null 2>&1; then
+            verdict_out="$(heavy --timeout 600 --on-timeout run -- python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+                --sha "$local_sha" \
+                --repo "$REPO_ROOT" \
+                --fallback-tree "$fallback" \
+                --base "$base" \
+                --branch "$local_branch" \
+                --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
+        else
+            verdict_out="$(python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+                --sha "$local_sha" \
+                --repo "$REPO_ROOT" \
+                --fallback-tree "$fallback" \
+                --base "$base" \
+                --branch "$local_branch" \
+                --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
+        fi
     else
-        verdict_out="$(python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
-            --sha "$local_sha" \
-            --repo "$REPO_ROOT" \
-            --fallback-tree "$fallback" \
-            --branch "$local_branch" \
-            --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
+        if command -v heavy >/dev/null 2>&1; then
+            verdict_out="$(heavy --timeout 600 --on-timeout run -- python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+                --sha "$local_sha" \
+                --repo "$REPO_ROOT" \
+                --fallback-tree "$fallback" \
+                --branch "$local_branch" \
+                --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
+        else
+            verdict_out="$(python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+                --sha "$local_sha" \
+                --repo "$REPO_ROOT" \
+                --fallback-tree "$fallback" \
+                --branch "$local_branch" \
+                --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
+        fi
     fi
     printf '%s\n' "$verdict_out"
 

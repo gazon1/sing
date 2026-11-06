@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.theme
 
 import androidx.compose.ui.graphics.Color
+import com.singularity.todo.core.ui.theme.ActionColors
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 
 /*
@@ -17,24 +18,20 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
  */
 
 /**
- * Priority is expressed on three screens and the palettes are, in two cases, not
- * the same. The divergence is deliberate in one case and undocumented in the
- * other — see the entries.
+ * Single priority scale for the entire app. All screens use the same palette;
+ * any future per-screen variation must be a value change within a hue (not a
+ * hue change) and documented in one place.
  */
 enum class PriorityPalette {
-    /** Task detail / editor. Warmer, softer reds; the editor is a form, not a list. */
+    /** Canonical priority palette used everywhere. */
     TaskDetail,
 
-    /** Task list rows and the checkbox. Deeper reds tuned to the list's rhythm. */
+    /** @deprecated Use [TaskDetail]. Retained for binary compatibility. */
+    @Deprecated("Use TaskDetail")
     TaskList,
 
-    /**
-     * The standalone priority chip. Saturated material hues, and it is the only
-     * one of the three that nobody documented: the chip grew its own `when`
-     * block while the other two went through [PriorityPalette], and a second
-     * function of the same name in another package shadowed the canonical one.
-     * Values preserved exactly — see the deferred backlog entry on the duplicate.
-     */
+    /** @deprecated Use [TaskDetail]. Retained for binary compatibility. */
+    @Deprecated("Use TaskDetail")
     PriorityChip,
 }
 
@@ -49,7 +46,7 @@ private data class PriorityTones(
     val urgent: Color,
 )
 
-private val DetailPriority =
+private val PriorityColors =
     PriorityTones(
         none = Color(0xFF8B94A6),
         low = Color(0xFF6FCF97),
@@ -58,33 +55,18 @@ private val DetailPriority =
         urgent = Color(0xFFFF6B6B),
     )
 
-private val ListPriority =
-    PriorityTones(
-        none = Color(0xFF5C6270),
-        low = Color(0xFF5B8DEF),
-        medium = Color(0xFFF5A623),
-        high = Color(0xFFE5484D),
-        urgent = Color(0xFFFF6B6B),
-    )
-
-// The chip draws nothing for "no priority" — it returns early — so it has never
-// needed a tint. Kept as Color.Unspecified because that is what the old `when`
-// block returned; silently giving it a colour would let a future caller paint it.
-private val ChipPriority =
-    PriorityTones(
-        none = Color.Unspecified,
-        low = Color(0xFF4CAF50),
-        medium = Color(0xFFFF9800),
-        high = Color(0xFFF44336),
-        urgent = Color(0xFFE91E63),
-    )
-
 /** Muted but legible on both a light and a dark surface, so it is not a theme role. */
-val PriorityNoneColor: Color = ListPriority.none
+val PriorityNoneColor: Color = PriorityColors.none
 
-/** Destructive actions. Paired with [TaskSemanticColors.Success] for the confirm/cancel pair. */
+/**
+ * Destructive actions. Paired with [TaskSemanticColors.Success] for the confirm/cancel pair.
+ *
+ * [Danger] is the one value the core context menu also paints, so it lives in
+ * `core.ui.theme.ActionColors` and this name points at it. [Success] is read
+ * only here, so it stays.
+ */
 object TaskSemanticColors {
-    val Danger = Color(0xFFE5484D)
+    val Danger = ActionColors.Danger
     val Success = Color(0xFF4CC38A)
 }
 
@@ -101,20 +83,13 @@ internal fun priorityLabel(priority: TaskPriority): String =
 /**
  * The single place a priority is turned into a colour and a label.
  *
- * Callers name the screen they are on rather than picking a tint by eye, because
- * the three palettes are close enough that choosing the wrong one is invisible in
- * review and visible to the user.
+ * Callers name the screen they are on rather than picking a tint by eye.
  */
 internal fun priorityMeta(
     priority: TaskPriority,
-    palette: PriorityPalette = PriorityPalette.TaskDetail,
+    @Suppress("UNUSED_PARAMETER") palette: PriorityPalette = PriorityPalette.TaskDetail,
 ): PriorityMeta {
-    val colors =
-        when (palette) {
-            PriorityPalette.TaskDetail -> DetailPriority
-            PriorityPalette.TaskList -> ListPriority
-            PriorityPalette.PriorityChip -> ChipPriority
-        }
+    val colors = PriorityColors
     val color =
         when (priority) {
             TaskPriority.None -> colors.none

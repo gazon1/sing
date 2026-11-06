@@ -15,7 +15,7 @@ This skill documents the standardized helpers for writing ViewModel tests. Use t
 
 ## Available Helpers
 
-All helpers live in `shared/src/jvmTest/kotlin/com/singularity/todo/test/helpers/`:
+All helpers live in `shared/src/commonTest/kotlin/com/singularity/todo/test/helpers/`:
 
 | File | Helper | Purpose |
 |---|---|---|
@@ -45,13 +45,42 @@ fun example() = runTest {
 }
 ```
 
-**Rule**: always wrap `this` (the `runTest` receiver) with `testScope(this)` before passing to a VM. Never pass `backgroundScope` as the VM's scope — reserve it for long-lived helper coroutines in the test infrastructure.
+**Rule**: use the harness, `testVm`, and let it choose the scope. `VmScope.Foreground` is for a VM whose collector ends; `VmScope.Background` is for one whose collector never does. A VM on `VmScope.Background` advances only under `runCurrent()` — `awaitState` does that for you, a bare `advanceUntilIdle()` does not.
 
-**Why the backgroundScope ban is load-bearing** (verified and pinned by `TestScopeSemanticsTest`, ADR `2026-09-30-testscope-background-work-semantics`): `advanceUntilIdle()` drains the queue only while *foreground* work is pending. Coroutines on `backgroundScope` run only as a side effect of that pump, or under an explicit `runCurrent()`. A VM collecting on `backgroundScope` therefore never emits its first state under `advanceUntilIdle()` — every assertion reads the initial state, and **rejection tests keep passing against an implementation that does nothing** (a rename that "left the name unchanged" is indistinguishable from a rename that never ran). If a VM test must use `backgroundScope` (e.g. virtual-time debouncing, as in `DraftMviViewModelTest`), drive it with `runCurrent()` or a helper that suspends until the state matches.
+**Why the background scope is separate** (verified and pinned by `TestScopeSemanticsTest`, ADR `2026-09-30-testscope-background-work-semantics`): `advanceUntilIdle()` drains the queue only while *foreground* work is pending. Coroutines on `backgroundScope` run only as a side effect of that pump, or under an explicit `runCurrent()`. A VM collecting on `backgroundScope` therefore never emits its first state under `advanceUntilIdle()` — every assertion reads the initial state, and **rejection tests keep passing against an implementation that does nothing** (a rename that "left the name unchanged" is indistinguishable from a rename that never ran). That is why `awaitState` calls `runCurrent()` after `advanceUntilIdle()`, and why a test that awaits a *second* state on a background-scope VM does not hang.
 
 **Corollary — the vacuous-rejection trap**: every rejection test ("rename rejects a blank name") must be paired with a success test on the same code path. Alone, a rejection test cannot distinguish "correctly refused" from "never executed".
 
 **The helper already exists — use it.** `testScope(this)` creates the safe shape (foreground context under a child Job, so `close()` cancels the VM's collectors without cancelling `runTest`). Hand-rolling `AutoCloseableCoroutineScope(coroutineContext + Job(...))` duplicates it; hand-rolling `AutoCloseableCoroutineScope(coroutineContext)` without the child Job makes `close()` cancel the TestScope itself and fail `runTest` with `JobCancellationException`.
+
+---
+
+## The Test Database Has One Owner
+
+Any JVM test that needs a real database takes it from `DatabaseTestFixture`
+(`shared/src/jvmTest/.../core/database/DatabaseTestFixture.kt`):
+
+| Need | Use |
+|---|---|
+| Database behaviour only | `DatabaseTestFixture.inMemory()` |
+| The file is the subject (migration, restart, WAL) | `DatabaseTestFixture.onDisk()` |
+| A second database file | `fixture.database("source")`, `fixture.path("target")` |
+| Restart over the same file | `fixture.reopen()` |
+| Raw SQL before/after Room opens | `fixture.connect().use { … }` |
+| Scratch files (archive, attachments) | `fixture.directory()` |
+
+```kotlin
+DatabaseTestFixture.onDisk().use { fixture ->
+    fixture.connect().use { applyExportedSchema(47, it) }
+    val db = fixture.database()
+    // …
+}
+```
+
+Never create a temp directory or call `AppDatabaseFactory`/`createSqlDriver` in a test.
+`:shared:archTest` (`DatabaseTestFixtureHasOneOwnerTest`) fails the build if you do,
+including from `commonTest`. The fixture is the one owner: "the fixture is wrong" (its own
+tests) and "the fixture was copied" (the guard) are different failures.
 
 ---
 
@@ -75,7 +104,7 @@ fun titleChanges_areDebounced() = runTest {
 }
 ```
 
-**How it works**: uses `currentTime` from `kotlinx.coroutines.test` + `advanceUntilIdle()` in a loop. No real time passes. Fails with a descriptive message if `timeoutMs` is reached.
+**How it works**: uses `currentTime` from `kotlinx.coroutines.test` + `advanceUntilIdle()` in a loop. No real time passes. Fails with a descriptive message if `timeoutMs` is reached. After the pump it calls `runCurrent()`, so a ViewModel on `VmScope.Background` also sees the change the test just made — without that line the loop spins at `virtualTime = 0` and the second `awaitState` in a test hangs for a minute.
 
 ---
 
@@ -102,6 +131,7 @@ fun settingsToggles() = runTest {
 ```
 
 `TestVmContext` provides:
+
 - `act { vm.onIntent(...) }` — executes action then `advanceUntilIdle()`
 - `assertIs<T>()` — asserts current state is type `T`
 - `assert { predicate }` — asserts predicate on current state
@@ -232,6 +262,7 @@ fun summarize_fails_showsError() = runTest {
 ```
 
 **Available `FakeTextGen` constructors:**
+
 ```kotlin
 FakeTextGen(output = "some text")                    // success
 FakeTextGen(failureMessage = "error")               // failure
@@ -271,6 +302,7 @@ class UserScopedWriteExtTest {
 ```
 
 **Key points:**
+
 - `FakeProfileAwareCurrentUser(initialUserId = ...)` seeds the scoped userId directly
 - `assertFailsWith<CrossUserWriteException>` (not `IllegalArgumentException`) — the extension throws `CrossUserWriteException` explicitly, not `require()`
 - No `runTest { }` wrapper needed — these are synchronous tests
@@ -322,6 +354,7 @@ fun example() = runTest {
 `backgroundScope` and `this` (TestScope) share the same `TestDispatcher`, so `advanceUntilIdle()` does flush both. The problem is **lifecycle/cancellation order**: `backgroundScope` outlives the test body, making failures non-deterministic.
 
 **When `backgroundScope` IS appropriate:**
+
 - Long-running fake helpers that should be auto-cancelled at test teardown
 - A `FakeFooRepository` that emits on a timer
 - Never for the VM itself

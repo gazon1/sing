@@ -179,6 +179,7 @@ fun resolve(
 ```
 
 **SecureStorage keys:**
+
 - Legacy (no profile): `ai_key_openai`
 - Profile-specific: `ai_key_openai:{profileId}`
 

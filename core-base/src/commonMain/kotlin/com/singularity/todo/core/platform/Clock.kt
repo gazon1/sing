@@ -64,6 +64,62 @@ fun todayFlow(
     }.distinctUntilChanged()
 
 /**
+ * Emits the current local hour in [zone] immediately, then re-emits exactly once
+ * at each local hour boundary.
+ *
+ * The sibling of [todayFlow] for the values that change *within* a day. The
+ * agenda's time-of-day greeting is the first of them: a screen left open across
+ * noon used to keep saying "Good morning" until its ViewModel was recreated,
+ * because the hour was read once.
+ *
+ * Cold, like [todayFlow]: no work happens until a collector is active, and the
+ * `delay` is what bounds the work.
+ *
+ * @param maxEmissions Maximum number of emissions before the flow completes.
+ *        Pass `null` (default) for production. Pass `1` in tests that drain with
+ *        `advanceUntilIdle()`, which otherwise never returns past the next hour.
+ * @param zone The zone the hour is read in. Resolved by the caller, once, because
+ *        the hour a user reads is the one on their own clock, not the host's.
+ */
+fun localHourFlow(
+    clock: Clock,
+    zone: TimeZone,
+    maxEmissions: Int? = null,
+): Flow<Int> =
+    flow {
+        var emitted = 0
+        while (maxEmissions == null || emitted < maxEmissions) {
+            emit(localTimeAt(clock, zone).hour)
+            emitted++
+            if (maxEmissions == null || emitted < maxEmissions) {
+                val delayMs = delayUntilNextHour(clock, zone)
+                // Guards against zero/negative delay from a clock adjustment; the
+                // loop re-reads the hour, and `distinctUntilChanged` drops a repeat.
+                if (delayMs > 0) {
+                    delay(delayMs.milliseconds)
+                }
+            }
+        }
+    }.distinctUntilChanged()
+
+/**
+ * Computes milliseconds until the next local hour boundary in [zone].
+ *
+ * Wall-clock arithmetic rather than a fixed 3 600 000: a zone whose offset carries
+ * a seconds component would otherwise tick off the hour it displays. A DST jump
+ * makes this longer or shorter than an hour, and the loop re-reads the hour after
+ * every delay, so the value corrects itself at the next tick.
+ */
+private fun delayUntilNextHour(
+    clock: Clock,
+    zone: TimeZone,
+): Long {
+    val now = localTimeAt(clock, zone)
+    val elapsedMs = now.minute * 60_000L + now.second * 1_000L
+    return 3_600_000L - elapsedMs
+}
+
+/**
  * Today's [LocalDate] in [zone], read from [clock].
  *
  * **Both parameters are required, and that is the point** (2026-10-05). This used
@@ -80,7 +136,11 @@ fun todayFlow(
 fun todayAt(
     clock: Clock,
     zone: TimeZone,
-): LocalDate = clock.now().toLocalDateTime(zone).date
+): LocalDate =
+    clock
+        .now()
+        .toLocalDateTime(zone)
+        .date
 
 /**
  * Today's [LocalDate] in [zone], read from the system clock.
@@ -92,7 +152,7 @@ internal fun todayAt(zone: TimeZone): LocalDate = todayAt(Clock.System, zone)
 
 /** The local wall-clock time at a kotlinx-datetime [Instant] in [zone]. */
 fun localTimeAt(
-    instant: kotlinx.datetime.Instant,
+    instant: Instant,
     zone: TimeZone = TimeZone.currentSystemDefault(),
 ): LocalDateTime = instant.toLocalDateTime(zone)
 
@@ -109,9 +169,12 @@ fun localTimeAt(
     clock: Clock,
     zone: TimeZone = TimeZone.currentSystemDefault(),
 ): LocalDateTime =
-    kotlinx.datetime.Instant
-        .fromEpochMilliseconds(clock.now().toEpochMilliseconds())
-        .toLocalDateTime(zone)
+    Instant
+        .fromEpochMilliseconds(
+            clock
+                .now()
+                .toEpochMilliseconds(),
+        ).toLocalDateTime(zone)
 
 /**
  * The current local wall-clock time, to the second.

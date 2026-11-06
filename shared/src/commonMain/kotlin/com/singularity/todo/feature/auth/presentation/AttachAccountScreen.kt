@@ -36,11 +36,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.auth.AuthFormFields
+import com.singularity.todo.feature.auth.AuthScreenEffects
 import com.singularity.todo.feature.auth.AuthIntent
 import com.singularity.todo.feature.auth.AuthUiEvent
 import com.singularity.todo.feature.auth.AuthUiState
@@ -54,6 +55,10 @@ import com.singularity.todo.feature.auth.rememberLoginFormState
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -86,38 +91,28 @@ fun AttachAccountScreen(viewModel: AuthViewModel = koinViewModel()) {
     // choice about the offline data.
     val emailState = rememberTextFieldState()
     val passwordState = rememberTextFieldState()
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var message by remember { mutableStateOf<String?>(null) }
 
-    CollectEvents(viewModel.events) { event ->
-        when (event) {
-            AuthUiEvent.NavigateToHome -> {
-                // After attaching, go to agenda home.
-                // The attach screen was entered via onExitGraph, so navigating
-                // forward to AgendaGraph places it on top of the settings stack.
-                // Pressing system Back from agenda returns to settings as expected.
-                navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today))
-            }
+    // The refusal when the user has not answered what happens to their offline data
+    // is the screen's own, not the event bus's, so it travels on a channel of its own
+    // and joins the event notifications at the host.
+    val localNotifications = remember { Channel<Notification>(Channel.BUFFERED) }
+    val localNotificationFlow = remember(localNotifications) { localNotifications.receiveAsFlow() }
 
-            is AuthUiEvent.Error -> {
-                errorMessage = event.message
-                message = null
-            }
-
-            is AuthUiEvent.Message -> {
-                message = event.message
-                errorMessage = null
-            }
-        }
-    }
+    AttachAccountScreenEffects(
+        events = viewModel.events,
+        // After attaching, go to agenda home.
+        // The attach screen was entered via onExitGraph, so navigating
+        // forward to AgendaGraph places it on top of the settings stack.
+        // Pressing system Back from agenda returns to settings as expected.
+        onNavigateHome = { navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today)) },
+        extraNotifications = localNotificationFlow,
+    )
 
     AttachAccountScreenContent(
         emailState = emailState,
         passwordState = passwordState,
         disposition = form.value.disposition,
         isLoading = state is AuthUiState.Loading,
-        errorMessage = errorMessage,
-        message = message,
         onDispositionChange = { choice -> form.update { copy(disposition = choice) } },
         onSubmit = {
             // Unreachable while the choice is null — the button is disabled —
@@ -125,10 +120,10 @@ fun AttachAccountScreen(viewModel: AuthViewModel = koinViewModel()) {
             // future caller that forgets the guard cannot dispose of anyone's data.
             val choice = form.value.disposition
             if (choice == null) {
-                errorMessage = "Choose what should happen to your offline data first."
+                localNotifications.trySend(
+                    Notification.Error("Choose what should happen to your offline data first."),
+                )
             } else {
-                errorMessage = null
-                message = null
                 viewModel.onIntent(
                     AuthIntent.AttachAccount(
                         email = emailState.text.toString().trim(),
@@ -139,6 +134,31 @@ fun AttachAccountScreen(viewModel: AuthViewModel = koinViewModel()) {
             }
         },
         onBack = { navigator.goBack() },
+    )
+}
+
+/**
+ * The attach screen's whole reaction to the auth event bus.
+ *
+ * The screen keeps no copy of an event: it presents it where it arrives — an
+ * error as the shared error dialog, a neutral notice as a snackbar — and
+ * forgets it. The implementation is [AuthScreenEffects], shared with the other
+ * auth screens; this name is the attach screen's own contract, so the desktop
+ * test can mount the screen's reaction on its own and hand it an event.
+ *
+ * @param extraNotifications the screen's own refusals, which are not events and
+ *   so do not travel on the event bus.
+ */
+@Composable
+fun AttachAccountScreenEffects(
+    events: Flow<AuthUiEvent>,
+    onNavigateHome: () -> Unit,
+    extraNotifications: Flow<Notification> = emptyFlow(),
+) {
+    AuthScreenEffects(
+        events = events,
+        onNavigateHome = onNavigateHome,
+        extraNotifications = extraNotifications,
     )
 }
 
@@ -153,7 +173,6 @@ private fun AttachAccountScreenPreview() =
             passwordState = rememberTextFieldState("password"),
             disposition = LocalDataDisposition.Keep(ReassignCounts(tasks = 12, notes = 3), LocalDataSummary(12, 3)),
             isLoading = false,
-            errorMessage = null,
             onDispositionChange = {},
             onSubmit = {},
             onBack = {},
@@ -169,7 +188,6 @@ private fun AttachAccountScreenUnansweredPreview() =
             passwordState = rememberTextFieldState("password"),
             disposition = null,
             isLoading = false,
-            errorMessage = null,
             onDispositionChange = {},
             onSubmit = {},
             onBack = {},
@@ -182,8 +200,6 @@ internal fun AttachAccountScreenContent(
     passwordState: TextFieldState,
     disposition: LocalDataDisposition?,
     isLoading: Boolean,
-    errorMessage: String?,
-    message: String? = null,
     onDispositionChange: (LocalDataDisposition) -> Unit,
     onSubmit: () -> Unit,
     onBack: () -> Unit,
@@ -222,8 +238,6 @@ internal fun AttachAccountScreenContent(
                 passwordState = passwordState,
                 disposition = disposition,
                 isLoading = isLoading,
-                errorMessage = errorMessage,
-                message = message,
                 onDispositionChange = onDispositionChange,
                 onSubmit = onSubmit,
             )
@@ -251,8 +265,6 @@ private fun AttachAccountForm(
     passwordState: TextFieldState,
     disposition: LocalDataDisposition?,
     isLoading: Boolean,
-    errorMessage: String?,
-    message: String?,
     onDispositionChange: (LocalDataDisposition) -> Unit,
     onSubmit: () -> Unit,
 ) {
@@ -281,8 +293,6 @@ private fun AttachAccountForm(
         emailState = emailState,
         passwordState = passwordState,
         isLoading = isLoading,
-        errorMessage = errorMessage,
-        message = message,
         onSubmit = onSubmit,
         submitEnabled = disposition != null,
     )

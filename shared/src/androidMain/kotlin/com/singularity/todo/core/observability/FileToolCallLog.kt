@@ -1,7 +1,6 @@
 package com.singularity.todo.core.observability
 
 import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
@@ -24,7 +23,10 @@ import kotlin.random.Random
  */
 class AndroidFileToolCallLog(
     private val directory: String,
-    private val processToken: String = Random.nextLong().toString(16),
+    private val processToken: String =
+        Random
+            .nextLong()
+            .toString(16),
     private val nowEpochMillis: () -> Long = { System.currentTimeMillis() },
 ) : ToolCallLog {
     private val dir = File(directory)
@@ -45,26 +47,28 @@ class AndroidFileToolCallLog(
      * because the modification time of a file that is still open is the time it was
      * last written, and today's file is always the one being written to.
      */
-    fun purgeExpired(retentionDays: Int = RETENTION_DAYS) {
+    fun purgeExpired(retentionDays: Int = ToolCallRecordPolicy.RETENTION_DAYS) {
         val cutoff =
-            Instant
+            kotlin.time.Instant
                 .fromEpochMilliseconds(nowEpochMillis())
                 .toLocalDateTime(TimeZone.currentSystemDefault())
                 .date
-        dir.listFiles()?.forEach { file ->
-            if (!file.isFile || !file.name.endsWith(SUFFIX)) return@forEach
-            val day =
-                runCatching { LocalDate.parse(file.name.substringBefore('-')) }.getOrNull()
-                    ?: return@forEach
-            if (day < cutoff.minus(retentionDays, DateTimeUnit.DAY)) {
-                runCatching { file.delete() }
+        dir
+            .listFiles()
+            ?.forEach { file ->
+                if (!file.isFile || !file.name.endsWith(SUFFIX)) return@forEach
+                val day =
+                    runCatching { LocalDate.parse(file.name.substringBefore('-')) }.getOrNull()
+                        ?: return@forEach
+                if (day < cutoff.minus(retentionDays, DateTimeUnit.DAY)) {
+                    runCatching { file.delete() }
+                }
             }
-        }
     }
 
     private fun fileFor(epochMillis: Long): File {
         val day =
-            Instant
+            kotlin.time.Instant
                 .fromEpochMilliseconds(epochMillis)
                 .toLocalDateTime(TimeZone.currentSystemDefault())
                 .date
@@ -73,6 +77,5 @@ class AndroidFileToolCallLog(
 
     companion object {
         const val SUFFIX = ".jsonl"
-        const val RETENTION_DAYS = 30
     }
 }

@@ -87,6 +87,64 @@ class Nav3StateFallbackTest {
     }
 
     @Test
+    fun `goBack reseeds the active stack after popping a stack that held no tab key`() {
+        val state =
+            Nav3State(
+                startRoute = today,
+                topLevelRouteState = mutableStateOf(today),
+                backStacks = mapOf(today to NavBackStack(today), upcoming to NavBackStack(upcoming)),
+            )
+        state.topLevelRoute = upcoming
+        // The malformed stack the fallback exists for: a nested screen without the tab key.
+        state.requireBackStackFor(upcoming).clear()
+        state.requireBackStackFor(upcoming).add(AppDestination.Settings)
+
+        assertTrue(Navigator(state).goBack())
+
+        // The pop emptied the active stack: it must be reseeded, not left blank.
+        assertEquals(listOf(upcoming), state.requireBackStackFor(upcoming).toList())
+        // The tab did not change: the active top-level route is what reseeded the stack.
+        assertEquals(upcoming, state.topLevelRoute)
+    }
+
+    @Test
+    fun `canGoBack answers whether a back press navigates`() {
+        // The ultimate root: one tab key, no nested screen, and the previous tab is this tab.
+        val root =
+            Nav3State(
+                startRoute = today,
+                topLevelRouteState = mutableStateOf(today),
+                backStacks = mapOf(today to NavBackStack(today)),
+            )
+        root.setPreviousTopLevelRoute(today)
+        assertFalse(Navigator(root).canGoBack())
+
+        // An empty active stack is no nested screen either.
+        root.requireBackStackFor(today).clear()
+        assertFalse(Navigator(root).canGoBack())
+
+        // A nested screen on top of the active stack: back navigates.
+        val nested =
+            Nav3State(
+                startRoute = today,
+                topLevelRouteState = mutableStateOf(today),
+                backStacks = mapOf(today to NavBackStack(today)),
+            )
+        nested.requireBackStackFor(today).add(AppDestination.Settings)
+        assertTrue(Navigator(nested).canGoBack())
+
+        // A distinct previous tab: back returns to that tab.
+        val withPreviousTab =
+            Nav3State(
+                startRoute = today,
+                topLevelRouteState = mutableStateOf(today),
+                backStacks = mapOf(today to NavBackStack(today), upcoming to NavBackStack(upcoming)),
+            )
+        withPreviousTab.setPreviousTopLevelRoute(upcoming)
+        assertTrue(Navigator(withPreviousTab).canGoBack())
+    }
+
+    @Test
     fun `goBack switches to previous tab and returns true`() {
         val state =
             Nav3State(

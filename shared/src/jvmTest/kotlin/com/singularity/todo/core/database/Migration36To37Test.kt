@@ -1,12 +1,9 @@
 package com.singularity.todo.core.database
 
 import androidx.sqlite.execSQL
-import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.sync.SyncShadowEntity
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -43,18 +40,16 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:migration")
 class Migration36To37Test {
-    private lateinit var tempDir: File
-    private lateinit var dbPath: String
+    private lateinit var fixture: DatabaseTestFixture
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("migration36to37-").toFile()
-        dbPath = File(tempDir, "fixture.db").absolutePath
+        fixture = DatabaseTestFixture.onDisk()
     }
 
     @AfterTest
     fun tearDown() {
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     /**
@@ -65,7 +60,7 @@ class Migration36To37Test {
      * that decides whether a user's data is real or invented.
      */
     private fun openMigrated(): AppDatabase {
-        createSqlDriver().open(dbPath).use { connection ->
+        fixture.connect().use { connection ->
             applyExportedSchema(36, connection)
             // A row that existed before the upgrade, in the shape v36 knew.
             connection.execSQL(
@@ -75,7 +70,7 @@ class Migration36To37Test {
                     "VALUES ('owner-1', 'work', 'task', 'task-1', '{\"title\":\"before\"}', NULL, NULL)",
             )
         }
-        return AppDatabaseFactory.build(createSqlDriver(), dbPath)
+        return fixture.database()
     }
 
     @Test

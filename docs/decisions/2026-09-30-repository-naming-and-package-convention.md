@@ -38,6 +38,7 @@ to import `*RepositoryImpl` from their own `.data/` subpackages.
 ## Changes
 
 ### Renamed classes
+
 | Old | New |
 |-----|-----|
 | `RoomChecklistRepository` | `ChecklistRepositoryImpl` |
@@ -48,6 +49,7 @@ to import `*RepositoryImpl` from their own `.data/` subpackages.
 | `InternalLinkRepositoryImpl` (file) | `InternalLinkRepositoryImpl` (moved to `feature.search.data`) |
 
 ### New packages
+
 | Feature | New file |
 |---------|----------|
 | checklist | `feature.checklist.data.ChecklistRepositoryImpl` |
@@ -56,17 +58,20 @@ to import `*RepositoryImpl` from their own `.data/` subpackages.
 | search | `feature.search.data.InternalLinkRepositoryImpl` |
 
 ### Deleted files (old locations)
+
 - `feature/checklist/RoomChecklistRepository.kt`
 - `feature/reminders/RoomReminderRepository.kt`
 - `feature/search/InternalLinkRepositoryImpl.kt`
 
 ### DI module updates
+
 - `NotesDiModule.kt` — updated import and binding for `NotesRepositoryImpl` and `InternalLinkRepositoryImpl`
 - `CoreDiModule.kt` — updated import and binding for `ReminderRepositoryImpl`
 - `TasksDiModule.kt` — updated imports and bindings for `ChecklistRepositoryImpl` and `SavedSearchRepositoryImpl`
 - `AgendaDiModule.kt` — updated import and binding for `SavedAgendaViewsRepositoryImpl`
 
 ### Test updates
+
 - `SavedAgendaViewsRepositoryImplTest.kt` — updated import and class reference
 - `NotesRepositorySyncTest.kt` (renamed from `RoomNotesRepositorySyncTest.kt`) — updated import and class reference
 - `FakeRepositories.kt` — updated KDoc reference to `SavedAgendaViewsRepositoryImpl`

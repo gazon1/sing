@@ -4,7 +4,7 @@ description: Run a refactor in an isolated git worktree so the main checkout sta
 ---
 
 > **When to use:** Any refactoring that touches many files, changes architecture, or requires a long-running series of PRs. Keeps main checkout clean and allows parallel work.
-
+>
 > **`$MAIN_CHECKOUT`** below means the absolute path of your main clone. Set it once
 > before running any snippet: `export MAIN_CHECKOUT="$(git rev-parse --show-toplevel)"`
 > — run from the main checkout. It is a shell variable, so `cd $MAIN_CHECKOUT` and
@@ -137,6 +137,7 @@ cp $MAIN_CHECKOUT/local.properties \
 ```
 
 Or create it manually:
+
 ```properties
 sdk.dir=/path/to/Android/Sdk   # or omit — Android Studio writes it from ANDROID_HOME
 ```

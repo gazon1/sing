@@ -41,6 +41,7 @@ _<Read from the code or produced by a command you ran._
 _<Possibilities that have not been confirmed. Not conclusions._
 
 ### H-1 — <the hypothesis>
+
 - **Evidence for:** <what points this way>
 - **Evidence against:** <what points elsewhere>
 - **Would be confirmed by:** <the specific observation that would settle it>

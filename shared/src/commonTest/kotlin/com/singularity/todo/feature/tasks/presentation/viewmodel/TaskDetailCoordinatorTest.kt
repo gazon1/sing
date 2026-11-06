@@ -23,10 +23,10 @@ import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskCollaborationDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailExtras
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiEvent
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.SlotFakes
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TEST_USER
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.task

@@ -7,8 +7,6 @@ package com.singularity.todo.core.sync
 sealed interface SyncFormEvent {
     data object Saved : SyncFormEvent
 
-    data object AlreadyExists : SyncFormEvent
-
     data object TestConnection : SyncFormEvent
 
     data class Error(val cause: Throwable) : SyncFormEvent

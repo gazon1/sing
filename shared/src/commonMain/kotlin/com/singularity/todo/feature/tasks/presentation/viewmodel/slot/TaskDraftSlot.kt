@@ -5,8 +5,8 @@ import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
-import com.singularity.todo.feature.tasks.presentation.state.TaskDraftIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskDraftIntent
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailDraft
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailDraftState
 import kotlinx.coroutines.FlowPreview

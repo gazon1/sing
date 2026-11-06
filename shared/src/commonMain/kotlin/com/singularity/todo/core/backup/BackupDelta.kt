@@ -171,28 +171,6 @@ fun merge(
     )
 
 /**
- * Whether the payload holds no rows at all.
- *
- * A change with nothing in it is not a change: writing it would make the chain
- * longer without making the account any newer.
- */
-internal fun BackupPayload.hasNoRows(): Boolean =
-    tasks.isEmpty() && notes.isEmpty() && projects.isEmpty() && tags.isEmpty() &&
-        attachments.isEmpty() && attachmentAnnotations.isEmpty() && taskTags.isEmpty() &&
-        taskDependencies.isEmpty() && agendaViews.isEmpty() && taskReminders.isEmpty() &&
-        projectReminders.isEmpty() && checklistItems.isEmpty() && tagGroups.isEmpty() &&
-        projectTagGroups.isEmpty() && savedSearches.isEmpty() && timeEntries.isEmpty() &&
-        profiles.isEmpty()
-
-/**
- * Whether the payload says nothing at all: no rows, and no removals.
- *
- * A change that only removes rows carries no rows of its own, and it is still a
- * change — so "no rows" is not enough to decide that there is nothing to write.
- */
-internal fun BackupPayload.hasNoChanges(): Boolean = hasNoRows() && removals.isEmpty()
-
-/**
  * The keys of the rows this payload says are gone, of one kind.
  *
  * The empty set when the kind is not mentioned: a change that says nothing about
@@ -260,7 +238,14 @@ internal object BackupDeltaPlanner {
     ): BackupDeltaPlan {
         if (previous == null) return BackupDeltaPlan.FreshBase(BackupDeltaPlan.Reason.FIRST_EXPORT)
 
-        if (previous[BackupEntityKind.ATTACHMENTS] != current[BackupEntityKind.ATTACHMENTS]) {
+        // The attachment's bytes are in the snapshot and nowhere else, so a
+        // change of an attachment — or of the set of them — costs the chain its
+        // base. Both sides are read with `orEmpty()`: an index written before a
+        // kind existed has no entry for it, and "no entry" is "no rows of that
+        // kind", not "the attachments moved".
+        val attachmentsBefore = previous[BackupEntityKind.ATTACHMENTS].orEmpty()
+        val attachmentsNow = current[BackupEntityKind.ATTACHMENTS].orEmpty()
+        if (attachmentsBefore != attachmentsNow) {
             return BackupDeltaPlan.FreshBase(BackupDeltaPlan.Reason.ATTACHMENT_CHANGED)
         }
 
@@ -428,7 +413,7 @@ private fun <T> mergeRows(
  * and `("a", "bc")` are different keys — and not a character that can occur in an
  * id *pair*, so that the key of one pair cannot be mistaken for the key of another.
  */
-private fun String.link(other: String): String = "$this$KEY_SEPARATOR$other"
+internal fun String.link(other: String): String = "$this$KEY_SEPARATOR$other"
 
 /**
  * The two ids a link table's key joins, as they were joined.

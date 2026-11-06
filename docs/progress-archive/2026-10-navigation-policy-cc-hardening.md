@@ -68,11 +68,13 @@ Not on the original plan; all found by actually running the verification B5 aske
 #### Epic retro (2026-10-04)
 
 **What went well:**
+
 - Two platform entry files lost their duplicated `when(dest)` dispatch; the rule now lives in one
   pure function that is unit-testable without Compose.
 - `familyOf` is exhaustive by construction, so adding a route without a family is a compile error.
 
 **What didn't go well:**
+
 - **The verification step was the only thing that ever ran the tests.** `.github/workflows/ci.yml`
   passes `-Ptest.tags=fast,slow`; JUnit matches tags per class, and only 16 of 218 classes
   carried one. `:desktopApp:test` executed **zero** tests and still reported `BUILD SUCCESSFUL`.
@@ -86,6 +88,7 @@ Not on the original plan; all found by actually running the verification B5 aske
   during the Maestro smoke pass and now has its own ADR and commit.
 
 **ADR-worthy findings:**
+
 - Silent tag-filter skips → `TestTagCoverageTest` + `failOnNoDiscoveredTests`
 - Undo snackbar needs its own window → `2026-10-04-undo-snackbar-and-popup-testtags`
 - Issue #27 root cause (entry-local `remember` owning a shell-level back stack) →

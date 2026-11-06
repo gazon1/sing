@@ -249,6 +249,7 @@ fun SavedAgendaListScreen(...) {
 **Rule**: If the navigation is a direct response to a user gesture with no intermediate state change, use a callback. If navigation depends on routing state (which sheet is open), use a routing intent.
 
 **When a routing intent IS needed** — if you need to pass data from the VM to determine the destination (e.g., "open task detail" but the task ID comes from a loaded model):
+
 ```kotlin
 // Still use callback — ID comes from the callback parameter, not from VM state
 onViewSelected = { viewId -> navigator.openSavedAgendaEdit(viewId) }

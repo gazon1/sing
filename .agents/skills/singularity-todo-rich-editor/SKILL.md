@@ -8,12 +8,13 @@ description: Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes u
 ## When to Use This Skill
 
 Use when implementing or modifying the rich-text editor in `feature/notes/`. This skill covers:
+
 - Toolbar design (sticky bottom via `Scaffold.bottomBar`, overflow menu)
 - `EditorAction` sealed interface and `RichTextState.apply()`/`isActive()` extensions
 - `EditorSession` — the hoisting pattern for sharing `RichTextState` between toolbar and body
 - Internal link picker (Obsidian-style `[[Note Title]]` / `[[Task Title]]`)
 - External URL link dialog (`LinkUrlDialog`)
-- Wikilink insertion via `addLinkToSelection`
+- Wikilink insertion via `EditorSession.insertLink(url, text)` — a selection *and* a caret
 - Wikilink extraction via `extractOutgoingLinks` (HTML regex)
 - `RichTextState.toMarkdown()` / `setHtml()` for markdown round-trip (built-in, no port needed)
 - Debounced autosave with `AutosaveScheduler`
@@ -106,6 +107,7 @@ fun rememberEditorSession(
 ```
 
 **Why this pattern — and the trap it avoids:**
+
 - `RichTextState` identity has no `equals()` — `remember` keyed on `state.id` guarantees a fresh state per note
 - `EditorToolbar` (in `Scaffold.bottomBar`) and `EditorTitleAndBody` (in the content area) share the same session
 - **A `LaunchedEffect` keyed on the `RichTextState` does not fire per keystroke.** The state object is the *same instance* for the whole session, so the effect starts once and never restarts. Keying the effect on the object and expecting it to re-run on every edit is the bug that silently lost every note body: the effect ran once, dispatched the loaded content, and never ran again. The effect has to *read* the state — `snapshotFlow` re-emits whenever what it reads changes.
@@ -135,8 +137,12 @@ sealed interface EditorAction {
     data object InternalLink : EditorAction // opens InternalLinkPickerSheet
 
     companion object {
-        val primary = listOf(Bold, Italic, Underline, Strike, H1, Bullet, Ordered)
-        val overflow = listOf(H2, H3, Code, Quote, AlignLeft, AlignCenter, AlignRight, ExternalLink, InternalLink)
+        // Three on the bar itself: with Undo, Redo, the overflow trigger and AI
+        // the row is seven 48 dp targets — 336 dp, the width of a 360 dp phone.
+        val primary = listOf(Bold, Italic, Underline)
+        // Headings first, so H1/H2/H3 sit together under their own glyphs.
+        // Quote is not offered: the library has no blockquote toggle.
+        val overflow = listOf(H1, H2, H3, Strike, Code, Bullet, Ordered, AlignLeft, AlignCenter, AlignRight, ExternalLink, InternalLink)
     }
 }
 ```
@@ -168,12 +174,14 @@ internal fun RichTextState.apply(action: EditorAction): RichTextState = when (ac
 ## Internal Link Picker — Generic Merged (PR #3)
 
 **`LinkResult`** (`feature/notes/LinkResult.kt`):
+
 ```kotlin
 data class LinkResult(val id: String, val title: String, val kind: LinkKind)
 enum class LinkKind { Note, Task }
 ```
 
 **Generic sheet** (`feature/notes/components/InternalLinkPickerSheet.kt`):
+
 ```kotlin
 @Composable
 fun InternalLinkPickerSheet(
@@ -185,6 +193,7 @@ fun InternalLinkPickerSheet(
 ```
 
 **NoteEditorScreen wiring:**
+
 ```kotlin
 val linkQueryFlow = remember { MutableStateFlow("") }
 InternalLinkPickerSheet(
@@ -197,13 +206,11 @@ InternalLinkPickerSheet(
         notes + tasks  // merged
     },
     onSelected = { result ->
-        val url = when (result.kind) {
-            LinkKind.Note -> "note://${result.id}"
-            LinkKind.Task -> "task://${result.id}"
-        }
-        session?.richTextState?.addLinkToSelection(url = url)
-        session?.recordLink(url)
-        session?.dispatchHtml()
+        // The link text is the title; the address is the internal URL.
+        session.insertLink(
+            url = result.kind.urlFor(result.id),
+            text = result.title.ifBlank { "(Untitled)" },
+        )
         linkQueryFlow.value = ""
     },
     onDismiss = { internalLinkPickerVisible = false; linkQueryFlow.value = "" },
@@ -215,6 +222,7 @@ InternalLinkPickerSheet(
 `RichTextState` paragraph tree (`RichParagraph.children`) is `internal`. Walking it from outside the library is impossible. Instead, parse the HTML output.
 
 **`OutgoingLinksExtractor.kt`** (pure function):
+
 ```kotlin
 internal fun extractOutgoingLinks(html: String): List<LinkRef> {
     val seen = mutableSetOf<LinkRef>()
@@ -236,6 +244,7 @@ sealed interface LinkRef {
 ```
 
 **Wired in `NoteEditor.persist()`** (called on every save):
+
 ```kotlin
 private suspend fun persist(html: String, title: String, id: String, navigateBack: Boolean) {
     repo.updateContent(...).getOrThrow()
@@ -295,6 +304,10 @@ richState.toggleOrderedList()
 richState.toggleCodeSpan()
 richState.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Center))
 richState.addLinkToSelection(url = "https://example.com")  // inserts link span
+// A collapsed selection is refused by the library. The app writes the link text at
+// the caret first and links the range it occupies — see EditorSession.insertLink.
+richState.addTextAfterSelection("https://example.com")    // writes plain text at the caret
+richState.addLinkToTextRange(url, TextRange(caret, caret + len))  // links a range
 
 // Query state
 richState.currentSpanStyle.fontWeight >= FontWeight.Bold  // isBold
@@ -313,6 +326,7 @@ richState.setHtml(html)   // HTML → internal state
 ```
 
 **`RichSpanStyle.Link`** — serializes as `<a href="url">`:
+
 ```kotlin
 // Link URL schemes used:
 note://{noteId}
@@ -323,7 +337,7 @@ task://{taskId}
 
 `RichText` (read-only, used in NotePreview) handles link taps internally via `detectTapGestures` + `getLinkByOffset` (internal API).
 
-For the editable `RichTextEditor`: `addLinkToSelection(url)` inserts the link span correctly. Tapping links in the editor for navigation is future work.
+For the editable `RichTextEditor`: `EditorSession.insertLink(url, text)` inserts the link span correctly — on a selection it links the selected text, and on a caret it writes the link text at the caret and links that range. Tapping links in the editor for navigation is future work.
 
 ## Limitations
 

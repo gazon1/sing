@@ -72,7 +72,6 @@ The second risk is **scope drift into the calendar**, which is the obvious adjac
 cleanup and the one most likely to be bundled silently. It is excluded above on
 purpose.
 
-
 ---
 
 ## What applying this found

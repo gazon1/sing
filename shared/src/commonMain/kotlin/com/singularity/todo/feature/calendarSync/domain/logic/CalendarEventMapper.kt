@@ -40,15 +40,16 @@ object CalendarEventMapper {
             task.dueDate
                 ?: todayInSystemZone(tz)
 
+        val dueTime = task.dueTime
         val startMs =
-            if (task.dueTime != null) {
+            if (dueTime != null) {
                 val ldt =
                     LocalDateTime(
                         year = effectiveDate.year,
                         month = effectiveDate.month,
                         day = effectiveDate.day,
-                        hour = task.dueTime.hour,
-                        minute = task.dueTime.minute,
+                        hour = dueTime.hour,
+                        minute = dueTime.minute,
                         second = 0,
                         nanosecond = 0,
                     )

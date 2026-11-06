@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.feature.tasks.domain.model.TaskSharedField
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 
 /**
  * The one place that knows which field an intent writes, and therefore whether

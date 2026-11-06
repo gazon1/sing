@@ -1,0 +1,193 @@
+facts:
+  - id: K-sync-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/sync.md
+  - id: K-agenda-001
+    owner_type: knowledge
+    canonical_ref: knowledge/domain/agenda.md
+  - id: K-build-001
+    owner_type: knowledge
+    canonical_ref: knowledge/engineering/build.md
+  - id: K-backup-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/backup.md
+  - id: K-koin-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/koin.md
+  - id: K-reminders-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/reminders.md
+  - id: K-pomodoro-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/pomodoro.md
+  - id: K-calsync-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/calendar-sync.md
+  - id: K-tasks-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/tasks.md
+  - id: K-tags-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/tags.md
+  - id: K-notes-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/notes.md
+  - id: K-search-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/search.md
+  - id: K-stats-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/statistics.md
+  - id: K-projects-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/projects.md
+  - id: K-attachments-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/attachments.md
+  - id: K-profile-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/profile.md
+  - id: K-archive-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/archive.md
+  - id: K-auth-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/auth.md
+  - id: K-settings-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/settings.md
+  - id: K-calendar-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/calendar.md
+  - id: K-checklist-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/checklist.md
+  - id: K-genui-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/genui.md
+  - id: K-ai-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/ai.md
+  - id: K-alarms-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/alarms.md
+  - id: K-plans-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/plans.md
+  - id: K-proposals-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/proposals.md
+  - id: K-timetracking-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/timetracking.md
+  - id: K-whatsnew-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/whatsnew.md
+  - id: K-gate-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/gate.md
+  - id: K-nav-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/nav.md
+  - id: K-notif-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/notifications.md
+  - id: K-security-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/security.md
+  - id: K-tree-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/tree.md
+  - id: K-ui-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/ui.md
+  - id: K-coroutines-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/coroutines.md
+  - id: K-files-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/files.md
+  - id: K-ids-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/ids.md
+  - id: K-log-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/log.md
+  - id: K-observability-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/observability.md
+  - id: K-platform-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/platform.md
+  - id: K-settingscore-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/settings-core.md
+  - id: K-synccore-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/sync-core.md
+  - id: K-taskscore-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/tasks-core.md
+  - id: K-billing-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/billing.md
+  - id: K-draft-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/draft.md
+  - id: K-error-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/error.md
+  - id: K-graph-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/graph.md
+  - id: K-refresh-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/refresh.md
+  - id: K-schedule-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/schedule.md
+  - id: K-seed-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/seed.md
+  - id: K-version-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/version.md
+  - id: K-wipe-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/wipe.md
+  - id: K-work-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/work.md
+  - id: K-text-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/text.md
+  - id: K-transport-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/transport.md
+  - id: K-analytics-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/analytics.md
+  - id: K-appearance-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/appearance.md
+  - id: K-config-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/config.md
+  - id: K-datastore-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/datastore.md
+  - id: K-network-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/network.md
+  - id: K-llm-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/llm.md
+  - id: K-repository-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/repository.md
+  - id: K-aicore-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/ai-core.md
+  - id: K-authcore-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/auth-core.md

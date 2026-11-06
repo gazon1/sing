@@ -173,21 +173,25 @@ class UserScopedWriteExtTest {
 Before merging any PR that touches repository `create`/`update`/`restore`:
 
 **For `create`:**
+
 - [ ] `assertCanWrite` is the **first line** before any `dao.upsert`
 - [ ] `syncRepository.enqueue(item)` is called **after** `dao.upsert`
 - [ ] `item.copy(userId = currentUser.scopedUserId.value)` stamps user **after** guard
 
 **For `edit` (user update):**
+
 - [ ] `assertCanWrite` is the **first line**
 - [ ] `dao.getByIdForUser(...)?: throw IllegalArgumentException(...)` read-before-write guard
 - [ ] `syncRepository.enqueue(item)` is called **after** `dao.upsert`
 
 **For `apply` (sync engine):**
+
 - [ ] No `assertCanWrite` — server signature is already validated
 - [ ] No `syncRepository.enqueue` — already on server
 - [ ] Server entity is upserted as-is (full-row replace is correct for server data)
 
 **Common:**
+
 - [ ] No `require()` or manual `if (userId != ...)` — use `assertCanWrite`
 - [ ] `assertCanWrite` throws `CrossUserWriteException`, not `IllegalArgumentException`
 - [ ] `userId` type mismatch handled — wrap `String`-typed `userId` with `UserId()` at call site

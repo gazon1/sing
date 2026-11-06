@@ -7,7 +7,8 @@ tags: [clock, testing, testability, di, scenarios]
 
 ## Context
 
-#91 was filed because a desktop flow test could not pin a date. The calendar
+# 91 was filed because a desktop flow test could not pin a date. The calendar
+
 rendered October on a September host, the injected clock never arrived, and the
 attempt was reverted. The issue's own advice — "thread an injected clock into the
 calendar content" — turned out to be the second-order part.

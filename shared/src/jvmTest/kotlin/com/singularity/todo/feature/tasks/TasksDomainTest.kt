@@ -85,7 +85,7 @@ class TasksDomainTest {
                 tagIds = tagIds,
                 dueDate = dueDate,
                 dueTime =
-                    com.singularity.todo.core.database.LocalTimeFormats
+                    com.singularity.todo.core.format.LocalTimeFormats
                         .parse("14:00:00"),
                 someday = false,
             )
@@ -99,7 +99,7 @@ class TasksDomainTest {
         assertEquals(tagIds, input.tagIds)
         assertEquals(dueDate, input.dueDate)
         assertEquals(
-            com.singularity.todo.core.database.LocalTimeFormats
+            com.singularity.todo.core.format.LocalTimeFormats
                 .parse("14:00:00"),
             input.dueTime,
         )
@@ -206,16 +206,28 @@ class TasksDomainTest {
     }
 
     @Test
-    fun `matchesFilter - Inbox excludes someday and trashed`() {
+    fun `matchesFilter - NotDeferred excludes someday and trashed`() {
         val today = LocalDate(2024, 1, 15)
-        val activeTask = taskWith(someday = false)
-        assertTrue(TaskDomain.matchesFilter(activeTask, TaskFilter.Inbox, today))
+        val undatedTask = taskWith(dueDate = null)
+        assertTrue(TaskDomain.matchesFilter(undatedTask, TaskFilter.NotDeferred, today))
+
+        val datedTask = taskWith(dueDate = today)
+        assertTrue(
+            TaskDomain.matchesFilter(datedTask, TaskFilter.NotDeferred, today),
+            "a dated task is not deferred",
+        )
+
+        val completedTask = taskWith().copy(completedAt = Instant.fromEpochMilliseconds(1))
+        assertTrue(
+            TaskDomain.matchesFilter(completedTask, TaskFilter.NotDeferred, today),
+            "completing a task marks it; only archiving takes it away",
+        )
 
         val somedayTask = taskWith(someday = true)
-        assertFalse(TaskDomain.matchesFilter(somedayTask, TaskFilter.Inbox, today))
+        assertFalse(TaskDomain.matchesFilter(somedayTask, TaskFilter.NotDeferred, today))
 
         val trashedTask = taskWith(archivedAt = Instant.fromEpochMilliseconds(1))
-        assertFalse(TaskDomain.matchesFilter(trashedTask, TaskFilter.Inbox, today))
+        assertFalse(TaskDomain.matchesFilter(trashedTask, TaskFilter.NotDeferred, today))
     }
 
     @Test

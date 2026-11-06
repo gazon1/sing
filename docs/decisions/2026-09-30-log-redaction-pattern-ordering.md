@@ -20,7 +20,7 @@ Given `"Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIx...In0.abcdefghij
 the generic pattern `eyJ...{3,}\.{3,}\.{3,}` matches the whole token and
 rewrites it to `[JWT]`. The result is `"Authorization: Bearer [JWT]"`. The
 `bearer\s+...` pattern, which runs *after*, now has nothing to match — the
-`Bearer ` prefix survives verbatim.
+`Bearer` prefix survives verbatim.
 
 Same for `anonKey=<jwt>` → `anonKey=[JWT]`: the value is redacted (no leak),
 but the *specific* placeholder never applies and the credential label stays

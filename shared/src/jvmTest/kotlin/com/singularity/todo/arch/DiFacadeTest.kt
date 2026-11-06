@@ -74,14 +74,8 @@ class DiFacadeTest {
         private val CONTINUATION_SUFFIXES = listOf(",", "+", "-", "*", "/", "&&", "||", "?:", ":")
 
         /** Package name derived from the file path, as [ArchitectureTest] does. */
-        private fun KoFileDeclaration.packageName(): String {
-            val normalizedPath = path.replace('\\', '/')
-            val normalizedRoot = CommonMainKonsistScope.commonMainRoot.replace('\\', '/').trimEnd('/')
-            return normalizedPath
-                .removePrefix("$normalizedRoot/")
-                .substringBeforeLast('/')
-                .replace('/', '.')
-        }
+        private fun KoFileDeclaration.packageName(): String =
+            CommonMainKonsistScope.sourcePath(path).substringBeforeLast('/').replace('/', '.')
 
         /**
          * The facade aggregator, resolved lazily so a lookup failure surfaces as a test

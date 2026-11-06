@@ -50,6 +50,7 @@ default JDK keystore (which produces an unsigned APK).
 ### 3. SDK
 
 Ensure `local.properties` exists in the project root (not checked in):
+
 ```
 sdk.dir=/path/to/android/sdk
 ```
@@ -125,6 +126,7 @@ When `isMinifyEnabled = true`, R8 may emit `Missing class` warnings. These are
 ```
 
 R8 writes missing-class rules to:
+
 ```
 androidApp/build/outputs/mapping/release/missing_rules.txt
 ```
@@ -134,6 +136,7 @@ androidApp/build/outputs/mapping/release/missing_rules.txt
 Copy the `-dontwarn` rules from `missing_rules.txt` into `androidApp/proguard-rules.pro`.
 
 Example:
+
 ```proguard
 # Added by R8 iterative fix
 -dontwarn ai.koog.utils.io.Coroutines_jvmKt
@@ -203,6 +206,7 @@ keystore. This is correct local dev behaviour (unsigned builds for testing).
 ### R8/ProGuard removes a class it shouldn't
 
 Add a keep rule:
+
 ```proguard
 -keep class com.singularity.todo.SomeClass { *; }
 ```
@@ -210,6 +214,7 @@ Add a keep rule:
 ### "Missing class" for an internal class
 
 This means R8 can't find the class during minification. Possible causes:
+
 - The class is only referenced via reflection
 - The class is in a source set not included in the release build
 - KSP-generated code is missing a keep rule

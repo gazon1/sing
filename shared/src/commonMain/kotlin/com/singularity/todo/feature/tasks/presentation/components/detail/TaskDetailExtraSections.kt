@@ -37,7 +37,6 @@ import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.components.ChecklistItemRow
 import com.singularity.todo.feature.checklist.components.ChecklistRowTags
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import kotlinx.collections.immutable.ImmutableList
 
 // ─── Recurrence ────────────────────────────────────────────────────────────────
@@ -74,16 +73,23 @@ fun TaskDetailChecklistSection(
     val newTitleState = rememberTextFieldState()
     val completed = checklist.count { it.isCompleted }
 
-    // The section always renders, empty list or not. It is the only place the
-    // checklist can be edited from the task screen, so a section that hid itself
-    // when the list was empty left the user with no way to add the first item —
-    // and no way to say "this task has no checklist" either.
+    // The section always renders, empty list or not: the add-row inside it is the
+    // only way to add the first checklist item from the task screen, so a section
+    // that hid itself when the list was empty would take the way in with it.
+    // What it must not do is look like a leftover — an empty list shows no count
+    // over nothing and says so in a line of its own.
     ExtraSectionCard(
         modifier = modifier.testTag(TestTags.TASK_CHECKLIST_SECTION),
         icon = { Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null) },
-        label = "Checklist ($completed/${checklist.size})",
+        label = if (checklist.isEmpty()) "Checklist" else "Checklist ($completed/${checklist.size})",
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (checklist.isEmpty()) {
+                    EmptySectionHint(
+                        text = "No checklist items yet. Add the first one below.",
+                        modifier = Modifier.testTag(TestTags.CHECKLIST_EMPTY_HINT),
+                    )
+                }
                 // The add row — always present, so the first item can be added
                 // without leaving the screen.
                 Row(
@@ -117,7 +123,7 @@ fun TaskDetailChecklistSection(
                         },
                         modifier =
                             Modifier
-                                .touchTarget(TaskListSizes.MinTouchTarget)
+                                .touchTarget()
                                 .size(40.dp)
                                 .testTag(TestTags.CHECKLIST_INLINE_ADD_BUTTON),
                     ) {
@@ -174,7 +180,9 @@ fun TaskDetailAttachmentsSection(
     if (attachments.isEmpty() && onOpenAttachments == null) return
     ExtraSectionCard(
         icon = { Icon(Icons.Filled.AttachFile, contentDescription = null) },
-        label = "Attachments (${attachments.size})",
+        // No count over nothing: an empty list says "Attachments", and the add-row
+        // below is the way in.
+        label = if (attachments.isEmpty()) "Attachments" else "Attachments (${attachments.size})",
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 attachments.forEach { att ->
@@ -193,7 +201,7 @@ fun TaskDetailAttachmentsSection(
                         color = MaterialTheme.colorScheme.primary,
                         modifier =
                             Modifier
-                                .touchTarget(TaskListSizes.MinTouchTarget)
+                                .touchTarget()
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                                 .clickable(onClick = onOpenAttachments)
                                 .testTag(TestTags.ATTACHMENTS_ADD_FILE_ROW),

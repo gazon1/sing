@@ -167,6 +167,7 @@ SOURCE_SETS = {
     "shared:jvmTest": "shared/build/test-results/jvmTest",
     "shared:archTest": arch_suite.report_dir(),
     "shared:testAndroidHostTest": "shared/build/test-results/testAndroidHostTest",
+    "core-domain:jvmTest": "core-domain/build/test-results/jvmTest",
     "desktopApp:test": "desktopApp/build/test-results/test",
     "mcp-server:test": "mcp-server/build/test-results/test",
 }
@@ -178,6 +179,7 @@ _TASK_PATH_TO_LABEL: dict[str, str] = {
     ":shared:jvmTest": "shared:jvmTest",
     ":shared:archTest": "shared:archTest",
     ":shared:testAndroidHostTest": "shared:testAndroidHostTest",
+    ":core-domain:jvmTest": "core-domain:jvmTest",
     ":desktopApp:test": "desktopApp:test",
     ":mcp-server:test": "mcp-server:test",
 }
@@ -288,6 +290,7 @@ EXPECTED_CLASS_SOURCES = {
     "shared:archTest": (
         "shared/src/jvmTest/kotlin",
     ),
+    "core-domain:jvmTest": ("core-domain/src/commonTest/kotlin",),
     "desktopApp:test": ("desktopApp/src/jvmTest/kotlin",),
     "mcp-server:test": ("mcp-server/src/test/kotlin",),
 }

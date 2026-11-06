@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
@@ -54,6 +55,7 @@ import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.platformVerticalScrollbar
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
@@ -107,7 +109,11 @@ fun ProjectBodySection(
                     remember(ui.tasks) {
                         Blocking.blockedTaskIds(ui.tasks).toImmutableSet()
                     }
-                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                val listState = rememberLazyListState()
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxWidth().platformVerticalScrollbar(listState),
+                ) {
                     items(ui.tasks, key = { it.id.value }) { task ->
                         TaskCard(
                             task = task,

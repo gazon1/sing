@@ -11,13 +11,13 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.DraftMviViewModel
 import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
+import com.singularity.todo.feature.tasks.domain.state.DraftAttachment
+import com.singularity.todo.feature.tasks.domain.state.DraftChecklistItem
+import com.singularity.todo.feature.tasks.domain.state.DueDateOption
+import com.singularity.todo.feature.tasks.domain.state.TaskCreateIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskCreateUiEvent
+import com.singularity.todo.feature.tasks.domain.state.TaskDraft
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
-import com.singularity.todo.feature.tasks.presentation.state.DraftAttachment
-import com.singularity.todo.feature.tasks.presentation.state.DraftChecklistItem
-import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
-import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
-import com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiEvent
-import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 

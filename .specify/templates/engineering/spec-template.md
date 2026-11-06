@@ -40,9 +40,11 @@ _<What it must do after this change. Decisions, not facts.>
 ## Invariants
 
 ### INV-01 — <the invariant>
+
 <One sentence. Why must it hold, and what breaks if it does not.>
 
 ### INV-02 — <the invariant>
+
 <...>
 
 _<An invariant nobody could violate is not an invariant. One nobody would want to violate is not
@@ -84,7 +86,7 @@ _<What must not break: existing public APIs, persisted schemas, serialized forma
       `Verification:` `<TestClass>::<testFunction>` — `./gradlew :shared:jvmTest --tests '<TestClass>'`
 - [ ] **AC-02:** <...>
 
-_Rules for this list:_
+*Rules for this list:*
 
 - _Name a **resolvable test id**, not "add a test". The test does not exist yet — `verify-design`
   designs it and `implement` writes it. Binding to a named test is what makes the binding checkable
@@ -94,6 +96,14 @@ _Rules for this list:_
 - _Number sequentially from `AC-01`. Never reuse a number — the gate that used to check this
   was removed on 2026-10-19, and reused identifiers produced a traceability matrix that
   confidently reported the wrong requirement._
+
+## Knowledge impact
+
+`concept_impact` (required before archive):
+
+- **status:** created | updated | not_required
+- **concepts:** <list of knowledge concept ids, required when status is created or updated>
+- **rationale:** <required when status is not_required; describe why no knowledge concept is affected>
 
 ## Open questions
 

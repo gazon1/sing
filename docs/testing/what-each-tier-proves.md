@@ -4,6 +4,10 @@ Two UI tiers run in this repository, and they answer different questions. This
 page says which is which, so the split is written down rather than inferred from
 which suite a test happens to live in.
 
+When one scenario is asserted in more than one tier, one of them owns it: the
+[ownership table](../architecture/test-tier-ownership.md) says which, why, and what
+happened to the other tier's copy.
+
 | Tier | What runs | Cost | What it can see |
 |---|---|---|---|
 | **device** | `:androidApp:connectedDebugAndroidTest` — one class (`AppStartupTest`) as an advisory smoke on every pull request, the whole instrumented suite nightly | ~10 minutes and an emulator | the real Android runtime |

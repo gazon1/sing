@@ -42,7 +42,7 @@ import com.singularity.todo.feature.calendar.domain.logic.toLocalDate
 import com.singularity.todo.feature.calendar.domain.logic.toYearMonth
 import com.singularity.todo.feature.calendar.domain.logic.yearMonthForPage
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
-import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
+import com.singularity.todo.feature.calendar.domain.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap

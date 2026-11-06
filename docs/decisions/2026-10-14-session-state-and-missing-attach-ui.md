@@ -64,6 +64,7 @@ unreachable. Users who start offline or as guests cannot attach their
 local data to a Supabase account.
 
 **Required work (2026-10-14 — step 1 done, steps 2-3 removed as stub):**
+
 1. ✅ Add `AuthIntent.MigrateAnonymousTo(email, String, password: String)` to `AuthViewModel`
    - `AUTH_ATTACH_ACCOUNT_BUTTON` tag and `07-account-attach.yaml` flow were removed
      as premature — no production UI exists to drive them.

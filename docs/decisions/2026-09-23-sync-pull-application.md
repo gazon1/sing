@@ -10,6 +10,7 @@ description: How pull events are applied to local entities, how handlers are reg
 ## Context
 
 The sync engine has a working push (outbox) and a stub pull. Pull requires:
+
 1. An `EntityApply` handler for each `DocType` (Task, Note, Project, Tag)
 2. A `ConflictResolver` to merge server events with local changes
 3. Consumers (repositories) must call `syncRepository.enqueue(entity)` on local mutations

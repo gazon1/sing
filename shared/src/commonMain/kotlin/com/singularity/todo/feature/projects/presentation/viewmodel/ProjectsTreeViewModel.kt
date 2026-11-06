@@ -85,11 +85,15 @@ class ProjectsTreeViewModel(
             combine(repo.observeAll(), settings.collapsedProjectIds) { projects, collapsed ->
                 projects to collapsed
             }.catch { throwable ->
-                crashReporter.report(throwable, LOAD_FAILED)
+                // The failure crossed a channel hop, and a channel carries a *copy* of
+                // the throwable — the original is its cause, so the copy is unwrapped
+                // before it is reported.
+                val reported = throwable.cause ?: throwable
+                crashReporter.report(reported, LOAD_FAILED)
                 setState(ProjectsTreeUiState.Loaded(persistentListOf()))
                 emit(
                     ProjectsTreeUiEvent.ShowError(
-                        throwable.message ?: "Could not load the projects",
+                        reported.message ?: "Could not load the projects",
                     ),
                 )
             }.collect { (projects, collapsed) ->

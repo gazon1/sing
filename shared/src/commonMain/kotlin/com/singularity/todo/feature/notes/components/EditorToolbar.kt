@@ -1,9 +1,12 @@
 package com.singularity.todo.feature.notes.components
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatAlignLeft
 import androidx.compose.material.icons.automirrored.filled.FormatAlignRight
@@ -16,6 +19,7 @@ import androidx.compose.material.icons.filled.FormatAlignCenter
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatListNumbered
+import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.FormatStrikethrough
 import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.filled.Link
@@ -34,6 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.ParagraphStyle
 import androidx.compose.ui.text.SpanStyle
@@ -161,39 +166,135 @@ internal fun RichTextState.isActive(action: EditorAction): Boolean =
         }
     }
 
-/** One button in the toolbar. */
-private data class ToolbarButton(val action: EditorAction, val icon: ImageVector, val label: String)
+/**
+ * One entry in the toolbar.
+ *
+ * [glyph] is a short word drawn where the icon would be. The icon set has one
+ * picture for "a heading" and no H1/H2/H3, so all three levels drew the same
+ * `Title` and were indistinguishable in the menu; a glyph names the level
+ * instead. [icon] stays the picture for everything else — and the row's picture,
+ * because only actions the icon set can draw sit on the row.
+ */
+internal data class ToolbarButton(
+    val action: EditorAction,
+    val icon: ImageVector,
+    val label: String,
+    val glyph: String? = null,
+)
 
-private val primaryButtons =
-    listOf(
-        ToolbarButton(EditorAction.Bold, Icons.Filled.FormatBold, "Bold"),
-        ToolbarButton(EditorAction.Italic, Icons.Filled.FormatItalic, "Italic"),
-        ToolbarButton(EditorAction.Underline, Icons.Filled.FormatUnderlined, "Underline"),
-        ToolbarButton(EditorAction.Strike, Icons.Filled.FormatStrikethrough, "Strikethrough"),
-        ToolbarButton(EditorAction.H1, Icons.Filled.Title, "Heading 1"),
-        ToolbarButton(EditorAction.Bullet, Icons.AutoMirrored.Filled.FormatListBulleted, "Bullet list"),
-        ToolbarButton(EditorAction.Ordered, Icons.Filled.FormatListNumbered, "Numbered list"),
-    )
+/**
+ * The picture and the spoken label for an action — the one place the toolbar
+ * decides how an action looks. Exhaustive, so an action cannot reach the bar
+ * without a glyph and a name.
+ *
+ * [EditorAction.Quote] is mapped for exhaustiveness but never rendered: the
+ * library has no blockquote toggle, so neither list offers it.
+ */
+internal fun toolbarButtonFor(action: EditorAction): ToolbarButton =
+    when (action) {
+        EditorAction.Bold -> {
+            ToolbarButton(action, Icons.Filled.FormatBold, "Bold")
+        }
 
-private val overflowButtons =
-    listOf(
-        ToolbarButton(EditorAction.H2, Icons.Filled.Title, "Heading 2"),
-        ToolbarButton(EditorAction.H3, Icons.Filled.Title, "Heading 3"),
-        ToolbarButton(EditorAction.Code, Icons.Filled.Code, "Inline code"),
-        ToolbarButton(
-            EditorAction.AlignLeft,
-            Icons.AutoMirrored.Filled.FormatAlignLeft,
-            "Align left",
-        ),
-        ToolbarButton(EditorAction.AlignCenter, Icons.Filled.FormatAlignCenter, "Align center"),
-        ToolbarButton(
-            EditorAction.AlignRight,
-            Icons.AutoMirrored.Filled.FormatAlignRight,
-            "Align right",
-        ),
-        ToolbarButton(EditorAction.ExternalLink, Icons.Filled.Link, "External link"),
-        ToolbarButton(EditorAction.InternalLink, Icons.Filled.Link, "Internal link"),
-    )
+        EditorAction.Italic -> {
+            ToolbarButton(action, Icons.Filled.FormatItalic, "Italic")
+        }
+
+        EditorAction.Underline -> {
+            ToolbarButton(action, Icons.Filled.FormatUnderlined, "Underline")
+        }
+
+        EditorAction.Strike -> {
+            ToolbarButton(action, Icons.Filled.FormatStrikethrough, "Strikethrough")
+        }
+
+        EditorAction.H1 -> {
+            ToolbarButton(action, Icons.Filled.Title, "Heading 1", glyph = "H1")
+        }
+
+        EditorAction.H2 -> {
+            ToolbarButton(action, Icons.Filled.Title, "Heading 2", glyph = "H2")
+        }
+
+        EditorAction.H3 -> {
+            ToolbarButton(action, Icons.Filled.Title, "Heading 3", glyph = "H3")
+        }
+
+        EditorAction.Bullet -> {
+            ToolbarButton(action, Icons.AutoMirrored.Filled.FormatListBulleted, "Bullet list")
+        }
+
+        EditorAction.Ordered -> {
+            ToolbarButton(action, Icons.Filled.FormatListNumbered, "Numbered list")
+        }
+
+        EditorAction.Code -> {
+            ToolbarButton(action, Icons.Filled.Code, "Inline code")
+        }
+
+        EditorAction.Quote -> {
+            ToolbarButton(action, Icons.Filled.FormatQuote, "Blockquote")
+        }
+
+        EditorAction.AlignLeft -> {
+            ToolbarButton(action, Icons.AutoMirrored.Filled.FormatAlignLeft, "Align left")
+        }
+
+        EditorAction.AlignCenter -> {
+            ToolbarButton(action, Icons.Filled.FormatAlignCenter, "Align center")
+        }
+
+        EditorAction.AlignRight -> {
+            ToolbarButton(action, Icons.AutoMirrored.Filled.FormatAlignRight, "Align right")
+        }
+
+        EditorAction.ExternalLink -> {
+            ToolbarButton(action, Icons.Filled.Link, "External link")
+        }
+
+        EditorAction.InternalLink -> {
+            ToolbarButton(action, Icons.Filled.Link, "Internal link")
+        }
+    }
+
+/** The row, from [EditorAction.primary]. */
+private val primaryButtons: List<ToolbarButton> = EditorAction.primary.map(::toolbarButtonFor)
+
+/** The menu, from [EditorAction.overflow]. */
+private val overflowButtons: List<ToolbarButton> = EditorAction.overflow.map(::toolbarButtonFor)
+
+/**
+ * The picture at the start of an overflow row: the level word for a heading, the
+ * icon for everything else.
+ */
+@Composable
+private fun ToolbarGlyph(
+    button: ToolbarButton,
+    tint: Color,
+) {
+    val glyph = button.glyph
+    if (glyph == null) {
+        Icon(button.icon, contentDescription = null, tint = tint)
+    } else {
+        Text(
+            text = glyph,
+            color = tint,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(24.dp),
+        )
+    }
+}
+
+/** The tint that says whether an action is currently applied to the selection. */
+@Composable
+private fun activeActionTint(isActive: Boolean): Color =
+    if (isActive) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
 /**
  * Sticky formatting toolbar for the rich-text editor.
@@ -218,6 +319,11 @@ fun EditorToolbar(
         modifier =
             modifier
                 .fillMaxWidth()
+                // Three formatting buttons plus Undo, Redo, the menu and AI are
+                // seven 48 dp targets — 336 dp — which is what a 360 dp phone can
+                // show at once. The scroll is what keeps that true on a narrower
+                // window or a larger text scale, where the buttons no longer fit.
+                .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 4.dp),
     ) {
         // Primary formatting buttons
@@ -228,15 +334,7 @@ fun EditorToolbar(
                     richTextState.apply(button.action)
                     onHtmlChange()
                 },
-                colors =
-                    IconButtonDefaults.iconButtonColors(
-                        contentColor =
-                            if (isActive) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                    ),
+                colors = IconButtonDefaults.iconButtonColors(contentColor = activeActionTint(isActive)),
             ) {
                 Icon(
                     button.icon,
@@ -246,9 +344,13 @@ fun EditorToolbar(
             }
         }
 
-        // Undo / Redo
+        // Undo / Redo — enabled only when the library's history has something to
+        // move. A fresh note has nothing, and a button that looked live but did
+        // nothing read as broken rather than unavailable.
+        val canUndo = richTextState.history.canUndo
         IconButton(
             onClick = { richTextState.history.undo() },
+            enabled = canUndo,
             colors =
                 IconButtonDefaults.iconButtonColors(
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -260,8 +362,10 @@ fun EditorToolbar(
                 modifier = Modifier.size(22.dp),
             )
         }
+        val canRedo = richTextState.history.canRedo
         IconButton(
             onClick = { richTextState.history.redo() },
+            enabled = canRedo,
             colors =
                 IconButtonDefaults.iconButtonColors(
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -319,16 +423,7 @@ fun EditorToolbar(
                         }
                     },
                     leadingIcon = {
-                        Icon(
-                            button.icon,
-                            contentDescription = null,
-                            tint =
-                                if (isActive) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                        )
+                        ToolbarGlyph(button = button, tint = activeActionTint(isActive))
                     },
                 )
             }

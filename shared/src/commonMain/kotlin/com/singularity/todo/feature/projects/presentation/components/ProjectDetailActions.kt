@@ -2,7 +2,7 @@ package com.singularity.todo.feature.projects.presentation.components
 
 import androidx.compose.runtime.Stable
 import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
+import com.singularity.todo.feature.projects.domain.state.ProjectDetailIntent
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 

@@ -24,31 +24,37 @@ Each PR goes through four phases. Reviewers gate progress at each phase. This pr
 ### Phase transitions
 
 **Phase 1 → Phase 2 (Ready):**
+
 - Author removes `draft` label / marks PR ready
 - CI (jvmTest, detekt) is green
 - Author has done a self-review pass
 
 **Phase 2 → Phase 3 (Approved):**
+
 - All review comments resolved
 - All required checks pass
 - Reviewer approves
 
 **Phase 3 → Phase 4 (Merged):**
+
 - Author squash-merges to main
 - CI is green on main branch
 
 ### What reviewers must check at each phase
 
 **Phase 1 (Draft):**
+
 - High-level architecture — does the approach make sense?
 - Are there red flags in the design?
 
 **Phase 2 (Ready):**
+
 - All required checks from `code-review-process`
 - All review comments addressed or acknowledged
 - No new issues introduced by changes
 
 **Phase 3 (Approved):**
+
 - Final sanity check
 - Author has merged or will merge promptly
 

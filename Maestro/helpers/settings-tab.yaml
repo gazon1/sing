@@ -1,0 +1,20 @@
+# Opens a Settings tab by its id. The dropdown holds more tabs than fit on a
+# phone screen, so the menu is scrolled until the tab is drawn.
+#
+# Usage:
+#   - runFlow:
+#       file: ../../helpers/settings-tab.yaml
+#       env:
+#         TAB_ID: settings_tab_backup
+appId: com.singularity.todo
+name: settings-tab
+---
+- tapOn:
+    id: settings_tab_dropdown
+- scrollUntilVisible:
+    element:
+      id: "${TAB_ID}"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "${TAB_ID}"

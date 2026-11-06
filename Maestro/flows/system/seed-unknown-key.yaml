@@ -1,0 +1,24 @@
+# A seed query with an unknown key still seeds the keys it knows.
+#
+# The unknown key is reported by name in the logcat (`Unknown seed query key
+# 'blockeddBy'`); the flow asserts the known `task=` landed, because a finding
+# that costs the caller the rows it did understand would be worse than silence.
+appId: com.singularity.todo
+name: seed-unknown-key
+tags:
+  - system
+  - regression
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Buy%20milk&blockeddBy=MissingBlocker"
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_buy_milk
+    timeout: 8000
+- assertVisible:
+    id: task_item_buy_milk

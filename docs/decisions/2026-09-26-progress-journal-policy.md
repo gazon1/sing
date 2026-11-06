@@ -60,6 +60,7 @@ A `PROGRESS.md` file at the repo root tracks active epics. It is a **living docu
 ### Retro section content
 
 Each retro entry answers:
+
 1. **What was done** — brief summary
 2. **What went well** — bullets
 3. **What didn't go well** — bullets

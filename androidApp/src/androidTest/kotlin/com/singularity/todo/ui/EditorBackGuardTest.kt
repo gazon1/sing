@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import com.singularity.todo.MainActivity
 import com.singularity.todo.testing.InstrumentedTestBase
+import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -40,11 +41,23 @@ class EditorBackGuardTest : InstrumentedTestBase() {
         device.executeShellCommand("input keyevent 82") // unlock
     }
 
+    /**
+     * Takes the draft the editor autosaved on close out of the store again.
+     *
+     * The editor autosaves what it was given, so this class leaves a draft on
+     * the device unless its teardown removes it — and a draft left behind is
+     * the state the shared helper exists to eliminate.
+     */
+    @After
+    fun clearDrafts() {
+        clearTaskEditorDrafts()
+    }
+
     @Test
     fun back_press_never_throws_the_draft_away_without_asking() {
         val scenario = launchEditor()
 
-        device.typeInto("task_editor_title_input", draftTitle())
+        device.typeInto("task_editor_title_input", DRAFT_TITLE)
 
         // The first press either closes the keyboard (a device with a soft
         // keyboard) or reaches the screen (a device without one). The second
@@ -72,7 +85,7 @@ class EditorBackGuardTest : InstrumentedTestBase() {
     fun the_editor_is_still_there_after_a_back_press() {
         val scenario = launchEditor()
 
-        device.typeInto("task_editor_title_input", draftTitle())
+        device.typeInto("task_editor_title_input", DRAFT_TITLE)
 
         // One press, whatever the keyboard did: the editor is either still open
         // or asking. What it must never be is gone with the draft lost.
@@ -92,6 +105,10 @@ class EditorBackGuardTest : InstrumentedTestBase() {
     /**
      * Opens the task editor on a freshly launched app.
      *
+     * The editor opens on an empty draft: the draft the device carried from an
+     * earlier run is cleared first, so the title typed below is a real change
+     * and the editor has something to ask about.
+     *
      * @return the scenario, so the test can close the app it opened.
      */
     private fun launchEditor(): ActivityScenario<MainActivity> {
@@ -101,20 +118,24 @@ class EditorBackGuardTest : InstrumentedTestBase() {
                 MainActivity::class.java,
             )
         val scenario = ActivityScenario.launch<MainActivity>(intent)
-        device.awaitShell()
-        device.tapTag("tasks_fab")
-        device.awaitTag("task_editor_title_input", "the task editor's title input", TAB_TIMEOUT_MS)
+        openTaskEditorWithAnEmptyDraft()
         return scenario
     }
 
-    /**
-     * A title that is different every time.
-     *
-     * The task editor restores its draft, so a test that types the same title
-     * as the test before it types *nothing* — the field already holds that
-     * text, the upstream never hears a change, and the draft stays clean. A
-     * clean draft is left without a question, and a test that is about the
-     * question would then be measuring the wrong thing.
-     */
-    private fun draftTitle(): String = "Draft ${System.currentTimeMillis()}"
+    companion object {
+        /**
+         * The title the tests type.
+         *
+         * It used to be different every time, because the editor restores the
+         * draft it was last given: a test that typed the same title as the test
+         * before it typed *nothing* — the field already held that text, the
+         * upstream never heard a change, and the draft stayed clean. A clean
+         * draft is left without a question, and a test that is about the
+         * question would then be measuring the wrong thing.
+         *
+         * The editor now opens on an empty draft, so the title is a change
+         * whatever it is.
+         */
+        private const val DRAFT_TITLE = "Draft under test"
+    }
 }

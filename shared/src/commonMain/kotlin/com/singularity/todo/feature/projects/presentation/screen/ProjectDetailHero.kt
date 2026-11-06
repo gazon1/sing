@@ -33,7 +33,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.ui.contrastingForeground
-import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -41,6 +40,7 @@ import com.singularity.todo.feature.projects.presentation.components.ProjectDeta
 import com.singularity.todo.feature.projects.presentation.components.ProjectIcon
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
+import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlin.time.ExperimentalTime

@@ -1,6 +1,7 @@
 # change-review-integrity Specification
 
 ## Purpose
+
 A review verdict that names what it reviewed — the commit and the digest
 of the change's contract documents — and a claim about CI that names the
 workflow, the run and the conclusion.

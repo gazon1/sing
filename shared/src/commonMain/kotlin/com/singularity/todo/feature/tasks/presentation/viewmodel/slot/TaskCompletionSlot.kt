@@ -7,9 +7,9 @@ import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
+import com.singularity.todo.feature.tasks.domain.state.TaskCompletionIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
-import com.singularity.todo.feature.tasks.presentation.state.TaskCompletionIntent
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

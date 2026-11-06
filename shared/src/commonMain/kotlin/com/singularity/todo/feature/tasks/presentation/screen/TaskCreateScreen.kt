@@ -16,6 +16,11 @@ import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.state.DraftAttachment
+import com.singularity.todo.feature.tasks.domain.state.DraftChecklistItem
+import com.singularity.todo.feature.tasks.domain.state.DueDateOption
+import com.singularity.todo.feature.tasks.domain.state.TaskCreateIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.components.detail.AttachmentsCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.ChecklistCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
@@ -26,11 +31,6 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEdi
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSaveBar
 import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
-import com.singularity.todo.feature.tasks.presentation.state.DraftAttachment
-import com.singularity.todo.feature.tasks.presentation.state.DraftChecklistItem
-import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
-import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
-import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -74,7 +74,7 @@ fun TaskCreateScreen(
     val sheets = rememberDialogState<TaskEditorSheet>()
 
     CollectEvents(vm.events) { event ->
-        if (event is com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiEvent.Saved) {
+        if (event is com.singularity.todo.feature.tasks.domain.state.TaskCreateUiEvent.Saved) {
             isNavigatingBack = true
             navigator.back()
         }

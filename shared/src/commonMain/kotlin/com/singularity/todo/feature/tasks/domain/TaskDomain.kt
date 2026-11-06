@@ -162,14 +162,15 @@ object TaskDomain {
             }
 
             is TaskFilter.Upcoming -> {
-                task.dueDate != null && task.dueDate > today && !task.isTrashed && !task.someday
+                val dueDate = task.dueDate
+                dueDate != null && dueDate > today && !task.isTrashed && !task.someday
             }
 
             is TaskFilter.Someday -> {
                 task.someday && !task.isTrashed
             }
 
-            is TaskFilter.Inbox -> {
+            is TaskFilter.NotDeferred -> {
                 !task.someday && !task.isTrashed
             }
 
@@ -201,8 +202,9 @@ object TaskDomain {
             }
 
             is TaskFilter.ByDateRange -> {
-                task.dueDate != null &&
-                    task.dueDate >= filter.from && task.dueDate <= filter.to && !task.isTrashed
+                val dueDate = task.dueDate
+                dueDate != null &&
+                    dueDate >= filter.from && dueDate <= filter.to && !task.isTrashed
             }
 
             is TaskFilter.ByStatuses -> {
@@ -258,7 +260,8 @@ object TaskDomain {
                     }
 
                     else -> {
-                        task.dueDate != null && task.dueDate >= range.from && task.dueDate <= range.to &&
+                        val dueDate = task.dueDate
+                        dueDate != null && dueDate >= range.from && dueDate <= range.to &&
                             !task.isTrashed
                     }
                 }

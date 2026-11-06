@@ -74,7 +74,7 @@ internal link is written by a person into a note or a task.
 
 ### One owner for the internal vocabulary
 
-`shared/src/commonMain/kotlin/com/singularity/todo/core/links/InternalLinks.kt` is the only place that knows the schemes and what an
+`core-domain/src/commonMain/kotlin/com/singularity/todo/core/links/InternalLinks.kt` is the only place that knows the schemes and what an
 identifier may contain. Everything else reads them from there:
 
 - `InternalLinks.parse(url)` — reads a link, or null if it is not ours

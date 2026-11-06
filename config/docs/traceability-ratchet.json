@@ -1,33 +1,33 @@
 {
   "measurement": "python3 -m traceability validate — specs + links only, no stand, no network, no test run (scripts/check-traceability-ratchet.py recomputes both numbers from the same package that renders the matrix)",
-  "measured_at": "2026-10-29",
-  "commit": "desktop carrier for SYNC-STATUS-01",
+  "measured_at": "2026-11-06",
+  "commit": "merge main; desktop carrier for SYNC-INCOMING-01 (#2572)",
   "corpus": {
-    "specs": 131,
+    "specs": 133,
     "claimed_cells": 260,
-    "carriers": 100
+    "carriers": 103
   },
   "floors": [
     {
       "metric": "holes",
-      "max": 72,
-      "measured": 72,
+      "max": 71,
+      "measured": 71,
       "label": "claimed (scenario, target) cells with no automation",
-      "note": "Lowered 107 -> 93 on 2026-10-27 when feature 016's android carriers landed: the Maestro flows under Maestro/flows/{plans,menu,nav}/ now cover every one of the feature's eighteen scenarios on Android as well as on the desktop, and the desktop flow tests under desktopApp/src/jvmTest/.../flows/{plans,menu,desktop}/ carry the desktop tier. Before, the feature's eleven android cells were holes; they are carriers now. The two android cells that remain dark across the matrix are upstream's. Lowered 93 -> 83 on 2026-10-28 when ten Maestro flows declared the scenario their own spec header named as their carrier: the six `negative/` empty-state flows (NEGATIVE-01..06), `pomodoro/02`, `pomodoro/03` and `pomodoro/05` (POMODORO-02, -03, -05) and `system/search-finds-task` (SEARCH-01). The specs named those flows as their carriers and the flows did not carry the tag, so ten scenarios the repository had already written down read as uncovered. The claims are the flows' own behaviour — the empty states, the chip that starts the timer, the pause and resume, the stop that resets, the search that finds a task by its title. Lowered 83 -> 74 on 2026-10-29 when twelve more flows carried the id their own headers already named: the tag was written bare (`- AUTH-FIRSTRUN-01`) instead of prefixed (`- scenario:AUTH-FIRSTRUN-01`), so the scanner skipped them and the scenarios read as uncovered. Eleven of them (AUTH-FIRSTRUN-01/04/05, AUTH-SIGNIN-01, AUTH-SIGNUP-01, AUTH-ATTACH-01, CAL-SYNC-PROVIDER-01, SYNC-SETTINGS-01, TASK-TIME-01) had specs already; the three AUTH-FAIL scenarios got theirs now, transcribed from the preconditions and steps their flow headers had written down. Lowered 74 -> 73 when the desktop carrier for SYNC-SETTINGS-01 landed (#1394): the scenario now has a carrier on both tiers, and the android cell it had opened is covered again."
+      "note": "Lowered 107 -> 93 on 2026-10-27 when feature 016's android carriers landed: the Maestro flows under Maestro/flows/{plans,menu,nav}/ now cover every one of the feature's eighteen scenarios on Android as well as on the desktop, and the desktop flow tests under desktopApp/src/jvmTest/.../flows/{plans,menu,desktop}/ carry the desktop tier. Before, the feature's eleven android cells were holes; they are carriers now. The two android cells that remain dark across the matrix are upstream's. Lowered 93 -> 83 on 2026-10-28 when ten Maestro flows declared the scenario their own spec header named as their carrier: the six `negative/` empty-state flows (NEGATIVE-01..06), `pomodoro/02`, `pomodoro/03` and `pomodoro/05` (POMODORO-02, -03, -05) and `system/search-finds-task` (SEARCH-01). The specs named those flows as their carriers and the flows did not carry the tag, so ten scenarios the repository had already written down read as uncovered. The claims are the flows' own behaviour — the empty states, the chip that starts the timer, the pause and resume, the stop that resets, the search that finds a task by its title. Lowered 83 -> 74 on 2026-10-29 when twelve more flows carried the id their own headers already named: the tag was written bare (`- AUTH-FIRSTRUN-01`) instead of prefixed (`- scenario:AUTH-FIRSTRUN-01`), so the scanner skipped them and the scenarios read as uncovered. Eleven of them (AUTH-FIRSTRUN-01/04/05, AUTH-SIGNIN-01, AUTH-SIGNUP-01, AUTH-ATTACH-01, CAL-SYNC-PROVIDER-01, SYNC-SETTINGS-01, TASK-TIME-01) had specs already; the three AUTH-FAIL scenarios got theirs now, transcribed from the preconditions and steps their flow headers had written down. Lowered 74 -> 73 when the desktop carrier for SYNC-SETTINGS-01 landed (#1394): the scenario now has a carrier on both tiers, and the android cell it had opened is covered again. Lowered 72 -> 71 on 2026-11-05 when the desktop carrier for SYNC-INCOMING-01 landed: the scenario is defined by two devices talking to each other, and the desktop tier now has them — two app instances against one shared server — so the cell it had opened is covered again."
     },
     {
       "metric": "dark_scenarios",
-      "max": 53,
-      "measured": 53,
+      "max": 52,
+      "measured": 52,
       "label": "declared scenarios with a claimed target and no automation on any target",
-      "note": "Lowered 72 -> 70 on 2026-10-27 with the same carriers: every one of feature 016's eighteen scenarios now has automation on at least one target. The two that remain dark are upstream's. Lowered 70 -> 60 on 2026-10-28 with the same ten carriers: each of the ten scenarios now has automation on at least one target, and its flow says so in a tag rather than only in the spec's header. Lowered 60 -> 54 on 2026-10-29 with the twelve bare-tag flows: six scenarios that had a spec, a claim and a flow that exercised it were dark only because the tag was missing its `scenario:` prefix."
+      "note": "Lowered 72 -> 70 on 2026-10-27 with the same carriers: every one of feature 016's eighteen scenarios now has automation on at least one target. The two that remain dark are upstream's. Lowered 70 -> 60 on 2026-10-28 with the same ten carriers: each of the ten scenarios now has automation on at least one target, and its flow says so in a tag rather than only in the spec's header. Lowered 60 -> 54 on 2026-10-29 with the twelve bare-tag flows: six scenarios that had a spec, a claim and a flow that exercised it were dark only because the tag was missing its `scenario:` prefix. Lowered 53 -> 52 on 2026-11-05 with the desktop carrier for SYNC-INCOMING-01: the scenario had a claim and no automation on either tier, and it now has a carrier on the desktop — two app instances against one shared server are the two devices the scenario is defined by."
     },
     {
       "metric": "unreachable_cells",
-      "max": 9,
-      "measured": 9,
+      "max": 8,
+      "measured": 8,
       "label": "claimed cells whose spec declares the tier unable to reach them",
-      "note": "These are counted in `holes` as well, so reclassifying an ordinary hole as unreachable does not move the total — which is the point, and also the hole this floor closes. Without it, marking every unsupplied claim `unreachable` would make the queue look un-actionable while the number stayed at 32, and the cheap move is always the one that leaves the metric alone. The two metrics together mean a reclassification has to be paid for in one bucket or the other. The 6 are the three sync scenarios that are *defined* by a second device (SYNC-INCOMING-01, SYNC-OFFLINE-01, SYNC-PROFILES-01) on both tiers; the rest of the sync area is one-device and stays probe-able. Raised 6 -> 9 on 2026-10-07 by three cells: CAL-SYNC-RECUR-01 on both tiers (needs a second Google account) and CAL-SYNC-SYSTEM-01 on android only (reaching the 'permission denied' branch requires granting and then revoking READ_CALENDAR through a system dialog, which is an emulator capability rather than a UI assertion; desktop reaches the branch by construction and IS claimed)."
+      "note": "These are counted in `holes` as well, so reclassifying an ordinary hole as unreachable does not move the total — which is the point, and also the hole this floor closes. Without it, marking every unsupplied claim `unreachable` would make the queue look un-actionable while the number stayed at 32, and the cheap move is always the one that leaves the metric alone. The two metrics together mean a reclassification has to be paid for in one bucket or the other. The 6 are the three sync scenarios that are *defined* by a second device (SYNC-INCOMING-01, SYNC-OFFLINE-01, SYNC-PROFILES-01) on both tiers; the rest of the sync area is one-device and stays probe-able. Raised 6 -> 9 on 2026-10-07 by three cells: CAL-SYNC-RECUR-01 on both tiers (needs a second Google account) and CAL-SYNC-SYSTEM-01 on android only (reaching the 'permission denied' branch requires granting and then revoking READ_CALENDAR through a system dialog, which is an emulator capability rather than a UI assertion; desktop reaches the branch by construction and IS claimed). Lowered 9 -> 8 on 2026-11-05 when the desktop carrier for SYNC-INCOMING-01 landed: the desktop cell was unreachable because a single-device harness cannot express a conflict between two devices, and the two-instance desktop harness can — one shared server, two app instances, two databases. The android cell stays unreachable, because the android tier has no second device to be the other side of the conflict."
     }
   ],
   "known_gaps": [

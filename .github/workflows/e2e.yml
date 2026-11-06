@@ -143,6 +143,9 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
+      # The APK compiles the Android target, so the declared platform must exist.
+      - uses: ./.github/actions/setup-android-sdk
+
       # Provide dummy Supabase credentials so `buildTimeSupabaseConfig()` (which reads
       # BuildConfig.SUPABASE_URL / SUPABASE_ANON_KEY via reflection) finds non-null
       # values.  Without this, the app shows "SUPABASE_URL" error on the auth screen

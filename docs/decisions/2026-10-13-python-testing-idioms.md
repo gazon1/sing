@@ -9,6 +9,7 @@ tags: [python, testing]
 ## 1. loguru Handler Idempotency
 
 ### Problem
+
 `loguru` adds a default handler to `sys.stderr` at import time (handler id `0`).
 Any module that calls `_logger.remove(0)` assumes no prior setup. When modules are
 imported in a different order, the second `remove(0)` raises `ValueError: There is
@@ -18,6 +19,7 @@ This causes silent test failures (tests that import the package fail on import)
 and production crashes if import order changes.
 
 ### Rule
+
 Always wrap `_logger.remove(0)` in `try/except ValueError`:
 
 ```python
@@ -35,12 +37,14 @@ already be removed by the time your module is imported.
 ## 2. Click CLI Testing — Use CliRunner
 
 ### Problem
+
 Calling `_cli.main([...])` directly in a test raises `click.exceptions.Exit`
 with `exit_code=0` from `ctx.exit()`. This is **not** a `SystemExit` raised by
 Python's `sys.exit()` — it is Click's own exception that propagates through the
 call stack and is invisible to plain `try/except SystemExit`.
 
 ### Rule
+
 Always use `click.testing.CliRunner` for testing Click-based CLIs:
 
 ```python
@@ -61,18 +65,22 @@ Do **not** call `cli.main([...])` directly in tests.
 ## 3. FakeMaestro: No `field()` Outside Dataclass Context
 
 ### Problem
+
 `FakeMaestro.__init__` originally contained:
+
 ```python
 from dataclasses import dataclass, field
 ...
 self.calls: list[Path] = field(default_factory=list)
 ```
+
 `field()` is a `dataclasses` descriptor. When used outside a `@dataclass`-decorated
 `__init__`, it returns a `Field` object, not a list. Any call to
 `self.calls.append(...)` fails with `AttributeError: 'Field' object has no
 attribute 'append'`.
 
 ### Rule
+
 Never use `field()` or other dataclass descriptors outside `@dataclass` bodies:
 
 ```python
@@ -103,11 +111,13 @@ parameter (e.g., `DeviceDeps`) rather than patching module globals.
 ## 5. Subprocess Mocking — Always Return Mock Objects with `.returncode`
 
 ### Problem
+
 `subprocess.run(...)` returns a `CompletedProcess` object. Tests that return `None`
 from a mocked `subprocess.run` or `try_run` can cause `AttributeError` if the
 caller accesses `cp.returncode` on a `None` value.
 
 ### Rule
+
 Always return a properly-configured `unittest.mock.Mock` (or `MagicMock`) when
 mocking subprocess calls:
 

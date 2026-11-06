@@ -274,7 +274,7 @@ Every functional requirement is exercised by at least one acceptance scenario or
 
 | Дефект | Место | Факт |
 |---|---|---|
-| Закрытое состояние не сбрасывается при переносе на следующую дату | `shared/src/commonMain/kotlin/com/singularity/todo/core/database/Daos.kt` (обновление даты) | Обновление даты пишет только дату и время изменения; закрытое состояние не затрагивается. |
+| Закрытое состояние не сбрасывается при переносе на следующую дату | `core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Daos.kt` (обновление даты) | Обновление даты пишет только дату и время изменения; закрытое состояние не затрагивается. |
 | Перенос при закрытии — «переезд», а не новое вхождение | `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/usecase/CompleteRecurringTaskUseCase.kt` | Закрытие и перенос даты выполняются как две последовательные записи одного и того же ряда. |
 | Признак повтора подставляется константой | `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/screen/AgendaContent.kt` (сборка строки) | В строку задачи передаётся постоянное «задача не повторяется». |
 | Проект в строке списка не передаётся | то же место | В строку задачи передаётся пустое значение проекта; имя проекта до строки не доходит. |

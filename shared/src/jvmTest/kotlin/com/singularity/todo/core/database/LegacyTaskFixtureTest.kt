@@ -1,10 +1,7 @@
 package com.singularity.todo.core.database
 
 import androidx.sqlite.execSQL
-import com.singularity.todo.core.database.contract.createSqlDriver
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -26,23 +23,21 @@ import kotlin.test.assertEquals
  */
 @Tag("slow")
 class LegacyTaskFixtureTest {
-    private lateinit var tempDir: File
-    private lateinit var dbPath: String
+    private lateinit var fixture: DatabaseTestFixture
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("legacy-task-fixture-").toFile()
-        dbPath = File(tempDir, "fixture.db").absolutePath
+        fixture = DatabaseTestFixture.onDisk()
     }
 
     @AfterTest
     fun tearDown() {
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     /** A schema with the shapes that matter: a plain column, a default, a NOT NULL. */
     private fun applyFixture() {
-        createSqlDriver().open(dbPath).use { connection ->
+        fixture.connect().use { connection ->
             connection.execSQL(
                 """
                 CREATE TABLE tasks (
@@ -70,7 +65,7 @@ class LegacyTaskFixtureTest {
     fun `a task that names nothing is still inserted`() {
         applyFixture()
 
-        createSqlDriver().open(dbPath).use { connection ->
+        fixture.connect().use { connection ->
             insertLegacyTask(connection, id = "t1")
 
             val row =
@@ -91,7 +86,7 @@ class LegacyTaskFixtureTest {
     fun `the value the caller wrote is the value that is stored`() {
         applyFixture()
 
-        createSqlDriver().open(dbPath).use { connection ->
+        fixture.connect().use { connection ->
             insertLegacyTask(
                 connection,
                 id = "t2",
@@ -112,7 +107,7 @@ class LegacyTaskFixtureTest {
     fun `a column with a default keeps the default`() {
         applyFixture()
 
-        createSqlDriver().open(dbPath).use { connection ->
+        fixture.connect().use { connection ->
             insertLegacyTask(connection, id = "t3")
 
             val links =
@@ -130,7 +125,7 @@ class LegacyTaskFixtureTest {
 
     @Test
     fun `a not null column the model knows nothing about gets the zero of its type`() {
-        createSqlDriver().open(dbPath).use { connection ->
+        fixture.connect().use { connection ->
             connection.execSQL(
                 "CREATE TABLE tasks (id TEXT NOT NULL, mystery INTEGER NOT NULL, note TEXT NOT NULL)",
             )

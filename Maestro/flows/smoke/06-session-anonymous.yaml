@@ -14,6 +14,8 @@
 # button makes — so the path a flow drives is the path a user takes. The
 # session link is a debug-side deep link (`androidApp/src/debug/`), so it is
 # not in a release APK.
+#
+# прогнан на устройстве: да (2026-11-06) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: smoke-session-anonymous
 tags:
@@ -31,27 +33,11 @@ tags:
       QUERY: "session=anonymous"
 
 # Open menu -> Settings.
-- runFlow: ../../helpers/open-app-menu.yaml
-- extendedWaitUntil:
-    visible:
-      id: menu_settings
-    timeout: 5000
-- tapOn:
-    id: menu_settings
-
-# Switch to the Account tab via the narrow-screen dropdown.
-- extendedWaitUntil:
-    visible:
-      id: settings_tab_dropdown
-    timeout: 10000
-- tapOn:
-    id: settings_tab_dropdown
-- extendedWaitUntil:
-    visible:
-      id: settings_tab_account
-    timeout: 10000
-- tapOn:
-    id: settings_tab_account
+- runFlow: ../../helpers/open-settings.yaml
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      TAB_ID: settings_tab_account
 
 # The attach affordance exists only for a local session. Its presence is the
 # proof that the session switch reached the UI.

@@ -50,15 +50,14 @@ import com.singularity.todo.core.ui.components.ResultDialog
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
-import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.state.ProjectEditorIntent
+import com.singularity.todo.feature.projects.domain.state.ProjectEditorUiEvent
 import com.singularity.todo.feature.projects.presentation.components.EditorParentPickerSheet
 import com.singularity.todo.feature.projects.presentation.components.IconPickerSheet
 import com.singularity.todo.feature.projects.presentation.components.ProjectIcon
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
-import com.singularity.todo.feature.projects.presentation.state.ProjectEditorIntent
-import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiEvent
 import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
@@ -379,7 +378,6 @@ private fun AppearanceSection(
                         Icon(
                             Icons.Filled.Check,
                             contentDescription = null,
-                            tint = Color(color).contrastingForeground(),
                             modifier = Modifier.size(32.dp).padding(6.dp),
                         )
                     }

@@ -25,6 +25,7 @@
 ### Phase 1 — Meta-skills + Docs Infrastructure
 
 #### PR-1.1 — docs-infrastructure ADRs ✅ MERGED
+
 5 ADRs: docs-lifecycle, adr-supersede-process, domain-glossary-policy, progress-journal-policy, skill-authoring-policy
 
 | PR | Description | Status | Merged |
@@ -32,6 +33,7 @@
 | PR-1.1 | docs-infrastructure ADRs | ✅ merged | 2026-09-26 |
 
 #### PR-1.2 — docs-infrastructure FILES 🔄 IN PROGRESS
+
 CONTEXT.md, PROGRESS.md, domain-glossary skill, progress-journal skill
 
 | PR | Description | Status | Merged |
@@ -39,6 +41,7 @@ CONTEXT.md, PROGRESS.md, domain-glossary skill, progress-journal skill
 | PR-1.2 | CONTEXT.md + PROGRESS.md + 2 skills | 🔄 in progress | — |
 
 #### PR-1.3 — process ADRs
+
 writer-reviewer-pattern, code-review-process, four-phases-gate, code-review-pr-workflow skill
 
 | PR | Description | Status | Merged |
@@ -46,6 +49,7 @@ writer-reviewer-pattern, code-review-process, four-phases-gate, code-review-pr-w
 | PR-1.3 | process ADRs | ⏳ not started | — |
 
 #### PR-1.4 — skills reorg
+
 vm-migration-playbook merge, feature-scaffold TOC, AGENTS.md update
 
 | PR | Description | Status | Merged |
@@ -67,20 +71,24 @@ vm-migration-playbook merge, feature-scaffold TOC, AGENTS.md update
 ### Retro findings
 
 #### PR-0.3 retro (2026-09-26)
+
 - DIGEST oversized (1651/1500) — deferred to PR-1.2
 - AppVersionGateViewModel KDoc false positive — baseline suppress is correct workaround
 - `stateIn` in production only found in AndroidPomodoroTaskListProvider
 
 #### PR-0.4 retro (2026-09-26)
+
 - Production BAN: `stateIn` in AndroidPomodoroTaskListProvider, `runBlocking` in PlatformModule.jvm.kt
 - Detekt auto-correct reformatted 10 unrelated files
 
 #### Post-P0 retro (2026-09-26)
+
 - Consolidated retro for all 4 PRs
 - 4 UI-testing ADRs superseded via `2026-09-26-ui-testing-deferred`
 - 23 TODO comments cleaned up in production code
 
 #### PR-1.1 retro (2026-09-26)
+
 - ADR files created in wrong directory (main checkout instead of worktree)
 - Worktree had pre-existing build errors: missing UserMessage.kt + TagGroupsUiState.Empty("")
 - Android SDK unavailable in worktree — quality gates run as jvmTest + detekt only

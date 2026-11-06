@@ -1,6 +1,6 @@
 [versions]
 # Kotlin / Build
-agp = "9.5.0"
+agp = "9.5.1"
 kotlin = "2.4.10"
 ksp = "2.3.13"
 kotlin-serialization = "1.12.0"
@@ -95,7 +95,6 @@ okio = "3.18.2"
 # Utils
 turbine = "1.2.1"
 # atomicfu — aligned via resolutionStrategy when transitive conflict occurs
-atomicfu = "0.23.1"
 # kotlinx-collections-immutable — transitive from markdown-renderer:0.43.0
 kotlinxCollectionsImmutable = "0.5.2"
 
@@ -152,7 +151,6 @@ kotlinxIo = "0.9.2"
 [libraries]
 # Kotlin / Build
 jvm-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
-jvm-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5", version.ref = "kotlin" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
@@ -169,8 +167,7 @@ kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinxCollectionsImmutable" }
 
 # Android
-	junit4 = { module = "junit:junit", version.ref = "junit" }
-	junit-vintage-engine = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junit-vintage-engine" }
+junit-vintage-engine = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junit-vintage-engine" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
 junit-jupiter-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junit-jupiter-params" }
 androidx-testExt-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-testExt" }
@@ -195,9 +192,6 @@ compose-material-icons-extended = { module = "org.jetbrains.compose.material:mat
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }
 # Desktop-only: provides LocalAwtWindow for AwtMenuBarInstaller.
 compose-ui-desktop = { module = "org.jetbrains.compose.ui:ui-desktop", version.ref = "composeMultiplatform" }
-# AndroidX Compose testing — used in Robolectric tests (androidHostTest) instead of
-# JetBrains version which depends on Espresso incompatible with Robolectric.
-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4", version = "1.7.3" }
 # Compose Multiplatform desktop test — provides runDesktopComposeUiTest
 compose-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "composeMultiplatform" }
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
@@ -346,30 +340,12 @@ detekt-test = { module = "dev.detekt:detekt-test", version.ref = "detekt" }
 detekt-test-utils = { module = "dev.detekt:detekt-test-utils", version.ref = "detekt" }
 
 [bundles]
-# Compose — all Compose libraries used together in every UI source set
-compose = [
-    "compose-runtime",
-    "compose-foundation",
-    "compose-material3",
-    "compose-material",
-    "compose-material-icons-extended",
-    "compose-ui",
-    "compose-ui-tooling-preview",
-]
 # Koin — core DI + Compose integration + annotations, always together
 koin = [
     "koin-core",
     "koin-compose",
     "koin-compose-viewmodel",
     "koin-annotations-runtime",
-]
-# Ktor client — all network stack libs used together
-ktor = [
-    "ktor-client-core",
-    "ktor-client-content-negotiation",
-    "ktor-client-logging",
-    "ktor-serialization-kotlinx-json",
-    "ktor-client-json",
 ]
 # DataStore preferences — core + compose integration
 datastore = [

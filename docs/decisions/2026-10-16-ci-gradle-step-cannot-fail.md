@@ -154,6 +154,7 @@ has anything real to hide.
 - ADR `2026-10-04-measurement-integrity` — the principle both findings violate
 - `specs/test-execution-integrity/spec.md`
 - Failed run: <https://github.com/gazon1/sing/actions/runs/38902346697>
+
 ## Addendum — found while validating this change (run 38933517902)
 
 The first CI run of this PR failed in a step its own diff never touched:

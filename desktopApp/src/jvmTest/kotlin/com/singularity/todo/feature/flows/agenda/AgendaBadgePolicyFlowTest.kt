@@ -67,8 +67,8 @@ class AgendaBadgePolicyFlowTest {
             tapTab("Today")
             awaitTag(TestTags.taskItem("Overdue blocked"))
 
-            assertMarkingCount("Задача заблокирована зависимостями", expected = 1)
-            assertMarkingCount("Просроченная задача", expected = 1)
+            assertMarkingCount("Task is blocked by dependencies", expected = 1)
+            assertMarkingCount("Overdue task", expected = 1)
         }
 
     @Test
@@ -84,8 +84,8 @@ class AgendaBadgePolicyFlowTest {
             tapTab("Today")
             awaitTag(TestTags.taskItem("Follower"))
 
-            assertMarkingCount("Задача продолжает другую", expected = 1)
-            assertMarkingCount("Задача заблокирована зависимостями", expected = 0)
+            assertMarkingCount("Task follows another", expected = 1)
+            assertMarkingCount("Task is blocked by dependencies", expected = 0)
         }
 
     @Test
@@ -102,7 +102,7 @@ class AgendaBadgePolicyFlowTest {
             tapTab("Today")
             awaitTag(TestTags.taskItem("Started task"))
 
-            assertMarkingCount("Задача в работе", expected = 1)
+            assertMarkingCount("Task in progress", expected = 1)
         }
 
     @Test
@@ -113,7 +113,7 @@ class AgendaBadgePolicyFlowTest {
             tapTab("Today")
             awaitTag(TestTags.taskItem("Pinned task"))
 
-            assertMarkingCount("Задача закреплена", expected = 1)
+            assertMarkingCount("Task is pinned", expected = 1)
         }
 
     @Test
@@ -125,7 +125,7 @@ class AgendaBadgePolicyFlowTest {
             awaitTag(TestTags.taskItem("Undated task"))
 
             assertMarkingCount(
-                "Задача без даты",
+                "Task has no date",
                 expected = 0,
                 because = "the absence of a date is not news, and a chip on every undated row is noise",
             )
