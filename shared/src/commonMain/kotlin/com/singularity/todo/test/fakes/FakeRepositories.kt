@@ -2495,8 +2495,29 @@ class FakeTagsRepository(
     var observeAllCalls: Int = 0
         private set
 
+    /**
+     * When set, the next observation of the tag list fails with this.
+     *
+     * The failure has to come from the same place a real one would — inside the
+     * flow, and across the same hop — so a caller is checked against a failure it
+     * really receives, and the throwable it receives is the very instance a test
+     * holds.
+     */
+    var observeAllFailure: Throwable? = null
+
     override fun observeAll(): Flow<List<com.singularity.todo.feature.tags.Tag>> {
         observeAllCalls++
+        val failure = observeAllFailure
+        observeAllFailure = null
+        if (failure != null) {
+            // The same hop the real observation takes: `observeForCurrentUser` opens
+            // a channel, and a channel carries a *copy* of the throwable — the
+            // original is the copy's cause. A failure that skipped the hop would
+            // never exercise what a caller does with that copy.
+            return currentUser.observeForCurrentUser {
+                flow<List<com.singularity.todo.feature.tags.Tag>> { throw failure }
+            }
+        }
         return currentUser.observeForCurrentUser { uid ->
             store.state
                 .onStart { emit(store.state.value) }
