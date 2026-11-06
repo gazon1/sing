@@ -14,10 +14,6 @@
 `python3 scripts/refresh-decisions-digest.py` (или `just setup-hooks`, чтобы хуки
 перегенерировали его сами при checkout/merge) и прочитай его тогда.
 
-**`git fetch` — до того, как что-либо сделал, а не на пуше.** Расхождение, найденное
-в начале, стоит один rebase пустого дерева; найденное на пуше — полную перепроверку
-готовой работы, потому что чужие коммиты меняют то, на что опиралась твоя.
-
 **Pre-commit через hk.** Локальные проверки гонятся через `hk` (закреплён в `mise.toml`): `ktlint` → `compile-changed`.
 Файлы для ktlint выбирает hk (`glob` + `{{files}}` в `hk.pkl`), модули для компиляции — `scripts/compile-changed.py`. Изоляция unstaged-изменений — `stash = "git"` (untracked-файлы хук не прячет). ADR — `docs/decisions/2026-11-05-the-commit-runs-hk-steps-over-staged-files.md`.
 Установка: `mise install` (либо `mise exec -- git commit ...`, если `mise` не активирован). `hk.pkl` генерируется из `mise.toml` (`scripts/generate-hk-pkl.sh`), равенство генератора и файла держит `scripts/tests/test_hk_config.py`. `just setup-hooks` остаётся источником установки хуков (`core.hooksPath`), без `hk install`.
@@ -33,36 +29,8 @@
 
 Замер за одну сессию (2026-10-05): два ребейза, и fetch в начале сэкономил один.
 
-Автоматизация: `scripts/session-start-check.sh` выполняет fetch + checkout-state; `scripts/gw-progress.sh` оборачивает `./gw` с отчётом прогресса.
-`main` двигается параллельными траншами — чужие изменения принимай как данность и
-перепроверяй, а не откатывай. `git fetch origin && git log --oneline HEAD..origin/main`.
-
 **Механическая защита от divergence (#268):**
 
-- `pre-rebase` hook (`.githooks/pre-rebase`) — блокирует rebase на локальный main,
-  который отстаёт от `origin/main`; предупреждает о неpushнутых коммитах.
-- Проверки divergence в CI больше нет: runner checkout'ит detached-коммит без трекинговой
-  ветки и без рефа `origin/main`, поэтому гейт падал на каждом прогоне настройкой раннера,
-  а не расхождением. Локально ту же проверку делает `pre-rebase` — на тот ref, на который
-  собираешься переносить коммиты.
-
-## Worktree: делегату — свой, канонический checkout — владельцу
-
-**Делегированная задача (субагент) получает свой worktree.** Канонический checkout
-принадлежит сессии, которая его заняла: две сессии в одном дереве — это две правки
-в одном рабочем дереве и ветка, занятая чужой работой.
-
-```bash
-git worktree add /home/max/work/singularity-todo-<slug> -b <slug>/<что>
-```
-
-- **Не переключай ветку в чужом worktree** — список чужих: `git worktree list` (там, где `main`,
-  ветка занята). Свою ветку — только в своём worktree.
-- `./gw` даёт worktree приватный `GRADLE_USER_HOME`: `./gradlew --stop` в одном worktree убивает
-  демоны всех остальных, а общий `~/.gradle` — общая блокировка кэша модулей.
-- **Два Gradle-вызова одновременно не запускай** — ни два своих, ни свой и чужой: блокируется
-  общий кэш, и падает не та сборка, которую ждут.
-- Свой временный worktree сноси через `git worktree remove --force <path>`; чужой — не трогай.
 
 **Правила ревью — в `CODING_STANDARDS.md`.** Файл читается на ревью, не при
 реализации: там то, что ни один гейт проверить не может (согласованность между

@@ -79,7 +79,6 @@ the exception — it is a gate that is not in `GATES`, for the reason the ADR re
 | `check_adr_status.py`, `check-openspec-stale.py` | ADR/spec policy gates |
 | `normalize-adr-frontmatter.py` | ADR frontmatter normaliser |
 | `refresh-decisions-digest.py` | Digest generator |
-| `render-adr-tools-section.py`, `resolve_stale_adr_status.py` | ADR toolchain |
 | `openspec-import-all.py`, `refresh-issues-snapshot.py` | spec-kit bridge |
 | `release_version.py` | Release version computation |
 | `e2e-shard-plan.py` | E2E shard plan generator |
