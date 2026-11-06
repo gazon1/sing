@@ -40,6 +40,24 @@ interface TaskDao {
     )
     fun watchSomeday(userId: String): Flow<List<TaskEntity>>
 
+    /**
+     * The live tasks that are not deferred — the query behind
+     * [com.singularity.todo.feature.tasks.domain.model.TaskFilter.NotDeferred].
+     *
+     * [watchActive] is *wider* than this: it returns the deferred tasks too, so it
+     * answers "everything that is not in the trash", which is what
+     * [com.singularity.todo.feature.tasks.domain.model.TaskFilter.All] means. The two
+     * names answer two questions, so the two reads are two queries — a filter whose
+     * name says "not deferred" must not be served by a query that returns them.
+     *
+     * Completion is not part of this rule: a finished task that is not archived is
+     * still here, because completing a task marks it and only archiving takes it away.
+     */
+    @Query(
+        "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND someday = 0 ORDER BY due_date ASC, is_pinned DESC",
+    )
+    fun watchNotDeferred(userId: String): Flow<List<TaskEntity>>
+
     @Query(
         "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND due_date = :date ORDER BY is_pinned DESC, due_time ASC",
     )

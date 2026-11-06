@@ -759,6 +759,9 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
     override fun watchSomeday(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
         error("not implemented")
 
+    override fun watchNotDeferred(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
+
     override fun watchByDate(
         userId: String,
         date: String,

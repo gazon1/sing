@@ -12,6 +12,7 @@ import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelection
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionRequest
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionResolver
+import com.singularity.todo.feature.tasks.domain.logic.wireName
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.first
@@ -33,7 +34,7 @@ import kotlin.time.Clock
  */
 @Serializable
 data class ListTasksInput(
-    val selection: TaskSelection = TaskSelection.INBOX,
+    val selection: TaskSelection = TaskSelection.ACTIVE_NOT_DEFERRED,
     val projectId: String? = null,
     val tagIds: List<String> = emptyList(),
     val priorities: List<String> = emptyList(),
@@ -104,7 +105,7 @@ class ListTasksTool(
 
         val output =
             ListTasksOutput(
-                selection = args.selection.name.lowercase(),
+                selection = args.selection.wireName,
                 total = selected.size,
                 nextCursor = nextCursor(start.offset, page.size, selected.size, fingerprint),
                 tasks =
@@ -179,19 +180,25 @@ class ListTasksTool(
          */
         const val DESCRIPTION =
             "List the user's tasks. " +
-                "The selection is one of: inbox, today, upcoming, overdue, blocked, stagnant, " +
-                "pinned, someday, active, completed, all. " +
-                "Inbox means open and not deferred; today means due today; upcoming means due " +
-                "later; overdue means past its due date and still open; blocked means waiting on " +
-                "something unfinished; stagnant means open, undated and untouched for a long time; " +
-                "pinned means the user pinned it; someday means deferred; active means open; " +
+                "The selection is one of: active_not_deferred, today, upcoming, overdue, " +
+                "blocked, stagnant, pinned, someday, active, completed, all. " +
+                "active_not_deferred means every unfinished task that is not deferred, dated or " +
+                "undated; the old name inbox is still accepted for it and answers the same " +
+                "question. " +
+                "It is not the Inbox tab, which holds the undated tasks only; today means due " +
+                "today; upcoming means due later; overdue means past its due date and still " +
+                "open; blocked means waiting on something unfinished; stagnant means unfinished, " +
+                "undated and untouched for a long time; pinned means the user pinned it; someday " +
+                "means deferred; active means every unfinished task, the deferred ones included; " +
                 "completed means finished; all means everything that is not in the trash. " +
                 "Narrowing is an intersection: projectId, tagIds and priorities each remove " +
                 "tasks, so a request for two tags returns only the tasks carrying both. " +
                 "Priorities are none, low, medium, high, urgent. " +
                 "The result carries the number of tasks in the selection, how they are doing " +
                 "(overdue, blocked, stagnant), and a cursor for the next page. Pass the cursor " +
-                "back to continue; do not use a cursor from a different selection."
+                "back to continue; do not use a cursor from a different selection. A cursor " +
+                "names the selection it was reading, so a cursor from a different selection " +
+                "is refused and the list starts again from the beginning."
 
         /**
          * How many tasks a page holds unless the reader asks for fewer.

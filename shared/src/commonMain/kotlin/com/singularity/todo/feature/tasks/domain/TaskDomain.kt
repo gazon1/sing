@@ -170,7 +170,7 @@ object TaskDomain {
                 task.someday && !task.isTrashed
             }
 
-            is TaskFilter.Inbox -> {
+            is TaskFilter.NotDeferred -> {
                 !task.someday && !task.isTrashed
             }
 

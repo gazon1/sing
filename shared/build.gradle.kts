@@ -881,10 +881,10 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // covering it.
     systemProperty(
         "backupBucketPolicy.migration",
-        rootProject.file("supabase/migrations/2026-10-24-backup_storage_bucket.sql").absolutePath,
+        rootProject.file("infra/supabase/migrations/2026-10-24-backup_storage_bucket.sql").absolutePath,
     )
     inputs
-        .file(rootProject.file("supabase/migrations/2026-10-24-backup_storage_bucket.sql"))
+        .file(rootProject.file("infra/supabase/migrations/2026-10-24-backup_storage_bucket.sql"))
         .withPropertyName("backupBucketPolicyMigration")
         .withPathSensitivity(PathSensitivity.RELATIVE)
     // The text-field inventory in the skill, read by `TextFieldShapeConventionTest`.
