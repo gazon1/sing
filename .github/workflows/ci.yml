@@ -1564,7 +1564,7 @@ jobs:
       - name: Refresh DIGEST if needed
         run: |
           if ! git diff --quiet docs/decisions/; then
-            ./scripts/refresh-decisions-digest.sh
+            python3 scripts/refresh-decisions-digest.py
             git add docs/decisions/DIGEST.md
           fi
 

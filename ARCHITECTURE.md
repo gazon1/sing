@@ -6,7 +6,7 @@
 
 ## 1. Карта пакетов
 
-> Автогенерируется: `just docs-audit` → `scripts/print-source-tree.sh`.
+> Автогенерируется: `just docs-audit` → `python3 scripts/print-source-tree.py`.
 > Для сверки с кодом: `python3 scripts/print-source-tree.py`.
 
 ### `core/` — инфраструктура (ports & adapters)

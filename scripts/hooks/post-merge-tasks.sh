@@ -8,5 +8,5 @@ cd "$ROOT"
 # Run only when DIGEST.md exists locally (repo was cloned before it was gitignored)
 if [[ -f "docs/decisions/DIGEST.md" ]]; then
     echo "=== Post-merge: regenerating DIGEST.md ==="
-    ./scripts/refresh-decisions-digest.sh
+    python3 scripts/refresh-decisions-digest.py
 fi

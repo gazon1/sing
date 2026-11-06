@@ -98,7 +98,7 @@ If unsure, write a one-paragraph entry — small is fine. Missing a decision is 
 2. **Refresh the digest** before any non-trivial agent task, or after a batch of new entries:
 
    ```bash
-   ./scripts/refresh-decisions-digest.sh
+   ./python3 scripts/refresh-decisions-digest.py
    ```
 
 3. **Commit the refreshed `DIGEST.md`** in the same commit as the entries it consolidates, when reasonable.
@@ -225,7 +225,7 @@ which `scripts/check-skill-drift.py` keeps equal to the code.
 ### Workflow
 
 1. `write_adr(slug, title, tags, body)` → creates the file
-2. `scripts/refresh-decisions-digest.sh` → picks up the new entry
+2. `python3 scripts/refresh-decisions-digest.py` → picks up the new entry
 3. Commit the ADR file + refreshed DIGEST.md together
 
 See `singularity-todo-cli-tool-surface` for the tool contract (error mapping, authorization).
@@ -260,7 +260,7 @@ Each of those was a one-shot skill for one refactor. The information is preserve
 
 #### Related
 
-- `AGENTS.md` — the workflow says "refresh the digest before starting work". The session start hook (or a manual `./scripts/refresh-decisions-digest.sh`) ensures the agent sees the latest rules.
+- `AGENTS.md` — the workflow says "refresh the digest before starting work". The session start hook (or a manual `./python3 scripts/refresh-decisions-digest.py`) ensures the agent sees the latest rules.
 - `docs/decisions/DIGEST.md` — the consolidated rules the agent reads.
 - Individual dated entries — the human-facing reasoning.
 

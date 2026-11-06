@@ -489,10 +489,10 @@ docs-audit:
     python3 scripts/check-provenance.py --self-test || status=1
     echo ""
     echo "=== DIGEST freshness ==="
-    ./scripts/refresh-decisions-digest.sh
+    python3 scripts/refresh-decisions-digest.py
     echo ""
     echo "=== Source tree drift ==="
-    ./scripts/print-source-tree.sh --output /tmp/source-tree.md
+    python3 scripts/print-source-tree.py --output /tmp/source-tree.md
     echo "(source tree written to /tmp/source-tree.md for manual diff)"
     exit $status
 
@@ -503,7 +503,7 @@ docs-regen:
     #!/bin/bash
     set -euo pipefail
     ./scripts/regen-skills-catalog.sh
-    ./scripts/refresh-decisions-digest.sh
+    python3 scripts/refresh-decisions-digest.py
     echo "docs-regen: regenerated SKILLS-CATALOG.md, DIGEST.md and DIGEST-full.md"
 
 [group('tests')]
