@@ -185,3 +185,9 @@ facts:
   - id: K-repository-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/repository.md
+  - id: K-aicore-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/ai-core.md
+  - id: K-authcore-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/auth-core.md
