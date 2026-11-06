@@ -1,31 +1,41 @@
 ---
 change: agent-activity-visibility
 verdict: pass
-date: 2026-10-23
-pr: https://github.com/gazon1/sing/pull/1028
-reviewed: c220e32de4c3934205ab47d3e6852323555e423b
-documents: sha256:8c6fbcb894fd65791a38470f3925931ff152e06b57b315b8334cdf13d7b46333
+date: 2026-11-06
+pr: 2608
+reviewed: 901c43b8b79275c8f0087b9e604dfe960aac9846
+documents: sha256:8f66527283fe835b78b1d8ecfc7dfe65d7df1ca245219b6bf59a0d7f8746019b
 ---
 
 ## What was reviewed
 
-The built-in agent's activity, on the branch `feature/the-external-agent-is-hosted`:
+The contract of the change `agent-activity-visibility` — its proposal and its
+spec delta `specs/ai/agent-activity/spec.md` — as the digest above records them.
 
-- `shared/src/commonMain/kotlin/com/singularity/todo/core/llm/AgentEvent.kt`,
-  `AgentTurnOutcome.kt` and `AgentActivity.kt` — the vocabulary.
-- `shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/ui/AgentActivityCard.kt`
-  — the shared card.
-- The chat's ViewModel and screen, and the chat's turn-outcome test.
-- The specification and the change's own design document.
+## Why this verdict is re-issued
 
-The review was a second agent's, given the diff and the decision record rather
-than the session that wrote it.
+The previous verdict was written on 2026-10-23 against PR #1028 and carried the
+digest `sha256:8c6fbcb8…`. The contract moved afterwards, in PR #2608
+(`901c43b8b`, "chore(tooling): add rumdl markdown checks"), and a contract that
+moves is re-issued, not re-read.
 
-## What was found
+The move was made by the markdown linter, not by the change. PR #2608 added an
+empty line after every `#### Scenario:` heading — ten lines in
+`specs/ai/agent-activity/spec.md` — so that the list under the heading is not
+read as part of it. No requirement was added, removed or reworded: the
+scenarios are the same scenarios, with the same wording, in the same order. The
+claim is checkable:
 
-Nothing that needed fixing.
+    git diff 901c43b8b^ 901c43b8b -- openspec/changes/agent-activity-visibility
 
-The findings the review raised about this change were about the *other* two
+is ten added blank lines and nothing else.
+
+The change's `design.md` was written after the first review as well, and it is
+outside the digest by design — the contract is the proposal and the spec delta.
+
+## What the review found
+
+Nothing. The findings the review of PR #1028 raised were about the *other* two
 halves of the feature — the client's lifecycle and the data-safety work — and
 are recorded in their own verdicts. About this change specifically, the review
 confirmed the properties that matter: the vocabulary is four kinds, the raw
@@ -33,11 +43,6 @@ payload of a tool call does not travel with the event at all, a failure is the
 absence of the completion event rather than an event of its own, and the
 outcome semantics are verified behaviourally rather than by asserting literals.
 
-## What was added while the change was being reviewed
-
-The change's registry entry named a design document that had never been
-written, and the gate that reads the registry said so. The document exists now,
-and it states the four kinds of activity and why the vocabulary is that small,
-why a tool call's raw payload does not travel, why a failure is the absence of
-the completion event, and why the card is shared between the built-in chat and
-the external-agent screen.
+Those properties are stated in the spec delta, and the spec delta did not change
+in the move that made this re-issue necessary — so the pass still speaks for the
+contract the digest records.
