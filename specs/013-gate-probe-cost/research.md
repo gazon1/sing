@@ -100,7 +100,7 @@ This is precisely the defect class spec 012 was written for, in the same file fi
 
 **Finding 3 — divergence between two paths to the same gate.** Probing `sgate decisions_digest_within_budget` returned rc=0 in 0.401 s, because the CLI resolves the name to its own Click command. The registry's `BASH_C` path instead builds a `bash -c` snippet pointing at the missing function. The gate is reachable by two routes that do not agree; the probe exercises the healthy one and never touches the broken one. This is why the defect is invisible from a probe result.
 
-**Finding 4 — the frontmatter gate's own cost.** `adr_dry_run` → `normalize-adr-frontmatter.sh` → `exec python3 normalize-adr-frontmatter.py`, which processes all 601 ADRs. Whether its cost is per-record spawns or in-process work was not isolated; it is a candidate for the same batching treatment as R1, and that must be established at implementation time before assuming R1 covers both.
+**Finding 4 — the frontmatter gate's own cost.** `adr_dry_run` → `normalize-adr-frontmatter.py`, which processes all 601 ADRs. Whether its cost is per-record spawns or in-process work was not isolated; it is a candidate for the same batching treatment as R1, and that must be established at implementation time before assuming R1 covers both.
 
 **Decision**: `is_registry_function()` is fixed in the same change as the heavyweight filter, resolving through the registry rather than matching command text. It is not new scope — spec 012 FR-001 already requires exactly this, and fixing one site while leaving the other would mean the same file still contains the class the spec was written to prevent.
 

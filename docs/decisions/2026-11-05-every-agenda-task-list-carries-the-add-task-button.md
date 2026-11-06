@@ -84,5 +84,5 @@ route was classified, not that the classification was right.
   `shared/src/commonTest/kotlin/com/singularity/todo/shell/FabActionResolverTest.kt`
 - Tests: `FabActionResolverTest.everyAgendaStartRoute_resolvesToTheClassifiedAction`
 - Related: `2026-09-16-android-shell-fab-fix.md`, and the unmerged sibling decision
-  `2026-12-01-saved-view-results-keeps-no-fab.md` on the branch that took the other
-  reading of the saved view's results screen
+  on the branch that took the other reading of the saved view's results screen
+  (its ADR is not merged here)
