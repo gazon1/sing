@@ -113,8 +113,9 @@ class NavigationSmokeTest : InstrumentedTestBase() {
     }
 
     /**
-     * FAB presence: the agenda destinations show the "Add task" FAB; Upcoming,
-     * Pomodoro and Calendar do not.
+     * FAB presence: the agenda destinations show the "Add task" FAB — Inbox,
+     * Today and Upcoming all do. The Calendar does not, and neither does the
+     * Pomodoro: neither is a list of tasks.
      *
      * Plans and Pomodoro are **menu** destinations, not tabs: they left the tab
      * bar and live behind the "Menu" button (see `DestinationKind`), so they are
@@ -140,11 +141,24 @@ class NavigationSmokeTest : InstrumentedTestBase() {
         device.awaitTagOrNull("nav_tab_inbox", 3_000)
         assertNotNull("FAB should be on Inbox tab", device.findObject(By.res("tasks_fab")))
 
-        // Upcoming — not an agenda tab, no FAB.
+        // Upcoming — an agenda tab, and the resolver gives it "Add task" too:
+        // the tasks it lists are the ones due ahead, and a task created there
+        // simply carries no due date. The prefill is a property of the action,
+        // not of whether the button is drawn.
         device.tapTag("nav_tab_upcoming")
         device.awaitTagOrNull("nav_tab_upcoming", 3_000)
+        assertNotNull(
+            "FAB should be on Upcoming tab",
+            device.findObject(By.res("tasks_fab")),
+        )
+
+        // Calendar — a tab, and no FAB: a calendar is not a list of tasks. The
+        // month grid has to be up before the FAB is judged, or the assertion is
+        // about the screen the navigation came from.
+        device.tapTag("nav_tab_calendar")
+        device.awaitTag("calendar_month_title", "the Calendar screen", TAB_TIMEOUT_MS)
         assertNull(
-            "FAB should NOT be on Upcoming tab",
+            "FAB should NOT be on the Calendar tab",
             device.findObject(By.res("tasks_fab")),
         )
 
@@ -200,7 +214,7 @@ class NavigationSmokeTest : InstrumentedTestBase() {
         var attempts = 0
         while (true) {
             val entry = device.findObject(By.res(tag))
-            if (entry != null && entry.visibleBounds.isNotEmpty) return entry
+            if (entry != null && !entry.visibleBounds.isEmpty) return entry
             if (attempts >= MENU_SCROLL_ATTEMPTS) break
             sheet.scroll(Direction.DOWN, MENU_SCROLL_PERCENT)
             attempts++

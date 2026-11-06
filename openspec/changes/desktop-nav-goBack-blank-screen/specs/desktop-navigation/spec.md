@@ -19,6 +19,7 @@ node" — the failure points at the test rather than at the navigation.
 `CreateTaskFlowTest` (all three currently blocked by this defect).
 
 #### Scenario: Back from a pushed screen
+
 - The user pushes a screen from a list
 - The user activates the back control
 - The list is presented again
@@ -42,6 +43,7 @@ or a fix verified in one will be assumed to cover the other.
 against a fresh navigation state and once against a restored one.
 
 #### Scenario: Back after a write, restored state
+
 - A task is created and saved
 - The user navigates back
 - The destination is presented with the new task visible
@@ -62,6 +64,7 @@ to the whole class of unresolvable-entry causes, not just one instance.
 fallback is presented.
 
 #### Scenario: Unresolvable entry falls back
+
 - The navigation state contains an entry the shell cannot resolve
 - The shell presents the default destination
 - The presented tree contains at least one node
@@ -81,6 +84,7 @@ state from outside the tree.
 in the proposal.
 
 #### Scenario: Diagnostic fires when the tree empties
+
 - A back navigation leaves the tree empty
 - The diagnostic records the current route and back-stack contents
 - The diagnostic runs despite the tree being empty

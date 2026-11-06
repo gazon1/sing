@@ -6,7 +6,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.max
 
-/** The minimum size of a touch target. Material's minimum interactive size is 48 dp. */
+/**
+ * The minimum size of a touch target. Material's minimum interactive size is 48 dp.
+ *
+ * This is the app-wide minimum: every feature reads it from here, so a control never
+ * has to reach into another feature's theme package for a number that names the whole
+ * app. The floor is pinned by `TouchTargetTest` in the core UI package — the value
+ * cannot be lowered silently.
+ */
 object TouchTarget {
     val MinSize = 48.dp
 }

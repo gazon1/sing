@@ -22,6 +22,7 @@ init {
 ```
 
 Problems:
+
 - No persistence across process death (kill → sync stops)
 - No battery-aware constraints
 - No exponential back-off on failures

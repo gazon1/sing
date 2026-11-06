@@ -570,27 +570,37 @@ not one nobody had noticed for a year. That judgement is the review's work.
 Material's minimum interactive size is 48 dp. A fixed visual size applied
 before the expansion caps the hit area — the order is the bug.
 
-- **Expand with `touchTarget()`, before `size()`.** When a control has a
-  smaller visual size (e.g. 22 dp, 14 dp, 8 dp), expand the hit area with
-  `Modifier.touchTarget(...)` first, then constrain the visual size with
-  `size(...)`: `Modifier.touchTarget().size(20.dp)` keeps a 48 dp hit area
-  around a 20 dp icon, while `Modifier.size(20.dp).touchTarget()` is capped
-  back to 20 dp.
+- **Expand with `Modifier.touchTarget(minSize)`, before `size()`.** When a
+  control has a smaller visual size (e.g. 22 dp, 14 dp, 8 dp), call
+  `Modifier.touchTarget()` — the shared helper in `core/ui/TouchTarget.kt` —
+  first, then constrain the visual size with `size(...)`:
+  `Modifier.touchTarget().size(20.dp)` lays out a 48 dp node around a 20 dp
+  icon, while `Modifier.size(20.dp).touchTarget()` stays 20 dp, because the
+  outer `size` caps the whole chain.
 - **Material's own `minimumInteractiveComponentSize()` is not the call to
   write.** In the pinned material3 it takes no size argument — the minimum
   comes from the `LocalMinimumInteractiveComponentSize` composition local —
-  so the size it applies cannot be chosen at the call site. The shared
-  `touchTarget(minSize)` helper (`core/ui/TouchTarget.kt`) is what enforces
-  the size in this project.
-- **Use the token.** `TaskListSizes.MinTouchTarget = 48.dp` is the source of
-  truth for task-list controls; `TouchTarget.MinSize` is the 48 dp minimum
-  the helper defaults to. Prefer passing the token explicitly rather than
-  relying on the default when the control is in scope of that token:
-  `Modifier.touchTarget(TaskListSizes.MinTouchTarget)`.
+  so `minimumInteractiveComponentSize(TaskListSizes.MinTouchTarget)` does not
+  compile, and the size it applies cannot be chosen at the call site. The
+  shared `touchTarget(minSize)` helper (`core/ui/TouchTarget.kt`) is what
+  enforces the size in this project.
+- **Use the shared token.** `TouchTarget.MinSize = 48.dp`
+  (`core/ui/TouchTarget.kt`) is the app-wide source of truth, and
+  `Modifier.touchTarget()` defaults to it. The minimum is read from the core UI
+  package, never from a feature's theme package.
 - **A touch target is still a control.** Padding and hit expansion do not
   replace a real hit area. A `clickable`/`toggleable`/`IconButton` on a small
   node needs expansion, and the expansion must not be clipped by a
   fixed-size constraint applied earlier in the modifier chain.
+- **The claims above are measured, not only grepped.**
+  `TouchTargetMeasurementTest` (`desktopApp`, JVM) mounts the chains and reads
+  their laid-out bounds: the expanded node measures `TouchTarget.MinSize` while
+  its content keeps its own size and is centred in it, a node already larger
+  than the minimum is not shrunk, an explicit `minSize` is the size applied,
+  and a `size(...)` written before the expansion caps the node back. The chain
+  shape at the call sites is additionally guarded by
+  `scripts/check-touch-targets.py`; the measurement is what pins the helper's
+  behaviour where the gate's pattern cannot.
 
 ---
 
@@ -613,6 +623,7 @@ re-deriving them.
 | A swallowed exception keeps its cause | detekt `SwallowedException` |
 | Room schema changes bump `SCHEMA_VERSION` and add a migration | `scripts/check-room-schema-integrity.py` |
 | A chain that fixes a size below 48 dp expands the target before that size | `scripts/check-touch-targets.py` |
+| A touch target expands to 48 dp, and a size before the expansion caps it | `TouchTargetMeasurementTest` (+ `scripts/check-touch-targets.py` for the chain shape) |
 | New ports bind in both `PlatformModule.*.kt` | `scripts/check-platform-reference-ports.py` |
 
 ---

@@ -1,0 +1,66 @@
+=== head ===
+Task ':core-database:compileKotlinJvm' finished in 21.636 s
+Task info:
+  Kotlin language version: 2.4
+Compilation log for task ':core-database:compileKotlinJvm':
+  [KOTLIN] Kotlin compiler class: org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
+  [KOTLIN] Kotlin compiler classpath: /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/.gradle-user-home/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-build-tools-compat/2.4.10/a6a145a14d4fdec0cccc964e99d84f4c7cd13169/kotlin-build-tools-compat-2.4.10.jar:/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/.gradle-user-home/caches/modules-2/files-2.1/org.jetbrains.ko
+  Compiling using the in-process strategy
+  Kotlin compiler args: -Xallow-no-source-files -classpath /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/build/libs/core-domain-jvm.jar:/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/.gradle-user-home/caches/modules-2/files-2.1/androidx.room3/room3-runtime-jvm/3.0.3/dfe4e615a6d5a229d776138931d9af5b1523f04c/room3-runtime-jvm-3.0.3.jar:/home/max/orca/worksp
+  Source changes: Known(modified=[/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-database/src/commonMain/kotlin/com/singularity/todo/feature/proposals/data/ProposalKindCodec.kt, /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-database/src/commonMain/kotlin/com/singularity/todo/feature/proposals/data/ProposalKindCodec.kt], removed=[], forDependencies=false)
+  Classpath changes info passed from Gradle task: NoChanges
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeTaskKind.3)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeTaskKind.4)
+  Process SignatureChanged(fqName = .kotlin_module)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeTaskKind.1)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeTaskKind.2)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeEntityKind.4)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeEntityKind.3)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeEntityKind.2)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeEntityKind.1)
+  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-database/build/classes/kotlin/jvm/main/com/singularity/todo/feature/proposals/data/ProposalPayloadSep.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-database/src/commonMain/kotlin/com/singularity/todo/feature/proposals/data/ProposalKindCodec.kt
+  Moving /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-database/build/classes/kotlin/jvm/main/com/singularity/todo/feature/proposals/data/ProposalPayloadSep.class to the stash as /tmp/kotlin-backups10544247254982397795/0.backup
+  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-database/build/classes/kotlin/jvm/main/com/singularity/todo/feature/proposals/data/ProposalKindCodecKt.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-database/src/commonMain/kotlin/com/singularity/todo/feature/proposals/data/ProposalKindCodec.kt
+
+=== bailout ===
+  Source changes: Known(modified=[/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-database/src/commonMain/kotlin/com/singularity/todo/feature/proposals/data/ProposalKindCodec.kt, /home/max/orca/workspaces/singularity_cllo
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeTaskKind.3)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeTaskKind.4)
+  Process SignatureChanged(fqName = .kotlin_module)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeTaskKind.1)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeTaskKind.2)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeEntityKind.4)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeEntityKind.3)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeEntityKind.2)
+  Process SignatureChanged(fqName = com.singularity.todo.feature.proposals.data.ProposalKindCodecKt.decodeEntityKind.1)
+  Reverting changes
+  Non-incremental compilation will be performed: Incremental compilation might be incorrect (KT-62686)
+
+=== iteration count ===
+kt files in compile iteration: 83
+
+=== tail ===
+    Code generation lines per second: 4622
+  Total compiler iteration: 1
+    Number of cache hits when loading classpath entry snapshots: 15
+  Number of times classpath snapshot is loaded: 1
+  Number of times classpath snapshot is shrunk and saved after compilation: 1
+    Size of shrunk classpath snapshot: 322.2 KB
+    ABI snapshot size: 18 B
+    Number of lines analyzed: 36620
+  Start time of task action: 2026-11-05T18:38:53
+Build attributes:
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+GC metrics:
+  G1 Young Generation:
+    GC count: 5
+    GC time: 0.131 s
+  G1 Old Generation:
+    GC count: 0
+    GC time: 0.000 s
+  G1 Concurrent GC:
+    GC count: 10
+    GC time: 0.145 s
+

@@ -1,0 +1,46 @@
+=== ui r1 exit=0 wall=85s
+> Task :core-database:kspKotlinJvm UP-TO-DATE
+> Task :core-database:compileKotlinJvm UP-TO-DATE
+> Task :shared:compileKotlinJvm
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+  Classpath changes info passed from Gradle task: NoChanges
+=== ui r2 exit=0 wall=72s
+> Task :core-database:kspKotlinJvm UP-TO-DATE
+> Task :core-database:compileKotlinJvm UP-TO-DATE
+> Task :shared:compileKotlinJvm
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+  Classpath changes info passed from Gradle task: NoChanges
+=== vm r1 exit=0 wall=71s
+> Task :core-database:kspKotlinJvm UP-TO-DATE
+> Task :core-database:compileKotlinJvm UP-TO-DATE
+> Task :shared:compileKotlinJvm
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+  Classpath changes info passed from Gradle task: NoChanges
+=== vm r2 exit=0 wall=61s
+> Task :core-database:kspKotlinJvm UP-TO-DATE
+> Task :core-database:compileKotlinJvm UP-TO-DATE
+> Task :shared:compileKotlinJvm
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+  Classpath changes info passed from Gradle task: NoChanges
+=== repo r1 exit=0 wall=62s
+> Task :core-database:kspKotlinJvm UP-TO-DATE
+> Task :core-database:compileKotlinJvm UP-TO-DATE
+> Task :shared:compileKotlinJvm
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+  Classpath changes info passed from Gradle task: NoChanges
+=== repo r2 exit=0 wall=68s
+> Task :core-database:kspKotlinJvm UP-TO-DATE
+> Task :core-database:compileKotlinJvm UP-TO-DATE
+> Task :shared:compileKotlinJvm
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+  Classpath changes info passed from Gradle task: NoChanges
+=== entity r1 exit=0 wall=104s
+> Task :core-database:kspKotlinJvm
+> Task :core-database:compileKotlinJvm
+> Task :shared:compileKotlinJvm
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+  Classpath changes info passed from Gradle task: NoChanges
+=== entity r2 exit=0 wall=41s
+> Task :core-database:kspKotlinJvm
+> Task :core-database:compileKotlinJvm
+> Task :shared:compileKotlinJvm UP-TO-DATE

@@ -26,6 +26,7 @@ Three options were on the table:
 
 Additionally, five discrete infrastructure improvements were identified as
 genuinely missing from the project:
+
 - A Konsist-style enforcement test preventing `runDesktopComposeUiTest` from
   being called directly.
 - A lightweight harness for pure Compose tests that need no Koin.

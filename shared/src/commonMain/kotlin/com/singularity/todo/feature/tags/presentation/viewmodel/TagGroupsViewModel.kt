@@ -87,10 +87,14 @@ class TagGroupsViewModel(
                     // it goes to the reporter and the screen shows the message. Reported from
                     // here rather than through catchTo: this is a Flow operator, not a suspend
                     // block that yields a Result.
-                    crashReporter.report(error, TAG_GROUPS_OBSERVE_FAILED)
+                    // The failure crossed a channel hop, and a channel carries a *copy* of
+                    // the throwable — the original is its cause, so the copy is unwrapped
+                    // before it is reported.
+                    val reported = error.cause ?: error
+                    crashReporter.report(reported, TAG_GROUPS_OBSERVE_FAILED)
                     emit(
                         TagGroupsUiState.Error(
-                            error.toMessage(),
+                            reported.toMessage(),
                         ),
                     )
                 }.collect { content -> setState(content) }

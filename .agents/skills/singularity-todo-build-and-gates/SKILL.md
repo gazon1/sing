@@ -18,6 +18,9 @@ checkouts it is the difference between 5 and 40 minutes.
 just gate         # every gate: check.sh → detekt → just cr → just gm agenda (SKIP_MAESTRO=1 — no flows)
 ./check.sh        # the gate registry + tests + Android + detekt
 ./check.sh --fast    # the fast lane: the checks this change can break (≈5 min, no JVM suite)
+just tests::check-fast    # the same fast lane, through just
+just tests::check-device  # the device lane: instrumentation → floor → Maestro flows (needs a device)
+just tests::cost    # what the last cycle cost, step by step
 bash scripts/ci/static-gates.sh   # the script gates only (≈1 min, no JVM)
 just tests::impact    # the tests this change can break (a map over the tree)
 ./gw :shared:jvmTest     # the fast cycle (no -Ptest.tags = only fast)
@@ -35,6 +38,23 @@ just detekt-fix  # auto-fix what detekt can correct
 
 python3 scripts/detekt-summary.py   # detekt findings by rule, not an XML dump
 ```
+
+### The lanes of the local loop
+
+`./check.sh` is an entry point, not a program: it picks a profile and hands the
+work to `hk check --all`, and the steps are declared in `hk.pkl`. The device
+lane is a hook of its own — `hk run device` — so no profile runs it and CI does
+not run it; it needs hardware, and its failure is not the loop's verdict.
+
+```bash
+./check.sh --fast          # or: just tests::check-fast
+hk run device              # or: just tests::check-device
+just tests::cost           # the cost of the last cycle, step by step
+```
+
+`SKIP_ADB=1` runs the instrumentation step without touching a device (it is how
+the wiring is checked on a machine with none), and `RUN_MAESTRO=1` asks for the
+flows. See `docs/testing/android-instrumentation-runbook.md`.
 
 ### Format after every Kotlin edit
 

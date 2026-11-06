@@ -35,7 +35,6 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import kotlinx.datetime.Instant
 
 /**
  * UI state for the calendar sync settings screen.
@@ -179,7 +178,7 @@ data class CalendarSyncUiState(
      * Reported only after a pass that actually completed. Rendering the clock after a
      * *failed* pass would be the confidently-wrong answer this feature has to avoid.
      */
-    val googleLastSyncedAt: Instant? = null,
+    val googleLastSyncedAt: kotlin.time.Instant? = null,
     /**
      * How far the Google listing reaches, as the engine is actually configured.
      *
@@ -409,9 +408,7 @@ class CalendarSyncViewModel(
                 // queries that list the apps to write into, and the scheduler that runs
                 // the sync afterwards.
                 deviceSyncSupported =
-                    calendarProvider.isSupported &&
-                        syncRepo.isSupported &&
-                        appQueries.isSupported &&
+                    calendarProvider.isSupported && syncRepo.isSupported && appQueries.isSupported &&
                         scheduler.isSupported,
             ),
         crashReporter = crashReporter,
@@ -500,7 +497,8 @@ class CalendarSyncViewModel(
                 syncGoogleNow()
             }
 
-            is CalendarSyncIntent.RequestPermission -> { /* UI layer */ }
+            is CalendarSyncIntent.RequestPermission -> { // UI layer
+            }
 
             is CalendarSyncIntent.SetPermission -> {
                 setPermission(intent.granted)
@@ -599,10 +597,12 @@ class CalendarSyncViewModel(
                         // that, and the local credential is gone. What failed is the
                         // server's half, and the user is the only one who can cancel it.
                         googleDisconnectError =
-                            revoked.exceptionOrNull()?.let { error ->
-                                "The account was disconnected on this device, but the grant was not " +
-                                    "revoked: ${error.message ?: error::class.simpleName}"
-                            },
+                            revoked
+                                .exceptionOrNull()
+                                ?.let { error ->
+                                    "The account was disconnected on this device, but the grant was not " +
+                                        "revoked: ${error.message ?: error::class.simpleName}"
+                                },
                     )
                 }
                 return@launch
@@ -640,7 +640,9 @@ class CalendarSyncViewModel(
                         it.copy(
                             googleAuthorizing = false,
                             googleConnected = false,
-                            googleSignInError = error.message ?: "The Google sign-in did not finish",
+                            googleSignInError =
+                                error.message
+                                    ?: "The Google sign-in did not finish",
                         )
                     }
                 }
@@ -691,7 +693,9 @@ class CalendarSyncViewModel(
                             googleAuthorizing = false,
                             googleAuthorizationRequest = null,
                             googleConnected = false,
-                            googleSignInError = error.message ?: "The Google sign-in did not finish",
+                            googleSignInError =
+                                error.message
+                                    ?: "The Google sign-in did not finish",
                         )
                     }
                 }
@@ -755,7 +759,11 @@ class CalendarSyncViewModel(
                 }.onFailure { error ->
                     Logger.w(error) { "The Google client id could not be saved" }
                     updateState {
-                        it.copy(googleError = error.message ?: "The client id could not be saved")
+                        it.copy(
+                            googleError =
+                                error.message
+                                    ?: "The client id could not be saved",
+                        )
                     }
                 }
         }
@@ -812,7 +820,9 @@ class CalendarSyncViewModel(
                     it.copy(
                         isLoading = false,
                         googleCalendars = emptyList(),
-                        googleError = error.message ?: "Could not reach Google Calendar",
+                        googleError =
+                            error.message
+                                ?: "Could not reach Google Calendar",
                     )
                 },
             )
@@ -940,8 +950,10 @@ class CalendarSyncViewModel(
                             // types meet, rather than making either side carry a
                             // conversion it has no other use for.
                             googleLastSyncedAt =
-                                Instant.fromEpochMilliseconds(
-                                    googleSync.completedAt().toEpochMilliseconds(),
+                                kotlin.time.Instant.fromEpochMilliseconds(
+                                    googleSync
+                                        .completedAt()
+                                        .toEpochMilliseconds(),
                                 ),
                         )
                     }

@@ -48,6 +48,7 @@ own buffer. Retrievable by type in `FailureBundle.capture()`.
 Koin test graph.
 
 **`FailureBundle.capture()`** — writes to `build/diagnostics/<TestClass>/attempt-<N>/`:
+
 - `screenshot.png` via `captureToImage()` (no-arg, available in desktop 1.12.0)
 - `db-state.txt` via `FakeAppDatabase.dumpAll()`
 - `kermit.log` via `ringBuffer.drain()`
@@ -99,16 +100,19 @@ Clock/SystemDate: no violations in test files.
 ## What changed in ADRs and skills
 
 **New ADRs:**
+
 - `2026-09-30-nav3-need-viewmodelstore-decorator.md` — root cause + fix
 - `2026-09-30-agenda-section-discard-missing.md` — duplicate key crash + fix
 - `2026-09-30-desktop-test-diagnostics.md` — ring buffer via DI, FailureBundle,
   awaitTag explainer, API limitations
 
 **New skills:**
+
 - `singularity-todo-nav3-decorators/` — ViewModelStore vs SaveableStateHolder
 - `singularity-todo-agenda-section-design/` — bucket/discard semantics, overlap table
 
 **Updated skills:**
+
 - `singularity-todo-desktop-compose-ui-tests` — failure diagnostics documentation
 
 ---

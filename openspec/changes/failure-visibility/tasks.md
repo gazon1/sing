@@ -33,7 +33,9 @@
 ## REQ-2 — not started
 
 Everything in this section is undone. The agenda mutations still discard their `Result`, which is
-#132, and it is the one item here that produces a *user-visible* silence rather than a diagnostic
+
+# 132, and it is the one item here that produces a *user-visible* silence rather than a diagnostic
+
 one.
 
 ## REQ-2 — a user-initiated failure reaches the user

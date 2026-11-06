@@ -8,7 +8,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.version.AppVersion
-import com.singularity.todo.feature.gate.presentation.state.AppVersionGateState
+import com.singularity.todo.feature.gate.domain.state.AppVersionGateState
 import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation

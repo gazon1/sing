@@ -1,7 +1,6 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.serialization.StableJson
-import kotlinx.serialization.json.jsonObject
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -144,16 +143,7 @@ class BackupRemovalTest {
     fun `a payload written before the removals field existed still reads`() {
         val written = """{"schemaVersion":6,"tasks":[]}"""
 
-        val element = StableJson.parseToJsonElement(written).jsonObject
-        val migrated = BackupMigrations.migrate(element, 6)
-        val bytes =
-            StableJson
-                .encodeToString(
-                    kotlinx.serialization.json.JsonObject
-                        .serializer(),
-                    migrated,
-                ).encodeToByteArray()
-        val payload = StableJson.decodeFromString(BackupPayload.serializer(), bytes.decodeToString())
+        val payload = decodeMigratedPayload(written.encodeToByteArray(), 6)
 
         assertTrue(
             payload.removals.isEmpty(),

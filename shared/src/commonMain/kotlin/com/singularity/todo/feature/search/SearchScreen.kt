@@ -63,6 +63,7 @@ import com.singularity.todo.feature.search.presentation.SavedSearchesRow
 import com.singularity.todo.feature.search.presentation.SearchModeSwitch
 import com.singularity.todo.feature.search.presentation.SimpleFilterSheet
 import com.singularity.todo.feature.search.presentation.nav.LocalSearchNavigator
+import com.singularity.todo.feature.search.presentation.nav.PreviewSearchNavigator
 import com.singularity.todo.feature.search.presentation.nav.SearchNavigator
 import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
@@ -79,11 +80,43 @@ import kotlin.time.Clock
 @Composable
 fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
-    val navigator = LocalSearchNavigator.current
     val snackbarHostState = remember { SnackbarHostState() }
-    val overlay = rememberOverlayState<SearchDialog>()
 
     SearchEventsHandler(viewModel = viewModel, snackbarHostState = snackbarHostState)
+
+    SearchScreenContent(
+        state = state,
+        onIntent = viewModel::onIntent,
+        navigator = LocalSearchNavigator.current,
+        snackbarHostState = snackbarHostState,
+    )
+}
+
+/**
+ * The search screen without its ViewModel: state in, intents out.
+ *
+ * The overlay state is owned here, as it was owned by [SearchScreen] before the
+ * seam existed. That is what lets a UI test open and dismiss the filter sheet,
+ * the save dialog and the rename dialog by mounting this composable — no Koin,
+ * no database, no ViewModel. [SearchScreen] stays the wrapper that supplies the
+ * state, forwards the intents and shows the events' snackbars.
+ *
+ * @param state what the screen draws.
+ * @param onIntent what the user did, in the ViewModel's own vocabulary.
+ * @param navigator where a tapped result leads.
+ * @param modifier the modifier applied to the screen's `Scaffold`.
+ * @param snackbarHostState the host the wrapper's events are shown in.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchScreenContent(
+    state: SearchUiState,
+    onIntent: (SearchIntent) -> Unit,
+    navigator: SearchNavigator,
+    modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+) {
+    val overlay = rememberOverlayState<SearchDialog>()
 
     SearchSheetHosts(
         showFilterSheet = overlay.sheet is SearchDialog.Filter,
@@ -93,24 +126,23 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
         query = state.query.text,
         onDismissFilterSheet = { overlay.dismissSheet() },
         onApplyFilter = { filter ->
-            viewModel.onIntent(SearchIntent.OnApplyFilter(filter))
+            onIntent(SearchIntent.OnApplyFilter(filter))
             overlay.dismissSheet()
         },
         onDismissSaveDialog = { overlay.dismissSheet() },
         onSaveSearch = { name ->
-            viewModel.onIntent(SearchIntent.OnSaveCurrentSearch(name))
+            onIntent(SearchIntent.OnSaveCurrentSearch(name))
             overlay.dismissSheet()
         },
         onDismissRename = { overlay.dismissSheet() },
         onRename = { id, newName ->
-            viewModel.onIntent(
-                SearchIntent.OnRenameSavedSearch(id, newName),
-            )
+            onIntent(SearchIntent.OnRenameSavedSearch(id, newName))
             overlay.dismissSheet()
         },
     )
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = { Text("Search") },
@@ -127,22 +159,22 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
             Column(modifier = Modifier.padding(padding)) {
                 SearchInputBar(
                     querySource = state.querySource,
-                    onQueryChange = { viewModel.onIntent(SearchIntent.OnQueryChange(it)) },
+                    onQueryChange = { onIntent(SearchIntent.OnQueryChange(it)) },
                 )
 
                 SearchModeSwitch(
                     mode = state.mode,
-                    onModeChange = { viewModel.onIntent(SearchIntent.OnModeChange(it)) },
+                    onModeChange = { onIntent(SearchIntent.OnModeChange(it)) },
                 )
 
                 if (state.savedSearches.isNotEmpty()) {
                     SavedSearchesRow(
                         savedSearches = state.savedSearches,
                         activeSavedSearchId = state.activeSavedSearchId,
-                        onLoadSearch = { id -> viewModel.onIntent(SearchIntent.OnLoadSavedSearch(id)) },
+                        onLoadSearch = { id -> onIntent(SearchIntent.OnLoadSavedSearch(id)) },
                         onSaveClick = { overlay.show(SearchDialog.Save) },
                         onRename = { id, newName -> overlay.show(SearchDialog.Rename(id to newName)) },
-                        onDelete = { id -> viewModel.onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
+                        onDelete = { id -> onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
                     )
                 }
 
@@ -150,7 +182,7 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
                     content = searchContent(state.query.text, state.results),
                     results = state.results,
                     navigator = navigator,
-                    onPin = { viewModel.onIntent(SearchIntent.OnTogglePin(it)) },
+                    onPin = { onIntent(SearchIntent.OnTogglePin(it)) },
                 )
             }
         }
@@ -369,7 +401,11 @@ private fun SimpleResultCard(
 @Composable
 private fun SearchScreenEmptyPreview() =
     PreviewThemed(darkTheme = false) {
-        SearchScreen()
+        SearchScreenContent(
+            state = SearchUiState(),
+            onIntent = {},
+            navigator = PreviewSearchNavigator(),
+        )
     }
 
 @Preview

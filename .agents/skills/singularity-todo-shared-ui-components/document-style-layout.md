@@ -2,7 +2,7 @@
 
 Any detail screen (`XxxDetailScreen`) that follows the TickTick/Todoist document-style pattern must be decomposed into **exactly 4 sections**, never more. This limit is cognitive-load discipline: 4 sections fit comfortably in a senior engineer's mental model and are trivially testable.
 
-### The 4 sections
+## The 4 sections
 
 | # | Section | Content | Example |
 |---|---|---|---|
@@ -14,6 +14,7 @@ Any detail screen (`XxxDetailScreen`) that follows the TickTick/Todoist document
 ### What is NOT a section
 
 Do **not** count as separate sections:
+
 - `ActiveSheet` / bottom sheet routing (dialog overlay, not a screen section)
 - `BottomAppBar` — the 4th section is the bottom bar itself; sub-components within it don't add to the count
 - A "See all" link navigating to another screen — a navigation affordance within section 3, not a 5th section

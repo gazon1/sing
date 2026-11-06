@@ -5,7 +5,7 @@ import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.presentation.state.TaskTimeSlotIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskTimeSlotIntent
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState

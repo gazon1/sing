@@ -4,6 +4,7 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import com.singularity.todo.core.ui.theme.mutedTextColor as coreMutedTextColor
 
 /*
  * The task surfaces' theme-derived colours.
@@ -27,14 +28,12 @@ import androidx.compose.ui.graphics.Color
 /**
  * Third-tier text: timestamps, counts, other metadata that must recede.
  *
- * A scheme has no "tertiary text" role — it has [ColorScheme.onSurfaceVariant] and
- * nothing quieter — so the de-emphasis is expressed as opacity on that role. That
- * keeps the colour accent-independent, which matters because this is used for
- * task metadata: an overdue task's timestamp should not change hue when the user
- * changes accent.
+ * The value is defined once in `core.ui.theme.mutedTextColor`, because the shared
+ * components read it too. This name stays as the task surfaces' own entry point
+ * to it, so the task list's controls keep the colour they have always had.
  */
 @Composable
-fun mutedTextColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+fun mutedTextColor(): Color = coreMutedTextColor()
 
 /**
  * Placeholder text in an empty input.
@@ -44,16 +43,6 @@ fun mutedTextColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(al
  */
 @Composable
 fun placeholderTextColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
-
-/**
- * A hairline between rows.
- *
- * [ColorScheme.outline] is the theme's own divider role but is drawn at full
- * strength, which is heavier than a row separator wants. Fading it keeps the
- * separator's weight consistent across both modes without inventing a colour.
- */
-@Composable
-fun dividerColor(): Color = MaterialTheme.colorScheme.outlineVariant
 
 /**
  * A raised surface — a pressed row, a header strip.

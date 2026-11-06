@@ -71,6 +71,7 @@ build/diagnostics/<TestClass>/
 ## Consequences
 
 ### Positive
+
 - Full exception details (type, message, stacktrace, cause chain) available in CI artifacts on failure
 - Coroutine state available in CI artifacts on failure
 - Silent coroutine death becomes diagnosable without manual DebugProbes invocation
@@ -94,12 +95,14 @@ jvmArgs("-javaagent:$coroutinesDebugAgentPath")
 ```
 
 **MR-2 findings:**
+
 - `FailureContextExtension` file was present in `shared/src/jvmTest/` (inherited from `main` at commit `5c0c2e9d`) but was **not auto-registered** — its `META-INF/services/org.junit.jupiter.api.extension.Extension` file was added in commit `7985c234` on branch `refactor/test-coverage-ratchet` which was never merged to `main`. Recreated the service registration file to enable auto-registration.
 - In `jvmTest.dependencies {}` (KMP DSL), use `implementation(...)`, not `testImplementation(...)` — the latter is for Gradle non-KMP modules.
 - `ExtensionContext.root["buildDir"]` returns `null` — `ExtensionContext` API does not expose the build directory. Workaround: pass the build directory as `systemProperty("shared.build.dir", layout.buildDirectory.get().asFile.absolutePath)` in Gradle and read it via `System.getProperty()` in the extension.
 - `CoroutineDiagnostics` is duplicated in desktopApp and shared (intentional — no shared test-fixtures module warranted); shared copy lacks tests.
 
 **Follow-ups (all implemented unless noted):**
+
 - ✅ `TestFailureDetailsWriter` added — writes `failure-details.txt` with exception type, message, full stacktrace, cause chain, thread name/state on every test failure (including non-AssertionError exceptions); complements `coroutines.txt`**
 - ✅ `ExtensionServiceRegistrationTest` added — architecture test verifying every extension in `META-INF/services` resolves to a real loadable class; prevents orphaned registration.
 - ✅ `CoroutinesTimeoutExtension` added — writes `coroutines-timeout.txt` when a timeout exception is thrown; closes the hard-hang gap. A global `@Timeout` or `CoroutinesTimeout` configuration is still needed to make this fire (see below).

@@ -8,6 +8,7 @@ description: 'Full architecture of Nav3 two-level nested navigation in this KMP 
 ## Two Navigation Patterns
 
 ### Pattern A: Per-feature nested graph (projects, notes, search, settings)
+
 Each feature owns its own isolated back stack.
 
 ```
@@ -22,6 +23,7 @@ App (top-level Nav3State)
 ```
 
 ### Pattern B: Singleton graph, multiple start routes (AgendaNavGraph)
+
 One graph reused for 3 tab destinations by varying the `start` parameter.
 
 ```
@@ -73,15 +75,18 @@ differences are seams, and a seam is one function — not a second copy of the
 graph. See "Three Seams" below.
 
 **Example: Tasks (Detail + Create only — after AgendaEngine MR1)**
+
 ```
 feature/nav/TasksRoute.kt               — route key (sealed interface, in feature/nav/)
 feature/tasks/presentation/nav/
 └── TasksNavGraph.kt                    — the whole graph, in commonMain
 ```
+
 > After AgendaEngine MR1, TasksNavGraph only handles Detail + Create screens.
 > Inbox/Today/Upcoming tabs now use `AgendaNavGraph(start = AgendaStartRoute.Inbox/Today/Upcoming)`.
 
 **Example: Agenda (singleton graph, 3 tab variants)**
+
 ```
 feature/nav/AgendaStartRoute.kt         — route key (in feature/nav/)
 feature/agenda/presentation/nav/
@@ -92,6 +97,7 @@ shared/src/androidMain/.../agenda/presentation/nav/
 shared/src/jvmMain/.../agenda/presentation/nav/
 └── AgendaContextMenuHost.jvm.kt        — the popup
 ```
+
 > AgendaNavGraph is mounted 3 times at the top level (one per tab) with different `start` values.
 > The `start: AgendaStartRoute` parameter makes a single graph reusable for all variants.
 
@@ -131,6 +137,7 @@ data object Settings : AppNavKey
 ```
 
 **Rules:**
+
 - Every route extends **`AppNavKey`**, never `NavKey`. A route on `NavKey` is
   invisible to `subclassesOfSealed` and crashes its screen on open — see
   `singularity-todo-nav3-savedstate`.
@@ -219,6 +226,7 @@ fun AgendaNavGraph(
 ```
 
 The `onExitGraph: (AppDestination?) -> Unit` callback handles cross-feature navigation:
+
 - `onExitGraph(AppDestination.ProjectDetail(id))` → outer graph navigates to that destination
 - `onExitGraph(null)` → outer graph handles back (exit nested graph)
 
@@ -350,6 +358,7 @@ seam picks the storage.
 
 In the graph's **one** file — `feature/<feature>/presentation/nav/<Feature>NavGraph.kt`,
 in commonMain:
+
 ```kotlin
 entryProvider = entryProvider {
     // ... existing entries
@@ -399,6 +408,7 @@ fun PreviewAgendaNavigator(content: @Composable () -> Unit) {
 ```
 
 **Usage in preview:**
+
 ```kotlin
 @Preview
 @Composable
@@ -414,6 +424,7 @@ private fun SavedAgendaListContentLoadedPreview() = PreviewAgendaNavigator {
 ```
 
 **Key rules:**
+
 - `LocalAgendaNavigator` is a `staticCompositionLocalOf` — must be provided at every preview entry point
 - The `backStack` needs two args: the initial entry AND the current top-of-stack (both `SavedAgendaList` for a list screen preview)
 - `onExitGraph = {}` — preview never exits the graph

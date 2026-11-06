@@ -131,10 +131,32 @@
 # tests that used to be counted under this label are counted under shared:jvmTest now,
 # and they run in every population.
 #
+# **The android host line lost four tests, and the line does not move.**
+# The android host source set carried a second copy of two scenarios: the
+# record-retention check (one test, and its class is gone) and the notifier's
+# permission matrix (three of that class's five tests — the other two are about the
+# port and stayed). The retention window is now one common constant that both
+# writers use, so the check belongs to the JVM tier; the permission matrix is now a
+# common rule, so its cells are asserted on the JVM too. That is four tests fewer
+# in `shared:testAndroidHostTest`, and the line still reads 13 — which is exactly
+# what the source set now delivers: 1 + 2 + 2 + 4 + 2 + 2 across the six classes
+# the task includes. The line is carried over unchanged rather than rewritten (see
+# the note above), so it is worth stating plainly: the number in the generated block
+# is the one the source set is expected to deliver after this change, not a number
+# that moved with it.
+#
+# **The JVM line rose by five, and it is raised here.** The notifier's permission
+# matrix moved to the JVM tier: `NotificationSupportTest` asserts five cells of it,
+# so `:shared:jvmTest` delivers five tests more than the 4144 this line recorded
+# before the change. A rise never breaks the gate — the floor is a minimum — but a
+# floor that is behind the suite stops asking its question, so the number is raised
+# in the same commit that adds the tests.
+#
 # GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit
 desktopApp:test 62 0
 shared:archTest 219 0
-shared:jvmTest 4144 0
+shared:jvmTest 4149 0
 shared:testAndroidHostTest 13 0
+core-domain:jvmTest 5 0
 mcp-server:test 0 0
 # GENERATED:END

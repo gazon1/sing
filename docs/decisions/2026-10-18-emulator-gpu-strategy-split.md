@@ -52,11 +52,13 @@ The split is **not yet resolved**. Two options for unification:
 Migrate `e2e.yml` from `-gpu off` to `-gpu swiftshader_indirect`, relying on the `emulator` module's device-recovery loop to handle gfxstream crashes transparently.
 
 **Pros:**
+
 - Single GPU primitive across all CI surfaces.
 - Crash handled automatically, not avoided.
 - Consistent with what users see (hardware composition).
 
 **Cons:**
+
 - SwiftShader rendering is slower; impact on flow duration unknown (tracked in `#722`).
 
 ### Option B — Keep `-gpu off` for e2e.yml
@@ -64,10 +66,12 @@ Migrate `e2e.yml` from `-gpu off` to `-gpu swiftshader_indirect`, relying on the
 Accept the split and formalise it. `-gpu off` is a proven stable configuration for Maestro flows.
 
 **Pros:**
+
 - No migration work; risk-free.
 - Faster execution (no SwiftShader overhead).
 
 **Cons:**
+
 - Two GPU primitives means two failure modes.
 - Inconsistent with user-facing rendering.
 

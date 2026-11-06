@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
@@ -66,17 +68,18 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.CollectEvents
-import com.singularity.todo.core.ui.components.ContentStateMapper
+import com.singularity.todo.core.ui.components.ContentState
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.components.TopAppBar
+import com.singularity.todo.core.ui.components.platformVerticalScrollbar
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
-import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.theme.NoteSwipeColors
@@ -95,10 +98,12 @@ import com.singularity.todo.feature.notes.presentation.nav.NotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import com.singularity.todo.feature.notes.searchQuerySource
+import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -171,7 +176,24 @@ fun NotesListScreen(
 
 // ─── Content ────────────────────────────────────────────────────────────────
 
-private fun NotesUiState.toContentState() = ContentStateMapper.notes(this)
+private fun NotesUiState.toContentState(): ContentState<ImmutableList<Note>> =
+    when (this) {
+        is NotesUiState.Loading -> {
+            ContentState.Loading
+        }
+
+        is NotesUiState.Error -> {
+            ContentState.Error(AppError.Unknown(message, code = "notes.render.failed"))
+        }
+
+        is NotesUiState.Content -> {
+            if (list.isEmpty) {
+                ContentState.Empty
+            } else {
+                ContentState.Ready((list.pinned + list.unpinned).toImmutableList())
+            }
+        }
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -261,14 +283,15 @@ fun NotesScreenContent(
             if (state is NotesUiState.Content && state.list.isEmpty) {
                 EmptyState(
                     title = "No notes yet",
-                    subtitle = "Create your first note to get started",
+                    subtitle = "Notes keep your ideas, lists and plans in one place",
+                    icon = Icons.Filled.Description,
                     testTag = TestTags.NOTES_LIST_EMPTY,
                     modifier = Modifier.padding(padding),
                     actions = {
                         FilledTonalButton(onClick = { onCreateNote("") }) {
                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.size(6.dp))
-                            Text("Create your first note")
+                            Text("Create note")
                         }
                     },
                 )
@@ -462,10 +485,18 @@ private fun NoteList(
     currentFilter: NoteFilter,
     modifier: Modifier = Modifier,
 ) {
+    val listState = rememberLazyListState()
     LazyColumn(
+        state = listState,
         modifier =
             modifier
+                // The list's tag and the desktop bar share this node: the bar
+                // publishes a semantics key, not a second `testTag`, so neither
+                // value replaces the other.
                 .testTag(TestTags.NOTES_LIST)
+                .platformVerticalScrollbar(listState)
+                // The cap sits inside the bar, so the bar takes its geometry from
+                // the capped column and hugs it on a wide window.
                 .widthIn(max = 640.dp),
         contentPadding = PaddingValues(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

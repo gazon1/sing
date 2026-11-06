@@ -33,6 +33,7 @@ constructor(
 ```
 
 Three problems:
+
 1. `scope as CoroutineScope` cast is unnecessary and hides the real type requirement
 2. `scope` param type was `CoroutineScope` (not `AutoCloseableCoroutineScope`), requiring the cast
 3. Secondary constructor had 5 parameters — callers (Koin DI + tests) had to pass both the

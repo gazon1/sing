@@ -403,6 +403,8 @@ include(":shared")
 // Compose, Room, SQLite and Koog (#522 follow-up). See ADR
 // 2026-10-11-adr-storage-outlives-the-application.
 include(":core-base")
+include(":core-domain")
+include(":core-database")
 include(":adr-core")
 include(":mcp-server")
 include(":adr-cli")

@@ -91,7 +91,8 @@ def build_tree(
         consequence = {index: content for index, content in index_entities.items()}
 
     kotlin = root / "shared/src/commonMain/kotlin/com/singularity/todo"
-    (kotlin / "core/database").mkdir(parents=True, exist_ok=True)
+    database = root / "core-database/src/commonMain/kotlin/com/singularity/todo/core/database"
+    database.mkdir(parents=True, exist_ok=True)
     (kotlin / "core/wipe").mkdir(parents=True, exist_ok=True)
     (root / "docs/architecture").mkdir(parents=True, exist_ok=True)
 
@@ -105,10 +106,10 @@ def build_tree(
             f"@Fts4(contentEntity = {content}::class)"
             for index, content in index_entities.items()
         )
-    (kotlin / "core/database/Entities.kt").write_text(entities, encoding="utf-8")
+    (database / "Entities.kt").write_text(entities, encoding="utf-8")
 
     dao = "\n".join(deletes.values())
-    (kotlin / "core/database/Daos.kt").write_text(dao, encoding="utf-8")
+    (database / "Daos.kt").write_text(dao, encoding="utf-8")
 
     if plan is None:
         plan = ",\n".join(f'        "{table}" to "{call}"' for table, call in wiped.items())
@@ -193,7 +194,7 @@ class ProfileResetInventoryGateTest(unittest.TestCase):
 
     def test_a_new_table_nobody_decided_about_fails(self):
         build_tree(self.root)
-        entities = self.root / "shared/src/commonMain/kotlin/com/singularity/todo/core/database/Entities.kt"
+        entities = self.root / "core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Entities.kt"
         entities.write_text(
             entities.read_text(encoding="utf-8")
             + '\n@Entity(tableName = "brand_new_table")\ndata class BrandNewTableEntity(val id: String)\n',
@@ -277,7 +278,7 @@ class ProfileResetInventoryGateTest(unittest.TestCase):
 
     def test_a_scan_that_read_nothing_is_a_finding(self):
         build_tree(self.root)
-        entities = self.root / "shared/src/commonMain/kotlin/com/singularity/todo/core/database/Entities.kt"
+        entities = self.root / "core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Entities.kt"
         entities.write_text("// no entities here\n", encoding="utf-8")
         code, findings = run_gate(self.root)
         self.assertEqual(1, code)

@@ -41,6 +41,10 @@ fun runIsolatedComposeTest(
     height: Int = 768,
     test: suspend DesktopComposeUiTest.() -> Unit,
 ) = runDesktopComposeUiTest(width = width, height = height) {
+    // Isolated component tests render real `Res.string` resources too, and those
+    // resolve from the default locale on the JVM. See [useEnglishTestLocale].
+    useEnglishTestLocale()
+
     try {
         test()
     } catch (t: Throwable) {

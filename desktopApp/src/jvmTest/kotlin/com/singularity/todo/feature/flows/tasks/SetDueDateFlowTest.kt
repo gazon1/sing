@@ -39,7 +39,7 @@ class SetDueDateFlowTest {
     /**
      * Covers the dated case only.
      *
-     * The undated case — placeholder label "Добавить дату" on an undated task —
+     * The undated case — placeholder label "Add date" on an undated task —
      * is not covered here because it is blocked on the NoDate question, not on
      * the tag: an undated task does not reach the agenda at all, so the editor
      * never opens. See `deferred-backlog.md#nodate-steps-2-4`. Write this case
@@ -64,7 +64,7 @@ class SetDueDateFlowTest {
             assertTagDisplayed(TestTags.TASK_EDITOR_DUE_ROW)
             // The row renders the ISO date, not the placeholder.
             assertTextDisplayed(today.toString())
-            assertTextNotExists("Добавить дату")
+            assertTextNotExists("Add date")
         }
 
     private companion object {

@@ -50,6 +50,12 @@ import com.singularity.todo.feature.attachments.AttachmentsIntent
 import com.singularity.todo.feature.attachments.AttachmentsUiEvent
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.state.FirstRun
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailExtras
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiEvent
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiState
+import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
 import com.singularity.todo.feature.tasks.presentation.components.detail.AttachmentsCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
@@ -70,12 +76,6 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEdi
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSeriesCard
 import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
-import com.singularity.todo.feature.tasks.presentation.state.FirstRun
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
-import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
 import com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet
 import com.singularity.todo.feature.timetracking.presentation.components.TimeTrackingSection
@@ -86,10 +86,31 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.menu_archive
+import singularity_todo.shared.generated.resources.menu_delete
+import singularity_todo.shared.generated.resources.menu_restore
 import kotlin.time.Instant
 
+/**
+ * The task detail, as a screen.
+ *
+ * ## The order of the screen
+ *
+ * Top to bottom: the hero (the title and the description), the offers — the first-run
+ * banner and the stack of pending AI proposals — the task's own sections (the tags, the
+ * checklist items, the subtasks, the attachments, the backlinks, the series card, the
+ * timer, the logbook), and then the attribute rows (the priority, the estimate, the due
+ * date, the project, the tags).
+ *
+ * The offers have a place of their own: they sit above the attribute rows for every
+ * task, and where they sit does not depend on which sections the task happens to carry.
+ * An offer a person is meant to act on is reachable without scrolling past the whole
+ * task. The attribute rows keep the order they have always had.
+ */
 @Suppress("LongMethod", "CyclomaticComplexMethod", "FunctionSignature")
 @Composable
 fun TaskDetailContent(
@@ -463,7 +484,14 @@ fun TaskDetailContent(
                                         ),
                                     onTimeEntryAdd = null,
                                     onTimeEntrySave = null,
-                                    extraSections = {
+                                    // The offers the screen makes to the person: the first-run
+                                    // banner and the pending AI proposals. They have a slot of
+                                    // their own, so their place on the screen is the editor's
+                                    // decision and not a side effect of which child sections the
+                                    // slot below happens to carry — the editor draws them
+                                    // directly under the title and the description, above the
+                                    // attribute rows, for every task.
+                                    bannerSections = {
                                         Column(
                                             modifier = Modifier.fillMaxWidth(),
                                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -529,6 +557,16 @@ fun TaskDetailContent(
                                                     },
                                                 )
                                             }
+                                        }
+                                    },
+                                    // The child sections: the task's own content, listed under
+                                    // the fields. Where they sit is the editor's business, and
+                                    // the offers above do not travel with them.
+                                    extraSections = {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        ) {
                                             TaskDetailTagsSection(
                                                 tags = ui.tags,
                                                 onDeleteTag = {
@@ -537,9 +575,10 @@ fun TaskDetailContent(
                                                     )
                                                 },
                                             )
-                                            if (ui.task.recurrence != null) {
+                                            val recurrence = ui.task.recurrence
+                                            if (recurrence != null) {
                                                 TaskDetailRecurrenceSection(
-                                                    recurrence = ui.task.recurrence,
+                                                    recurrence = recurrence,
                                                 )
                                             }
                                             TaskDetailChecklistSection(
@@ -710,6 +749,7 @@ fun TaskDetailContent(
 
 // ─── Menu items ─────────────────────────────────────────────────────────────
 
+@Composable
 private fun buildDetailMenuItems(
     isTrashed: Boolean,
     onIntent: (TaskDetailIntent.Domain) -> Unit,
@@ -717,7 +757,7 @@ private fun buildDetailMenuItems(
     if (isTrashed) {
         persistentListOf(
             TaskEditorMenuItem(
-                label = "Восстановить",
+                label = stringResource(Res.string.menu_restore),
                 onClick = { onIntent(TaskDetailIntent.Domain.Unarchive) },
                 testTag = TestTags.EditorOverflow.RESTORE,
             ),
@@ -725,12 +765,12 @@ private fun buildDetailMenuItems(
     } else {
         persistentListOf(
             TaskEditorMenuItem(
-                label = "Архивировать",
+                label = stringResource(Res.string.menu_archive),
                 onClick = { onIntent(TaskDetailIntent.Domain.Archive) },
                 testTag = TestTags.EditorOverflow.ARCHIVE,
             ),
             TaskEditorMenuItem(
-                label = "Удалить",
+                label = stringResource(Res.string.menu_delete),
                 onClick = { onIntent(TaskDetailIntent.Domain.Delete) },
                 testTag = TestTags.EditorOverflow.DELETE,
             ),

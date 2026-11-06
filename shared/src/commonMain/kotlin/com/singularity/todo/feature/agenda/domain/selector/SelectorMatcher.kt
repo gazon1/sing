@@ -65,8 +65,9 @@ fun Selector.matches(
         }
 
         is Selector.DateRange -> {
-            task.dueDate != null &&
-                task.dueDate >= from && task.dueDate <= to
+            val dueDate = task.dueDate
+            dueDate != null &&
+                dueDate >= from && dueDate <= to
         }
 
         is Selector.Statuses -> {
@@ -204,8 +205,9 @@ private fun Selector.DateBucket.matches(
         }
 
         else -> {
-            task.dueDate != null &&
-                task.dueDate >= range.from && task.dueDate <= range.to
+            val dueDate = task.dueDate
+            dueDate != null &&
+                dueDate >= range.from && dueDate <= range.to
         }
     }
 }

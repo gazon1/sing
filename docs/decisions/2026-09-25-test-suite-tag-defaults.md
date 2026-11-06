@@ -27,6 +27,7 @@ Additionally, the project's existing testing practices were formalised against K
 attributes of good unit tests and the AAA pattern.
 
 ## Decision
+
 ### D1: Fix `mcp-server` default tag filter
 
 Changed `includeTags("fast")` → `excludeTags("slow")` in `mcp-server/build.gradle.kts`, matching
@@ -60,6 +61,7 @@ Every `@Test` should have three clearly separated sections. If the Act section h
 statement, the SUT API likely needs encapsulation. Name the system under test `sut`.
 
 **Four attributes of a good unit test:**
+
 1. Bug protection — catches real regressions with minimal false positives
 2. Refactoring resilience — does not break when implementation details change (only when observable behaviour changes)
 3. Fast feedback — completes in milliseconds
@@ -70,6 +72,7 @@ For VM tests, use `MutableStateFlow.value` assertions, never Turbine-style `awai
 behaviour per `@Test`. If a VM has 3 states, write 3 separate tests.
 
 **Fakes and stubs (CQS — Command Query Separation):**
+
 - Queries (methods returning data, no side effects): use **fakes/stubs** (`FakeRepositories`, `FakeClock`)
 - Commands (methods with side effects): verify with **mocks** only for OUTGOING interactions
   (DB writes, analytics, network). Never mock incoming data or internal state.
@@ -79,6 +82,7 @@ Tests must not depend on private methods. Test the public surface only; private 
 verified indirectly through observable outcomes.
 
 **Testing pyramid:**
+
 - Unit tier (JVM, fakes): fast, no platform dependencies. Default suite.
 - Component tier (Robolectric, instrumented, screenshot): slow, boots platform. Must be
   tagged `@Tag("slow")` and excluded from the default suite.

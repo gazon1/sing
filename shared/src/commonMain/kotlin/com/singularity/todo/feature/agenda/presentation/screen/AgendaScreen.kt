@@ -118,6 +118,9 @@ fun AgendaScreen(
                 state = state,
                 title = vm.title,
                 greeting = (state as? AgendaUiState.Loaded)?.greeting ?: "",
+                // The tab that stops at next week is the only one that owes the user a
+                // pointer to where a later task is seen.
+                horizonNote = AgendaHorizonNote.forDefinition(definition),
                 onIntent = vm::onIntent,
                 onSavedViewsClick = { navigator.openSavedAgendaList() },
                 onMultiDateCreate = { showMultiDatePicker = true },

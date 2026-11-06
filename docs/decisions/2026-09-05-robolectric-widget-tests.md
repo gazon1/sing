@@ -25,6 +25,7 @@ Three approaches were considered:
 Skip Koin in `androidHostTest` tests. Create each ViewModel directly in test setup with concrete fake implementations. No `startKoin`, no `koin { modules(...) }`.
 
 Pattern used:
+
 ```kotlin
 private val fakeAuthRepo = FakeAuthRepository(Session.Anonymous(UserId.anonymous))
 private val fakeCurrentUser = FakeCurrentUser(fakeAuthRepo)

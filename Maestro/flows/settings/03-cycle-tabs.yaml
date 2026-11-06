@@ -77,11 +77,11 @@ tags:
     id: settings_tab_dropdown
 - tapOn:
     id: settings_tab_files
-- tapOn:
-    id: settings_tab_dropdown
-- tapOn:
-    id: settings_tab_backup
-- tapOn:
-    id: settings_tab_dropdown
-- tapOn:
-    id: settings_tab_account
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      TAB_ID: settings_tab_backup
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      TAB_ID: settings_tab_account

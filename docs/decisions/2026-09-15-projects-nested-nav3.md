@@ -14,6 +14,7 @@ After the tasks feature was migrated to a nested Nav3 graph (`TasksNavGraph` + `
 ## Idea
 
 Mirror the tasks feature pattern:
+
 1. `ProjectsRoute` sealed interface (`List`, `Editor(projectId?)`, `Detail(projectId)`) for the nested graph.
 2. `ProjectsNavigator` open class with `openDetail`, `openEditor`, `openTasks`, `openTask`, `back`, `closeGraph`.
 3. `LocalProjectsNavigator` CompositionLocal — screens read `current` instead of receiving callbacks.
@@ -35,6 +36,7 @@ expect fun ProjectsNavGraph(
 ```
 
 Android implementation (`ProjectsNavGraph.android.kt`):
+
 - `rememberNavBackStack(SavedStateConfiguration { }, start)`
 - `CompositionLocalProvider(LocalProjectsNavigator provides navigator)`
 - `BackHandler(enabled = backStack.size <= 1) { onExitGraph(null) }`

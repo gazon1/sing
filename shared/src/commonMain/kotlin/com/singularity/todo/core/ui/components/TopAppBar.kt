@@ -9,6 +9,7 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 
@@ -38,15 +39,16 @@ fun TopAppBar(
     overrideShell: Boolean = false,
 ) {
     val holder = LocalScreenActions.current
+    // One token per composed bar: the holder uses it to tell the title of the
+    // screen on screen from the title of a screen that is leaving.
+    val barPublisher = remember { Any() }
     if (holder != null) {
         SideEffect {
             holder?.actions = actions
             holder?.selectionTitle = selectionTitle
             holder?.onExitSelection = onExitSelection
             if (overrideShell) {
-                holder?.title = title
-                holder?.navigationIcon = navigationIcon
-                holder?.override = true
+                holder?.publishTitle(barPublisher, title, navigationIcon)
             }
         }
         DisposableEffect(holder, overrideShell) {
@@ -59,9 +61,7 @@ fun TopAppBar(
                 // not have the second one's override cleared by the first one's
                 // disposal.
                 if (overrideShell) {
-                    holder?.title = null
-                    holder?.navigationIcon = null
-                    holder?.override = false
+                    holder?.releaseTitle(barPublisher)
                 }
             }
         }

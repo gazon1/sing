@@ -3,6 +3,7 @@ title: ADR 2026-09-16 — Saved Agenda Views Persistence
 date: 2026-09-16
 status: accepted
 ---
+
 # ADR 2026-09-16 — Saved Agenda Views Persistence
 
 ## Status
@@ -15,11 +16,13 @@ MR1 provides a fixed set of built-in agenda presets (`Inbox`, `Today`, `Upcoming
 project-specific views. Users cannot save custom agenda configurations or share them across profiles.
 
 MR2c adds persistence for user-created agenda views (name + section list), enabling:
+
 - Save custom configurations
 - Switch between saved views at runtime
 - Delete or rename saved views
 
 **Out of scope for MR2c (→ MR3):**
+
 - UI switching (dropdown to select active saved view)
 - `AgendaStartRoute.SavedView` navigation route
 - Sharing or duplicating views
@@ -95,6 +98,7 @@ interface SavedAgendaViewsRepository {
 ### ViewModels (2)
 
 **`SavedAgendaListViewModel`** — no runtime parameters:
+
 ```kotlin
 class SavedAgendaListViewModel(deps: SavedAgendaListDeps) : ViewModel() {
     val views: StateFlow<List<SavedAgendaView>> = deps.repo.watchAll(deps.userId)
@@ -104,6 +108,7 @@ class SavedAgendaListViewModel(deps: SavedAgendaListDeps) : ViewModel() {
 ```
 
 **`SavedAgendaEditViewModel`** — runtime `viewId: SavedAgendaViewId` parameter:
+
 ```kotlin
 class SavedAgendaEditViewModel(
     deps: SavedAgendaEditDeps,
@@ -149,15 +154,18 @@ fun SavedAgendaView.toEntity(): AgendaViewEntity {
 ## Consequences
 
 ### Positive
+
 - Simple schema, no migration complexity beyond bumping SCHEMA_VERSION.
 - Domain/repo/data layers are fully isolated.
 - StableJson round-trip test verifies no data loss.
 
 ### Negative
+
 - Cannot filter by `name` in SQL without parsing JSON — acceptable; user-facing
   list is small and fetched entirely.
 
 ### Neutral
+
 - `AgendaViewModel` binding is unchanged — does not consume saved views.
 - UI switching (MR3) requires adding `definition: AgendaDefinition` to `AgendaViewModel`
   and wiring the saved-view selection mechanism.
@@ -165,11 +173,13 @@ fun SavedAgendaView.toEntity(): AgendaViewEntity {
 ## Alternatives considered
 
 ### Hybrid storage (title + layout + sections_json)
+
 Rejected. The `title` from `AgendaDefinition.title` is already the user-facing name.
 Adding a separate `name` column creates redundancy without meaningful queryability.
 All-in-blob is simpler and fully sufficient.
 
 ### Unique constraint on `(user_id, name)`
+
 Not added. Users may have multiple views with the same name (e.g., "Work Tasks" in
 different profiles, or intentionally duplicated). The composite PK `(user_id, id)` is
 the only uniqueness guarantee.

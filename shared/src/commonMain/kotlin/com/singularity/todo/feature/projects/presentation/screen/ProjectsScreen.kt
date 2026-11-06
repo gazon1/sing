@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material.icons.Icons
@@ -48,22 +49,23 @@ import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ReopenActionButton
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.components.TopAppBar
-import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.components.platformVerticalScrollbar
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
+import com.singularity.todo.feature.projects.domain.state.ProjectSortOrder
+import com.singularity.todo.feature.projects.domain.state.ProjectsUiEvent
+import com.singularity.todo.feature.projects.domain.state.ProjectsUiState
+import com.singularity.todo.feature.projects.domain.state.searchQuerySource
 import com.singularity.todo.feature.projects.presentation.components.ProjectCard
 import com.singularity.todo.feature.projects.presentation.components.ProjectCardActions
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsPreviewWrapper
-import com.singularity.todo.feature.projects.presentation.state.ProjectSortOrder
-import com.singularity.todo.feature.projects.presentation.state.ProjectsUiEvent
-import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
-import com.singularity.todo.feature.projects.presentation.state.searchQuerySource
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsIntent
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel
+import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import org.koin.compose.viewmodel.koinViewModel
@@ -318,8 +320,10 @@ private fun ProjectList(
     onReviewClick: (Project) -> Unit,
     onReopen: (ProjectId) -> Unit,
 ) {
+    val listState = rememberLazyListState()
     LazyColumn(
-        modifier = modifier.widthIn(max = 640.dp),
+        state = listState,
+        modifier = modifier.platformVerticalScrollbar(listState).widthIn(max = 640.dp),
         contentPadding = PaddingValues(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),

@@ -11,6 +11,7 @@ Status of items in the original followups doc (after refactor pass on
 ## 🔴 Bugs — RESOLVED
 
 ### FAB always opens TaskEditor (regardless of current tab)
+
 - **Status:** ✅ Fixed
 - **Fix:** `AndroidShell.fabActionFor(current, navigator)` returns a
   per-tab `FabAction`. Today/Inbox → "Add task" → TaskEditor.
@@ -20,6 +21,7 @@ Status of items in the original followups doc (after refactor pass on
   removed. The chrome-level FAB is the single source of truth.
 
 ### `ProjectsScreen.onNavigateToProject` was a TODO
+
 - **Status:** ✅ Fixed
 - **Fix:** Added `AppDestination.ProjectDetail(projectId)` route +
   `ProjectDetailScreen` + `ProjectDetailViewModel` (minimal: project
@@ -27,6 +29,7 @@ Status of items in the original followups doc (after refactor pass on
 - **Wired:** `ProjectsScreen.onNavigateToProject = { id -> navigator.navigate(ProjectDetail(id)) }`.
 
 ### `ProjectsRoute` used local state instead of sub-route
+
 - **Status:** ✅ Fixed
 - **Fix:** `AppNavHost` for `AppDestination.Plans` now passes
   `onNavigateToCreateProject = { navigator.navigate(ProjectEditor()) }`
@@ -36,35 +39,41 @@ Status of items in the original followups doc (after refactor pass on
 ## 🟡 Refactoring — RESOLVED
 
 ### `BottomBarEntry` enum duplicates `AppDestination` role
+
 - **Status:** ✅ Removed
 - **Fix:** `AppDestination` now carries `val title` + `val icon`
   (extension property). `BottomBarEntry` and `MenuEntry` enums deleted.
   Less code, single source of truth.
 
 ### `MenuBottomSheet` hard-codes Account/Search placeholder sections
+
 - **Status:** ✅ Fixed
 - **Fix:** Declarative `MenuSections` list at the bottom of the file.
   Adding a section = one entry. Adding a destination = append to
   `DestinationKind.menuEntries`.
 
 ### `destinationFromRoute()` hard-codes subclass names
+
 - **Status:** ⚠️ Left as-is
 - **Reason:** Reflection is overkill for 16 entries. KDoc warning
   documents the fragility.
 
 ### `NavDestination` enum became overkill
+
 - **Status:** ✅ Fixed
 - **Fix:** Reduced to enum of 9 entries with a single `title` field.
   `NavGroup` and `grouped` map deleted. `AppShell` now shows a flat
   drawer list.
 
 ### `TasksScreenEntry` lived in feature, used by shell
+
 - **Status:** ✅ Moved to its own file
 - **Fix:** `TasksScreenEntry` now in `feature/tasks/TasksScreenEntry.kt`
   (separate from `TasksScreen.kt`). Still lives in feature because
   it's a feature-specific contract — `AppNavHost` imports from feature.
 
 ### `AndroidShell.content` parameter is a test-only API
+
 - **Status:** ⚠️ Left as-is
 - **Reason:** Internal can't cross modules in KMP; would require
   splitting shell into public/test-only files. Cost > benefit.
@@ -72,9 +81,11 @@ Status of items in the original followups doc (after refactor pass on
 ## 🟢 Cosmetic
 
 ### `Modifier.padding(padding)` boilerplate
+
 - **Status:** ⏸️ Skipped
 
 ### `Modifier.windowInsetsPadding` on NavigationBar
+
 - **Status:** ⏸️ Skipped (works correctly in tests on real device)
 
 ## Net result

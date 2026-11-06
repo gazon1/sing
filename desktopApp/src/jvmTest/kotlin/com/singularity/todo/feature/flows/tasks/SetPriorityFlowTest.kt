@@ -4,7 +4,6 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.fakes.FakeClock
-import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
@@ -14,7 +13,6 @@ import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.clickTagScrolled
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
-import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag

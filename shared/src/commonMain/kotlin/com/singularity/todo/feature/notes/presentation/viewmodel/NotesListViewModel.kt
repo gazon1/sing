@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.coroutines.ReloadTrigger
+import com.singularity.todo.core.coroutines.reloadOn
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
@@ -27,7 +29,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -96,6 +97,14 @@ class NotesListViewModel(
 
         private const val DELETE_FAILED = "notes.delete_failed"
         private const val RESTORE_FAILED = "notes.restore_failed"
+
+        /**
+         * The observation of the notes list stopped.
+         *
+         * A fixed label, never the query, the filter or the sort order: the key
+         * leaves the device, and the state that carries them is the user's.
+         */
+        private const val OBSERVE_FAILED = "notes.observe_failed"
     }
 
     // [filterFlow] and [sortOrderFlow] are inputs to the collector below, not public
@@ -121,7 +130,15 @@ class NotesListViewModel(
      * the field's own text coming back.
      */
     private val searchQueryFlow = MutableStateFlow(FieldOwnedText.empty())
-    private val retryTrigger = MutableStateFlow(0)
+
+    /**
+     * The request to observe the notes again after a failure.
+     *
+     * The failure handling lives inside the attempt it applies to — see
+     * [reloadOn] — so a failed load leaves the trigger armed and the Retry
+     * intent starts a fresh subscription.
+     */
+    private val retryTrigger = ReloadTrigger()
 
     /**
      * The query actually applied to the repository.
@@ -159,7 +176,7 @@ class NotesListViewModel(
                     repo.watchDailyNotesInRange(from, to)
                 }
             val notesFlow =
-                combine(filterFlow, debouncedQueryFlow, retryTrigger) { f, query, _ -> f to query }
+                combine(filterFlow, debouncedQueryFlow) { f, query -> f to query }
                     .flatMapLatest { (f, query) ->
                         val flow =
                             when {
@@ -170,9 +187,9 @@ class NotesListViewModel(
                             }
                         flow.map { notes -> Triple(f, query, notes) }
                     }
-            // Typed as [NotesUiState]: the error path below emits an `Error`, and an
-            // inferred type of `Content` would make that emission a type error.
-            val listStateFlow: Flow<NotesUiState> =
+            // Typed as [NotesUiState]: the error path is a state of its own, and an
+            // inferred type of `Content` would make that state a type error.
+            val contentFlow: Flow<NotesUiState> =
                 combine(notesFlow, templatesFlow, dailyNotesFlow, sortOrderFlow) {
                     (filter, query, allNotes),
                     templates,
@@ -197,23 +214,39 @@ class NotesListViewModel(
                         searchQuery = query,
                     )
                 }
-            listStateFlow
-                .catch { cause ->
-                    // The failure carries the query, the filter and the sort order.
-                    // The screen keeps showing the search field and the filter chips
-                    // while it reports the error, and a state that reset them would
-                    // clear what the user had chosen — the query in particular, since
-                    // the field is bound to it and hands an empty string back as if
-                    // the user had cleared it.
-                    emit(
-                        NotesUiState.Error(
-                            message = cause.toMessage("Could not load notes"),
-                            filter = filterFlow.value,
-                            sortOrder = sortOrderFlow.value,
-                            searchQuery = searchQueryFlow.value,
-                        ),
-                    )
-                }.collect { state -> setState(state) }
+            // The failure handling sits inside the attempt it applies to, so a failed
+            // load leaves the trigger armed and the Retry intent starts a fresh
+            // subscription — see [reloadOn].
+            //
+            // The failure carries the query, the filter and the sort order. The screen
+            // keeps showing the search field and the filter chips while it reports the
+            // error, and a state that reset them would clear what the user had chosen
+            // — the query in particular, since the field is bound to it and hands an
+            // empty string back as if the user had cleared it.
+            val listStateFlow: Flow<NotesUiState> =
+                reloadOn(
+                    trigger = retryTrigger,
+                    onFailure = { cause ->
+                        // The collection stopped: a defect, not a user-actionable error, so
+                        // the cause goes to the reporter as well as to the screen. The
+                        // failure crossed a channel hop, and a channel carries a *copy*
+                        // of the throwable — the original is its cause, so the copy is
+                        // unwrapped before it is reported.
+                        val reported = cause.cause ?: cause
+                        crashReporter.report(reported, OBSERVE_FAILED)
+                        setState(
+                            NotesUiState.Error(
+                                message = reported.toMessage("Could not load notes"),
+                                filter = filterFlow.value,
+                                sortOrder = sortOrderFlow.value,
+                                searchQuery = searchQueryFlow.value,
+                            ),
+                        )
+                    },
+                ) {
+                    contentFlow
+                }
+            listStateFlow.collect { state -> setState(state) }
         }
     }
 
@@ -275,7 +308,7 @@ class NotesListViewModel(
             }
 
             NotesIntent.Retry -> {
-                retryTrigger.value += 1
+                retryTrigger.reload()
             }
 
             is NotesIntent.CreateNote -> {

@@ -6,8 +6,8 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
-import com.singularity.todo.feature.tasks.presentation.state.TaskLifecycleIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskLifecycleIntent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

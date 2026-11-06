@@ -17,10 +17,11 @@ import kotlin.test.assertTrue
  * The shell bar override, on the publishing side.
  *
  * On Android the shell owns the only bar, so a screen that draws its own header
- * publishes that header to the shell instead of drawing a second bar. The
- * publishing side is [TopAppBar] with `overrideShell = true`; the contract it
- * keeps with the shell is three fields of [ScreenActionsHolder]: `title`,
- * `navigationIcon` and `override`.
+ * publishes that header to the shell instead of drawing a second bar. Two
+ * composables do that publishing: [TopAppBar] with `overrideShell = true`,
+ * which this test pins, and [ShellOverride], which [ShellOverrideTest] pins.
+ * The contract both keep with the shell is three fields of
+ * [ScreenActionsHolder]: `title`, `navigationIcon` and `override`.
  *
  * Nothing asserted that contract before this test. The only test that touched
  * the holder checked that its fields start empty — which is a statement about

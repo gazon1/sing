@@ -1,4 +1,14 @@
-# The bottom bar no longer holds a Calendar button, and the other tabs are there.
+# The bottom bar's composition: the agenda tabs and the Calendar, plus the
+# "Menu" button that opens the destinations the bar does not hold.
+#
+# The bar lost Plans and Pomodoro to the app menu and gained the Calendar. Both
+# halves are asserted: what is in the bar, and what is not. A bar that silently
+# dropped an entry and a bar that silently grew one are different bugs, and an
+# assertion on the entries that remain catches neither — it passes on a bar that
+# carries a destination nobody meant to put there.
+#
+# Plans and Pomodoro are reached through the Menu button, which the other nav
+# flow (bottom-nav-tabs) does.
 appId: com.singularity.todo
 name: nav-no-calendar-tab
 tags:
@@ -7,8 +17,6 @@ tags:
   - scenario:NAV-01
 ---
 - runFlow: ../../helpers/launch-clean.yaml
-- assertNotVisible:
-    id: nav_tab_calendar
 - assertVisible:
     id: nav_tab_inbox
 - assertVisible:
@@ -16,6 +24,11 @@ tags:
 - assertVisible:
     id: nav_tab_upcoming
 - assertVisible:
-    id: nav_tab_plans
+    id: nav_tab_calendar
 - assertVisible:
+    id: nav_menu_button
+# Not in the bar: they are menu entries, addressed by their `menu_*` ids.
+- assertNotVisible:
+    id: nav_tab_plans
+- assertNotVisible:
     id: nav_tab_pomodoro

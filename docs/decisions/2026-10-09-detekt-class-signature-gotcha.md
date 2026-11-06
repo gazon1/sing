@@ -17,6 +17,7 @@ data class ByDateRange(
 ```
 
 The `ClassSignature` rule (custom, in `detekt-rules-module.yml`) requires:
+
 - No whitespace between opening parenthesis and first parameter name
 - Single whitespace before parameter
 - No whitespace between last parameter and closing parenthesis
@@ -42,6 +43,7 @@ The `ClassSignature` rule enforces the style used by the rest of the codebase. S
 ## Affected Patterns
 
 This affects any `data class` with:
+
 - 2+ parameters, AND
 - At least one parameter with a default value, AND
 - Parameters that don't fit on one line

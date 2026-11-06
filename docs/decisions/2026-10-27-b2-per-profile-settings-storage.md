@@ -5,7 +5,6 @@ date: 2026-10-27
 tags: ["settings", "profile", "architecture"]
 ---
 
-
 ## Context
 
 Feature 016 ("Plans Timeline and Projects Menu") added a dedicated port for the

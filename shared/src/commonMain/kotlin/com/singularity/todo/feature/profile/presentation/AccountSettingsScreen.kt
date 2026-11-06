@@ -35,13 +35,13 @@ import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.SettingsSection
-import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.auth.AuthIntent
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.settings.presentation.nav.LocalSettingsNavigator
+import com.singularity.todo.preview.PreviewSamples
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable

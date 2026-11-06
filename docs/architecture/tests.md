@@ -4,6 +4,11 @@
 должен помещаться в один проход, а правило тестов — это десятки строк, которые нужны
 тогда, когда пишешь тест или разбираешь падение.
 
+**Кто владеет сценарием.** Если сценарий проверяется в двух тирах, у него один владелец.
+Таблица в [test-tier-ownership.md](test-tier-ownership.md) называет владельца, говорит
+почему именно он, и что стало с копией в другом тире: удалена, оставлена осознанно (с
+причиной) или отложена до следующей работы.
+
 `commonTest` (pure Kotlin) выполняется внутри `./gradlew :shared:jvmTest` — отдельного таска нет.
 `jvmTest` — Room + SQLite + Konsist arch tests. **Fake вместо моков** — все двойники в
 `test/fakes/FakeRepositories.kt`. Каждый тестовый класс обязан иметь `@Tag`, иначе
@@ -56,6 +61,25 @@ awaitState { vm.state.value is UiState.Content }   // виртуальное в�
 типичная повестка: поток часов не кончается → виртуальное время не доводится до idle, scope
 не может быть тестовым).
 
+**Тестовая БД — один владелец.** Каждый JVM-тест, которому нужна настоящая база, берёт её
+из `DatabaseTestFixture` (`shared/src/jvmTest/.../core/database/DatabaseTestFixture.kt`):
+`onDisk()` — файл во временном каталоге, которым владеет фикстура; `inMemory()` — без
+файла. `database(name)` даёт вторую базу, `path(name)` — путь, `reopen(name)` — перезапуск
+поверх того же файла, `connect(name)` — сырое соединение до/после Room. `close()` закрывает
+всё, что открыла фикстура. Файл на диске выбирается только там, где файл и есть предмет
+теста (миграции, рестарт, WAL, «файл существует»); остальное — память. Правило
+механическое: `:shared:archTest` (`DatabaseTestFixtureHasOneOwnerTest`) валит сборку, если
+файл вне фикстуры открывает БД или заводит временный каталог под неё. В скан входят
+`jvmTest` и `commonTest`: последний исполняется внутри `:shared:jvmTest`, и копия там была
+бы той же второй жизнью БД.
+
+**`awaitState` будит background-scope.** Один `advanceUntilIdle()` доводит только
+*foreground*-работу, поэтому VM на `VmScope.Background` (долгоживущий коллектор) не увидит
+изменение, которое тест только что сделал. `awaitState` после `advanceUntilIdle()` делает
+`runCurrent()`: он диспатчит то, что стоит в очереди сейчас, и не двигает часы — то есть не
+запускает бесконечный таймер. Так три теста приветствия, висевшие по минуте, снова
+завершаются.
+
 **`@Tag("slow")` — тест, который локальный цикл не гоняет.** Дефолтный прогон
 исключает `slow`, поэтому поломка в таком тесте видна только в CI: `McpServerEndToEndTest`
 лежал сломанным в `main` несколько мержей. Полный прогон (`-Ptest.population=full`) обязан
@@ -63,7 +87,7 @@ awaitState { vm.state.value is UiState.Content }   // виртуальное в�
 после прогона: следующие Gradle-шаги могут перезаписать отчёт). Модули `adr-cli` и
 `adr-core` тоже гоняются в CI — иначе их `slow`-классы не выполнялись бы нигде.
 
-### Тесты гейт-сьюта
+## Тесты гейт-сьюта
 
 Сьют гейтов живёт в `scripts/tests/`, и точка входа у него одна:
 `python3 scripts/run-gate-tests.py`. Раннер сам привязывает пакет `sgate` к
@@ -115,7 +139,7 @@ class MyViewModel(
 ### Testing notes
 
 **`kotlin.test.assertTrue` does NOT accept a lambda as message** — use `assertTrue(condition, "description")`.
-**`import kotlin.io.path.*` bypasses detekt's `NoWildcardImports` rule** — use explicit imports
+**`import kotlin.io.path.*` is caught by ktlint's `standard:no-wildcard-imports`** — use explicit imports
 (`kotlin.io.path.exists`, `kotlin.io.path.readText`, `kotlin.io.path.isRegularFile`).
 **Stale-test-classes is NOT a thing (verified 2026-10-04)** — a plain rerun after editing a test
 recompiles and re-executes; `--rerun-tasks` — только отладочная костыль. ADR `2026-10-04-configuration-cache-hardening` §A3.

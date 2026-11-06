@@ -16,6 +16,7 @@ Additionally, `SavedAgendaScreen` appeared in both files but exists only in `com
 Created `AgendaRouteMapping.kt` in `commonMain` with a single `AgendaNavContent(route, desktopContextMenuHost)` composable that contains the canonical 8-branch `when` expression for all `AgendaStartRoute` variants.
 
 Both platform nav graphs now delegate to it inside their `entry { }` blocks:
+
 - `entry<AgendaStartRoute.X> { AgendaNavContent(route = it, desktopContextMenuHost = ...) }`
 - `entry<AgendaStartRoute.X> { r -> AgendaNavContent(route = r, ...) }` (for data class routes)
 

@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
+import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -34,7 +35,9 @@ import kotlinx.serialization.Serializable
  * `MenuBottomSheet` overlay (NOT a navigation destination — see `MenuBottomSheet`).
  *
  * Bottom bar: [AgendaGraph] with [AgendaStartRoute.Inbox]/[Today]/[Upcoming],
- * [Calendar] — see [DestinationKind.tabs].
+ * [Calendar] — see [DestinationKind.tabs]. Four tabs and a `Menu` button; the fifth tab
+ * slot is deliberately empty, per the decision
+ * `2026-11-04-the-fifth-tab-slot-stays-empty.md`.
  *
  * [Calendar] is now a tab; [Plans] and [Pomodoro] live in the app menu — see
  * [DestinationKind.menuEntries].
@@ -359,17 +362,32 @@ sealed interface AppDestination : AppNavKey {
         override val title: String =
             when (start) {
                 AgendaStartRoute.Inbox -> "Inbox"
-                AgendaStartRoute.Today -> "Today"
+
+                // The Today destination's name lives with its definition: the tab
+                // label and the header title are the same string, so they cannot
+                // drift apart. The other branches are their own labels already.
+                AgendaStartRoute.Today -> AgendaPresets.Today.title
+
                 AgendaStartRoute.Upcoming -> "Upcoming"
+
                 is AgendaStartRoute.Project -> "Project"
+
                 is AgendaStartRoute.Tag -> "Tag"
+
                 is AgendaStartRoute.Tags -> "Tags"
+
                 AgendaStartRoute.SavedAgendaList -> "Saved views"
+
                 is AgendaStartRoute.SavedAgendaResults -> "Saved view"
+
                 is AgendaStartRoute.SavedAgendaEdit -> "Edit view"
+
                 AgendaStartRoute.SavedAgendaCreate -> "New view"
+
                 AgendaStartRoute.Blocked -> "Blocked"
+
                 AgendaStartRoute.Stagnant -> "Stagnant"
+
                 AgendaStartRoute.Overdue -> "Overdue"
             }
     }
@@ -431,7 +449,10 @@ const val MENU_BUTTON_TITLE = "Menu"
  * Testable without any UI infrastructure.
  */
 object DestinationKind {
-    /** Five persistent tabs shown in the bottom bar (excludes the Menu button). */
+    /**
+     * Four persistent tabs shown in the bottom bar (excludes the Menu button), so the
+     * bar holds five items in all.
+     */
     fun isTab(destination: AppDestination): Boolean = destination in tabSet
 
     /** Menu destinations opened from the bottom sheet overlay. */
@@ -440,7 +461,11 @@ object DestinationKind {
     /** Anything that is NOT a top-level tab — i.e. push-on sub-routes. */
     fun isSubRoute(destination: AppDestination): Boolean = destination !in tabSet && destination !in menuSet
 
-    /** Five bottom-bar tab destinations in display order. */
+    /**
+     * Four bottom-bar tab destinations in display order. Four, not five: the empty slot
+     * is a decision, not an omission — see
+     * `2026-11-04-the-fifth-tab-slot-stays-empty.md`.
+     */
     val tabs: List<AppDestination> =
         listOf(
             AppDestination.AgendaGraph(AgendaStartRoute.Inbox),

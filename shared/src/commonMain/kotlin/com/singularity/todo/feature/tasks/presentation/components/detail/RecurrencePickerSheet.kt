@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.formatRussianDueDate
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
-import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.core.ui.textfields.dayOfMonthTransformation
@@ -56,6 +55,7 @@ import com.singularity.todo.feature.tasks.presentation.components.RecurrenceForm
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.baseLabel
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.label
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
+import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableSet

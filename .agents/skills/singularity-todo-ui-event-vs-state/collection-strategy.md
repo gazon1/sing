@@ -20,6 +20,7 @@ fun ProjectPickerSheet(...) {
 ```
 
 **Problems:**
+
 - `settingsRepo.userId` is a `Flow<UserId>` — taking `.first()` loses reactivity to profile switches
 - `projectsRepo.watchProjects(userId)` is a reactive `Flow<List<Project>>` — taking `.first()` means new projects created while the sheet is open are NOT shown
 - If user creates a project in another screen while this picker is open, they must close and reopen to see it
@@ -42,6 +43,7 @@ fun ProjectPickerSheet(...) {
 ```
 
 **Why this is correct:**
+
 - `currentUser.scopedUserId` is a `StateFlow<UserId>` — collecting it with `collectAsStateWithLifecycle()` re-triggers when the profile switches
 - `projectsRepo.watchProjects(userId)` is collected continuously — any new project appears automatically without reopening
 - The `LaunchedEffect(userId)` key ensures we re-collect when the user changes

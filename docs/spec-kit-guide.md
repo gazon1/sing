@@ -129,8 +129,9 @@ specify workflow run openspec-change \
 ```
 
 После каждого `implement` автоматически:
+
 1. `singularity-adr validate` — валидирует корпус ADR
-2. `./scripts/refresh-decisions-digest.sh` — обновляет DIGEST.md
+2. `python3 scripts/refresh-decisions-digest.py` — обновляет DIGEST.md
 
 ---
 
@@ -156,6 +157,7 @@ specify workflow run adr-ci --input ci_mode=true
 ```
 
 Проверяет:
+
 - Корпус ADR валиден (`singularity-adr validate`)
 - Реестр issue консистентен
 
@@ -240,6 +242,7 @@ python3 scripts/openspec-import-all.py --replace
 ```
 
 При импорте:
+
 - Для каждого `<slug>` в `openspec/changes/` создаётся/обновляется `.specify/issues/<slug>.yaml`
 - Статус и `is_stub` определяются по фактическому наличию документов
 - `--replace` обновляет существующие записи, `--dry-run` только показывает план
@@ -256,7 +259,7 @@ hooks:
     - singularity-adr validate         # перед implement
   after_implement:
     - singularity-adr validate         # после implement
-    - ./scripts/refresh-decisions-digest.sh  # обновить DIGEST.md
+    - python3 scripts/refresh-decisions-digest.py  # обновить DIGEST.md
 ```
 
 Все hooks **optional=false** кроме `refresh-digest`.
@@ -354,12 +357,14 @@ specify workflow run adr-create \
 ```
 
 Workflow создаст:
+
 - `docs/decisions/YYYY-MM-DD-refactor-auth.md`
 - `.specify/issues/refactor-auth.yaml`
 
 ### 2. Чат
 
 Агент напишет ADR, задаст вопросы. После завершения:
+
 - Hook: `singularity-adr validate`
 - Hook: `refresh-digest`
 
@@ -476,7 +481,7 @@ docs/decisions/           # ADR-файлы (НЕ в openspec/)
 scripts/
   openspec-import-all.py  # bulk import в registry
   check-speckit-issue-registry.py  # advisory gate
-  refresh-decisions-digest.sh       # обновление DIGEST
+   refresh-decisions-digest.py   # обновление DIGEST
 ```
 
 ---

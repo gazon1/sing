@@ -32,17 +32,7 @@ tags:
       QUERY: "session=anonymous"
 
 # Navigate to Settings via the menu.
-- runFlow: ../../helpers/open-app-menu.yaml
-- extendedWaitUntil:
-    visible:
-      id: menu_settings
-    timeout: 5000
-- tapOn:
-    id: menu_settings
-
-# Navigate to the Account settings tab. The settings navigation is a
-# scrollable column and the Account tab is the last of its rows, so it is
-# scrolled into view before it is tapped.
+- runFlow: ../../helpers/open-settings.yaml
 - runFlow: ../../helpers/settings-account-tab.yaml
 
 # The "Attach account" button should be visible for Anonymous sessions.

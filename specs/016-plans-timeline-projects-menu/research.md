@@ -101,6 +101,7 @@ a date range that is recomputed every day. Modelling it as a saved agenda view w
 per-user, per-device artefact in the middle of what is a function of the calendar.
 
 **Alternatives considered**:
+
 - *A new `AgendaPresets.Timeline` definition.* Rejected: the definition is a fixed list, and the
   timeline's sections are a function of `today`. A 30-day preset would be 30 static sections whose
   labels go stale the next morning, and the "Today" section would have to be a `RelativeBucket`
@@ -121,6 +122,7 @@ already paid for that bug once. Disjoint periods make the invariant structural: 
 screen — the defence the skill prescribes.
 
 **Alternatives considered**:
+
 - *Expressing the periods as `Selector.DateRange` sections and reusing `AgendaEvaluator`.* Tempting
   — the evaluator would do the assignment for free — but the evaluator's cost is one selector match
   per section per task, and a month-granularity timeline has 12 sections against a task list the
@@ -145,6 +147,7 @@ the markings the agenda shows, and the timeline's grouper asks the same policy t
 evaluator asks. The decision did not change; the vocabulary it names did.
 
 **Alternatives considered**:
+
 - *The timeline imports the agenda's types directly.* Allowed by the architecture rules, and
   cross-feature imports are common in this codebase (`feature.agenda` imports `feature.tasks` in 54
   places). Rejected because the names would keep saying "Agenda" on a screen that is not the
@@ -160,6 +163,7 @@ ahead of anything, and the agenda's own buckets do not make this distinction for
 — which is why the timeline makes it explicitly rather than inheriting it.
 
 **Alternatives considered**:
+
 - *Show completed tasks, as the agenda's "Today" section does.* Rejected: the timeline is a forward
   view, and a list of finished work reads as work still to do.
 - *Show completed tasks, struck through, as some list views do.* Rejected: the timeline is already
@@ -180,6 +184,7 @@ free in the other. Loading the whole list keeps the two screens telling the same
 still decides what the user sees.
 
 **Alternatives considered**:
+
 - *Two range queries, one for the overdue pool and one for the horizon.* Rejected: it loads a
   partial set, and a partial set makes the blocking rule answer a different question than the same
   rule answers elsewhere.
@@ -200,6 +205,7 @@ DataStore implementation, and a namespace so two features cannot collide. The us
 closes the app and comes back — the choice has to be there.
 
 **Alternatives considered**:
+
 - *Keep it in the ViewModel only.* Rejected: it would reset on every process death.
 - *Put it in the global settings bundle.* Rejected: it is not a global preference, it is a view
   setting of one screen, and the global bundle is where the app's real settings live.
@@ -216,6 +222,7 @@ it needs its own edit. Removing Calendar from `tabs` also removes it from the De
 and from the drawer's tab group, which is what "no longer a tab" means.
 
 **Alternatives considered**:
+
 - *Keep the tab and add a menu entry.* Rejected: the request was to remove the button.
 - *Leave the Calendar screen reachable only by deep link.* Rejected: a screen nobody can reach is a
   screen nobody uses.
@@ -232,6 +239,7 @@ the sheet and the drawer, is what makes "the same menu on both platforms" true b
 rather than by review.
 
 **Alternatives considered**:
+
 - *A tree rendered inside the sheet and another inside the drawer.* Rejected: two implementations
   of one feature, and the parity requirement would depend on a human noticing.
 - *Turning every project into an `AppDestination`.* Rejected: that puts project ids into the
@@ -254,6 +262,7 @@ full project list.
 and it manages the closed ones. Moving the list out of the tab bar must not remove those.
 
 **Alternatives considered**:
+
 - *Deleting the list screen.* Rejected: search, sorting and closed-project management have no
   other home, and the request was to move the projects into the menu, not to remove the ability to
   work with them.

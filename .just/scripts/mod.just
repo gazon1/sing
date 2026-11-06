@@ -28,7 +28,7 @@ bench pid="":
 refresh-decisions:
     #!/bin/bash
     set -euo pipefail
-    ./scripts/refresh-decisions-digest.sh
+    python3 scripts/refresh-decisions-digest.py
 
 [group('scripts')]
 [doc('Run Android UI Automator tests (auto-detects adb device)')]

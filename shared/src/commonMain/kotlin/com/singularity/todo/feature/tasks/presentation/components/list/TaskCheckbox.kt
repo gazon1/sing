@@ -47,6 +47,10 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.task_checked
+import singularity_todo.shared.generated.resources.task_unchecked
 
 /**
  * Кастомный чекбокс задачи.
@@ -107,10 +111,13 @@ fun TaskCheckbox(
         label = "checkboxFill",
     )
 
+    val checkedStateDescription =
+        if (isChecked) stringResource(Res.string.task_checked) else stringResource(Res.string.task_unchecked)
+
     Box(
         modifier =
             modifier
-                .touchTarget(TaskListSizes.MinTouchTarget)
+                .touchTarget()
                 .size(TaskListSizes.Checkbox)
                 .scale(popScale.value * pressScale)
                 // toggleable, not clickable: clickable alone leaves the node without a
@@ -125,43 +132,53 @@ fun TaskCheckbox(
                     onValueChange = onCheckedChange,
                 ).semantics {
                     role = Role.Checkbox
-                    stateDescription = if (isChecked) "Выполнено" else "Не выполнено"
+                    stateDescription = checkedStateDescription
                 },
         contentAlignment = Alignment.Center,
     ) {
-        // Обводка — всегда видна, интерполируем цвет от серой к акцентной
-        Box(
-            modifier =
-                Modifier
-                    .size(TaskListSizes.Checkbox)
-                    .border(
-                        width = 1.8.dp,
-                        color = lerpColor(mutedTextColor(), accentColor, fillProgress),
-                        shape = CircleShape,
-                    ),
-        )
+        CheckboxGlyph(isChecked = isChecked, fillProgress = fillProgress, accentColor = accentColor)
+    }
+}
 
-        // Заливка — растёт от центра, создавая эффект "заполнения"
-        Box(
-            modifier =
-                Modifier
-                    .size(TaskListSizes.Checkbox)
-                    .scale(fillProgress)
-                    .background(accentColor, CircleShape),
-        )
+/** The ring, the fill and the check — the three layers the press animation scales as one. */
+@Composable
+private fun CheckboxGlyph(
+    isChecked: Boolean,
+    fillProgress: Float,
+    accentColor: Color,
+) {
+    // Обводка — всегда видна, интерполируем цвет от серой к акцентной
+    Box(
+        modifier =
+            Modifier
+                .size(TaskListSizes.Checkbox)
+                .border(
+                    width = 1.8.dp,
+                    color = lerpColor(mutedTextColor(), accentColor, fillProgress),
+                    shape = CircleShape,
+                ),
+    )
 
-        AnimatedVisibility(
-            visible = isChecked,
-            enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
-            exit = scaleOut(tween(120)) + fadeOut(tween(80)),
-        ) {
-            Icon(
-                imageVector = Icons.Default.Check,
-                contentDescription = null, // дублируется в stateDescription
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(TaskListSizes.CheckIcon),
-            )
-        }
+    // Заливка — растёт от центра, создавая эффект "заполнения"
+    Box(
+        modifier =
+            Modifier
+                .size(TaskListSizes.Checkbox)
+                .scale(fillProgress)
+                .background(accentColor, CircleShape),
+    )
+
+    AnimatedVisibility(
+        visible = isChecked,
+        enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
+        exit = scaleOut(tween(120)) + fadeOut(tween(80)),
+    ) {
+        Icon(
+            imageVector = Icons.Default.Check,
+            contentDescription = null, // дублируется в stateDescription
+            tint = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier.size(TaskListSizes.CheckIcon),
+        )
     }
 }
 

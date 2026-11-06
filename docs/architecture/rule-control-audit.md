@@ -191,7 +191,6 @@ dedicated test in `scripts/tests/`; **12 have none or only indirect coverage**:
 | `scripts/check_adr_status.py` | none | an ADR with an invalid/legacy `status` — also note `adr_status_policy` is classified a *gate* at `_registry.py:84` yet has no `GateSpec` and is not reachable from `static-gates.sh`/`check.sh` |
 | `scripts/openspec-import-all.py` | indirect (`test_traceability_speckit.py`) | a malformed `openspec/changes/<slug>/` |
 | `scripts/refresh-issues-snapshot.py` | none | a stale `.specify/issues/*.yaml` |
-| `scripts/resolve_stale_adr_status.py` | none | an ADR past its stale window |
 | `scripts/junit-annotations.py` | none | a JUnit XML with an unexpected annotation |
 | `scripts/kover-markdown-table.py` | none | a Kover XML with no coverage rows |
 | `scripts/print-source-tree.py` | none | an unparseable source path |

@@ -116,6 +116,7 @@ Maestro/flows/sync/01-change-sync-interval.yaml
 Maestro/flows/sync/01-offline-create-survives-reconnect.yaml
 Maestro/flows/system/menu-sheet.yaml
 Maestro/flows/system/search-finds-task.yaml
+Maestro/flows/system/seed-unknown-key.yaml
 Maestro/flows/system/shell-search-button.yaml
 Maestro/flows/tasks/01-set-priority.yaml
 Maestro/flows/tasks/02-set-due-date.yaml
@@ -132,6 +133,7 @@ Maestro/flows/tasks/15-prefill-from-inbox.yaml
 Maestro/flows/tasks/16-return-to-source-tab.yaml
 Maestro/flows/tasks/17-create-daily-recurring.yaml
 Maestro/flows/tasks/18-time-tracking-start-stop.yaml
+Maestro/flows/tasks/19-prefill-from-upcoming.yaml
 Maestro/flows/tasks/checklist/TASK-CHECK-01.yaml
 Maestro/flows/tasks/create-task.yaml
 Maestro/flows/tasks/logbook/TASK-LOG-01.yaml

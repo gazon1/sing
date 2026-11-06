@@ -10,6 +10,7 @@ status: accepted
 При открытии существующей заметки в NoteEditor загружался только title, body был пустым. Пользователь мог набрать текст, но после переоткрытия — снова видел пустой body.
 
 Две independent причины:
+
 1. `EditorBody.kt:47` создавал `RichTextState()` пустым — `state.html` из `EditorState.Editing` никогда не передавался в RichTextState.
 2. `NoteDao.updateContent` писал только `body_markdown`, колонка `body_html` всегда оставалась `null` (хотя существовала в схеме с v1).
 
@@ -18,6 +19,7 @@ status: accepted
 ## Idea
 
 Три варианта:
+
 1. **Только EditorBody fix** — инициализировать RichTextState из state.html, писать по-старому в markdown. Сохраняет round-trip потери.
 2. **EditorBody + bodyHtml в БД** (выбран) — инициализировать RichTextState из state.html, писать HTML напрямую в колонку `body_html`. Lossless, no schema migration needed.
 3. **Полный рефакторинг RichTextState** — выделить отдельный порт `HtmlStoragePort`, изолировать сериализацию. Слишком сложно для текущего use-case.

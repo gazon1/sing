@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.coroutines.ReloadTrigger
+import com.singularity.todo.core.coroutines.reloadOn
 import com.singularity.todo.core.database.toProject
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.llm.AI_NOT_CONFIGURED
@@ -16,17 +18,16 @@ import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.state.ProjectSortOrder
+import com.singularity.todo.feature.projects.domain.state.ProjectsUiEvent
+import com.singularity.todo.feature.projects.domain.state.ProjectsUiState
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
-import com.singularity.todo.feature.projects.presentation.state.ProjectSortOrder
-import com.singularity.todo.feature.projects.presentation.state.ProjectsUiEvent
-import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -75,7 +76,7 @@ class ProjectsViewModel(
     private val projectReview: ProjectReviewUseCase? = null,
     private val deleteProject: DeleteProjectUseCase,
     private val clock: Clock = Clock.System,
-    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ProjectsUiState, ProjectsIntent, ProjectsUiEvent>(
         initialState =
@@ -96,60 +97,27 @@ class ProjectsViewModel(
     private val _searchQuery = MutableStateFlow(FieldOwnedText.empty())
     private val _sortOrder = MutableStateFlow(ProjectSortOrder.Name)
 
-    init {
-        reload()
-    }
+    /**
+     * The request to observe the projects again after a failure.
+     *
+     * The failure handling lives inside the attempt it applies to — see
+     * [reloadOn] — so a failed load leaves the trigger armed and the Retry
+     * intent starts a fresh subscription instead of adding a second collector.
+     */
+    private val reloadTrigger = ReloadTrigger()
 
-    private fun reload() {
+    init {
         vmScope.launch {
-            combine(_searchQuery, _sortOrder) { query, sort -> query to sort }
-                .flatMapLatest { (query, sort) ->
-                    combine(
-                        projectRepo.observeProjectsWithCounts(),
-                        projectRepo.observeClosed(),
-                    ) { rows, closed -> rows to closed }
-                        .map { (rows, closed) ->
-                            val domainRows =
-                                rows.map { row ->
-                                    ProjectWithCounts(
-                                        project = row.project.toProject(),
-                                        totalCount = row.totalCount,
-                                        completedCount = row.completedCount,
-                                    )
-                                }
-                            val filtered =
-                                if (query.text.isBlank()) {
-                                    domainRows
-                                } else {
-                                    domainRows.filter { PROJECT_LIST_SEARCH_MODE.matches(it.project, query.text) }
-                                }
-                            val sorted =
-                                when (sort) {
-                                    ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
-                                    ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
-                                }
-                            if (sorted.isEmpty()) {
-                                // The query and the sort order travel with the empty state:
-                                // they describe the filter that produced it, and the screen
-                                // hands the query straight back to the search field. A state
-                                // that dropped the query would make the field look empty while
-                                // the ViewModel still filtered by the old one — and the list
-                                // could never come back.
-                                ProjectsUiState.Empty(
-                                    searchQuery = query,
-                                    sortOrder = sort,
-                                    closedProjects = closed.toImmutableList(),
-                                )
-                            } else {
-                                ProjectsUiState.Content(
-                                    projects = sorted.toImmutableList(),
-                                    searchQuery = query,
-                                    sortOrder = sort,
-                                    closedProjects = closed.toImmutableList(),
-                                )
-                            }
-                        }
-                }.catch { cause ->
+            reloadOn(
+                trigger = reloadTrigger,
+                onFailure = { cause ->
+                    // The collection stopped: a defect, not a user-actionable error, so
+                    // the cause goes to the reporter as well as to the screen. The
+                    // failure crossed a channel hop, and a channel carries a *copy*
+                    // of the throwable — the original is its cause, so the copy is
+                    // unwrapped before it is reported.
+                    val reported = cause.cause ?: cause
+                    crashReporter.report(reported, OBSERVE_FAILED)
                     // The failure carries the query and the sort order: the screen still
                     // shows the search field and the sort control, and a state that
                     // reset them would clear what the user had typed. The closed
@@ -157,13 +125,63 @@ class ProjectsViewModel(
                     // screen, and a failure is not a reason to take them away.
                     setState(
                         ProjectsUiState.Error(
-                            message = cause.toMessage(),
+                            message = reported.toMessage(),
                             searchQuery = _searchQuery.value,
                             sortOrder = _sortOrder.value,
                             closedProjects = closedProjectsOnScreen().toImmutableList(),
                         ),
                     )
-                }.collect { setState(it) }
+                },
+            ) {
+                combine(_searchQuery, _sortOrder) { query, sort -> query to sort }
+                    .flatMapLatest { (query, sort) ->
+                        combine(
+                            projectRepo.observeProjectsWithCounts(),
+                            projectRepo.observeClosed(),
+                        ) { rows, closed -> rows to closed }
+                            .map { (rows, closed) ->
+                                val domainRows =
+                                    rows.map { row ->
+                                        ProjectWithCounts(
+                                            project = row.project.toProject(),
+                                            totalCount = row.totalCount,
+                                            completedCount = row.completedCount,
+                                        )
+                                    }
+                                val filtered =
+                                    if (query.text.isBlank()) {
+                                        domainRows
+                                    } else {
+                                        domainRows.filter { PROJECT_LIST_SEARCH_MODE.matches(it.project, query.text) }
+                                    }
+                                val sorted =
+                                    when (sort) {
+                                        ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
+                                        ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
+                                    }
+                                if (sorted.isEmpty()) {
+                                    // The query and the sort order travel with the empty state:
+                                    // they describe the filter that produced it, and the screen
+                                    // hands the query straight back to the search field. A state
+                                    // that dropped the query would make the field look empty while
+                                    // the ViewModel still filtered by the old one — and the list
+                                    // could never come back.
+                                    ProjectsUiState.Empty(
+                                        searchQuery = query,
+                                        sortOrder = sort,
+                                        closedProjects = closed.toImmutableList(),
+                                    )
+                                } else {
+                                    ProjectsUiState.Content(
+                                        projects = sorted.toImmutableList(),
+                                        searchQuery = query,
+                                        sortOrder = sort,
+                                        closedProjects = closed.toImmutableList(),
+                                    )
+                                }
+                            }
+                    }
+            }.collect { setState(it) }
         }
     }
 
@@ -187,7 +205,7 @@ class ProjectsViewModel(
             is ProjectsIntent.Delete -> delete(intent.id)
             is ProjectsIntent.Reopen -> reopen(intent.id)
             is ProjectsIntent.ReviewProject -> reviewProject(intent.project)
-            ProjectsIntent.Retry -> reload()
+            ProjectsIntent.Retry -> reloadTrigger.reload()
         }
     }
 
@@ -258,5 +276,13 @@ class ProjectsViewModel(
          * (F7), so a search for "cafe" finds "Café" here as well.
          */
         val PROJECT_LIST_SEARCH_MODE: SearchMode = SearchMode.Contains
+
+        /**
+         * The observation of the project list stopped.
+         *
+         * A fixed label, never the query or the sort order: the key leaves the
+         * device, and the state that carries them is the user's.
+         */
+        private const val OBSERVE_FAILED = "projects.observe_failed"
     }
 }

@@ -14,18 +14,10 @@
 # finding they produced was about a repository nobody was working on, and the
 # only symptom was that the findings made no sense.
 #
-# PYTHONPATH alone is not the whole answer. A modern editable install
-# registers a *meta-path finder* that maps `sgate` to the checkout that was
-# installed last. Setuptools appends it to `sys.meta_path`, so a `sys.path`
-# entry wins while it is there — but the plain `sgate` on PATH has no such
-# entry, and the import resolves to the foreign clone. This wrapper drops any
-# editable finder and puts this checkout's `scripts/src` first, so the answer
-# does not depend on the setuptools version that installed it. That is the same
-# move `./gw` makes with this worktree's Gradle home.
-#
-# The move itself lives in `scripts/package-binding.py`, which the gate suite's
-# runner uses too — one place that knows how to bind the package, loaded by
-# path, because the package may be the thing that is broken.
+# `scripts/checkout-entry.py` is where that is answered: it drops any editable
+# finder and puts this checkout's `scripts/src` first, through
+# `scripts/package-binding.py`. This wrapper says only which entry point it
+# serves — the gate CLI — and hands over to it.
 #
 # WHAT IT PROVES
 #
@@ -41,23 +33,22 @@ export SGATE_CHECKOUT="$root"
 exec "${SGATE_PYTHON:-python3}" - "$@" <<'PYTHON'
 import importlib.util
 import os
-import sys
 
 root = os.environ["SGATE_CHECKOUT"]
 
-# The binding is one module, loaded by path: the package may be the thing
-# that is broken, so the thing that fixes it cannot live inside it. The
-# runner (`scripts/run-gate-tests.py`) reaches the same module the same way.
+# The runner is loaded by path for the same reason it loads the binding that
+# way: the packages may be the thing that is broken, so the thing that repairs
+# them cannot be imported from them. A loader cannot load itself, so these few
+# lines are the wrapper's own — everything else it needs is in that one file.
 spec = importlib.util.spec_from_file_location(
-    "package_binding", os.path.join(root, "scripts", "package-binding.py")
+    "checkout_entry", os.path.join(root, "scripts", "checkout-entry.py")
 )
-binding = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(binding)
-binding.bind_local_package(root)
+runner = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(runner)
 
-sys.argv[0] = "sgate"
+runner.bind(root)
 
-from sgate.cli import main
-
-main()
+# The gate CLI answers "which checkout is this?" itself (`./sg whereami`), so
+# this wrapper offers no answer of its own and hands over unchecked.
+runner.run_entry_point("sgate", "sgate.cli")
 PYTHON

@@ -20,6 +20,7 @@ value class TaskId private constructor(val value: String) {
 ```
 
 **Rules:**
+
 - `private constructor` forces construction via `fromString` / `generate` — controls instantiation
 - `value` is the raw String — never expose a `val id: TaskId` field alongside `val id: String` in the same class
 - `@Serializable` required when used in NavGraph routes (`@Serializable data class OpenTask(val taskId: String)`)
@@ -42,6 +43,7 @@ value class ProjectDetailActions(private val block: (ProjectDetailIntent) -> Uni
 ```
 
 **Rules:**
+
 - The single `block: (T) -> Unit` parameter is the target of all delegation
 - Each method calls `block(...)` with the appropriate intent variant
 - `Empty` is `internal` — forces production callers to construct a real dispatcher

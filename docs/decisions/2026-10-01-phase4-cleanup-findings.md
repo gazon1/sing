@@ -19,6 +19,7 @@ fixed inline vs. what is deferred.
 ### Critical: Duplicate class name `RemoteConfigRepositoryImpl`
 
 Two distinct classes with identical simple name in different packages:
+
 - `core.config.RemoteConfigRepositoryImpl` — Room + network cache, implements `RemoteConfigPort`
 - `core.sync.RemoteConfigRepositoryImpl` — DAO-backed, implements `RemoteConfigRepository`
 
@@ -43,6 +44,7 @@ violating Konsist rule "repository implementations are imported only from di mod
 ### Non-conforming impl suffixes (Konsist `REPOSITORY_IMPL_SUFFIXES`)
 
 Renamed to match the allowlist:
+
 - `TaskDaoArchiveRepository` → `TaskDaoArchiveRepositoryImpl`
 - `CalendarSyncSettingsRepository` → `CalendarSyncSettingsRepositoryImpl`
 - `NoopCalendarSyncRepository` → `NoopCalendarSyncRepositoryImpl`
@@ -50,6 +52,7 @@ Renamed to match the allowlist:
 ### Dead `@file:Suppress("NoDirectClockSystem")`
 
 Removed from files that no longer use `Clock.System`:
+
 - `RoomUsageRecorder.kt`
 - `StatisticsViewModel.kt`
 - `NoteEditorScreen.kt`

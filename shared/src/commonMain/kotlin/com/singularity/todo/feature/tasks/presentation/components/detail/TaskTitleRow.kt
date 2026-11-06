@@ -32,6 +32,8 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColor
 import org.jetbrains.compose.resources.stringResource
 import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.mark_task_complete
+import singularity_todo.shared.generated.resources.task_completed
 import singularity_todo.shared.generated.resources.task_title_placeholder
 
 /**
@@ -78,7 +80,12 @@ fun TaskTitleRow(
                         }
                     Icon(
                         imageVector = glyph,
-                        contentDescription = if (isCompleted) "Задача выполнена" else "Отметить как выполненную",
+                        contentDescription =
+                            if (isCompleted) {
+                                stringResource(Res.string.task_completed)
+                            } else {
+                                stringResource(Res.string.mark_task_complete)
+                            },
                         tint = doneTint,
                         modifier = Modifier.size(TaskSpacing.iconSizeLarge),
                     )

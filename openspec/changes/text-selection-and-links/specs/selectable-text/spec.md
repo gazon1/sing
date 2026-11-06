@@ -23,12 +23,14 @@ test that holds it against the code — a file that uses a text widget and is no
 the table fails the build.
 
 #### Scenario: An error message can be copied
+
 - **Given** the calendar sync has failed
 - **And** the settings screen shows the failure
 - **When** the person selects the message
 - **Then** the message can be selected and copied
 
 #### Scenario: A row whose long press is taken is excluded
+
 - **Given** a task row whose long press opens the task's menu
 - **Then** the row is excluded from the inventory, with the reason written down
 
@@ -50,12 +52,14 @@ link resolve to the same target, and that a foreign scheme is never taken for on
 ours.
 
 #### Scenario: One link, one answer
+
 - **Given** a link to a task, written in the editor as markup
 - **And** the same link, written as free text in a task description
 - **When** both are read
 - **Then** both resolve to the same target
 
 #### Scenario: A foreign scheme is not ours
+
 - **Given** the text `xnote://abc`
 - **When** the links in it are read
 - **Then** no internal link is found
@@ -76,11 +80,13 @@ scheme is somebody else's thing.
 web address is handed to the platform.
 
 #### Scenario: An internal link stays in the app
+
 - **Given** an answer that contains `note://abc`
 - **When** the person taps the link
 - **Then** the note opens, and no browser is involved
 
 #### Scenario: A web address leaves the app
+
 - **Given** an answer that contains `https://example.com`
 - **When** the person taps the link
 - **Then** the address is handed to the platform's handler
@@ -102,10 +108,12 @@ handler cannot crash.
 links, and that the default handler does nothing.
 
 #### Scenario: The note preview keeps its own navigation
+
 - **Given** a note whose body links to another note
 - **When** the person taps the link
 - **Then** the other note opens inside the notes graph
 
 #### Scenario: A screen with no handler does nothing
+
 - **Given** a link tapped where no handler was provided
 - **Then** nothing opens, and nothing fails

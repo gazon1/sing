@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -44,11 +45,11 @@ import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.TopAppBar
+import com.singularity.todo.core.ui.components.platformVerticalScrollbar
 import com.singularity.todo.core.ui.menu.onSecondaryClick
 import com.singularity.todo.core.ui.onboarding.SpotlightAnchorId
 import com.singularity.todo.core.ui.onboarding.SpotlightAnchorRegistry
 import com.singularity.todo.core.ui.onboarding.spotlightAnchor
-import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
@@ -60,6 +61,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
+import com.singularity.todo.preview.PreviewSamples
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
@@ -81,6 +83,10 @@ import kotlinx.datetime.plus
  *
  * @param state The current agenda UI state.
  * @param title Title to display in the top app bar.
+ * @param horizonNote A line to show at the very end of the content, below the last
+ *   section (or below the empty state). The Upcoming tab uses it to say where a task
+ *   dated beyond next week is seen; every other screen leaves it `null`. See
+ *   [AgendaHorizonNote].
  * @param onIntent Called when the user performs an action.
  * @param onMultiDateCreate Called when the user taps the "task on several days"
  *   action. The screen opens the date picker; the content only offers the entry
@@ -96,6 +102,7 @@ fun AgendaContent(
     state: AgendaUiState,
     title: String,
     greeting: String = "",
+    horizonNote: String? = null,
     onIntent: (AgendaIntent) -> Unit,
     onSavedViewsClick: (() -> Unit)? = null,
     onMultiDateCreate: (() -> Unit)? = null,
@@ -194,18 +201,7 @@ fun AgendaContent(
                     )
                 } else {
                     TopAppBar(
-                        title = {
-                            Column {
-                                Text(title)
-                                if (greeting.isNotEmpty()) {
-                                    Text(
-                                        text = greeting,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        },
+                        title = { Text(title) },
                         actions = {
                             if (onMultiDateCreate != null) {
                                 IconButton(
@@ -294,22 +290,53 @@ fun AgendaContent(
                 }
 
                 is AgendaUiState.Loaded -> {
-                    if (state.sections.isEmpty()) {
-                        EmptyState(
-                            title = "No tasks",
-                            subtitle = "You're all caught up — nothing due in this agenda",
-                            modifier = Modifier.padding(paddingValues),
-                        )
-                    } else {
-                        AgendaList(
-                            sections = state.sections,
-                            isSelectionMode = isSelectionMode,
-                            selectedTaskIds = selectedTaskIds,
-                            onIntent = onIntent,
-                            onOpenContextMenu = ::openContextMenu,
-                            listState = listState,
-                            modifier = Modifier.padding(paddingValues),
-                        )
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues),
+                    ) {
+                        if (!isSelectionMode && greeting.isNotEmpty()) {
+                            Text(
+                                text = greeting,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                        .testTag(TestTags.AGENDA_GREETING),
+                            )
+                        }
+                        Box(modifier = Modifier.weight(1f)) {
+                            if (state.sections.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                ) {
+                                    EmptyState(
+                                        title = "No tasks",
+                                        subtitle = "You're all caught up — nothing due in this agenda",
+                                    )
+                                    horizonNote?.let { note ->
+                                        AgendaHorizonFootnote(
+                                            note = note,
+                                            modifier = Modifier.align(Alignment.BottomCenter),
+                                        )
+                                    }
+                                }
+                            } else {
+                                AgendaList(
+                                    sections = state.sections,
+                                    isSelectionMode = isSelectionMode,
+                                    selectedTaskIds = selectedTaskIds,
+                                    horizonNote = horizonNote,
+                                    onIntent = onIntent,
+                                    onOpenContextMenu = ::openContextMenu,
+                                    listState = listState,
+                                    modifier = Modifier,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -330,6 +357,7 @@ private fun AgendaList(
     sections: ImmutableList<RenderedSection>,
     isSelectionMode: Boolean,
     selectedTaskIds: ImmutableSet<TaskId>,
+    horizonNote: String?,
     onIntent: (AgendaIntent) -> Unit,
     onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
     listState: LazyListState,
@@ -340,13 +368,17 @@ private fun AgendaList(
         modifier =
             modifier
                 .fillMaxSize()
+                .platformVerticalScrollbar(listState)
                 .widthIn(max = 640.dp),
         contentPadding = PaddingValues(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         for (section in sections) {
-            item(key = "header-${section.name}") {
+            // Keyed by the section's id, not its display name: the working day's
+            // morning and afternoon blocks are both called "Work", and two headers
+            // with one key take the list down with "Key ... was already used".
+            item(key = "header-${section.id}") {
                 AgendaSectionHeader(
                     name = section.name,
                     badge = section.badge,
@@ -356,11 +388,13 @@ private fun AgendaList(
 
             items(
                 items = section.tasks,
-                // Scoped to the section on purpose. Presets are supposed to be mutually
-                // exclusive via `Section.discard`, but a task that matches two buckets
-                // would otherwise repeat this id and take the whole list down with
-                // "Key ... was already used" — a crash, not a wrong-looking row.
-                key = { "${section.name}/${it.task.id.value}" },
+                // Scoped to the section on purpose — and by its id, for the same
+                // reason as the header: two sections can share a display name.
+                // Presets are supposed to be mutually exclusive via `Section.discard`,
+                // but a task that matches two buckets would otherwise repeat this id
+                // and take the whole list down with "Key ... was already used" — a
+                // crash, not a wrong-looking row.
+                key = { "${section.id}/${it.task.id.value}" },
             ) { rowItem ->
                 val task = rowItem.task
                 val isSelected = task.id in selectedTaskIds
@@ -403,6 +437,46 @@ private fun AgendaList(
                 )
             }
         }
+
+        // The end of the list is the end of the tab: the user who scrolled past the
+        // last section is the one asking what happened to the task they cannot see.
+        horizonNote?.let { note ->
+            item(key = "agenda-horizon-note") {
+                AgendaHorizonFootnote(note = note)
+            }
+        }
+    }
+}
+
+/**
+ * A muted line at the end of the agenda content — the Upcoming tab's pointer to where
+ * a task dated beyond next week is seen.
+ *
+ * It is content, not chrome: it scrolls with the list, so it cannot cover the last
+ * row, and it renders below the empty state when the tab has nothing in it.
+ */
+@Composable
+private fun AgendaHorizonFootnote(
+    note: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = note,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier =
+                Modifier
+                    .testTag(TestTags.AGENDA_HORIZON_NOTE)
+                    .widthIn(max = 640.dp),
+        )
     }
 }
 

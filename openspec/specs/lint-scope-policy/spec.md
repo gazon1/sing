@@ -1,6 +1,7 @@
 # lint-scope-policy Specification
 
 ## Purpose
+
 detekt reports on the source sets it is told to scan and is silent about the ones it is
 not, so a source set that exists on disk and is missing from `detekt.source` is an
 unscanned gap that looks exactly like a clean module. This capability makes that gap a
@@ -38,7 +39,7 @@ than on its own configuration.
 - **When** a new `src/debug/kotlin` tree is added
 - **Then** the scan-list check fails
 - **And** it names `src/debug` as present on disk and absent from
-      `detekt.source`
+  `detekt.source`
 
 #### Scenario: The scan list names a directory that does not exist
 
@@ -46,7 +47,7 @@ than on its own configuration.
 - **When** the scan-list check runs
 - **Then** it fails
 - **And** it names the entry, because an unresolvable path and an intentional
-      omission look the same to detekt
+  omission look the same to detekt
 
 #### Scenario: The list is complete
 
@@ -54,4 +55,4 @@ than on its own configuration.
 - **When** the check runs
 - **Then** it passes
 - **And** it is not vacuous: the test fails when a directory is removed from the
-      list, which is the whole defect it exists to catch
+  list, which is the whole defect it exists to catch

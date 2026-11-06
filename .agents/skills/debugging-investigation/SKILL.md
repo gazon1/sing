@@ -16,6 +16,7 @@ description: 'Step-by-step incident diagnosis for production issues — log retr
 ### Step 1 — Gather context
 
 Ask or determine:
+
 1. Which profile was affected (Profile A, Profile B, all profiles)
 2. When did the issue first appear (timestamp or version)
 3. Is the issue reproducible (yes/no/sometimes)
@@ -43,6 +44,7 @@ grep "traceId=abc123" /tmp/incident-log.txt | sort
 ### Step 4 — Identify the failure point
 
 Look for:
+
 - `ERROR` level entries — these are the actual failures
 - `WARN` entries before the error — these are the root cause or contributing factors
 - State dumps at ERROR — often show the variable values that caused the failure
@@ -67,6 +69,7 @@ that has never existed. Both were aspirational notes that read as instructions.
 ### Step 6 — Reproduce if possible
 
 If the issue is reproducible:
+
 1. Enable DEBUG logging: Settings → Developer → Log level → DEBUG
 2. Reproduce the exact steps
 3. Pull logs and filter by traceId
@@ -289,6 +292,7 @@ creation stack trace, and last observed stack trace. Read it before adding manua
 `DebugProbes` calls.
 
 Common patterns in the dump:
+
 - `state=SUSPENDED` + `lastObservedStackTrace` pointing at a blocking call —
   the coroutine is waiting; check if the wait is bounded.
 - `state=RUNNING` on a `DefaultDispatcher` thread at a `delay()` call —

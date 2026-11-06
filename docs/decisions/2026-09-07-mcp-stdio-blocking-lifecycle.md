@@ -14,6 +14,7 @@ tags: [mcp, kotlin-sdk, stdio, coroutines, lifecycle]
 The natural assumption was that `Server.createSession(transport)` should block — it is the only call site in the SDK that "starts the MCP protocol loop", and the SDK's class name `ServerSession` suggests long-lived session ownership. But the bytecode of `ServerKt::createSession` shows it is a `suspend` function that schedules three child coroutines on an internally-managed `SupervisorScope` and **returns immediately**. There is no caller-visible blocking primitive.
 
 Three internal coroutines run inside `StdioServerTransport`:
+
 - `readerPump` — reads `input.readAtMostTo(...)` → pushes to `readChannel`
 - `processorPump` — parses JSON-RPC frames → invokes `onMessage` callbacks
 - `writerPump` — drains `writeChannel` → writes JSON-RPC frames to `outputSink`
@@ -44,6 +45,7 @@ fun main(args: Array<String>): Unit = runBlocking {
 ```
 
 Why session-level (not server-level) `onClose`:
+
 - `session.onClose` fires when this particular session's transport closes.
 - `server.onClose` fires when the last session of the server closes — equivalent in this single-session stdio case, but session-level is more precise and matches the canonical sample.
 - We do **not** install a `Runtime.addShutdownHook` for `Server.close()` because the session onClose will propagate the close up to the server via its own `ServerSessionRegistry.removeSession` hook.

@@ -18,8 +18,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskAiDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskCollaborationDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
-import com.singularity.todo.feature.tasks.presentation.state.TaskAiIntent
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskAiIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

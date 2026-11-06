@@ -5,9 +5,10 @@
 # a note is created through the quick-add row, which submits on the IME "Done"
 # action.
 #
-# The title carries ${RUN_ID} so the runner's per-attempt sweep can find
-# exactly this run's row and remove it. The row is addressed by its title,
-# because the id is a generated ULID that the flow never learns.
+# The note is typed here rather than seeded, so its title carries ${RUN_ID}:
+# the run id names the attempt, and the runner resets the profile's content
+# before each flow. The row is addressed by its title, because the id is a
+# generated ULID that the flow never learns.
 appId: com.singularity.todo
 name: notes-create-note
 tags:

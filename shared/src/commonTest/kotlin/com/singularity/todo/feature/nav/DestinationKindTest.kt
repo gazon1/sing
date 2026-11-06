@@ -44,14 +44,38 @@ class DestinationKindTest {
         )
     }
 
+    /**
+     * The fifth slot of the bottom bar stays empty.
+     *
+     * A promotion is meant to fail here, where the failure names the record it has to
+     * face, rather than looking like an edit to a list. The argument for it lives in one
+     * place: `docs/decisions/2026-11-04-the-fifth-tab-slot-stays-empty.md`.
+     */
+    @Test
+    fun theFifthSlotStaysEmpty() {
+        assertEquals(
+            4,
+            DestinationKind.tabs.size,
+            "the bar holds four tabs plus a Menu button — a fifth tab spends its last slot; " +
+                "see docs/decisions/2026-11-04-the-fifth-tab-slot-stays-empty.md",
+        )
+        assertFalse(
+            DestinationKind.isTab(AppDestination.Search),
+            "Search is an action, not a place; see " +
+                "docs/decisions/2026-11-04-the-fifth-tab-slot-stays-empty.md",
+        )
+        assertTrue(DestinationKind.isMenuEntry(AppDestination.Search))
+    }
+
     @Test
     fun isTabRejectsMenuEntries() {
-        assertFalse(DestinationKind.isTab(AppDestination.Notes))
-        assertFalse(DestinationKind.isTab(AppDestination.AiChat))
-        assertFalse(DestinationKind.isTab(AppDestination.Search))
-        assertFalse(DestinationKind.isTab(AppDestination.Archive))
-        assertFalse(DestinationKind.isTab(AppDestination.Settings))
-        assertFalse(DestinationKind.isTab(AppDestination.Statistics))
+        // Derived, not enumerated: a hand-written copy of the menu entries falls behind.
+        // This one had already lost `Proposals`, `ProfileSwitcher` and `AiUsage`, and it
+        // lost nothing when `Plans`/`Pomodoro` moved into the menu either — the test only
+        // says a menu entry is not a tab if somebody remembers to add it.
+        DestinationKind.menuEntries.forEach { destination ->
+            assertFalse(DestinationKind.isTab(destination), "$destination is a menu entry, not a tab")
+        }
     }
 
     @Test
@@ -93,24 +117,15 @@ class DestinationKindTest {
 
     @Test
     fun classificationIsMutuallyExclusiveAcrossThreeBuckets() {
+        // Derived from the two lists rather than enumerated: the hand-written copy had
+        // already fallen behind by `Proposals` and `ProfileSwitcher`.
         val all =
-            listOf(
-                AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
-                AppDestination.AgendaGraph(AgendaStartRoute.Today),
-                AppDestination.AgendaGraph(AgendaStartRoute.Upcoming),
-                AppDestination.Plans,
-                AppDestination.Pomodoro,
-                AppDestination.Statistics,
-                AppDestination.Notes,
-                AppDestination.AiChat,
-                AppDestination.Search,
-                AppDestination.Archive,
-                AppDestination.Settings,
-                AppDestination.Calendar,
-                AppDestination.AiUsage,
-                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
-                AppDestination.ProjectEditor(),
-            )
+            DestinationKind.tabs +
+                DestinationKind.menuEntries +
+                listOf(
+                    AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
+                    AppDestination.ProjectEditor(),
+                )
         all.forEach { dest ->
             val tab = DestinationKind.isTab(dest)
             val menu = DestinationKind.isMenuEntry(dest)

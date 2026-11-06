@@ -21,7 +21,7 @@ import kotlinx.datetime.LocalTime
  * Passed as a single parameter instead of 20+ individual fields.
  * Represents the current state of all editable attributes.
  *
- * In View mode, initialize from [TaskDetailUi][com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi].
+ * In View mode, initialize from [TaskDetailUi][com.singularity.todo.feature.tasks.domain.state.TaskDetailUi].
  * In Create mode, initialize from the create draft.
  *
  * The title and the description are **not** here: they are bridged fields, and the kind of

@@ -24,6 +24,7 @@ All three issues are **accepted technical debt** — not blockers for the curren
 After migration, `assertCanWrite` can be applied to `TagsRepositoryImpl` and `TagGroupRepositoryImpl` without `UserId()` wrapping at call sites. The `TagGroupRepositoryImpl.update` fix (adding `assertCanWrite` with `UserId()` wrapping as a workaround) should be reverted and replaced with the clean call once this migration is done.
 
 **Migration steps:**
+
 - Change `val userId: String` → `val userId: UserId` in domain models.
 - Update all call sites that currently pass `String` (mostly repositories and DAOs).
 - Room entities already store `userId` as `String` — the `toEntity()` mapper wraps `.value` and `toTagGroup()` unwraps via `UserId()`.
@@ -52,6 +53,7 @@ Change `SavedAgendaView.userId` from `String` to `UserId`. Update the repository
 ## Consequences
 
 After all three fixes:
+
 - `assertCanWrite` can be applied uniformly across all user-scoped repositories with no type-wrapping workarounds.
 - `ConflictResolver` is leaner and accurately represents the LWW strategy.
 - `SavedAgendaView` follows the same `UserId` convention as all other entities.

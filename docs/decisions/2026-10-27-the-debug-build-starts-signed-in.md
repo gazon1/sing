@@ -75,6 +75,8 @@ the call site, so the tier that needs the bypass says so where it installs.
 - **Every debug install lands on the agenda.** `just android:install`,
   `just android:run`, `./gw :androidApp:installDebug` and the Maestro gate's
   install all produce a binary that starts signed in.
+- **`just android::push-install` (alias `just apush`) builds, pushes to device
+  storage and installs the APK**, then launches MainActivity and cleans up.
 - **The instrumented tier needs nothing extra.** `scripts/run-android-ui-tests.py`
   assembles a debug APK, which now carries the bypass; `GRADLE_ARGS` is still
   the way to pass a class filter, not the way to make the run possible.

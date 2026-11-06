@@ -12,7 +12,7 @@ import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.version.AppVersion
 import com.singularity.todo.core.version.appVersion
-import com.singularity.todo.feature.gate.presentation.state.AppVersionGateState
+import com.singularity.todo.feature.gate.domain.state.AppVersionGateState
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
