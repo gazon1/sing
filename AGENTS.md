@@ -238,6 +238,10 @@ CI, ожидание прогона (`gh pr checks <pr> --watch --interval 60`),
 паттерну. Формат: frontmatter + `Context / Idea / Decision / Rationale / Consequences / Links`;
 policy — `docs/doc-maintenance.md`.
 
+## Knowledge (OKF)
+
+- Current architecture lives in `knowledge/`. Before relying on a concept, run `python3 scripts/documentation/check.py status <name>` (or `show`); if stale, re-check sources. Do not edit generated/verified state fields by hand; use `stamp` / `stamp --verified --by human:...`.
+
 ## 🗂 Skills
 
 Скилл — это **процедура**: что агент делает. Состояние кода — это документ в `docs/architecture/`

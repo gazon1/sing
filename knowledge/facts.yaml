@@ -1,0 +1,19 @@
+facts:
+  - id: K-sync-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/sync.md
+  - id: K-agenda-001
+    owner_type: knowledge
+    canonical_ref: knowledge/domain/agenda.md
+  - id: K-build-001
+    owner_type: knowledge
+    canonical_ref: knowledge/engineering/build.md
+  - id: K-backup-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/backup.md
+  - id: K-koin-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/koin.md
+  - id: K-reminders-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/reminders.md
