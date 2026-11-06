@@ -32,24 +32,11 @@ tags:
     timeout: 30000
 
 # Open menu -> Settings.
-- runFlow: ../../helpers/open-app-menu.yaml
-- extendedWaitUntil:
-    visible:
-      id: menu_settings
-    timeout: 5000
-- tapOn:
-    id: menu_settings
-
-# Switch to Account tab via the narrow-screen dropdown.
-- tapOn:
-    id: settings_tab_dropdown
-- scrollUntilVisible:
-    element:
-      id: settings_tab_account
-    direction: DOWN
-    timeout: 10000
-- tapOn:
-    id: settings_tab_account
+- runFlow: ../../helpers/open-settings.yaml
+- runFlow:
+    file: ../../helpers/settings-tab.yaml
+    env:
+      TAB_ID: settings_tab_account
 
 # The Account tab is open: its account section is on the screen.
 - extendedWaitUntil:

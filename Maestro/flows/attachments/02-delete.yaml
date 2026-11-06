@@ -11,36 +11,11 @@ tags:
 # section — the inbox is the tab of the tasks that are not dated yet, and the
 # flow looks the task up there.
 - runFlow:
-    file: ../../helpers/seed.yaml
+    file: ../../helpers/seed-and-open-task.yaml
     env:
       QUERY: "task=DeleteAttachTask2026"
-
-# Open task detail and add an attachment.
-- tapOn:
-    id: nav_tab_inbox
-- extendedWaitUntil:
-    visible:
-      id: task_item_deleteattachtask2026
-    timeout: 8000
-- tapOn:
-    id: task_item_deleteattachtask2026
-- extendedWaitUntil:
-    visible:
-      id: task_editor_title_input
-    timeout: 5000
-# The row is at the bottom of the task, below the fold. DOWN scrolls the content
-# up so what is below comes into view; UP moves it the other way.
-- scrollUntilVisible:
-    element:
-      id: attachments_add_file_row
-    direction: DOWN
-    timeout: 8000
-- tapOn:
-    id: attachments_add_file_row
-- extendedWaitUntil:
-    visible:
-      id: attachments_url_input
-    timeout: 5000
+      TASK_ID: task_item_deleteattachtask2026
+- runFlow: ../../helpers/open-attachments-sheet.yaml
 - tapOn:
     id: attachments_url_input
 - inputText: "https://example.com/to-delete"
@@ -53,20 +28,7 @@ tags:
       text: "https://example.com/to-delete"
     timeout: 5000
 
-# Open the attachments sheet again.
-# The row is at the bottom of the task, below the fold. DOWN scrolls the content
-# up so what is below comes into view; UP moves it the other way.
-- scrollUntilVisible:
-    element:
-      id: attachments_add_file_row
-    direction: DOWN
-    timeout: 8000
-- tapOn:
-    id: attachments_add_file_row
-- extendedWaitUntil:
-    visible:
-      id: attachments_url_input
-    timeout: 5000
+- runFlow: ../../helpers/open-attachments-sheet.yaml
 
 # Delete the attachment by its accessibility label (no stable testTag — UUID-based).
 # Maestro matches a content description through `text`, which is what it exposes.
