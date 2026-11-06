@@ -294,14 +294,22 @@ Debug from a `pm clear` slate.
 
 ## App behaviour facts flows encode
 
+**This section is the single home for the app's behaviour facts.** The skill body
+(`SKILL.md`) keeps the authoring rules and points here; it does not restate a
+behaviour, because two statements of one behaviour drift, and the one nobody
+re-reads is the one that goes wrong. `scripts/check-maestro-behaviour-ownership.py`
+fails when the skill body restates one of them, and when an identifier named
+below no longer exists in the source.
+
 These are behaviours a flow author would otherwise guess wrong. Most were
 learned by a flow failing on it; the back behaviour below was read off the
 screens and the navigation that runs them, which is why it is stated per screen:
 
 - **Long-press on an agenda row opens a context-menu bottom sheet**
-  (`task_context_menu_sheet`), with rows tagged `sheet_item_<label>`: Open,
-  Mark as completed/uncompleted, Pin/Unpin, Archive. Use
-  `longPressOn: id: task_item_<slug>` then `tapOn: id: sheet_item_Archive`.
+  (`task_context_menu_sheet`), whose rows carry one tag each — `task_action_open`,
+  `task_action_mark_as_completed` (its label flips to "mark as uncompleted"),
+  `task_action_pin` and `task_action_archive`. Long-press the row through
+  `task_item_<slug>` and tap `task_action_archive`.
   Before the fix long-press fell through to the click handler and opened the
   editor.
 - **The detail overflow menu is state-dependent.** An active task shows
@@ -322,23 +330,17 @@ screens and the navigation that runs them, which is why it is stated per screen:
   editor is reached from the preview's Edit action (`note_action_edit`). The
   one exception is the quick-add row: it creates the note and opens the
   editor directly (`NavigateToEditor`), so a flow that types a title into the
-  quick-add lands in the editor, not in the preview.
-- **Quick-add destinations are not stable.** The notes quick-add lands on the
-  note's preview or straight in the editor, run to run. Tap the transition
-  action with `optional: true` and then wait on the destination you actually
-  need.
-- **Some saves do not navigate.** The saved-view editor emits a "Saved"
-  snackbar and stays open; the flow must leave explicitly. The notes editor
-  shows a "Saved" pill on its autosave and does not pop either.
+  quick-add lands in the editor, not in the preview. The editor autosaves —
+  saving does not pop it; `back` does.
 - **Dismissing the keyboard commits the edit.** In this app `hideKeyboard`
   triggers the editor's autosave-on-dismiss *and* closes the screen, which is
   why a flow never places it before a save tap: by then the screen is gone.
-- **A feature can be modelled but unreachable.** Notes row actions (pin,
-  archive, delete, multi-select), the Calendar Today / prev / next /
-  mini-calendar controls, and the whole Sync configuration screen
-  (`SyncConfigScreen` + a complete `SyncViewModel`, composed by nothing) exist
-  with no control that dispatches them, and long-press on a note row does
-  nothing. Before writing a flow, check it is reachable.
+- **A feature can look modelled and still be unreachable — and a list of such
+  screens goes stale.** Check that a control dispatches the feature before
+  writing a flow. Two entries that used to be on this list are reachable now:
+  long-press on a note row enters selection mode, and the sync settings screen
+  (`SyncSettingsScreen`) is composed from Settings. Treat a reachability claim
+  as a fact to re-check against the source, not as a list to trust.
 
 ### What the system back key does, editor by editor
 

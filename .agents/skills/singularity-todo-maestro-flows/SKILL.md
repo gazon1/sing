@@ -309,6 +309,16 @@ The runbook sits beside this skill: the seeding walkthrough, the app's behaviour
 facts, the probe recipe and the failure tables. Read it when a flow needs data
 or misbehaves:
 
+**The app-behaviour facts live in the runbook, not here.** What a screen does —
+where a save leaves you, which screen a tap opens, which features a control
+reaches — is stated once, in
+[App behaviour facts flows encode](diagnosing-failures.md#app-behaviour-facts-flows-encode).
+This file keeps the authoring rules: what to write in a flow, and which Maestro
+quirk a step has to work around. A new behaviour belongs in that section, not
+here; `scripts/check-maestro-behaviour-ownership.py` fails when one is restated
+in this file, and when an identifier that section names no longer exists in the
+source.
+
 - [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them) —
   why a fixture is seeded rather than typed, the `seed.yaml` query keys,
   the seed replacing the row it names, the run id and the runner's cleanup wipe,

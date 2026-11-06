@@ -528,6 +528,30 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-maestro-flow-catalogue.py"),
     ),
+    # The skill body and the runbook beside it are one document pair, and the
+    # app-behaviour facts belong to exactly one of them: the runbook's "App
+    # behaviour facts flows encode" section. Nothing compared the two, and two
+    # drifts sat unnoticed for as long as the text existed — the skill body said
+    # the notes quick-add lands on the preview *or* in the editor "run to run"
+    # (the product always opens the editor), and that the saved-view editor's
+    # Save leaves the editor open (the product pops back to the list).
+    #
+    # The same section carried `sheet_item_<label>`, a tag no screen answers to
+    # any more, and `SyncConfigScreen`, which had been renamed and is composed
+    # from Settings after all — a stale identifier in the authoritative place,
+    # which is worse than a stale sentence anywhere else, because every flow
+    # written from it addresses nothing.
+    #
+    # `--check` is not decoration: the script reports its findings and exits 0
+    # without it, and `make_command` runs a Python gate bare, so a gate declared
+    # here without it would be a gate that prints and never fails.
+    GateSpec(
+        name="the Maestro runbook owns the app behaviour facts",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-maestro-behaviour-ownership.py"),
+        script_args=("--check",),
+    ),
     GateSpec(
         name="ui wait budgets are consistent",
         mode=GateMode.BLOCKING,
@@ -2034,6 +2058,32 @@ GATE_CONTROLS: dict[str, Control] = {
                 'and the expansion has to come before the size: applied after it, the '
                 'size caps the hit area and the target stays small however the '
                 'modifier chain is read'
+            ),
+        ),
+        # The Maestro document pair: the runbook owns the app-behaviour facts and
+        # the skill body must not restate one. A renamed tag in the runbook's
+        # behaviour section is the exact drift the gate was written for, and it
+        # leaves every flow written from that fact addressing an id no screen
+        # answers to — the failure then lands on a device instead of in the gate.
+        'maestro-behaviour-ownership': Control(
+            kind='sabotage',
+            proves='scripts/check-maestro-behaviour-ownership.py',
+            argv=(
+                '{python}',
+                'scripts/check-maestro-behaviour-ownership.py',
+                '--check',
+            ),
+            path='.agents/skills/singularity-todo-maestro-flows/diagnosing-failures.md',
+            edit=Edit(
+                kind='replace',
+                old='(`task_context_menu_sheet`)',
+                new='(`task_context_menu_sheet_probe`)',
+                count=1,
+            ),
+            why=(
+                'a renamed tag in the authoritative behaviour section leaves every '
+                'flow written from that fact addressing an id no screen answers to, '
+                'and the failure lands on a device instead of in the gate'
             ),
         ),
 }

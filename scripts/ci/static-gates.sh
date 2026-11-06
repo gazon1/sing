@@ -228,6 +228,11 @@ fi
 # This was a warning until 2026-10-20, because the drift predated it. The
 # drift is paid: the shell file and _registry.py now carry the same names.
 gate blocking "gate registries agree" python3 scripts/check-gate-registries.py --strict
+# The Maestro document pair: the skill body keeps the authoring rules, the
+# runbook owns the app-behaviour facts, and an identifier the runbook names has to
+# exist in the source. Two behaviours were restated in the skill body and went
+# false, and the section carried a tag and a screen that no longer existed.
+gate blocking "the Maestro runbook owns the app behaviour facts" sgate the_maestro_runbook_owns_the_app_behaviour_facts
 # Build hygiene
 gate blocking "version catalog has no literals" sgate version_catalog_has_no_literals
 # The shape of the CI workflow's Gradle block: one gate for three checks.
