@@ -381,6 +381,13 @@ allprojects {
 // denominator does not change — the classes were already in it — so the measured
 // coverage can only rise.
 //
+// `:core-domain:jvmTest` was missing here for the same reason: the module holds
+// the domain models the module move took out of `:shared`, so its classes ARE in
+// the coverage denominator — but nothing ran its tests in the coverage job, and
+// the report scored them by whatever `:shared`'s suite happened to touch. The
+// denominator does not change — the classes were already in it — so the measured
+// coverage can only rise.
+//
 // `:adr-cli` is absent for the opposite reason: it is build tooling, excluded from
 // the coverage scope in settings.gradle.kts.
 //
@@ -405,6 +412,7 @@ tasks.register("koverReport") {
         ":mcp-server:test",
         ":androidApp:test",
         ":adr-core:jvmTest", // app code in the denominator (feature.ai.tools): its own tests measure it
+        ":core-domain:jvmTest", // app code in the denominator (the domain models the move took out of :shared)
         ":detekt-rules:test", // rule-coverage measurement: koverXmlReport needs test data
         ":koverXmlReport",
     )

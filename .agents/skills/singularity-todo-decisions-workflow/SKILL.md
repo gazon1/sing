@@ -266,7 +266,7 @@ Each of those was a one-shot skill for one refactor. The information is preserve
 
 <!-- BEGIN GENERATED: adr-tools -->
 
-#### `singularity-adr` — the ADR command line
+### `singularity-adr` — the ADR command line
 
 Run it from the repository root. Every command takes `--json` for
 machine-readable output; exit code `2` means the command line was wrong,
