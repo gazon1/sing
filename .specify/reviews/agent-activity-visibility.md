@@ -43,9 +43,15 @@ payload of a tool call does not travel with the event at all, a failure is the
 absence of the completion event rather than an event of its own, and the
 outcome semantics are verified behaviourally rather than by asserting literals.
 
-Those properties are stated across the change's documents — the spec delta
-carries the rule that the raw payload does not travel, the proposal names the
-four kinds, and the change's `design.md` says why the vocabulary is that small
-and why a failure is the absence of the completion event. None of those
-documents changed in the move that made this re-issue necessary, and the
+Three of those properties are stated across the change's documents — the spec
+delta carries the rule that the raw payload does not travel, the proposal
+names the four kinds, and the change's `design.md` says why the vocabulary is
+that small and why a failure is the absence of the completion event. None of
+those documents changed in the move that made this re-issue necessary, and the
 contract the digest records is the one the pass speaks for.
+
+The fourth is not a property of a document but of the code: the outcome
+semantics are verified behaviourally, by a test that watches the state a turn
+leaves behind rather than by asserting literals,
+`shared/src/commonTest/kotlin/com/singularity/todo/feature/ai/chat/ChatTurnOutcomeTest.kt`.
+That test was not touched by the move either.
