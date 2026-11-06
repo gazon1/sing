@@ -79,12 +79,13 @@ tags:
 
 # The app should show an error (network timeout or connection refused).
 # StubAuthRepository always succeeds — this flow tests the real auth path.
+# The failure is presented as the shared error dialog.
 - extendedWaitUntil:
     visible:
-      id: auth_error_text
+      id: result_dialog
     timeout: 20000
 - assertVisible:
-    id: auth_error_text
+    id: result_dialog
 
 # Cleanup: restore network for subsequent flows.
 - setAirplaneMode:

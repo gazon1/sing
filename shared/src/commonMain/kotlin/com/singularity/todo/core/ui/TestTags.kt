@@ -72,9 +72,6 @@ object TestTags {
     const val AUTH_TOGGLE_MODE_BUTTON = "auth_toggle_mode_button"
     const val AUTH_CONTINUE_OFFLINE_BUTTON = "auth_continue_offline_button"
     const val AUTH_ERROR_TEXT = "auth_error_text"
-
-    /** A neutral "you have to do something" message, as opposed to a failure. */
-    const val AUTH_MESSAGE_TEXT = "auth_message_text"
     const val AUTH_LOADING = "auth_loading"
     const val AUTH_CONFIRMATION_HEADLINE = "auth_confirmation_headline"
     const val AUTH_CONFIRMATION_EMAIL = "auth_confirmation_email"
@@ -693,6 +690,15 @@ object TestTags {
      * device), so a flow matching the text either rots or silently stops matching.
      */
     const val RESULT_DIALOG = "result_dialog"
+
+    /**
+     * The button that closes the shared result/error dialog.
+     *
+     * The label is "OK" — which reads "ОК" on this project's Russian device — so a
+     * flow that matched the words would wait forever. The dialog can be raised by
+     * an event the screen presents, so the flow has to be able to close it again.
+     */
+    const val RESULT_DIALOG_CONFIRM = "result_dialog_confirm"
 
     /** "Archive is empty" empty state title on the archive list screen. */
     const val ARCHIVE_EMPTY = "archive_empty"
