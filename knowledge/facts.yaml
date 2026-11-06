@@ -137,3 +137,15 @@ facts:
   - id: K-error-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/error.md
+  - id: K-graph-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/graph.md
+  - id: K-refresh-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/refresh.md
+  - id: K-schedule-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/schedule.md
+  - id: K-seed-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/seed.md
