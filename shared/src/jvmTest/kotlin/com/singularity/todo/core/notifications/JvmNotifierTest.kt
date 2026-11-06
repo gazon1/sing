@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.junit.jupiter.api.Tag
 import java.io.File
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -142,30 +143,52 @@ class JvmNotifierTest {
     /**
      * The probe must agree with the host it is talking about.
      *
-     * The expectation is computed by **lookup** — is `notify-send` on this host's
-     * `PATH`? — while the production probe decides by **version query**: it runs
-     * `notify-send --version` and reads the exit code. Two different mechanisms, so
-     * their agreement is evidence rather than a restatement of the subprocess helper
-     * the probe itself uses.
+     * "On `PATH`" is not the same claim as "answers": a CI runner can have the
+     * `notify-send` file installed and still fail to load it (no display, no
+     * session bus, a missing shared library), and the production probe correctly
+     * reports that host as unsupported. So the expectation is the conjunction —
+     * the binary is on `PATH` **and** an independent `--version` run exits 0 —
+     * while the probe is the code under test.
+     *
+     * The oracle is deliberately a second implementation (`ProcessBuilder` here,
+     * `Subprocess.runQuietly` in production): the defect this guards against is in
+     * the production helper, and an assertion written with that helper would agree
+     * with its own bug.
      *
      * No `assumeTrue` skip: the expected value is computed on every host, so both
-     * branches of the assertion (`false == false` or `true == true`) hold whether or
-     * not `notify-send` is installed, and the assertion says something everywhere.
+     * branches (`false == false` on a broken or absent binary, `true == true` on a
+     * working one) hold everywhere.
      */
     @Test
-    fun `the real probe agrees with the host's lookup of notify-send`() {
-        val expected = binaryIsOnPath("notify-send")
+    fun `the real probe agrees with the host's notify-send`() {
+        val expected = binaryIsOnPath("notify-send") && versionQueryAnswers("notify-send")
         val probed = JvmNotifier(scope = CoroutineScope(Dispatchers.Unconfined)).isSupported
 
         assertEquals(
             expected,
             probed,
-            "the probe answered $probed and the lookup answered $expected. The lookup asks " +
-                "whether notify-send is on this host's PATH; the probe asks whether " +
-                "`notify-send --version` exits 0. A disagreement means the binary is there " +
-                "and does not answer, or it answers and is not there.",
+            "the probe answered $probed and the host answered $expected. The lookup asks " +
+                "whether notify-send is on this host's PATH; this test also asks whether " +
+                "an independent `notify-send --version` exits 0. A disagreement means the " +
+                "probe claims a host the host itself does not provide.",
         )
     }
+
+    /**
+     * Whether [name] `--version` exits 0, measured without the production helper.
+     *
+     * Bounded: a broken binary can hang on startup, and a test that waits for it
+     * would fail for the wrong reason.
+     */
+    private fun versionQueryAnswers(name: String): Boolean =
+        runCatching {
+            val process = ProcessBuilder(name, "--version").redirectErrorStream(true).start()
+            try {
+                process.waitFor(5, TimeUnit.SECONDS) && process.exitValue() == 0
+            } finally {
+                process.destroyForcibly()
+            }
+        }.getOrDefault(false)
 
     /**
      * The lookup must be able to say "no".
