@@ -5,8 +5,10 @@ import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.sync.SyncApiClient
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.SharedSyncServer
+import kotlinx.coroutines.flow.first
 import org.koin.core.Koin
 import org.koin.core.KoinApplication
 import org.koin.dsl.module
@@ -42,8 +44,10 @@ import java.nio.file.Files
  * sync/auth bindings are replaced wholesale.
  *
  * The `UnitOfWork` is *not* replaced: the test platform module binds the
- * pass-through fake, which runs the block and changes nothing else — and the
- * writes that matter here have to land in the instance's own database file.
+ * pass-through fake, which runs the block unchanged. These tests never roll a
+ * block back, so a fake that cannot roll back is not a difference they can
+ * observe. A carrier that needs rollback semantics must bind the real
+ * `RoomUnitOfWork` instead.
  *
  * ## No process-wide state
  *
@@ -88,6 +92,8 @@ class TwoInstanceHarness private constructor(
      * @property name which instance this is — `A` or `B`.
      * @property koin this instance's own Koin graph.
      * @property databasePath the absolute path of this instance's database file.
+     * @property database the database this graph resolves, exposed so a test
+     *   can prove the graph uses the file at [databasePath] and not a fake.
      * @property syncClient the client this instance syncs through.
      * @property account the account this instance is authenticated as.
      */
@@ -95,6 +101,7 @@ class TwoInstanceHarness private constructor(
         val name: String,
         val koin: Koin,
         val databasePath: String,
+        val database: AppDatabase,
         val syncClient: SyncApiClient,
         val account: String,
     )
@@ -106,22 +113,52 @@ class TwoInstanceHarness private constructor(
         /**
          * Starts two instances against one shared server.
          *
+         * Returns only when both graphs' profile-scoped identity has settled:
+         * `ProfileAwareCurrentUser.scopedUserId` is seeded with `anonymous` and
+         * corrected by a background collector, so a caller that reads it right
+         * after construction can get a different user on each instance. The
+         * repositories read that cached value, so a test that does not wait
+         * here proves "the row is invisible" with two different owners instead
+         * of two databases.
+         *
          * @param account the account both instances are authenticated as — the
          *   same one, because a sync is a conversation between two devices of
          *   one account.
          */
-        fun start(account: String = DEFAULT_ACCOUNT): TwoInstanceHarness {
+        suspend fun start(account: String = DEFAULT_ACCOUNT): TwoInstanceHarness {
             val tempDir = Files.createTempDirectory("singularity-two-instance-").toFile()
             val server = SharedSyncServer()
-            val a = buildInstance("A", tempDir, server, account)
-            val b = buildInstance("B", tempDir, server, account)
-            return TwoInstanceHarness(
-                instanceA = a.handle,
-                instanceB = b.handle,
-                applications = listOf(a.application, b.application),
-                databases = listOf(a.database, b.database),
-                tempDir = tempDir,
-            )
+            val built = mutableListOf<Instance>()
+            var completed = false
+            return try {
+                built += buildInstance("A", tempDir, server, account)
+                built += buildInstance("B", tempDir, server, account)
+                val harness =
+                    TwoInstanceHarness(
+                        instanceA = built[0].handle,
+                        instanceB = built[1].handle,
+                        applications = built.map { it.application },
+                        databases = built.map { it.database },
+                        tempDir = tempDir,
+                    )
+                harness.awaitIdentitySettled()
+                completed = true
+                harness
+            } finally {
+                if (!completed) {
+                    built.forEach { it.close() }
+                    tempDir.deleteRecursively()
+                }
+            }
+        }
+
+        /** Waits until each graph's cached scoped identity equals the live one. */
+        private suspend fun TwoInstanceHarness.awaitIdentitySettled() {
+            listOf(instanceA, instanceB).forEach { instance ->
+                val user = instance.koin.get<ProfileAwareCurrentUser>()
+                val live = user.liveScopedUserId.first()
+                user.scopedUserId.first { it == live }
+            }
         }
 
         private fun buildInstance(
@@ -132,33 +169,48 @@ class TwoInstanceHarness private constructor(
         ): Instance {
             val databaseFile = File(tempDir, "instance-$name.db")
             val database = AppDatabaseFactory.build(createSqlDriver(), databaseFile.absolutePath)
-            val client = server.client(account)
-            val overrides =
-                module {
-                    single<AppDatabase> { database }
-                    single<SyncApiClient> { client }
-                    // Deterministic local auth: carriers call signIn/syncOnce and must
-                    // never reach Supabase or the network. testPlatformModule() also
-                    // binds FakeAuthRepository(), but binding it here makes the harness
-                    // contract explicit regardless of module ordering.
-                    single<AuthRepository> { FakeAuthRepository() }
-                }
-            val application = buildDesktopAppKoin(overrides = overrides)
-            return Instance(
-                handle =
-                    InstanceHandle(
-                        name = name,
-                        koin = application.koin,
-                        databasePath = databaseFile.absolutePath,
-                        syncClient = client,
-                        account = account,
-                    ),
-                application = application,
-                database = database,
-            )
+            return try {
+                val client = server.client(account)
+                val overrides =
+                    module {
+                        single<AppDatabase> { database }
+                        single<SyncApiClient> { client }
+                        // Deterministic local auth: carriers call signIn/syncOnce and must
+                        // never reach Supabase or the network. testPlatformModule() also
+                        // binds FakeAuthRepository(), but binding it here makes the harness
+                        // contract explicit regardless of module ordering.
+                        single<AuthRepository> { FakeAuthRepository() }
+                    }
+                val application = buildDesktopAppKoin(overrides = overrides)
+                Instance(
+                    handle =
+                        InstanceHandle(
+                            name = name,
+                            koin = application.koin,
+                            databasePath = databaseFile.absolutePath,
+                            database = database,
+                            syncClient = client,
+                            account = account,
+                        ),
+                    application = application,
+                    database = database,
+                )
+            } catch (failure: Throwable) {
+                database.close()
+                throw failure
+            }
         }
 
         /** One built instance: its handle, its graph and its database. */
-        private class Instance(val handle: InstanceHandle, val application: KoinApplication, val database: AppDatabase)
+        private class Instance(
+            val handle: InstanceHandle,
+            val application: KoinApplication,
+            val database: AppDatabase,
+        ) {
+            fun close() {
+                application.close()
+                database.close()
+            }
+        }
     }
 }
