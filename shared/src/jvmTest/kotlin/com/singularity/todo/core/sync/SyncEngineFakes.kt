@@ -57,7 +57,10 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
         snapshot()
             .filter { it.ownerId == ownerId && it.profileId == profileId }
             .filter { it.claimToken == null }
-            .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
+            .filter {
+                val nextAttemptAt = it.nextAttemptAt
+                nextAttemptAt == null || nextAttemptAt <= now
+            }
 
     override suspend fun claim(
         ids: List<String>,

@@ -38,6 +38,3 @@ COVERAGE_COST_PROPERTIES: pathlib.Path = ROOT / "config" / "docs" / "coverage-co
 # machine at this moment, and the committed baseline is what survives it.
 GATE_RUN_JSON: pathlib.Path = ROOT / "build" / "diagnostics" / "gate-run.json"
 CYCLE_STEPS_TXT: pathlib.Path = ROOT / "build" / "diagnostics" / "cycle-steps.txt"
-
-# Infra Kiwi
-KIWI_SYNC: pathlib.Path = ROOT / "infra" / "kiwi" / "sync.py"

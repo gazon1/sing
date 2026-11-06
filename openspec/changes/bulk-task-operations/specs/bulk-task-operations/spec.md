@@ -19,11 +19,13 @@ before they act on it.
 asserting the selected count is on screen is the minimum.
 
 #### Scenario: Entering selection
+
 - The user long-presses a task
 - The task is marked as selected
 - The count of selected tasks is visible
 
 #### Scenario: Leaving selection
+
 - The user exits selection mode
 - No task remains marked as selected
 - The list returns to its ordinary interaction
@@ -44,6 +46,7 @@ destroy work the user did not intend to destroy.
 was neither opened nor removed.
 
 #### Scenario: Long-press selects rather than opens
+
 - The user long-presses a task
 - The task is selected
 - The task's detail screen does not open
@@ -65,6 +68,7 @@ for and cannot easily reason about.
 make reachable, and it is currently untestable through the UI.
 
 #### Scenario: Partial failure leaves nothing changed
+
 - Three tasks are selected for deletion
 - The operation fails for one of them
 - None of the three are deleted
@@ -81,6 +85,7 @@ happened.
 unintended action. Silent completion is indistinguishable from a no-op.
 
 #### Scenario: Bulk completion reports
+
 - Three tasks are selected
 - The user activates complete
 - All three are completed

@@ -1,6 +1,7 @@
 # notes Specification
 
 ## Purpose
+
 The note editor's contract with a bridged text field: the field tells a
 replacement from a keystroke, the user's unsaved edits win over an
 incoming replacement, and every bridged site records who may rewrite

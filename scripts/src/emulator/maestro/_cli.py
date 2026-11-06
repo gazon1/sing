@@ -505,10 +505,8 @@ def main(
         # that reports one defect as forty.
         if maestro_cleanup == "all":
             # The wipe is the whole scope: it needs no list of titles, which is
-            # why the narrow scope is gone. The second argument is the run id
-            # the narrow scope swept by; the contract still carries it, and the
-            # wipe does not read it.
-            deps.cleanup_run_fixtures(serial, "", maestro_cleanup, deps)
+            # why the narrow scope is gone.
+            deps.cleanup_run_fixtures(serial, maestro_cleanup, deps)
 
         # The session is reset before the flow, not after it: a flow that ends
         # signed out must not decide the session of the flow after it, and the

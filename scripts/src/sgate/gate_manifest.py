@@ -30,7 +30,7 @@ two declarations.
 
 The cluster membership
 ----------------------
-Nine gates run through a cluster wrapper — one gate that runs several checks
+Ten gates run through a cluster wrapper — one gate that runs several checks
 and reports every failure, not the first. Which gates those are was inferred
 by scanning the wrapper's source for the file names it mentions, so renaming a
 line inside a wrapper silently dropped a gate from the covered set: nothing
@@ -105,6 +105,7 @@ CLUSTERS: dict[str, tuple[str, ...]] = {
         "detekt rules config is current",
         "file-level suppressions explain themselves",
         "lint rules are declared decisions",
+        "quality page states the enforced thresholds",
     ),
 }
 
@@ -694,18 +695,20 @@ A gate that proves another gate works inherits that gate's preconditions and run
 them at its own time. So the meta-gate stays where the results are: after the tests,
 in check.sh and in ci.yml's `tests` job.
 
-Lint-rule governance: one gate for six checks over one subject.
+Lint-rule governance: one gate for seven checks over one subject.
 
   - the generated detekt.yml is current;
   - the generated rule table is current;
   - every rule has a registration;
   - the baseline does not grow silently;
   - a lint rule states the decision it implements;
-  - a suppression says why it is there.
+  - a suppression says why it is there;
+  - the quality page states the thresholds the config and the pinned detekt
+    actually enforce.
 
 Six CI rows for one subject became one. Each check keeps its own script, its
 own unit tests and its own positive control — a control proves that a check
-can fail, and one control for six checks would prove only that something in
+can fail, and one control for seven checks would prove only that something in
 them can fail.""",
     ),
     "scenario specs valid": Placement(
@@ -956,10 +959,24 @@ longer has is a debt that was paid and whose record did not move with it.""",
         kind=PlacementKind.CLUSTER,
         cluster="detekt governance is consistent",
     ),
+    "quality page states the enforced thresholds": Placement(
+        kind=PlacementKind.CLUSTER,
+        cluster="detekt governance is consistent",
+    ),
     # ── Not a line in the shell registry ───────────────────────────────────────
     # Each of these runs somewhere else, and the place is named. A gate that
     # runs on no one reports success forever, so the reason is not decoration:
     # it says which surface runs it.
+    "documentation concepts are valid": Placement(
+        kind=PlacementKind.ELSEWHERE,
+        reason=(
+            "it reads one knowledge concept and its verified state, which needs the "
+            "concept's name — there is no static line that can supply it. The "
+            "documentation skills run `python3 scripts/documentation/check.py status "
+            "<name>` when a concept is edited; the gate is the same command."
+        ),
+        tracked_by=".agents/skills/documentation-verify-concept/SKILL.md",
+    ),
     "flaky tests are acknowledged": Placement(
         kind=PlacementKind.ELSEWHERE,
         reason=(
@@ -995,7 +1012,7 @@ longer has is a debt that was paid and whose record did not move with it.""",
     ),
     "the edge functions' own tests": Placement(
         kind=PlacementKind.STATIC,
-        command="deno test supabase/functions/google-oauth-exchange/",
+        command="deno test infra/supabase/functions/google-oauth-exchange/",
         note="""The server half of the Google OAuth exchange, under test.
 
 The function holds a client secret, redeems a one-time code and stores a
@@ -1043,6 +1060,23 @@ statement about the app.
 
 A swipe may be a share of the screen, or the element that scrolls. Both mean
 the same gesture on every display.""",
+    ),
+    "maestro seeded titles are stable": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-maestro-seeded-titles.py',
+        note="""
+A seeded title names the row the seed replaces, so it carries no run id.
+
+The runner mints a fresh `${RUN_ID}` on every attempt, and the seed replaces
+the row its title names: `task=${RUN_ID}_MyFixture` therefore names a row that
+has never existed. The seed creates a new task instead of updating the old
+one, and every run leaves its own row behind — the litter the replace-in-place
+rule exists to remove. The failure is reported under the run id too
+(`"r5869995730 PinnedTask2026" is visible`), which is a fixture whose name
+nobody can read.
+
+A title a flow *types* into the editor is the flow's own row and reaches no
+seed, so the run id there stays available. The gate reads `QUERY` lines only.""",
     ),
     "a pull request carries the review of an agent": Placement(
         kind=PlacementKind.ELSEWHERE,

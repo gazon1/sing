@@ -17,7 +17,7 @@ All four reported success. Fixing them one at a time does not prevent the
 fifth, so this check encodes the two failure modes as properties of the repo.
 
 Part A — **wiring.** Every Gradle check task configured in a module's build
-file must be named by at least one gate (`check.sh` or a workflow). A task with
+file must be named by at least one gate (`hk.pkl` or a workflow). A task with
 a config block and no gate is decoration, and nothing else will ever notice.
 
 Part B — **can fail.** Every script gate registered below is run against a
@@ -28,7 +28,7 @@ Parts C–G cover the properties that Parts A and B cannot see: C, a configured
 Gradle task must be capable of failing; D, a non-blocking step must declare
 itself advisory; E, a CI/local asymmetry must be declared with a reason; F,
 every registered gate must have a positive control; G, the shared gate registry
-itself must be invoked by both CI and `check.sh`. Part J cross-checks the
+itself must be invoked by both CI and `hk.pkl`. Part J cross-checks the
 SCRIPT_GATES sabotage controls against _registry.GATES.
 
 Usage:
@@ -38,7 +38,7 @@ Usage:
 
 Every gate runs under a deadline (`GATE_TIMEOUT_S` / `GRADLE_GATE_TIMEOUT_S`);
 a hang reports "no verdict", never "failed". Gradle-backed controls are
-skipped unless `GATE_WIRING_GRADLE=1` — `check.sh` sets it because its daemon
+skipped unless `GATE_WIRING_GRADLE=1` — the pipeline sets it because its daemon
 is already warm, and a casual run must not cold-boot one.
 
 Exit codes:
@@ -133,10 +133,10 @@ SABOTAGE_BACKUP_DIR = _sabotage_backup_dir()
 #: here, and a run that starts with a backup left over restores it too.
 _ACTIVE_SABOTAGES: dict[Path, Path] = {}
 
-#: The single registry of script gates. `ci.yml`'s `static` job and `check.sh`
+#: The single registry of script gates. `ci.yml`'s `static` job and `hk.pkl`
 #: both call this one file, so a gate named there runs in both environments.
 #:
-#: It belongs in `GATE_FILES` for the same reason `check.sh` does: a surface
+#: It belongs in `GATE_FILES` for the same reason `hk.pkl` does: a surface
 #: this list omits is a surface whose gates are invisible to Part A (is the task
 #: invoked), Part E (where does the gate run) and Part F (does it have a
 #: positive control). Leaving the registry out fails nothing — it makes every
@@ -145,6 +145,7 @@ _ACTIVE_SABOTAGES: dict[Path, Path] = {}
 GATE_REGISTRY = ROOT / "scripts" / "ci" / "static-gates.sh"
 
 GATE_FILES = [
+    ROOT / "hk.pkl",
     ROOT / "check.sh",
     *sorted((ROOT / ".github" / "workflows").glob("*.yml")),
     GATE_REGISTRY,
@@ -227,7 +228,7 @@ def check_wiring() -> list[str]:
         errors.append(
             f"Gradle check task '{task}' is configured in {build} but named by no gate. "
             f"A configured-but-uninvoked task reports success forever — add it to "
-            f"check.sh or a workflow, or delete the config block if it is not wanted."
+            f"hk.pkl or a workflow, or delete the config block if it is not wanted."
         )
     return errors
 
@@ -614,12 +615,12 @@ SABOTAGE_ONLY_GATES = [
     # 0% — would quietly get right on paper and wrong in the run, which is
     # precisely the "passes a zero floor" defect the proposal names.
     #
-    # Cost is bounded and worth stating, because this file runs early in check.sh
-    # (step 7) and after Gradle in ci.yml's tests job, and every Gradle invocation
+    # Cost is bounded and worth stating, because this file runs in the pipeline's `gate wiring`
+    # step and after Gradle in ci.yml's tests job, and every Gradle invocation
     # it adds is paid twice per run — once by the harness, once by the gate step.
     # So the clean-run guard is waived (`needs_clean_run=False`): both surfaces
-    # execute the very same task on the very same tree a step later — check.sh
-    # step 8b (koverLog + koverVerify) and ci.yml's "Kover verify (detekt-rules)"
+    # execute the very same task on the very same tree a step later — hk.pkl's
+    # `detekt-rules:koverVerify` step and ci.yml's "Kover verify (detekt-rules)"
     # — which is the pass that proves the task is green on real data. Here only
     # the *sabotaged* pass matters, so the control buys one configuration pass,
     # not two. `-q` because only the exit code is read.
@@ -669,7 +670,7 @@ SABOTAGE_ONLY_GATES = [
     ScriptGate(
         name="sync-allowlist-reader",
         cmd=[sys.executable, "scripts/check-sync-allowlist-regenerated.py"],
-        sabotage_path="supabase/migrations/2026-10-07-sync_schema.sql",
+        sabotage_path="infra/supabase/migrations/2026-10-07-sync_schema.sql",
         sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
         why=(
             "a row the server's table holds that no model declares is a field the "
@@ -705,7 +706,7 @@ FIXTURE_REPO_PREFIX = "{tmp}/repo/"
 
 _GRADLE_COMMANDS = frozenset({"./gw", "./gradlew", "gradle"})
 
-#: Gradle-backed controls are skipped unless this is set to `1`. `check.sh`
+#: Gradle-backed controls are skipped unless this is set to `1`. `hk.pkl`
 #: sets it (its daemon is already warm by step 8); a casual local run must
 #: not cold-boot a daemon and hold the shared cache lock for minutes — that
 #: is how a "quick check" freezes the host, once, for real.
@@ -968,14 +969,14 @@ def check_escape_hatches() -> list[str]:
     `check-traceability-ratchet.py --accept-growth` is honest: it exists for the
     commit that knowingly opens holes, and it prints loudly when used. The
     problem is not the flag, it is the flag in the *registered* invocation. Once
-    `--accept-growth` is in `check.sh` and in the workflow, the gate is green on
+    `--accept-growth` is in `hk.pkl` and in the workflow, the gate is green on
     every future regression, and the only trace is a word in a command line that
     no reviewer reads as a policy change — which is the same defect as a
     `--warn-only` that got committed, one level up.
 
     The escape stays available for a deliberate one-off; what is forbidden is
     making it the default. So the check is on the registry entry, not on the
-    script: the flag must never appear in a `cmd` that `check.sh`, a workflow or
+    script: the flag must never appear in a `cmd` that `hk.pkl`, a workflow or
     a recipe installs as the standing invocation.
     """
     errors: list[str] = []
@@ -1020,7 +1021,7 @@ def check_can_fail(include_fast: bool = True) -> list[str]:
 
         if _is_gradle_gate(gate.cmd) and not _gradle_controls_enabled():
             print(f"  skip  {gate.name}: gradle-backed control — set {GRADLE_ENV}=1 "
-                  f"to include it (check.sh does; see step 8 there)")
+                  f"to include it (hk.pkl does)")
             continue
         if not _is_gradle_gate(gate.cmd) and not include_fast:
             print(f"  skip  {gate.name}: fast control — the static job proves it "
@@ -1097,7 +1098,7 @@ def check_fixture_gates() -> list[str]:
     for gate in FIXTURE_GATES:
         if _is_gradle_gate(gate.cmd) and not _gradle_controls_enabled():
             print(f"  skip  {gate.name}: gradle-backed control — set {GRADLE_ENV}=1 "
-                  f"to include it (check.sh does)")
+                  f"to include it (hk.pkl does)")
             continue
         if gate.needs_clean_run:
             # The clean run is the gate's OWN command on the real input. The
@@ -1176,7 +1177,7 @@ def check_fixture_gates() -> list[str]:
 # Part A asks whether a task is *invoked*. Part B proves a *script* can fail.
 # Neither asks whether an invoked Gradle task can fail — which is how
 # `mcp-server:detekt` sat in ci.yml looking enforced while `ignoreFailures = true`
-# made it incapable of failing, and stayed out of check.sh so it never ran
+# made it incapable of failing, and stayed out of hk.pkl so it never ran
 # locally at all.
 #
 # This part is a static read of the build file rather than a sabotage run,
@@ -1198,7 +1199,7 @@ def check_fixture_gates() -> list[str]:
 # settings.gradle.kts and re-runs `:detekt-rules:koverVerify`. It is the only
 # control in this file that runs Gradle, and it is affordable for a reason
 # worth stating: the module's tests run before it in both surfaces that call
-# this script (ci.yml's Gradle step, and check.sh step 8b, whose run the baseline
+# this script (ci.yml's Gradle step, and hk.pkl's `detekt-rules:koverVerify`, whose run the baseline
 # merely moves earlier), so it buys a configuration pass and a verify pass
 # rather than a test suite.
 
@@ -1588,7 +1589,7 @@ def _gate_texts(side: str) -> str:
     """Concatenate the gate surfaces of one environment.
 
     `scripts/ci/static-gates.sh` counts on BOTH sides, and that is the whole
-    point of it: CI and `check.sh` run the same file, so a gate it names runs
+    point of it: CI and `hk.pkl` run the same file, so a gate it names runs
     in both. Counting it as CI-only would report the shared registry as an
     asymmetry on every gate it holds, and counting it as neither would let a
     gate run in exactly one environment forever.
@@ -1599,6 +1600,7 @@ def _gate_texts(side: str) -> str:
     """
     root = _repo_root()
     files = [root / ".github/workflows/ci.yml", GATE_REGISTRY] if side == "ci" else [
+        root / "hk.pkl",
         root / "check.sh",
         GATE_REGISTRY,
     ]
@@ -1668,7 +1670,7 @@ def _repo_root() -> pathlib.Path:
 # ── Part F: the registry is checked against the registration ────────────────
 #
 # `registered_gate_scripts()` is the derivation. It reads the same places a gate
-# is actually invoked from — `check.sh`, the workflows, and the `just` recipes —
+# is actually invoked from — `hk.pkl`, the workflows, and the `just` recipes —
 # so a gate that nobody registered a control for is a finding rather than an
 # absence. A hand-written list of what has been verified is exactly the thing
 # this file exists to distrust.
@@ -1895,9 +1897,9 @@ def sgate_backing_scripts() -> dict[str, list[str]]:
 def registered_gate_scripts() -> dict[str, list[str]]:
     """Gate script path -> the files that invoke it.
 
-    `just` recipes are included, not just `check.sh` and CI: a gate that is
+    `just` recipes are included, not just `hk.pkl` and CI: a gate that is
     reachable only through a recipe would not be seen by a registry that looked
-    only at `check.sh` and the workflows, and a gate nobody can reach is a gate
+    only at `hk.pkl` and the workflows, and a gate nobody can reach is a gate
     that reports success forever.
 
     `sgate <name>` invocations count too, resolved through the command module
@@ -1978,7 +1980,7 @@ def check_registry_completeness() -> list[str]:
 #
 # Every other part of this file asks about a gate somebody wrote. This one asks
 # about the file that decides which gates run at all, and it is here because that
-# file is new and load-bearing: `ci.yml`'s `static` job and `check.sh` both call
+# file is new and load-bearing: `ci.yml`'s `static` job and `hk.pkl` both call
 # `scripts/ci/static-gates.sh`, so every script gate in the repository now sits
 # behind one file that no reader of `ci.yml` ever sees.
 #
@@ -1994,19 +1996,20 @@ def check_registry_wiring() -> list[str]:
     if not GATE_REGISTRY.is_file():
         errors.append(
             f"the shared gate registry {GATE_REGISTRY.relative_to(ROOT)} does not "
-            f"exist. `ci.yml` and `check.sh` both call it; without the file both "
+            f"exist. `ci.yml` and `hk.pkl` both call it; without the file both "
             f"calls fail, and if they do not, the gate suite runs nowhere."
         )
         return errors
 
     callers = {
         "ci.yml": (ROOT / ".github" / "workflows" / "ci.yml"),
-        "check.sh": ROOT / "check.sh",
+        "hk.pkl": ROOT / "hk.pkl",
     }
-    # Two legitimate spellings, both of which *read* the registry:
+    # Three legitimate spellings, all of which *read* the registry:
     #   bash scripts/ci/static-gates.sh   — direct execution
     #   sgate run-all                     — the CLI dispatches from the same file
-    # The path must appear as an ARGUMENT to bash/sh (or run-all as the sgate
+    #   ./sg run-all                      — the same CLI, bound to this checkout
+    # The path must appear as an ARGUMENT to bash/sh (or run-all as the
     # subcommand), not merely anywhere in the file. A plain substring search is
     # satisfied by `see scripts/ci/static-gates.sh` in an error message, so
     # deleting the real call while leaving the prose would pass — the same "a
@@ -2015,15 +2018,25 @@ def check_registry_wiring() -> list[str]:
     # The `||` (or `;&`, etc.) lookahead is required to avoid false-positives from
     # comment lines and echo strings that merely mention "sgate run-all" without
     # actually invoking it.  After _strip_comments(), the only surviving mention
-    # is the echo line inside the error handler:  `see sgate run-all output above`.
+    # is the echo line inside the error handler:  `see ./sg run-all output above`.
     # Without the lookahead that line would incorrectly satisfy the pattern,
     # masking a sabotage of the actual call (e.g. `sgate run-x ||`).
     # Flags between the subcommand and the shell operator are part of the same
     # invocation: `sgate run-all --with-controls || exit 1` runs the registry,
     # with the control phase after it.
+    # The expectation is written in terms of the REGISTRY, not in terms of one
+    # command name: `hk.pkl` reaches the gate CLI through `./sg` (the console
+    # script on PATH belongs to whichever checkout was installed last), while
+    # `ci.yml` calls `sgate` from the venv it installs for itself. Both read the
+    # registry; the spelling is the surface's business, not this check's.
+    # The lookahead accepts a shell operator, a closing quote, or the end of a
+    # line: the local surface is `hk.pkl` now, and its invocation is a Pkl
+    # string (`check = "… ./sg run-all"`). `_strip_comments` drops the quotes,
+    # so the line ends right after the command.
     invocation = re.compile(
         r"(?:^|\s)(?:bash|sh)\s+[\w./-]*scripts/ci/static-gates\.sh"
-        r"|(?:^|\s)sgate\s+run-all\b(?:\s+--[\w-]+)*(?=\s*[||;&])"
+        r"|(?:^|\s)(?:\./sg|sgate)\s+run-all\b(?:\s+--[\w-]+)*(?=\s*[||;&\"]|\s*$)",
+        re.MULTILINE,
     )
 
     for name, path in sorted(callers.items()):
@@ -2278,9 +2291,10 @@ def check_script_gates_vs_registry() -> list[str]:
 #    is the opposite of what a reader expects: the *target* of an `exec` counts
 #    as reached, not the shim that reached it.
 #
-#    All three live shims spell the base directory the same way (`$SCRIPT_DIR/`),
-#    but _SHIM_DELEGATION accepts any shell variable, a bare `scripts/`, and an
-#    optional `./`. That is deliberate: this pattern was first written against
+#    The shim-delegation logic below still follows `exec` chains (kept for any
+#    future shim). `_SHIM_DELEGATION` accepts any shell variable, a bare
+#    `scripts/`, and an optional `./`. That is deliberate: this pattern was first
+#    written against
 #    `check-skill-frontmatter.sh`, which used `"$ROOT/scripts/…"`, and a
 #    matcher built for that one spelling would silently miss every other. The
 #    first version of this comment then named a file that no longer existed —
@@ -2295,7 +2309,7 @@ _GATE_CANDIDATE = re.compile(r"check[-_][\w.-]+\.(?:py|sh)$")
 #: part asks about gates reachable at all, and four of them reach CI only from
 #: `ci.yml` or from a `just` recipe.
 _REACH_SURFACES = (
-    [ROOT / "check.sh", ROOT / "scripts" / "ci" / "static-gates.sh", ROOT / "justfile"]
+    [ROOT / "hk.pkl", ROOT / "check.sh", ROOT / "scripts" / "ci" / "static-gates.sh", ROOT / "justfile"]
     + sorted(ROOT.glob(".just/**/*.just"))
     + sorted(ROOT.glob(".github/workflows/*.yml"))
     + sorted(ROOT.glob(".github/actions/*/action.yml"))
@@ -2372,7 +2386,7 @@ def reachable_gate_scripts() -> set[str]:
 # therefore never linted two of the six configured modules — including
 # `detekt-rules`, the module that holds the project's own custom rules, where a
 # rule file that does not lint looks identical to one with no findings. Both are
-# now named in `check.sh`.
+# now named in `hk.pkl`.
 #
 # ## What this check actually detects, precisely
 #
@@ -2395,7 +2409,7 @@ def reachable_gate_scripts() -> set[str]:
 #: Gradle task -> (side it legitimately runs on, why). Every task named by either
 #: surface and absent from this table is required to run on both.
 #:
-#: `covered` is the state that "both" cannot express: `check.sh` names the task and
+#: `covered` is the state that "both" cannot express: `hk.pkl` names the task and
 #: CI reaches it by a route that does not spell the task name. `koverReport` is the
 #: case that matters — CI invokes it and it aggregates `:shared:jvmTest` and
 #: `:desktopApp:test`, so both really do run there, but neither string appears in
@@ -2452,7 +2466,7 @@ def check_gradle_task_parity() -> list[str]:
     #
     # `release.yml` is excluded because it is not a verification surface. It
     # assembles an unsigned release APK and a Linux deb in order to publish them;
-    # those are packaging steps, not checks, and requiring `check.sh` to build a
+    # those are packaging steps, not checks, and requiring `hk.pkl` to build a
     # release artifact locally would put a shipping decision in the developer loop.
     ci: set[str] = set()
     for workflow in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
@@ -2464,10 +2478,10 @@ def check_gradle_task_parity() -> list[str]:
         except (OSError, UnicodeDecodeError):
             workflow_text = ""
         ci |= ci_reached_detekt_tasks(workflow_text)
-    local = named_gradle_tasks(ROOT / "check.sh")
+    local = named_gradle_tasks(ROOT / "hk.pkl") | named_gradle_tasks(ROOT / "check.sh")
 
     # `covered` rows are checked even when absent from both surfaces. Otherwise a
-    # `covered` declaration is a loophole: drop the task from check.sh and the
+    # `covered` declaration is a loophole: drop the task from hk.pkl and the
     # union no longer contains it, so nothing compares it against the table and
     # the declaration quietly stops meaning anything.
     #
@@ -2485,7 +2499,7 @@ def check_gradle_task_parity() -> list[str]:
         if want == "covered":
             if not in_local:
                 errors.append(
-                    f"{task}: declared 'covered' — check.sh must still name it, "
+                    f"{task}: declared 'covered' — hk.pkl must still name it, "
                     f"because that is where the rehearsal happens. {declared[1]}"
                 )
             continue
@@ -2499,7 +2513,7 @@ def check_gradle_task_parity() -> list[str]:
                 declared[1]
                 if declared
                 else (
-                    f"not named by {'check.sh' if in_ci else 'ci.yml'}. Part A "
+                    f"not named by {'hk.pkl' if in_ci else 'ci.yml'}. Part A "
                     f"passed this task because it was named *somewhere*, which is "
                     f"exactly how a local loop ends up green on a module CI would "
                     f"fail. Name it there, or declare it in GRADLE_TASK_PARITY "
@@ -2586,7 +2600,7 @@ def check_gate_reachability() -> list[str]:
         if script in reachable or script in REACHABILITY_EXCLUSIONS:
             continue
         errors.append(
-            f"{script} can fail and is named by no gate surface — check.sh, the "
+            f"{script} can fail and is named by no gate surface — hk.pkl, the "
             f"registry, justfile, .just/**/*.just, .github/workflows/*.yml and "
             f".github/actions/*/action.yml were all searched, following shim "
             f"delegation. A gate nobody invokes reports success forever. "
@@ -2728,12 +2742,12 @@ def main(ctx: click.Context,
             print(f"  ok  {len(registered)} registered gate(s), all controlled or exempt")
 
     if run_g:
-        print("\nPart G — the shared gate registry is called by CI and by check.sh")
+        print("\nPart G — the shared gate registry is called by CI and by hk.pkl")
         wiring_errors = check_registry_wiring()
         if wiring_errors:
             errors += wiring_errors
         else:
-            print(f"  ok  {GATE_REGISTRY.relative_to(ROOT)} is invoked by ci.yml and check.sh")
+            print(f"  ok  {GATE_REGISTRY.relative_to(ROOT)} is invoked by ci.yml and hk.pkl")
 
     if run_h:
         print("\nPart H — every gate-shaped script is reachable from a surface")
@@ -2750,7 +2764,7 @@ def main(ctx: click.Context,
         print("\nPart I — every Gradle task a surface names is named by both")
         errors += check_gradle_task_parity()
         if not check_gradle_task_parity():
-            print("  ok  check.sh and ci.yml name the same Gradle tasks")
+            print("  ok  hk.pkl and ci.yml name the same Gradle tasks")
 
     if run_j:
         print("\nPart J — SCRIPT_GATES sabotage controls are consistent with _registry.GATES")

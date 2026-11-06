@@ -235,14 +235,7 @@ internal object TextFieldShapeScan {
      * The tree mirrors the packages, so the path *is* the name — no resolution
      * needed, and no need to believe Konsist's package resolution.
      */
-    private fun relativePath(file: KoFileDeclaration): String {
-        val normalizedRoot = CommonMainKonsistScope.commonMainRoot.replace('\\', '/').trimEnd('/')
-        val under = file.path.replace('\\', '/').removePrefix("$normalizedRoot/")
-        return under.removePrefix("$PACKAGE_PREFIX/")
-    }
-
-    /** The package every path in this scan is relative to. */
-    private const val PACKAGE_PREFIX = "com/singularity/todo"
+    private fun relativePath(file: KoFileDeclaration): String = CommonMainKonsistScope.packagePath(file.path)
 
     /** The same package, in the form a `package` declaration uses. */
     private const val ROOT_PACKAGE = "com.singularity.todo"

@@ -28,14 +28,15 @@ import kotlin.test.Test
  * This test needs a model, and a real one is not available: the JVM binds
  * [com.singularity.todo.feature.ai.KoogAgentService], which would reach for a
  * configured provider and — worse — leave a call in flight, so the Compose clock never
- * goes idle. The fake is bound in its place, and that binding is what makes the screen
+ * goes idle. The test substitutes a fake, and the substitution is what makes the screen
  * testable at all: the reply is instant and local.
  *
- * The screen is driven through [ChatScreenContent] rather than navigated to: the chat
- * route is not part of the app's navigation graph — `AppDestination.AiChat` exists and
- * the menu offers it, but no screen is bound to it — so there is no way into it from a
- * flow test. The content composable takes the ViewModel as a parameter, which is the
- * house pattern for exactly this case.
+ * The screen is driven through [ChatScreenContent] rather than by navigating to it: the
+ * content composable takes the ViewModel as a parameter, so a component test mounts the
+ * screen with a ViewModel it constructs itself — a fake model passed straight in and no
+ * Koin context to resolve. That is the house pattern for exactly this case. The route
+ * itself is bound in the app's navigation graph; reaching it from a flow test is separate
+ * work, not what this class is for.
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")

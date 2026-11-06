@@ -8,33 +8,28 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Нижняя граница площади касания контролов списка задач.
+ * Токен списка задач остаётся привязан к общему минимуму.
  *
- * Значение было поднято с `44.dp` до `48.dp` (минимум Material) в #1706.
- * Ничего не закрепляло число, поэтому его можно было сдвинуть молча —
- * тест делает границу проверяемой.
+ * `TaskListSizes.MinTouchTarget` — устаревший псевдоним `TouchTarget.MinSize`.
+ * Он сохранён, чтобы у списка задач оставалось имя для величины, которую читают его
+ * контролы, а этот тест не даёт псевдониму стать вторым, отдельно уходящим
+ * объявлением. Нижняя граница самого общего токена проверяется в пакете core UI
+ * (`TouchTargetTest`) — здесь живёт только сторона списка задач.
  */
 @Tag("fast")
+@Suppress("DEPRECATION")
 class TaskListSizesTouchTargetTest {
-    @Test
-    fun `minimum touch target of the task list is not below the Material minimum`() {
-        assertTrue(
-            TaskListSizes.MinTouchTarget >= 48.dp,
-            "TaskListSizes.MinTouchTarget = ${TaskListSizes.MinTouchTarget}, " +
-                "минимум Material — 48 dp",
-        )
-    }
-
     @Test
     fun `task list minimum touch target follows the shared touch target token`() {
         assertEquals(TouchTarget.MinSize, TaskListSizes.MinTouchTarget)
     }
 
     @Test
-    fun `shared touch target token is not below the Material minimum`() {
+    fun `task list minimum touch target is not below the Material minimum`() {
         assertTrue(
-            TouchTarget.MinSize >= 48.dp,
-            "TouchTarget.MinSize = ${TouchTarget.MinSize}, минимум Material — 48 dp",
+            TaskListSizes.MinTouchTarget >= 48.dp,
+            "TaskListSizes.MinTouchTarget = ${TaskListSizes.MinTouchTarget}, " +
+                "минимум Material — 48 dp",
         )
     }
 }

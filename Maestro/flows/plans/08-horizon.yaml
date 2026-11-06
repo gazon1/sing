@@ -22,8 +22,11 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Due%20in%2045%20days&due=%2B45d"
-- tapOn:
-    id: nav_tab_plans
+- runFlow:
+    file: ../../helpers/open-menu-item.yaml
+    env:
+      ENTRY_ID: menu_plans
+      DEST_ID: plans_screen
 # The day horizon is thirty days: the distant task is not in it.
 - runFlow:
     file: ../../helpers/plans-section.yaml

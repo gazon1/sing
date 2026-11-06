@@ -106,7 +106,8 @@ three entries ago.
 
 **The upsert is the honest operation for a payload.** A payload says what is there.
 Merging two payloads by row identity is the only merge that composes: base + delta1
-+ delta2 is the same as base + merge(delta1, delta2), and the order the entries are
+
+- delta2 is the same as base + merge(delta1, delta2), and the order the entries are
 applied in does not change the outcome as long as the later ones win.
 
 **A removal is worth a snapshot.** A deletion that cannot be expressed cheaply is a

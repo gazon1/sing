@@ -8,6 +8,7 @@ status: accepted
 ## Context
 
 Desktop JVM-only chrome needed two features:
+
 1. **Context menu** — right-click on a task list item with 28 items matching TickTick reference,
    dark theme, nested submenus, hover delay.
 2. **Window MenuBar** — File / Edit / View / Help top-level menu with minimal items
@@ -21,14 +22,17 @@ different renderers: `Popup`-based context menu vs `MenuBar`-based application m
 Introduce a single generic `MenuNode` sealed class in `commonMain` that models any menu tree.
 A `MenuNodesBuilder` DSL (with `@DslMarker MenuDsl`) builds immutable `List<MenuNode>`.
 Platform-specific renderers in `jvmMain`:
+
 - `ContextMenuHost` — wraps a `Popup` with `MenuPanel` for the context menu
 - `MenuBarHost` — wraps Material 2 `MenuBar` for the application menu (currently a stub)
 
 Feature-specific code builds the concrete menu in `commonMain` (pure Kotlin, no Compose):
+
 - `TaskMenuActions` data class — callbacks for wired actions
 - `buildTaskContextMenu(taskUi, hasAiContext, actions)` — 28-item TickTick menu
 
 Secondary click detection uses `Modifier.onSecondaryClick` via expect/actual:
+
 - `commonMain/SecondaryClick.kt` — expect declaration
 - `jvmMain/SecondaryClick.jvm.kt` — actual using `onPointerEvent(PointerEventType.Press)`
 - `androidMain/SecondaryClick.android.kt` — no-op actual

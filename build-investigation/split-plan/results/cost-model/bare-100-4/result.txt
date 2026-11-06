@@ -1,0 +1,22 @@
+module=module
+task=:module:compileKotlinJvm
+strategy=in-process
+commit=a9f630f5d6cd09308a5e1182fe0d104c662ee495
+patch=
+gradle_exit=0
+task_s=1.816
+wall_ms=2357
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+  Classpath changes info passed from Gradle task: NoChanges
+  Non-incremental compilation will be performed: Incremental compilation might be incorrect (KT-62686)
+  Finished executing kotlin compiler using IN_PROCESS strategy
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+--- tasks executed ---
+> Task :module:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :module:compileKotlinJvm
+> Task :module:kmpPartiallyResolvedDependenciesChecker
+--- host ---
+before loadavg=2.40 2.85 2.10 cpu_pressure=some avg10=0.00 avg60=0.02 avg300=0.05 total=1061057065;full avg10=0.00 avg60=0.00 avg300=0.00 total=0; gradle_daemons=3 kotlin_daemons=0
+0
+after loadavg=2.52 2.87 2.11 cpu_pressure=some avg10=0.14 avg60=0.05 avg300=0.05 total=1061062090;full avg10=0.00 avg60=0.00 avg300=0.00 total=0; gradle_daemons=3 kotlin_daemons=0
+0

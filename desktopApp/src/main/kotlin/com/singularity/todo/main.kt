@@ -1,6 +1,8 @@
 package com.singularity.todo
 
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.window.singleWindowApplication
 import androidx.navigation3.runtime.deeplink.DeepLinkRequest
 import co.touchlab.kermit.Logger
@@ -27,22 +29,39 @@ import com.singularity.todo.feature.reminders.JvmReminderRearm
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.usecase.RepairRecurringSeriesUseCase
+import com.singularity.todo.mcp.ToolServerKoinStartup
 import com.singularity.todo.mcp.runToolServer
+import com.singularity.todo.mcp.toolServerModules
+import com.singularity.todo.shell.LocalWindowCloseRequest
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import okio.Path
 import okio.Path.Companion.toPath
 import org.koin.core.Koin
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
+import java.awt.event.WindowEvent
 import java.io.File
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 
 private const val RELEASES_URL = "https://github.com/singularity-todo/singularity/releases"
+
+/**
+ * The composition root of the tool-server mode.
+ *
+ * The GUI starts its own container further down; the server mode is a different process
+ * job and starts the set the server needs. Both are launchers, so neither belongs in the
+ * shared library.
+ */
+private val ToolServerKoin =
+    ToolServerKoinStartup { fixedProfileId ->
+        startKoin {
+            modules(toolServerModules(fixedProfileId))
+        }
+    }
 
 /**
  * Desktop entry point, and the fire executor a `systemd --user` reminder unit invokes.
@@ -81,7 +100,7 @@ fun main(args: Array<String>) {
     // happen on every machine where nobody remembered to install it.
     if (args.any { it == McpServerCommandProvider.TOOL_SERVER_FLAG }) {
         prepareDataDirectory()
-        runToolServer(args)
+        runToolServer(args, ToolServerKoin)
         return
     }
 
@@ -158,9 +177,20 @@ fun main(args: Array<String>) {
         // Surface is the root visual container for the window content.
         // LocalDesktopImageLoader() sets Coil bitmap cache to 10% of heap
         // (default is 25%), saving ~80 MB on a 512 MB heap.
-        Surface {
-            LocalDesktopImageLoader()
-            App(deepLinkTarget = resolveDeepLinkTarget(args))
+        //
+        // The close request is the window's own (#1523): a Back with nothing left to pop
+        // in the shell asks for this, so it takes exactly the path the close button takes
+        // and anything the window manager runs on a close still runs. `remember`ed because
+        // a fresh lambda per recomposition would invalidate every reader of the local.
+        val closeWindow =
+            remember(window) {
+                { window.dispatchEvent(WindowEvent(window, WindowEvent.WINDOW_CLOSING)) }
+            }
+        CompositionLocalProvider(LocalWindowCloseRequest provides closeWindow) {
+            Surface {
+                LocalDesktopImageLoader()
+                App(deepLinkTarget = resolveDeepLinkTarget(args))
+            }
         }
     }
 }

@@ -10,6 +10,7 @@ Cycle detection validates that adding a dependency or setting a parent does not 
 ## The Problem
 
 When tasks have `dependsOn: Set<TaskId>`, setting `taskB.dependsOn = {taskA}` is valid, but setting `taskA.dependsOn = {taskB}` creates a cycle (A→B→A). The same applies to:
+
 - Subtasks: parent ↔ child
 - Projects: parent ↔ child project
 - Notes folders: parent ↔ child folder
@@ -38,6 +39,7 @@ class CycleDetector {
 ```
 
 **Key properties:**
+
 - Returns `Result<Unit, CycleError>` — caller decides how to handle the error
 - `SelfLoop` — node points to itself (`A → A`)
 - `PathBased(path)` — a path of length ≥2 exists, described by the path of node IDs

@@ -165,7 +165,7 @@ class SourceTableNamesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             write(
-                root / 'shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskEntity.kt',
+                root / 'core-database/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskEntity.kt',
                 '@Entity(tableName = "tasks")\nclass TaskEntity\n',
             )
             self.assertEqual(mod.source_table_names(root), {'tasks'})
@@ -173,7 +173,7 @@ class SourceTableNamesTest(unittest.TestCase):
     def test_multiple_files_union(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            base = root / 'shared/src/commonMain/kotlin/com/singularity/todo'
+            base = root / 'core-database/src/commonMain/kotlin/com/singularity/todo'
             write(base / 'a/TaskEntity.kt', '@Entity(tableName = "tasks")\n')
             write(base / 'b/SyncShadowEntity.kt', '@Entity(tableName = "sync_shadow")\n')
             self.assertEqual(mod.source_table_names(root), {'tasks', 'sync_shadow'})
@@ -230,12 +230,12 @@ class ColumnsAgreeTest(unittest.TestCase):
 
     def _tree(self, entity_source: str, fields: list[dict]) -> pathlib.Path:
         root = pathlib.Path(self.enterContext(tempfile.TemporaryDirectory()))
-        schema_dir = root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase'
+        schema_dir = root / 'core-database/schemas/com.singularity.todo.core.database.AppDatabase'
         schema_dir.mkdir(parents=True)
         (schema_dir / '6.json').write_text(json.dumps({
             'database': {'version': 6, 'entities': [{'tableName': 'tasks', 'fields': fields}]}
         }))
-        source_dir = root / 'shared/src/commonMain/kotlin/com/singularity/todo/core/database'
+        source_dir = root / 'core-database/src/commonMain/kotlin/com/singularity/todo/core/database'
         source_dir.mkdir(parents=True)
         (source_dir / 'TaskEntity.kt').write_text(entity_source)
         return root
@@ -246,7 +246,7 @@ class ColumnsAgreeTest(unittest.TestCase):
             [{'columnName': 'id', 'affinity': 'TEXT'}],
         )
         found = mod.check_columns_agree(
-            root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
+            root / 'core-database/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
         )
         self.assertEqual([str(v) for v in found], [])
 
@@ -257,7 +257,7 @@ class ColumnsAgreeTest(unittest.TestCase):
             [{'columnName': 'id', 'affinity': 'TEXT'}],
         )
         found = mod.check_columns_agree(
-            root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
+            root / 'core-database/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
         )
         self.assertEqual([v.rule for v in found], ['columns-agree'])
         self.assertIn('title', str(found[0]))
@@ -267,10 +267,10 @@ class ColumnsAgreeTest(unittest.TestCase):
             '@Entity(tableName = "tasks")\nclass TaskEntity(val id: String)\n',
             [{'columnName': 'id', 'affinity': 'TEXT'}],
         )
-        other = root / 'shared/src/commonMain/kotlin/com/singularity/todo/core/database/Ghost.kt'
+        other = root / 'core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Ghost.kt'
         other.write_text('@Entity(tableName = "ghosts")\nclass GhostEntity(val id: String)\n')
         found = mod.check_columns_agree(
-            root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
+            root / 'core-database/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
         )
         self.assertEqual([v.rule for v in found], ['columns-agree'])
         self.assertIn('ghosts', str(found[0]))
@@ -281,7 +281,7 @@ class ColumnsAgreeTest(unittest.TestCase):
             [{'columnName': 'id', 'affinity': 'TEXT'}, {'columnName': 'ghost', 'affinity': 'TEXT'}],
         )
         found = mod.check_columns_agree(
-            root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
+            root / 'core-database/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
         )
         self.assertEqual([v.rule for v in found], ['columns-agree'])
         self.assertIn('ghost', str(found[0]))
@@ -293,7 +293,7 @@ class ColumnsAgreeTest(unittest.TestCase):
             [{'columnName': 'id', 'affinity': 'TEXT'}],
         )
         found = mod.check_columns_agree(
-            root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
+            root / 'core-database/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
         )
         self.assertEqual([v.rule for v in found], ['columns-agree'])
 
@@ -502,7 +502,7 @@ class RealTreeTest(unittest.TestCase):
         self.assertEqual([str(v) for v in found], [], f'gate reports violations on the real tree: {found}')
 
     def test_repository_head_matches_its_exports(self):
-        source = (mod.ROOT / 'shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt').read_text()
+        source = (mod.ROOT / 'core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt').read_text()
         version = mod.parse_schema_version(source)
         exports = mod.exported_versions(mod.SCHEMA_DIR)
         self.assertIsNotNone(version)

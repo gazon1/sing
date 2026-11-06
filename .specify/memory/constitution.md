@@ -41,6 +41,7 @@ Non-zero exit = broken contract. Fix before proceeding.
 Accepted ADRs are **never edited**. Changes create new ADRs with `supersedes` links.
 
 To revisit a decision:
+
 1. Create a new ADR with Status: `accepted, supersedes NNNN`
 2. Do NOT touch the prior ADR file
 
@@ -112,14 +113,14 @@ into a principle.
 
 ## Decision Criteria
 
-### An ADR IS required when:
+### An ADR IS required when
 
 - Architectural pattern change (DI, navigation, data layer)
 - New cross-cutting concern
 - External dependency upgrade with behavioral change
 - Deprecation of existing capability
 
-### An ADR is NOT required for:
+### An ADR is NOT required for
 
 - Bug fixes with no behavior change
 - Test-only changes

@@ -36,12 +36,8 @@ class ArchitectureTest {
          * packages in commonMain, so this is deterministic and needs no extra API).
          */
         private fun KoFileDeclaration.packageName(): String {
-            val normalizedPath = path.replace('\\', '/')
-            val normalizedRoot = CommonMainKonsistScope.commonMainRoot.replace('\\', '/').trimEnd('/')
-            return normalizedPath
-                .removePrefix("$normalizedRoot/")
-                .substringBeforeLast('/')
-                .replace('/', '.')
+            val packagePath = CommonMainKonsistScope.sourcePath(path).substringBeforeLast('/', "")
+            return if (packagePath.isEmpty()) PKG else packagePath.replace('/', '.')
         }
 
         /** File name including extension, for rules that key on the file rather than the package. */
@@ -57,11 +53,7 @@ class ArchitectureTest {
          * This is what allowlists key on, so an entry names one file rather than
          * every file that happens to share a base name.
          */
-        private fun relativePath(file: KoFileDeclaration): String {
-            val normalizedRoot = CommonMainKonsistScope.commonMainRoot.replace('\\', '/').trimEnd('/')
-            val under = file.path.replace('\\', '/').removePrefix("$normalizedRoot/")
-            return under.substringAfter("/kotlin/").ifEmpty { under }
-        }
+        private fun relativePath(file: KoFileDeclaration): String = CommonMainKonsistScope.sourcePath(file.path)
 
         private fun KoFileDeclaration.importFqns(): List<String> = imports.map { it.name }
 

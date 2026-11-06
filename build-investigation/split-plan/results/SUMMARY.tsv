@@ -1,0 +1,7 @@
+run	strategy	commit	task_s	wall_ms	gradle_exit	non_incremental	load1
+p0-in-process-1	in-process	2b4cf8318	56.910	57885	0	1	1.62
+p0-in-process-2	in-process	2b4cf8318	60.055	61383	0	1	9.00
+p0-in-process-3	in-process	2b4cf8318	56.840	58061	0	1	9.48
+p0-in-process-4	in-process	2b4cf8318	62.403	63685	0	1	8.87
+p0-in-process-5	in-process	2b4cf8318	62.161	63260	0	1	9.84
+p0-in-process-6	in-process	2b4cf8318	58.798	60034	0	1	9.08

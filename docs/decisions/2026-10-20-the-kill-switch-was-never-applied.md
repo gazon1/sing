@@ -33,7 +33,7 @@ companion?.getDeclaredField("NAME")?.apply { isAccessible = true }?.get(null) as
     ?: clazz.getDeclaredField("NAME").apply { isAccessible = true }.get(null) as? String
 ```
 
-The `?: ` fallback looks like it covers a missing field on the companion. It does not:
+The `?:` fallback looks like it covers a missing field on the companion. It does not:
 `getDeclaredField` on a class that has no such field **throws**
 `NoSuchFieldException`, and the throw happened *before* the fallback could run. The
 enclosing `catch (e: Throwable) { null }` turned it into a quiet `null`.
@@ -80,14 +80,14 @@ the actual cause was found.
 
 **B**, now — with the test that found it kept as the gate.
 
-* `toolId()` looks in **both** places: the companion first, then the class itself, and a
+- `toolId()` looks in **both** places: the companion first, then the class itself, and a
   miss in one place ends neither the search nor the function. Each lookup is guarded
   separately, so a field that cannot be opened is a `null` for that place only.
-* The ID is pinned by `AiToolFiltersTest`, with a tool class of **each** shape — one
+- The ID is pinned by `AiToolFiltersTest`, with a tool class of **each** shape — one
   declared at the top level of the file, one nested inside the test class. The two shapes
   are indistinguishable in the source of the tool, and only the bytecode differs, so a
   test that covers one of them leaves the other silently unprotected.
-* The MCP-side test keeps its own claim: a switched-off tool is not registered at all,
+- The MCP-side test keeps its own claim: a switched-off tool is not registered at all,
   and the snapshot names it as disabled.
 
 C was not taken now. It is the better shape, and it removes a reflection from a hot

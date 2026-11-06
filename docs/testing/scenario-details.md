@@ -1674,6 +1674,21 @@ Steps:
 
 **Expected:** The chip swaps from Start to Stop in place while the timer is running, and returns to Start when stopped. No crash occurs across the state transitions. (A signed-in session is required; anonymous or dev sessions show an error state instead of the Start chip.)
 
+#### `TASK-18` — FAB from Upcoming tab does NOT pre-fill a due date
+
+**confirmed** · P1 · `#TASK`
+
+**Given:** The app is on the Upcoming agenda tab.
+
+Steps:
+
+1. Verify the "Add task" FAB is visible on the Upcoming tab.
+2. Tap the FAB to open the task composer.
+3. Enter a title and save.
+4. Open the Inbox tab and look for the saved task.
+
+**Expected:** The task composer opens with no due date prefilled, so the saved task is undated: it appears in the Inbox tab's "No Date" section, not in a dated section of the Upcoming tab.
+
 #### `TASK-CHECK-01` — Add a checklist item to a task
 
 **confirmed** · P1 · `#TASK-CHECK`

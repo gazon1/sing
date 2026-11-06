@@ -104,6 +104,7 @@ Done in `bb7c270`.
 ### Phase 7 — Pure-logic tests
 
 New tests added:
+
 - `EitherTest` — 11 tests for `Either`, `fold`, `getOrElse`, `map`, `mapError`, `toResult`.
 - `BackupOptionsTest` — 5 tests for DSL builders and `BackupId.fromPath`.
 - `BackupFileNamerTest` — 3 tests for `DefaultBackupFileNamer`.
@@ -115,19 +116,23 @@ Total new tests: **~30**. Existing `BackupDomainTest` (commonTest) already had 9
 ## Remaining Work (non-blocking)
 
 ### A. Full `kotlin.time.Instant` UI migration
+
 - 11 deprecation warnings remain in UI display files
 - Requires adding `kotlinx.datetime` dependency to UI layer OR creating `DateTimeFormatter` helpers
 - Estimated: 1 day, low value
 
 ### B. `@IntoSet` for AI tools
+
 - 30-line `listOf(get<X>()...)` could be replaced with `@IntoSet factory`
 - Estimated: half-day, moderate value
 
 ### C. Parallel `MutableStateFlow` unification in VMs
+
 - NotesViewModel, TasksViewModel, SearchViewModel could derive single `StateFlow`
 - High risk to public API — deferred
 
 ### D. New DSLs (SearchFilters, SettingsUpdate, Profile, Prompt)
+
 - Would require significant new code
 - Low-priority at this stage
 

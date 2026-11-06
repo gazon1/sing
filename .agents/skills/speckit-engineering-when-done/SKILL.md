@@ -49,6 +49,7 @@ Categorize each finding:
 Fix only `critical` findings in this step. Record non-critical findings for later.
 
 For each fix:
+
 - Create or update the relevant artifact in `openspec/changes/<slug>/`
 - If the fix requires a new skill or skill update, note it for step 3
 

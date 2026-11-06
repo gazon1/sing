@@ -19,6 +19,7 @@ User discards → DraftStore.clear()
 ## When to use
 
 Add State Restoration when:
+
 - A screen has editable fields (title, description, priority, etc.)
 - The user can navigate away and return (or the process dies)
 - Losing the user's input would be a poor experience
@@ -106,7 +107,7 @@ class FakeDraftStore : DraftStore {
 
 ## 2. StableJson — centralized serialization config
 
-**Location:** `shared/src/commonMain/kotlin/com/singularity/todo/core/serialization/StableJson.kt`
+**Location:** `core-domain/src/commonMain/kotlin/com/singularity/todo/core/serialization/StableJson.kt`
 
 All JSON encoding/decoding goes through this single config:
 

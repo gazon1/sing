@@ -5,7 +5,7 @@ Gate: fails if the sync field lists and the server's field table disagree.
 Two things are checked, and both are about the same contract — the names a
 document may carry, and the names the server may write.
 
-1. The generated seed (`supabase/sync_field_allowlist_seed.sql`) is what the
+1. The generated seed (`infra/supabase/sync_field_allowlist_seed.sql`) is what the
    generator produces from the derived lists. The generator reads
    `config/docs/sync-field-allowlist.json`, which is the projection of the
    models' own field names — see `:shared:exportSyncFieldAllowlist`.
@@ -219,9 +219,9 @@ if _SCRIPTS_SRC not in sys.path:
 from sgate.commands.base import CLEAN, VALIDATION_FAILURE, run
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-OUTPUT_FILE = os.path.join(ROOT, "supabase/sync_field_allowlist_seed.sql")
+OUTPUT_FILE = os.path.join(ROOT, "infra/supabase/sync_field_allowlist_seed.sql")
 EXPORT_FILE = os.path.join(ROOT, "config/docs/sync-field-allowlist.json")
-MIGRATIONS_DIR = os.path.join(ROOT, "supabase/migrations")
+MIGRATIONS_DIR = os.path.join(ROOT, "infra/supabase/migrations")
 GEN_SCRIPT = os.path.join(ROOT, "infra/gen_sync_allowlist_sql.py")
 
 #: The name of the table this gate is about, and the schema the migrations
@@ -500,7 +500,7 @@ def migrations() -> list[str]:
 
     Every `.sql` in the migrations directory is a migration — the directory is
     where the deploy tooling looks for them, so a file there is one. The
-    generated description of the table — `supabase/sync_field_allowlist_seed.sql`
+    generated description of the table — `infra/supabase/sync_field_allowlist_seed.sql`
     — is not a migration and does not live here: a file that says what the
     table holds is not something to apply. It sits one directory up, next to
     the migrations, and the gate reads it as the description it is.

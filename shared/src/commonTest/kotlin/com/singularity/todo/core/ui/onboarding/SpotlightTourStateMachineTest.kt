@@ -141,6 +141,31 @@ class SpotlightTourStateMachineTest {
     }
 
     @Test
+    fun `the advance that ends the tour says so, so the caller can record it`() {
+        val machine = SpotlightTourStateMachine(steps())
+        val anchors =
+            mapOf(
+                SpotlightAnchorId.SavedViews to bounds(),
+                SpotlightAnchorId.SaveCurrent to bounds(),
+            )
+        machine.startIfEligible(alreadySeen = false, force = false, anchors = anchors)
+
+        assertEquals(false, machine.advance(anchors), "moving to the next step is not the end")
+        assertEquals(true, machine.advance(anchors), "there is nothing after the last step")
+    }
+
+    @Test
+    fun `advancing while not running does not claim to have ended the tour`() {
+        val machine = SpotlightTourStateMachine(steps())
+
+        assertEquals(
+            false,
+            machine.advance(mapOf(SpotlightAnchorId.SavedViews to bounds())),
+            "a tour that is not on screen cannot be finished by advancing it",
+        )
+    }
+
+    @Test
     fun `every shipped step points at an anchor the app actually registers`() {
         // A step whose anchor nothing registers is skipped forever, so it would be a
         // step the user can never see and nobody would notice.

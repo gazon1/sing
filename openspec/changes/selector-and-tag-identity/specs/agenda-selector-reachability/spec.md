@@ -41,5 +41,5 @@ them. The original backlog entry recorded all five as reachable; three are.
 - **Given** a template whose parameters are not a multi-select
 - **When** the configurator opens it
 - **Then** it uses a control matching the parameter shape — a text field for a
-      pattern, a from/to pair for a date range
+  pattern, a from/to pair for a date range
 - **And** it does not open a multi-select over values that do not exist

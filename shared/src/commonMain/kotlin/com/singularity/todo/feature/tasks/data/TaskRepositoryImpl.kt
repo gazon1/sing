@@ -152,8 +152,13 @@ class TaskRepositoryImpl(
                         taskDao.watchSomeday(uid.value)
                     }
 
-                    is TaskFilter.Inbox -> {
-                        taskDao.watchActive(uid.value)
+                    is TaskFilter.NotDeferred -> {
+                        // The name is the rule: not in the trash, not deferred. The
+                        // query says the same, so a reader does not have to be told
+                        // not to trust the name. `All` is the wider question and keeps
+                        // `watchActive`; if this read went back to `watchActive` the
+                        // two filters would answer one question under two names.
+                        taskDao.watchNotDeferred(uid.value)
                     }
 
                     is TaskFilter.Trash -> {

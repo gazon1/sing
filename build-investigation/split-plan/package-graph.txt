@@ -1,0 +1,864 @@
+# packages=243 files=1967 edges=1696 cycles=1
+# edges come from production imports only
+
+# in	out	files	lines	package
+83	16	11	564	com.singularity.todo.feature.tasks.domain.model
+71	0	5	375	com.singularity.todo.core.error
+69	5	17	2705	com.singularity.todo.core.ui
+59	0	1	19	com.singularity.todo.core.ids
+50	15	9	1340	com.singularity.todo.feature.profile
+45	1	2	52	com.singularity.todo.feature.projects.domain.model
+43	7	43	3803	com.singularity.todo.core.ui.components
+40	3	10	744	com.singularity.todo.core.observability
+38	0	5	420	com.singularity.todo.core.coroutines
+36	2	1	39	com.singularity.todo.core.ui.preview
+33	13	4	546	com.singularity.todo.feature.tags
+29	1	6	501	com.singularity.todo.core.ui.text
+28	5	6	522	com.singularity.todo.feature.notes
+27	0	1	37	com.singularity.todo.core.platform
+26	5	2	305	com.singularity.todo.feature.tasks.domain.port
+25	0	2	58	com.singularity.todo.core.text
+23	12	12	1673	com.singularity.todo.core.settings
+22	14	32	2432	com.singularity.todo.feature.nav
+22	9	15	2099	com.singularity.todo.feature.tasks.domain.logic
+18	2	3	196	com.singularity.todo.core.repository
+18	4	2	104	com.singularity.todo.core.search
+18	20	40	5524	com.singularity.todo.core.sync
+18	2	2	172	com.singularity.todo.feature.projects.domain.port
+18	0	1	26	com.singularity.todo.feature.tags.domain.model
+17	6	7	599	com.singularity.todo.core.refresh
+17	14	13	1302	com.singularity.todo.feature.reminders
+16	6	7	571	com.singularity.todo.core.attachments
+16	13	6	267	com.singularity.todo.feature.agenda
+15	8	15	2876	com.singularity.todo.core.auth
+15	1	9	750	com.singularity.todo.core.llm
+15	1	4	596	com.singularity.todo.core.ui.textfields
+15	6	7	617	com.singularity.todo.feature.agenda.domain.model
+14	13	2	302	com.singularity.todo.preview
+12	0	1	11	com.singularity.todo.core.reminders
+12	1	5	479	com.singularity.todo.core.ui.theme
+12	4	1	198	com.singularity.todo.feature.notes.domain.port
+11	1	24	1404	com.singularity.todo.core.files
+11	0	1	42	com.singularity.todo.feature.checklist
+11	1	6	974	com.singularity.todo.feature.genui.catalog
+11	2	1	127	com.singularity.todo.feature.timetracking.domain.port
+10	2	1	37	com.singularity.todo.feature.profile.domain.port
+9	2	8	1028	com.singularity.todo.core.ui.components.sheet
+9	2	7	351	com.singularity.todo.feature.calendarSync.domain.model
+9	3	1	160	com.singularity.todo.feature.proposals.domain.port
+9	4	2	152	com.singularity.todo.feature.reminders.domain.port
+9	9	2	324	com.singularity.todo.feature.tasks.domain
+9	12	10	895	com.singularity.todo.feature.tasks.domain.state
+8	1	7	431	com.singularity.todo.core.schedule
+8	4	10	1187	com.singularity.todo.core.security
+8	0	3	76	com.singularity.todo.core.version
+8	1	5	318	com.singularity.todo.feature.calendarSync.domain.port
+8	1	1	48	com.singularity.todo.feature.checklist.domain.port
+8	7	6	551	com.singularity.todo.feature.genui.render
+8	1	4	107	com.singularity.todo.feature.plans.domain.model
+8	1	1	64	com.singularity.todo.feature.tags.domain.port
+8	15	13	1466	com.singularity.todo.feature.tasks.domain.usecase
+8	14	7	864	com.singularity.todo.feature.tasks.presentation.components
+7	4	3	467	com.singularity.todo.core.config
+7	1	4	160	com.singularity.todo.core.tasks
+7	6	3	674	com.singularity.todo.feature.agenda.domain.logic
+7	3	2	71	com.singularity.todo.feature.agenda.domain.port
+7	1	4	93	com.singularity.todo.feature.calendar.domain.model
+7	4	3	255	com.singularity.todo.feature.genui.surface
+6	0	1	47	com.singularity.todo.core.datastore
+6	3	4	250	com.singularity.todo.core.draft
+6	4	13	777	com.singularity.todo.core.log
+6	4	10	632	com.singularity.todo.core.notifications
+6	14	17	2902	com.singularity.todo.feature.auth
+6	6	22	1907	com.singularity.todo.feature.calendarSync.auth
+6	7	7	517	com.singularity.todo.feature.calendarSync.data
+6	0	5	118	com.singularity.todo.feature.calendarSync.error
+6	1	3	442	com.singularity.todo.feature.genui.schema
+6	4	4	99	com.singularity.todo.feature.nav.deeplink
+6	9	10	1103	com.singularity.todo.feature.pomodoro
+6	1	1	95	com.singularity.todo.feature.tasks.presentation.model
+5	5	3	340	com.singularity.todo.core.attachments.annotation
+5	13	50	7052	com.singularity.todo.core.backup
+5	1	2	323	com.singularity.todo.core.ui.featureSlot
+5	3	7	882	com.singularity.todo.core.ui.onboarding
+5	6	5	702	com.singularity.todo.feature.agenda.domain.selector
+5	13	10	743	com.singularity.todo.feature.agenda.presentation.nav
+5	11	8	909	com.singularity.todo.feature.ai
+5	24	45	4508	com.singularity.todo.feature.ai.tools
+5	3	2	299	com.singularity.todo.feature.calendar.domain.logic
+5	4	3	394	com.singularity.todo.feature.genui.parser
+5	1	1	19	com.singularity.todo.feature.plans.domain.port
+5	4	5	315	com.singularity.todo.feature.projects.presentation.nav
+5	27	7	1646	com.singularity.todo.feature.projects.presentation.viewmodel
+5	2	3	456	com.singularity.todo.feature.proposals.domain.logic
+5	16	5	1525	com.singularity.todo.feature.proposals.domain.usecase
+5	5	2	81	com.singularity.todo.feature.search.domain.port
+4	1	3	199	com.singularity.todo.core.appearance
+4	0	2	587	com.singularity.todo.core.process
+4	2	8	851	com.singularity.todo.core.ui.menu
+4	1	1	20	com.singularity.todo.feature.archive.domain.port
+4	4	3	165	com.singularity.todo.feature.calendar.domain.state
+4	13	7	1374	com.singularity.todo.feature.calendarSync.sync
+4	5	14	1841	com.singularity.todo.feature.genui.core
+4	6	2	101	com.singularity.todo.feature.genui.render.material3
+4	7	4	238	com.singularity.todo.feature.projects.domain.usecase
+4	3	1	78	com.singularity.todo.feature.projects.presentation.model
+4	12	7	845	com.singularity.todo.feature.proposals.presentation
+4	1	2	43	com.singularity.todo.feature.search.domain
+4	5	18	2241	com.singularity.todo.feature.search.query
+4	7	3	170	com.singularity.todo.feature.tags.domain.usecase
+4	8	7	1102	com.singularity.todo.feature.tasks.presentation.components.list
+4	8	5	311	com.singularity.todo.feature.tasks.presentation.nav
+4	0	1	53	com.singularity.todo.feature.timetracking.domain.model
+3	2	5	500	com.singularity.todo.core.ai
+3	1	1	191	com.singularity.todo.core.mcp
+3	0	3	106	com.singularity.todo.core.network
+3	0	3	68	com.singularity.todo.core.platform.haptics
+3	23	6	1676	com.singularity.todo.feature.agenda.presentation.viewmodel
+3	2	1	193	com.singularity.todo.feature.ai.use_cases
+3	7	4	349	com.singularity.todo.feature.attachments
+3	5	9	1337	com.singularity.todo.feature.calendarSync.domain.logic
+3	10	8	630	com.singularity.todo.feature.calendarSync.work
+3	15	4	659	com.singularity.todo.feature.profile.presentation
+3	7	7	455	com.singularity.todo.feature.projects.domain.state
+3	0	2	134	com.singularity.todo.feature.projects.presentation.theme
+3	8	1	281	com.singularity.todo.feature.proposals.data
+3	2	1	302	com.singularity.todo.feature.proposals.presentation.components
+3	28	4	1290	com.singularity.todo.feature.search
+3	31	4	1120	com.singularity.todo.feature.settings
+3	7	1	128	com.singularity.todo.feature.tags.presentation.viewmodel
+3	3	1	215	com.singularity.todo.feature.tasks
+3	3	4	276	com.singularity.todo.feature.tasks.presentation.theme
+3	16	3	1084	com.singularity.todo.feature.tasks.presentation.viewmodel
+3	21	13	1892	com.singularity.todo.feature.tasks.presentation.viewmodel.slot
+3	5	1	160	com.singularity.todo.feature.timetracking.data
+2	1	9	497	com.singularity.todo.core.auth.oauth
+2	98	24	3610	com.singularity.todo.core.di
+2	4	4	268	com.singularity.todo.core.sync.work
+2	1	1	98	com.singularity.todo.core.transport
+2	2	1	108	com.singularity.todo.core.ui.celebration
+2	13	3	252	com.singularity.todo.core.wipe
+2	6	11	1193	com.singularity.todo.core.work
+2	4	9	1983	com.singularity.todo.feature.ai.acp
+2	16	4	1396	com.singularity.todo.feature.ai.chat
+2	4	1	199	com.singularity.todo.feature.ai.data
+2	15	5	1751	com.singularity.todo.feature.ai.external
+2	0	1	279	com.singularity.todo.feature.ai.prompts
+2	2	1	117	com.singularity.todo.feature.ai.ui
+2	7	2	332	com.singularity.todo.feature.ai.usage
+2	4	3	226	com.singularity.todo.feature.alarms
+2	15	3	382	com.singularity.todo.feature.archive
+2	12	2	752	com.singularity.todo.feature.attachments.annotation
+2	11	7	1580	com.singularity.todo.feature.backup
+2	6	8	1479	com.singularity.todo.feature.calendar.presentation.components.calendar
+2	3	4	178	com.singularity.todo.feature.calendar.presentation.nav
+2	9	2	285	com.singularity.todo.feature.calendar.presentation.screen
+2	0	1	83	com.singularity.todo.feature.calendar.presentation.theme
+2	11	2	311	com.singularity.todo.feature.calendar.presentation.viewmodel
+2	15	3	1966	com.singularity.todo.feature.calendarSync.presentation
+2	1	1	31	com.singularity.todo.feature.gate.domain.state
+2	7	1	228	com.singularity.todo.feature.gate.presentation.viewmodel
+2	4	3	435	com.singularity.todo.feature.genui.engine
+2	3	3	516	com.singularity.todo.feature.genui.function
+2	1	1	38	com.singularity.todo.feature.notes.domain
+2	3	1	172	com.singularity.todo.feature.notes.domain.editor
+2	0	1	46	com.singularity.todo.feature.notes.domain.logic
+2	2	1	45	com.singularity.todo.feature.notes.presentation
+2	4	4	207	com.singularity.todo.feature.notes.presentation.nav
+2	20	6	1501	com.singularity.todo.feature.notes.presentation.viewmodel
+2	11	5	248	com.singularity.todo.feature.plans.presentation.viewmodel
+2	4	1	101	com.singularity.todo.feature.projects.domain
+2	13	20	1579	com.singularity.todo.feature.projects.presentation.components
+2	6	4	155	com.singularity.todo.feature.search.presentation.nav
+2	2	3	131	com.singularity.todo.feature.settings.presentation.nav
+2	18	4	1051	com.singularity.todo.feature.statistics
+2	7	3	580	com.singularity.todo.feature.sync.presentation
+2	10	2	582	com.singularity.todo.feature.tags.components
+2	3	1	93	com.singularity.todo.feature.tags.domain
+2	5	2	568	com.singularity.todo.feature.timetracking.presentation.components
+2	1	1	49	com.singularity.todo.feature.whatsnew.presentation
+1	1	1	26	com.singularity.todo.core.appearance.di
+1	2	2	246	com.singularity.todo.core.tree
+1	0	1	74	com.singularity.todo.core.ui.debounce
+1	1	5	237	com.singularity.todo.core.ui.detail
+1	7	2	198	com.singularity.todo.feature.agenda.data
+1	6	2	301	com.singularity.todo.feature.agenda.presentation.components
+1	28	7	2601	com.singularity.todo.feature.agenda.presentation.screen
+1	5	1	29	com.singularity.todo.feature.ai.di
+1	5	1	58	com.singularity.todo.feature.archive.data
+1	8	1	282	com.singularity.todo.feature.attachments.components
+1	6	4	895	com.singularity.todo.feature.attachments.viewer
+1	7	2	898	com.singularity.todo.feature.auth.presentation
+1	6	2	553	com.singularity.todo.feature.calendarSync.data.google
+1	11	1	245	com.singularity.todo.feature.calendarSync.di
+1	0	3	125	com.singularity.todo.feature.calendarSync.permission
+1	7	2	342	com.singularity.todo.feature.checklist.components
+1	5	1	169	com.singularity.todo.feature.checklist.data
+1	2	1	149	com.singularity.todo.feature.gate.presentation.screen
+1	7	1	45	com.singularity.todo.feature.genui.di
+1	6	1	221	com.singularity.todo.feature.genui.render.app
+1	7	5	293	com.singularity.todo.feature.genui.render.material3.atoms
+1	4	4	205	com.singularity.todo.feature.genui.render.material3.input
+1	3	5	111	com.singularity.todo.feature.genui.render.material3.layout
+1	18	8	319	com.singularity.todo.feature.nav.entries
+1	6	4	989	com.singularity.todo.feature.notes.components
+1	9	1	596	com.singularity.todo.feature.notes.data
+1	1	1	151	com.singularity.todo.feature.notes.presentation.components
+1	21	6	1878	com.singularity.todo.feature.notes.presentation.screen
+1	7	1	46	com.singularity.todo.feature.plans
+1	4	3	245	com.singularity.todo.feature.plans.domain.logic
+1	5	1	175	com.singularity.todo.feature.plans.presentation.components
+1	3	1	30	com.singularity.todo.feature.plans.presentation.model
+1	7	2	260	com.singularity.todo.feature.plans.presentation.screen
+1	9	2	421	com.singularity.todo.feature.projects.data
+1	2	1	132	com.singularity.todo.feature.projects.domain.logic
+1	23	7	1993	com.singularity.todo.feature.projects.presentation.screen
+1	11	1	92	com.singularity.todo.feature.proposals
+1	8	3	275	com.singularity.todo.feature.reminders.data
+1	12	3	358	com.singularity.todo.feature.search.data
+1	11	4	873	com.singularity.todo.feature.search.presentation
+1	13	7	1449	com.singularity.todo.feature.settings.screens
+1	9	2	424	com.singularity.todo.feature.tags.data
+1	6	1	153	com.singularity.todo.feature.tags.presentation.screen
+1	15	4	1231	com.singularity.todo.feature.tasks.data
+1	1	1	35	com.singularity.todo.feature.tasks.domain.util
+1	27	26	4845	com.singularity.todo.feature.tasks.presentation.components.detail
+1	5	3	467	com.singularity.todo.feature.tasks.presentation.contextmenu
+1	16	3	1131	com.singularity.todo.feature.tasks.presentation.screen
+1	3	1	339	com.singularity.todo.feature.timetracking.domain.logic
+1	7	1	211	com.singularity.todo.feature.timetracking.presentation.slot
+1	1	1	14	com.singularity.todo.feature.whatsnew.di
+1	7	1	177	com.singularity.todo.feature.whatsnew.presentation.screen
+1	0	2	94	com.singularity.todo.mcp.errors
+1	0	2	185	com.singularity.todo.mcp.schema
+1	11	8	1136	com.singularity.todo.shell
+0	16	4	762	com.singularity.todo
+0	0	3	257	com.singularity.todo.core.analytics
+0	1	4	280	com.singularity.todo.core.billing
+0	0	1	116	com.singularity.todo.core.graph
+0	9	1	408	com.singularity.todo.core.seed
+0	3	1	46	com.singularity.todo.feature.ai.acp.di
+0	7	1	144	com.singularity.todo.feature.calendar
+0	3	1	31	com.singularity.todo.feature.gate
+0	1	2	169	com.singularity.todo.feature.notes.domain.model
+0	4	1	50	com.singularity.todo.feature.plans.data
+0	14	29	2535	com.singularity.todo.mcp
+0	57	25	10504	com.singularity.todo.test.fakes
+0	4	2	558	com.singularity.todo.test.stubs
+
+# cycles (packages that can all reach each other)
+[183] com.singularity.todo.core.ai com.singularity.todo.core.appearance com.singularity.todo.core.appearance.di com.singularity.todo.core.attachments com.singularity.todo.core.attachments.annotation com.singularity.todo.core.auth com.singularity.todo.core.backup com.singularity.todo.core.config com.singularity.todo.core.di com.singularity.todo.core.draft com.singularity.todo.core.llm com.singularity.todo.core.log com.singularity.todo.core.mcp com.singularity.todo.core.notifications com.singularity.todo.core.refresh com.singularity.todo.core.repository com.singularity.todo.core.schedule com.singularity.todo.core.search com.singularity.todo.core.security com.singularity.todo.core.settings com.singularity.todo.core.sync com.singularity.todo.core.sync.work com.singularity.todo.core.tasks com.singularity.todo.core.tree com.singularity.todo.core.ui.components com.singularity.todo.core.ui.components.sheet com.singularity.todo.core.ui.detail com.singularity.todo.core.ui.menu com.singularity.todo.core.ui.onboarding com.singularity.todo.core.ui.preview com.singularity.todo.core.ui.text com.singularity.todo.core.ui.theme com.singularity.todo.core.wipe com.singularity.todo.core.work com.singularity.todo.feature.agenda com.singularity.todo.feature.agenda.data com.singularity.todo.feature.agenda.domain.logic com.singularity.todo.feature.agenda.domain.model com.singularity.todo.feature.agenda.domain.port com.singularity.todo.feature.agenda.domain.selector com.singularity.todo.feature.agenda.presentation.components com.singularity.todo.feature.agenda.presentation.nav com.singularity.todo.feature.agenda.presentation.screen com.singularity.todo.feature.agenda.presentation.viewmodel com.singularity.todo.feature.ai com.singularity.todo.feature.ai.acp com.singularity.todo.feature.ai.chat com.singularity.todo.feature.ai.data com.singularity.todo.feature.ai.di com.singularity.todo.feature.ai.external com.singularity.todo.feature.ai.tools com.singularity.todo.feature.ai.ui com.singularity.todo.feature.ai.usage com.singularity.todo.feature.ai.use_cases com.singularity.todo.feature.alarms com.singularity.todo.feature.archive com.singularity.todo.feature.archive.data com.singularity.todo.feature.archive.domain.port com.singularity.todo.feature.attachments com.singularity.todo.feature.attachments.annotation com.singularity.todo.feature.attachments.components com.singularity.todo.feature.attachments.viewer com.singularity.todo.feature.auth com.singularity.todo.feature.auth.presentation com.singularity.todo.feature.backup com.singularity.todo.feature.calendar.domain.logic com.singularity.todo.feature.calendar.domain.model com.singularity.todo.feature.calendar.domain.state com.singularity.todo.feature.calendar.presentation.components.calendar com.singularity.todo.feature.calendar.presentation.nav com.singularity.todo.feature.calendar.presentation.screen com.singularity.todo.feature.calendar.presentation.viewmodel com.singularity.todo.feature.calendarSync.auth com.singularity.todo.feature.calendarSync.data com.singularity.todo.feature.calendarSync.data.google com.singularity.todo.feature.calendarSync.di com.singularity.todo.feature.calendarSync.domain.logic com.singularity.todo.feature.calendarSync.domain.model com.singularity.todo.feature.calendarSync.domain.port com.singularity.todo.feature.calendarSync.presentation com.singularity.todo.feature.calendarSync.sync com.singularity.todo.feature.calendarSync.work com.singularity.todo.feature.checklist.components com.singularity.todo.feature.checklist.data com.singularity.todo.feature.genui.core com.singularity.todo.feature.genui.di com.singularity.todo.feature.genui.engine com.singularity.todo.feature.genui.function com.singularity.todo.feature.genui.parser com.singularity.todo.feature.genui.render com.singularity.todo.feature.genui.render.app com.singularity.todo.feature.genui.render.material3 com.singularity.todo.feature.genui.render.material3.atoms com.singularity.todo.feature.genui.render.material3.input com.singularity.todo.feature.genui.render.material3.layout com.singularity.todo.feature.genui.surface com.singularity.todo.feature.nav com.singularity.todo.feature.nav.deeplink com.singularity.todo.feature.nav.entries com.singularity.todo.feature.notes com.singularity.todo.feature.notes.components com.singularity.todo.feature.notes.data com.singularity.todo.feature.notes.domain.editor com.singularity.todo.feature.notes.domain.port com.singularity.todo.feature.notes.presentation com.singularity.todo.feature.notes.presentation.components com.singularity.todo.feature.notes.presentation.nav com.singularity.todo.feature.notes.presentation.screen com.singularity.todo.feature.notes.presentation.viewmodel com.singularity.todo.feature.plans com.singularity.todo.feature.plans.domain.logic com.singularity.todo.feature.plans.domain.model com.singularity.todo.feature.plans.domain.port com.singularity.todo.feature.plans.presentation.components com.singularity.todo.feature.plans.presentation.model com.singularity.todo.feature.plans.presentation.screen com.singularity.todo.feature.plans.presentation.viewmodel com.singularity.todo.feature.pomodoro com.singularity.todo.feature.profile com.singularity.todo.feature.profile.domain.port com.singularity.todo.feature.profile.presentation com.singularity.todo.feature.projects.data com.singularity.todo.feature.projects.domain.logic com.singularity.todo.feature.projects.domain.port com.singularity.todo.feature.projects.domain.state com.singularity.todo.feature.projects.domain.usecase com.singularity.todo.feature.projects.presentation.components com.singularity.todo.feature.projects.presentation.model com.singularity.todo.feature.projects.presentation.nav com.singularity.todo.feature.projects.presentation.screen com.singularity.todo.feature.projects.presentation.viewmodel com.singularity.todo.feature.proposals com.singularity.todo.feature.proposals.data com.singularity.todo.feature.proposals.domain.logic com.singularity.todo.feature.proposals.domain.port com.singularity.todo.feature.proposals.domain.usecase com.singularity.todo.feature.proposals.presentation com.singularity.todo.feature.proposals.presentation.components com.singularity.todo.feature.reminders com.singularity.todo.feature.reminders.data com.singularity.todo.feature.reminders.domain.port com.singularity.todo.feature.search com.singularity.todo.feature.search.data com.singularity.todo.feature.search.domain.port com.singularity.todo.feature.search.presentation com.singularity.todo.feature.search.presentation.nav com.singularity.todo.feature.search.query com.singularity.todo.feature.settings com.singularity.todo.feature.settings.presentation.nav com.singularity.todo.feature.settings.screens com.singularity.todo.feature.statistics com.singularity.todo.feature.sync.presentation com.singularity.todo.feature.tags com.singularity.todo.feature.tags.components com.singularity.todo.feature.tags.data com.singularity.todo.feature.tags.domain com.singularity.todo.feature.tags.domain.usecase com.singularity.todo.feature.tags.presentation.screen com.singularity.todo.feature.tags.presentation.viewmodel com.singularity.todo.feature.tasks com.singularity.todo.feature.tasks.data com.singularity.todo.feature.tasks.domain com.singularity.todo.feature.tasks.domain.logic com.singularity.todo.feature.tasks.domain.model com.singularity.todo.feature.tasks.domain.port com.singularity.todo.feature.tasks.domain.state com.singularity.todo.feature.tasks.domain.usecase com.singularity.todo.feature.tasks.presentation.components com.singularity.todo.feature.tasks.presentation.components.detail com.singularity.todo.feature.tasks.presentation.components.list com.singularity.todo.feature.tasks.presentation.contextmenu com.singularity.todo.feature.tasks.presentation.model com.singularity.todo.feature.tasks.presentation.nav com.singularity.todo.feature.tasks.presentation.screen com.singularity.todo.feature.tasks.presentation.theme com.singularity.todo.feature.tasks.presentation.viewmodel com.singularity.todo.feature.tasks.presentation.viewmodel.slot com.singularity.todo.feature.timetracking.data com.singularity.todo.feature.timetracking.domain.logic com.singularity.todo.feature.timetracking.domain.port com.singularity.todo.feature.timetracking.presentation.components com.singularity.todo.feature.timetracking.presentation.slot com.singularity.todo.preview
+
+# cluster cycles — the clusters a split cannot separate without breaking the cycle
+[52] core/ai core/appearance core/attachments core/auth core/backup core/config core/di core/draft core/llm core/log core/mcp core/notifications core/refresh core/repository core/schedule core/search core/security core/settings core/sync core/tasks core/tree core/ui core/wipe core/work feature/agenda feature/ai feature/alarms feature/archive feature/attachments feature/auth feature/backup feature/calendar feature/calendarSync feature/checklist feature/genui feature/nav feature/notes feature/plans feature/pomodoro feature/profile feature/projects feature/proposals feature/reminders feature/search feature/settings feature/statistics feature/sync feature/tags feature/tasks feature/timetracking feature/whatsnew preview
+
+# cluster edges: importing cluster -> imported cluster
+(root) -> core/appearance
+(root) -> core/auth
+(root) -> core/platform
+(root) -> core/settings
+(root) -> core/ui
+(root) -> feature/gate
+(root) -> feature/nav
+(root) -> feature/projects
+(root) -> feature/whatsnew
+(root) -> shell
+core/ai -> core/llm
+core/ai -> core/observability
+core/appearance -> core/settings
+core/attachments -> core/error
+core/attachments -> core/files
+core/attachments -> core/ids
+core/attachments -> core/repository
+core/attachments -> feature/profile
+core/attachments -> feature/tasks
+core/auth -> core/coroutines
+core/auth -> core/datastore
+core/auth -> core/error
+core/auth -> core/ids
+core/auth -> core/log
+core/auth -> core/sync
+core/auth -> core/ui
+core/auth -> feature/auth
+core/backup -> core/attachments
+core/backup -> core/auth
+core/backup -> core/error
+core/backup -> core/files
+core/backup -> core/ids
+core/backup -> core/platform
+core/backup -> core/security
+core/backup -> core/tasks
+core/backup -> core/transport
+core/backup -> core/version
+core/backup -> feature/profile
+core/backup -> feature/timetracking
+core/billing -> core/sync
+core/config -> core/coroutines
+core/config -> core/error
+core/config -> core/sync
+core/config -> core/version
+core/di -> core/appearance
+core/di -> core/attachments
+core/di -> core/auth
+core/di -> core/backup
+core/di -> core/config
+core/di -> core/coroutines
+core/di -> core/draft
+core/di -> core/files
+core/di -> core/ids
+core/di -> core/llm
+core/di -> core/log
+core/di -> core/network
+core/di -> core/notifications
+core/di -> core/observability
+core/di -> core/platform
+core/di -> core/refresh
+core/di -> core/schedule
+core/di -> core/search
+core/di -> core/security
+core/di -> core/settings
+core/di -> core/sync
+core/di -> core/tasks
+core/di -> core/ui
+core/di -> core/wipe
+core/di -> core/work
+core/di -> feature/agenda
+core/di -> feature/ai
+core/di -> feature/archive
+core/di -> feature/attachments
+core/di -> feature/auth
+core/di -> feature/backup
+core/di -> feature/calendar
+core/di -> feature/calendarSync
+core/di -> feature/checklist
+core/di -> feature/genui
+core/di -> feature/nav
+core/di -> feature/notes
+core/di -> feature/plans
+core/di -> feature/pomodoro
+core/di -> feature/profile
+core/di -> feature/projects
+core/di -> feature/proposals
+core/di -> feature/reminders
+core/di -> feature/search
+core/di -> feature/settings
+core/di -> feature/statistics
+core/di -> feature/sync
+core/di -> feature/tags
+core/di -> feature/tasks
+core/di -> feature/timetracking
+core/di -> feature/whatsnew
+core/draft -> core/datastore
+core/draft -> core/error
+core/draft -> feature/profile
+core/files -> core/error
+core/llm -> core/security
+core/log -> core/backup
+core/log -> core/error
+core/log -> core/files
+core/log -> core/platform
+core/mcp -> feature/profile
+core/notifications -> core/process
+core/notifications -> core/reminders
+core/notifications -> core/settings
+core/notifications -> feature/agenda
+core/observability -> core/coroutines
+core/observability -> core/ids
+core/observability -> core/platform
+core/refresh -> core/coroutines
+core/refresh -> core/error
+core/refresh -> core/observability
+core/refresh -> core/sync
+core/refresh -> core/ui
+core/repository -> core/ids
+core/repository -> feature/profile
+core/schedule -> core/settings
+core/search -> feature/notes
+core/search -> feature/projects
+core/search -> feature/tags
+core/search -> feature/tasks
+core/security -> core/auth
+core/security -> core/error
+core/security -> core/files
+core/security -> feature/profile
+core/seed -> core/error
+core/seed -> feature/notes
+core/seed -> feature/profile
+core/seed -> feature/projects
+core/seed -> feature/tasks
+core/settings -> core/datastore
+core/settings -> core/error
+core/settings -> core/llm
+core/settings -> core/notifications
+core/settings -> core/reminders
+core/settings -> core/schedule
+core/settings -> core/tasks
+core/settings -> core/text
+core/settings -> feature/agenda
+core/settings -> feature/plans
+core/sync -> core/auth
+core/sync -> core/coroutines
+core/sync -> core/datastore
+core/sync -> core/error
+core/sync -> core/ids
+core/sync -> core/observability
+core/sync -> core/transport
+core/sync -> core/work
+core/sync -> feature/notes
+core/sync -> feature/profile
+core/sync -> feature/projects
+core/sync -> feature/tags
+core/sync -> feature/tasks
+core/sync -> feature/timetracking
+core/tasks -> core/settings
+core/transport -> core/error
+core/tree -> feature/projects
+core/tree -> feature/tasks
+core/ui -> core/coroutines
+core/ui -> core/error
+core/ui -> core/observability
+core/ui -> core/platform
+core/ui -> core/reminders
+core/ui -> core/search
+core/ui -> core/settings
+core/ui -> core/text
+core/wipe -> core/attachments
+core/wipe -> core/draft
+core/wipe -> feature/agenda
+core/wipe -> feature/calendarSync
+core/wipe -> feature/notes
+core/wipe -> feature/profile
+core/wipe -> feature/projects
+core/wipe -> feature/proposals
+core/wipe -> feature/tags
+core/wipe -> feature/tasks
+core/wipe -> feature/timetracking
+core/work -> core/backup
+core/work -> core/error
+core/work -> core/observability
+core/work -> core/settings
+core/work -> core/sync
+core/work -> feature/profile
+feature/agenda -> core/coroutines
+feature/agenda -> core/draft
+feature/agenda -> core/error
+feature/agenda -> core/files
+feature/agenda -> core/ids
+feature/agenda -> core/observability
+feature/agenda -> core/platform
+feature/agenda -> core/refresh
+feature/agenda -> core/repository
+feature/agenda -> core/schedule
+feature/agenda -> core/settings
+feature/agenda -> core/text
+feature/agenda -> core/ui
+feature/agenda -> feature/nav
+feature/agenda -> feature/profile
+feature/agenda -> feature/projects
+feature/agenda -> feature/reminders
+feature/agenda -> feature/tags
+feature/agenda -> feature/tasks
+feature/agenda -> preview
+feature/ai -> core/ai
+feature/ai -> core/config
+feature/ai -> core/coroutines
+feature/ai -> core/di
+feature/ai -> core/error
+feature/ai -> core/ids
+feature/ai -> core/llm
+feature/ai -> core/mcp
+feature/ai -> core/observability
+feature/ai -> core/platform
+feature/ai -> core/process
+feature/ai -> core/refresh
+feature/ai -> core/search
+feature/ai -> core/security
+feature/ai -> core/settings
+feature/ai -> core/tasks
+feature/ai -> core/text
+feature/ai -> core/ui
+feature/ai -> core/version
+feature/ai -> feature/agenda
+feature/ai -> feature/checklist
+feature/ai -> feature/genui
+feature/ai -> feature/notes
+feature/ai -> feature/profile
+feature/ai -> feature/projects
+feature/ai -> feature/proposals
+feature/ai -> feature/search
+feature/ai -> feature/tags
+feature/ai -> feature/tasks
+feature/alarms -> core/ids
+feature/alarms -> core/observability
+feature/alarms -> feature/pomodoro
+feature/alarms -> feature/reminders
+feature/archive -> core/coroutines
+feature/archive -> core/error
+feature/archive -> core/observability
+feature/archive -> core/platform
+feature/archive -> core/refresh
+feature/archive -> core/sync
+feature/archive -> core/ui
+feature/archive -> feature/nav
+feature/archive -> feature/profile
+feature/archive -> feature/tasks
+feature/archive -> preview
+feature/attachments -> core/attachments
+feature/attachments -> core/coroutines
+feature/attachments -> core/error
+feature/attachments -> core/files
+feature/attachments -> core/ids
+feature/attachments -> core/observability
+feature/attachments -> core/text
+feature/attachments -> core/ui
+feature/attachments -> feature/tasks
+feature/attachments -> preview
+feature/auth -> core/auth
+feature/auth -> core/coroutines
+feature/auth -> core/error
+feature/auth -> core/ids
+feature/auth -> core/log
+feature/auth -> core/observability
+feature/auth -> core/sync
+feature/auth -> core/ui
+feature/auth -> feature/nav
+feature/auth -> feature/profile
+feature/backup -> core/auth
+feature/backup -> core/backup
+feature/backup -> core/coroutines
+feature/backup -> core/error
+feature/backup -> core/files
+feature/backup -> core/observability
+feature/backup -> core/settings
+feature/backup -> core/ui
+feature/calendar -> core/coroutines
+feature/calendar -> core/draft
+feature/calendar -> core/observability
+feature/calendar -> core/refresh
+feature/calendar -> core/ui
+feature/calendar -> feature/nav
+feature/calendar -> feature/reminders
+feature/calendar -> feature/tasks
+feature/calendarSync -> core/auth
+feature/calendarSync -> core/coroutines
+feature/calendarSync -> core/datastore
+feature/calendarSync -> core/error
+feature/calendarSync -> core/ids
+feature/calendarSync -> core/network
+feature/calendarSync -> core/observability
+feature/calendarSync -> core/sync
+feature/calendarSync -> core/text
+feature/calendarSync -> core/ui
+feature/calendarSync -> feature/profile
+feature/calendarSync -> feature/reminders
+feature/calendarSync -> feature/tasks
+feature/checklist -> core/error
+feature/checklist -> core/repository
+feature/checklist -> core/ui
+feature/checklist -> feature/profile
+feature/checklist -> feature/tasks
+feature/gate -> core/config
+feature/gate -> core/coroutines
+feature/gate -> core/error
+feature/gate -> core/observability
+feature/gate -> core/ui
+feature/gate -> core/version
+feature/genui -> core/platform
+feature/genui -> core/text
+feature/genui -> core/ui
+feature/genui -> feature/tasks
+feature/nav -> core/attachments
+feature/nav -> core/platform
+feature/nav -> feature/agenda
+feature/nav -> feature/ai
+feature/nav -> feature/archive
+feature/nav -> feature/attachments
+feature/nav -> feature/auth
+feature/nav -> feature/calendar
+feature/nav -> feature/notes
+feature/nav -> feature/plans
+feature/nav -> feature/pomodoro
+feature/nav -> feature/profile
+feature/nav -> feature/projects
+feature/nav -> feature/proposals
+feature/nav -> feature/search
+feature/nav -> feature/settings
+feature/nav -> feature/statistics
+feature/nav -> feature/tags
+feature/nav -> feature/tasks
+feature/notes -> core/coroutines
+feature/notes -> core/error
+feature/notes -> core/ids
+feature/notes -> core/llm
+feature/notes -> core/observability
+feature/notes -> core/platform
+feature/notes -> core/refresh
+feature/notes -> core/repository
+feature/notes -> core/search
+feature/notes -> core/sync
+feature/notes -> core/text
+feature/notes -> core/ui
+feature/notes -> feature/ai
+feature/notes -> feature/nav
+feature/notes -> feature/profile
+feature/notes -> feature/projects
+feature/notes -> feature/proposals
+feature/notes -> feature/search
+feature/notes -> feature/tasks
+feature/notes -> preview
+feature/plans -> core/coroutines
+feature/plans -> core/ids
+feature/plans -> core/observability
+feature/plans -> core/platform
+feature/plans -> core/settings
+feature/plans -> core/ui
+feature/plans -> feature/nav
+feature/plans -> feature/profile
+feature/plans -> feature/reminders
+feature/plans -> feature/tasks
+feature/pomodoro -> core/refresh
+feature/pomodoro -> core/ui
+feature/pomodoro -> feature/alarms
+feature/pomodoro -> feature/profile
+feature/pomodoro -> feature/tasks
+feature/pomodoro -> feature/timetracking
+feature/profile -> core/auth
+feature/profile -> core/coroutines
+feature/profile -> core/error
+feature/profile -> core/ids
+feature/profile -> core/observability
+feature/profile -> core/refresh
+feature/profile -> core/repository
+feature/profile -> core/ui
+feature/profile -> core/wipe
+feature/profile -> feature/auth
+feature/profile -> feature/nav
+feature/profile -> feature/settings
+feature/profile -> preview
+feature/projects -> core/coroutines
+feature/projects -> core/error
+feature/projects -> core/ids
+feature/projects -> core/llm
+feature/projects -> core/notifications
+feature/projects -> core/observability
+feature/projects -> core/platform
+feature/projects -> core/refresh
+feature/projects -> core/reminders
+feature/projects -> core/repository
+feature/projects -> core/search
+feature/projects -> core/settings
+feature/projects -> core/sync
+feature/projects -> core/text
+feature/projects -> core/tree
+feature/projects -> core/ui
+feature/projects -> feature/ai
+feature/projects -> feature/nav
+feature/projects -> feature/profile
+feature/projects -> feature/reminders
+feature/projects -> feature/tags
+feature/projects -> feature/tasks
+feature/projects -> preview
+feature/proposals -> core/coroutines
+feature/proposals -> core/error
+feature/proposals -> core/ids
+feature/proposals -> core/observability
+feature/proposals -> core/refresh
+feature/proposals -> core/ui
+feature/proposals -> feature/checklist
+feature/proposals -> feature/notes
+feature/proposals -> feature/profile
+feature/proposals -> feature/projects
+feature/proposals -> feature/tags
+feature/proposals -> feature/tasks
+feature/proposals -> feature/timetracking
+feature/reminders -> core/error
+feature/reminders -> core/ids
+feature/reminders -> core/notifications
+feature/reminders -> core/process
+feature/reminders -> core/reminders
+feature/reminders -> core/repository
+feature/reminders -> core/ui
+feature/reminders -> feature/agenda
+feature/reminders -> feature/alarms
+feature/reminders -> feature/pomodoro
+feature/reminders -> feature/profile
+feature/reminders -> feature/projects
+feature/reminders -> feature/tasks
+feature/search -> core/coroutines
+feature/search -> core/error
+feature/search -> core/ids
+feature/search -> core/observability
+feature/search -> core/platform
+feature/search -> core/refresh
+feature/search -> core/repository
+feature/search -> core/search
+feature/search -> core/text
+feature/search -> core/ui
+feature/search -> feature/nav
+feature/search -> feature/notes
+feature/search -> feature/profile
+feature/search -> feature/projects
+feature/search -> feature/tags
+feature/search -> feature/tasks
+feature/search -> preview
+feature/settings -> core/appearance
+feature/settings -> core/coroutines
+feature/settings -> core/error
+feature/settings -> core/files
+feature/settings -> core/llm
+feature/settings -> core/log
+feature/settings -> core/notifications
+feature/settings -> core/observability
+feature/settings -> core/reminders
+feature/settings -> core/schedule
+feature/settings -> core/security
+feature/settings -> core/settings
+feature/settings -> core/tasks
+feature/settings -> core/text
+feature/settings -> core/ui
+feature/settings -> feature/agenda
+feature/settings -> feature/ai
+feature/settings -> feature/backup
+feature/settings -> feature/calendarSync
+feature/settings -> feature/nav
+feature/settings -> feature/profile
+feature/settings -> feature/sync
+feature/settings -> feature/tags
+feature/settings -> preview
+feature/statistics -> core/coroutines
+feature/statistics -> core/observability
+feature/statistics -> core/platform
+feature/statistics -> core/refresh
+feature/statistics -> core/settings
+feature/statistics -> core/ui
+feature/statistics -> feature/nav
+feature/statistics -> feature/profile
+feature/statistics -> feature/projects
+feature/statistics -> feature/tasks
+feature/statistics -> feature/timetracking
+feature/sync -> core/coroutines
+feature/sync -> core/error
+feature/sync -> core/observability
+feature/sync -> core/sync
+feature/sync -> core/ui
+feature/tags -> core/coroutines
+feature/tags -> core/error
+feature/tags -> core/ids
+feature/tags -> core/observability
+feature/tags -> core/refresh
+feature/tags -> core/repository
+feature/tags -> core/sync
+feature/tags -> core/text
+feature/tags -> core/ui
+feature/tags -> feature/profile
+feature/tags -> feature/projects
+feature/tags -> feature/tasks
+feature/tasks -> core/attachments
+feature/tasks -> core/coroutines
+feature/tasks -> core/draft
+feature/tasks -> core/error
+feature/tasks -> core/files
+feature/tasks -> core/ids
+feature/tasks -> core/observability
+feature/tasks -> core/platform
+feature/tasks -> core/refresh
+feature/tasks -> core/reminders
+feature/tasks -> core/repository
+feature/tasks -> core/search
+feature/tasks -> core/sync
+feature/tasks -> core/tasks
+feature/tasks -> core/text
+feature/tasks -> core/ui
+feature/tasks -> feature/agenda
+feature/tasks -> feature/ai
+feature/tasks -> feature/attachments
+feature/tasks -> feature/checklist
+feature/tasks -> feature/nav
+feature/tasks -> feature/notes
+feature/tasks -> feature/profile
+feature/tasks -> feature/projects
+feature/tasks -> feature/proposals
+feature/tasks -> feature/reminders
+feature/tasks -> feature/search
+feature/tasks -> feature/tags
+feature/tasks -> feature/timetracking
+feature/tasks -> preview
+feature/timetracking -> core/coroutines
+feature/timetracking -> core/error
+feature/timetracking -> core/ids
+feature/timetracking -> core/platform
+feature/timetracking -> core/ui
+feature/timetracking -> feature/profile
+feature/timetracking -> feature/tasks
+feature/whatsnew -> core/config
+feature/whatsnew -> core/datastore
+feature/whatsnew -> core/ui
+feature/whatsnew -> feature/genui
+mcp -> core/ai
+mcp -> core/config
+mcp -> core/di
+mcp -> core/error
+mcp -> core/log
+mcp -> core/observability
+mcp -> core/platform
+mcp -> core/process
+mcp -> core/version
+mcp -> feature/ai
+mcp -> feature/profile
+preview -> core/attachments
+preview -> core/ids
+preview -> feature/agenda
+preview -> feature/checklist
+preview -> feature/notes
+preview -> feature/profile
+preview -> feature/projects
+preview -> feature/reminders
+preview -> feature/tags
+preview -> feature/tasks
+shell -> core/auth
+shell -> core/ui
+shell -> core/version
+shell -> feature/auth
+shell -> feature/nav
+shell -> feature/projects
+test/fakes -> core/attachments
+test/fakes -> core/auth
+test/fakes -> core/backup
+test/fakes -> core/config
+test/fakes -> core/coroutines
+test/fakes -> core/error
+test/fakes -> core/files
+test/fakes -> core/ids
+test/fakes -> core/llm
+test/fakes -> core/log
+test/fakes -> core/notifications
+test/fakes -> core/observability
+test/fakes -> core/platform
+test/fakes -> core/refresh
+test/fakes -> core/reminders
+test/fakes -> core/repository
+test/fakes -> core/schedule
+test/fakes -> core/search
+test/fakes -> core/security
+test/fakes -> core/settings
+test/fakes -> core/sync
+test/fakes -> core/tasks
+test/fakes -> core/ui
+test/fakes -> feature/agenda
+test/fakes -> feature/archive
+test/fakes -> feature/calendarSync
+test/fakes -> feature/checklist
+test/fakes -> feature/notes
+test/fakes -> feature/plans
+test/fakes -> feature/pomodoro
+test/fakes -> feature/profile
+test/fakes -> feature/projects
+test/fakes -> feature/proposals
+test/fakes -> feature/reminders
+test/fakes -> feature/tags
+test/fakes -> feature/tasks
+test/fakes -> feature/timetracking
+test/stubs -> core/auth
+test/stubs -> core/coroutines
+test/stubs -> core/error
+test/stubs -> core/ids

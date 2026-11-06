@@ -493,7 +493,7 @@ distinction between **handled** and **unhandled** termination is the whole of th
       `Verification:` `runner.test.ts::test_an_existing_pull_request_is_not_duplicated` —
       `npx vitest run test/runner.test.ts -t test_an_existing_pull_request_is_not_duplicated`
 
-_Rules for this list:_
+*Rules for this list:*
 
 - _Name a **resolvable test id**, not "add a test". The test does not exist yet — `verify-design`
   designs it and `implement` writes it. Binding to a named test is what makes the binding checkable

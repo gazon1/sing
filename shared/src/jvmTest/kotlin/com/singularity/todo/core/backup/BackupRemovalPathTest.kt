@@ -7,8 +7,7 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.loggerConfigInit
 import com.singularity.todo.core.attachments.AttachmentStorage
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.files.JvmFileSourceFactory
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.ids.UserId
@@ -17,7 +16,6 @@ import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -65,19 +63,10 @@ import kotlin.time.Clock
 class BackupRemovalPathTest {
     private val owner = UserId("removal-owner")
 
-    private val tempDirLazy =
-        lazy {
-            Files.createTempDirectory("singularity-backup-removal-").toFile()
-        }
-    private val tempDir: File by tempDirLazy
+    private val fixtureLazy = lazy { DatabaseTestFixture.onDisk() }
+    private val fixture: DatabaseTestFixture by fixtureLazy
 
-    private val dbLazy =
-        lazy {
-            AppDatabaseFactory.build(
-                driver = createSqlDriver(),
-                dbPath = File(tempDir, "target.db").absolutePath,
-            )
-        }
+    private val dbLazy = lazy { fixture.database() }
     private val db: AppDatabase by dbLazy
 
     private val fs = JvmFileSystem()
@@ -85,8 +74,7 @@ class BackupRemovalPathTest {
 
     @AfterTest
     fun tearDown() {
-        if (dbLazy.isInitialized()) db.close()
-        if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
+        if (fixtureLazy.isInitialized()) fixture.close()
     }
 
     @Test
@@ -182,7 +170,7 @@ class BackupRemovalPathTest {
             StableJson
                 .encodeToString(BackupManifest.serializer(), manifest)
                 .encodeToByteArray()
-        val path = File(tempDir, name).absolutePath
+        val path = File(fixture.directory(), name).absolutePath
         val written = JvmBackupCodec().export(manifestBytes, payloadBytes, emptyList(), path, fs)
         assertTrue(written.isSuccess, "the archive was not written: ${written.exceptionOrNull()}")
         return path
@@ -207,7 +195,7 @@ class BackupRemovalPathTest {
             agendaViewDao = db.agendaViewDao(),
             attachmentDao = db.attachmentDao(),
             annotationDao = db.annotationDao(),
-            attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachments").absolutePath),
+            attachmentStorage = AttachmentStorage(fs, File(fixture.directory(), "attachments").absolutePath),
             codec = JvmBackupCodec(),
             clock = Clock.System,
             createFileSource = JvmFileSourceFactory(),
@@ -221,6 +209,7 @@ class BackupRemovalPathTest {
                 importOptions {
                     sourcePath = path
                     targetUserId = owner
+                    ownerId = owner
                 },
             )
         assertTrue(restored.isSuccess, "the restore failed: ${restored.exceptionOrNull()}")

@@ -13,6 +13,7 @@ After refactoring to split Android vs JVM back stack strategies, a type asymmetr
 - **`rememberNavBackStack(config, start)`** (Android) is `@Composable` but **not** `reified`. It returns `NavBackStack<NavKey>` — the type parameter is erased.
 
 This means:
+
 - On JVM: `stack.last()` returns `TasksRoute` (typed) — no cast needed.
 - On Android: `stack.last()` returns `NavKey` — requires an explicit `as TasksRoute` cast.
 

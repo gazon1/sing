@@ -402,7 +402,7 @@ class PartGTest(unittest.TestCase):
     def test_both_callers_invoke_the_registry(self):
         self.assertTrue(gw.GATE_REGISTRY.is_file(), 'fixture assumption: the gate registry ships')
         self.assertEqual(gw.check_registry_wiring(), [],
-                         'ci.yml and check.sh must both invoke the registry (via bash scripts/ci/static-gates.sh or sgate run-all)')
+                         'ci.yml and hk.pkl must both invoke the registry (via bash scripts/ci/static-gates.sh or sgate run-all)')
 
     def test_a_missing_registry_is_reported_by_path(self):
         # Not skipped when the registry happens to exist — see the same test in
@@ -415,7 +415,7 @@ class PartGTest(unittest.TestCase):
             errors = gw.check_registry_wiring()
         self.assertTrue(errors)
         self.assertIn('static-gates-absent.sh', errors[0])
-        self.assertIn('check.sh', errors[0])
+        self.assertIn('hk.pkl', errors[0])
 
     def test_a_caller_that_bypasses_the_registry_is_reported(self):
         # Rewrites check.sh's call away and restores it. The point is that dropping
@@ -426,8 +426,8 @@ class PartGTest(unittest.TestCase):
         # line), not a comment that mentions the command: replacing the `||` suffix
         # to `||` is unambiguous — an echo message about the command has no `||`.
         self.assertTrue(gw.GATE_REGISTRY.is_file(), 'fixture assumption: the gate registry ships')
-        check_sh = gw.ROOT / 'check.sh'
-        original = check_sh.read_text(encoding='utf-8')
+        surface = gw.ROOT / 'hk.pkl'
+        original = surface.read_text(encoding='utf-8')
         # check.sh now invokes the registry via `sgate run-all ||`; the test must
         # replace the actual invocation line, not a comment that happens to mention
         # `sgate run-all`.  Replacing the `||` suffix ensures we hit line 44
@@ -435,19 +435,14 @@ class PartGTest(unittest.TestCase):
         # The error message on line 45 also mentions `sgate run-all` as a string
         # literal; that string must be updated too or the comment-stripping regex
         # will still find it and the check will incorrectly pass.
-        self.assertIn('sgate run-all', original,
-                      'check.sh must invoke the registry to test this')
-        patched = original
-        patched = patched.replace('sgate run-all ||', 'echo bypassed', 1)
-        patched = patched.replace(
-            'see sgate run-all output above',
-            'see echo bypassed output above', 1
-        )
-        check_sh.write_text(patched, encoding='utf-8')
-        self.addCleanup(lambda: check_sh.write_text(original, encoding='utf-8'))
+        self.assertIn('./sg run-all', original,
+                      'hk.pkl must invoke the registry to test this')
+        patched = original.replace('./sg run-all', './sg run-eleven')
+        surface.write_text(patched, encoding='utf-8')
+        self.addCleanup(lambda: surface.write_text(original, encoding='utf-8'))
         errors = gw.check_registry_wiring()
-        self.assertTrue(any('check.sh' in e for e in errors),
-                        f'removing the check.sh call must be reported; got {errors}')
+        self.assertTrue(any('hk.pkl' in e for e in errors),
+                        f'removing the hk.pkl call must be reported; got {errors}')
 
 
 class PartETest(unittest.TestCase):
@@ -488,7 +483,7 @@ class PartHTest(unittest.TestCase):
         original_surfaces = gw._REACH_SURFACES
         gw.ROOT = tmp
         gw._REACH_SURFACES = (
-            [tmp / 'check.sh', tmp / 'scripts/ci/static-gates.sh', tmp / 'justfile']
+            [tmp / 'hk.pkl', tmp / 'scripts/ci/static-gates.sh', tmp / 'justfile']
             + sorted(tmp.glob('.just/**/*.just'))
             + sorted(tmp.glob('.github/workflows/*.yml'))
             + sorted(tmp.glob('.github/actions/*/action.yml'))
@@ -601,10 +596,10 @@ class PartITest(unittest.TestCase):
         gw.GRADLE_TASK_PARITY.clear()
         gw.GRADLE_TASK_PARITY.update(self._table)
 
-    def _surfaces(self, check_sh: str, ci_yml: str) -> None:
+    def _surfaces(self, local: str, ci_yml: str) -> None:
         tmp = pathlib.Path(self.enterContext(_tmpdir()))
         (tmp / '.github' / 'workflows').mkdir(parents=True)
-        (tmp / 'check.sh').write_text(check_sh, encoding='utf-8')
+        (tmp / 'hk.pkl').write_text(local, encoding='utf-8')
         (tmp / '.github' / 'workflows' / 'ci.yml').write_text(ci_yml, encoding='utf-8')
         original_root = gw.ROOT
         gw.ROOT = tmp
@@ -618,7 +613,7 @@ class PartITest(unittest.TestCase):
         errors = gw.check_gradle_task_parity()
         self.assertEqual(len(errors), 1, errors)
         self.assertIn(':androidApp:detekt', errors[0])
-        self.assertIn('check.sh', errors[0],
+        self.assertIn('hk.pkl', errors[0],
                       'the message must name the surface that has to add it')
 
     def test_the_real_surfaces_are_in_parity(self):

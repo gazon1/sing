@@ -46,6 +46,7 @@ python3 scripts/run-evals.py --task all --json | \
 ### Step 4 — Investigate failures
 
 For each failed task:
+
 1. Read the task definition in `evals/tasks/<name>.yaml`
 2. Run the agent with the task
 3. Compare the output against the expected outcome

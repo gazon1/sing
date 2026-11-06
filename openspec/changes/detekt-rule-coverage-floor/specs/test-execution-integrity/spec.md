@@ -51,4 +51,4 @@ required to run, about the rules that enforce every other rule.
 - **When** branch tests raise coverage
 - **Then** the floor is raised in the same commit
 - **And** the raise is not left for a later change, because a floor below the
-      measurement stops being a ratchet
+  measurement stops being a ratchet

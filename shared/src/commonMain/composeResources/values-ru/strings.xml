@@ -2,16 +2,73 @@
 <resources>
     <string name="back">Назад</string>
     <string name="menu">Меню</string>
+    <string name="search">Поиск</string>
     <string name="ai_actions">AI Actions</string>
     <string name="reset_date">Сбросить дату</string>
     <string name="reset_priority">Сбросить приоритет</string>
     <string name="task_title_placeholder">Название задачи</string>
     <string name="add_date">Добавить дату</string>
     <string name="good_evening">Добрый вечер</string>
+    <string name="task_description_placeholder">Введите описание задачи...</string>
+    <string name="save_task">Сохранить</string>
+    <string name="priority">Приоритет</string>
+    <string name="add_estimate">Добавить оценку</string>
+    <string name="reset_estimate">Сбросить оценку</string>
+    <string name="task_completed">Задача выполнена</string>
+    <string name="mark_task_complete">Отметить как выполненную</string>
+    <string name="delete_task">Удалить задачу</string>
+    <string name="task_checked">Выполнено</string>
+    <string name="task_unchecked">Не выполнено</string>
+    <string name="priority_none">Без приоритета</string>
+    <string name="priority_low">Низкий приоритет</string>
+    <string name="priority_medium">Средний приоритет</string>
+    <string name="priority_high">Высокий приоритет</string>
+    <string name="priority_urgent">Срочный приоритет</string>
+    <string name="series_apply_to_all">Применить ко всем</string>
+    <string name="series_keep_separate">Оставить отдельно</string>
+    <string name="series_delete">Удалить серию</string>
+    <string name="marking_in_progress">Задача в работе</string>
+    <string name="marking_next_up">Следующая задача</string>
+    <string name="marking_blocked">Задача заблокирована зависимостями</string>
+    <string name="marking_follow_up">Задача продолжает другую</string>
+    <string name="marking_pinned">Задача закреплена</string>
+    <string name="marking_recurring">Повторяющаяся задача</string>
+    <string name="marking_overdue">Просроченная задача</string>
+    <string name="marking_no_date">Задача без даты</string>
+    <string name="menu_restore">Восстановить</string>
+    <string name="menu_archive">Архивировать</string>
+    <string name="menu_delete">Удалить</string>
+    <!-- Date parts for the task editor's due-date row; the same short forms the
+         agenda list uses, so one date reads the same on both screens. -->
+    <string name="weekday_short_mon">Пн</string>
+    <string name="weekday_short_tue">Вт</string>
+    <string name="weekday_short_wed">Ср</string>
+    <string name="weekday_short_thu">Чт</string>
+    <string name="weekday_short_fri">Пт</string>
+    <string name="weekday_short_sat">Сб</string>
+    <string name="weekday_short_sun">Вс</string>
+    <string name="month_short_jan">янв</string>
+    <string name="month_short_feb">фев</string>
+    <string name="month_short_mar">мар</string>
+    <string name="month_short_apr">апр</string>
+    <string name="month_short_may">мая</string>
+    <string name="month_short_jun">июн</string>
+    <string name="month_short_jul">июл</string>
+    <string name="month_short_aug">авг</string>
+    <string name="month_short_sep">сен</string>
+    <string name="month_short_oct">окт</string>
+    <string name="month_short_nov">ноя</string>
+    <string name="month_short_dec">дек</string>
     <plurals name="date_count">
         <item quantity="one">%d дата</item>
         <item quantity="few">%d даты</item>
         <item quantity="many">%d дат</item>
         <item quantity="other">%d дат</item>
+    </plurals>
+    <plurals name="series_label">
+        <item quantity="one">Серия · %d дата</item>
+        <item quantity="few">Серия · %d даты</item>
+        <item quantity="many">Серия · %d дат</item>
+        <item quantity="other">Серия · %d дат</item>
     </plurals>
 </resources>

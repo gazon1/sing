@@ -13,7 +13,7 @@ import kotlinx.serialization.json.put
  *
  * The Edge Function, the payload it accepts and the answer it gives are *this
  * project's* decisions — the server side is in this repository, under
- * `supabase/functions/google-oauth-exchange`. The vendor's SDK is only the
+ * `infra/supabase/functions/google-oauth-exchange`. The vendor's SDK is only the
  * transport that carries them.
  *
  * Keeping the contract in a file of the project's own means:

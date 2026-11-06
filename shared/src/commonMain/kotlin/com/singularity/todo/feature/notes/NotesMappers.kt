@@ -32,7 +32,7 @@ internal fun NoteEntity.toNote(): Note =
         parentNoteId = parentNoteId?.let { NoteId.fromString(it) },
         isPinned = isPinned,
         pinnedAt = pinnedAt.toInstantOrNull(),
-        color = if (color != null && color != 0) NoteColor(color) else null,
+        color = color?.takeIf { it != 0 }?.let { NoteColor(it) },
         sortOrder = sortOrder,
         wordCount = wordCount,
         charCount = charCount,

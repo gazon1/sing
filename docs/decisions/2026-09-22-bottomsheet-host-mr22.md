@@ -40,6 +40,7 @@ Apply to `ProjectDetailScreen` (10-variant sheet wrapper) and `ProjectEditorScre
 ## Rationale
 
 `LaunchedEffect { sheetState.show() }` cannot be removed — it must live somewhere. Centalising it in `BottomSheetHost` means:
+
 - Leaf sheets receive a clean `BottomSheetHost(onDismiss = ...) { content }` API.
 - No repeated `LaunchedEffect` boilerplate across screens.
 - `sheetState` parameter allows callers to share state if needed.

@@ -1,0 +1,64 @@
+=== head ===
+Task ':core-domain:compileKotlinJvm' finished in 7.333 s
+Task info:
+  Kotlin language version: 2.4
+Compilation log for task ':core-domain:compileKotlinJvm':
+  [KOTLIN] Kotlin compiler class: org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
+  [KOTLIN] Kotlin compiler classpath: /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/.gradle-user-home/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-build-tools-compat/2.4.10/a6a145a14d4fdec0cccc964e99d84f4c7cd13169/kotlin-build-tools-compat-2.4.10.jar:/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/.gradle-user-home/caches/modules-2/files-2.1/org.jetbrains.ko
+  Compiling using the in-process strategy
+  Kotlin compiler args: -Xallow-no-source-files -classpath /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/.gradle-user-home/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-serialization-core-jvm/1.12.0/60e7a99e653c96101a80f817b57bf698e40bf66c/kotlinx-serialization-core-jvm-1.12.0.jar:/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/.gradle-user-home/caches/modu
+  Source changes: Known(modified=[/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/src/commonMain/kotlin/com/singularity/todo/core/search/TextMatch.kt, /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/src/commonMain/kotlin/com/singularity/todo/core/search/TextMatch.kt], removed=[], forDependencies=false)
+  Classpath changes info passed from Gradle task: NoChanges
+  Process SignatureChanged(fqName = .kotlin_module)
+  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/build/classes/kotlin/jvm/main/com/singularity/todo/core/search/TextMatchQuery.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/src/commonMain/kotlin/com/singularity/todo/core/search/TextMatch.kt
+  Moving /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/build/classes/kotlin/jvm/main/com/singularity/todo/core/search/TextMatchQuery.class to the stash as /tmp/kotlin-backups2717450799777210765/0.backup
+  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/build/classes/kotlin/jvm/main/com/singularity/todo/core/search/TextMatchQuery$Companion.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/src/commonMain/kotlin/com/singularity/todo/core/search/TextMatch.kt
+  Moving /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/build/classes/kotlin/jvm/main/com/singularity/todo/core/search/TextMatchQuery$Companion.class to the stash as /tmp/kotlin-backups2717450799777210765/1.backup
+  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/build/classes/kotlin/jvm/main/com/singularity/todo/core/search/TextMatch.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/src/commonMain/kotlin/com/singularity/todo/core/search/TextMatch.kt
+  Moving /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/build/classes/kotlin/jvm/main/com/singularity/todo/core/search/TextMatch.class to the stash as /tmp/kotlin-backups2717450799777210765/2.backup
+  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/build/classes/kotlin/jvm/main/META-INF/singularity-todo_core-domain.kotlin_module on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/src/commonMain/kotlin/com/singularity/todo/core/search/TextMatch.kt
+  Moving /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/build/classes/kotlin/jvm/main/META-INF/singularity-todo_core-domain.kotlin_module to the stash as /tmp/kotlin-backups2717450799777210765/3.backup
+  Reverting changes
+  Cleaning up stash
+  Non-incremental compilation will be performed: Incremental compilation might be incorrect (KT-62686)
+  Cleaning 3 output directories
+
+=== bailout ===
+  Source changes: Known(modified=[/home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/src/commonMain/kotlin/com/singularity/todo/core/search/TextMatch.kt, /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/src/commo
+  Process SignatureChanged(fqName = .kotlin_module)
+  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/build/classes/kotlin/jvm/main/com/singularity/todo/core/search/TextMatchQuery.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-do
+  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/build/classes/kotlin/jvm/main/com/singularity/todo/core/search/TextMatchQuery$Companion.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfi
+  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/build/classes/kotlin/jvm/main/com/singularity/todo/core/search/TextMatch.class on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/
+  Deleting /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-domain/build/classes/kotlin/jvm/main/META-INF/singularity-todo_core-domain.kotlin_module on clearing cache for /home/max/orca/workspaces/singularity_cllone_kmp/elephantfish/core-doma
+  Reverting changes
+  Non-incremental compilation will be performed: Incremental compilation might be incorrect (KT-62686)
+  Cleaning 3 output directories
+
+=== iteration count ===
+kt files in compile iteration: 44
+
+=== tail ===
+    Number of classpath entries: 6
+    Size of classpath snapshot: 579.4 KB
+    Code generation lines per second: 2523
+  Total compiler iteration: 1
+    Number of cache hits when loading classpath entry snapshots: 6
+  Number of times classpath snapshot is loaded: 1
+  Number of times classpath snapshot is shrunk and saved after compilation: 1
+    Size of shrunk classpath snapshot: 49.2 KB
+    ABI snapshot size: 18 B
+    Number of lines analyzed: 5875
+  Start time of task action: 2026-11-05T18:37:24
+Build attributes:
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+GC metrics:
+  G1 Young Generation:
+    GC count: 2
+    GC time: 0.039 s
+  G1 Old Generation:
+    GC count: 0
+    GC time: 0.000 s
+  G1 Concurrent GC:
+    GC count: 4
+    GC time: 0.077 s
+

@@ -35,7 +35,7 @@ string either way.
 #### Scenario: A call site derives a tag from a label
 
 - **Given** a source file containing `testTag(TestTags.…(…label…))` or the same
-      shape over `.text` or `.title`
+  shape over `.text` or `.title`
 - **When** the check runs
 - **Then** it fails and names the file and line
 
@@ -49,7 +49,7 @@ string either way.
 #### Scenario: The check is disabled
 
 - **Given** the check is removed or its allowlist is widened to accept display
-      strings
+  strings
 - **When** a synthetic `testTag(TestTags.taskAction(label))` is introduced
 - **Then** the positive control fails
 - **And** the removal is not mistaken for the code being clean

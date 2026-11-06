@@ -10,6 +10,7 @@ status: accepted
 The project had ~25-30 catch blocks that swallowed exceptions without logging. Any error surfaced only as a UI-state string — no stacktrace, no tag, no platform log. The `AppLog.kt` facade existed (Kermit 2.1.0 already wired) but was never called, had a single global tag, no error level, and no platform-specific initialization.
 
 Additional problems:
+
 - Ktor HTTP client logged `LogLevel.BODY` — auth tokens and note content visible in logs.
 - No way to distinguish debug vs release log verbosity.
 - No Koin-to-Kermit integration — Koin startup logs went to its own default logger.
@@ -17,6 +18,7 @@ Additional problems:
 ## Idea
 
 Wire Kermit 2.1.0 + `kermit-koin` 2.1.0 properly:
+
 - `Logger` injected via Koin (`kermitLoggerModule()` + `getWith("ClassName")`).
 - `expect/actual initLogging()` sets global severity and (on JVM) a colorizing writer.
 - Per-class tags: `getWith("SyncEngine")` creates a `Logger.withTag("SyncEngine")` through DI.
@@ -72,6 +74,7 @@ Koin binding: `single { SyncEngine(getWith("SyncEngine"), get(), get(), get(), g
 ### 5. Ktor logging fix
 
 Both `Network.jvm.kt` and `Network.android.kt`:
+
 ```kotlin
 install(Logging) {
     logger = object : io.ktor.client.plugins.logging.Logger {

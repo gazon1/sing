@@ -21,6 +21,7 @@ deciders: Singularity Developer
 ### 1. `stateIn(WhileSubscribed(5000))` анти-паттерн
 
 13 ViewModel использовали `stateIn(scope, WhileSubscribed(5000), initialValue)`. Это:
+
 - Держит upstream active 5 секунд после отписки → `UncompletedCoroutinesError` в тестах
 - Работает только при активном subscriber — без `vm.state.launchIn(scope)` в тестах state never transitions
 - Сокрытие ошибок: upstream умирает silent, UI показывает `Loading` вечно
@@ -28,6 +29,7 @@ deciders: Singularity Developer
 ### 2. Side-effects внутри `combine`/`flatMapLatest`
 
 `TaskDetailViewModel` и `ProjectDetailViewModel` писали `_latestTask.value = task` **внутри** `flatMapLatest` / `combine`. Это:
+
 - Нарушает чистоту reactive chain
 - TOCTOU race: между чтением `_latestTask` и записью может прилететь remote edit
 
@@ -45,9 +47,11 @@ deciders: Singularity Developer
 ---
 
 ## Decision
+
 ### D1: Все 9 ViewModel мигрированы на `MutableStateFlow` + `scope.launch { }.collect {}`
 
 Миграция проведена для:
+
 - `TagsViewModel`
 - `SavedAgendaListViewModel`
 - `AgendaViewModel`
@@ -62,6 +66,7 @@ deciders: Singularity Developer
 - `ProfileSwitcherViewModel`
 
 Canonical pattern:
+
 ```kotlin
 // ANTIPATTERN — не использовать
 val state = someFlow.stateIn(scope, WhileSubscribed(5000), Initial)
@@ -81,6 +86,7 @@ init {
 ### D2: `AccountSettingsViewModel` удалён
 
 Заменён на `koinInject<ProfileRepository>()` в `AccountSettingsScreen`. Удалены:
+
 - `AccountSettingsViewModel.kt`
 - DI registration
 - `AccountSettingsViewModelTest.kt`
@@ -96,6 +102,7 @@ Contract test для `BackupCodec` порта (round-trip по версиям).
 ### D5: `LlmUsageRecorderTest` добавлен
 
 5 тестов для `RoomUsageRecorder`:
+
 - Успешное событие
 - Failure-событие с error message
 - Profile isolation
@@ -137,12 +144,14 @@ Contract test для `BackupCodec` порта (round-trip по версиям).
 ### 3. `runBlocking` в production (10 occurrences)
 
 10× в `androidMain`/`jvmMain`. Нужно:
+
 - ban через `NoRunBlockingRule` (уже написан, но в warning mode)
 - перенести в `scope.launch { }`
 
 ### 4. `viewModelScope` в production (7 occurrences)
 
 7× `viewModelScope.launch` в production. Нужно:
+
 - ban через `NoViewModelScopeInProductionRule` (уже написан, но в warning mode)
 - заменить на инъектированный scope
 
@@ -160,12 +169,14 @@ Contract test для `BackupCodec` порта (round-trip по версиям).
 ## Consequences
 
 ### Positive
+
 - Все 13 VM теперь используют канонический паттерн `MutableStateFlow + scope.launch { }.collect {}`
 - Side-effects вынесены из reactive chains
 - `AccountSettingsViewModel` убран — меньше boilerplate
 - Новая test coverage для `LlmUsageRecorder`
 
 ### Negative
+
 - Миграция touching 13 файлов — высокий риск merge conflict при parallel development
 - Detekt rules (`NoViewModelScopeInProductionRule`, `NoRunBlockingRule`) работают в warning mode — нужно перевести в error после baseline
 

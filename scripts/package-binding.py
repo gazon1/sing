@@ -14,8 +14,9 @@ Three surfaces bind the package, and they used to bind it three ways:
     of `sys.path` (the idiom `check-script-conventions.py` checks, R2.5);
   - `scripts/ci/static-gates.sh` puts the same directory first in
     `PYTHONPATH` for the gates it dispatches;
-  - the entry points — `./sg`, `./rm` and `scripts/run-gate-tests.py` —
-    additionally drop the editable finders from `sys.meta_path`.
+  - the entry points — `./sg` and `./rm` through `scripts/checkout-entry.py`,
+    and `scripts/run-gate-tests.py` by itself — additionally drop the editable
+    finders from `sys.meta_path`.
 
 The first two are the same move in two spellings. The third is the defensive
 one: an editable install registers a meta-path finder, and while it is

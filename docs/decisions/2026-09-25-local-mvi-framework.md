@@ -3,8 +3,8 @@ title: Local MVI Framework — StatefulViewModel + MviViewModel + EventBus
 date: 2026-09-25
 status: accepted
 ---
-# Local MVI Framework — StatefulViewModel + MviViewModel + EventBus
 
+# Local MVI Framework — StatefulViewModel + MviViewModel + EventBus
 
 > **Superseded in part (2026-09-27):** `StatefulViewModel`, `updateStateAs<T>`,
 > `onStateChanged` and `CoroutineScope.fireAndForget` were removed. See

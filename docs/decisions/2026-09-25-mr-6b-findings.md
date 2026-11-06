@@ -24,6 +24,7 @@ MR-6b по плану: миграция SettingsVM, BackupVM, CalendarSyncVM, Sy
 ## Why SettingsViewModel is Deferred
 
 `SettingsIntent` is a typealias in `feature.settings` pointing to `core.settings.SettingsIntent` (a sealed interface in core module). Making it extend `MviIntent` would require:
+
 1. Adding `MviIntent` inheritance to `core.settings.SettingsIntent` (core module change)
 2. Updating all nested sealed interfaces (Appearance, Notifications, etc.) to also extend MviIntent
 3. Potentially affecting any code in `core` that references `SettingsIntent`
@@ -33,12 +34,14 @@ This is a deeper API change than a simple VM migration.
 ## Why BackupViewModel is Deferred
 
 BackupScreen consumes two separate flows:
+
 ```kotlin
 events: SharedFlow<BackupUiEvent>    // for errors + SettingsSnapshotExported
 snackbar: SharedFlow<String>         // for success messages ("Backup created", etc.)
 ```
 
 Migrating to MviViewModel would require:
+
 1. Adding `ShowSnackbar(String)` to `BackupUiEvent`
 2. Removing the separate `snackbar` flow
 3. Updating `BackupScreen` to handle snackbar messages via event mapping

@@ -55,6 +55,7 @@ workaround (class-splitting) is sufficient for immediate needs. The gap is real 
 narrow.
 
 Revisit when:
+
 - A module's honest test is `slow` and class-splitting is not feasible.
 - Or: the CI infrastructure can cheaply produce `fast+slow` combined measurement.
 

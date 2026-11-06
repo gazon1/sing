@@ -23,6 +23,7 @@ Tasks.org's `FileLogWriter` solves exactly this: rolling files (10 × 20 MB) wit
 ### FileLogWriter
 
 `core/log/FileLogWriter.kt` — `class FileLogWriter(logDirectory, fileSystem, fileSizeLimit)`:
+
 - 10 files, 20 MB each, rotation on size limit.
 - Single-threaded `CoroutineScope(Dispatchers.IO.limitedParallelism(1))` — no locks.
 - Graceful drain: `beginShutdown()` waits up to 2 s for buffered writes.

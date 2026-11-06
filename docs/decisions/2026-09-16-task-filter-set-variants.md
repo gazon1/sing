@@ -16,6 +16,7 @@ status: accepted
 ## Idea
 
 Варианты:
+
 1. **Оставить in-memory** — `AgendaEvaluator.matches` достаточно для большинства случаев. SQL-бенчмарк не проводился.
 2. **Добавить SQL-фильтры** (этот ADR) — `watchByAnyTag`, `watchByAllTags`, `watchByPriorities`, `watchByRegexp` в `TaskDao`. Repository dispatch.
 
@@ -43,6 +44,7 @@ sealed interface TaskFilter {
 ```
 
 **Migration shim**: custom `KSerializer<Selector>` via `JsonContentPolymorphicSerializer` или `JsonTransformingDeserializer` — принимает оба `"Tag"` и `"Tags"` discriminator значения. Это позволяет:
+
 - MR1 drafts / AI-tool history / backups с `"Tag": {"id": ...}` десериализуются корректно
 - Новый код генерирует `"Tags": {"ids": [...]}` при сохранении
 - Через 1 release cycle `Tag` можно удалить
@@ -64,6 +66,7 @@ fun watchByRegexp(userId: String, query: String): Flow<List<TaskEntity>>
 ```
 
 **Почему LIKE, не REGEXP**:
+
 - `REGEXP` требует регистрации extension function в Room (per-driver callback)
 - SQLite `REGEXP` engine (ICU) отличается от `kotlin.text.Regex` — разные результаты для `a.b`
 - `LIKE '%term%'` — multiplatform, работает из коробки, Room parameter binding

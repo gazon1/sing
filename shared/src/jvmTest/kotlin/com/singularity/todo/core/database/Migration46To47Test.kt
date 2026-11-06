@@ -1,11 +1,8 @@
 package com.singularity.todo.core.database
 
 import androidx.sqlite.execSQL
-import com.singularity.todo.core.database.contract.createSqlDriver
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -39,22 +36,20 @@ import kotlin.test.assertTrue
  */
 @Tag("slow")
 class Migration46To47Test {
-    private lateinit var tempDir: File
-    private lateinit var dbPath: String
+    private lateinit var fixture: DatabaseTestFixture
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("migration46to47-").toFile()
-        dbPath = File(tempDir, "fixture.db").absolutePath
+        fixture = DatabaseTestFixture.onDisk()
     }
 
     @AfterTest
     fun tearDown() {
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     private fun openMigrated(): AppDatabase {
-        createSqlDriver().open(dbPath).use { connection ->
+        fixture.connect().use { connection ->
             applyExportedSchema(45, connection)
             // A task that exists *before* the upgrade. It has no workflow state
             // to bring with it, so the column's default is what it must read as.
@@ -87,7 +82,7 @@ class Migration46To47Test {
                 """.trimIndent(),
             )
         }
-        return AppDatabaseFactory.build(createSqlDriver(), dbPath)
+        return fixture.database()
     }
 
     @Test

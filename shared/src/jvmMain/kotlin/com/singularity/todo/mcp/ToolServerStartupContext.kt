@@ -19,6 +19,13 @@ internal class ToolServerStartupContext(
      * What the caller asked for: a profile id, a legacy label, or nothing.
      */
     val selection: ProfileSelection,
+    /**
+     * The process entry point's container starter.
+     *
+     * It is supplied by the launcher rather than built here: this module is a library
+     * used by two processes, and a library does not own the composition root.
+     */
+    val koinStartup: ToolServerKoinStartup,
 ) {
     /**
      * The profile the caller named, or null when the caller named none.

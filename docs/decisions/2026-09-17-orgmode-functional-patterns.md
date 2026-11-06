@@ -67,6 +67,7 @@ Kotlin-проекция: `TraversalDirective<T>` sealed interface (Continue | Sk
 `org-entry-get` обходит ancestors заново на каждый вызов. Никакого `effectivePriority` stored-поля в схеме. Memoization — отдельная опциональная обёртка (text-property cache), не часть core API.
 
 Это даёт два архитектурных бонуса:
+
 - Изменение иерархии (новый parent) → inherited значения пересчитываются автоматически без миграции.
 - Source of truth — `Task.parentTaskId` + `Project.parentId`, а не denormalized копия.
 
@@ -93,6 +94,7 @@ Kotlin-проекция: `AgendaEvaluator.evaluate` уже чистый pipeline
 #### R5. Homoiconic sealed hierarchy: data ↔ predicate ↔ JSON
 
 `org-element` AST — это одновременно:
+
 - Typed structure (52 node types как `sealed`),
 - Predicate input (`org-element-map` принимает type для фильтрации),
 - JSON-serializable (`org-element-interpret-data` round-trip).
@@ -100,6 +102,7 @@ Kotlin-проекция: `AgendaEvaluator.evaluate` уже чистый pipeline
 Один тип — три роли. Никаких параллельных DTO.
 
 Kotlin-проекция: `sealed interface Selector` уже отвечает этому (`@Serializable`, предикат, JSON-через-`SelectorSerializer`). Расширение:
+
 - `TaskFilter` (`Task.kt:32`) должен стать `@Serializable` для consistency — у него сейчас нет `@Serializable`, что разрывает контракт.
 - `AgendaBadge` (из `AgendaEvaluator.computeBadge`) — должен стать `@Serializable` если пойдёт в saved views.
 

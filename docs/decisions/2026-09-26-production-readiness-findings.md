@@ -18,6 +18,7 @@ During a production-readiness session, the following issues were discovered and 
 **Problem:** `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` used `includeTags("fast")` as the default filter. No test class had `@Tag("fast")`, causing **0 tests to be discovered** on every default run.
 
 **Fix applied:**
+
 ```kotlin
 // Before (BROKEN — no @Tag("fast") classes exist)
 includeTags("fast")
@@ -35,6 +36,7 @@ Tests without any tag run by default. Only `@Tag("slow")` tests are excluded.
 **Problem:** `junit-vintage-engine` was not declared in `libs.versions.toml` and not added to `androidHostTest` or `desktopApp` test dependencies.
 
 **Fix applied:**
+
 - Added `junit-vintage-engine = "5.11.4"` to `[versions]`
 - Added `junit-vintage-engine = { module = "org.junit.vintage:junit-vintage-engine" }` to `[libraries]`
 - Added `implementation(libs.junit.vintage.engine)` to `androidHostTest` and `desktopApp` dependencies
@@ -46,6 +48,7 @@ Tests without any tag run by default. Only `@Tag("slow")` tests are excluded.
 **Problem:** `libs.versions.toml` had `junit = { module = "junit:junit" }` in the Android section, which shadows the `junit` version key and is non-standard.
 
 **Fix applied:**
+
 - Renamed to `junit4 = { module = "junit:junit" }` (clearer intent)
 - Updated `desktopApp/build.gradle.kts` to use `libs.junit4`
 - `libs.junit` now unused in build files (removed from desktopApp)
@@ -59,6 +62,7 @@ Tests without any tag run by default. Only `@Tag("slow")` tests are excluded.
 **Temporary fix:** All 17 failing test classes tagged `@Tag("slow")` so default `./gradlew :shared:jvmTest` passes with BUILD SUCCESSFUL.
 
 **Failing test classes (14):**
+
 - `OAuthTokenRefreshTest` (commonTest)
 - `BackupOptionsTest` (jvmTest)
 - `AutoSyncTest` (jvmTest)

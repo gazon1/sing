@@ -2,14 +2,69 @@
 <resources>
     <string name="back">Back</string>
     <string name="menu">Menu</string>
+    <string name="search">Search</string>
     <string name="ai_actions">AI Actions</string>
     <string name="reset_date">Reset date</string>
     <string name="reset_priority">Reset priority</string>
     <string name="task_title_placeholder">Task title</string>
     <string name="add_date">Add date</string>
     <string name="good_evening">Good evening</string>
+    <string name="task_description_placeholder">Add a description...</string>
+    <string name="save_task">Save</string>
+    <string name="priority">Priority</string>
+    <string name="add_estimate">Add estimate</string>
+    <string name="reset_estimate">Reset estimate</string>
+    <string name="task_completed">Task completed</string>
+    <string name="mark_task_complete">Mark as complete</string>
+    <string name="delete_task">Delete task</string>
+    <string name="task_checked">Done</string>
+    <string name="task_unchecked">Not done</string>
+    <string name="priority_none">No priority</string>
+    <string name="priority_low">Low priority</string>
+    <string name="priority_medium">Medium priority</string>
+    <string name="priority_high">High priority</string>
+    <string name="priority_urgent">Urgent priority</string>
+    <string name="series_apply_to_all">Apply to all</string>
+    <string name="series_keep_separate">Keep separate</string>
+    <string name="series_delete">Delete series</string>
+    <string name="marking_in_progress">Task in progress</string>
+    <string name="marking_next_up">Next task</string>
+    <string name="marking_blocked">Task is blocked by dependencies</string>
+    <string name="marking_follow_up">Task follows another</string>
+    <string name="marking_pinned">Task is pinned</string>
+    <string name="marking_recurring">Recurring task</string>
+    <string name="marking_overdue">Overdue task</string>
+    <string name="marking_no_date">Task has no date</string>
+    <string name="menu_restore">Restore</string>
+    <string name="menu_archive">Archive</string>
+    <string name="menu_delete">Delete</string>
+    <!-- Date parts for the task editor's due-date row. Short names: the row is a
+         list line, not a title, and "Wednesday" would not fit next to the time. -->
+    <string name="weekday_short_mon">Mon</string>
+    <string name="weekday_short_tue">Tue</string>
+    <string name="weekday_short_wed">Wed</string>
+    <string name="weekday_short_thu">Thu</string>
+    <string name="weekday_short_fri">Fri</string>
+    <string name="weekday_short_sat">Sat</string>
+    <string name="weekday_short_sun">Sun</string>
+    <string name="month_short_jan">Jan</string>
+    <string name="month_short_feb">Feb</string>
+    <string name="month_short_mar">Mar</string>
+    <string name="month_short_apr">Apr</string>
+    <string name="month_short_may">May</string>
+    <string name="month_short_jun">Jun</string>
+    <string name="month_short_jul">Jul</string>
+    <string name="month_short_aug">Aug</string>
+    <string name="month_short_sep">Sep</string>
+    <string name="month_short_oct">Oct</string>
+    <string name="month_short_nov">Nov</string>
+    <string name="month_short_dec">Dec</string>
     <plurals name="date_count">
         <item quantity="one">%d date</item>
         <item quantity="other">%d dates</item>
+    </plurals>
+    <plurals name="series_label">
+        <item quantity="one">Series · %d date</item>
+        <item quantity="other">Series · %d dates</item>
     </plurals>
 </resources>

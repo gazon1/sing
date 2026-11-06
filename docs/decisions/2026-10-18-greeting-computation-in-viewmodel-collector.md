@@ -1,9 +1,16 @@
 ---
 title: "Greeting Computation — Init vs Collector placement"
 date: "2026-10-18"
-status: "accepted"
+status: "superseded"
+superseded-by: "2026-11-05-the-greeting-follows-the-clock-and-the-settings"
 type: "decision"
 ---
+
+> **Superseded (2026-11-05):** the greeting is no longer computed once, on the first
+> collector emission. It is a flow over the observed greeting-hour settings and the
+> clock's hour, published into the live `Loaded` state, so a boundary crossing or a
+> settings change re-renders it without the ViewModel being recreated. See
+> `2026-11-05-the-greeting-follows-the-clock-and-the-settings.md`.
 
 ## Context
 

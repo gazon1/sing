@@ -73,8 +73,11 @@ internal const val EXIT_USAGE = 2
  * client, and it is written down in [ToolServerStartupOrder]. This function walks that
  * list; it does not repeat it.
  */
-internal suspend fun startToolServer(selection: ProfileSelection): ToolServerStartup {
-    val context = ToolServerStartupContext(selection)
+internal suspend fun startToolServer(
+    selection: ProfileSelection,
+    koinStartup: ToolServerKoinStartup,
+): ToolServerStartup {
+    val context = ToolServerStartupContext(selection, koinStartup)
     for (step in ToolServerStartupOrder.steps) {
         val refusal = step.run(context)
         if (refusal != null) return refusal
