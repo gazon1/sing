@@ -298,12 +298,11 @@ PRE_PUSH_STEPS: tuple[PrePushStep, ...] = (
     # Markdown formatting (rumdl), opt-in/advisory by policy.
     #
     # Scoped to *.md files the push touches (not the whole legacy tree). Runs
-    # only when rumdl is on PATH and the pushed tree carries rumdl-changed.py;
-    # the script skips itself when rumdl is missing. CI does not enforce a
-    # Markdown gate yet.
+    # only when rumdl is on PATH; the script skips itself when rumdl is missing.
+    # CI does not enforce a Markdown gate yet.
     PrePushStep(
         label="rumdl gate",
-        script="scripts/rumdl-changed.py",
+        script="scripts/rumdl-advisory-files.py",
         args=("--files-from", "@TOUCHED_MD@", "--advisory"),
         script_from="repo",
         pythonpath_from="none",

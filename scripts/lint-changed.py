@@ -54,8 +54,14 @@ from git_changed import changed_paths as _changed_paths  # noqa: E402
 
 
 def changed_paths(base: str, pathspec=(), staged_only: bool = False) -> list[str]:
-    """Wrapper so tests can monkeypatch ``ROOT`` (legacy API)."""
-    return _changed_paths(base, pathspec=pathspec, staged_only=staged_only, root=ROOT, cwd=ROOT)
+    """Wrapper so tests can monkeypatch ``ROOT`` (legacy API).
+
+    lint-changed is a local scoped check; an unresolvable base falls back to the
+    working tree with an explicit warning (never a silent partial pass).
+    """
+    return _changed_paths(
+        base, pathspec=pathspec, staged_only=staged_only, root=ROOT, cwd=ROOT, require_base=False
+    )
 
 # The modules that run detekt. Each one gets a `detektChanged` task; a module
 # with no changed file has nothing to analyse, and its task is skipped.

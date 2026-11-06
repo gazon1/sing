@@ -385,12 +385,29 @@ rumdl-fix:
     rumdl fmt .
 
 [group('lint')]
-[doc('Check changed Markdown files with rumdl (scoped, like lint-changed)')]
+[doc('Check changed Markdown files with rumdl (merge-base + working tree + untracked)')]
 [working-directory(justfile_directory())]
-rumdl-changed *args:
+rumdl-changed:
     #!/bin/bash
     set -euo pipefail
-    python3 scripts/rumdl-changed.py {{args}}
+    if ! command -v rumdl >/dev/null 2>&1; then
+        echo "rumdl is not installed — run: mise install." >&2
+        exit 1
+    fi
+    base="${LINT_BASE:-origin/main}"
+    mb="$(git merge-base "$base" HEAD 2>/dev/null)" || { echo "rumdl-changed: cannot resolve merge-base for '$base' (fetch it, or set LINT_BASE)" >&2; exit 1; }
+    mapfile -d '' files < <(
+        { git diff --name-only --diff-filter=ACMR -z "$mb" -- '*.md';
+          git ls-files --others --exclude-standard -z -- '*.md'; } | awk -v RS='\0' -v ORS='\0' '!seen[$0]++'
+    )
+    existing=()
+    for f in "${files[@]}"; do [ -f "$f" ] && existing+=("$f"); done
+    if [ "${#existing[@]}" -eq 0 ]; then
+        echo "rumdl-changed: no Markdown files to check."
+        exit 0
+    fi
+    echo "rumdl-changed: checking ${#existing[@]} Markdown file(s)…"
+    rumdl check "${existing[@]}"
 
 [group('lint')]
 [doc('Format changed Markdown files with rumdl')]
@@ -398,7 +415,24 @@ rumdl-changed *args:
 rumdl-changed-fix:
     #!/bin/bash
     set -euo pipefail
-    python3 scripts/rumdl-changed.py --fix
+    if ! command -v rumdl >/dev/null 2>&1; then
+        echo "rumdl is not installed — run: mise install." >&2
+        exit 1
+    fi
+    base="${LINT_BASE:-origin/main}"
+    mb="$(git merge-base "$base" HEAD 2>/dev/null)" || { echo "rumdl-changed: cannot resolve merge-base for '$base' (fetch it, or set LINT_BASE)" >&2; exit 1; }
+    mapfile -d '' files < <(
+        { git diff --name-only --diff-filter=ACMR -z "$mb" -- '*.md';
+          git ls-files --others --exclude-standard -z -- '*.md'; } | awk -v RS='\0' -v ORS='\0' '!seen[$0]++'
+    )
+    existing=()
+    for f in "${files[@]}"; do [ -f "$f" ] && existing+=("$f"); done
+    if [ "${#existing[@]}" -eq 0 ]; then
+        echo "rumdl-changed: no Markdown files to fix."
+        exit 0
+    fi
+    echo "rumdl-changed: formatting ${#existing[@]} Markdown file(s)…"
+    rumdl check --fix "${existing[@]}"
 
 [group('lint')]
 [doc('Alias for the lint suite (ktlint and detekt); md via mdcheck/mdcheck-changed')]
