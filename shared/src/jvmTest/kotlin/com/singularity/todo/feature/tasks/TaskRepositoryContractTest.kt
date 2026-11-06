@@ -34,6 +34,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * Verifies that [TaskRepository] implementations satisfy the same contract,
@@ -128,6 +129,38 @@ abstract class TaskRepositoryContractTest {
             val result = repo.create(task("t1", title = "Buy milk"))
             assertTrue(result.isSuccess)
             assertEquals("Buy milk", result.getOrNull()?.title)
+        }
+
+    /**
+     * A write keeps the timestamps the caller gave it.
+     *
+     * The seed defines a fixture's timestamps: a task stamped in the past is what
+     * the stagnant health bucket is defined by. Writing the outgoing links used to
+     * re-stamp `updated_at` with the wall clock on every write, so a seeded
+     * "stagnant" task was fresh the moment the seed returned, and the flow that
+     * asserted on it met an empty bucket instead of a fixture.
+     */
+    @Test
+    fun `create and update keep the timestamps the caller gave`() =
+        runTest {
+            val repo = newRepository(alice)
+            val seeded = Instant.fromEpochMilliseconds(1_767_225_600_000)
+            val edited = Instant.fromEpochMilliseconds(1_700_000_000_000)
+
+            val created =
+                repo
+                    .create(task("t1").copy(createdAt = seeded, updatedAt = seeded))
+                    .getOrThrow()
+            val afterCreate =
+                repo.observeByFilter(TaskFilter.All).first().single { it.id == created.id }
+            assertEquals(seeded, afterCreate.createdAt)
+            assertEquals(seeded, afterCreate.updatedAt)
+
+            repo.update(afterCreate.copy(title = "changed", updatedAt = edited)).getOrThrow()
+            val afterUpdate =
+                repo.observeByFilter(TaskFilter.All).first().single { it.id == created.id }
+            assertEquals("changed", afterUpdate.title)
+            assertEquals(edited, afterUpdate.updatedAt)
         }
 
     // ─── What a filter selects ──────────────────────────────────────────────────

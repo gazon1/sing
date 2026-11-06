@@ -4,16 +4,22 @@
 #   env:
 #     QUERY: "task=Buy%20milk&due=today"
 #
-# QUERY is a URL-encoded deep-link query string:
+# QUERY is a URL-encoded deep-link query string. The key vocabulary is owned by
+# `SeedLinkKeys` in `core/seed/`; an unknown key is logged by name and ignored,
+# while the known keys in the same query are still seeded.
 #   task=<title>              — create a task
-#   task=<title>&due=today    — task with due date
-#   task=<title>&due=tomorrow — task due tomorrow
-#   task=<title>&due=-1d      — task due yesterday
-#   task=<title>&due=2026-10-01 — exact date
+#   desc=<text>               — description of the seeded task
+#   due=today|tomorrow|-1d|+1d|<YYYY-MM-DD> — task due date
+#   updatedAt=now|-22d|<ISO instant> — task created/updated timestamps
+#   blockedBy=<task title>    — make the task depend on an existing task
+#   id=<id>                   — id the seeded task/project carries
 #   note=<title>              — create a note
-#   project=<name>           — create a project
-#   profile=<name>           — create and switch to a profile
-#   session=anonymous        — put the app into a local (offline) session
+#   linkTo=<task title>       — link the seeded note to that task
+#   project=<name>            — create a project
+#   profile=<name>            — create and switch to a profile
+#   session=anonymous|signedout|signedin — change the session
+#   reset=content             — wipe the active profile's content
+#   cleanup=<prefix>[,<prefix>…] — delete rows whose title starts with a prefix
 #
 # This helper does NOT run launch-clean — the caller decides.
 #

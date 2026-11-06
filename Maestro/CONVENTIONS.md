@@ -85,7 +85,7 @@ The `note_editor_title_input` testTag uses `testTag(TestTags.taskAction(label))`
 
 ## Helpers
 
-Thirteen helper files exist in `Maestro/helpers/`. Use them — do not duplicate
+Nineteen helper files exist in `Maestro/helpers/`. Use them — do not duplicate
 their logic.
 
 | Helper | When to use |
@@ -93,16 +93,21 @@ their logic.
 | `launch-clean.yaml` | Any flow needing a fresh app state |
 | `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link |
 | `seed-task.yaml` | Any flow needing one task titled "Buy milk" |
+| `seed-and-open-task.yaml` | Seeds a task with `QUERY` and opens it from Inbox by `TASK_ID` |
+| `open-task.yaml` | Opens a task from Inbox by `TASK_ID` and waits for the editor |
 | `relaunch.yaml` | Flows testing persistence (state survives process restart) |
 | `open-app-menu.yaml` | Flows opening the app menu (the bottom-bar Menu button) |
+| `open-settings.yaml` | Opens Settings from the app menu and waits for the settings tab control |
+| `settings-tab.yaml` | Opens a Settings tab by `TAB_ID`, scrolling the dropdown until it is drawn |
 | `open-menu-item.yaml` | Opens a menu entry by `ENTRY_ID`, scrolling the sheet until it is on screen, then waits for `DEST_ID` — the way to reach a destination that is not a tab |
 | `session-signedin.yaml` | Flows needing a signed-in session persisted on the device |
 | `session-signedout.yaml` | Flows needing a signed-out app — the auth screen |
-| `settings-account-tab.yaml` | Flows needing the Account tab in Settings (it is the last of twelve rows and starts below the fold) |
+| `settings-account-tab.yaml` | Flows needing the Account tab in Settings (a `settings-tab.yaml` call with `TAB_ID: settings_tab_account`) |
 | `calendar-day-cell.yaml` | Flows waiting for a calendar day cell by its date tag |
 | `calendar-tap-day-cell.yaml` | Flows opening a calendar day by its date tag |
 | `plans-section.yaml` | Flows waiting for a timeline section by its date tag |
 | `plans-section-gone.yaml` | Flows asserting that a timeline section is gone |
+| `open-attachments-sheet.yaml` | Opens the task detail's attachments sheet from the "+ Add file" row |
 | `backup-create-via-saf.yaml` | Backup flows creating an archive through the system save dialog |
 
 ### Sessions
