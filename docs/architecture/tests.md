@@ -87,6 +87,39 @@ awaitState { vm.state.value is UiState.Content }   // виртуальное в�
 после прогона: следующие Gradle-шаги могут перезаписать отчёт). Модули `adr-cli` и
 `adr-core` тоже гоняются в CI — иначе их `slow`-классы не выполнялись бы нигде.
 
+## Диагностика падения
+
+Красный тест должен отвечать на вопрос «что было на экране и как далеко дошёл тест» без
+открытия артефактов. Ответ — **бандл**: набор файлов, который лежит рядом с отчётом и имя
+которого едет в само сообщение об ошибке.
+
+| Продюсер | Артефакты | Куда | Кто везёт в CI |
+|---|---|---|---|
+| `shared` — `FailureContextExtension` | `coroutines.txt` | `shared/build/diagnostics/<TestClass>/` | `ci-evidence-<run_id>` |
+| `shared` — `TestFailureDetailsWriter` | `failure-details.txt` | `shared/build/diagnostics/<TestClass>/` | `ci-evidence-<run_id>` |
+| `desktopApp` — `FailureBundle` | screenshot, screen tree, steps, nodes, db-state, kermit log, coroutines | `desktopApp/build/diagnostics/<TestClass>/attempt-N/` | `ci-evidence-<run_id>` |
+| `androidApp` (instrumented) — `FailureBundle` | screenshot, screen tree, steps, environment | `/data/local/tmp/singularity-diagnostics/<TestClass>/attempt-N/`, затем `androidApp/build/diagnostics/` | `ci-evidence-<run_id>` |
+
+Правила контракта:
+
+1. **Каждый артефакт снимается независимо.** Упавший скриншот не должен стоить шагов и
+   окружения: снимок экрана — единственное, чего нельзя восстановить позже, а шаги — то, что
+   отвечает на «как далеко дошёл тест».
+2. **Имена артефактов едут в сообщение об ошибке.** Бандл добавляет себя в исключение как
+   suppressed-exceptions, поэтому отчёт сам называет файлы, и до артефакта доходишь по отчёту.
+3. **Каждая попытка — свой каталог.** `attempt-N/` перезаписывается на старте попытки: два
+   ретрая не смешивают артефакты. На Android файлы лежат плоско (`<Class>-attempt-N-<name>`),
+   потому что umask приложения (0077) делает созданный им подкаталог недоступным оболочке.
+4. **Два `FailureBundle` — две реализации одного контракта.** Кодом они не делятся:
+   `desktopApp/jvmTest` и `androidApp/androidTest` — разные модули и разные source set'ы, и
+   общий код означал бы тестовую зависимость, которую тащит ещё и прод-сборка. Набор
+   артефактов, независимость захвата и правило про попытки — одни и те же.
+
+Диагностика падения — не только бандл: `scripts/src/traceability/junit_xml.py` читает JUnit
+отчёты, а `scripts/junit-annotations.py` и `scripts/ci/print-test-failures.sh` показывают
+одну и ту же сводку по ним. Формат отчёта задаёт `build.gradle.kts` (`mergeReruns`,
+`exceptionFormat = FULL`), поэтому читателю не нужно знать, какой модуль отчёт породил.
+
 ## Тесты гейт-сьюта
 
 Сьют гейтов живёт в `scripts/tests/`, и точка входа у него одна:
