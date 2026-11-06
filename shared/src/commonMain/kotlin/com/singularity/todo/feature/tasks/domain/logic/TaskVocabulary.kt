@@ -56,15 +56,6 @@ object TaskVocabulary {
      */
     data class Divergence(val name: String, val source: Source, val reason: String)
 
-    /**
-     * A name the wire still accepts for a selection, and the selection it names.
-     *
-     * An alias is read-only: it decodes, and it drains out of the wire as its callers
-     * are updated. It is registered because it is a name the world meets, and because a
-     * word that answers two questions has to be declared rather than left silent.
-     */
-    data class Alias(val name: String, val selection: TaskSelection)
-
     // The questions, written once so that the vocabularies answering the same
     // question say so in the same words — which is what makes them comparable.
     private const val DUE_TODAY = "the tasks that are due today"
@@ -135,8 +126,6 @@ object TaskVocabulary {
             Entry(Source.SELECTION, "active", UNFINISHED),
             Entry(Source.SELECTION, "completed", FINISHED),
             Entry(Source.SELECTION, "all", LIVE),
-            // The old name the wire still accepts for the selection above.
-            Entry(Source.SELECTION, "inbox", UNFINISHED_NOT_DEFERRED),
             // The agenda's presets.
             Entry(Source.PRESET, "All", LIVE),
             Entry(Source.PRESET, "Inbox", UNSCHEDULED),
@@ -154,14 +143,6 @@ object TaskVocabulary {
             Entry(Source.PRESET, "forToday", THE_DAY),
             Entry(Source.PRESET, "workDayPreset", A_WORKING_DAY),
         )
-
-    /**
-     * The names the wire still accepts, and the selection each one names.
-     *
-     * The alias is read-only: it decodes, and it drains out of the wire as its callers
-     * are updated. It is registered here because it is a name the world meets.
-     */
-    val aliases: List<Alias> = listOf(Alias("inbox", TaskSelection.ACTIVE_NOT_DEFERRED))
 
     /**
      * The names two vocabularies answer differently, and why.
@@ -188,15 +169,6 @@ object TaskVocabulary {
                     "the agenda's Upcoming tab is a horizon — tomorrow to next week — while " +
                         "the filter and the selection hold every later date. The tab is what the " +
                         "bottom bar shows soon; the set is everything that is not due yet",
-            ),
-            Divergence(
-                name = "inbox",
-                source = Source.SELECTION,
-                reason =
-                    "the alias is the selection's old name and is read-only; the agenda's tab " +
-                        "owns the word from now on, and the alias drains out of the wire one caller " +
-                        "at a time. Until it does, the word answers two questions, and this is " +
-                        "where that is written down",
             ),
         )
 }

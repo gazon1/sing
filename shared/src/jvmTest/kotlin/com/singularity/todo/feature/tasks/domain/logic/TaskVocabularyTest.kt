@@ -48,14 +48,13 @@ class TaskVocabularyTest {
     @Test
     fun `every selection the wire offers is registered, and the registry names no other selection`() {
         val wire = TaskSelection.entries.map { it.wireName }.toSet()
-        val aliases = TaskVocabulary.aliases.map { it.name }.toSet()
         val registered = registered(TaskVocabulary.Source.SELECTION)
 
         wire.forEach {
             assertTrue(it in registered, "the wire offers '$it' and the registry does not say what it answers")
         }
         registered.keys.forEach {
-            assertTrue(it in wire || it in aliases, "the registry names '$it', which the wire does not offer")
+            assertTrue(it in wire, "the registry names '$it', which the wire does not offer")
         }
     }
 
@@ -69,19 +68,6 @@ class TaskVocabularyTest {
             registered.keys,
             "every agenda preset has a name in the registry, and no other preset does",
         )
-    }
-
-    @Test
-    fun `an alias answers the question of the selection it names`() {
-        val registered = registered(TaskVocabulary.Source.SELECTION)
-
-        TaskVocabulary.aliases.forEach { alias ->
-            assertEquals(
-                registered[alias.selection.wireName],
-                registered[alias.name],
-                "the alias '${alias.name}' must answer what '${alias.selection.wireName}' answers",
-            )
-        }
     }
 
     @Test

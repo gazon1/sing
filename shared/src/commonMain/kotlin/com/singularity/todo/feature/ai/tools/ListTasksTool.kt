@@ -183,8 +183,7 @@ class ListTasksTool(
                 "The selection is one of: active_not_deferred, today, upcoming, overdue, " +
                 "blocked, stagnant, pinned, someday, active, completed, all. " +
                 "active_not_deferred means every unfinished task that is not deferred, dated or " +
-                "undated; the old name inbox is still accepted for it and answers the same " +
-                "question. " +
+                "undated. " +
                 "It is not the Inbox tab, which holds the undated tasks only; today means due " +
                 "today; upcoming means due later; overdue means past its due date and still " +
                 "open; blocked means waiting on something unfinished; stagnant means unfinished, " +
