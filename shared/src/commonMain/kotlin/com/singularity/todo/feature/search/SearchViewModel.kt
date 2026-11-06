@@ -189,11 +189,7 @@ class SearchViewModel(
      * when the text did not parse, which is a question whose answer is already
      * known: nothing.
      */
-    private data class SearchRequest(
-        val text: String,
-        val parsed: Query?,
-        val mode: SearchMode,
-    )
+    private data class SearchRequest(val text: String, val parsed: Query?, val mode: SearchMode)
 
     /** The question the screen is asking now. */
     private fun currentRequest(): SearchRequest =
@@ -479,7 +475,7 @@ class SearchViewModel(
      * waiting and says why, rather than leaving the spinner up or throwing out of
      * the intent's coroutine.
      */
-    private fun reportSearchError(cause: Exception) {
+    private fun reportSearchError(cause: Throwable) {
         vmScope.launch { emit(SearchUiEvent.Error("Search error: ${cause.message ?: "unknown"}")) }
     }
 

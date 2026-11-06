@@ -4,7 +4,6 @@ import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isFocused
-import androidx.compose.ui.test.onAllNodes
 
 /**
  * Waits for the node with [tag] to hold the focus, and fails with the timeout if
