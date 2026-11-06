@@ -607,3 +607,15 @@ no-false-immutable:
 no-collection-materialization-in-composable:
   NoCollectionMaterializationInComposable:
     active: true
+
+# Added 2026-11-04 with the Android shell's inset fix (#1699, #2192). The shell's
+# `NavigationSuiteScaffold` hands its content the padding the navigation suite took —
+# a bottom bar on a phone, a rail on a wide window — and a lambda that declares no
+# parameter, or declares it and never spends it, drops that padding: the last row is
+# drawn behind the bar, or the content starts under the rail. The seeded regression was
+# invisible to the helper's own tests: `shellContentWindowInsets` can be correct while
+# the shell never calls it, so the rule reads the call site, which is where the defect
+# lives.
+no-dropped-navigation-padding:
+  NoDroppedNavigationPadding:
+    active: true
