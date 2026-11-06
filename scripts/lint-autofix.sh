@@ -80,14 +80,26 @@ if [[ -n "$BASE" ]] && git merge-base --is-ancestor "$BASE" HEAD 2>/dev/null; th
                 BUILD_CHANGED=true
                 ;;
         esac
-        # Map the file to the module whose directory contains it.
-        for m in "${ALL_MODULES[@]}"; do
-            dir="${m//:/\/}"
-            if [[ "$f" == "$dir"/* ]]; then
-                CHANGED_KOTLIN_MODULES+=("$m")
-            fi
-        done
     done
+
+    # Map changed files to modules via the shared module graph.
+    if [[ ${#CHANGED_FILES[@]} -gt 0 ]]; then
+        mapfile -t CHANGED_KOTLIN_MODULES < <(python3 - "${CHANGED_FILES[@]}" <<'PYEOF'
+import sys
+sys.path.insert(0, "scripts")
+from changed_modules import load_modules, path_modules
+modules = load_modules()
+prefixes = path_modules(modules)
+seen = set()
+for path in sys.argv[1:]:
+    for prefix, module in prefixes.items():
+        if path.startswith(prefix) and module not in seen:
+            seen.add(module)
+            print(module)
+            break
+PYEOF
+)
+    fi
 
     if $BUILD_CHANGED; then
         : # keep all modules
