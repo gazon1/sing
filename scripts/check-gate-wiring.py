@@ -2291,9 +2291,10 @@ def check_script_gates_vs_registry() -> list[str]:
 #    is the opposite of what a reader expects: the *target* of an `exec` counts
 #    as reached, not the shim that reached it.
 #
-#    All three live shims spell the base directory the same way (`$SCRIPT_DIR/`),
-#    but _SHIM_DELEGATION accepts any shell variable, a bare `scripts/`, and an
-#    optional `./`. That is deliberate: this pattern was first written against
+#    The shim-delegation logic below still follows `exec` chains (kept for any
+#    future shim). `_SHIM_DELEGATION` accepts any shell variable, a bare
+#    `scripts/`, and an optional `./`. That is deliberate: this pattern was first
+#    written against
 #    `check-skill-frontmatter.sh`, which used `"$ROOT/scripts/…"`, and a
 #    matcher built for that one spelling would silently miss every other. The
 #    first version of this comment then named a file that no longer existed —
