@@ -120,6 +120,24 @@ awaitState { vm.state.value is UiState.Content }   // виртуальное в�
 одну и ту же сводку по ним. Формат отчёта задаёт `build.gradle.kts` (`mergeReruns`,
 `exceptionFormat = FULL`), поэтому читателю не нужно знать, какой модуль отчёт породил.
 
+### Артефакты прогона
+
+Что CI везёт с собой и что в каждом лежит:
+
+| Артефакт | Что внутри | Кто его читает |
+|---|---|---|
+| `junit-results` | JUnit XML всех модулей | `check-test-runs.py`, аннотации, трейсировка |
+| `allure-results` | сырые `*-result.json` и вложения | доказательство; читает отчёт |
+| `allure-report-<run_id>` | собранный HTML-отчёт | человек |
+| `ci-evidence-<run_id>` | бандлы диагностики, трейсировка, kover | человек, гейты |
+| `html-reports-<run_id>` | Gradle HTML-отчёты всех модулей | человек |
+| `build-log-<run_id>`, `build-log-detekt-<run_id>` | полный лог Gradle | человек |
+
+Отчёт Allure собирается задачей `allureReport` в корневом `build.gradle.kts`: результаты трёх
+модулей сливаются в один плоский каталог (`allureMergeResults`), потому что генератор читает
+ровно один каталог и не заходит в подкаталоги. ADR —
+`docs/decisions/2026-11-06-the-allure-report-is-generated-in-the-build.md`.
+
 ## Тесты гейт-сьюта
 
 Сьют гейтов живёт в `scripts/tests/`, и точка входа у него одна:
