@@ -20,3 +20,7 @@ rumdl = "0.3.2"
 "github:gazon1/easement" = "0.5.1"
 "github:mokevnin/heavy" = "latest"
 "npm:@sourcegraph/scip-python" = "latest"
+# The toolchain that builds easement from source, pinned to the version the
+# easement repository pins itself. A released binary needs no toolchain, so
+# this is the fallback for a checkout that has to build it.
+rust = "1.99.1"
