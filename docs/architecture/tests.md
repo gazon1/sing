@@ -98,7 +98,7 @@ awaitState { vm.state.value is UiState.Content }   // виртуальное в�
 | `shared` — `FailureContextExtension` | `coroutines.txt` | `shared/build/diagnostics/<TestClass>/` | `ci-evidence-<run_id>` |
 | `shared` — `TestFailureDetailsWriter` | `failure-details.txt` | `shared/build/diagnostics/<TestClass>/` | `ci-evidence-<run_id>` |
 | `desktopApp` — `FailureBundle` | screenshot, screen tree, steps, nodes, db-state, kermit log, coroutines | `desktopApp/build/diagnostics/<TestClass>/attempt-N/` | `ci-evidence-<run_id>` |
-| `androidApp` (instrumented) — `FailureBundle` | screenshot, screen tree, steps, environment | `/data/local/tmp/singularity-diagnostics/<TestClass>/attempt-N/`, затем `androidApp/build/diagnostics/` | `ci-evidence-<run_id>` |
+| `androidApp` (instrumented) — `FailureBundle` | screenshot, screen tree, steps, environment | `/data/local/tmp/singularity-diagnostics/<TestClass>/attempt-N/`, затем `androidApp/build/diagnostics/` | `android-failure-diagnostics-<run_id>` |
 
 Правила контракта:
 
