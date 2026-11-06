@@ -40,13 +40,13 @@ SRC = ROOT / "scripts" / "src"
 
 SUITE = (
     '<testsuite name="s" tests="1">'
-    '<testcase classname="com.example.{cls}" name="{case}">{body}</testcase>'
+    '<testcase classname="com.example.{cls}" name="{case}"{file}>{body}</testcase>'
     "</testsuite>"
 )
 
 
-def _xml(body: str, cls: str = "Suite", case: str = "test") -> str:
-    return SUITE.format(cls=cls, case=case, body=body)
+def _xml(body: str, cls: str = "Suite", case: str = "test", file: str = "") -> str:
+    return SUITE.format(cls=cls, case=case, body=body, file=file)
 
 
 #: The four outcomes that used to be misread, in one file.
@@ -111,6 +111,19 @@ class AnnotationOutcomeTest(unittest.TestCase):
         out = run_annotations(self.dir)
         self.assertIn("::error", out)
         self.assertIn("Erroring", out)
+
+    def test_failure_annotation_names_the_file_the_test_ran_in(self):
+        """The annotation points at the file, so CI can link to it."""
+        _write(
+            self.dir,
+            _xml(
+                '<failure message="assertion failed"/>',
+                cls="Failing",
+                file=' file="src/test/kotlin/FailingTest.kt"',
+            ),
+        )
+        out = run_annotations(self.dir)
+        self.assertIn("::error file=src/test/kotlin/FailingTest.kt", out)
 
     def test_error_testcase_is_not_counted_as_a_clean_pass(self):
         """F1: the summary line must not claim a pass for it."""

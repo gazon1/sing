@@ -36,7 +36,8 @@ _``FLOW_ROOTS`` match) and the provenance chain join on it. Adopting the library
 would have traded one silent failure for a louder one.
 
 For a long time this module was one of **two** readers: ``junitparser`` in
-``scripts/junit-annotations.py`` (which needs no ``file``) and ``ElementTree``
+``scripts/junit-annotations.py`` (which needed no ``file`` — it now passes the
+``file`` attribute to the GitHub annotation, so it does) and ``ElementTree``
 here. The second reader did not merely duplicate the first — it disagreed with
 it, and the disagreement was invisible in the place that mattered: a
 ``<error>`` testcase was reported to CI as a clean pass, and a retried test's

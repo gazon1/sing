@@ -109,7 +109,7 @@ def process_xml_file(xml_path: Path) -> tuple[int, int, int, int]:
         if case.failed_like:
             failures += 1
             detail = case.message or case.stacktrace or f"test {case.status}"
-            emit_error(classname, methodname, detail)
+            emit_error(classname, methodname, detail, case.file or ".")
             continue
 
         if case.retried:
