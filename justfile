@@ -37,6 +37,7 @@ default:
 alias aapk   := android::build-debug
 alias arel   := android::build-release
 alias arun   := android::run
+alias apush  := android::push-install
 alias at     := android::test
 alias al     := android::logs
 alias adb-d  := android::devices
