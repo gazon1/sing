@@ -122,3 +122,9 @@ facts:
   - id: K-settingscore-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/settings-core.md
+  - id: K-synccore-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/sync-core.md
+  - id: K-taskscore-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/tasks-core.md
