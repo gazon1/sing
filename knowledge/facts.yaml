@@ -23,3 +23,9 @@ facts:
   - id: K-calsync-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/calendar-sync.md
+  - id: K-tasks-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/tasks.md
+  - id: K-tags-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/tags.md
