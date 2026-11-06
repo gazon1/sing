@@ -19,6 +19,9 @@ jobs:
           node-version: 22
       - name: Install the Python indexer easement delegates to
         run: npm install -g @sourcegraph/scip-python
-      - uses: mokevnin/easement@main
+      # The fork, not the upstream action: the fix for a duplicated declaration
+      # across components (mokevnin/easement#114) is not in an upstream release
+      # yet, and the fork's install.sh installs the fork's release.
+      - uses: gazon1/easement@main
         with:
           diff: origin/main
