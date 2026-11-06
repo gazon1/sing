@@ -152,6 +152,64 @@ object TextMatch {
     }
 
     /**
+     * Where [term] occurs in [text], under the contains rule.
+     *
+     * ## Why the position is found here
+     *
+     * The contains rule is answered by reading the rows, so there is no index to
+     * ask where the match is — the position has to be found in the text itself.
+     * This is that answer, and it is the same answer as [contains]: the text and
+     * the term are folded the same way, so the span is the span of the match
+     * the rule made.
+     *
+     * ## Why the positions are the characters of the original text
+     *
+     * The fold replaces every character with exactly one character, so a
+     * position in the folded text is the same position in the original one. The
+     * span therefore lands on the characters the user sees — "cafe" in
+     * "Café au lait" is the span of the four characters of "Café".
+     *
+     * @param text the text to look in.
+     * @param term the term to look for.
+     * @return the range of the first occurrence, or `null` when the term does
+     *   not occur in the text.
+     */
+    fun containsSpan(
+        text: String,
+        term: String,
+    ): IntRange? = containsSpans(text, listOf(term)).first()
+
+    /**
+     * Where each of [terms] occurs in [text], under the contains rule.
+     *
+     * One entry per term, in the order the terms were given, and `null` where
+     * that term does not occur — so a caller that asked about several terms can
+     * still say *which* term it found where.
+     *
+     * ## Why the text is folded once
+     *
+     * A record is matched against every positive term of the rule, and the fold
+     * of its text is the same for all of them: it is a property of the text, not
+     * of the question. [containsSpan] answers one term and folds the text for
+     * it, so a caller with n terms folded the same text n times — on every
+     * emission, for every record a broad scan read. Folding it once is the same
+     * answer for a fraction of the work.
+     */
+    fun containsSpans(
+        text: String,
+        terms: List<String>,
+    ): List<IntRange?> {
+        if (text.isEmpty()) return terms.map { null }
+        val foldedText = fold(text)
+        return terms.map { term ->
+            if (term.isEmpty()) return@map null
+            val foldedTerm = fold(term)
+            val start = foldedText.indexOf(foldedTerm)
+            if (start < 0) null else start until (start + foldedTerm.length)
+        }
+    }
+
+    /**
      * The text, folded and case-folded the way the tokenizer folds it.
      *
      * @param text the text to fold.
