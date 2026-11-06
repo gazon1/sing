@@ -1,0 +1,22 @@
+# Opens a task from the Inbox by its row id.
+#
+# Usage:
+#   - runFlow:
+#       file: ../../helpers/open-task.yaml
+#       env:
+#         TASK_ID: task_item_attachtesttask2026
+appId: com.singularity.todo
+name: open-task
+---
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: "${TASK_ID}"
+    timeout: 8000
+- tapOn:
+    id: "${TASK_ID}"
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000

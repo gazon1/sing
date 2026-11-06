@@ -32,11 +32,13 @@ private val fakeReminderRepo = FakeReminderRepository()  // internal Dispatchers
 **Why this matters:** `ProfileAwareCurrentUser.init` launches a `combine` collector that reads `profileRepository.activeProfileId`. If this runs on `Dispatchers.Default`, `advanceUntilIdle()` cannot advance it.
 
 **The wiring checklist (add to every VM test):**
+
 1. Create `fakeCurrentUser` first
 2. Pass it to every `Fake*Repository` that accepts it
 3. If a repository overload defaults to `FakeProfileAwareCurrentUser()`, **replace it** with the explicit shared instance
 
 **Known repositories that accept `ProfileAwareCurrentUser`:**
+
 - `FakeReminderRepository(currentUser)` — must pass shared user
 - `FakeTaskRepository(currentUser)` — must pass shared user
 - `FakeProjectsRepository(currentUser)` — must pass shared user
@@ -101,11 +103,13 @@ private val now = Instant.fromEpochMilliseconds(0)
 ```
 
 **When fixed dates ARE appropriate:**
+
 - Domain logic tests (pure functions, selectors, evaluators)
 - Date arithmetic tests (calendar math, RRULE generation)
 - Any test that validates business rules, not integration
 
 **When real time IS appropriate:**
+
 - Integration tests where system time is part of the scenario
 - End-to-end tests
 - Tests of actual scheduling/notification logic
@@ -115,11 +119,13 @@ private val now = Instant.fromEpochMilliseconds(0)
 ## Rule 3: Know When to Use `delay()` vs `advanceUntilIdle()`
 
 **`advanceUntilIdle()`** works when the test dispatcher controls ALL coroutines in the chain:
+
 - Pure test dispatcher chains
 - Fakes created with test dispatcher
 - No `Dispatchers.Default` in the chain
 
 **`delay(ms)`** is required when:
+
 - `FakeProfileAwareCurrentUser` runs on `Dispatchers.Default` (even with PR-3.1 fix, some code paths still use default dispatcher)
 - Real network/HTTP is involved (RecordingHttpClient pattern)
 - `java.util.Timer` or `ScheduledExecutorService` is used
@@ -158,6 +164,7 @@ fun `ToggleComplete sets completedAt in repository`() = runTest {
 **Good comment explains WHY** — not just what delay is used for. The 100ms establishment delay is for `stateIn` subscription timing; the 50ms is because the mutation coroutine fires synchronously.
 
 **Bad comment:**
+
 ```kotlin
 delay(100) // wait
 delay(50) // wait more

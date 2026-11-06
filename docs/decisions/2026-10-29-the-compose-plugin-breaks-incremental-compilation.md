@@ -1,11 +1,17 @@
 ---
 title: "The Compose compiler plugin is why :shared never compiles incrementally"
 date: 2026-10-29
-status: accepted
+status: superseded
 tags: ["build", "performance", "compose"]
 ---
 
 # The Compose compiler plugin is why :shared never compiles incrementally
+
+> **Superseded by** `2026-11-05-the-koin-plugin-forced-the-aggregator-compile-to-rerun`.
+> The A/B below confounded Compose with Koin: both "Compose" modules also apply
+> the Koin compiler plugin, and both controls apply neither. The plugin that set
+> the compile task out of date was Koin, not Compose; see the Correction at the
+> end and the superseding ADR. Keep this file as the record of the misdiagnosis.
 
 ## Context
 
@@ -128,3 +134,35 @@ place. The candidates that remain, in order:
 - `docs/decisions/2026-10-22-gradle-memory-budget.md` — the in-process claim
 - `config/docs/gradle-memory-budget.properties` — the fork count and heap
 - `scripts/test-impact-map.py` — the map that narrows the selection but not the cost
+
+## Update (2026-11-05)
+
+`:shared-ui` was merged back into `:shared` (the `:shared-ui` split was reverted),
+so `:shared` once again applies `alias(libs.plugins.composeMultiplatform)` and
+`alias(libs.plugins.composeCompiler)` directly, and `config/compose/stability_config.conf`
+is wired via `stabilityConfigurationFiles`. The `composeStabilityReportEnabled` block
+— including the `outputs.upToDateWhen { false }` override — was removed in the merge,
+since the report is opt-in and no gate reads it.
+
+Re-measured after the merge: `:shared:compileKotlinJvm` still reports
+"Non-incremental compilation will be performed" and is not cacheable. The removal of
+the `upToDateWhen` override did not change the outcome, which confirms the earlier
+finding — the Compose compiler plugin, not the stability contract, is what marks
+the task non-incremental. **That conclusion is withdrawn** (see the Correction
+below): the measurement was confounded, and the plugin was Koin.
+
+## Correction (2026-11-05)
+
+The A/B in this ADR could not separate Compose from Koin. The modules that
+recompiled (`:shared`, `:desktopApp`) apply **both** the Compose *and* the Koin
+compiler plugins; the controls apply neither. The plugin that sets
+`upToDateWhen { false }` and `cacheIf { false }` on the Kotlin compile task is the
+**Koin** compiler plugin's aggregator auto-detection, not Compose: see
+`docs/decisions/2026-11-05-the-koin-plugin-forced-the-aggregator-compile-to-rerun.md`.
+
+That ADR fixes the task-state cause in `shared/build.gradle.kts` and measures
+120 s → 1.5 s for the same narrow no-op run. The remaining non-incremental edit on
+`:shared` is the `in-process` execution strategy on a KMP module (`KT-62686`),
+measured with a standalone KMP probe; removing the Koin plugin changes nothing.
+Candidate fix (1), the `:shared-ui` split, is therefore not needed for either
+symptom and is not implemented.

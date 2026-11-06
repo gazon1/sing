@@ -123,8 +123,8 @@ fun RefreshableContent(
  *
  * ## What "no Koin" means here
  *
- * The **global** Koin. Both shipped applications start theirs with
- * `startKoin`, so the global one is what production runs on. The scope a
+ * The **global** Koin. Both shipped applications start theirs at their entry point,
+ * so the global one is what production runs on. The scope a
  * composition carries of its own — the one `KoinIsolatedContext` installs —
  * is not consulted, because the only public way to ask for it is an API the
  * project does not use: `LocalKoinScope` is deprecated, and

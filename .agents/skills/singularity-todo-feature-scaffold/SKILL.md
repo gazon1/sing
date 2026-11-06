@@ -163,7 +163,7 @@ class Create<Feature>UseCase(private val repo: <Feature>Repository, private val 
 
 ### 6. <Feature>ViewModel.kt — MviViewModel base
 
-All VMs extend [MviViewModel](core/ui/MviViewModel.kt). Unifies `MutableStateFlow`, `EventBus`, `onIntent`.
+All VMs extend [MviViewModel](../../../shared/src/commonMain/kotlin/com/singularity/todo/core/ui/MviViewModel.kt). Unifies `MutableStateFlow`, `EventBus`, `onIntent`.
 
 ```kotlin
 sealed interface <Feature>UiState {
@@ -262,12 +262,14 @@ feature/<feature>/presentation/nav/
 ### Adding a new nested graph
 
 1. `feature/<feature>/presentation/nav/<Feature>Route.kt`:
+
    ```kotlin
    @Serializable sealed interface <Feature>Route : NavKey {
        @Serializable data object List : <Feature>Route
        @Serializable data class Detail(val id: <Feature>Id) : <Feature>Route
    }
    ```
+
 2. Create `*NavGraph.kt` (expect) + `*NavGraph.android.kt` + `*NavGraph.jvm.kt`
 3. Add `AppDestination.<Feature>Graph` to `AppDestination`
 4. Wire in `AppNavHost` using `entryProvider`
@@ -329,6 +331,7 @@ See `singularity-todo-test-helpers`.
 ## Layer-boundary checklist
 
 Before merging:
+
 - [ ] `presentation/` does NOT import from `data/` (only via `domain/port/`)
 - [ ] `domain/` does NOT import from `data/` or `presentation/`
 - [ ] `data/` does NOT import from `presentation/`

@@ -17,7 +17,8 @@ been called. No ViewModel, no repository, no DI binding, no route.
 `OAuth.kt` and explicitly **kept the file**, on the grounds that deleting it is a
 statement about the product — "we are not doing OAuth" — and a dead-code sweep should
 not make that call on its own. The finding was parked in the deferred backlog as issue
-#38 with the question left open: *is Supabase OAuth still planned?*
+
+# 38 with the question left open: *is Supabase OAuth still planned?*
 
 Supabase auth + sync is now being built. That forces the question, because the choice
 determines what the auth layer looks like from the start.

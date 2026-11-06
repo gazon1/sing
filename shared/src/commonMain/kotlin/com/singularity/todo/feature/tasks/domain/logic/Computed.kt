@@ -44,11 +44,13 @@ object TaskComputed {
     fun isOverdue(
         task: Task,
         today: LocalDate,
-    ): Boolean =
-        task.dueDate != null &&
-            task.dueDate < today &&
+    ): Boolean {
+        val dueDate = task.dueDate
+        return dueDate != null &&
+            dueDate < today &&
             !task.isCompleted &&
             !task.isTrashed
+    }
 
     /**
      * A task is ready when:

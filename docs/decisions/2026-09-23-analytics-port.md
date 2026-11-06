@@ -46,6 +46,7 @@ suspend fun Analytics.logEventOncePerDay(
 ### Event naming
 
 `AnalyticsEvents` object mirrors Tasks.org conventions:
+
 - Screen events: `SCREEN_ADD_ACCOUNT`, `SCREEN_PRICING`, `SCREEN_WELCOME`
 - Action events: `ADD_TASK`, `COMPLETE_TASK`, `SIGN_IN_ERROR`
 - Settings clicks: `SettingsClick.DELETE_LIST`, `SettingsClick.SEND_LOGS`

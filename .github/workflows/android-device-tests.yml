@@ -216,6 +216,10 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
+      # The instrumented suite compiles the Android target, so the declared
+      # platform must exist before the first Gradle invocation.
+      - uses: ./.github/actions/setup-android-sdk
+
       # ANDROID_AVD_HOME and SDK paths from setup-avd job output.
       - name: Set AVD environment
         run: |

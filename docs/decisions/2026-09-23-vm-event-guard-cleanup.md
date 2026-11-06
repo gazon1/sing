@@ -14,6 +14,7 @@ Static analysis of `TaskCreateViewModel`, `TaskDetailViewModel`, and `SyncViewMo
 3. **Leaky abstraction on Channel parameter** — `NoteSaver.invoke()` declares `events: Channel<NotesUiEvent>` rather than `SendChannel<NotesUiEvent>`, exposing the concrete implementation type in the API.
 
 Separately, batch audit found two items of dead code with zero callers:
+
 - `TaskDetailMode.kt` (sealed interface, never matched or branched on)
 - `Attachment` sealed sub-hierarchy inside `TaskDetailIntent` (UI routes attachment events to `AttachmentsViewModel`, not through `TaskDetailIntent`)
 

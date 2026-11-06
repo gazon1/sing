@@ -6,7 +6,6 @@ status: accepted
 
 # Mutation-result handling in ViewModels
 
-
 > **Superseded in part (2026-09-27):** `StatefulViewModel`, `updateStateAs<T>`,
 > `onStateChanged` and `CoroutineScope.fireAndForget` were removed. See
 > [2026-09-27-mvi-single-state-entry-and-vm-sweep.md](2026-09-27-mvi-single-state-entry-and-vm-sweep.md).
@@ -45,6 +44,7 @@ inline fun CoroutineScope.fireAndForget(
 ```
 
 Design decisions:
+
 - **Does NOT broad-catch unchecked exceptions.** Programming errors / unexpected state propagate to the scope's `CoroutineExceptionHandler`. Callers must use `Result`-returning APIs.
 - **`errorLabel`** names the call site (e.g. `"Delete failed"`). The label is passed explicitly so every call site is self-documenting.
 - **`onError`** is a routing lambda — the caller decides whether to emit to a channel, update a state field, or log. No magic inside the helper.

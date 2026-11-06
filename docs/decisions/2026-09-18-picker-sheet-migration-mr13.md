@@ -12,9 +12,11 @@ MR13 aimed to migrate 4 simple picker sheets (`TaskAiBottomSheet`, `KindSheet`, 
 ## Decision
 
 **Migrated:**
+
 - `TaskAiBottomSheet`: Rewrite as `ListPickerSheet<TaskAiAction>`. Removed manual `sheetState`, `LaunchedEffect`, `rememberCoroutineScope`, `scope.launch { sheetState.hide() }`. Net -25 lines.
 
 **Deferred (not migrated):**
+
 - `KindSheet`: Uses a horizontal 2-FilterChip row with `Arrangement.spacedBy`. `ListPickerSheet` renders a vertical list with checkmark. The visual layout change is a regression — unacceptable without a row-variant of `ListPickerSheet`.
 - `BacklinksSheet`: Uses `ListItem` with `headlineContent` + `supportingContent` (rich snippet rendering, `TextOverflow.Ellipsis`). `ListPickerSheet` supports only `label: String` + `subtitle: String?`. The content richness is lost.
 

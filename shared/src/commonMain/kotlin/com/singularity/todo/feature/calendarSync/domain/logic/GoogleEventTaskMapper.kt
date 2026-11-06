@@ -3,7 +3,6 @@ package com.singularity.todo.feature.calendarSync.domain.logic
 import com.singularity.todo.feature.calendarSync.domain.model.GoogleEvent
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
@@ -76,7 +75,9 @@ object GoogleEventTaskMapper {
         val end = event.endsAt?.toLocalDateTime(timeZone)
 
         return TaskDraft(
-            title = event.title?.takeIf { it.isNotBlank() } ?: UNTITLED,
+            title =
+                event.title?.takeIf { it.isNotBlank() }
+                    ?: UNTITLED,
             description = event.description?.takeIf { it.isNotBlank() },
             dueDate = start?.date,
             // An all-day event has a date, not a moment. See the class comment.
@@ -96,10 +97,12 @@ object GoogleEventTaskMapper {
         event: GoogleEvent,
         taskId: TaskId,
         userId: com.singularity.todo.core.ids.UserId,
-        now: Instant,
+        now: kotlin.time.Instant,
         timeZone: TimeZone,
     ): Task? {
-        val draft = draftFor(event, timeZone) ?: return null
+        val draft =
+            draftFor(event, timeZone)
+                ?: return null
         // An event with no start becomes an unscheduled task rather than nothing: the user
         // can still see it, rename it, and give it a date. Dropping it would lose a real
         // appointment that Google simply did not put a time on.
@@ -154,7 +157,14 @@ object GoogleEventTaskMapper {
     }
 
     /** A task field a [TaskEdits] can move. */
-    enum class TaskField { Title, Description, DueDate, DueTime, EndDate, EndTime }
+    enum class TaskField {
+        Title,
+        Description,
+        DueDate,
+        DueTime,
+        EndDate,
+        EndTime,
+    }
 
     /**
      * The edits implied by [merge] against the remote event, read in [timeZone].
@@ -185,8 +195,8 @@ object GoogleEventTaskMapper {
 
         // Only the time fields are dropped for an all-day event; `merge.startsAt`/`endsAt`
         // are consulted on their own terms so an all-day event still moves its dates.
-        val startLocal = (start?.value as? Instant)?.toLocalDateTime(timeZone)
-        val endLocal = (end?.value as? Instant)?.toLocalDateTime(timeZone)
+        val startLocal = (start?.value as? kotlin.time.Instant)?.toLocalDateTime(timeZone)
+        val endLocal = (end?.value as? kotlin.time.Instant)?.toLocalDateTime(timeZone)
         val isAllDay = remote.allDay == true
 
         return TaskEdits(

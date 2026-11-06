@@ -15,10 +15,10 @@ decision; this skill provides the options and evidence.
 
 ## Inputs
 
-| Field | Description |
-|---|---|
-| `slug` | kebab-case change id of the completed pass |
-| `scan_corpus` | `true` to also scan the broader openspec corpus for related debt | default: `false` |
+| Field | Description | Default |
+|---|---|---|
+| `slug` | kebab-case change id of the completed pass | — |
+| `scan_corpus` | `true` to also scan the broader openspec corpus for related debt | `false` |
 
 ## Process
 
@@ -45,6 +45,7 @@ docs/decisions/*.md
 ```
 
 Look for:
+
 - Patterns that appear in multiple changes (indicating a systemic problem)
 - ADRs that were recorded but not acted on
 - Skills that were recommended in prior WHEN DONE audits but not yet authored

@@ -6,7 +6,7 @@
 
 ## 1. Карта пакетов
 
-> Автогенерируется: `just docs-audit` → `scripts/print-source-tree.sh`.
+> Автогенерируется: `just docs-audit` → `python3 scripts/print-source-tree.py`.
 > Для сверки с кодом: `python3 scripts/print-source-tree.py`.
 
 ### `core/` — инфраструктура (ports & adapters)
@@ -114,6 +114,7 @@ Feature-specific widgets (TaskCard, ProjectCard, EditorBody, TaskAiBottomSheet) 
 ### Decomposition rules — when to extract
 
 Extract a sub-composable when ANY of:
+
 - Function body > 60 lines
 - Same `Box(fillMaxSize) { Text(...) }` repeated ≥ 2× → use `EmptyState`
 - Same `AlertDialog(...)` block repeated ≥ 2× → use `ResultDialog`
@@ -267,12 +268,14 @@ AI Gen: `RefineTaskTool`, `SmartRewriteTool`, `GenerateDescriptionTool`, `Decomp
 3. **Constructor injection** — все зависимости VM передаются через конструктор. Это позволяет создать VM с fake-реализациями без Koin.
 
 4. **`FakeSettingsRepository`** — позволяет настроить `userId` и другие settings перед тестом:
+
    ```kotlin
    private val fakeSettings = FakeSettingsRepository { "user-1" }
    private val vm = NotesViewModel(FakeNotesStore(), FakeHtmlPort(), fakeSettings)
    ```
 
 5. **Turbine** — для assertions на `Flow<T>`:
+
    ```kotlin
    vm.state.test {
        assertEquals(NotesUiState.Loading, awaitItem())
@@ -281,6 +284,7 @@ AI Gen: `RefineTaskTool`, `SmartRewriteTool`, `GenerateDescriptionTool`, `Decomp
    ```
 
 6. **Clock injection** — вместо `Clock.System`:
+
    ```kotlin
    val fixedClock = Clock.fixed(Instant.parse("2026-09-03T12:00:00Z"), TimeZone.UTC)
    val repo = TaskRepositoryImpl(dao, fixedClock)
@@ -315,12 +319,14 @@ AI Gen: `RefineTaskTool`, `SmartRewriteTool`, `GenerateDescriptionTool`, `Decomp
 ### `resolutionStrategy` в двух местах
 
 **Root `build.gradle.kts`** — глобальные pins:
+
 ```kotlin
 if (requested.group == "org.jetbrains.kotlin") useVersion("2.4.10")
 if (requested.name == "kotlinx-serialization-json") useVersion("1.11.0")
 ```
 
 **`shared/build.gradle.kts`** — локальные pins:
+
 ```kotlin
 if (requested.name == "atomicfu") useVersion("0.23.1")
 if (requested.name == "kotlinx-collections-immutable") useVersion("0.3.7")

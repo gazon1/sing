@@ -1,6 +1,7 @@
 # proposals Specification
 
 ## Purpose
+
 The proposal's lifecycle and its typed vocabulary: a change the user may
 edit before it is applied, a visible reason for a refusal, a status that
 is what the proposal's changes say, and one vocabulary that survives the
@@ -335,7 +336,7 @@ them in step.
 
 - **Given** a decided change
 - **When** the user sees it on the review screen, in the note editor and in the
-      task detail
+  task detail
 - **Then** it reads the same on all three
 
 #### Scenario: A surface asks what is waiting

@@ -56,8 +56,18 @@ interface BackupRepository {
      */
     suspend fun export(options: ExportOptions): Result<BackupResult>
 
-    /** Imports a backup zip, restoring all entities into the active profile. */
-    suspend fun import(sourcePath: String): Result<RestoreResult>
+    /**
+     * Imports a backup zip, restoring all entities into the active profile.
+     *
+     * [keepExistingRows] chooses what happens to a row the account already has:
+     * false, the default, lets the archive win; true leaves the account's rows
+     * alone, writes only the rows it does not have, and removes nothing. What was
+     * kept comes back in [RestoreResult.keptEntityCounts].
+     */
+    suspend fun import(
+        sourcePath: String,
+        keepExistingRows: Boolean = false,
+    ): Result<RestoreResult>
 
     /** Deletes the local backup file with the given [BackupId]. */
     suspend fun delete(backupId: BackupId): Result<Unit>
@@ -271,7 +281,10 @@ class BackupRepositoryImpl(
             }
         }
 
-    override suspend fun import(sourcePath: String): Result<RestoreResult> =
+    override suspend fun import(
+        sourcePath: String,
+        keepExistingRows: Boolean,
+    ): Result<RestoreResult> =
         withContext(ioDispatcher) {
             importer.import(
                 ImportOptions(
@@ -279,6 +292,7 @@ class BackupRepositoryImpl(
                     targetUserId = currentUser.scopedUserId.value,
                     ownerId = currentUser.userId.value,
                     ownerUserId = currentUser.userId.value,
+                    keepExistingRows = keepExistingRows,
                 ),
             )
         }

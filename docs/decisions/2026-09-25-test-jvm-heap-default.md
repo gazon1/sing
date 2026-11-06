@@ -16,11 +16,13 @@ tags: [testing, gradle, kover, heap, koog]
 reproduces on a clean `main` checkout — pre-existing environment issue.
 
 The test method itself is trivial:
+
 ```kotlin
 @Test fun `toLinksJson encodes single link`() {
     assertEquals("""["task://abc"]""", listOf("task://abc").toLinksJson())
 }
 ```
+
 `toLinksJson` builds a 14-character JSON array via `StringBuilder.append()`.
 This cannot legitimately consume gigabytes of heap.
 
@@ -73,6 +75,7 @@ Two combined changes resolve the immediate CI breakage:
 ### 1. Disable Kover instrumentation for `:shared:jvmTest`
 
 In `shared/build.gradle.kts`:
+
 ```kotlin
 kover {
     currentProject {
@@ -91,6 +94,7 @@ is excluded from `:shared:jvmTest`.
 ### 2. Disable the failing test class with reference to this ADR
 
 In `TaskOutgoingLinksTest.kt`:
+
 ```kotlin
 @Disabled("OOM in :shared:jvmTest — see ADR-1 (2026-09-25-test-jvm-heap-default)")
 class TaskOutgoingLinksTest { ... }
@@ -103,6 +107,7 @@ in `:shared:jvmTest`. The test is exemplary (good coverage of `toLinksJson` /
 ## Rationale
 
 **Why disable Kover (not just JaCoCo migration):**
+
 - Kover/IntelliJ coverage runtime keeps growing per loaded class with no upper bound
 - The Koog library (3000+ classes) makes the accumulation visible at heap ceiling
 - Migrating to JaCoCo is a larger change requiring verification of coverage parity
@@ -110,6 +115,7 @@ in `:shared:jvmTest`. The test is exemplary (good coverage of `toLinksJson` /
   other test tasks
 
 **Why @Disabled (not @Tag("slow")):**
+
 - Default test run includes everything except `@Tag("slow")`
 - `@Disabled` makes the skip explicit and self-documenting via the message
 - The `@Disabled` message references this ADR for traceability
@@ -118,12 +124,14 @@ in `:shared:jvmTest`. The test is exemplary (good coverage of `toLinksJson` /
 ## Verification
 
 Full `:shared:jvmTest` run after both changes:
+
 ```
 > Task :shared:jvmTest
 BUILD SUCCESSFUL in 2m 18s
 ```
 
 Aggregate result:
+
 ```
 classes: 121, tests: 987, skipped: 15, failures: 0, errors: 0
 ```

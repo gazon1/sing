@@ -1244,7 +1244,7 @@ def _setup_edge_function_tests(root: Path) -> None:
     """
     function = root / "function"
     function.mkdir(parents=True)
-    source = _REPO_ROOT / "supabase" / "functions" / "google-oauth-exchange"
+    source = _REPO_ROOT / "infra" / "supabase" / "functions" / "google-oauth-exchange"
     for name in ("index.ts", "index_test.ts"):
         shutil.copy2(source / name, function / name)
 
@@ -1404,11 +1404,11 @@ FIXTURE_GATES = [
             "a mismatched redirect URI from a spent code from a call that never came back"
         ),
         # The clean run is the gate's own command on the real function — the one
-        # `static-gates.sh` registers ("deno test supabase/functions/
+        # `static-gates.sh` registers ("deno test infra/supabase/functions/
         # google-oauth-exchange/"). It is the only clean run that means anything
         # here: the fixture command carries `{tmp}`, and running it literally
         # asks deno about a path that was never there.
-        clean_cmd=["deno", "test", "supabase/functions/google-oauth-exchange/"],
+        clean_cmd=["deno", "test", "infra/supabase/functions/google-oauth-exchange/"],
     ),
     FixtureGate(
         name="flaky-tests",

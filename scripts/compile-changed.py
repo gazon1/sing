@@ -65,6 +65,7 @@ import importlib.util
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
 
@@ -246,11 +247,25 @@ def run_compile(tasks: list[str]) -> subprocess.CompletedProcess:
     That is a deliberate trade — a commit waits for a CPU slot but never for
     the pool — and it is stated here so it reads as a decision rather than an
     oversight. See docs/decisions/2026-10-22-gradle-memory-budget.md.
+
+    If heavy is not installed or COMPILE_CHANGED_NO_HEAVY=1, run without the
+    machine-wide queue to preserve the original no-queue behaviour.
     """
     environment = dict(os.environ)
     environment['SINGULARITY_GRADLE_SLOTS_DIR'] = '0'
+    launcher = gradle_launcher()
+    cmd = [launcher, *tasks, '--no-daemon', '--quiet', '--console=plain']
+    if os.environ.get('COMPILE_CHANGED_NO_HEAVY') == '1' or not shutil.which('heavy'):
+        return subprocess.run(
+            cmd,
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=environment,
+        )
     return subprocess.run(
-        [gradle_launcher(), *tasks, '--no-daemon', '--quiet', '--console=plain'],
+        ['heavy', '--timeout', '300', '--on-timeout', 'run', '--', *cmd],
         cwd=ROOT,
         capture_output=True,
         text=True,

@@ -37,6 +37,7 @@ AttachmentAnnotation, SavedSearch/AgendaView, Profile), поэтому коло�
 это и есть предмет будущего helper'а (пункт 2).
 
 ## Чек-лист для ревью
+
 1. Нет ли в редакторе пути «create on open» / «delete on abandon».
 2. При первом сохранении аттачмент (task_id, parent_id, outgoing_links) пишется
    в тот же вызов, что и контент.

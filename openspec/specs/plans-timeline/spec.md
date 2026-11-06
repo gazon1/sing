@@ -1,6 +1,7 @@
 # plans-timeline Specification
 
 ## Purpose
+
 The timeline screen: what is coming, grouped by time, at a size the user chooses.
 
 The screen answers one question — what is ahead of me — and it answers it as a list of periods,

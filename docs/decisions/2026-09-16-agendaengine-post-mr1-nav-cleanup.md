@@ -8,6 +8,7 @@ status: accepted
 ## Context
 
 После завершения MR1 AgendaEngine (`cea3877`) в кодовой базе остались:
+
 - `TasksRoute` sealed interface с мёртвыми вариантами (`Inbox`, `Today`, `ByProject`, `Upcoming`), которые больше не имеют соответствующих экранов
 - `TasksNavGraph` Android-специфичный `navSavedStateConfig` с регистрацией сериализаторов для удалённых вариантов
 - `entry<AppDestination.TasksByProject>` в `AndroidNavEntries`/`JvmNavEntries`, монтирующий `TasksNavGraph.ByProject` — который был удалён
@@ -17,11 +18,13 @@ status: accepted
 ## Idea
 
 Удалить мёртвый код и добавить deprecation-аннотации, чтобы:
+
 1. Новые вызовы направлялись в `AgendaGraph` вместо старых экранов
 2. Компилятор предупреждал при использовании устаревших API
 3. Навигационные entries единообразно монтировали `AgendaNavGraph`
 
 Варианты:
+
 1. **Оставить как есть** — мёртвый код не вызывает рантайм-ошибок, но запутывает и создаёт техдолг
 2. **Удалить мёртвое + добавить deprecations** (этот ADR) — чистый код, warnings при использовании старых API
 3. **Полное удаление `Inbox/Today/Upcoming` из `AppDestination`** — breaking change для любых внешних ссылок; лучше сначала deprecate
@@ -87,6 +90,7 @@ data class TasksByProject(val projectId: String) : AppDestination { ... }
 ### 5. `AppDestination.icon` — удалены always-false ветки
 
 Удалены:
+
 - `is AppDestination.ProjectsStartRoute.Editor` — `ProjectsStartRoute` не является подтипом `AppDestination`
 - `is AppDestination.NotesStartRoute` — аналогично
 - `is AppDestination.TasksStartRoute.Upcoming` — вариант удалён

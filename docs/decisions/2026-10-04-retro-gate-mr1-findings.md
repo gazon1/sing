@@ -21,6 +21,7 @@ value changes (non-null → non-null is a no-op). There is no visual countdown o
 snackbar button.
 
 **Decision:** Accept current implementation. A countdown timer requires either:
+
 - `SnackbarHostState.showSnackbar` returning `SnackbarResult.ActionPerformed` after the
   action is tapped (not after duration expires), or
 - A custom `Snackbar` composable with animated remaining-time indicator.

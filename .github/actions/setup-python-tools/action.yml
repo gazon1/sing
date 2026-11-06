@@ -1,78 +1,55 @@
 name: 'Setup gate tooling'
 description: >-
-  Install everything the gate suite shells out to: the sgate CLI (editable from
-  scripts/src/), junitparser, yamllint, actionlint, shellcheck, lychee and
-  ktlint — into one venv, once, for whichever job calls it.
-
-# Why this exists
-# --------------
-# The four pieces were installed in three different places, and each copy failed
-# on its own terms before any gate ran:
-#
-#   1. `python -m pip install` — fine until f6ae1bbb switched CI to uv
-#   2. `uv pip install --system` — "interpreter at /usr is externally managed"
-#   3. `+ --break-system-packages` — Permission denied on /usr/local
-#   4. `+ --prefix "$HOME/.local"` — installed, but `python3 -c "import sgate"`
-#      in a later step could not see it: that interpreter has no user site on
-#      its path
-#
-# A venv on PATH answers all four. Everything else here exists for one more
-# reason: a gate that cannot run looks exactly like a gate that has nothing to
-# report. `Static gates` was red on every run since #635 and said nothing about
-# the 22 gates it never reached.
-#
-# The local install path (scripts/ci/setup-local-tools.sh) gives the same
-# binaries a different SHAPE: on a machine with many checkouts it keeps them in
-# one shared store, keyed by version, and links each venv's copy to it — thirty
-# copies of the same 303 MB lychee is 8.9 GB of identical bytes. A CI runner is
-# thrown away after the job, so there is nothing to share with, and the job
-# installs them into its own venv. What the two paths must agree on is the
-# VERSION, and that is what the shared pins file gives them.
+  Install the gate suite's Python package (editable from scripts/src/) plus
+  junitparser into a venv, and make the external binaries (actionlint,
+  shellcheck, yamllint, lychee, ktlint, rumdl, ...) available through mise
+  (see mise.toml). The versions are pinned in mise.toml and
+  config/toolchain-versions.env so local and CI runs agree.
 
 inputs:
   python-version:
-    description: Python version for the venv (ci.yml pins 3.12 for the gate suite)
+    description: Python version for the venv
     required: false
     default: '3.12'
   extra-packages:
-    description: >-
-      Space-separated pip requirements to install alongside scripts/src. Empty
-      installs only the package itself.
+    description: Space-separated pip requirements to install alongside scripts/src.
     required: false
     default: ''
   with-yaml-lint:
-    description: Install the pinned yamllint (the "YAML is structurally valid" gate needs it)
+    description: Kept for compatibility; yamllint is provided by mise.
     required: false
     default: 'true'
   with-action-lint:
-    description: >-
-      Install the pinned actionlint AND shellcheck. Both, deliberately: actionlint
-      silently disables its shellcheck integration when the binary is missing,
-      so a lint that passes locally on a machine without shellcheck and fails on
-      a runner with it is the same gate reporting two different verdicts.
+    description: Kept for compatibility; actionlint and shellcheck are provided by mise.
     required: false
     default: 'true'
   with-link-lint:
-    description: >-
-      Install the pinned lychee (the "documentation links resolve" gate needs it).
+    description: Kept for compatibility; lychee is provided by mise.
     required: false
     default: 'true'
   with-kt-lint:
-    description: >-
-      Install the pinned ktlint CLI (the "Kotlin is formatted" check needs it).
-      It is a self-executing jar, so the job needs a JVM — every job that runs
-      this action already has one.
+    description: Kept for compatibility; ktlint is provided by mise.
+    required: false
+    default: 'false'
+  with-md-lint:
+    description: Kept for compatibility; rumdl is provided by mise.
     required: false
     default: 'false'
 
 outputs:
   venv-bin:
-    description: The venv's bin directory, for steps that need it in one `run:`
+    description: The venv's bin directory
     value: ${{ steps.venv.outputs.bin }}
 
 runs:
   using: composite
   steps:
+    - uses: jdx/mise-action@v2
+      with:
+        version: latest
+        install: true
+        cache: true
+
     - uses: astral-sh/setup-uv@v5
       with:
         python-version: ${{ inputs.python-version }}
@@ -85,108 +62,19 @@ runs:
         set -euo pipefail
         VENV="$HOME/ci-venv"
         uv venv "$VENV"
-        # junitparser is not an extra: setup-repo-tools declares it required in
-        # every job that runs it, because scripts/junit-annotations.py imports
-        # it. Leaving it to the job steps meant each job had to remember, and the
-        # tests job's copy had been failing for three different reasons in a row.
-        # shellcheck disable=SC2086  # extra-packages is a deliberate word list
+        # shellcheck disable=SC2086
         VIRTUAL_ENV="$VENV" uv pip install --editable scripts/src/ junitparser ${{ inputs.extra-packages }}
         echo "bin=$VENV/bin" >> "$GITHUB_OUTPUT"
-        # Every later step in the job resolves plain `python3`, `sgate` and
-        # `actionlint` through this. Written to GITHUB_PATH rather than exported,
-        # because an export dies with the step that made it.
         echo "$VENV/bin" >> "$GITHUB_PATH"
-
-    - name: Install the YAML/workflow linters (pinned)
-      if: ${{ inputs.with-yaml-lint == 'true' || inputs.with-action-lint == 'true' }}
-      shell: bash
-      run: |
-        set -euo pipefail
-        VENV="$HOME/ci-venv"
-        # The pins live in one file, shared with the local install path
-        # (scripts/ci/setup-local-tools.sh reads the same file): a version
-        # written out twice is a version that can drift, and the drift shows up
-        # as a local/CI disagreement rather than as a version bump.
-        #
-        # A composite action's run: steps execute in the checked-out repository
-        # — the step at the bottom of this action already reads repo files by
-        # relative path — so the pins file is one `source` away.
-        source config/toolchain-versions.env
-        # Pinned, not @latest: a lint that passes on one version and fails on
-        # the next is a gate whose floor moved without anyone deciding it.
-        if [[ "${{ inputs.with-yaml-lint }}" == 'true' ]]; then
-          VIRTUAL_ENV="$VENV" uv pip install "yamllint==$YAMLLINT_VERSION"
-        fi
-        if [[ "${{ inputs.with-action-lint }}" == 'true' ]]; then
-          # shellcheck comes from the venv like everything else, and actionlint
-          # gets an explicit path to it below — actionlint silently DISABLES
-          # its shellcheck integration when the binary is not found, so the
-          # gate's verdict otherwise depends on what the image happens to have.
-          VIRTUAL_ENV="$VENV" uv pip install "shellcheck-py==$SHELLCHECK_PY_VERSION"
-          # The asset version is the release tag without its leading "v", so the
-          # URL and the file it downloads cannot name different releases.
-          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/$ACTIONLINT_VERSION/actionlint_${ACTIONLINT_VERSION#v}_linux_amd64.tar.gz" \
-            | tar -xz -C "$VENV/bin" actionlint
-          "$VENV/bin/actionlint" --version
-          "$VENV/bin/shellcheck" --version | head -1
-        fi
-
-    - name: Install the documentation link checker (pinned)
-      if: ${{ inputs.with-link-lint == 'true' }}
-      shell: bash
-      run: |
-        set -euo pipefail
-        VENV="$HOME/ci-venv"
-        # The same pins file the linters above read — see the comment there.
-        source config/toolchain-versions.env
-        # lychee-bin is the PyPI wheel of the upstream Rust binary — the same
-        # shape as shellcheck-py above, and the reason the gate does not depend
-        # on cargo or on a GitHub Action that only exists in CI. Pinned, for the
-        # same reason the others are: a lint that passes on one version and
-        # fails on the next is a gate whose floor moved without anyone deciding.
-        VIRTUAL_ENV="$VENV" uv pip install "lychee-bin==$LYCHEE_BIN_VERSION"
-        "$VENV/bin/lychee" --version
-
-    - name: Install the Kotlin formatter (pinned)
-      if: ${{ inputs.with-kt-lint == 'true' }}
-      shell: bash
-      run: |
-        set -euo pipefail
-        VENV="$HOME/ci-venv"
-        # The same pins file the linters above read — see the comment there.
-        source config/toolchain-versions.env
-        # ktlint is a self-executing jar from a GitHub release, not a Python
-        # distribution: the download is the pinned release asset, and the pin
-        # is the tag without a leading "v" (the asset is named after it).
-        bash scripts/ci/install-ktlint.sh "$VENV/bin" "$KTLINT_VERSION"
-        "$VENV/bin/ktlint" --version
+        # mise shims must be on PATH for later steps too.
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
     - name: Verify both gate registries load
       shell: bash
       run: |
         set -euo pipefail
-        # The step that failed with ModuleNotFoundError: No module named 'click'
-        # in the tests job, which ran check-gate-wiring.py without ever
-        # installing scripts/src — so the job that exists to prove gates can
-        # fail could not run the gate.
-        #
-        # There are two registries and importing the package only reaches one of
-        # them: scripts/ci/static-gates.sh is what the run-all command reads, and
-        # GATES in _registry.py is what the per-gate command reads. Blanking the
-        # shell registry left the import green, the Python list intact, and
-        # run-all printing "No gates found." with exit 0 — a passing `static`
-        # job that had evaluated nothing. The logic lives in
-        # scripts/check-gate-registries.py rather than inline here so it is
-        # testable, and it runs *before* the suite rather than inside it, because
-        # the liveness gate lives in the runner it is checking and cannot report
-        # on a runner that never started.
-        #
-        # (Comment wording matters to check-gate-wiring.py here: it scans this
-        # file for command invocations, and naming one inside prose is enough to
-        # trigger its blanket-reachability fallback, which would mark a retired
-        # gate reachable again. Say "run-all", not the full invocation.)
         python3 scripts/check-gate-registries.py || {
-          echo "::error ::a gate registry is empty or unloadable — see above; every gate below is unevaluated"
+          echo "::error ::a gate registry is empty or unloadable"
           exit 1
         }
         python3 -c "import traceability" || {

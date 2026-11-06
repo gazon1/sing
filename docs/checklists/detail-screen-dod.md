@@ -32,12 +32,14 @@
 ## 3. Saved events (when to emit)
 
 Emit `Saved` (one-shot) only for:
+
 - [ ] Completion toggle
 - [ ] Explicit confirmations (dialog confirm, sheet confirm)
 - [ ] AI actions
 - [ ] Bulk operations
 
 **Never** emit `Saved` from:
+
 - [ ] Debounced inline editors
 - [ ] Chip-setter methods (date, priority, project, tag pickers)
 
@@ -121,6 +123,7 @@ Emit `Saved` (one-shot) only for:
 ## 12. Skill applicability
 
 Reference these skills when building:
+
 - `singularity-todo-document-style-detail` — 4-section anatomy
 - `singularity-todo-task-detail-ux` — task-specific worked example
 - `singularity-todo-inline-edit-saved-feedback` — debounce + silent save

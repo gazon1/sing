@@ -44,14 +44,15 @@ class MyViewModel(
 ```
 
 Key properties:
+
 1. **`scope` is `private val` and LAST** — MviViewModel's init block calls `addCloseable(scope)`
 2. **No manual `_state` or `_events`** — MviViewModel provides them
 3. **`emit()` for events, `updateState()` for state** — both are suspend functions
 4. **`onIntent` is the dispatcher** — `IntentMethodName` detekt rule enforces this
-2. **Default param = `AutoCloseableCoroutineScope()`** — no secondary ctor needed.
-3. **`init { addCloseable(scope) }`** registers cleanup.
-4. **`sharingStarted: () -> SharingStarted` — remove entirely** (was only needed for `stateIn`).
-5. **DI binding uses explicit `viewModel { MyViewModel(...) }`** — never `viewModelOf` for VMs with complex ctors.
+5. **Default param = `AutoCloseableCoroutineScope()`** — no secondary ctor needed.
+6. **`init { addCloseable(scope) }`** registers cleanup.
+7. **`sharingStarted: () -> SharingStarted` — remove entirely** (was only needed for `stateIn`).
+8. **DI binding uses explicit `viewModel { MyViewModel(...) }`** — never `viewModelOf` for VMs with complex ctors.
 
 ---
 
@@ -163,6 +164,7 @@ class MyViewModel(...) : MviViewModel<MyUiState, MyIntent, MyEvent>(...)
 ### Step 1: Identify all constructor parameters
 
 Read the full constructor. Note which are:
+
 - Dependencies (repos, use cases, etc.)
 - Runtime values (IDs, modes, etc.)
 - The old `scopeOverride: CoroutineScope? = null` or `scope: AutoCloseableCoroutineScope`
@@ -171,6 +173,7 @@ Read the full constructor. Note which are:
 ### Step 2: Move `scope` to last param with default, remove `scopeOverride`/`sharingStarted`
 
 **Before:**
+
 ```kotlin
 class FooViewModel(
     private val deps: FooDeps,
@@ -182,6 +185,7 @@ class FooViewModel(
 ```
 
 **After:**
+
 ```kotlin
 class FooViewModel(
     private val deps: FooDeps,
@@ -194,6 +198,7 @@ class FooViewModel(
 ### Step 3: Delete secondary constructor (if present), add `init { addCloseable(scope) }`
 
 **Before:**
+
 ```kotlin
 class FooViewModel(
     private val deps: FooDeps,
@@ -206,6 +211,7 @@ class FooViewModel(
 ```
 
 **After:**
+
 ```kotlin
 class FooViewModel(
     private val deps: FooDeps,
@@ -223,6 +229,7 @@ class FooViewModel(
 If the VM has `_state.value = ...` or `_cache.value = ...` inside a `combine`/`flatMapLatest` lambda, extract it to a **dedicated collector**:
 
 **Before (TaskDetailViewModel):**
+
 ```kotlin
 init {
     scope.launch {
@@ -240,6 +247,7 @@ init {
 ```
 
 **After:**
+
 ```kotlin
 init {
     // Dedicated collector: populate _latestTask cache FIRST
@@ -263,6 +271,7 @@ init {
 ```
 
 **Same pattern for ProjectDetailViewModel:**
+
 ```kotlin
 // Before: _latestProject.value = project inside combine
 // After:
@@ -333,7 +342,6 @@ init {
     scope.launch { /* 2. collectors start after */ }
 }
 ```
-
 
 ---
 

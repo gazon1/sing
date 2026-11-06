@@ -124,11 +124,13 @@ data class TaskEditorMenuItem(
 ```
 
 **Slot parameters** (Material3 convention):
+
 - `extraSections` — view-only sections (checklist, project, tags, timestamps) injected by the caller
 - `bottomBar` — Save button bar for create mode; `null` for view mode (uses scaffold's default)
 - `menuItems` — declarative list replaces lambda-in-lambda pattern
 
 **Named slots preserved:**
+
 - `titleLeading` — not needed (checkbox is a plain parameter `isCompleted` + `onCheckToggle`)
 - `onPriorityClear`, `onDueDateClear` — nullable callbacks; `null` means "no clear button in view mode"
 
@@ -151,17 +153,20 @@ data class TaskEditorMenuItem(
 ## Consequences
 
 **New files (4):**
+
 - `core/serialization/StableJson.kt`
 - `core/draft/DraftStore.kt`
 - `core/draft/DataStoreDraftStore.kt`
 - `core/draft/FakeDraftStore.kt`
 
 **Deleted files (3):**
+
 - `TaskCreateContent.kt`
 - `TaskDetailViewContent.kt`
 - `TaskCreationTopBar.kt`
 
 **DI changes:**
+
 - `single<DraftStore> { DataStoreDraftStore(get()) }` in `CoreDiModule`
 - `TaskCreateDeps` expanded with `draftStore: DraftStore, autosaveScheduler: AutosaveScheduler`
 

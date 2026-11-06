@@ -11,11 +11,12 @@ import com.singularity.todo.core.backup.BackupCursorStore
 import com.singularity.todo.core.backup.BackupExporter
 import com.singularity.todo.core.backup.BackupImporter
 import com.singularity.todo.core.backup.JvmBackupCodec
+import com.singularity.todo.core.backup.TaskDto
 import com.singularity.todo.core.backup.exportOptions
 import com.singularity.todo.core.backup.importOptions
+import com.singularity.todo.core.backup.toEntity
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.JvmFileSourceFactory
@@ -36,10 +37,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 
@@ -59,16 +60,13 @@ import kotlin.time.Clock
 @Tag("slow")
 @Tag("slow:data")
 class BackupRoundTripTest {
-    private val tempDirLazy =
-        lazy {
-            Files.createTempDirectory("singularity-backup-round-trip-").toFile()
-        }
-    private val tempDir: File by tempDirLazy
+    private val fixtureLazy = lazy { DatabaseTestFixture.onDisk() }
+    private val fixture: DatabaseTestFixture by fixtureLazy
 
-    private val sourceDbLazy = lazy { buildDb("source.db") }
+    private val sourceDbLazy = lazy { fixture.database("source") }
     private val sourceDb: AppDatabase by sourceDbLazy
 
-    private val targetDbLazy = lazy { buildDb("target.db") }
+    private val targetDbLazy = lazy { fixture.database("target") }
     private val targetDb: AppDatabase by targetDbLazy
 
     /** Shared by the importer under test, so the marker it clears can be read back. */
@@ -76,16 +74,8 @@ class BackupRoundTripTest {
 
     @AfterTest
     fun tearDown() {
-        if (sourceDbLazy.isInitialized()) sourceDb.close()
-        if (targetDbLazy.isInitialized()) targetDb.close()
-        if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
+        if (fixtureLazy.isInitialized()) fixture.close()
     }
-
-    private fun buildDb(name: String): AppDatabase =
-        AppDatabaseFactory.build(
-            driver = createSqlDriver(),
-            dbPath = File(tempDir, name).absolutePath,
-        )
 
     @Test
     fun `a task survives export and restore`() =
@@ -94,7 +84,7 @@ class BackupRoundTripTest {
             seedTask(owner)
 
             val fs = JvmFileSystem()
-            val destPath = File(tempDir, "round-trip.zip").absolutePath
+            val destPath = File(fixture.directory(), "round-trip.zip").absolutePath
 
             val exported =
                 exporter(fs).export(
@@ -139,6 +129,140 @@ class BackupRoundTripTest {
         }
 
     /**
+     * A sub-task comes back under the same parent it was exported with.
+     *
+     * The parent link is a column and a domain field, but the payload used to
+     * have nowhere to put it: a restored account came back flat — every task
+     * was there, the hierarchy was not.
+     */
+    @Test
+    fun `a sub-task comes back under the same parent`() =
+        runTest {
+            val owner = UserId("backup-user")
+            seedSubtask(owner)
+
+            val fs = JvmFileSystem()
+            val destPath = File(fixture.directory(), "sub-task.zip").absolutePath
+
+            val exported =
+                exporter(fs).export(
+                    exportOptions {
+                        this.userId = owner
+                        this.destPath = destPath
+                        includeAttachments = false
+                    },
+                )
+            assertTrue(exported.isSuccess, "export failed: ${exported.exceptionOrNull()}")
+
+            val restored =
+                importer(fs).import(
+                    importOptions {
+                        sourcePath = destPath
+                        targetUserId = owner
+                    },
+                )
+            assertTrue(restored.isSuccess, "import failed: ${restored.exceptionOrNull()}")
+
+            val parents =
+                targetDb.taskDao().listAllForUser(owner.value).associate { it.id to it.parentTaskId }
+            assertEquals(
+                "round-trip-parent",
+                parents["round-trip-child"],
+                "a restored sub-task must be a child of the same parent it had before the export",
+            )
+        }
+
+    /**
+     * A sub-task whose parent is not in the archive comes back top-level.
+     *
+     * A row can name a parent that no longer exists — the parent was deleted, or
+     * it never made it into the archive. The restore must not fail over it, and
+     * must not leave the task pointing at a row nothing writes: a dangling id
+     * would hide the task from every list that asks for top-level tasks.
+     */
+    @Test
+    fun `a sub-task whose parent is not in the archive comes back as a top-level task`() =
+        runTest {
+            val owner = UserId("backup-user")
+            val now = Clock.System.now().toEpochMilliseconds()
+            sourceDb.taskDao().upsert(
+                TaskDto(
+                    id = "orphan-child",
+                    title = "Orphan sub-task",
+                    createdAt = now,
+                    updatedAt = now,
+                ).toEntity(owner.value).copy(parentTaskId = "parent-that-is-gone"),
+            )
+
+            val fs = JvmFileSystem()
+            val destPath = File(fixture.directory(), "orphan.zip").absolutePath
+
+            val exported =
+                exporter(fs).export(
+                    exportOptions {
+                        this.userId = owner
+                        this.destPath = destPath
+                        includeAttachments = false
+                    },
+                )
+            assertTrue(exported.isSuccess, "export failed: ${exported.exceptionOrNull()}")
+
+            val restored =
+                importer(fs).import(
+                    importOptions {
+                        sourcePath = destPath
+                        targetUserId = owner
+                    },
+                )
+            assertTrue(
+                restored.isSuccess,
+                "the restore failed over a parent the archive does not carry: ${restored.exceptionOrNull()}",
+            )
+
+            val orphan = targetDb.taskDao().listAllForUser(owner.value).single { it.id == "orphan-child" }
+            assertNull(
+                orphan.parentTaskId,
+                "a parent the restore does not write leaves the task top-level, not pointing at a row nothing writes",
+            )
+        }
+
+    /** Writes a parent and the sub-task that hangs off it into the source database. */
+    private suspend fun seedSubtask(owner: UserId) {
+        val auth = FakeAuthRepository(Session.Anonymous(owner))
+        val currentUser = FakeProfileAwareCurrentUser(auth)
+        val repository =
+            TaskRepositoryImpl(
+                taskDao = sourceDb.taskDao(),
+                textIndex = sourceDb.textIndex(currentUser),
+                clock = Clock.System,
+                currentUser = currentUser,
+                syncRepository = FakeSyncRepository(),
+                dependencyValidator = DependencyValidatorImpl(sourceDb.taskDao(), currentUser),
+                unitOfWork = FakeUnitOfWork(),
+            )
+        val now = Clock.System.now()
+        repository.create(
+            Task(
+                id = TaskId("round-trip-parent"),
+                title = "The parent",
+                userId = owner,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+        repository.create(
+            Task(
+                id = TaskId("round-trip-child"),
+                title = "The sub-task",
+                userId = owner,
+                createdAt = now,
+                updatedAt = now,
+                parentTaskId = TaskId("round-trip-parent"),
+            ),
+        )
+    }
+
+    /**
      * Exporting never reads the archive — or an attachment — back into memory.
      *
      * The archive is written in pieces through `openWrite`, and its size is asked
@@ -155,7 +279,7 @@ class BackupRoundTripTest {
             seedTask(owner)
 
             val fs = NoWholeFileReads(JvmFileSystem())
-            val destPath = File(tempDir, "no-whole-reads.zip").absolutePath
+            val destPath = File(fixture.directory(), "no-whole-reads.zip").absolutePath
 
             val exported =
                 exporter(fs).export(
@@ -209,7 +333,7 @@ class BackupRoundTripTest {
             seedGraph(owner)
 
             val fs = JvmFileSystem()
-            val destPath = File(tempDir, "verbs.zip").absolutePath
+            val destPath = File(fixture.directory(), "verbs.zip").absolutePath
 
             val exported =
                 exporter(fs).export(
@@ -297,8 +421,8 @@ class BackupRoundTripTest {
             codec = JvmBackupCodec(),
             clock = Clock.System,
             fs = fs,
-            cursors = BackupCursorStore(fs = fs, dir = File(tempDir, "cursor").absolutePath),
-            backupDir = tempDir.absolutePath,
+            cursors = BackupCursorStore(fs = fs, dir = File(fixture.directory(), "cursor").absolutePath),
+            backupDir = fixture.directory().absolutePath,
         )
 
     /** The importer writes into the empty target database. */
@@ -320,7 +444,7 @@ class BackupRoundTripTest {
             agendaViewDao = targetDb.agendaViewDao(),
             attachmentDao = targetDb.attachmentDao(),
             annotationDao = targetDb.annotationDao(),
-            attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachments").absolutePath),
+            attachmentStorage = AttachmentStorage(fs, File(fixture.directory(), "attachments").absolutePath),
             codec = JvmBackupCodec(),
             clock = Clock.System,
             createFileSource = JvmFileSourceFactory(),

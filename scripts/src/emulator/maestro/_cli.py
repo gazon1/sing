@@ -43,6 +43,33 @@ GREEN  = lambda s: _col("0;32", s)
 YELLOW = lambda s: _col("0;33", s)
 
 
+def _sleep_screen(serial: str, deps: DeviceDeps) -> None:
+    """Turn the device's screen off when the run is over.
+
+    ``KEYCODE_SLEEP`` is the non-toggling counterpart of the ``KEYCODE_WAKEUP``
+    in :func:`_wake_device`: ``KEYCODE_POWER`` toggles, so it would turn a
+    sleeping phone on. The device is asked whether it is still there first —
+    a dead device answers nothing, and a run that ends because the device
+    vanished should not add a failing command to its own teardown.
+    """
+    if not deps.device_alive(serial):
+        return
+    deps.adb_on(serial, "shell", "input", "keyevent", "KEYCODE_SLEEP")
+    logger.info("Screen off.")
+
+
+def _wake_device(serial: str, deps: DeviceDeps) -> None:
+    """Wake the device and dismiss the lock screen before a run.
+
+    The previous run sleeps the screen (:func:`_sleep_screen`), so this run has
+    to wake it again. The two keys are the project's standard unlock — the same
+    pair ``prepare_device`` sends to an emulator — and on an already-awake,
+    already-unlocked phone they do nothing.
+    """
+    deps.adb_on(serial, "shell", "input", "keyevent", "KEYCODE_WAKEUP")
+    deps.adb_on(serial, "shell", "input", "keyevent", "82")
+
+
 def _install_debug(serial: str, deps: DeviceDeps) -> str | None:
     """Install the debug APK, and survive a device that dies under the install.
 
@@ -236,6 +263,8 @@ def _reinstall_app(serial: str, deps: DeviceDeps, skip_install: bool) -> bool:
               help="Total number of shards (use with --shard)")
 @click.option("--resume", is_flag=True,
               help="Skip the flows that already have a clean report from an earlier run")
+@click.option("--keep-screen-on", is_flag=True,
+              help="Leave the device's screen on when the run ends")
 @click.pass_context
 def main(
     ctx: click.Context,
@@ -251,6 +280,7 @@ def main(
     shard: int | None,
     shards: int | None,
     resume: bool,
+    keep_screen_on: bool = False,
     deps: DeviceDeps | None = None,
 ) -> int:
     deps = deps or _default_device_deps()
@@ -358,14 +388,23 @@ def main(
     # must not lock itself out of the second one.
     ctx.call_on_close(lock.release)
 
+    # The run is the last thing that touches the phone: an agent that leaves
+    # the screen on drains the battery and lights the room. The callback runs
+    # even when the run exits early, and `--keep-screen-on` keeps the screen
+    # for a failure that has to be looked at. The wake is its counterpart:
+    # the previous run may have slept this phone. Both happen under the device
+    # lock, so a run that is refused the device does not touch a phone another
+    # runner is using.
+    if not keep_screen_on:
+        ctx.call_on_close(lambda: _sleep_screen(serial, deps))
+    _wake_device(serial, deps)
+
     logger.info(f"=== Maestro on {serial} ({deps.device_model(serial)}) ===")
 
     # ── Wake + unlock + IME ───────────────────────────────────────────────────
-    # Done by `acquire_device` (emulator._startup.prepare_device): an acquired
-    # device is a prepared device. It used to be done here as well, and the
-    # copy that was missing was the one that mattered — the AVD that had just
-    # been restarted after a crash came up with the IME on, and every flow
-    # measured after that was measuring a half-covered screen.
+    # `prepare_device` prepares an emulator; a physical phone is left alone by
+    # it. The runner still has to wake a phone it slept at the end of the last
+    # run, and `_wake_device` is that counterpart.
 
     # ── Install APK ────────────────────────────────────────────────────────────
     if skip_install:

@@ -15,6 +15,7 @@ to open that set as an agenda.
 the user to reconstruct it elsewhere is the gap this change closes.
 
 #### Scenario: Open a filtered set as an agenda
+
 - A search returns items matching a set of tags
 - The user invokes the agenda action on the result
 - An agenda opens containing exactly those items
@@ -30,6 +31,7 @@ behavior, differing only in which items the agenda contains.
 the one that stops being maintained.
 
 #### Scenario: One tag and several behave identically
+
 - A user opens an agenda from a single tag
 - A user opens an agenda from a selection of several tags
 - Both produce the same screen, the same actions, and the same empty state
@@ -46,6 +48,7 @@ requiring a save makes the action a worse experience than the path it replaces;
 requiring persistence on every use fills the saved list with near-duplicates.
 
 #### Scenario: Save is offered, not required
+
 - A user opens a multi-tag agenda
 - The user is offered the option to keep it
 - Declining still leaves a usable agenda for the current session
@@ -63,6 +66,7 @@ nothing reads as the app having lost the data, and the user cannot tell which
 condition they are in.
 
 #### Scenario: Empty result is explained
+
 - An agenda is built from a tag combination that matches no items
 - The agenda states that nothing matches
 - The agenda names the tags it is filtering by

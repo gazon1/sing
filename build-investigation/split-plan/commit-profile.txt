@@ -1,0 +1,47 @@
+# 1428 commits since '2026-05-05' touching shared/src
+# Two denominators, because a commit touching a path that no longer exists cannot be classified:
+total	1428	all commits in the window
+known-paths	781	commits whose every path still exists — the honest denominator
+moved-path	647	touches at least one path that no longer exists (excluded from shares below)
+
+# liftable = clusters outside the largest SCC (23 production clusters)
+tests-only	256	17.9% of all commits — touches no production file
+liftable-only	40	touches only liftable production clusters — the upper bound of a split
+liftable-of-known	5.1%	liftable-only / known-paths
+liftable-of-all	2.8%	liftable-only / all commits
+fakes-only	10	touches only test/fakes
+fakes-any	279	touches test/fakes at all
+
+# renames inside the tree: history of the new path starts at the rename, so its cluster's
+# commit count is a lower bound
+renames	297	files renamed within the tree during the window
+# renames into	cluster
+101	feature/calendarSync
+37	feature/tasks
+23	feature/projects
+10	core/ui
+8	feature/nav
+8	feature/notes
+3	core/backup
+3	feature/agenda
+3	feature/ai
+3	feature/calendar
+3	feature/reminders
+3	feature/search
+3	test/helpers
+2	core/search
+2	core/text
+2	feature/archive
+2	feature/checklist
+2	feature/profile
+2	feature/tags
+1	(root)
+1	core/auth
+1	core/config
+1	core/di
+1	core/sync
+1	feature/gate
+1	feature/genui
+1	feature/proposals
+1	feature/settings
+1	test/fakes

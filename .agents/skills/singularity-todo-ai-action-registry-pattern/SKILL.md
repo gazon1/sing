@@ -102,6 +102,7 @@ class NoteAiController(
 ```
 
 **Key properties:**
+
 - Each action is a **nullable field** — allows graceful degradation when AI is unconfigured
 - `run()` returns `Result<Any>` — each action has its own result type
 - `isActionAvailable()` checks if the lambda is non-null

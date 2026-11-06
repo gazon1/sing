@@ -310,6 +310,23 @@ def scan_maestro(specs: dict[str, ScenarioSpec], root: Path = REPO_ROOT) -> list
     return links
 
 
+def _test_tags_file(root: Path = REPO_ROOT) -> Path | None:
+    """Where the UI test-tag catalogue lives.
+
+    It moved from ``shared/`` to ``shared-ui/`` when the shared UI module was
+    split out; the path is looked up in both places so the namespace check
+    keeps working whichever tree the catalogue sits in.
+    """
+    for relative in (
+        Path("shared-ui/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"),
+        Path("shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"),
+    ):
+        candidate = root / relative
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def assert_namespace_disjoint(root: Path = REPO_ROOT) -> None:
     """No UI selector id may look like a scenario id or a ``scenario:`` tag.
 
@@ -319,9 +336,12 @@ def assert_namespace_disjoint(root: Path = REPO_ROOT) -> None:
     quietly collide with selector ids, which would make a scan for scenarios
     match UI strings.
     """
-    tags_file = root / "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"
-    if not tags_file.is_file():
-        raise ValidationError(f"не найден файл UI-тегов: {tags_file}")
+    tags_file = _test_tags_file(root)
+    if tags_file is None:
+        raise ValidationError(
+            "не найден файл UI-тегов: shared-ui/src/commonMain/kotlin/"
+            "com/singularity/todo/core/ui/TestTags.kt"
+        )
     problems: list[str] = []
     for index, line in enumerate(tags_file.read_text(encoding="utf-8").splitlines(), start=1):
         for value in re.findall(r'"([^"]+)"', line):

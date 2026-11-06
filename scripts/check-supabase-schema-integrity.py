@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """check-supabase-schema-integrity.py — the versioned sync schema is self-consistent.
 
-Why this exists (2026-10-07): `supabase/migrations/2026-10-07-sync_schema.sql` is the only
+Why this exists (2026-10-07): `infra/supabase/migrations/2026-10-07-sync_schema.sql` is the only
 reviewable description of the server's sync schema, and nothing checks it. Not the live
 database — that needs credentials and cannot be a blocking gate — but the file itself.
 
@@ -31,7 +31,7 @@ more. Claiming otherwise would be the `check-gate-wiring` defect class: a gate t
 success where it has no evidence.
 
 Usage:
-    python3 scripts/check-supabase-schema-integrity.py [--dir supabase/migrations]
+    python3 scripts/check-supabase-schema-integrity.py [--dir infra/supabase/migrations]
 
 Exit codes:
     0 — every function is fingerprinted, every fingerprint is a function, nothing declared twice
@@ -59,7 +59,7 @@ VALIDATION_FAILURE = 1
 IO_ERROR = 2
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-DEFAULT_DIR = ROOT / "supabase" / "migrations"
+DEFAULT_DIR = ROOT / "infra" / "supabase" / "migrations"
 
 #: `--   <32 hex>  name(sig)` — one per function, inside the file's own header comment.
 FINGERPRINT = re.compile(r"^--\s+([0-9a-f]{32})\s+(\w+)\s*\(", re.M)

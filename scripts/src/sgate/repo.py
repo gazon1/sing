@@ -37,7 +37,4 @@ COVERAGE_COST_PROPERTIES: pathlib.Path = ROOT / "config" / "docs" / "coverage-co
 # The measurement of the cycle that just ran. Untracked: it is a reading of this
 # machine at this moment, and the committed baseline is what survives it.
 GATE_RUN_JSON: pathlib.Path = ROOT / "build" / "diagnostics" / "gate-run.json"
-CYCLE_STEPS_TXT: pathlib.Path = ROOT / "build" / "diagnostics" / "cycle-steps.txt"
-
-# Infra Kiwi
-KIWI_SYNC: pathlib.Path = ROOT / "infra" / "kiwi" / "sync.py"
+CYCLE_STEPS_JSON: pathlib.Path = ROOT / "build" / "diagnostics" / "cycle-steps.json"

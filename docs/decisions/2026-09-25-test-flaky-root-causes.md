@@ -16,12 +16,14 @@ test flakiness or incorrect assertions. This ADR documents them for future refer
 ## Finding 1: `CalendarViewModelTest` — shared `ProfileAwareCurrentUser`
 
 ### Symptom
+
 Nine smoke tests (`GoNext does not crash`, `ViewModeChanged does not crash`, etc.)
 assert `vm.state.value is CalendarUiState.Loading`. These tests passed but appeared
 to be testing the wrong thing — if the VM transitions to `Loaded` immediately after
 construction, the `Loading` assertion would fail.
 
 ### Root Cause
+
 `FakeReminderRepository()` was instantiated with the **default** `FakeProfileAwareCurrentUser`
 (using `Dispatchers.Default` internally), not the test's `fakeCurrentUser`. This meant
 all repository collectors inside `FakeReminderRepository` ran on `Dispatchers.Default`,
@@ -29,6 +31,7 @@ outside the test's `StandardTestDispatcher` control. `advanceUntilIdle()` could 
 drive them to completion.
 
 ### Fix
+
 ```kotlin
 // Before:
 private val fakeReminderRepo = FakeReminderRepository()
@@ -48,11 +51,13 @@ explicit.
 ## Finding 2: `AgendaEvaluatorTest` — `todayInSystemZone()` instead of fixed date
 
 ### Symptom
+
 `DateBucket ThisWeek matches task within current week` failed with
 `AssertionFailedError: Expected value to be true` on machines where the system
 date was not September 16, 2026.
 
 ### Root Cause
+
 ```kotlin
 // Wrong — uses real system date:
 private val today: LocalDate get() = todayInSystemZone()
@@ -63,6 +68,7 @@ returns the **actual** system date. If the test ran on a machine with a differen
 date, the `ThisWeek` bucket calculation produced a different result.
 
 ### Fix
+
 ```kotlin
 // Correct — fixed deterministic date:
 private val today: LocalDate = LocalDate(2026, Month.SEPTEMBER, 16)
@@ -77,17 +83,20 @@ scenario.
 ## Finding 3: `TaskDetailViewModelTest` — outdated comment
 
 ### Old (incorrect) comment
+
 ```
 Timing note: stateIn with WhileSubscribed(5000) delays the flatMapLatest chain
 until a subscriber exists.
 ```
 
 ### Reality
+
 A grep across all `commonMain` sources found **zero** uses of `stateIn` with
 `WhileSubscribed`. The `MviViewModel` base class uses plain `MutableStateFlow`.
 The comment was legacy from an earlier architecture.
 
 ### Actual root cause
+
 `TaskDetailViewModel` creates `CreateTaskUseCase(FakeTaskRepository, Clock,
 FakeProfileAwareCurrentUser(...))`. Inside `CreateTaskUseCase`, the
 `FakeProfileAwareCurrentUser` (version accepting `CoroutineDispatcher`) defaults to
@@ -95,6 +104,7 @@ FakeProfileAwareCurrentUser(...))`. Inside `CreateTaskUseCase`, the
 test dispatcher cannot virtualize `Dispatchers.Default`.
 
 ### Fix
+
 Comment updated to document the real root cause and reference ADR-2026-09-25-testable-vm-dispatcher-clock.
 
 ---

@@ -26,6 +26,7 @@ non-alphanumeric characters with `_`.
 ## Static constants
 
 ### Auth
+
 | Constant | Value | Where |
 |---|---|---|
 | `AUTH_ATTACH_ACCOUNT_BUTTON` | `auth_attach_account_button` | |
@@ -55,6 +56,7 @@ non-alphanumeric characters with `_`.
 | `AUTH_TOGGLE_MODE_BUTTON` | `auth_toggle_mode_button` | |
 
 ### Navigation
+
 | Constant | Value | Where |
 |---|---|---|
 | `MENU_AI_CHAT` | `menu_aichat` | |
@@ -78,16 +80,19 @@ non-alphanumeric characters with `_`.
 | `TOP_BAR_BACK_BUTTON` | `top_bar_back_button` | |
 
 ### Tasks
+
 | Constant | Value | Where |
 |---|---|---|
 | `CHECKLIST_ADD_BUTTON` | `checklist_add_button` | |
 | `CHECKLIST_ADD_INPUT` | `checklist_add_input` | |
+| `CHECKLIST_EMPTY_HINT` | `checklist_empty_hint` | |
 | `CHECKLIST_INLINE_ADD_BUTTON` | `checklist_inline_add_button` | |
 | `CHECKLIST_INLINE_ADD_INPUT` | `checklist_inline_add_input` | |
 | `CHECKLIST_SHEET` | `checklist_sheet` | |
 | `FIRST_RUN_SECTION` | `first_run_section` | |
 | `LOGBOOK_ADD_NOTE_BUTTON` | `logbook_add_note_button` | |
 | `LOGBOOK_EMPTY` | `logbook_empty` | |
+| `LOGBOOK_EMPTY_HINT` | `logbook_empty_hint` | |
 | `LOGBOOK_SECTION` | `logbook_section` | |
 | `PRIORITY_OPTION_HIGH` | `priority_option_high` | |
 | `PRIORITY_OPTION_LOW` | `priority_option_low` | |
@@ -106,6 +111,7 @@ non-alphanumeric characters with `_`.
 | `RECURRENCE_OPTION_YEARLY` | `recurrence_option_yearly` | |
 | `RECURRENCE_OPTION_YEARLY_ON_DATE` | `recurrence_option_yearly_on_date` | |
 | `SHEET_CONFIRM` | `sheet_confirm` | |
+| `SUBTASKS_EMPTY_HINT` | `subtasks_empty_hint` | |
 | `SUBTASKS_SECTION` | `subtasks_section` | |
 | `SUBTASK_ADD_BUTTON` | `subtask_add_button` | |
 | `SUBTASK_ADD_INPUT` | `subtask_add_input` | |
@@ -117,6 +123,7 @@ non-alphanumeric characters with `_`.
 | `TASK_CONTEXT_MENU_OPEN` | `task_action_open` | |
 | `TASK_CONTEXT_MENU_PIN` | `task_action_pin` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
+| `TASK_DETAIL_PROPOSALS_SECTION` | `task_detail_proposals_section` | |
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
 | `TASK_EDITOR_ATTACHMENTS_ROW` | `task_editor_attachments_row` | |
 | `TASK_EDITOR_CHECKLIST_ROW` | `task_editor_checklist_row` | |
@@ -140,8 +147,11 @@ non-alphanumeric characters with `_`.
 | `TimeTracking.STOP` | `time_tracking_stop` | |
 
 ### Agenda
+
 | Constant | Value | Where |
 |---|---|---|
+| `AGENDA_GREETING` | `agenda_greeting` | |
+| `AGENDA_HORIZON_NOTE` | `agenda_horizon_note` | |
 | `AGENDA_MERGE_SERIES_BUTTON` | `agenda_merge_series_button` | |
 | `AGENDA_MULTI_DATE_BUTTON` | `agenda_multi_date_button` | |
 | `AGENDA_REGEX_PATTERN_INPUT` | `agenda_regex_pattern_input` | |
@@ -162,6 +172,7 @@ non-alphanumeric characters with `_`.
 | `SAVED_AGENDA_SAVE_BUTTON` | `saved_agenda_save_button` | |
 
 ### Plans
+
 | Constant | Value | Where |
 |---|---|---|
 | `PLANS_EMPTY_STATE` | `plans_empty_state` | |
@@ -172,6 +183,7 @@ non-alphanumeric characters with `_`.
 | `PLANS_SCREEN` | `plans_screen` | |
 
 ### Pomodoro
+
 | Constant | Value | Where |
 |---|---|---|
 | `Pomodoro.CYCLE_LABEL` | `pomodoro_cycle_label` | |
@@ -185,6 +197,7 @@ non-alphanumeric characters with `_`.
 | `Pomodoro.TIMER_LABEL` | `pomodoro_timer_label` | |
 
 ### Tags
+
 | Constant | Value | Where |
 |---|---|---|
 | `TAGS_FAB` | `tags_fab` | |
@@ -193,6 +206,7 @@ non-alphanumeric characters with `_`.
 | `TAGS_PICKER_EMPTY` | `tags_picker_empty` | |
 
 ### Notes
+
 | Constant | Value | Where |
 |---|---|---|
 | `NOTES_BACKLINKS_BUTTON` | `notes_backlinks_button` | |
@@ -207,6 +221,7 @@ non-alphanumeric characters with `_`.
 | `NOTE_EDITOR_TITLE_INPUT` | `note_editor_title_input` | |
 
 ### Search
+
 | Constant | Value | Where |
 |---|---|---|
 | `SEARCH_EMPTY_PLACEHOLDER` | `search_empty_placeholder` | |
@@ -215,12 +230,15 @@ non-alphanumeric characters with `_`.
 | `SEARCH_MODE_CONTAINS` | `search_mode_contains` | |
 | `SEARCH_MODE_CONTAINS_NOTE` | `search_mode_contains_note` | |
 | `SEARCH_MODE_WORD` | `search_mode_word` | |
+| `SavedSearches.RENAME_DIALOG_CONFIRM` | `search_rename_dialog_confirm` | |
 | `SavedSearches.SAVE_CHIP` | `search_save_chip` | |
 | `SavedSearches.SAVE_DIALOG_CONFIRM` | `search_save_dialog_confirm` | |
 | `SavedSearches.SEARCH_MENU_DELETE` | `search_menu_delete` | |
 | `SavedSearches.SEARCH_MENU_RENAME` | `search_menu_rename` | |
+| `SavedSearches.SEARCH_MENU_RENAME_BUTTON` | `search_menu_rename_button` | |
 
 ### Projects
+
 | Constant | Value | Where |
 |---|---|---|
 | `PROJECT_DETAIL_EMPTY` | `project_detail_empty` | |
@@ -232,9 +250,11 @@ non-alphanumeric characters with `_`.
 | `PROJECT_EDITOR_NAME_INPUT` | `project_editor_name_input` | |
 | `PROJECT_EDITOR_NOTIFICATION_HOST` | `project_editor_notification_host` | |
 | `PROJECT_EDITOR_SAVE` | `project_editor_save` | |
+| `PROJECT_PICKER_DISMISS` | `project_picker_dismiss` | |
 | `PROJECT_PICKER_EMPTY` | `project_picker_empty` | |
 
 ### Settings
+
 | Constant | Value | Where |
 |---|---|---|
 | `Settings.ACTION_ROW` | `settings_action_row` | |
@@ -249,6 +269,7 @@ non-alphanumeric characters with `_`.
 | `Settings.VALUE_ROW` | `settings_value_row` | |
 
 ### Onboarding
+
 | Constant | Value | Where |
 |---|---|---|
 | `Onboarding.REPLAY_TUTORIAL_ROW` | `onboarding_replay_row` | |
@@ -257,6 +278,7 @@ non-alphanumeric characters with `_`.
 | `Onboarding.SPOTLIGHT_SKIP` | `onboarding_spotlight_skip` | |
 
 ### Sync
+
 | Constant | Value | Where |
 |---|---|---|
 | `Sync.ATTACHMENTS_SWITCH` | `sync_attachments_switch` | |
@@ -267,6 +289,7 @@ non-alphanumeric characters with `_`.
 | `Sync.TEST_CONNECTION_ROW` | `sync_test_connection_row` | |
 
 ### Dialog
+
 | Constant | Value | Where |
 |---|---|---|
 | `DatePicker.CANCEL` | `dialog_date_picker_cancel` | |
@@ -277,6 +300,7 @@ non-alphanumeric characters with `_`.
 | `Dialog.DISMISS` | `dialog_dismiss` | |
 
 ### Editor Overflow menu
+
 | Constant | Value | Where |
 |---|---|---|
 | `EditorOverflow.ARCHIVE` | `overflow_archive` | |
@@ -286,6 +310,7 @@ non-alphanumeric characters with `_`.
 | `EditorOverflow.UNPIN` | `overflow_unpin` | |
 
 ### Snackbar / transient UI
+
 | Constant | Value | Where |
 |---|---|---|
 | `ARCHIVE_NOTIFICATION_HOST` | `archive_notification_host` | |
@@ -296,6 +321,7 @@ non-alphanumeric characters with `_`.
 | `SNACKBAR_MESSAGE` | `snackbar_message` | |
 
 ### Backup
+
 | Constant | Value | Where |
 |---|---|---|
 | `BACKUP_AUTHORIZE_SCHEDULED_BUTTON` | `backup_authorize_scheduled_button` | |
@@ -311,6 +337,7 @@ non-alphanumeric characters with `_`.
 | `BACKUP_TOP_BAR_BACK` | `backup_top_bar_back` | |
 
 ### Profile
+
 | Constant | Value | Where |
 |---|---|---|
 | `PROFILE_CREATE_BUTTON` | `profile_create_button` | |
@@ -318,6 +345,7 @@ non-alphanumeric characters with `_`.
 | `PROFILE_ITEM_PREFIX` | `profile_item_` | |
 
 ### AI
+
 | Constant | Value | Where |
 |---|---|---|
 | `ACP_AGENT_CHIP_PREFIX` | `acp_agent_chip_` | |
@@ -346,6 +374,7 @@ non-alphanumeric characters with `_`.
 | `AGENT_TOOL_CALL_SUMMARY_TOGGLE` | `agent_tool_call_summary_toggle` | |
 
 ### Calendar
+
 | Constant | Value | Where |
 |---|---|---|
 | `CALENDAR_CONTROLS` | `calendar_controls` | |
@@ -357,6 +386,7 @@ non-alphanumeric characters with `_`.
 | `CALENDAR_WEEKDAY_SUN` | `calendar_weekday_sun` | |
 
 ### Calendar sync
+
 | Constant | Value | Where |
 |---|---|---|
 | `CalendarSync.GOOGLE_CONNECT_BUTTON` | `calendar_sync_google_connect_button` | |
@@ -373,6 +403,7 @@ non-alphanumeric characters with `_`.
 | `CalendarSync.SYSTEM_UNAVAILABLE` | `calendar_sync_system_unavailable` | |
 
 ### Search filters
+
 | Constant | Value | Where |
 |---|---|---|
 | `SearchFilter.APPLY_BUTTON` | `search_filter_apply_button` | |
@@ -381,6 +412,7 @@ non-alphanumeric characters with `_`.
 | `SearchFilter.PINNED_SWITCH` | `search_filter_pinned_switch` | |
 
 ### Statistics
+
 | Constant | Value | Where |
 |---|---|---|
 | `HEALTH_BUCKET_BLOCKED` | `health_bucket_blocked` | |
@@ -388,6 +420,7 @@ non-alphanumeric characters with `_`.
 | `HEALTH_BUCKET_STAGNANT` | `health_bucket_stagnant` | |
 
 ### Other
+
 | Constant | Value | Where |
 |---|---|---|
 | `ARCHIVE_EMPTY` | `archive_empty` | |

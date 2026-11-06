@@ -2,6 +2,8 @@ package com.singularity.todo.feature.agenda.domain
 
 import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
+import com.singularity.todo.feature.nav.AgendaStartRoute
+import com.singularity.todo.feature.nav.AppDestination
 import kotlinx.datetime.DayOfWeek
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -133,5 +135,40 @@ class AgendaWorkingDayTest {
         val before = workDay.sections.size
         forToday(DayOfWeek.SATURDAY)
         assertEquals(before, workDay.sections.size)
+    }
+
+    /**
+     * The header names the tab, on a working day and on a day off alike.
+     *
+     * The agenda draws the chosen definition's title, and the work-day definition
+     * used to carry a name of its own ("Work Day"), so the same destination
+     * renamed itself at the weekend and named something the bottom bar does not.
+     */
+    @Test
+    fun `the today destination's header names the tab on a working day and on a day off`() {
+        val tabLabel = AppDestination.AgendaGraph(AgendaStartRoute.Today).title
+
+        assertEquals(
+            tabLabel,
+            forToday(DayOfWeek.WEDNESDAY).title,
+            "on a working day the header must name the tab the user is looking at",
+        )
+        assertEquals(
+            tabLabel,
+            forToday(DayOfWeek.SATURDAY).title,
+            "on a day off the header must name the same tab",
+        )
+    }
+
+    @Test
+    fun `the other agenda destinations still name their tab`() {
+        assertEquals(
+            AppDestination.AgendaGraph(AgendaStartRoute.Inbox).title,
+            AgendaPresets.Inbox.title,
+        )
+        assertEquals(
+            AppDestination.AgendaGraph(AgendaStartRoute.Upcoming).title,
+            AgendaPresets.Upcoming.title,
+        )
     }
 }

@@ -8,7 +8,6 @@ import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
 import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.minus
@@ -126,12 +125,12 @@ fun mergeIntervalsWithOpen(
                 id = TimeEntryId("synth-${interval.startMs}"),
                 taskId = TaskId(""),
                 userId = UserId(""),
-                startedAt = Instant.fromEpochMilliseconds(interval.startMs),
-                endedAt = Instant.fromEpochMilliseconds(interval.endMs),
+                startedAt = kotlin.time.Instant.fromEpochMilliseconds(interval.startMs),
+                endedAt = kotlin.time.Instant.fromEpochMilliseconds(interval.endMs),
                 kind = TimeEntryKind.Work,
                 source = TimeEntrySource.Timer,
-                createdAt = Instant.fromEpochMilliseconds(0),
-                updatedAt = Instant.fromEpochMilliseconds(0),
+                createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+                updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
             )
         }
 
@@ -159,7 +158,7 @@ fun splitAtMidnight(
 
     while (cursor < interval.endMs) {
         val cursorDate =
-            Instant
+            kotlin.time.Instant
                 .fromEpochMilliseconds(cursor)
                 .toLocalDateTime(zone)
                 .date
@@ -187,14 +186,15 @@ fun splitAtMidnight(
  */
 data class TaskProgress(val totalWorkMs: Long, val estimateMinutes: Int?) {
     /** Progress as a fraction in 0.0..1.0, or null if no estimate. */
-    val fraction: Double? get() =
-        estimateMinutes?.let { est ->
-            if (est <= 0) {
-                null
-            } else {
-                (totalWorkMs / 60_000.0 / est).coerceIn(0.0, 1.0)
+    val fraction: Double?
+        get() =
+            estimateMinutes?.let { est ->
+                if (est <= 0) {
+                    null
+                } else {
+                    (totalWorkMs / 60_000.0 / est).coerceIn(0.0, 1.0)
+                }
             }
-        }
 
     val isOverEstimate: Boolean get() = estimateMinutes != null && fraction != null && fraction!! > 1.0
 }
@@ -275,7 +275,7 @@ fun bucketByDay(
     for (i in 0 until rangeDays) {
         val dayMs = nowMs - (i * TimeConstants.MILLIS_PER_DAY)
         val date =
-            Instant
+            kotlin.time.Instant
                 .fromEpochMilliseconds(dayMs)
                 .toLocalDateTime(zone)
                 .date
@@ -287,7 +287,7 @@ fun bucketByDay(
     intervals.forEach { interval ->
         // interval is guaranteed not to cross midnight (splitAtMidnight guarantees this)
         val date =
-            Instant
+            kotlin.time.Instant
                 .fromEpochMilliseconds(interval.startMs)
                 .toLocalDateTime(zone)
                 .date

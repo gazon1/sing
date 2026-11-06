@@ -11,8 +11,8 @@ just tm tags=smoke                        # only the smoke subset
 just tm flow=Maestro/flows/tasks          # one directory
 SERIAL=emulator-5554 just tm tags=smoke # pin the device (recovery still runs)
 
-# As part of the local check (opt-in; needs maestro CLI + a booted device):
-RUN_MAESTRO=1 ./check.sh
+# As part of the device lane (opt-in; needs maestro CLI + a booted device):
+RUN_MAESTRO=1 hk run device
 ```
 
 Environment variables understood by `run-maestro`:

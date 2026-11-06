@@ -1,0 +1,17 @@
+// Generated per configuration by run-cost-model.sh — do not edit. The plugin set is the variable the
+// experiment controls, and `plugins {}` cannot be made conditional, so the file is written instead.
+plugins {
+    kotlin("multiplatform")
+@PLUGINS@
+}
+
+kotlin {
+    jvmToolchain(21)
+    jvm()
+    sourceSets["commonMain"].apply {
+        kotlin.srcDir(layout.buildDirectory.dir("generated/kotlin"))
+        dependencies {
+@DEPS@
+        }
+    }
+}

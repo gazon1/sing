@@ -56,6 +56,7 @@ class MyCustomRuleProvider : RuleSetProvider {
 ```
 
 **Key points:**
+
 - Provider is inside the same `.kt` file as the rule
 - Provider class name ends with `Provider`
 - Provider implements `RuleSetProvider`
@@ -68,6 +69,7 @@ Add the provider's **fully qualified class name** to:
 `detekt-rules/src/main/resources/META-INF/services/dev.detekt.api.RuleSetProvider`
 
 One class name per line:
+
 ```
 com.singularity.todo.detekt.NoRealDelayInTestRuleProvider
 com.singularity.todo.detekt.NoViewModelScopeInProductionRuleProvider
@@ -85,11 +87,13 @@ zero errors** — it looks working. Every new rule must pass all three steps:
 1. **ServiceLoader entry** (see above).
 2. **detekt.yml ruleset block** — detekt skips custom rulesets that have no config
    block, even when ServiceLoader loads them:
+
    ```yaml
    no-runblocking:        # ← must match the provider's ruleSetId exactly
      NoRunBlocking:       # ← must match the RuleName exactly
        active: true
    ```
+
 3. **Positive control** — create a temp file containing one intentional violation,
    run `./gradlew :shared:detekt`, confirm exactly 1 finding in
    `shared/build/reports/detekt/detekt.xml` (`source="detekt.<RuleName>"`), then
@@ -159,7 +163,7 @@ So, before committing a registration:
 
 It fails on a duplicated provider, a duplicated `detekt.yml` key, a provider listed but
 not present in the source, and a provider declared but not listed. It runs in
-`check.sh` (step 0, before Gradle) and as the first line of `just lint`, because a
+the loop's `static gates` step (before Gradle) and as the first line of `just lint`, because a
 seconds-long check is worth far more here than a multi-minute failure with a misleading
 message.
 
@@ -307,6 +311,7 @@ class NoRealDelayInTestRuleTest {
 ```
 
 **Helper for compilation:**
+
 ```kotlin
 fun Rule.compileAndVisit(code: String): List<Finding> {
     val psiFile = compile(code)
@@ -356,6 +361,7 @@ By default, rules are **warning** severity. To promote to **error** (fails the b
 ## File Location
 
 All custom rules go in:
+
 ```
 detekt-rules/src/main/kotlin/com/singularity/todo/detekt/
 ```
@@ -375,12 +381,14 @@ The rule bans `delay(N > 1)` in test sources. The threshold is **500ms**:
 **Why 500ms?** `stateIn(WhileSubscribed(5000))` uses a 5000ms debounce. Any test needing `delay(500+)` to wait for a collector is not using virtual time correctly.
 
 **Legitimate exception (document with a comment):**
+
 ```kotlin
 // Fan-out: FakeTextGen dispatches on Default
 delay(50)
 ```
 
 **Fix (no comment needed):**
+
 ```kotlin
 // Before: delay(100)
 // After:
@@ -421,9 +429,11 @@ one; they have one now.
 ## Common Mistakes
 
 ### 1. Provider not in ServiceLoader
+
 **Symptom:** Rule doesn't fire, no errors. Run with `--debug` to see loaded providers.
 
 ### 1b. Provider registered twice (the mirror-image failure)
+
 **Symptom:** `found duplicate key <rule-set>` during a Gradle run — a YAML error that
 points at `config/detekt/detekt.yml` and says nothing about the cause. Happens when the
 rule was wired in two branches in parallel: the diff shows the same line added twice in
@@ -432,6 +442,7 @@ different places, which reads as harmless.
 any explanatory comment onto it. See *Registering the same rule twice* above.
 
 ### 2. Wrong PSI class for the node type
+
 Use `KtNameReferenceExpression` for bare names, `KtCallExpression` for function calls with `()`, `KtDotQualifiedExpression` for `receiver.member()`.
 
 ### 2b. A guard that can never be satisfied — the rule is a no-op
@@ -472,9 +483,11 @@ println("PROBE recv=${e.receiverExpression::class.simpleName} text='${e.receiver
 Reading the source and guessing the tree shape is what produced both misses.
 
 ### 3. Reporting outside test sources
+
 Rules that should only apply to test sources must check the file path via `Entity.from(expression).file.path`. Alternatively, configure path filters in `detekt.yml`.
 
 ### 4. Mutable Rule state
+
 Rules are instantiated once and reused across many files. Do not store mutable state in the rule instance that persists across files.
 
 ## See Also

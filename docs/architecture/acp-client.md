@@ -348,6 +348,7 @@ window is the same whether the handshake completed or not: a failed run's transc
 evidence too.
 
 ## The known limitation: the agent's own token cost is not surfaced
+
 The protocol carries usage: `SessionUpdate.UsageUpdate` arrives as a session update, and
 `PromptResponse.usage` carries `Usage` (input, output, and total tokens) at the end of
 a turn. **The application displays neither.**

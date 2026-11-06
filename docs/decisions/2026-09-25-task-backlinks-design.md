@@ -37,6 +37,7 @@ Task descriptions are plain `String?`, not HTML. A separate `extractOutgoingLink
 ### Read path: `InternalLinkRepository`
 
 Two new methods on `InternalLinkRepository`:
+
 - `getBacklinkTasks(taskId)` — tasks linking to the given task
 - `getNotesLinkingToTask(taskId)` — notes linking to the given task
 
@@ -100,4 +101,3 @@ The same change reached the three queries that had the pattern, and the prefix t
 migration needed: the migration that backfills `notes.task_id` derives its prefix and
 its length from `InternalLinkSchemes` instead of writing `9` and `'task://'` as
 numbers and literals.
-
