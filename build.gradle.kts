@@ -68,14 +68,23 @@ allprojects {
 // does not know about populations: it reads a tag list, and this block is what
 // puts the list there.
 //
+// The mapping itself is read by `settings.gradle.kts` and handed over through
+// `gradle.extra` — the channel this repository already uses between a settings
+// script and a module's build script (see the detekt coverage floor in
+// `detekt-rules/build.gradle.kts`). Two readers of one file are two answers to
+// "which populations exist", and they were: the settings script read the file
+// with Java's Properties parser, which reads the `:` separator as well as the
+// `=`, so it saw each population's PROPERTIES as populations of their own.
+//
 // `-Ptest.tags` still works and still wins: it is the raw knob, for a local
 // run that wants a selection no population names. What does NOT work is
 // passing both — two spellings of one selection is how they drift apart.
 subprojects {
     val populations =
-        java.util.Properties().apply {
-            rootProject.file("config/test-populations.properties").inputStream().use { load(it) }
-        }
+        (gradle.extra["test.populations"] as? Map<*, *>)
+            ?.entries
+            ?.associate { (name, tags) -> name.toString() to tags.toString() }
+            ?: emptyMap()
     val population = providers.gradleProperty("test.population").orNull
     val explicitTags = providers.gradleProperty("test.tags").orNull
 
@@ -86,11 +95,11 @@ subprojects {
         )
     }
     if (population != null) {
-        val tags = populations.getProperty(population)
+        val tags = populations[population]
         if (tags == null) {
             throw GradleException(
                 "unknown test population '$population' — the known ones are: " +
-                    populations.stringPropertyNames().sorted().joinToString(", ") +
+                    populations.keys.sorted().joinToString(", ") +
                     " (config/test-populations.properties)",
             )
         }
