@@ -16,6 +16,7 @@ This skill documents the **canonical testable pattern** including the MviViewMod
 > **All new ViewModels should extend `MviViewModel<S, I, E>`. Use the hand-rolled pattern only when you cannot use MviViewModel (e.g., exotic lifecycle requirements).**
 
 `MviViewModel` provides:
+
 - `state: StateFlow<S>` — plain `MutableStateFlow` under the hood
 - `events: Flow<E>` — one-shot event channel
 - `emit(event: E)` — suspend emit a one-shot event
@@ -173,6 +174,7 @@ actions(TagsIntent.Delete(tagId))
 ```
 
 This replaces the old pattern:
+
 ```kotlin
 // OLD — per-feature Actions
 @JvmInline value class TagsActions(private val dispatch: (TagsIntent) -> Unit) {
@@ -386,6 +388,7 @@ class DraftState(initial: Draft = Draft.empty()) {
 ```
 
 **Why extract DraftState?**
+
 - **Pure unit testing** — `DraftStateTest` exercises seed/setName/reorderSections with NO mocks, NO DI, NO ViewModel.
 - **Single source of truth** — no risk of `_draft.value` getting out of sync with what `combine` produces.
 - **Easy to mock** — in screen previews, replace the VM with a fake that holds a hand-rolled DraftState.
@@ -428,11 +431,13 @@ All VMs in the project extend `MviViewModel` as of 2026-09-25:
 The canonical test pattern uses `advanceUntilIdle()` from `kotlinx.coroutines.test`. This works **only when the test dispatcher controls all coroutines in the chain**. In practice:
 
 **`advanceUntilIdle()` works when:**
+
 - The VM uses `FakeProfileAwareCurrentUser(dispatcher = testDispatcher)` — the user's internal `combine` collector is on the test dispatcher
 - All `Fake*Repository` instances share the same `ProfileAwareCurrentUser` (Rule 1 of `singularity-todo-test-flaky-prevention`)
 - No `Dispatchers.Default` is in the chain
 
 **`delay(ms)` is still needed when:**
+
 - The VM creates `CreateTaskUseCase` which internally uses `FakeProfileAwareCurrentUser` with `Dispatchers.Default` (the dispatcher is not propagated through the use case constructor)
 - External I/O (HTTP, filesystem) is involved
 - The test uses a stub `CompleteRecurringTaskUseCase` that runs on `Dispatchers.Default`

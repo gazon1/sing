@@ -13,8 +13,6 @@ Three pieces of code wrote ADR frontmatter, each with its own idea of the format
 | Writer | What it believed |
 |---|---|
 | `AdrStorage.writeAdr()` | `title, date, status: open, tags` — always `open`, no validation |
-| `normalize-adr-frontmatter.py` | a `KNOWN_KEYS` allowlist, lowercase+dedupe tags, backfills |
-| `resolve_stale_adr_status.py` | regex surgery on `^status:` and nothing else |
 
 None of this was theory. `updateAdr` began emitting `review-by:` in #527, the
 normalizer's allowlist was never told, and the repository's own tool began producing
@@ -36,14 +34,9 @@ already serves the corpus discovery rules (#520).
 **The frontmatter contract lives in `config/docs/adr-corpus.json` under `frontmatter`:**
 the key allowlist, the key order, and the status a new decision is born with.
 
-- `normalize-adr-frontmatter.py` reads it through `adr_corpus`. Its `KNOWN_KEYS` is now
-  an **alias for the same object**, not a second literal — the test asserts identity
-  (`assertIs`), so a restated list cannot drift.
 - `AdrCorpusConfig` reads it with kotlinx-serialization and **validates before writing**:
   both `writeAdr` and `updateAdr` refuse a key outside the allowlist instead of writing a
   file the normalizer will later call structurally broken.
-- `resolve_stale_adr_status.py` **stops writing**. Its migration ran on 2026-10-05; what
-  remains is the question "is it still applied", which is a check, not a write.
 - **A new ADR is born `open`** — declared, not hardcoded, and recorded in
   `doc-maintenance.md`.
 - Unknown flags are a **usage error (exit 2)** in both scripts. A dead flag is a small
@@ -73,9 +66,6 @@ the old list and adding whatever looked plausible.
 - `writeAdr` and `updateAdr` can now *fail* on a key that is not declared. That is the
   intended direction: the failure happens at the writer, where the intent is known,
   instead of at the gate, weeks later, against a corpus nobody remembers touching.
-- `resolve_stale_adr_status.py` reports rather than repairs. Re-running the migration is
-  no longer possible from it, which is correct — a script that can still relabel a
-  decision is a fourth thing that can disagree with the writer about what a status means.
 - Fourteen allowlist keys are currently unused. They are kept: `created` is migrated by
   rule, `Context`/`Decision`/`Rationale`/`Consequences`/`Links` are read by the section-key
   check, and `review-by` is legal-but-unused by design (#527).

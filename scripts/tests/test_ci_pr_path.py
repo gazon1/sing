@@ -435,7 +435,7 @@ class PrPathRunsTheWholeSuite(unittest.TestCase):
         self.assertNotIn(":adr-core:jvmTest", suite_run)
 
         # The non-test parts of the invocation stay: the jar the end-to-end
-        # test resolves (a silent pass when it is absent) and the tool-surface
+        # test spawns (the test task builds it too) and the tool-surface
         # gate.
         self.assertIn(":mcp-server:jar", suite_run)
         self.assertIn(":shared:verifyToolSurface", suite_run)

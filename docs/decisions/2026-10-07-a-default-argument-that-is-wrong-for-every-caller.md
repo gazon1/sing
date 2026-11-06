@@ -91,6 +91,7 @@ address*. Reachability is a precondition for measurement, not a consequence of i
 - `docs/decisions/2026-10-07-three-files-that-only-one-gate-reads.md`
 - `infra/kiwi/scenarios/calendar/sync/` and
   `desktopApp/src/jvmTest/.../CalendarSyncSettingsScenarioTest.kt`
+
 ---
 
 ## Addendum (same day): a second instance, found by the *symptom* nobody could read

@@ -11,17 +11,7 @@ tags:
   - settings
 ---
 - runFlow: ../../helpers/launch-clean.yaml
-- runFlow: ../../helpers/open-app-menu.yaml
-- extendedWaitUntil:
-    visible:
-      id: menu_settings
-    timeout: 5000
-- tapOn:
-    id: menu_settings
-- extendedWaitUntil:
-    visible:
-      id: settings_tab_dropdown
-    timeout: 10000
+- runFlow: ../../helpers/open-settings.yaml
 - assertVisible:
     id: settings_theme_mode_system
 - assertVisible:

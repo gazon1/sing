@@ -3,8 +3,6 @@
 package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.draft.DraftStore
-import com.singularity.todo.core.draft.UserScopedDraftStore
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.tasks.FixedProfileTasksSettingsRepository
 import com.singularity.todo.core.tasks.TasksSettingsRepository
@@ -186,11 +184,6 @@ fun tasksModule(): org.koin.core.module.Module =
         // ─── Ports ──────────────────────────────────────────────────────────
 
         single<AttachmentSaver> { AttachmentSaverImpl(get()) }
-
-        // ─── Drafts ──────────────────────────────────────────────────────────
-        // UserScopedDraftStore wraps DraftStore, prepending the user ID prefix internally.
-        // Registered as DraftStore so it satisfies TaskCreateDeps.draftStore: DraftStore.
-        single<DraftStore> { UserScopedDraftStore(get(), get()) }
 
         // ─── ViewModels ─────────────────────────────────────────────────────
 

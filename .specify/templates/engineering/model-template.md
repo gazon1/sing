@@ -4,7 +4,7 @@
 > state-machine model (`Action`, precondition, `Transformer.mutate`, `withInvariant`), so that
 > migrating to property-based testing later is mechanical rather than a rewrite.
 >
-> **This step always produces a file.** Either a model, or a justified *Not applicable*. An empty
+> **This step always produces a file.** Either a model, or a justified _Not applicable_. An empty
 > document, or a table invented to fill the template, is a worse outcome than an honest omission.
 
 ## Purpose and scope
@@ -94,6 +94,7 @@ applying twice? What are the terminal states, and is there a path back from each
 ## Counterexamples
 
 ### C-1 — <name>
+
 - **Sequence:** <the events, in order>
 - **Expected behavior:** <what should happen>
 - **Why this is a risk:** <what could actually go wrong>

@@ -23,6 +23,7 @@ Page Objects и testTag отсутствуют. Четыре точки в ViewM
 | `AttachmentSaver` | Подменяемый save (без файловой системы) | `TaskEditorViewModel` |
 
 `Clock` — уже абстрагирован через expect/actual. **Не** трогаем:
+
 - `System.currentTimeMillis()` в `SyncEngine`, `ReminderScheduler`, `PomodoroTimer`
 - `FilePickerPort` (тесты идут через `FakeAttachmentSaver`)
 
@@ -62,6 +63,7 @@ Ultron `Page<>`, который имеет несовместимый API.
 ### 6. DI биндинги
 
 Все 4 порта зарегистрированы в `coreDomainModule()`:
+
 ```kotlin
 single<IdGenerator> { UlidIdGenerator }
 single<TimeZoneProvider> { systemTimeZone }

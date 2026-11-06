@@ -1,9 +1,8 @@
 package com.singularity.todo.feature.search
 
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.database.TaskEntity
-import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.search.SearchMode
@@ -26,8 +25,6 @@ import com.singularity.todo.test.fakes.TEST_TZ
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -54,7 +51,7 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:data")
 class SearchUseCaseFtsTest {
-    private lateinit var tempDir: File
+    private lateinit var fixture: DatabaseTestFixture
     private lateinit var db: AppDatabase
 
     private val user = UserId("alice")
@@ -62,14 +59,13 @@ class SearchUseCaseFtsTest {
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("singularity-search-fts-").toFile()
-        db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
+        fixture = DatabaseTestFixture.inMemory()
+        db = fixture.database()
     }
 
     @AfterTest
     fun tearDown() {
-        db.close()
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     @Test

@@ -1,0 +1,70 @@
+# Agenda: FAB from Upcoming tab does NOT pre-fill due date.
+#
+# Verifies:
+# 1. The "Add task" FAB is present on the Upcoming agenda tab.
+# 2. Tapping it opens the task composer.
+# 3. Saving without choosing a date lands the task in the Inbox "No Date"
+#    section — a prefilled due date would have put it in a dated section
+#    instead, so the landing section is what proves the absence of a prefill.
+#
+appId: com.singularity.todo
+name: tasks-prefill-from-upcoming
+tags:
+  - regression
+  - tasks
+  - scenario:TASK-18
+---
+# Launch clean and start on the Upcoming tab
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_upcoming
+# A section header renders only when the section has a task, and the runner
+# wipes the content before the flow, so the agenda is empty here: there is no
+# header to find, and waiting for one is a claim about nothing. The shell
+# affordance the flow needs next is what is waited for instead.
+- extendedWaitUntil:
+    visible:
+      id: tasks_fab
+    timeout: 8000
+
+# Open create via FAB
+- tapOn:
+    id: tasks_fab
+
+# Verify title field is ready
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+
+# ── Fill title (no due date set) ──────────────────────────────────────
+- tapOn:
+    id: task_editor_title_input
+- inputText: "${RUN_ID} Task from Upcoming tab"
+
+# ── Save ──────────────────────────────────────────────────────────────
+- hideKeyboard
+- tapOn:
+    id: task_editor_save
+
+# ── Verify the task is undated: it lives in the Inbox "No Date" section ─
+# An undated task belongs to the Inbox tab, so the Upcoming tab is left and
+# the Inbox is opened to look for it there.
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_inbox
+    timeout: 10000
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_no_date
+    timeout: 8000
+# Task may be below existing rows — scroll to bring it into view.
+- scrollUntilVisible:
+    element:
+      id: task_item_${RUN_ID}_task_from_upcoming_tab
+    direction: DOWN
+    timeout: 8000
+- assertVisible:
+    id: task_item_${RUN_ID}_task_from_upcoming_tab

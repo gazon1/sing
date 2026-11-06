@@ -1,9 +1,10 @@
 package com.singularity.todo.core.notifications
 
-import com.singularity.todo.core.process.Subprocess
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.junit.jupiter.api.Tag
+import java.io.File
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -119,7 +120,8 @@ class JvmNotifierTest {
      * broken form: when the parent closes the child's streams, this host answers `false`
      * *consistently*, so `distinct().size == 1` passes and this test stays green while the
      * capability is wrong. The systematic failure is caught by
-     * `the real probe agrees with running the command directly`, and by `SubprocessTest`.
+     * `the real probe agrees with the host's lookup of notify-send`, and by
+     * `SubprocessTest`.
      * Kept because a flaky answer is its own bug, but it is not the guard for this one.
      */
     @Test
@@ -139,25 +141,97 @@ class JvmNotifierTest {
     }
 
     /**
-     * The probe must agree with the command it wraps.
+     * The probe must agree with the host it is talking about.
      *
-     * Computed independently rather than by calling the same helper, so agreement is
-     * evidence and not a tautology.
+     * "On `PATH`" is not the same claim as "answers": a CI runner can have the
+     * `notify-send` file installed and still fail to load it (no display, no
+     * session bus, a missing shared library), and the production probe correctly
+     * reports that host as unsupported. So the expectation is the conjunction —
+     * the binary is on `PATH` **and** an independent `--version` run exits 0 —
+     * while the probe is the code under test.
      *
-     * No `assumeTrue` skip — both branches of the assertion are `false == false`
-     * or `true == true` regardless of whether `notify-send` is installed, so the
-     * assertion is informative on any host without ever skipping.
+     * The oracle is deliberately a second implementation (`ProcessBuilder` here,
+     * `Subprocess.runQuietly` in production): the defect this guards against is in
+     * the production helper, and an assertion written with that helper would agree
+     * with its own bug.
+     *
+     * No `assumeTrue` skip: the expected value is computed on every host, so both
+     * branches (`false == false` on a broken or absent binary, `true == true` on a
+     * working one) hold everywhere.
      */
     @Test
-    fun `the real probe agrees with running the command directly`() {
-        val direct = Subprocess.runQuietly(listOf("notify-send", "--version")) == 0
+    fun `the real probe agrees with the host's notify-send`() {
+        val expected = binaryIsOnPath("notify-send") && versionQueryAnswers("notify-send")
+        val probed = JvmNotifier(scope = CoroutineScope(Dispatchers.Unconfined)).isSupported
 
         assertEquals(
-            direct,
-            JvmNotifier(scope = CoroutineScope(Dispatchers.Unconfined)).isSupported,
-            "the probe must report exactly what the command returns",
+            expected,
+            probed,
+            "the probe answered $probed and the host answered $expected. The lookup asks " +
+                "whether notify-send is on this host's PATH; this test also asks whether " +
+                "an independent `notify-send --version` exits 0. A disagreement means the " +
+                "probe claims a host the host itself does not provide.",
         )
     }
+
+    /**
+     * Whether [name] `--version` exits 0, measured without the production helper.
+     *
+     * Bounded: a broken binary can hang on startup, and a test that waits for it
+     * would fail for the wrong reason.
+     */
+    private fun versionQueryAnswers(name: String): Boolean =
+        runCatching {
+            val process = ProcessBuilder(name, "--version").redirectErrorStream(true).start()
+            try {
+                process.waitFor(5, TimeUnit.SECONDS) && process.exitValue() == 0
+            } finally {
+                process.destroyForcibly()
+            }
+        }.getOrDefault(false)
+
+    /**
+     * The lookup must be able to say "no".
+     *
+     * A detector that always answers `true` agrees with a probe that always answers
+     * `true`, and the agreement above would be worth nothing. So the same lookup is
+     * asked about a name no host has.
+     */
+    @Test
+    fun `the lookup is not vacuous - a binary no host has is not found`() {
+        assertFalse(
+            binaryIsOnPath("notify-send-that-no-host-has"),
+            "the lookup found a binary that does not exist, so it cannot be trusted to " +
+                "say whether notify-send is on this host",
+        )
+    }
+
+    /**
+     * Whether a binary of that name is on this host's `PATH`, found by lookup.
+     *
+     * The operating system's own rule: every entry of `PATH`, in order, and the
+     * first directory that holds an executable file of that name is the one that
+     * would run. An empty entry means the current directory, exactly as the shell
+     * reads it — so it is not skipped here either.
+     */
+    private fun binaryIsOnPath(name: String): Boolean =
+        pathEntries().any { directory ->
+            File(directory, name).let { it.isFile && it.canExecute() }
+        }
+
+    /** This process's `PATH`, split the way the operating system splits it. */
+    private fun pathEntries(): List<String> =
+        pathVariable()
+            ?.split(File.pathSeparator)
+            .orEmpty()
+
+    /** The `PATH` this process was given, whatever the platform spells it. */
+    private fun pathVariable(): String? =
+        System
+            .getenv()
+            .entries
+            .firstOrNull { it.key.equals("PATH", ignoreCase = true) }
+            ?.value
 
     /**
      * `--replace` is what stops a reminder firing twice from stacking two notifications.

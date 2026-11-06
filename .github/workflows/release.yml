@@ -130,6 +130,10 @@ jobs:
 
       - uses: ./.github/actions/setup-jvm-gradle
 
+      # The release APK compiles the Android target, so the declared platform
+      # must exist before the first Gradle invocation.
+      - uses: ./.github/actions/setup-android-sdk
+
       # The Google OAuth client id, when the project has one.
       #
       # A client id is not a secret — it ships inside every copy of the app that

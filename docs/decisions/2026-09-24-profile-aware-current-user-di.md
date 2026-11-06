@@ -21,11 +21,13 @@ status: accepted
    - `DecomposeAndCreateTool(taskRepository, clock, promptExecutor, model, currentUser)`
 
 3. **DI bindings updated** on both platforms (android + jvm):
+
    ```kotlin
    factory { CreateTaskTool(get(), get(), get()) }  // + currentUser = get()
    ```
 
 4. **`Modules.kt` simplified** — the `setInstance()` call is removed; Koin wires the singleton directly:
+
    ```kotlin
    single { ProfileAwareCurrentUser(get(), get(), createBackgroundScope()) }
    ```

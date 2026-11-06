@@ -41,9 +41,9 @@ instead of the phone. Emulator targets do not use this skill at all; they go
 through `./rm emulator`, the repo's single device-recovery
 primitive.
 
-`./rm emulator` binds this checkout's packages itself, so it needs no PATH entry
-and cannot answer from another checkout. See `singularity-todo-emulator-launch`
-for where it lives and why.
+`./rm emulator`, run from the repository root, binds this checkout's packages
+itself, so it needs no PATH entry and cannot answer from another checkout. See
+`singularity-todo-emulator-launch` for where it lives and why.
 
 If `state=unauthorized`: the device shows "Allow USB debugging?" on its screen — the human must tap "Allow" and "Always allow from this computer".
 

@@ -44,14 +44,14 @@ class _Paths:
         self.baseline = directory / "gate-benchmarks.json"
         self.document = directory / "gate-costs.md"
         self.gate_run = directory / "gate-run.json"
-        self.steps = directory / "cycle-steps.txt"
+        self.steps = directory / "cycle-steps.json"
 
     def apply(self) -> None:
         """Point the command at these files."""
         sgate.repo.GATE_BENCHMARKS_JSON = self.baseline
         sgate.repo.GATE_COSTS_MD = self.document
         sgate.repo.GATE_RUN_JSON = self.gate_run
-        sgate.repo.CYCLE_STEPS_TXT = self.steps
+        sgate.repo.CYCLE_STEPS_JSON = self.steps
 
 
 class GateCostsTest(unittest.TestCase):
@@ -65,7 +65,7 @@ class GateCostsTest(unittest.TestCase):
             sgate.repo.GATE_BENCHMARKS_JSON,
             sgate.repo.GATE_COSTS_MD,
             sgate.repo.GATE_RUN_JSON,
-            sgate.repo.CYCLE_STEPS_TXT,
+            sgate.repo.CYCLE_STEPS_JSON,
         )
         self.addCleanup(self._restore)
         self.paths.apply()
@@ -75,17 +75,21 @@ class GateCostsTest(unittest.TestCase):
             sgate.repo.GATE_BENCHMARKS_JSON,
             sgate.repo.GATE_COSTS_MD,
             sgate.repo.GATE_RUN_JSON,
-            sgate.repo.CYCLE_STEPS_TXT,
+            sgate.repo.CYCLE_STEPS_JSON,
         ) = self._saved
 
     # ── The measurement ───────────────────────────────────────────────────────
 
     def test_the_steps_file_is_read(self):
-        """`check.sh` writes the build steps; the command reads them."""
+        """`hk` writes the build steps; the command reads them."""
         self.paths.steps.write_text(
-            "# name\tmilliseconds\n"
-            "shared:jvmTest\t45000\n"
-            "detekt\t12000\n",
+            json.dumps({
+                "total": {"wall_time_ms": 57000},
+                "steps": {
+                    "shared:jvmTest": {"wall_time_ms": 45000},
+                    "detekt": {"wall_time_ms": 12000},
+                },
+            }),
             encoding="utf-8",
         )
         measurement = read_measurement()
@@ -94,16 +98,26 @@ class GateCostsTest(unittest.TestCase):
             {"shared:jvmTest": 45000, "detekt": 12000},
         )
 
-    def test_a_malformed_step_line_is_ignored_rather_than_fatal(self):
-        """A truncated line is not a number, and a number is not a line."""
+    def test_a_step_without_a_measurement_is_ignored_rather_than_fatal(self):
+        """A step that never ran was not measured — reporting it as zero would
+        price a step that did not happen."""
         self.paths.steps.write_text(
-            "shared:jvmTest\t45000\n"
-            "broken line without a tab\n"
-            "detekt\tnot-a-number\n",
+            json.dumps({
+                "steps": {
+                    "shared:jvmTest": {"wall_time_ms": 45000},
+                    "never ran": {},
+                },
+            }),
             encoding="utf-8",
         )
         measurement = read_measurement()
         self.assertEqual(measurement["steps"], {"shared:jvmTest": 45000})
+
+    def test_a_broken_record_is_an_unpriced_cycle_rather_than_an_error(self):
+        """The price of a run is never worth failing the run over."""
+        self.paths.steps.write_text("{ not json at all", encoding="utf-8")
+        measurement = read_measurement()
+        self.assertEqual(measurement["steps"], {})
 
     def test_the_gate_run_file_is_read(self):
         """`sgate run-all` writes the gates; the command reads them."""

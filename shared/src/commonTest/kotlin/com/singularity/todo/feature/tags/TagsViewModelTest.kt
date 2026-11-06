@@ -4,11 +4,14 @@ package com.singularity.todo.feature.tags
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase
 import com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTagsRepository
+import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import com.singularity.todo.test.fakes.TestUsers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -22,6 +25,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -57,7 +61,10 @@ private class Harness(val vm: TagsViewModel, private val scope: AutoCloseableCor
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
-private fun TestScope.newHarness(repo: FakeTagsRepository): Harness {
+private fun TestScope.newHarness(
+    repo: TagsRepository,
+    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+): Harness {
     val scope = testScope(this)
     val vm =
         TagsViewModel(
@@ -65,6 +72,7 @@ private fun TestScope.newHarness(repo: FakeTagsRepository): Harness {
             createTag = CreateTagUseCase(repo, FrozenClock()),
             updateTag = UpdateTagUseCase(repo, FrozenClock()),
             currentUser = FakeProfileAwareCurrentUser(authRepository = FakeAuthRepository()),
+            crashReporter = crashReporter,
             scope = scope,
         )
     return Harness(vm, scope)
@@ -154,6 +162,36 @@ class TagsViewModelTest {
             val renamed = assertIs<TagsUiState.Content>(h.vm.stateFlow.value).tags.single()
             assertEquals("renamed", renamed.name)
             assertEquals(created.id, renamed.id, "a rename must not change the id")
+            h.close()
+        }
+
+    /**
+     * A stopped observation must hand the *cause* to the reporter.
+     *
+     * The screen can only show a message; the message alone says nothing about
+     * why the list stopped, and the throwable that explains it is the thing the
+     * reporter exists for. So the report has to carry the original throwable —
+     * the very instance the repository threw, not a copy of it — under this
+     * screen's own key.
+     */
+    @Test
+    fun `a failed observation reports the original cause`() =
+        runTest {
+            val reporter = RecordingCrashReportingPort()
+            val repo = FakeTagsRepository()
+            val failure = IllegalStateException("the tag repository is down")
+            repo.observeAllFailure = failure
+            val h = newHarness(repo, reporter)
+            advanceUntilIdle()
+
+            assertIs<TagsUiState.Error>(h.vm.stateFlow.value)
+
+            val reported = reporter.reports.single { it.second == "tags.observe_failed" }
+            assertSame(
+                failure,
+                reported.first,
+                "the reporter must receive the throwable the repository threw",
+            )
             h.close()
         }
 }

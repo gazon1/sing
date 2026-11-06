@@ -47,17 +47,17 @@ toolbox were two different things, and only one of them existed.
 
 **C.**
 
-* The **tool class owns the description**. It is the text the MCP server puts into the
+- The **tool class owns the description**. It is the text the MCP server puts into the
   JSON schema, so it is the text the agent reads. The catalogue no longer carries one.
-* The **catalogue owns the declared surface**: which tools exist, which class implements
+- The **catalogue owns the declared surface**: which tools exist, which class implements
   each, which domain it belongs to, and the annotations.
-* The **DI lists stay hand-written** and are now *checked* rather than assumed:
+- The **DI lists stay hand-written** and are now *checked* rather than assumed:
   - a runtime test resolves the actual Koin list on the JVM and on Android and compares
     it with the catalogue — names, descriptions, and no duplicates;
   - the drift gate compares the catalogue with the tool classes, and the ADR CLI surface
     with the catalogue, through an explicit command→tool mapping declared in
     `AdrSurface.kt`.
-* The **CLI surface and the MCP surface are different interfaces** and are not required to
+- The **CLI surface and the MCP surface are different interfaces** and are not required to
   have identical shapes — the mapping between them is declared, and the mapping is what
   the gate checks.
 

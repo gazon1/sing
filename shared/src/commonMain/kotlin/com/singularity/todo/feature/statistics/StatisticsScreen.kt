@@ -58,7 +58,6 @@ import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Duration
@@ -161,7 +160,8 @@ fun StatisticsScreen(
                                 }
 
                                 // FINE is healthy — no drill-down target.
-                                TaskHealthBucket.FINE -> { /* no-op */ }
+                                TaskHealthBucket.FINE -> { // no-op
+                                }
                             }
                         },
                     )
@@ -206,7 +206,12 @@ private fun TasksTabContent(state: StatisticsUiState) {
             )
             StatCard(
                 title = "Avg/Day",
-                value = formatDecimal(snapshot?.averagePerDay ?: 0.0, 1),
+                value =
+                    formatDecimal(
+                        snapshot?.averagePerDay
+                            ?: 0.0,
+                        1,
+                    ),
                 modifier = Modifier.weight(1f),
             )
         }
@@ -220,7 +225,9 @@ private fun TasksTabContent(state: StatisticsUiState) {
         )
 
         // Bar chart
-        val buckets = snapshot?.tasksPerDay ?: persistentListOf()
+        val buckets =
+            snapshot?.tasksPerDay
+                ?: persistentListOf()
         TasksBarChart(buckets = buckets)
     }
 }
@@ -228,8 +235,13 @@ private fun TasksTabContent(state: StatisticsUiState) {
 @Composable
 private fun TasksBarChart(buckets: ImmutableList<DayBucket>) {
     val maxCount =
-        (buckets.maxOfOrNull { it.completedCount } ?: 1)
-            .coerceAtLeast(buckets.maxOfOrNull { it.overdueCount } ?: 1)
+        (
+            buckets.maxOfOrNull { it.completedCount }
+                ?: 1
+        ).coerceAtLeast(
+            buckets.maxOfOrNull { it.overdueCount }
+                ?: 1,
+        )
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Canvas(
@@ -279,14 +291,16 @@ private fun TasksBarChart(buckets: ImmutableList<DayBucket>) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        buckets.takeLast(7).forEach { bucket ->
-            val day = LocalDate.parse(bucket.date).day.toString()
-            Text(
-                text = day,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        buckets
+            .takeLast(7)
+            .forEach { bucket ->
+                val day = LocalDate.parse(bucket.date).day.toString()
+                Text(
+                    text = day,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
     }
 }
 
@@ -429,7 +443,9 @@ private fun InsightsStackedBarChart(
                 val chartHeight = size.height
 
                 // Determine max for scaling
-                val maxMs = buckets.maxOfOrNull { it.totalMs } ?: 1L
+                val maxMs =
+                    buckets.maxOfOrNull { it.totalMs }
+                        ?: 1L
 
                 buckets.forEachIndexed { index, bucket ->
                     val normalizedHeight =
@@ -587,7 +603,9 @@ private fun HealthTabContent(
                 value = health[bucket].toString(),
                 modifier =
                     if (clickable) {
-                        Modifier.fillMaxWidth().clickable { onBucketClick(bucket) }
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onBucketClick(bucket) }
                     } else {
                         Modifier.fillMaxWidth()
                     },
@@ -659,7 +677,10 @@ private fun StatisticsScreenLightPreview() =
                                 totalCompleted = 35,
                                 totalOverdue = 3,
                                 averagePerDay = 5.0,
-                                computedAt = Instant.fromEpochMilliseconds(0).toEpochMilliseconds(),
+                                computedAt =
+                                    kotlin.time.Instant
+                                        .fromEpochMilliseconds(0)
+                                        .toEpochMilliseconds(),
                             ),
                     ),
             )

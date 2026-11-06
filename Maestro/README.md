@@ -11,17 +11,18 @@ just tm tags=smoke                        # only the smoke subset
 just tm flow=Maestro/flows/tasks          # one directory
 SERIAL=emulator-5554 just tm tags=smoke # pin the device (recovery still runs)
 
-# As part of the local check (opt-in; needs maestro CLI + a booted device):
-RUN_MAESTRO=1 ./check.sh
+# As part of the device lane (opt-in; needs maestro CLI + a booted device):
+RUN_MAESTRO=1 hk run device
 ```
 
-Environment variables understood by the Maestro runner (`./rm`):
-`SERIAL`, `FLOW`, `TAGS`, `SKIP_INSTALL=1`, `MAESTRO_MAX_RETRIES` (default 1).
+Environment variables understood by the Maestro runner (`./rm`, run from the
+repository root): `SERIAL`, `FLOW`, `TAGS`. `--skip-install` and
+`--maestro-max-retries` (default 2) are flags.
 
 ### Getting a device
 
 ```bash
-SERIAL=$(./rm emulator)   # prints a serial, starting the AVD if needed
+SERIAL=$(./rm emulator)   # from the repo root: prints a serial, starting the AVD
 ```
 
 That is the only supported way to get a device: it prints a ready serial, or starts
@@ -186,7 +187,9 @@ no longer needs it.
 renders only when the section has a task, and the runner wipes the content
 before the flow, so an empty agenda has no section header to find: waiting for
 one waits for nothing. Either put a task in the section first, or assert the
-affordance the flow needs next.
+affordance the flow needs next. A task the flow seeded is such a task, so a
+wait on the section that holds it is the seeded task's arrival — the rule is
+written in `helpers/seed.yaml`.
 
 **Put the tag on a node that survives the merge.** A Material3 `Card` is a
 `Surface`, and a Surface merges its descendants: a tag below the card is

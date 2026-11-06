@@ -22,6 +22,7 @@ Three non-obvious design choices arose:
 Use a sealed `Condition` interface as the canonical AST. Negation is a `Condition.Not(inner)` wrapper — not a `not: Boolean` flag on each condition. The `Query` data class holds an optional root `Condition`, `SortOrder`, `sortDescending`, and `Options`.
 
 Syntax examples:
+
 - `meeting` → `HasText("meeting")`
 - `priority:high` → `HasPriority(HIGH)`
 - `-tag:work` → `Not(HasTag("work"))`
@@ -34,6 +35,7 @@ A Pratt parser (precedence climbing) handles `AND`/`OR`/`NOT`/`(`/`)` with corre
 ### SearchQueryResolver (Phase 2)
 
 `DefaultSearchQueryResolver` converts a `Query` AST into a `ResolvedSearchQuery` containing:
+
 - `taskFilter: TaskFilter?` — DAO-executable filter, or null
 - `needsPostFilter: Boolean` — whether a Kotlin predicate post-filter is needed
 - `postFilter: (Sequence<Task>) -> Sequence<Task>` — predicates for conditions the DAO can't express (negated, OR, pinned, archived, has:description, complex date relations)
@@ -52,6 +54,7 @@ A Pratt parser (precedence climbing) handles `AND`/`OR`/`NOT`/`(`/`)` with corre
 `SimpleFilterBuilder` is a Kotlin DSL with `@DslMarker`. `states` starts as `null`; calling `state(status)` does `states = (states ?: emptySet()) + status` — set replacement, not accumulation over a default.
 
 `SimpleFilterMapper` round-trips `Query ↔ SimpleFilter`:
+
 - `fromQuery`: flattens `And` nodes, maps each atom; unsupported conditions (OR, NOT, Archived, Scheduled) throw `UnsupportedSimpleFilterException`; complex date relations (`GT`, `LT`) silently degrade to `TODAY` (no exception).
 - `toQuery`: builds conditions list; `null` states means no `HasStatus` added; empty filter produces `Query(condition = null, ...)`, not `HasText("")`; single condition is returned unwrapped.
 
@@ -70,6 +73,7 @@ Room migration 15→16 adds the `saved_searches` table via `@AutoMigration(from 
 ### Canonical SearchViewModel (Phase 4)
 
 `SearchViewModel` uses a 7-argument constructor:
+
 ```
 (searchUseCase, savedSearchRepo, parseQuery, tagLookup, projectLookup, clock, scope)
 ```

@@ -27,7 +27,7 @@ name: open-menu-item
     element:
       id: "${ENTRY_ID}"
     direction: DOWN
-    timeout: 10000
+    timeout: 5000
 - tapOn:
     id: "${ENTRY_ID}"
 - extendedWaitUntil:

@@ -8,6 +8,7 @@ description: Swipe-to-dismiss pattern for Compose Multiplatform using Material3 
 ## When to Use This Skill
 
 Use when implementing **swipe gestures on list items** in `NotesScreen`, `TasksScreen`, or any `LazyColumn`-based list. This skill covers:
+
 - Swipe-to-pin and swipe-to-delete (Apple Notes / TickTick pattern)
 - Directional swipe: left = destructive, right = positive action
 - Background color reveal with icon
@@ -33,6 +34,7 @@ fun SwipeToDismissBox(
 ## Notes Use Case (Phase 2)
 
 **Actions:**
+
 - **Swipe right → Pin/Unpin** (gold/amber background, `PushPin` icon)
 - **Swipe left → Delete** (red background, `Delete` icon)
 
@@ -121,6 +123,7 @@ SwipeToDismissBox(
 ### 3. iOS Mail-Style Rubber-Band (Spring Animation)
 
 `SwipeToDismissBox` handles the rubber-band effect internally via `SpringAnimation`. To customize:
+
 ```kotlin
 val dismissState = rememberSwipeToDismissBoxState(
     confirmValueChange = { ... },
@@ -205,6 +208,7 @@ private fun bgColorFor(value: SwipeToDismissBoxValue): Color = when (value) {
 ## Alternative: SwipeToDismiss from Start (Archive pattern)
 
 For archive action (swipe right to archive, similar to Gmail):
+
 ```kotlin
 SwipeToDismissBox(
     state = dismissState,

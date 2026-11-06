@@ -331,8 +331,8 @@ No Date    { T11, T12, T13, T14 }
 ./gradlew :desktopApp:test --tests "*SavedViewsFlowTest"
 
 # Maestro
-FLOW=01-smart-lists SKIP_INSTALL=1 ./rm
-FLOW=03-saved-views-crud SKIP_INSTALL=1 ./rm
+FLOW=01-smart-lists ./rm --skip-install
+FLOW=03-saved-views-crud ./rm --skip-install
 
 # Контракты
 ./gradlew :shared:jvmTest -PupdateGoldens=true   # TAGS.md

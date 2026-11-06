@@ -38,9 +38,10 @@ with the keyboard on and every flow measured after that measured a
 half-covered screen.
 
 **Where the command comes from:** `./rm` is the checkout-bound wrapper (`rm` at
-the repository root). It binds this checkout's `scripts/src` packages before it
-runs anything, and refuses with the package's name when one resolves to another
-checkout, so the answer does not depend on which checkout was installed last.
+the repository root), so run it from there. It binds this checkout's
+`scripts/src` packages before it runs anything, and refuses with the package's
+name when one resolves to another checkout, so the answer does not depend on
+which checkout was installed last.
 
 The console scripts themselves are still installed: `scripts/src/pyproject.toml`
 declares them, and the gate tooling venv of this checkout

@@ -7,6 +7,7 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.SecureSessionManager
 import com.singularity.todo.core.seed.NoteSeed
 import com.singularity.todo.core.seed.ProjectSeed
+import com.singularity.todo.core.seed.SeedLinkKeys
 import com.singularity.todo.core.seed.SeedWriter
 import com.singularity.todo.core.seed.TaskSeed
 import com.singularity.todo.core.wipe.ContentResetter
@@ -126,6 +127,12 @@ class DebugSeedActivity :
         val uri = intent?.data ?: return finish()
 
         val params = parseParams(uri)
+        SeedLinkKeys.unknown(params.keys).forEach { key ->
+            android.util.Log.w(
+                "DebugSeedActivity",
+                "Unknown seed query key '$key'; it was ignored",
+            )
+        }
         if (params.isEmpty()) return finish()
 
         try {
@@ -176,8 +183,8 @@ class DebugSeedActivity :
         params: Map<String, String>,
         profileRepo: ProfileRepository,
     ) {
-        if (!params.containsKey("profile")) return
-        val profileName = params["profile"]!!
+        if (!params.containsKey(SeedLinkKeys.PROFILE)) return
+        val profileName = params[SeedLinkKeys.PROFILE]!!
         val existing = profileRepo.findByName(profileName)
         if (existing != null) {
             profileRepo.switchTo(existing.id)
@@ -220,13 +227,13 @@ class DebugSeedActivity :
                 currentUser = currentUser,
             )
         when {
-            params.containsKey("task") -> {
+            params.containsKey(SeedLinkKeys.TASK) -> {
                 seedTask(params, writer)
             }
 
-            params.containsKey("note") -> {
-                val spec = NoteSeed(title = params["note"]!!)
-                val linkTo = params["linkTo"]
+            params.containsKey(SeedLinkKeys.NOTE) -> {
+                val spec = NoteSeed(title = params[SeedLinkKeys.NOTE]!!)
+                val linkTo = params[SeedLinkKeys.LINK_TO]
                 if (linkTo == null) {
                     writer.writeNote(spec)
                 } else {
@@ -240,21 +247,21 @@ class DebugSeedActivity :
                 }
             }
 
-            params.containsKey("project") -> {
+            params.containsKey(SeedLinkKeys.PROJECT) -> {
                 writer.writeProject(
                     ProjectSeed(
-                        name = params["project"]!!,
+                        name = params[SeedLinkKeys.PROJECT]!!,
                         color = 0xFF2196F3.toInt(), // blue ARGB — deterministic default
                         stamp = Clock.System.now(),
                         // A flow that has to tap a project in the menu's tree asks
                         // for its id: a generated id is one a flow cannot write down.
-                        id = params["id"]?.let { ProjectId.fromString(it) },
+                        id = params[SeedLinkKeys.ID]?.let { ProjectId.fromString(it) },
                     ),
                 )
             }
 
             // Profile creation and switch are handled by switchToProfileIfRequested.
-            params.containsKey("profile") -> {
+            params.containsKey(SeedLinkKeys.PROFILE) -> {
                 Unit
             }
         }
@@ -264,22 +271,25 @@ class DebugSeedActivity :
         params: Map<String, String>,
         writer: SeedWriter,
     ) {
-        val title = params["task"]!!
+        val title = params[SeedLinkKeys.TASK]!!
         // A task stamped "now" is never stagnant: the health window is 21 days
         // without movement, and a flow cannot reach that bucket by seeding a
         // fresh task. `updatedAt=-22d` puts both timestamps in the past, which
         // is what the stagnation bucket is defined by.
-        val stamp = params["updatedAt"]?.let { resolveInstant(it) } ?: Clock.System.now()
+        val stamp =
+            params[SeedLinkKeys.UPDATED_AT]
+                ?.let { resolveInstant(it) }
+                ?: Clock.System.now()
 
         val result =
             writer.writeTask(
                 TaskSeed(
                     title = title,
-                    description = params["desc"],
-                    dueDate = params["due"]?.let { resolveDate(it) },
+                    description = params[SeedLinkKeys.DESC],
+                    dueDate = params[SeedLinkKeys.DUE]?.let { resolveDate(it) },
                     stamp = stamp,
-                    dependsOnTitle = params["blockedBy"],
-                    id = params["id"]?.let(TaskId::fromString),
+                    dependsOnTitle = params[SeedLinkKeys.BLOCKED_BY],
+                    id = params[SeedLinkKeys.ID]?.let(TaskId::fromString),
                 ),
             )
         android.util.Log.i("DebugSeedActivity", "task '$title' was ${result.outcome}")
@@ -313,12 +323,12 @@ class DebugSeedActivity :
         // and nothing failed. A flow that asserts an empty list then failed
         // because of the previous run, and the suite's independence was a
         // claim rather than a fact.
-        if (params.containsKey("reset")) {
+        if (params.containsKey(SeedLinkKeys.RESET)) {
             resetContent()
             return
         }
 
-        params["cleanup"]?.let { prefixes ->
+        params[SeedLinkKeys.CLEANUP]?.let { prefixes ->
             cleanup(
                 prefixes = prefixes.split(',').map { it.trim() }.filter { it.isNotEmpty() },
                 taskRepo = taskRepo,
@@ -336,8 +346,8 @@ class DebugSeedActivity :
         // explicitly, so that the states the app really has — a local session
         // with no account, a signed-out session with the sign-in screen — are
         // reachable from a test, and not only the state the build starts in.
-        if (params.containsKey("session")) {
-            switchSession(params["session"]!!)
+        if (params.containsKey(SeedLinkKeys.SESSION)) {
+            switchSession(params[SeedLinkKeys.SESSION]!!)
             return
         }
 

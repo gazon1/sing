@@ -6,7 +6,7 @@
 >
 > **This step always produces a file.** Either a model, or a justified *Not applicable*. An empty
 > document, or a table invented to fill the template, is a worse outcome than an honest omission.
-
+>
 > **This change has state.** All four state tests came back yes: a value (the claim, the branch,
 > the pull request, the review comment) is held across events and read by later ones; the same
 > event arriving twice gives a different outcome depending on what happened before; work can be

@@ -41,9 +41,9 @@ hardware someone plugged in. If you want the script to look at this phone, pin i
 rather than booting an emulator. For an AVD target, use `./rm emulator` or the
 `singularity-todo-emulator-launch` skill.
 
-The command is bound to this checkout by `./rm`, so it needs no PATH entry and
-cannot answer from another checkout. See `singularity-todo-emulator-launch` for
-where it lives and why.
+The command is bound to this checkout by `./rm`, run from the repository root,
+so it needs no PATH entry and cannot answer from another checkout. See
+`singularity-todo-emulator-launch` for where it lives and why.
 
 ### Step 2 — Build + install (if APK changed)
 

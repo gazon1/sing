@@ -329,7 +329,7 @@ expect   the server's sync_field_allowlist has a row for task.workflowState
 expect   the field survives the round trip through the server
 ```
 
-The second half needs the dated migration in `supabase/migrations/` to have been applied
+The second half needs the dated migration in `infra/supabase/migrations/` to have been applied
 — see [contracts/sync-wire.md](contracts/sync-wire.md) → *The server obligation*, and the
 debt to avoid (open issue #1050).
 

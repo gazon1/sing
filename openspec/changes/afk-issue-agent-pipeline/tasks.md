@@ -29,10 +29,10 @@ reference design**.
       - Files: `spike/README.md`, `spike/findings.md`
       - Depends on: none
       - Verification: `runner.test.ts::test_the_components_compose` —
-        `npx vitest run test/runner.test.ts -t test_the_components_compose`
+      `npx vitest run test/runner.test.ts -t test_the_components_compose`
       - Acceptance: AC-14, AC-01
       - **This task blocks every other task.** Its findings decide which components the extension
-        depends on, and therefore the shape of the rest.
+      depends on, and therefore the shape of the rest.
 
 ## Phase 1 — the package (`pi-afk-runner`)
 
@@ -44,7 +44,7 @@ reference design**.
       - Files: `package.json`, `tsconfig.json`, `src/version.ts`, `.github/workflows/ci.yml`
       - Depends on: T000
       - Verification: `runner.test.ts::test_the_extension_refuses_to_run_outside_its_pi_version_range` —
-        `npx vitest run test/runner.test.ts -t test_the_extension_refuses_to_run_outside_its_pi_version_range`
+      `npx vitest run test/runner.test.ts -t test_the_extension_refuses_to_run_outside_its_pi_version_range`
       - Acceptance: AC-14
 - [x] **T002** [P] Write the git sandbox the tests need: a fixture repository that scrubs the inherited
       `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE` and `GIT_COMMON_DIR`, that stops git from
@@ -55,7 +55,7 @@ reference design**.
       - Files: `test/git-sandbox.ts`
       - Depends on: T000
       - Verification: `runner.test.ts::test_the_state_is_derived_from_the_observables` —
-        `npx vitest run test/runner.test.ts -t test_the_state_is_derived_from_the_observables`
+      `npx vitest run test/runner.test.ts -t test_the_state_is_derived_from_the_observables`
       - Acceptance: AC-12, AC-13
 
 ## Phase 2 — the queue (`pi-afk-runner`)
@@ -73,9 +73,9 @@ are sequential for that reason.
       - Files: `src/runner.ts`, `src/gh.ts`, `test/runner.test.ts`
       - Depends on: T001, T002
       - Verification: `runner.test.ts::test_selection_excludes_claimed_issues`,
-        `runner.test.ts::test_selection_uses_the_minus_search_form`,
-        `runner.test.ts::test_the_state_is_derived_from_the_observables` —
-        `npx vitest run test/runner.test.ts`
+      `runner.test.ts::test_selection_uses_the_minus_search_form`,
+      `runner.test.ts::test_the_state_is_derived_from_the_observables` —
+      `npx vitest run test/runner.test.ts`
       - Acceptance: AC-01, AC-02, AC-12, AC-13
 - [x] **T003** Write the claim: the `agent-in-progress` label goes on first, so the issue's age
       starts; then the exclusive claim ref is created with a nonce in its message, so its object is
@@ -86,8 +86,8 @@ are sequential for that reason.
       - Files: `src/claim.ts`, `src/git.ts`, `test/runner.test.ts`
       - Depends on: T002b
       - Verification: `runner.test.ts::test_claim_precedes_worktree_creation`,
-        `runner.test.ts::test_the_claim_label_is_not_the_lock` —
-        `npx vitest run test/runner.test.ts`
+      `runner.test.ts::test_the_claim_label_is_not_the_lock` —
+      `npx vitest run test/runner.test.ts`
       - Acceptance: AC-03, AC-14
 - [x] **T004** Write the worktree step: **the mechanics come from `@signalridge/pi-worktree`** —
       the worktree is created on `agent/issue-<N>` from the base commit — and then this
@@ -98,7 +98,7 @@ are sequential for that reason.
       - Files: `src/runner.ts`, `src/git.ts`, `test/runner.test.ts`
       - Depends on: T003
       - Verification: `runner.test.ts::test_worktree_comes_from_origin_main_with_the_setup_script_run` —
-        `npx vitest run test/runner.test.ts`
+      `npx vitest run test/runner.test.ts`
       - Acceptance: AC-04
 - [x] **T005** Write the session and the prompt array: the session is created with the worktree as
       its `cwd`; the three prompts are three sequential `session.prompt()` calls in one session,
@@ -109,13 +109,13 @@ are sequential for that reason.
       `examples/extensions/prompt-customizer.ts`; and the session is bounded by a wall-clock
       deadline, after which it is aborted.
       - Files: `src/session.ts`, `src/prompts/01-brief.md`, `src/prompts/02-implement.md`,
-        `src/prompts/03-verify.md`, `test/runner.test.ts`
+      `src/prompts/03-verify.md`, `test/runner.test.ts`
       - Depends on: T004
       - Verification: `runner.test.ts::test_issue_body_is_fenced_as_data_in_a_user_turn`,
-        `runner.test.ts::test_the_untrusted_input_rule_is_in_the_system_prompt`,
-        `runner.test.ts::test_a_missing_runner_file_fails_before_the_agent_starts`,
-        `runner.test.ts::test_one_invocation_acts_on_one_issue` —
-        `npx vitest run test/runner.test.ts`
+      `runner.test.ts::test_the_untrusted_input_rule_is_in_the_system_prompt`,
+      `runner.test.ts::test_a_missing_runner_file_fails_before_the_agent_starts`,
+      `runner.test.ts::test_one_invocation_acts_on_one_issue` —
+      `npx vitest run test/runner.test.ts`
       - Acceptance: AC-05, AC-16, AC-17
 - [x] **T006** Write the push and the pull request: **the pull request and its checks come from
       `@narumitw/pi-github-pr`** — what is written here is the only refs the runner pushes
@@ -126,10 +126,10 @@ are sequential for that reason.
       - Files: `src/runner.ts`, `src/git.ts`, `src/gh.ts`, `test/runner.test.ts`
       - Depends on: T005
       - Verification: `runner.test.ts::test_push_refuses_a_ref_outside_the_issue_branch`,
-        `runner.test.ts::test_the_pull_request_body_closes_the_issue`,
-        `runner.test.ts::test_a_pull_request_landing_a_change_carries_the_registry_entry_and_the_verdict_file`,
-        `runner.test.ts::test_an_existing_pull_request_is_not_duplicated` —
-        `npx vitest run test/runner.test.ts`
+      `runner.test.ts::test_the_pull_request_body_closes_the_issue`,
+      `runner.test.ts::test_a_pull_request_landing_a_change_carries_the_registry_entry_and_the_verdict_file`,
+      `runner.test.ts::test_an_existing_pull_request_is_not_duplicated` —
+      `npx vitest run test/runner.test.ts`
       - Acceptance: AC-06, AC-07, AC-20
 - [x] **T007** Write the review and the re-count: **the delegation comes from `pi-subagents`**
       and **the verdict is structured output**, following
@@ -142,12 +142,12 @@ are sequential for that reason.
       - Files: `src/runner.ts`, `src/session.ts`, `src/gh.ts`, `test/runner.test.ts`
       - Depends on: T006
       - Verification: `runner.test.ts::test_the_review_comment_opens_with_the_marker`,
-        `runner.test.ts::test_the_verdict_line_is_the_whole_value`,
-        `runner.test.ts::test_ci_is_retriggered_after_the_review_comment`,
-        `runner.test.ts::test_a_failed_verdict_leaves_the_pull_request_red`,
-        `runner.test.ts::test_the_runner_makes_no_bare_ci_claim`,
-        `runner.test.ts::test_the_review_is_posted_once` —
-        `npx vitest run test/runner.test.ts`
+      `runner.test.ts::test_the_verdict_line_is_the_whole_value`,
+      `runner.test.ts::test_ci_is_retriggered_after_the_review_comment`,
+      `runner.test.ts::test_a_failed_verdict_leaves_the_pull_request_red`,
+      `runner.test.ts::test_the_runner_makes_no_bare_ci_claim`,
+      `runner.test.ts::test_the_review_is_posted_once` —
+      `npx vitest run test/runner.test.ts`
       - Acceptance: AC-08, AC-09, AC-10, AC-19
 - [x] **T008** Write the release path and the record: a failure the runner can see removes the
       claim label, removes the worktree, deletes the claim ref, and leaves a work branch that
@@ -156,8 +156,8 @@ are sequential for that reason.
       - Files: `src/runner.ts`, `src/claim.ts`, `test/runner.test.ts`
       - Depends on: T007
       - Verification: `runner.test.ts::test_a_handled_failure_releases_the_claim`,
-        `runner.test.ts::test_the_run_leaves_a_record_named_for_the_issue` —
-        `npx vitest run test/runner.test.ts`
+      `runner.test.ts::test_the_run_leaves_a_record_named_for_the_issue` —
+      `npx vitest run test/runner.test.ts`
       - Acceptance: AC-11, AC-18
 - [x] **T009** Write the reclaim and the recovery cases: a claim with no pull request, no work
       branch and no recent activity is taken over — the stale claim ref is deleted and the work is
@@ -167,10 +167,10 @@ are sequential for that reason.
       - Files: `src/runner.ts`, `src/claim.ts`, `test/runner.test.ts`
       - Depends on: T008
       - Verification: `runner.test.ts::test_a_stranded_claim_is_reclaimed`,
-        `runner.test.ts::test_a_claim_with_a_pull_request_is_left_alone`,
-        `runner.test.ts::test_a_pushed_branch_is_not_pushed_again`,
-        `runner.test.ts::test_a_human_comment_defers_the_reclaim` —
-        `npx vitest run test/runner.test.ts`
+      `runner.test.ts::test_a_claim_with_a_pull_request_is_left_alone`,
+      `runner.test.ts::test_a_pushed_branch_is_not_pushed_again`,
+      `runner.test.ts::test_a_human_comment_defers_the_reclaim` —
+      `npx vitest run test/runner.test.ts`
       - Acceptance: AC-12, AC-13
 
 ## Phase 3 — the two front doors (`pi-afk-runner`)
@@ -183,7 +183,7 @@ are sequential for that reason.
       - Files: `src/extension.ts`, `test/extension.test.ts`
       - Depends on: T002b, T003, T004, T005, T006, T007, T008, T009
       - Verification: `runner.test.ts::test_the_extension_refuses_to_run_outside_its_pi_version_range` —
-        `npx vitest run test/extension.test.ts`
+      `npx vitest run test/extension.test.ts`
       - Acceptance: AC-14
 - [x] **T011** Write the CLI entry point and the lock: the host lock is taken for the whole run in
       a writable directory, and a runner that cannot take it exits immediately without selecting
@@ -194,10 +194,10 @@ are sequential for that reason.
       - Files: `src/cli.ts`, `src/lock.ts`, `test/runner.test.ts`
       - Depends on: T002b, T003, T004, T005, T006, T007, T008, T009
       - Verification: `runner.test.ts::test_a_second_runner_exits_while_the_lock_is_held`,
-        `runner.test.ts::test_an_unwritable_lock_directory_fails_loudly`,
-        `runner.test.ts::test_one_invocation_acts_on_one_issue`,
-        `runner.test.ts::test_the_runner_never_merges` —
-        `npx vitest run test/runner.test.ts`
+      `runner.test.ts::test_an_unwritable_lock_directory_fails_loudly`,
+      `runner.test.ts::test_one_invocation_acts_on_one_issue`,
+      `runner.test.ts::test_the_runner_never_merges` —
+      `npx vitest run test/runner.test.ts`
       - Acceptance: AC-14, AC-15, AC-17
 
 ## In this repository
@@ -213,7 +213,7 @@ These three are independent of the extension's repository and of each other's or
       - Files: `docs/decisions/2026-10-30-the-afk-runner-is-a-pi-extension.md`
       - Depends on: none
       - Verification: `runner.test.ts::test_the_claim_label_is_not_the_lock` —
-        `npx vitest run test/runner.test.ts -t test_the_claim_label_is_not_the_lock`
+      `npx vitest run test/runner.test.ts -t test_the_claim_label_is_not_the_lock`
       - Acceptance: AC-03, AC-14
 - [x] **T013** Write the reference documentation: the contract the extension binds to — the queue
       selector, the brief's marker, the review's marker and verdict, the re-count label, the
@@ -222,7 +222,7 @@ These three are independent of the extension's repository and of each other's or
       - Files: `docs/architecture/afk-runner.md`
       - Depends on: none
       - Verification: `runner.test.ts::test_the_run_leaves_a_record_named_for_the_issue` —
-        `npx vitest run test/runner.test.ts -t test_the_run_leaves_a_record_named_for_the_issue`
+      `npx vitest run test/runner.test.ts -t test_the_run_leaves_a_record_named_for_the_issue`
       - Acceptance: AC-18
 - [x] **T014** Write the registry entry for this change, by hand: the file name is the slug, the
       `openspec_path` names this change, `documents` names only the files that exist
@@ -233,7 +233,7 @@ These three are independent of the extension's repository and of each other's or
       - Files: `.specify/issues/afk-issue-agent-pipeline.yaml`
       - Depends on: none
       - Verification: `runner.test.ts::test_a_pull_request_landing_a_change_carries_the_registry_entry_and_the_verdict_file` —
-        `npx vitest run test/runner.test.ts -t test_a_pull_request_landing_a_change_carries_the_registry_entry_and_the_verdict_file`
+      `npx vitest run test/runner.test.ts -t test_a_pull_request_landing_a_change_carries_the_registry_entry_and_the_verdict_file`
       - Acceptance: AC-07
 
 ## Coverage

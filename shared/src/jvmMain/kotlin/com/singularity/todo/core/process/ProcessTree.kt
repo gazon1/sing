@@ -1,6 +1,8 @@
 package com.singularity.todo.core.process
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -173,7 +175,9 @@ class ProcessTree(private val root: ProcessHandle, private val gracePeriod: Dura
         while (waited < deadline) {
             val alive = handles.filter { it.isAlive }
             if (alive.isEmpty()) return emptyList()
-            delay(POLL_INTERVAL.inWholeMilliseconds)
+            // Real processes need real time: tests run under runTest's virtual clock,
+            // where a plain delay advances instantly and never lets a process die.
+            withContext(Dispatchers.Default) { delay(POLL_INTERVAL.inWholeMilliseconds) }
             waited += POLL_INTERVAL.inWholeMilliseconds
         }
         return handles.filter { it.isAlive }

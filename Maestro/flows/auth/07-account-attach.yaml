@@ -41,17 +41,7 @@ tags:
     id: nav_tab_inbox
 
 # Open the menu and navigate to Settings.
-- runFlow: ../../helpers/open-app-menu.yaml
-- extendedWaitUntil:
-    visible:
-      id: menu_settings
-    timeout: 5000
-- tapOn:
-    id: menu_settings
-
-# Switch to the Account tab. The settings navigation is a scrollable column
-# and the Account tab is the last of its rows, so it is scrolled into view
-# before it is tapped.
+- runFlow: ../../helpers/open-settings.yaml
 - runFlow: ../../helpers/settings-account-tab.yaml
 
 # The "Attach account" button is only shown for Session.Anonymous.

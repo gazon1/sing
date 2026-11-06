@@ -48,7 +48,7 @@ import org.koin.dsl.module
  * orchestrator.start()
  * ```
  *
- * in [com.singularity.todo.SingularityApp.onCreate] after `startKoin`.
+ * in [com.singularity.todo.SingularityApp.onCreate] after the Koin container starts.
  *
  * The [CalendarSyncRepository] binding is registered by the platform module BEFORE this
  * module is loaded (platform modules are registered before feature modules in Modules.kt):

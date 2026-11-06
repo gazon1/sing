@@ -8,8 +8,7 @@ import com.singularity.todo.core.attachments.annotation.AnchorResolution
 import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationEntity
 import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationRepositoryImpl
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.files.JvmFileSourceFactory
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.ids.UserId
@@ -23,7 +22,6 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import java.io.File
-import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -46,7 +44,7 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class BackupAnnotationRoundTripTest {
-    private lateinit var tempDir: File
+    private lateinit var fixture: DatabaseTestFixture
     private lateinit var sourceDb: AppDatabase
     private lateinit var targetDb: AppDatabase
 
@@ -67,22 +65,17 @@ class BackupAnnotationRoundTripTest {
 
     @BeforeEach
     fun setUp() {
-        tempDir = createTempDirectory("backup-annotation-").toFile()
-        sourceDb = open("source.db")
-        targetDb = open("target.db")
+        fixture = DatabaseTestFixture.onDisk()
+        sourceDb = fixture.database("source")
+        targetDb = fixture.database("target")
     }
 
     @AfterEach
     fun tearDown() {
-        sourceDb.close()
-        targetDb.close()
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
-    private fun open(name: String): AppDatabase =
-        AppDatabaseFactory.build(createSqlDriver(), File(tempDir, name).absolutePath)
-
-    private fun zipPath(name: String): String = File(tempDir, name).absolutePath
+    private fun zipPath(name: String): String = File(fixture.directory(), name).absolutePath
 
     private fun exporter(db: AppDatabase) =
         BackupExporter(
@@ -104,8 +97,8 @@ class BackupAnnotationRoundTripTest {
             codec = codec,
             clock = clock,
             fs = fs,
-            cursors = BackupCursorStore(fs = fs, dir = File(tempDir, "cursor").absolutePath),
-            backupDir = tempDir.absolutePath,
+            cursors = BackupCursorStore(fs = fs, dir = File(fixture.directory(), "cursor").absolutePath),
+            backupDir = fixture.directory().absolutePath,
         )
 
     private fun importer(db: AppDatabase) =
@@ -126,7 +119,7 @@ class BackupAnnotationRoundTripTest {
             agendaViewDao = db.agendaViewDao(),
             attachmentDao = db.attachmentDao(),
             annotationDao = db.annotationDao(),
-            attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachment-files").absolutePath),
+            attachmentStorage = AttachmentStorage(fs, File(fixture.directory(), "attachment-files").absolutePath),
             codec = codec,
             clock = clock,
             createFileSource = fileSourceFactory,

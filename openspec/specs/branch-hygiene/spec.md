@@ -1,6 +1,7 @@
 # branch-hygiene Specification
 
 ## Purpose
+
 The local branches of merged pull requests stop accumulating. The plan
 names the branches a merge left behind, nothing is deleted without an
 explicit request, and the request to GitHub is part of the contract.

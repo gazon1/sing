@@ -34,7 +34,8 @@ navigation completes — and the tree is still empty. That combination points at
 
 ## The diagnostic that was already tried and does not work
 
-#45 records a proposed red-border debug overlay on `NavDisplay`. It is **not
+# 45 records a proposed red-border debug overlay on `NavDisplay`. It is **not
+
 implementable as described**: at the moment of failure the compose tree is empty,
 so a modifier on `NavDisplay` has nothing to render. Do not re-attempt it.
 

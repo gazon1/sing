@@ -13,7 +13,8 @@ Today exactly one control is waived:
     detekt-rule-coverage-floor
         the task is `:detekt-rules:koverVerify`, and the promise is that **both
         surfaces run the very same task on the very same tree a step later** —
-        `check.sh` step 8b and CI's `Kover verify (detekt-rules)` step.
+        the `detekt-rules:koverVerify` step of `hk.pkl` and CI's
+        `Kover verify (detekt-rules)` step.
 
 That promise lives in a comment. Nothing checks it. So the failure mode is
 silent and one-sided: someone renames the CI step, or deletes the
@@ -38,7 +39,7 @@ What this gate asserts
    whose compensating pass had been deleted.
 2. **Every waiver states a premise that is still true.** For a control that
    proves a Gradle task, the task must appear in the anchored step's `run:`
-   block *and* in `check.sh` — the two surfaces the waiver's reason names.
+   block *and* in `hk.pkl` — the two surfaces the waiver's reason names.
 3. **An expiry date that has passed is reported.** A waiver with a date is a
    promise with an end; a date in the past is a promise nobody kept.
 4. **The two copies of the control agree.** The registry declares the
@@ -104,7 +105,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 #: The gate registry and the wiring twin live here, relative to the repo root.
 REGISTRY_MODULE = "sgate.commands._registry"
 WIRING_SCRIPT = ROOT / "scripts" / "check-gate-wiring.py"
-CHECK_SH = ROOT / "check.sh"
+HK_PKL = ROOT / "hk.pkl"
 
 #: A control kind that can be waived from the clean-run guard. `fixture` cannot
 #: (it never runs against the clean tree — it builds its own, so the guard is
@@ -254,7 +255,7 @@ def evaluate(verbose: bool = False) -> tuple[list[str], list[str], list[str]]:
     registry = load_registry()
     controls = getattr(registry, "GATE_CONTROLS", {})
 
-    check_sh_text = CHECK_SH.read_text(encoding="utf-8") if CHECK_SH.is_file() else ""
+    check_sh_text = HK_PKL.read_text(encoding="utf-8") if HK_PKL.is_file() else ""
 
     for name, control in sorted(controls.items()):
         reference = control.tracked_by
@@ -449,7 +450,7 @@ def _premise_problems(
         if task not in check_sh_text:
             problems.append(
                 f"{name}: the waiver's premise is that '{task}' runs on both "
-                f"surfaces, but check.sh never names '{task}' — the local "
+                f"surfaces, but hk.pkl never names '{task}' — the local "
                 "rehearsal of the compensating pass is gone"
             )
     return problems

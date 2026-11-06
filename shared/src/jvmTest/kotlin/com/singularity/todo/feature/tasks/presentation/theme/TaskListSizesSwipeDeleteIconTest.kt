@@ -61,7 +61,10 @@ class TaskListSizesSwipeDeleteIconTest {
     private val literalDp = Regex("""^val \w+\s*(?::\s*\w+\s*)?=\s*\d+(?:\.\d+)?\.dp$""")
 
     /** Строка объявления токена — без её KDoc, где минимум упоминается как причина. */
-    private fun declarationOf(fileName: String, tokenName: String): String =
+    private fun declarationOf(
+        fileName: String,
+        tokenName: String,
+    ): String =
         readSharedUiSource("feature/tasks/presentation/theme/$fileName")
             .lineSequence()
             .map { it.trim() }
@@ -69,7 +72,7 @@ class TaskListSizesSwipeDeleteIconTest {
             ?: error("Токен $tokenName не объявлен в $fileName")
 
     private fun readSharedUiSource(relativePath: String): String =
-        File(repoRoot(), "shared-ui/src/commonMain/kotlin/com/singularity/todo/$relativePath").readText()
+        File(repoRoot(), "shared/src/commonMain/kotlin/com/singularity/todo/$relativePath").readText()
 
     private fun repoRoot(): File =
         generateSequence(File(System.getProperty("user.dir")).absoluteFile) { it.parentFile }

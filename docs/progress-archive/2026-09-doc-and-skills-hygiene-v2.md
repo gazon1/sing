@@ -20,6 +20,7 @@
 - 6 ADRs got supersedure banners; new DI-narrative ADR written
 
 #### Phase A retro (2026-09-27)
+
 - The pre-sprint audit was produced against a different branch (`fix/repair-broken-build`)
   than the worktree base (`main`); 2 of 13 cascades had to be re-verified against real code
   and one turned out to be a false positive (`TaskDetailViewModel.kt` still exists)
