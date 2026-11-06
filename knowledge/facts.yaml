@@ -38,3 +38,12 @@ facts:
   - id: K-stats-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/statistics.md
+  - id: K-projects-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/projects.md
+  - id: K-attachments-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/attachments.md
+  - id: K-profile-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/profile.md
