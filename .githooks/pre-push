@@ -165,6 +165,8 @@ cleanup() {
     if [ -n "$TMP_ROOT" ]; then
         rm -rf "$TMP_ROOT"
     fi
+    # Clean up per-ref temp files (promise output, touched-md list) on any exit.
+    rm -f "${PROMISE_OUT:-}" "${PROMISE_TOUCHED_MD_FILE:-}" 2>/dev/null || true
     # 141 is SIGPIPE: a pipeline in this hook was closed before it finished
     # writing, and under `pipefail` the pipeline reports it. It is not a gate
     # verdict — the gates print their own — so it is named here rather than left
