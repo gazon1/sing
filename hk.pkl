@@ -77,6 +77,12 @@ hooks {
         check = "./gw :shared:jvmTest --quiet -Pcoverage.enabled=false || { bash scripts/ci/print-test-failures.sh shared/build/test-results; exit 1; }"
       }
 
+      ["core-domain:jvmTest"] {
+        exclusive = true
+        profiles = List("full")
+        check = "./gw :core-domain:jvmTest --quiet -Pcoverage.enabled=false"
+      }
+
       ["affected tests"] {
         exclusive = true
         profiles = List("!full")
@@ -164,7 +170,7 @@ hooks {
       ["detekt"] {
         exclusive = true
         profiles = List("full")
-        check = "./gw :shared:detekt :desktopApp:detekt :androidApp:detekt :detekt-rules:detekt --quiet"
+        check = "./gw :shared:detekt :core-database:detekt :core-domain:detekt :core-base:detekt :desktopApp:detekt :androidApp:detekt :detekt-rules:detekt --quiet"
       }
 
       ["detekt (changed files only)"] {

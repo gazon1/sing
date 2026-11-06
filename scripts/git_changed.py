@@ -16,11 +16,18 @@ from typing import Sequence
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
+# The answer to "which tree does this git command read" lives in one place.
+_SRC = ROOT / "scripts" / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+from sgate.gatekit.gitenv import tree_env  # noqa: E402
+
 
 def _git(*args: str, cwd: pathlib.Path, check: bool = False) -> tuple[int, str, str]:
     p = subprocess.run(
         ["git", *args],
         cwd=cwd,
+        env=tree_env(),
         capture_output=True,
         text=True,
         check=False,

@@ -53,7 +53,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: nav_tab_inbox
-    timeout: 8000
+    timeout: 10000
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
