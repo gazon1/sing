@@ -1,6 +1,7 @@
 package com.singularity.todo.core.ui.components
 
 import androidx.compose.runtime.Composable
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
@@ -60,7 +61,7 @@ internal fun localizedDueDateWithTime(
  * the word order is.
  */
 @Composable
-internal fun localizedDateList(dates: List<LocalDate>): String {
+internal fun localizedDateList(dates: ImmutableList<LocalDate>): String {
     val labels = dates.map { localizedShortDate(it) }
     return labels.joinToString(", ")
 }

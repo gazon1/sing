@@ -134,7 +134,7 @@ fun TaskEditorDueDateRow(
 private fun dueDateRowLabel(
     date: LocalDate?,
     time: LocalTime?,
-    dates: List<LocalDate>,
+    dates: ImmutableList<LocalDate>,
 ): String {
     if (date == null) return stringResource(Res.string.add_date)
     if (dates.size > 1) return localizedDateList(dates)
