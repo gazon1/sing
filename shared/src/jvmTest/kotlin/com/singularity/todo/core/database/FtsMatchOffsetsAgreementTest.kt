@@ -1,6 +1,5 @@
 package com.singularity.todo.core.database
 
-import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.search.SearchColumn
 import com.singularity.todo.core.search.TextMatch
 import com.singularity.todo.core.search.TextMatchQuery
@@ -8,8 +7,6 @@ import com.singularity.todo.core.search.TextMatchRange
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -60,19 +57,18 @@ import kotlin.test.fail
 @Tag("slow")
 @Tag("slow:data")
 class FtsMatchOffsetsAgreementTest {
-    private lateinit var tempDir: File
+    private lateinit var fixture: DatabaseTestFixture
     private lateinit var db: AppDatabase
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("singularity-fts-position-agreement-").toFile()
-        db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
+        fixture = DatabaseTestFixture.inMemory()
+        db = fixture.database()
     }
 
     @AfterTest
     fun tearDown() {
-        db.close()
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     /**
@@ -85,13 +81,7 @@ class FtsMatchOffsetsAgreementTest {
      *   the user sees it, accents and case included.
      * @param why what the case is in the corpus for.
      */
-    private data class Case(
-        val id: String,
-        val text: String,
-        val term: String,
-        val expected: String,
-        val why: String,
-    )
+    private data class Case(val id: String, val text: String, val term: String, val expected: String, val why: String)
 
     /**
      * The cases the two answers have to agree about.
@@ -123,7 +113,7 @@ class FtsMatchOffsetsAgreementTest {
                 text = "Write the quarterly report",
                 term = "quarterly report",
                 expected = "quarterly report",
-                why = "a term of several words: the rule's span runs from the first word to the last, separator included",
+                why = "a term of several words: the span runs from the first word to the last",
             ),
             Case(
                 id = "t-airport",
