@@ -32,7 +32,7 @@ on taste:
 the outcome predicates; it does **not** carry the ``file`` attribute. That is
 fatal here: ``file`` is the only stable identifier a Maestro flow's result has
 (its ``classname`` is reporter-derived), and both ``normalize.py`` (the
-_``FLOW_ROOTS`` match) and the provenance chain join on it. Adopting the library
+``_FLOW_ROOTS`` match) and the provenance chain join on it. Adopting the library
 would have traded one silent failure for a louder one.
 
 For a long time this module was one of **two** readers: ``junitparser`` in
