@@ -852,6 +852,13 @@ _REGISTERED: tuple[GateSpec, ...] = (
         # place until a reader follows one and finds nothing.
         script_args=("--strict",),
     ),
+    GateSpec(
+        name="documentation concepts are valid",
+        mode=GateMode.ADVISORY,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/documentation/check.py"),
+        script_args=("verify", "--quiet"),
+    ),
     # doc links: the lychee gate. A shell gate, like `detekt registrations`
     # above — lychee is a Rust binary, not a Python script, and the wrapper
     # carries the flags and the "is it on PATH" check.

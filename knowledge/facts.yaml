@@ -29,3 +29,12 @@ facts:
   - id: K-tags-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/tags.md
+  - id: K-notes-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/notes.md
+  - id: K-search-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/search.md
+  - id: K-stats-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/statistics.md
