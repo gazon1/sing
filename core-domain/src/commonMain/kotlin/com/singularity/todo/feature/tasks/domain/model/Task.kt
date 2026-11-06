@@ -4,6 +4,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.search.Searchable
 import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.core.serialization.WireNamed
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncableEntity
@@ -31,17 +32,30 @@ value class TaskId(val value: String) {
     }
 }
 
-enum class TaskPriority {
-    None,
-    Low,
-    Medium,
-    High,
-    Urgent,
+/**
+ * How urgent a task is.
+ *
+ * The wire name is a contract, not the constant's name: renaming a constant must
+ * not change what a backup or a saved view says. See
+ * [com.singularity.todo.core.serialization.WireNamed].
+ */
+enum class TaskPriority(override val wireName: String) : WireNamed {
+    None("none"),
+    Low("low"),
+    Medium("medium"),
+    High("high"),
+    Urgent("urgent"),
 }
 
-enum class TaskKind {
-    Task,
-    Note,
+/**
+ * What a row is: a task or a note.
+ *
+ * The wire name is a contract, not the constant's name — see
+ * [com.singularity.todo.core.serialization.WireNamed].
+ */
+enum class TaskKind(override val wireName: String) : WireNamed {
+    Task("task"),
+    Note("note"),
 }
 
 sealed interface TaskFilter {

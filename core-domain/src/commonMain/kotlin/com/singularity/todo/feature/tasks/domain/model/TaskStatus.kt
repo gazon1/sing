@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.domain.model
 
+import com.singularity.todo.core.serialization.WireNamed
 import kotlinx.serialization.Serializable
 
 /**
@@ -10,13 +11,13 @@ import kotlinx.serialization.Serializable
  * the agenda DSL selector and for the UI filter chips.
  */
 @Serializable
-enum class TaskStatus {
+enum class TaskStatus(override val wireName: String) : WireNamed {
     /** No status filter — all non-trashed tasks. */
-    All,
+    All("all"),
 
     /** Active (not completed) tasks. */
-    Active,
+    Active("active"),
 
     /** Completed tasks. */
-    Completed,
+    Completed("completed"),
 }

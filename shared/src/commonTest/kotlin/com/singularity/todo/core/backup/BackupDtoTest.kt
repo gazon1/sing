@@ -60,8 +60,10 @@ class BackupDtoTest {
         assertEquals("task-1", dto.id)
         assertEquals("Test Task", dto.title)
         assertEquals("Description", dto.description)
-        assertEquals("High", dto.priority)
-        assertEquals("Task", dto.kind)
+        // The payload speaks the format's own names, not the constants' names:
+        // a backup is read by a build whose constants may have been renamed.
+        assertEquals("high", dto.priority)
+        assertEquals("task", dto.kind)
 
         // Sync-only fields should be absent from DTO
         // The dto should have no serverVersion, syncStatus, hlc fields
