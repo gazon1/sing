@@ -28,6 +28,7 @@ import kotlinx.serialization.serializer
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -380,22 +381,20 @@ class TaskReadSurfaceTest {
     // ─── The name on the wire ───────────────────────────────────────────────────
 
     /**
-     * The rename has to be readable in both directions: an old caller keeps working,
-     * and what the tool hands back is the new name. Both directions are pinned here
-     * because an alias asserted only in a comment is an alias nobody will notice
-     * breaking.
+     * The old name has to be gone in both directions: the wire no longer accepts `inbox`,
+     * and what the tool hands back is the selection's own name. Both directions are
+     * pinned here because a name that quietly stops decoding is a break nobody notices
+     * until a caller is refused.
      */
     @Test
-    fun `the old inbox name still decodes, and the selection encodes under its new name`() {
-        assertEquals(
-            TaskSelection.ACTIVE_NOT_DEFERRED,
-            StableJson.decodeFromString<TaskSelection>("\"inbox\""),
-            "a saved prompt or a caller that still sends `inbox` keeps working",
-        )
+    fun `the old inbox name no longer decodes, and the selection encodes under its new name`() {
+        assertFailsWith<kotlinx.serialization.SerializationException> {
+            StableJson.decodeFromString<TaskSelection>("\"inbox\"")
+        }
         assertEquals(
             "\"active_not_deferred\"",
             StableJson.encodeToString(TaskSelection.ACTIVE_NOT_DEFERRED),
-            "the alias is read-only: the tool speaks the new name",
+            "the tool speaks the selection's own name",
         )
     }
 

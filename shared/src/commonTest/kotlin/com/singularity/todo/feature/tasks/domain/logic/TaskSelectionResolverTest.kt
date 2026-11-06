@@ -19,11 +19,12 @@ import kotlin.time.Instant
  *
  * ## Why this file exists
  *
- * The selection `active_not_deferred` was renamed from `inbox`, and a rename is only
- * safe when the set it selects cannot move under the new name. The repository's own
- * reads are pinned by `TaskRepositoryContractTest`; this file pins the *selection* —
- * the rule the AI tool applies to the live tasks, which is a combination of two
- * filters (`NotDeferred` and `ByStatuses(Active)`) that no repository read answers.
+ * The selection `active_not_deferred` was renamed from `inbox`, and the old name is no
+ * longer accepted on the wire. A rename is only safe when the set it selects cannot
+ * move under the new name. The repository's own reads are pinned by
+ * `TaskRepositoryContractTest`; this file pins the *selection* — the rule the AI tool
+ * applies to the live tasks, which is a combination of two filters (`NotDeferred` and
+ * `ByStatuses(Active)`) that no repository read answers.
  *
  * Without it, the tool's answer could drift from the app's own rule and nothing would
  * say so: the tool would report a set that the name no longer describes.

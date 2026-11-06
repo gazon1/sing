@@ -10,7 +10,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonNames
 import kotlin.time.Duration
 
 /**
@@ -43,7 +42,6 @@ import kotlin.time.Duration
  * not deferred.
  */
 @Serializable
-@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 enum class TaskSelection {
     /**
      * Every unfinished task that is not deferred — dated or undated.
@@ -53,18 +51,19 @@ enum class TaskSelection {
      * that is the whole difference between the two. The name carries both clauses so
      * that the two are not a guess.
      *
-     * ## The old name, `inbox`
+     * ## The old name, `inbox`, is gone
      *
      * The selection used to be `inbox`, which named it after the agenda tab it is *not*.
-     * The name is still decoded, so a saved prompt or a caller that sends it keeps
-     * working, and it resolves to this selection rather than to an error; the alias is
-     * read-only — the enum encodes as `active_not_deferred`, so the old name drains out
-     * of the wire one caller at a time. A test pins both directions
-     * (`the old inbox name still decodes, and the selection encodes under its new name`
-     * in `TaskReadSurfaceTest`), because an alias nobody checks is an alias that stops
-     * working silently.
+     * The alias that kept decoding it has been removed: `inbox` is not a name the wire
+     * accepts any more, and a caller that sends it gets an error rather than a wider
+     * answer than the one it asked for. The word belongs to the agenda's tab, and that
+     * tab holds the undated tasks only — so nothing else may answer to it.
      *
-     * ## What the alias does not cover: page cursors
+     * A test pins both directions (`the old inbox name no longer decodes, and the
+     * selection encodes under its new name` in `TaskReadSurfaceTest`), because a name
+     * that quietly stops decoding is a break nobody notices until a caller is refused.
+     *
+     * ## What a rename does not break: page cursors
      *
      * A page cursor carries [TaskSelectionResolver.fingerprint], and the fingerprint
      * names the selection by its **wire name** — `active_not_deferred`, the name the
@@ -76,13 +75,9 @@ enum class TaskSelection {
      * constant's name — does not match, and the tool refuses it as belonging to a
      * different selection rather than continuing a list it cannot vouch for. That is
      * fail-closed on purpose — the caller restarts the page and loses nothing but the
-     * offset. "A saved prompt keeps working" is a claim about the selection, not about
-     * cursors minted by an older build: the alias buys the selection, and a cursor is
-     * not a selection.
+     * offset.
      */
-    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     @SerialName("active_not_deferred")
-    @JsonNames("inbox")
     ACTIVE_NOT_DEFERRED,
 
     /** Due today. */
