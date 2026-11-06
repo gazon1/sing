@@ -163,6 +163,7 @@ Use `scrollUntilVisible` with a direction for anything that might be below the f
 ```
 
 **Direction convention:**
+
 - `direction: DOWN` — target item is near the bottom of the sheet (most menu items)
 - `direction: UP` — target item is at the top; Maestro scrolls from the centre,
   so UP works for items that are above the centre but below the visible top
@@ -172,6 +173,7 @@ Use `scrollUntilVisible` with a direction for anything that might be below the f
 load.
 
 The old hardcoded swipe pattern is retired:
+
 ```yaml
 # OLD — do not use. Breaks on phone viewports (y=1600 is out-of-bounds on 640px height).
 - swipe:
@@ -190,12 +192,14 @@ tapOn id: <target_item>
 ```
 
 **Items requiring scroll on phone viewport** (below the fold on 320×640):
+
 - `menu_notes`, `menu_statistics`, `menu_ai_chat` — Destinations section, below fold
 - `menu_settings`, `menu_profiles`, `menu_quick_search` — Account section, visible
   without scroll on most screens BUT `menu_settings` still uses scrollUntilVisible
   in existing flows for consistency and robustness
 
 **Items that are always visible without scrolling:**
+
 - `menu_archive`, `menu_search` — visible on most phone screens
 
 ### `wm size` changes the logical size, not the physical one

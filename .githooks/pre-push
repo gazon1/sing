@@ -383,14 +383,29 @@ for i in "${!PUSH_REFS[@]}"; do
     # `git diff`: the range is the pushed commits, and a file that a commit
     # touched is a file this push carries.
     PROMISE_TOUCHED="$(git log --name-only --pretty=format: "${PROMISE_RANGE[@]}" 2>/dev/null || true)"
+    # Touched Markdown files (newline-delimited), for gates that check only the
+    # pushed .md set (rumdl). Written to a temp file when needed via @TOUCHED_MD@.
+    PROMISE_TOUCHED_MD="$(printf '%s\n' "$PROMISE_TOUCHED" | grep -E '\.md$' | sed '/^$/d' || true)"
+    PROMISE_TOUCHED_MD_FILE=""
 
-    # promise_touched <path> — did this push touch that path?
+    # promise_touched <pattern> — did this push touch a path matching pattern?
+    #
+    # By default the pattern is a prefix (anchored to start). A pattern
+    # containing an escaped dot/anchor like `\.md$` is treated as a full regex
+    # (suffix/contains), so file-extension checks work.
     #
     # `grep -c` and not `grep -q`: `-q` closes the pipe on the first hit, the
     # writer takes SIGPIPE, and with `pipefail` the pipeline reports 141 —
     # which is a broken pipe, not an answer.
     promise_touched() {
-        printf '%s\n' "$PROMISE_TOUCHED" | grep -c "^$1" >/dev/null
+        case "$1" in
+            *\\.*\$|*\\.*)
+                printf '%s\n' "$PROMISE_TOUCHED" | grep -cE "$1" >/dev/null
+                ;;
+            *)
+                printf '%s\n' "$PROMISE_TOUCHED" | grep -c "^$1" >/dev/null
+                ;;
+        esac
     }
 
     # The output of a promise check, kept for the failure message.
@@ -523,9 +538,20 @@ for i in "${!PUSH_REFS[@]}"; do
 
             # The arguments, and the message the hook prints when the gate
             # fails.
+            if [[ "$step_args" == *"@TOUCHED_MD@"* ]] && [ -z "$PROMISE_TOUCHED_MD_FILE" ]; then
+                PROMISE_TOUCHED_MD_FILE="$(mktemp "${TMPDIR:-/tmp}/pre-push-touched-md-XXXXXX")"
+                if [ -n "$PROMISE_TOUCHED_MD" ]; then
+                    printf '%s\n' "$PROMISE_TOUCHED_MD" > "$PROMISE_TOUCHED_MD_FILE"
+                else
+                    : > "$PROMISE_TOUCHED_MD_FILE"
+                fi
+            fi
             step_argv=()
             for step_arg in $step_args; do
-                step_argv+=("${step_arg//@TREE@/$tree}")
+                step_arg="${step_arg//@TREE@/$tree}"
+                step_arg="${step_arg//@BASE@/${remote_sha:-$ZERO_SHA}}"
+                step_arg="${step_arg//@TOUCHED_MD@/$PROMISE_TOUCHED_MD_FILE}"
+                step_argv+=("$step_arg")
             done
             step_message="${step_message//@REF@/$local_ref}"
             step_message="${step_message//@TREE@/$tree}"
@@ -584,6 +610,7 @@ EOF
         fi
     fi
     rm -f "$PROMISE_OUT"
+    [ -n "${PROMISE_TOUCHED_MD_FILE:-}" ] && rm -f "$PROMISE_TOUCHED_MD_FILE"
 
     # ── The gate suite's own tests ───────────────────────────────────────
     #

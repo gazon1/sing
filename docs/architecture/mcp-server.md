@@ -38,7 +38,7 @@ shared/src/jvmMain/kotlin/com/singularity/todo/mcp/          ← the server
 
 The start-up is in the same package, one file per concern:
 
-```
+```text
 shared/src/jvmMain/kotlin/com/singularity/todo/mcp/
     ToolServerStartup.kt        what the start-up decided — Ready or Refused
     ToolServerStartupOrder.kt   the steps, in the order they run
@@ -173,6 +173,7 @@ start-up's, so they are not in that list. See ADR
 `2026-10-25-the-start-up-steps-are-types`.
 
 **Critical details:**
+
 - **`session.onClose + Job.join()` is mandatory.** The SDK does not block on its own — this is the canonical pattern from the upstream `samples/weather-stdio-server/.../McpWeatherServer.kt:55-62`. See ADR `2026-09-07-mcp-stdio-blocking-lifecycle` for the full rationale and regression test.
 - `InstallTheShutdownHook` — backstop for SIGTERM; normal EOF exits flow through `session.onClose → done.complete() → done.join() returns → JVM exits cleanly`.
 - `runBlocking` at top level is **acceptable** here — this is a CLI main, not a hot path. Same reasoning as `koinBridge` (see ADR `2026-09-05-koin-suspend-bridge`).
@@ -441,6 +442,7 @@ class ToolRegistrar(private val server: Server, private val tools: List<Tool<*, 
 ```
 
 **Critical:**
+
 - The 9-argument `Server.addTool` overload is positional; missing the `outputSchema` string parameter is a common typo.
 - The result `String` is already JSON-encoded by the existing Koog tool (see `singularity-todo-ai-tool`). Forward it as-is inside `TextContent`.
 - `structuredContent` — attempt to parse the result; fall back to `null` if the tool did not return valid JSON.
@@ -793,6 +795,7 @@ but it is deprecated: an unrecognised label does nothing at all, so a manifest t
 carries a typo serves the wrong profile silently. See *The profile argument*.
 
 **Tip:** use `installDist` to avoid Gradle startup overhead:
+
 ```bash
 ./gradlew :mcp-server:installDist
 # Then in servers.toml:
@@ -934,7 +937,7 @@ nightly population and not in a pull request's.
 
 <!-- BEGIN GENERATED: adr-tools -->
 
-#### `singularity-adr` — the ADR command line
+### `singularity-adr` — the ADR command line
 
 Run it from the repository root. Every command takes `--json` for
 machine-readable output; exit code `2` means the command line was wrong,

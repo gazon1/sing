@@ -361,7 +361,47 @@ detekt-baseline:
     ./gw :shared:detektBaseline :desktopApp:detektBaseline :androidApp:detektBaseline :mcp-server:detektBaseline
 
 [group('lint')]
-[doc('Alias for the lint suite (ktlint and detekt)')]
+[doc('Check Markdown formatting with rumdl')]
+[working-directory(justfile_directory())]
+rumdl:
+    #!/bin/bash
+    set -euo pipefail
+    if ! command -v rumdl >/dev/null 2>&1; then
+        echo "rumdl is not installed — run: mise install (or put rumdl on PATH)." >&2
+        exit 1
+    fi
+    rumdl check .
+
+[group('lint')]
+[doc('Format Markdown files with rumdl')]
+[working-directory(justfile_directory())]
+rumdl-fix:
+    #!/bin/bash
+    set -euo pipefail
+    if ! command -v rumdl >/dev/null 2>&1; then
+        echo "rumdl is not installed — run: mise install (or put rumdl on PATH)." >&2
+        exit 1
+    fi
+    rumdl fmt .
+
+[group('lint')]
+[doc('Check changed Markdown files with rumdl (scoped, like lint-changed)')]
+[working-directory(justfile_directory())]
+rumdl-changed *args:
+    #!/bin/bash
+    set -euo pipefail
+    python3 scripts/rumdl-changed.py {{args}}
+
+[group('lint')]
+[doc('Format changed Markdown files with rumdl')]
+[working-directory(justfile_directory())]
+rumdl-changed-fix:
+    #!/bin/bash
+    set -euo pipefail
+    python3 scripts/rumdl-changed.py --fix
+
+[group('lint')]
+[doc('Alias for the lint suite (ktlint and detekt); md via mdcheck/mdcheck-changed')]
 lint: ktlint detekt
 
 [group('lint')]

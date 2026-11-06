@@ -8,6 +8,7 @@ description: Sheet extraction workflow for Singularity Todo. Use when an inline 
 ## When to Extract
 
 Extract an inline sheet when ANY of these is true:
+
 - The sheet has ≥2 parameters
 - The sheet appears in ≥1 other screen (shared sheet)
 - The sheet has internal state (selection, query, etc.)
@@ -37,34 +38,42 @@ sealed interface <Feature>Sheet {
 There are **4 patterns**, picked based on WHO needs to know when the sheet opens:
 
 **Pattern A — Screen owns state (most common)**
+
 ```
 Screen: val sheets = rememberDialogState<ActiveSheet>()
          sheets.show(ActiveSheet.PickColor)
          BottomSheetHost { <Feature>SheetsHost(sheets.active, currentContent, ...) }
 ```
+
 Use when: only the screen reacts to the sheet result (typical for pickers).
 
 **Pattern B — Content owns state (TaskEditor pattern)**
+
 ```
 Screen: TaskEditorContent(model, callbacks)   ← no sheet state here
 TaskEditorContent: var activeSheet by remember { mutableStateOf<Sheet?>(null) }
                    TaskEditorBody(model, callbacks, onShowSheet = { activeSheet = it })
                    TaskEditorSheetsHost(model, callbacks, activeSheet, ...)
 ```
+
 Use when: the sheet state is purely an implementation detail of the content composable, and the screen doesn't need to know. `showSheet = {}` is passed to the screen and ignored.
 
 **Pattern C — Content receives sheet state via parameter**
+
 ```
 Content(model, callbacks, activeSheet, onShowSheet)
 Screen: Content(model, callbacks, sheets.active, { sheets.show(it) })
 ```
+
 Use when: the screen drives sheet state but the content needs to pass it deeper (e.g. into nested sections).
 
 **Pattern D — Navigator in scope (navigation from sheet)**
+
 ```
 Sheet: onNavigate: (ProjectId) -> Unit
 Host: ChildProjectsSheet(children, onShowChildren = { nav.openDetail(it.id) }, onDismiss = ...)
 ```
+
 Use when: the sheet initiates navigation. Pass the navigation lambda through the callback chain, not the navigator.
 
 ### Step 3 — Create the Sheet File
@@ -91,6 +100,7 @@ fun <SheetName>Sheet(
 ```
 
 **Rules:**
+
 - `onDismiss` is always a parameter — always called when the sheet is dismissed
 - `onPick` is called WITH the selected value, then `onDismiss()` — don't call `onDismiss()` from inside `onPick`
 - If the sheet doesn't pick anything (just shows info), omit `onPick` and use only `onDismiss`
@@ -143,6 +153,7 @@ fun <Feature>SheetsHost(
 If a sheet triggers navigation (e.g. tapping a child project chip), use a **routing intent**:
 
 **1. Add to `Routing` sealed interface:**
+
 ```kotlin
 // <Feature>Intent.kt
 sealed interface Routing : <Feature>Intent {
@@ -152,6 +163,7 @@ sealed interface Routing : <Feature>Intent {
 ```
 
 **2. Add action to the `@JvmInline value class` actions bundle:**
+
 ```kotlin
 // <Feature>Actions.kt
 @JvmInline
@@ -162,6 +174,7 @@ value class <Feature>Actions(private val block: (Routing) -> Unit) {
 ```
 
 **3. Handle in screen's action dispatcher:**
+
 ```kotlin
 // <Feature>Content.kt
 val actions = remember {
@@ -176,6 +189,7 @@ val actions = remember {
 ```
 
 **4. Wire in `CurrentProjectContent` / content data class:**
+
 ```kotlin
 CurrentProjectContent(
     ...
@@ -363,6 +377,7 @@ When adding a new `NoteAiAction` or `TaskAiAction`:
 
 1. Add the enum value to `NoteAiAction` / `TaskAiAction`
 2. Add the sheet item in `NoteAiActionSheet` / `TaskAiBottomSheet`:
+
    ```kotlin
    AiActionItem(
        icon = Icons.Filled.Star,
@@ -371,6 +386,7 @@ When adding a new `NoteAiAction` or `TaskAiAction`:
        onClick = { onSelect(NoteAiAction.NewAction) },
    )
    ```
+
 3. Implement the lambda in the controller (`NoteAiController` / `TaskAiController`)
 4. Wire in DI via `getOrNull<NewActionUseCase>()?.let { newActionLambda(it) }`
 5. No routing intent needed — the sheet is always reachable from the editor toolbar

@@ -42,6 +42,7 @@ check that exists to make committing cheap would make it expensive.
 unstaged changes while it checks, and lint-staged runs ktlint over staged
 Kotlin files.** This supersedes the previous approach using
 `scripts/staged-tree.py`.
+
 - The restore runs on every exit path: a failure, an interrupt, a trap. The
   held bytes are somebody's uncommitted work, and a hook that keeps them is a
   hook that loses them.

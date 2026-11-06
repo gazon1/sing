@@ -295,6 +295,23 @@ PRE_PUSH_STEPS: tuple[PrePushStep, ...] = (
         hint="Format them with: just ktlint-fix (or push with --no-verify).",
         show_output=True,
     ),
+    # Markdown formatting (rumdl), opt-in/advisory by policy.
+    #
+    # Scoped to *.md files the push touches (not the whole legacy tree). Runs
+    # only when rumdl is on PATH and the pushed tree carries rumdl-changed.py;
+    # the script skips itself when rumdl is missing. CI does not enforce a
+    # Markdown gate yet.
+    PrePushStep(
+        label="rumdl gate",
+        script="scripts/rumdl-changed.py",
+        args=("--files-from", "@TOUCHED_MD@", "--advisory"),
+        script_from="repo",
+        pythonpath_from="none",
+        when=r"if-touched:\.md$",
+        message="pre-push: Markdown findings in the touched files of @REF@ (advisory).",
+        hint="Fix with: just mdfmt-changed.",
+        show_output=True,
+    ),
 )
 
 #: The scripts the hook runs that are not gates.

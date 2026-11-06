@@ -27,7 +27,7 @@ Two failures follow from that, and both are silent.
    pushed tree carried a detekt violation, and the hook that was supposed to
    catch it was looking at a different tree.
 2. **The verdict could not see a correction.** `git status --porcelain` prints
-   ` M path` for a file that was modified before the run *and* for the same
+   `M path` for a file that was modified before the run *and* for the same
    file after detekt rewrote it. The status lines are equal, so a run that
    corrected a violation in a file that was already dirty reported "changed
    nothing" — and the pushed tree went out with the violation in it.

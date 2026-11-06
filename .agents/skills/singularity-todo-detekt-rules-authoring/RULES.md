@@ -11,8 +11,8 @@
 | `IntentMethodName` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Bans an intent handler named anything but `onIntent`, so the MVI entry point has one name. | `RuleFiresSmokeTest (shared)` | yes |
 | `MviViewModelExt` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Bans a ViewModel managing its own `MutableStateFlow` instead of the base's single state source. | `RuleFiresSmokeTest (shared)` | yes |
 | `NoCollectionMaterializationInComposable` | `NoCollectionMaterializationInComposableRule.kt` | `no-collection-materialization-in-composable` | A `@Composable` must not materialise a collection in its own body. | `NoCollectionMaterializationInComposableRuleTest` | yes |
-| `NoCombineSideEffect` | `NoCombineSideEffectRule.kt` | `no-combine-side-effect` | Bans side effects inside `combine(...) { ... | `NoCombineSideEffectRuleTest` | yes |
-| `NoCoroutineLaunchInInit` | `NoCoroutineLaunchInInit.kt` | `no-init-coroutine-launch` | Bans `scope.launch { ... | `RuleFiresSmokeTest (shared)` | yes |
+| `NoCombineSideEffect` | `NoCombineSideEffectRule.kt` | `no-combine-side-effect` | Bans side effects inside `combine(...) { ... | `NoCombineSideEffectRuleTest` | yes |  |
+| `NoCoroutineLaunchInInit` | `NoCoroutineLaunchInInit.kt` | `no-init-coroutine-launch` | Bans `scope.launch { ... | `RuleFiresSmokeTest (shared)` | yes |  |
 | `NoDirectClockSystem` | `NoDirectClockSystemRule.kt` | `no-direct-clock-system` | Bans direct references to `Clock.System` in commonMain production code. | `NoDirectClockSystemRuleTest` | **no** |
 | `NoDirectDispatchers` | `NoDirectDispatchersRule.kt` | `no-direct-dispatchers` | Bans direct references to `Dispatchers.IO`, `Dispatchers.Default` and | `NoDirectDispatchersRuleTest` | yes |
 | `NoDivergentScopeAndReporter` | `NoDivergentScopeAndReporterRule.kt` | `no-unreported-failure-path` | A component whose two failure paths are chosen independently can send them to two different | `NoDivergentScopeAndReporterRuleTest` | yes |
@@ -24,8 +24,8 @@
 | `NoOpUpdateState` | `NoOpUpdateStateRule.kt` | `no-op-update-state` | Bans `updateState { it }` — a reducer that returns its input unchanged. | `NoOpUpdateStateRuleTest` | yes |
 | `NoPopupWithoutResourceIdMapping` | `NoPopupWithoutResourceIdMapping.kt` | `popup-test-tag` | Bans the pattern where a `testTag()` call appears inside a Popup-owning container | `NoPopupWithoutResourceIdMappingTest` | yes |
 | `NoRealDelayInTest` | `NoRealDelayInTestRule.kt` | `no-real-delay-in-test` | Bans `kotlinx.coroutines.delay(N)` above 500 ms and `Thread.sleep(N)` in test sources. | `NoRealDelayInTestRuleTest` | yes |
-| `NoRunBlocking` | `NoRunBlockingRule.kt` | `no-runblocking` | Bans `kotlinx.coroutines.runBlocking { ... | `NoRunBlockingRuleTest` | yes |
-| `NoRunCatchingInSuspend` | `NoRunCatchingInSuspend.kt` | `no-run-catching-in-suspend` | Bans `kotlin.runCatching { ... | `NoRunCatchingInSuspendTest` | yes |
+| `NoRunBlocking` | `NoRunBlockingRule.kt` | `no-runblocking` | Bans `kotlinx.coroutines.runBlocking { ... | `NoRunBlockingRuleTest` | yes |  |
+| `NoRunCatchingInSuspend` | `NoRunCatchingInSuspend.kt` | `no-run-catching-in-suspend` | Bans `kotlin.runCatching { ... | `NoRunCatchingInSuspendTest` | yes |  |
 | `NoStateIn` | `NoStateInRule.kt` | `no-state-in` | Bans `.stateIn(...)` calls in production code. | `NoStateInRuleTest` | yes |
 | `NoStaticProfileAwareCurrentUser` | `NoStaticProfileAwareCurrentUserRule.kt` | `no-static-profile-aware-current-user` | Flags any reference to `ProfileAwareCurrentUser` through its static companion | `RuleFiresSmokeTest (shared)` | yes |
 | `NoSwallowedCancellation` | `NoSwallowedCancellation.kt` | `no-swallowed-cancellation` | Bans `catch (e: Throwable)` / `catch (e: Exception)` inside `suspend` functions | `NoSwallowedCancellationTest` | yes |

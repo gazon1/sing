@@ -12,6 +12,7 @@ tags: [tech-debt, reconciliation, plan-v4]
 Перед началом v4 tech-debt плана (10 MR, cluster-driven) проведена сверка всех ADR-claims против текущего кода. Цель: убедиться что план строится на verified facts, а не на stale assumptions.
 
 **Baseline от 2026-10-01 (worktree `refactor/tech-debt-stabilize-enforce-v4`):**
+
 - detekt: 0 findings
 - jvmTest: BUILD SUCCESSFUL (0 failed)
 - find-unwired-surfaces: 1 finding (`SyncConfigScreen`)
@@ -79,6 +80,7 @@ tags: [tech-debt, reconciliation, plan-v4]
 ## Skills Cleanup
 
 **Retired in MR-1:**
+
 - `grill-me` → `grill-me-RETIRED` (superseded by `grilling`)
 - `grill-with-docs` → `grill-with-docs-RETIRED` (superseded by `grilling` + `domain-glossary`)
 - `singularity-todo-koin-di` (deprecated) → `singularity-todo-koin-di-RETIRED` (superseded by `singularity-todo-koin-dsl`)

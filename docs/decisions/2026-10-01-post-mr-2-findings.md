@@ -14,6 +14,7 @@ before the `combine().collect` collector fired. The test harness's `seedTask()` 
 the collector fired, getting `UserId.anonymous` and orphaning the task.
 
 **Fix applied**:
+
 - `ProfileAwareCurrentUser`: seed `_scopedUserId` synchronously from `currentUser.userId.value`
   and `profileRepository.activeProfileId.value` (both `StateFlow`, both already seeded).
 - `FakeAuthRepository`: default changed from `Session.Anonymous(UserId.anonymous)` to
@@ -63,6 +64,7 @@ yet exist — creation deferred to MR-3 (Cluster 8: new rules).
 ## Desktop test suite
 
 **Pre-existing failure** (not introduced by MR-2):
+
 - `CalendarFlowTest.every_day_of_the_month_has_an_addressable_cell`:
   `calendar_day_2026_10_01` not displayed. The test uses `midMonth = today.year, today.month, 15`
   (September 15) and also checks `today` (September 30). The failure is for Oct 1

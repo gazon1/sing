@@ -10,12 +10,14 @@ status: accepted
 MR2c deferred the Saved Views UI (list + edit screens) to MR3. MR3 must deliver a working top-bar entry point (IconButton → list → edit) in both Android and JVM builds, with read-only preview in the edit screen (create/deep-link deferred to MR4).
 
 Key architectural questions that arose:
+
 1. **Routing events**: Should `ViewSelected(id)` and `CreateNew` be VM `SharedFlow` events, or screen-side callbacks?
 2. **Edit state**: Should `_draftName` be a separate `MutableStateFlow` mirror, or live inside `Editing` state?
 3. **Top-bar entry**: Should the IconButton live in `AgendaScreen.kt` (Koin wrapper) or `AgendaContent.kt` (content)?
 4. **`extraBufferCapacity`**: What value for `MutableSharedFlow` in ViewModels?
 
 ## Decision
+
 ### 1. Routing belongs on screen — no `NavigateToEdit`/`NavigateToCreate` events
 
 `ViewSelected(id)` from a list is a routing action, not a domain event. It belongs on the screen side:

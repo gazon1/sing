@@ -72,7 +72,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v5
       - name: Validate Maestro selectors
         run: |
           # A venv, not the system environment: the runner's /usr is
@@ -107,7 +107,7 @@ jobs:
       # reads a file needs the checkout. It ran without one until the plan
       # moved out of the workflow: the old plan was a literal in a shell line,
       # and the new one is a file the repository owns.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           sparse-checkout: |
             config/docs/e2e-shards.txt
@@ -270,7 +270,7 @@ jobs:
           distribution: zulu
 
       # TODO(verify): the major must match the `actions/upload-artifact` used above.
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v7
         with:
           name: e2e-apk
           path: apk
@@ -466,7 +466,7 @@ jobs:
           with-action-lint: 'false'
 
       - name: Collect the shards' reports
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v7
         with:
           pattern: maestro-junit-${{ needs.plan.outputs.suite }}-*
           path: build/maestro-results

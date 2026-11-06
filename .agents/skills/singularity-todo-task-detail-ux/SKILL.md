@@ -22,6 +22,7 @@ There are two distinct UX patterns for a task detail screen. Most to-do apps sta
 ```
 
 **Problems:**
+
 - Every field is a separate row with an `Edit` button — visual noise (5+ buttons on screen).
 - Date/time entered as free-form text — no DatePicker, no validation.
 - Priority as text (`"High"`) — no colour, no icon.
@@ -53,6 +54,7 @@ There are two distinct UX patterns for a task detail screen. Most to-do apps sta
 ```
 
 **Principles:**
+
 1. **Hero block at top** — checkbox + title (largest text on screen) + description as placeholder. No label, no Edit button.
 2. **Tap-to-edit, not button-to-edit** — tap the title text → becomes an input field. Save on focus-loss or Enter.
 3. **Metadata as chips, not rows** — date+time, priority, project are `FilterChip`/`SuggestionChip` in a `FlowRow`. Tap any chip → bottom sheet picker.
@@ -91,6 +93,7 @@ Three chip types:
 | Project | `Folder` | Neutral | Opens `ProjectPickerSheet` |
 
 **Three due-date visual states (TickTick-level UX):**
+
 - `Overdue` (date < today AND not completed) → `errorContainer` background, `onErrorContainer` text
 - `Today` (date == today) → `secondaryContainer`, `onSecondaryContainer` (warning yellow)
 - `Future` (date > today) → `surfaceVariant` (neutral grey)
@@ -108,6 +111,7 @@ Three chip types:
 ### Bottom action bar
 
 `BottomAppBar` with 4 equally-spaced `IconButton`s:
+
 - `Notifications` — badge `reminders.size` if > 0
 - `AttachFile` — badge `attachments.size` if > 0
 - `PushPin` — tinted `primary` when `isPinned`, else `onSurfaceVariant`
@@ -136,6 +140,7 @@ Sections like `Reminders (0)` and `Attachments (0)` are always rendered with an 
 **Root cause:** `TaskDetailViewModel.kt` has a debounced collector at line ~100 that emits `Saved("Title updated")` on every debounced keystroke — not just on explicit save actions. This produces a "Saved" pulse on every character typed, which is annoying UX and floods the event channel.
 
 **The correct pattern (per `singularity-todo-inline-edit-saved-feedback` skill):**
+
 - Inline edits use a **silent debounce**: `_lastEditedAt: MutableStateFlow<Instant?>` — written on every debounced keystroke, never exposed as a `Saved` event.
 - Only **explicit actions** (checkbox toggle, date pick confirmed, sheet dismissed with explicit save) emit `SavedUiEvent` / `SavedPulse`.
 - The top bar shows `formatSavedRelative(now, lastEditedAt)` as a **continuous** `Text` composable derived from `_lastEditedAt`, NOT as a one-shot pulse animation on every keystroke.
@@ -188,6 +193,7 @@ scope.launch {
 **Root cause:** `ProjectPickerSheet` and `TagPickerSheet` only listed existing items. Creating a new project or tag required a full round-trip to a separate screen. This breaks the flow — the user had to abandon the picker, create the item, then re-open the picker to select it.
 
 **The fix (PR 3):** Both pickers now show a "+ Create new project" / "+ Create new tag" `TextButton` at the bottom of the list. Tapping it reveals an inline `OutlinedTextField` + "Create" button. On "Create":
+
 - `ProjectPickerSheet`: creates a `Project` with `ProjectId.generate()`, default green colour (`0xFF4CAF50`), calls `projectsRepo.create()`.
 - `TagPickerSheet`: supports comma-separated multi-word input (e.g. `"urgent, client"`), creates one tag per word, auto-selects newly created tags.
 - Both refresh the list and keep the new item visible.

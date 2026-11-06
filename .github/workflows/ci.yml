@@ -66,7 +66,7 @@ jobs:
       gates: ${{ steps.filter.outputs.gates }}
     steps:
       - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -271,7 +271,7 @@ jobs:
       - name: Preflight environment check
         uses: ./.github/actions/setup-repo-tools
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
 
@@ -1513,20 +1513,20 @@ jobs:
     # expression rather than where a reader looks for it.
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       # The runner's default JRE is 17; :adr-cli:installDist builds with the
       # Gradle toolchain (21) and the installed script then dies with
       # UnsupportedClassVersionError (class file 65 vs 61) on `validate`.
       - name: Set up Java
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
 
       # uv as an action, not `curl … | sh`: the same installer the rest of ci.yml
       # uses, so there is one way this repo gets uv on a runner.
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v5
         with:
           python-version: '3.11'
 
@@ -1583,17 +1583,17 @@ jobs:
     needs: [changes]
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Set up Java
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
 
       # uv as an action, not `curl … | sh`: the same installer the rest of ci.yml
       # uses, so there is one way this repo gets uv on a runner.
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v5
         with:
           python-version: '3.11'
 

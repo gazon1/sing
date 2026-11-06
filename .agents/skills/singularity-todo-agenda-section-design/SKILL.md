@@ -19,6 +19,7 @@ sections never see them.
 ## The `discard` flag is required for overlapping buckets
 
 "Tomorrow" (bucket: `RelativeBucket.Tomorrow`) overlaps with:
+
 - "Today" — no overlap (bucket is exclusive)
 - "This Week" — **overlaps**: tomorrow is always within this week
 - "This Month" — **overlaps**: tomorrow is always within this month

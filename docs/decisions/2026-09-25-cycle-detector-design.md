@@ -50,6 +50,7 @@ class DependencyValidatorImpl(
 ```
 
 `DependencyValidatorImpl` now:
+
 - Takes `TaskDao` + `ProfileAwareCurrentUser` (no longer needs full `TaskRepository`)
 - Uses `listAllDependenciesForUser` to load the dependency graph
 - Calls `detectCycle` for full BFS cycle detection

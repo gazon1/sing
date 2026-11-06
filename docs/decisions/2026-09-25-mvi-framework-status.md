@@ -99,6 +99,7 @@ private val _snackbar = MutableSharedFlow<String>(...)
 ```
 
 **Problem:** Screen (`BackupScreen`) subscribes to both flows separately. Migrating to MviViewModel requires:
+
 1. Adding `ShowSnackbar(String)` to `BackupUiEvent`
 2. Unifying snackbar into single event channel
 3. Updating screen to handle snackbar via event mapping
@@ -112,6 +113,7 @@ private val _snackbar = MutableSharedFlow<String>(...)
 **File:** `feature/settings/SettingsViewModel.kt`, `core/settings/SettingsBundle.kt`
 
 `SettingsIntent` is a typealias to `core.settings.SettingsIntent` which doesn't extend `MviIntent`. Making it extend `MviIntent` would require:
+
 1. Changing core module sealed interface hierarchy
 2. All nested sealed interfaces (Appearance, Notifications, etc.) to extend MviIntent
 

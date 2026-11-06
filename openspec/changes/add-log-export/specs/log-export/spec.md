@@ -11,6 +11,7 @@
 The system SHALL provide a `FileSharePort` that accepts a file path and MIME type and offers the file to the platform's native share sheet.
 
 #### Scenario: Android share
+
 - User taps "Export Logs"
 - App creates archive at `filesDir/logs/singularity-logs-<timestamp>.zip`
 - App calls `FileSharePort.shareFile(archivePath, "application/zip")`
@@ -18,6 +19,7 @@ The system SHALL provide a `FileSharePort` that accepts a file path and MIME typ
 - User picks an app (email, cloud drive, etc.) to receive the file
 
 #### Scenario: Desktop share
+
 - User taps "Export Logs"
 - App creates archive at `~/.singularity-todo/logs/singularity-logs-<timestamp>.zip`
 - App calls `FileSharePort.shareFile(archivePath, "application/zip")`
@@ -34,6 +36,7 @@ The export archive SHALL contain all existing rolling log files (`log.0.txt` …
 - Each log file is stored as `attachments/log.<N>.txt`
 
 #### Scenario: Export with four log files
+
 - Log directory contains `log.0.txt` through `log.3.txt`
 - User triggers export
 - Archive contains `attachments/log.0.txt` … `attachments/log.3.txt`
@@ -49,6 +52,7 @@ The export operation SHALL be triggered from the Settings screen.
 - After the share sheet opens, control returns to the app
 
 #### Scenario: Export triggered from Settings
+
 - User is on the Settings screen
 - User taps "Export Logs"
 - Loading indicator appears
@@ -61,6 +65,7 @@ The export operation SHALL be triggered from the Settings screen.
 If no log files exist at the time of export, the system SHALL create an empty archive containing only the manifest and a payload with `"logs":[]`.
 
 #### Scenario: Export with no log files
+
 - Log directory is empty
 - User triggers export
 - Archive is created with empty `attachments/` directory
@@ -72,6 +77,7 @@ If no log files exist at the time of export, the system SHALL create an empty ar
 The system SHALL NOT delete log files as part of the export operation.
 
 #### Scenario: Log files persist after export
+
 - Log directory contains `log.0.txt` … `log.3.txt`
 - User triggers export
 - Export completes
@@ -87,6 +93,7 @@ The `FileSharePort` binding MUST appear in both `PlatformModule.android.kt` and 
 - `single<FileSharePort> { JvmFileSharePort() }` on JVM
 
 #### Scenario: Port binding inspection
+
 - Both `PlatformModule.android.kt` and `PlatformModule.jvm.kt` are examined
 - Each contains a `single<FileSharePort>` binding
 
@@ -97,6 +104,7 @@ The `FileSharePort` binding MUST appear in both `PlatformModule.android.kt` and 
 The `LogBundleExporter` class MUST NOT call `FileLogWriter` directly — it reads log files as data, not as a log writer.
 
 #### Scenario: LogBundleExporter code inspection
+
 - `LogBundleExporter.kt` source is examined
 - No references to `FileLogWriter` or `LogWriter` appear in the file
 

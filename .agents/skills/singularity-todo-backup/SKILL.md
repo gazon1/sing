@@ -15,6 +15,7 @@ BackupImporter:  BackupCodec.import() → validate → migrate → DAOs upsert
 ```
 
 **Key files** (all under `shared/src/commonMain/kotlin/com/singularity/todo/`):
+
 - `core/backup/BackupFormat.kt` — constants (FORMAT_VERSION=1, SCHEMA_VERSION=7, MIN_SUPPORTED_SCHEMA_VERSION=1, entry names)
 - `core/backup/BackupManifest.kt` — `@Serializable`; compatibility is checked by `BackupDomain.validateManifest()`, not by the manifest itself
 - `core/backup/BackupPayload.kt` — `@Serializable` wrapper with schemaVersion, all DTO lists, and `removals` (the rows an archive says are gone)
@@ -37,6 +38,7 @@ BackupImporter:  BackupCodec.import() → validate → migrate → DAOs upsert
 - `feature/backup/BackupScreen.kt` — Scaffold with TopAppBar, buttons, LazyColumn of BackupListItem, SnackbarHost
 
 **Platform-specific** (jvmMain / androidMain):
+
 - `core/backup/JvmBackupCodec.kt` — `java.util.zip.ZipOutputStream` / `ZipInputStream`
 - `core/backup/AndroidBackupCodec.kt` — `java.util.zip` (same API, minSdk 24)
 

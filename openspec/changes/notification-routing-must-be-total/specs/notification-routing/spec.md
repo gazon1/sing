@@ -30,7 +30,7 @@ nothing in the type system objected to writing it.
 - **When** a caller constructs a text notification that carries no body
 - **Then** the code does not compile
 - **And** the compiler names the call site, rather than the failure surfacing
-      as a missing dialog at runtime
+  as a missing dialog at runtime
 
 #### Scenario: A caller emits a text notification with a body
 
@@ -44,7 +44,7 @@ nothing in the type system objected to writing it.
 - **When** the caller emits it
 - **Then** it emits `Notification.None`
 - **And** the registry of variants has no fourth option meaning "shown and
-      invisible"
+  invisible"
 
 #### Scenario: A new Notification variant is added
 

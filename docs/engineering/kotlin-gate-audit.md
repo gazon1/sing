@@ -458,7 +458,6 @@ without reading this document:
 | F10 | [#797](https://github.com/gazon1/sing/issues/797) | two rules for JVM file APIs, both reading nothing |
 | F11 | [#798](https://github.com/gazon1/sing/issues/798) | 22 of 48 files cite no decision, and nothing checks |
 
-
 ## Duplication map
 
 Двусторонняя карта. «A ↔ B» означает, что правило выражено в обоих местах.

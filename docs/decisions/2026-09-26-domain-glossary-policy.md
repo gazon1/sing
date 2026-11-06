@@ -19,6 +19,7 @@ Domain term definitions live in `docs/CONTEXT.md`. This file is the **single sou
 ### Which terms to define
 
 A term belongs in `CONTEXT.md` when it:
+
 1. Appears in two or more separate features (cross-feature)
 2. Has a specific meaning that differs from common English
 3. Has aliases or synonyms that could cause confusion

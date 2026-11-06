@@ -9,6 +9,7 @@ status: accepted
 ## Context
 
 The project produces three kinds of documentation:
+
 - **ADR** (`docs/decisions/YYYY-MM-DD-slug.md`) — decisions about architecture, process, and trade-offs
 - **Skill** (`.agents/skills/<name>/SKILL.md`) — executable knowledge: templates, checklists, decision trees
 - **Prose docs** (`docs/*.md`, `ARCHITECTURE.md`, `AGENTS.md`) — human-readable guides

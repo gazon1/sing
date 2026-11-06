@@ -65,6 +65,7 @@ Two gaps from the MR-1 plan and the diagnostic infrastructure built in
 ```
 
 Both `Run jvmTest` and `Run desktopApp:test` receive:
+
 ```
 -Pretry.maxAttempts=${{ steps.retry.outputs.max }}
 -Pretry.failOnPassedAfterRetry=${{ steps.retry.outputs.strict }}

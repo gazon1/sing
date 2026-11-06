@@ -12,13 +12,17 @@ The tech debt refactor is organized into **3 epics × 10 PRs**. All work happens
 ## Epic 1 — Foundation ✅ COMPLETED
 
 ### PR 1.1 — Разблокировать main
+
 **Commit:** `0654a76` (refactor/techdebt-epic1)
+
 - Room migration duplicates cleaned (`Migration15To16.kt`, `Migration17To18.kt`, `Migration16To17` inline)
 - `FakeAppDatabase.kt` conflict markers removed
 - `SavedAgendaViewModelTest` failures deferred (root cause: fire-and-forget coroutines in `onIntent`)
 
 ### PR 1.2 — Rule violations + Koin DI bugs
+
 **Commit:** `b61b753`
+
 - `AuthDomain.kt`: `require { throw }` → `if (!cond) throw`
 - `CalendarSyncViewModel`: `koinViewModel()` → `koinInject()` (NOT a ViewModel subclass)
 - `AdrTools.kt`: `java.io.File` → `kotlin.io.path`
@@ -32,14 +36,18 @@ The tech debt refactor is organized into **3 epics × 10 PRs**. All work happens
 - Added `AppError.Unauthorized` to sealed class
 
 ### PR 1.3 — Detekt formatting pass
+
 **Commit:** `94bc518`
+
 - ~700 cosmetic violations resolved
 - `baseline-shared.xml` rebuilt (580 violations remaining, deferred decisions)
 - **⚠️ Note:** `--auto-correct` is now broken (detekt 2.0.0-alpha.6); see ADR 2026-10-09.
   Future formatting passes must be manual.
 
 ### PR 1.4 — Quality gates
+
 **Commit:** `7ff1ae7`
+
 - `mcp-server`: detekt + kover + baseline
 - `androidApp`: detekt added
 - `.github/workflows/ci.yml`: new CI pipeline
@@ -48,7 +56,9 @@ The tech debt refactor is organized into **3 epics × 10 PRs**. All work happens
 ## Epic 2 — Architecture (pending)
 
 ### PR 2.1 — VM scope & lifecycle hardening
+
 **Priority:** High
+
 - `CalendarSyncViewModel`: inherit `ViewModel()`, add `init { addCloseable(scope) }`
 - `CalendarSyncViewModel.kt:108`: remove `withContext(Dispatchers.IO)`
 - 8 VMs: add `sharingStarted: () -> SharingStarted = { WhileSubscribed(5_000) }` factory param
@@ -59,7 +69,9 @@ The tech debt refactor is organized into **3 epics × 10 PRs**. All work happens
 **Skills:** `singularity-todo-vm-migration-playbook`, `singularity-todo-vm-lifecycle-addcloseable`
 
 ### PR 2.2 — God-VM per-feature module split
+
 **Priority:** High, **HIGH RISK**
+
 - `SettingsViewModel` (~250 lines) → the sub-VM split this list named was rescoped
   by ADR `2026-09-26-pr24-rescope` — shrunk, not split — so the shape to read off
   the code is not the shape the roadmap wrote down
@@ -82,7 +94,9 @@ work is owned — this is the answer.
 **Skills:** `singularity-todo-testable-vm`, `singularity-todo-vm-migration-playbook`, `singularity-todo-feature-scaffold`
 
 ### PR 2.3 — Architectural gaps
+
 **Priority:** High
+
 - `TaskRepositoryImpl.update()` + `ProfileRepositoryImpl.update()`: read-before-write guard
 - `repeatOnLifecycle(STARTED)` in all VM init and onIntent (20+ files)
 - `RunInLifecycle.kt` test helper
@@ -90,7 +104,9 @@ work is owned — this is the answer.
 **Skills:** `singularity-todo-coroutine-scopes`, `singularity-todo-repository-architecture`
 
 ### PR 2.4 — combine+stateIn policy reconciliation
+
 **Priority:** Medium
+
 - ADR: default = plain `MutableStateFlow`, `combine+stateIn` only for pure read-through VMs
 - Candidates: `AgendaViewModel`, `SavedAgendaListViewModel`, `ProjectsViewModel`, `StatisticsViewModel`
 - Update `singularity-todo-testable-vm` and `singularity-todo-vm-intent-pattern` skills
@@ -98,14 +114,18 @@ work is owned — this is the answer.
 **Skills:** `singularity-todo-testable-vm`, `singularity-todo-decisions-workflow`
 
 ### PR 2.5 — Stale skill cleanup
+
 **Priority:** Low
+
 - Update `clean-architecture-audit`: replace `scopeOverride` mention with canonical constructor
 - Create router skills: `vm-pattern-overview`, `compose-overview`, `koin-overview`
 
 ## Epic 3 — Quality (pending)
 
 ### PR 3.1 — Deferred backlog ADR
+
 **Priority:** Low
+
 - Document 10 deferred items (TaskMenuBuilder TODOs, Supabase Phase 12, RealAnalytics, kotlinx-datetime migration, etc.)
 
 ## Key Metrics

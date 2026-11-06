@@ -22,6 +22,7 @@ five runs is enough to justify the invariant.
 regression net; the existing task-detail graph test is the pattern to mirror.
 
 #### Scenario: Derived state is read before it is seeded
+
 - A screen declares state derived from a repository or auth source
 - That state is read before the source has emitted
 - The screen presents a defined loading state instead of dereferencing the
@@ -43,6 +44,7 @@ once in a session does not become slower or less reliable on a second visit.
 **Test coverage:** to be added — the flow run twice within one session.
 
 #### Scenario: Second visit is as reliable as the first
+
 - A screen is opened, loaded, and navigated away from
 - The same screen is opened again in the same session
 - It reaches its loaded state within the timeout

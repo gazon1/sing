@@ -20,6 +20,7 @@ Desktop flow-тесты (`desktopApp/src/jvmTest`) используют `todayIn
 Добавить опциональный параметр `fakeClock: FakeClock? = null` в `runDesktopAppTest` (desktopApp harness).
 
 Если передан — подключать через Koin last-wins:
+
 ```kotlin
 runDesktopAppTest(
     overrides = module { single<Clock> { fakeClock } },
@@ -30,6 +31,7 @@ runDesktopAppTest(
 Если `null` — поведение unchanged (используется `Clock.System` из production binding).
 
 Код в `DesktopAppHarness.kt`:
+
 ```kotlin
 fun runDesktopAppTest(
     overrides: Module = module {},

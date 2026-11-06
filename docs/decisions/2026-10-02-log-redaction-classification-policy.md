@@ -35,6 +35,7 @@ flagged but not individually classified.
 **Classify every interpolated log value** using three tiers:
 
 ### Tier 1 — Always permitted (technical metadata, no classification needed)
+
 - Entity IDs (`taskId`, `noteId`, `projectId`)
 - Timestamps and durations
 - HTTP status codes, URLs (without query params containing secrets)
@@ -42,6 +43,7 @@ flagged but not individually classified.
 - Memory addresses, thread names
 
 ### Tier 2 — User content, require explicit decision per call site
+
 - Exception `.message` — may contain file paths, SQL, or user input depending on source
 - AI prompt fragments — user input that was sent to the model
 - Search queries — user-entered text
@@ -51,6 +53,7 @@ flagged but not individually classified.
 truncate to 100 characters. If the value is sensitive, drop entirely.
 
 ### Tier 3 — Never log without explicit ADR
+
 - Full email addresses (redact to `us***@example.com` via shared helper)
 - Passwords, tokens, API keys (already handled by redaction decorator)
 - Full note body / task description in non-debug builds

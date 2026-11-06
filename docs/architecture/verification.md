@@ -85,6 +85,15 @@
 - **Форматирование — отдельный инструмент.** ktlint CLI владеет раскладкой, detekt —
   семантикой. `just ktlint` — весь формат за секунды, `just ktlint-fix` — починить.
   Полный линт — `just lint` (ktlint + detekt).
+- **Markdown (rumdl, opt-in/advisory).** Конфиг — `.rumdl.toml` (respect-gitignore,
+  исключены генерируемые/архивные деревья; часть шумных правил отключена). Пин —
+  `RUMDL_VERSION` в `config/toolchain-versions.env` (также в `mise.toml`/локальной
+  установке). Ежедневно: по изменённым файлам — `just mdcheck-changed` / `just mdfmt-changed`
+  (или `python3 scripts/rumdl-changed.py [--fix]`); по всему дереву — `just mdcheck` /
+  `just mdfmt` (массивный автофикс — только отдельным format-only коммитом). `just lint`
+  md не включает (осознанно, по скорости/политике). Локально: hk pre-commit проверяет
+  staged `*.md` (check-only, пропуск если rumdl не установлен); pre-push — advisory на
+  затронутых `*.md`. Блокирующий CI-гейт **не** включён, пока база/политика не стабилизированы.
 - **Сломанный build-скрипт — `./gw help`, а не компиляция**: Gradle читает build-скрипт
   при конфигурации, и синтаксическая ошибка в нём видна за секунды. Рецепт конфликта
   в `build.gradle.kts` — `docs/architecture/build-scripts.md`.

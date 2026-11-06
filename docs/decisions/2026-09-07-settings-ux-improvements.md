@@ -8,6 +8,7 @@ status: accepted
 ## Context
 
 Settings UX had several rough edges compared to production apps like TickTick:
+
 - Accent color picker: tiny chips without live preview
 - Work schedule: sliders with no time readout; TimePicker was not available in commonMain
 - AI connection state: invisible without clicking "Test"
@@ -15,6 +16,7 @@ Settings UX had several rough edges compared to production apps like TickTick:
 - Backup destructive actions: no confirmation before restore or delete
 
 ## Decision
+
 ### C1 — Accent color swatches with live preview (`InterfaceSettingsScreen.kt`)
 
 - Replaced `LazyRow + AccentChip(Card)` with `Row + AccentSwatch(Box/CircleShape/40dp)`.

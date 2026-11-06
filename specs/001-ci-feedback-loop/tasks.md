@@ -26,6 +26,7 @@ These tasks implement FR-002, FR-003, FR-004 and User Story 2 + 3.
 **What**: A composite GitHub Action that validates the build environment before gates run. Checks for `singularity-adr`, `openspec`, and Python version compatibility. Fails within 5 seconds with a descriptive error if any required tool is missing. Called by `ci.yml` only when the PR touches `scripts/**`, `.github/**`, or `docs/**`.
 
 **Acceptance criteria**:
+
 - `singularity-adr --version` exits 0 and prints a version string
 - `uv tool list` shows `specify-cli` installed (or `openspec --version` works)
 - `python3 --version` reports 3.12.x or higher
@@ -33,12 +34,14 @@ These tasks implement FR-002, FR-003, FR-004 and User Story 2 + 3.
 - On success: exits 0, sets `REPO_TOOLS_PREFLIGHT_RC=0`
 
 **Implementation notes**:
+
 - Use `bash -c 'command -v singularity-adr'` to detect presence without full version parse
 - Python version check: `python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)'`
 - Use `with: {python-version: "3.12"}` in action if you need a specific runtime
 - Path-gating is done by `ci.yml` job-level `if: needs.changes.outputs.scripts == 'true'`, NOT in the action itself
 
 **Verification**:
+
 ```bash
 # Should pass (all tools present)
 ./.github/actions/setup-repo-tools/action.yml
@@ -62,6 +65,7 @@ PATH=/usr/bin:/bin bash -c 'unset PATH; command -v singularity-adr || { echo "::
 **What**: Python script that reads JUnit XML from `desktopApp/build/test-results/test/*.xml`, parses it with `junitparser`, and emits GitHub Actions `::error` workflow commands for each failing test case. Also emits `::warning` for retry-passed tests (tests that had a `flakyFailure` child).
 
 **Acceptance criteria**:
+
 - Parses all `**/test-results/test/*.xml` files recursively
 - For each `<testcase>` with `<failure>`: emits `::error file={path}::title={Class.method}::{message}`
 - For each `<testcase>` with `<flakyFailure>`: emits `::warning title=Passed on retry::{N} test(s) passed on retry`
@@ -70,6 +74,7 @@ PATH=/usr/bin:/bin bash -c 'unset PATH; command -v singularity-adr || { echo "::
 - Uses `junitparser` library (add to pip install in `ci.yml`)
 
 **Implementation notes**:
+
 - Import: `import junitparser`
 - Parse: `junitparser.JUnitXml.from_file(xml_path)` → iterate `.test_cases`
 - Failure access: `tc.result` is a list; check `isinstance(r, junitparser.Failure)`
@@ -79,6 +84,7 @@ PATH=/usr/bin:/bin bash -c 'unset PATH; command -v singularity-adr || { echo "::
 - Exit 0 always — annotation failures are informational
 
 **Verification**:
+
 ```bash
 # Install dependency
 pip install junitparser
@@ -113,12 +119,14 @@ python scripts/junit-annotations.py desktopApp/build/test-results/test/
 **Changes required**:
 
 1. **Add `permissions`** to workflow root (if not present):
+
    ```yaml
    permissions:
      contents: read
    ```
 
 2. **Add `changes` job** (no `paths:` filter on workflow trigger — that would cause zero jobs):
+
    ```yaml
    changes:
      runs-on: ubuntu-24.04
@@ -161,6 +169,7 @@ python scripts/junit-annotations.py desktopApp/build/test-results/test/
 5. **Update `ci-gate` job**: `needs: changes` + `if: needs.changes.outputs.all == 'true' || github.ref == 'refs/heads/main'`
 
 6. **Add `junit-annotations` step** to each test job (JVM and desktop) — runs after `collect-results`:
+
    ```yaml
    - name: Generate per-test annotations
      if: always()
@@ -170,6 +179,7 @@ python scripts/junit-annotations.py desktopApp/build/test-results/test/
    ```
 
 7. **Add HTML artifact upload** after annotation step in desktop job:
+
    ```yaml
    - name: Upload HTML test reports
      if: always()
@@ -182,6 +192,7 @@ python scripts/junit-annotations.py desktopApp/build/test-results/test/
    ```
 
 8. **Add preflight step** to `static` job (runs first, before any gate):
+
    ```yaml
    - name: Preflight environment check
      if: needs.changes.outputs.scripts == 'true'
@@ -191,6 +202,7 @@ python scripts/junit-annotations.py desktopApp/build/test-results/test/
 **Critical constraint**: The `CI gate` required check must always produce a job result (pass/fail). Main branch always runs all jobs. PRs with zero matching paths must still run `ci-gate` (via `all` filter or main branch fallback).
 
 **Verification**:
+
 - Open a PR touching only `docs/*.md` → confirm only `static` job runs
 - Open a PR touching `shared/src/**/*.kt` → confirm `tests` job runs
 - Merge to main → confirm all jobs run
@@ -255,14 +267,17 @@ python scripts/junit-annotations.py desktopApp/build/test-results/test/
 | apptracer upload policy | `python3 scripts/check-apptracer-policy.py` | `sgate apptracer_upload_policy_encoded` |
 
 **Already using `sgate`** (no change):
+
 - `gate advisory "ADR frontmatter drift" sgate adr_frontmatter_drift`
 - `gate advisory "backlog-issue-refs" sgate backlog_issue_refs`
 
 **Bash functions kept as-is** (not Python scripts, no `sgate` module):
+
 - `gate blocking "decisions digest within budget" digest_and_sizes`
 - `gate advisory "digest has no double suffix" digest_no_double_suffix`
 
 **Verification**:
+
 ```bash
 # After migration, run this to confirm zero raw python3 scripts/... gate calls:
 PYTHONPATH=scripts/src python3 -m sgate gates --json | python3 -c "
@@ -289,11 +304,13 @@ for g in python_gates:
 **Change**: Find the existing `pip install` line in the `static` job and append `junitparser`.
 
 **Before**:
+
 ```bash
 python -m pip install --disable-pip-version-check -e scripts/src/ pyyaml
 ```
 
 **After**:
+
 ```bash
 python -m pip install --disable-pip-version-check -e scripts/src/ pyyaml junitparser
 ```
@@ -311,6 +328,7 @@ python -m pip install --disable-pip-version-check -e scripts/src/ pyyaml junitpa
 **What**: Confirm that `check-test-runs.py` counts `<testcase>` elements directly without deduplication, which is correct when `mergeReruns=true` produces one `<testcase>` per test method (with `<flakyFailure>` as a child for retry-passes). No code change needed if the script already counts `<testcase>` elements.
 
 **Verification**:
+
 ```bash
 # Look for how check-test-runs.py counts tests — should count <testcase> elements
 grep -n "testcase\|TestCase\|count\|total" scripts/check-test-runs.py | head -20
@@ -339,6 +357,7 @@ These tasks implement FR-005 and User Story 4.
 **What**: Add `reports.junitXml.mergeReruns.set(true)` so that retry attempts are merged into a single `<testcase>` element with a `<flakyFailure>` child. This prevents `check-test-runs.py` from counting retries as separate tests.
 
 **Change**: In the `test` task configuration block (near line 177 where `retry.maxAttempts` is already forwarded), add:
+
 ```kotlin
 reports.junitXml.mergeReruns.set(true)
 ```
@@ -346,6 +365,7 @@ reports.junitXml.mergeReruns.set(true)
 **Note**: `retry.maxAttempts` and `retry.failOnPassedAfterRetry` are already forwarded at line 177 — no change needed there.
 
 **Verification**:
+
 ```bash
 ./gradlew :desktopApp:test --tests "*" -Dretry.maxAttempts=2 2>&1 | head -5
 # Then inspect:
@@ -429,12 +449,14 @@ class RetryExtension : InvocationInterceptor {
 ```
 
 **Key decisions**:
+
 - Uses `InvocationInterceptor`, NOT `TestExecutionExceptionHandler` — the latter cannot restart a test, only swallow or rethrow
 - `invocation.proceed()` is called in a loop — each call runs the test fresh
 - Retry-pass log uses `::notice` (not `::warning` or `::error`) to indicate informational flakiness tracking
 - `println` to stdout for CI log visibility (::notice reaches GitHub annotation, println reaches logs)
 
 **Verification**:
+
 ```bash
 # Run a test that always fails
 ./gradlew :desktopApp:test --tests "com.singularity.todo.test.SomeFlakyTest" -Dretry.maxAttempts=2
@@ -456,6 +478,7 @@ class RetryExtension : InvocationInterceptor {
 **Note**: `FailureContextExtension` is already registered in this file. `RetryExtension` must be listed separately. JUnit 5 applies extensions in the order they appear in the service file.
 
 **Verification**:
+
 ```bash
 cat desktopApp/src/jvmTest/resources/META-INF/services/org.junit.jupiter.api.extension.Extension
 # Should list both FailureContextExtension and RetryExtension
@@ -478,6 +501,7 @@ cat desktopApp/src/jvmTest/resources/META-INF/services/org.junit.jupiter.api.ext
 **Expected**: All gates pass (zero failures on main branch).
 
 **Verification**:
+
 ```bash
 uv run --python 3.12 bash scripts/ci/static-gates.sh
 # Expected: exit 0
@@ -506,6 +530,7 @@ uv run --python 3.12 bash scripts/ci/static-gates.sh
 | main branch push | All jobs (including `android` + `desktop`) |
 
 **Verification**:
+
 ```bash
 # Simulate a docs-only PR locally
 git diff --name-only HEAD~1 HEAD | grep -v '^docs/' && echo "No non-docs files changed"
@@ -523,6 +548,7 @@ git diff --name-only HEAD~1 HEAD | grep -v '^docs/' && echo "No non-docs files c
 **What**: Run `scripts/junit-annotations.py` against a real JUnit XML produced by a desktop test run. Generate a test failure, run the tests, then run the annotation script.
 
 **Steps**:
+
 ```bash
 # 1. Run desktop tests with retry enabled
 ./gradlew :desktopApp:test -Dretry.maxAttempts=2 --info 2>&1 | tail -20
@@ -547,6 +573,7 @@ python scripts/junit-annotations.py desktopApp/build/test-results/test/
 **What**: After running desktop tests with `mergeReruns=true` and retry enabled, verify that `check-test-runs.py` correctly counts tests (each `<testcase>` = 1 test, no double-counting from retries).
 
 **Steps**:
+
 ```bash
 # 1. Run desktop tests with retry
 ./gradlew :desktopApp:jvmTest -Dretry.maxAttempts=2
@@ -570,6 +597,7 @@ python scripts/check-test-runs.py desktopApp/build/test-results/test/
 **What**: Test that the preflight action fails within 5 seconds when a required tool is absent.
 
 **Steps**:
+
 ```bash
 # Simulate missing singularity-adr
 PATH=/usr/bin:/bin bash -c '
@@ -581,6 +609,7 @@ time bash -c "command -v singularity-adr || { echo \"::error ::Missing tool: sin
 ```
 
 **Verification in CI** (after merging):
+
 - Open a PR touching only `scripts/ci/static-gates.sh`
 - CI should run preflight action first
 - If preflight exits 1 → CI check fails with descriptive error

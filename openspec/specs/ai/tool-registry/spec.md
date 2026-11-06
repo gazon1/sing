@@ -21,11 +21,13 @@ to the reader, which is exactly why it has to be structural rather than a
 matter of the model's disposition.
 
 #### Scenario: A question about the user's tasks is answered from the tasks
+
 - The user asks the assistant which of their tasks are overdue
 - The assistant looks the tasks up
 - The answer names the tasks that are actually overdue
 
 #### Scenario: A question that needs no lookup is answered directly
+
 - The user asks the assistant how to write a good commit message
 - No tool is called
 - The assistant answers in words
@@ -43,6 +45,7 @@ the shape the model reads, or the model answers from the question alone — whic
 is what it would have done anyway.
 
 #### Scenario: The answer to a call reaches the assistant
+
 - The assistant asks for a tool
 - The tool returns a result
 - The next turn of the assistant sees that result
@@ -60,6 +63,7 @@ request that returns at the end — and the tools make that temptation stronger,
 because a turn now takes two passes.
 
 #### Scenario: The text appears as it is produced
+
 - The assistant answers
 - The first words of the answer reach the reader before the last words exist
 
@@ -77,12 +81,14 @@ answering without the lookup. Ending the conversation takes that chance away
 and shows the reader an error they cannot do anything about.
 
 #### Scenario: A call that fails does not end the conversation
+
 - The assistant asks for a tool
 - The tool fails
 - The assistant is told that the call failed
 - The assistant answers the user anyway
 
 #### Scenario: A call to a tool that does not exist does not end the conversation
+
 - The assistant asks for a tool that is not available
 - The assistant is told that the tool is not available
 - The assistant answers the user anyway
@@ -100,12 +106,14 @@ it has to end in an answer rather than in silence: the user asked a question
 and is owed words.
 
 #### Scenario: The bound is reached and the assistant answers in words
+
 - The assistant asks for a tool in every turn
 - The turn limit is reached
 - The assistant is given a turn in which no tool is offered
 - The assistant answers in words and the conversation ends
 
 #### Scenario: The last request of a bounded conversation is still honoured
+
 - The assistant asks for a tool in the last turn that allows one
 - The tool runs
 - The assistant is given the turn in which it must answer in words
@@ -124,11 +132,13 @@ looks like a working control, and the thing it is supposed to stop keeps
 happening.
 
 #### Scenario: A switched-off tool is not offered
+
 - A tool is switched off
 - The assistant is offered the tools that are left
 - The switched-off tool is not among them
 
 #### Scenario: A request for a switched-off tool is a request for a tool that does not exist
+
 - The assistant asks for a tool that is switched off
 - The assistant is told that the tool is not available
 - The assistant answers the user anyway
@@ -143,11 +153,13 @@ the screen disagree about what "overdue" means, the reader has to decide whom to
 believe, and the app is the one that already has an answer. One rule, two directions.
 
 #### Scenario: The set the tool returns is the set the screen shows
+
 - The user asks for the overdue tasks
 - The tool returns the tasks that are past their due date and still open
 - The tool returns no task that is finished, and no task in the trash
 
 #### Scenario: The vocabulary is offered, not guessed
+
 - The tool's schema lists every named set it accepts
 - The names in the schema are the names the tool accepts
 
@@ -163,14 +175,17 @@ about removing. "My tasks in this project, tagged home" is the intersection, not
 union — and the other reading is one a reader would notice only by being wrong.
 
 #### Scenario: Two tags mean both tags
+
 - The reader asks for the tasks tagged "home" and "errand"
 - Only the tasks carrying both tags are returned
 
 #### Scenario: A project narrows the selection
+
 - The reader asks for the inbox within one project
 - Only that project's tasks are returned
 
 #### Scenario: A priority is matched without regard to case
+
 - The reader asks for the "high" priority
 - The tasks the app calls High are returned
 
@@ -185,19 +200,23 @@ next page rather than everything at once.
 that arrives in one piece is a wall, and the reader cannot tell where the wall ends.
 
 #### Scenario: The reader knows there is more
+
 - The selection holds more tasks than the ten the page holds
 - The answer says how many tasks the selection holds
 - The answer carries a cursor for the next page
 
 #### Scenario: The reader continues where they stopped
+
 - The reader hands the cursor back
 - The next page starts after the page they have seen
 
 #### Scenario: The last page says so
+
 - The page reaches the end of the selection
 - The answer carries no cursor
 
 #### Scenario: The page is ten tasks
+
 - The reader asks for a selection without naming a size
 - The page holds ten tasks
 
@@ -214,11 +233,13 @@ knowing — the page looks exactly like a page. So the cursor says what it is ab
 a mismatch is said out loud rather than quietly obeyed.
 
 #### Scenario: A cursor from another selection is refused
+
 - The reader hands back a cursor from a different selection
 - The read starts from the beginning
 - The answer says that the cursor was for a different selection
 
 #### Scenario: A string that is not a cursor is refused
+
 - The reader hands back something that is not a cursor
 - The read starts from the beginning
 - The answer says the cursor could not be read
@@ -236,6 +257,7 @@ reader what to do. The counts are the app's counts, so the reader is told the sa
 thing the statistics screen would tell them.
 
 #### Scenario: The health of the selection is reported
+
 - The selection holds an overdue task and a blocked task
 - The answer says one task is overdue and one is blocked
 
@@ -251,6 +273,7 @@ correct one. Reporting it as an internal failure makes a typo in an argument loo
 a broken server, which is the one thing the caller cannot do anything about.
 
 #### Scenario: A value outside the accepted set is a readable error
+
 - The caller asks for a set that does not exist
 - The caller is told the arguments do not fit
 - The error does not carry a stack trace
@@ -269,19 +292,23 @@ the value is another, and the verdict — a burden, or merely a big task — is 
 top of them, not a number that swallows both.
 
 #### Scenario: The load grows with the size of the task
+
 - The reader reads a task with a large estimate and many steps
 - The answer says it asks for more thinking than a small task would
 
 #### Scenario: The load does not follow the priority
+
 - Two tasks have the same size and different priorities
 - The answer gives them the same load
 
 #### Scenario: A task nobody prioritised is not called a burden
+
 - The task is old and heavy
 - The user gave it no priority
 - The answer does not call it a burden
 
 #### Scenario: A blocked task that matters little is called a burden
+
 - The task waits on something unfinished, has sat for a long time, and has a low priority
 - The answer calls it a burden
 
@@ -298,6 +325,7 @@ user's own screen calls it stale — and the reader is left choosing between two
 answers about the same task.
 
 #### Scenario: The tool and the screen agree about staleness
+
 - The user set a staleness threshold of seven days
 - A task untouched for ten days
 - The answer calls it stagnant, as the app's screen does
@@ -312,11 +340,13 @@ not ask for it and has not seen it. A change that lands unseen is a change nobod
 agreed to, and the fact that the tool reported it as done does not make it agreed to.
 
 #### Scenario: A proposed change is not applied
+
 - The assistant proposes a new due date for a task
 - The task still has its old due date
 - A proposal exists that the user can see and decide
 
 #### Scenario: The assistant says what it did
+
 - The assistant proposes a change
 - The assistant says the change has been proposed
 - The assistant does not say the task has been changed
@@ -332,11 +362,13 @@ elsewhere, and **SHALL** be decidable by the user in the same place.
 second place for the user to look. One kind of proposal, one screen, one apply path.
 
 #### Scenario: The proposal is decided like any other
+
 - The user opens the confirmation screen
 - The assistant's proposal is among the proposals waiting for a decision
 - Deciding it applies it through the app's usual path
 
 #### Scenario: A change the user already turned down is not proposed again
+
 - The user rejects a change
 - The assistant proposes the same change again
 - The proposal is refused
@@ -353,16 +385,19 @@ caller can act on "that operation is not one of these" and on "that task does no
 exist" — and the model, which is the caller, is the party that can fix both.
 
 #### Scenario: An unknown operation is refused
+
 - The assistant asks for an operation that does not exist
 - The answer says which operations exist
 - No proposal is created
 
 #### Scenario: A missing value is refused
+
 - The assistant asks to set a field and gives no value
 - The answer says the operation needs a value
 - No proposal is created
 
 #### Scenario: A task that does not exist is refused
+
 - The assistant proposes a change to a task that does not exist
 - The answer says there is no such task
 - No proposal is created
@@ -380,11 +415,13 @@ and nothing appeared — a feature that works and is invisible. The answer to a 
 belongs next to the thing it proposes to change.
 
 #### Scenario: The proposed change is shown
+
 - An AI action has proposed a change to the note
 - The note editor shows the change
 - The change waits for the user's word
 
 #### Scenario: The user applies it
+
 - The user applies the change
 - The change is applied through the app's usual path
 - The change is no longer waiting
@@ -434,7 +471,7 @@ was converted cannot leave a stale entry behind that hides the work.
 #### Scenario: The listed writers are the actual writers
 
 - **Given** every tool that writes the user's data directly is listed with a
-      reason
+  reason
 - **And** every listed tool writes directly
 - **When** the build runs
 - **Then** it passes

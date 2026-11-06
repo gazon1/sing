@@ -126,7 +126,6 @@ step nobody can check is a step nobody can be finished with.
   the first move of a task that cannot be started is one tap away from the task.
 - The written review — a review of a body of work, in prose — is not here. It needs a
   shape and a screen, and neither is settled.
-
 - The chat prompt carries the four situations and the three ideas, so the assistant
   works from the same vocabulary the app does.
 - A task that cannot be started can be asked for its first step from the task itself.

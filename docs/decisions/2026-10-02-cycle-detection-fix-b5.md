@@ -8,6 +8,7 @@ tags: [data-integrity, dependency-validation, bugfix]
 ## Context
 
 `DependencyValidatorImpl.assertNoCycles` was checking only for self-loop (task depending on itself):
+
 ```kotlin
 if (taskId.value in newDeps.map { it.value }) {
     return Result.failure(IllegalArgumentException("Task cannot depend on itself: ${taskId.value}"))

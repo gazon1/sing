@@ -1,6 +1,7 @@
 # decision-digest Specification
 
 ## Purpose
+
 The complete index of decisions, which does not grow with the corpus: a
 folded index, a budget that is a rate rather than a wall, an entry
 findable by slug, by title and by tag, and an orientation layer that

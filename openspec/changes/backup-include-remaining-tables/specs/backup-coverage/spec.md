@@ -19,6 +19,7 @@ excluded is closed and short; everything else is included by default.
 are not) and the profile container (see REQ-BC-010).
 
 #### Scenario: Enumerated data sets survive a round trip
+
 - A backup is taken on a device containing reminders, checklist items, tag
   groups, project-tag group assignments, saved searches, time entries, and saved
   agenda views
@@ -37,6 +38,7 @@ partial restore. The user cannot act on a gap they were never told about, and
 this is the property the current omission lacked.
 
 #### Scenario: Partial restore is visible
+
 - A backup contains a data set whose parent row is absent from the same backup
 - Restore completes
 - The user is told which rows were not restored and how many
@@ -53,6 +55,7 @@ its reference either fails on a constraint or produces an orphan that outlives
 the restore.
 
 #### Scenario: Dependent data set is not orphaned
+
 - A backup contains both a task and checklist items belonging to it
 - Restore completes
 - Every restored checklist item references a task that exists in the restored
@@ -75,6 +78,7 @@ design.md. If the decision is to require the user to choose, this requirement is
 replaced rather than implemented.
 
 #### Scenario: Restore lands in the profile the user left
+
 - A backup is taken while profile A is active
 - A second profile B exists and is also present in the backup
 - Restore completes

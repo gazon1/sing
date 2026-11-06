@@ -188,6 +188,7 @@ ensure_shared_wheel_binary() {
 
 ensure_shared_wheel_binary lychee "$LYCHEE_BIN_VERSION" "lychee-bin==$LYCHEE_BIN_VERSION"
 ensure_shared_wheel_binary shellcheck "$SHELLCHECK_PY_VERSION" "shellcheck-py==$SHELLCHECK_PY_VERSION"
+ensure_shared_wheel_binary rumdl "$RUMDL_VERSION" "rumdl==$RUMDL_VERSION"
 
 # actionlint has no Python distribution: CI downloads the pinned release binary.
 # A download failure here is reported and the script continues — the preflight
@@ -246,7 +247,7 @@ The gate CLI now serves this checkout:
 
     "$VENV/bin/python" -c 'import pathlib, sgate; print(pathlib.Path(sgate.__file__).resolve().parent)'
 
-The pinned binaries (lychee, shellcheck, actionlint, ktlint) are shared, by version:
+The pinned binaries (lychee, shellcheck, actionlint, ktlint, rumdl) are shared, by version:
 
     $TOOLS_ROOT/<tool>-<version>/bin/<tool>
 

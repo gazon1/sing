@@ -10,6 +10,7 @@ description: Long-press multi-selection pattern for Compose Multiplatform list s
 Use when implementing **multi-select** on `NotesScreen`, `TasksScreen`, or any list screen where users need to perform bulk operations (pin, delete, tag, move) on multiple items simultaneously.
 
 **Reference patterns:**
+
 - Apple Notes: long-press → "Select" mode → bottom toolbar
 - TickTick: long-press → contextual action bar replaces FAB
 - iOS Mail: swipe hints + "Edit" button
@@ -281,6 +282,7 @@ BackHandler(enabled = state.isSelectionMode) {
 ```
 
 Or via `collectEvents` from the ViewModel (if exit is also triggered by UI):
+
 ```kotlin
 // In NotesUiEvent:
 data object ExitSelection : NotesUiEvent

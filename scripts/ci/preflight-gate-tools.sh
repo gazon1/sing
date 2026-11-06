@@ -144,6 +144,12 @@ else
     report no ktlint "the 'Kotlin is formatted' check"
 fi
 
+if have_binary rumdl; then
+    report ok rumdl "Markdown formatting (rumdl check/fmt, rumdl-changed)"
+else
+    report no rumdl "Markdown formatting (rumdl check/fmt, rumdl-changed)"
+fi
+
 if [ "$missing" -gt 0 ]; then
     cat >&2 <<MSG
 

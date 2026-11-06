@@ -51,31 +51,37 @@ android studio check
 ### Example Workflows
 
 **Analyze a file for issues:**
+
 ```bash
 android studio analyze-file shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TasksViewModel.kt
 ```
 
 **Find a symbol definition:**
+
 ```bash
 android studio find-declaration TaskEntity
 ```
 
 **Find all usages:**
+
 ```bash
 android studio find-usages ProjectRepository
 ```
 
 **Render Compose Preview:**
+
 ```bash
 android studio render-compose-preview feature/tasks/src/androidMain/kotlin/com/singularity/todo/feature/tasks/TasksScreen.kt
 ```
 
 **Check dependency versions:**
+
 ```bash
 android studio version-lookup androidx.room:room-runtime
 ```
 
 **Open file in IDE:**
+
 ```bash
 android studio open-file feature/tasks/src/androidMain/kotlin/com/singularity/todo/feature/tasks/TasksScreen.kt
 ```
@@ -106,6 +112,7 @@ android journey run "Create New Task"
 ```
 
 Journeys unlock new ways to:
+
 - **Test** critical user flows automatically
 - **Validate** UI states across experiences
 - **Collect data** on user journey patterns

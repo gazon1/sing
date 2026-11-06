@@ -22,6 +22,7 @@ Bring `TaskDetailViewModel` in line with the house pattern:
 - All mutations read `_latestTask`, never a UI snapshot — fixing the TOCTOU class of bugs.
 
 Three alternatives were considered:
+
 1. **Keep methods-per-action** (status quo) — rejected: 37 methods with no compile-time enforcement of routing/domain boundary.
 2. **Extract separate VMs** for checklist / reminders / subtasks — rejected: creates cross-VM consistency problems for a single-entity screen.
 3. **MVI with pure reducer** (like `TaskEditorUiState.reduce`) — rejected: `TaskDetailUi` is entirely derived from Room flows, no local draft state exists; a reducer would be cargo cult.

@@ -1,8 +1,8 @@
 name: 'Setup gate tooling'
 description: >-
   Install everything the gate suite shells out to: the sgate CLI (editable from
-  scripts/src/), junitparser, yamllint, actionlint, shellcheck, lychee and
-  ktlint — into one venv, once, for whichever job calls it.
+  scripts/src/), junitparser, yamllint, actionlint, shellcheck, lychee, ktlint
+  and (opt-in) rumdl — into one venv, once, for whichever job calls it.
 
 # Why this exists
 # --------------
@@ -62,6 +62,12 @@ inputs:
       Install the pinned ktlint CLI (the "Kotlin is formatted" check needs it).
       It is a self-executing jar, so the job needs a JVM — every job that runs
       this action already has one.
+    required: false
+    default: 'false'
+  with-md-lint:
+    description: >-
+      Install the pinned rumdl (Markdown formatting, opt-in). Off by default:
+      the Markdown baseline is not yet enforced in CI.
     required: false
     default: 'false'
 
@@ -160,6 +166,19 @@ runs:
         # is the tag without a leading "v" (the asset is named after it).
         bash scripts/ci/install-ktlint.sh "$VENV/bin" "$KTLINT_VERSION"
         "$VENV/bin/ktlint" --version
+
+    - name: Install the Markdown formatter (pinned, opt-in)
+      if: ${{ inputs.with-md-lint == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        VENV="$HOME/ci-venv"
+        # The same pins file the linters above read — see the comment there.
+        source config/toolchain-versions.env
+        # rumdl ships a wheel with the binary. Opt-in: the Markdown baseline is
+        # not yet enforced in CI (formatting-only cleanup done; gate later).
+        VIRTUAL_ENV="$VENV" uv pip install "rumdl==$RUMDL_VERSION"
+        "$VENV/bin/rumdl" --version
 
     - name: Verify both gate registries load
       shell: bash

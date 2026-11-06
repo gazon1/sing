@@ -10,6 +10,7 @@ status: accepted
 `ProjectDetailScreen` and other screens used `@Preview` composables that called `koinViewModel { … }` directly. In Android Studio / JVM test harness (which does not start Koin), these previews crashed with `IllegalStateException: KoinApplication has not been started`.
 
 We evaluated two approaches to fix this:
+
 1. **`PreviewKoin` helper** — a composable that starts a minimal Koin application for the preview scope
 2. **VM-as-parameter pattern** — split every screen into a public Koin wrapper and a private content composable that accepts the VM
 
@@ -49,11 +50,13 @@ private fun ProjectDetailScreen_Preview() {
 ## Rationale
 
 **`PreviewKoin` failed** because:
+
 - Koin 4.x DSL (`factoryFor`, `include`) has different availability in `KoinAppDeclaration` lambda vs. runtime module DSL
 - The Koin authors did not design Koin for preview contexts — lifecycle management is undefined
 - Even a minimal KoinApplication requires all repository/VM bindings to be registered, which defeats the goal of a lightweight preview
 
 **VM-as-parameter succeeds** because:
+
 - Zero Koin in previews — no application context needed
 - Screens are more testable (VMs can be unit-tested with FakeRepositories, no Koin injection needed)
 - The pattern is idiomatic Compose — screens become reusable with any VM implementation
