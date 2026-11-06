@@ -63,7 +63,9 @@ encodes the precedence `failure > error > skipped > passed` and preserves the
   Kiwi rationale is gone. The stack trace is a separate field, never truncated.
 - `scripts/junit-annotations.py` reads through the shared reader, emits
   `::error` for both failures and errors, emits `::notice` for a retry-pass,
-  counts clean passes separately, and turns a parse error into an `::warning`.
+  counts clean passes and skipped tests separately — a skipped test did not
+  run, and a summary that counts it as a pass claims more than the run did —
+  and turns a parse error into an `::warning`.
 - `scripts/ci/print-test-failures.sh` calls the same reader and prints the
   message, the full stack trace and the retry note.
 - `scripts/measure-flake-rate.py` counts flaky failures through the reader

@@ -152,6 +152,14 @@ class AnnotationOutcomeTest(unittest.TestCase):
         self.assertNotIn("::error", out)
         self.assertNotIn("::notice", out)
 
+    def test_skipped_test_is_counted_as_skipped_not_as_a_clean_pass(self):
+        """A skipped test did not run — the summary must not claim it passed."""
+        _write(self.dir, _xml("<skipped/>", cls="Skipped"))
+        out = run_annotations(self.dir)
+        self.assertIn("0 failure(s)", out)
+        self.assertIn("0 clean pass(es)", out)
+        self.assertIn("1 skipped", out)
+
     def test_malformed_report_is_reported_not_swallowed(self):
         """Incomplete evidence must be visible, not silently empty."""
         _write(self.dir, "<testsuite><testcase></testsuite>")

@@ -79,23 +79,28 @@ def emit_notice(message: str):
     print(f"::notice title=Passed on retry::{message}", flush=True)
 
 
-def process_xml_file(xml_path: Path) -> tuple[int, int, int]:
+def process_xml_file(xml_path: Path) -> tuple[int, int, int, int]:
     """
-    Process one JUnit XML file. Returns (clean_passed, failures, retry_passes).
+    Process one JUnit XML file. Returns (clean_passed, failures, retry_passes, skipped).
 
     Prints an annotation for each failure and each retry-pass. A testcase that
     failed terminally is a failure even when it also carries ``<flakyFailure>``
     children — those record earlier attempts, not the outcome.
+
+    A skipped test is counted as skipped, not as a clean pass. It did not run,
+    and a summary line that counts it as a pass is a summary line that claims
+    more than the run did.
     """
     try:
         results = parse_junit_file_strict(xml_path)
     except Exception as exc:  # noqa: BLE001 — a malformed report must not crash CI
         print(f"::warning ::Failed to parse {xml_path}: {exc}", flush=True)
-        return 0, 0, 0
+        return 0, 0, 0, 0
 
     failures = 0
     retry_passes = 0
     passed = 0
+    skipped = 0
 
     for case in results:
         classname = case.classname or "unknown"
@@ -117,9 +122,13 @@ def process_xml_file(xml_path: Path) -> tuple[int, int, int]:
             )
             continue
 
+        if case.status == "skipped":
+            skipped += 1
+            continue
+
         passed += 1
 
-    return passed, failures, retry_passes
+    return passed, failures, retry_passes, skipped
 
 
 def main():
@@ -160,16 +169,18 @@ def main():
     total_passed = 0
     total_failures = 0
     total_flaky = 0
+    total_skipped = 0
 
     for xml_path in xml_files:
-        p, f, fl = process_xml_file(xml_path)
+        p, f, fl, sk = process_xml_file(xml_path)
         total_passed += p
         total_failures += f
         total_flaky += fl
+        total_skipped += sk
 
     print(
         f"Annotations: {total_failures} failure(s), {total_flaky} retry-pass(es), "
-        f"{total_passed} clean pass(es)",
+        f"{total_passed} clean pass(es), {total_skipped} skipped",
         flush=True,
     )
 
