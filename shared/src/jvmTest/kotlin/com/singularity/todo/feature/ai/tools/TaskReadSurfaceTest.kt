@@ -3,6 +3,7 @@ package com.singularity.todo.feature.ai.tools
 import ai.koog.agents.core.tools.ToolParameterType
 import com.singularity.todo.core.ai.decodeTaskPageCursor
 import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelection
@@ -214,7 +215,12 @@ class TaskReadSurfaceTest {
             assertEquals(listOf("a", "b"), titlesOf(first))
             val cursor = first["nextCursor"]!!.jsonPrimitive.content
 
-            val second = read(tool.execute(ListTasksInput(selection = TaskSelection.ACTIVE_NOT_DEFERRED, limit = 2, cursor = cursor)))
+            val second =
+                read(
+                    tool.execute(
+                        ListTasksInput(selection = TaskSelection.ACTIVE_NOT_DEFERRED, limit = 2, cursor = cursor),
+                    ),
+                )
             assertEquals(listOf("c"), titlesOf(second))
             val next = second["nextCursor"]
             assertTrue(next == null || next is JsonNull, "the last page has no cursor")
@@ -271,7 +277,9 @@ class TaskReadSurfaceTest {
 
             val output =
                 read(
-                    tool(repo).execute(ListTasksInput(selection = TaskSelection.ACTIVE_NOT_DEFERRED, cursor = "not-a-cursor")),
+                    tool(
+                        repo,
+                    ).execute(ListTasksInput(selection = TaskSelection.ACTIVE_NOT_DEFERRED, cursor = "not-a-cursor")),
                 )
 
             assertTrue(output["cursorWarning"] != null)
@@ -401,5 +409,9 @@ class TaskReadSurfaceTest {
         )
     }
 
-    private fun typeNamesIn(offered: List<String>): List<String> = offered.filter { it.isNotEmpty() && it.all { c -> c == '_' || c.isLowerCase() } }
+    private fun typeNamesIn(offered: List<String>): List<String> =
+        offered.filter {
+            it.isNotEmpty() &&
+                it.all { c -> c == '_' || c.isLowerCase() }
+        }
 }

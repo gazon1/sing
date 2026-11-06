@@ -601,6 +601,13 @@ private class FakeTaskDao(
                 .sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
         }
 
+    override fun watchNotDeferred(userId: String): Flow<List<TaskEntity>> =
+        store.map {
+            it.values
+                .filter { t -> t.userId == userId && t.archivedAt == null && !t.someday }
+                .sortedWith(compareBy({ it.dueDate ?: "\uFFFF" }, { !it.isPinned }))
+        }
+
     override fun watchById(id: String): Flow<TaskEntity?> = store.map { it[id] }
 
     override fun watchByIdForUser(

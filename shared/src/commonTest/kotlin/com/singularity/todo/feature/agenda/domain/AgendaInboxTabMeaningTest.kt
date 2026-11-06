@@ -52,7 +52,7 @@ class AgendaInboxTabMeaningTest {
 
         val sections = AgendaEvaluator.evaluate(listOf(undated, dated), AgendaPresets.Inbox, today, epoch)
 
-        val inTab = sections.flatMap { it.tasks }.map { it.id.value }.toSet()
+        val inTab = sections.flatMap { it.tasks }.map { it.task.id.value }.toSet()
         assertEquals(setOf("undated"), inTab, "the Inbox tab is the tasks that are not dated yet")
         assertEquals(
             "No Date",
@@ -78,7 +78,7 @@ class AgendaInboxTabMeaningTest {
             AgendaEvaluator
                 .evaluate(listOf(dated), AgendaPresets.Inbox, today, epoch)
                 .flatMap { it.tasks }
-                .map { it.id.value }
+                .map { it.task.id.value }
                 .toSet()
         assertFalse(
             inTab.contains("dated"),

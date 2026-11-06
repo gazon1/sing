@@ -162,9 +162,12 @@ abstract class TaskRepositoryContractTest {
     fun `observeByFilter NotDeferred returns the live tasks that are not deferred`() =
         runTest {
             val repo = newRepository(alice)
+            val finishedAt =
+                kotlin.time.Clock.System
+                    .now()
             repo.create(task("undated"))
             repo.create(task("dated").copy(dueDate = LocalDate(2026, 10, 5)))
-            repo.create(task("finished").copy(completedAt = kotlin.time.Clock.System.now()))
+            repo.create(task("finished").copy(completedAt = finishedAt))
             repo.create(task("someday").copy(someday = true))
             repo.create(task("trashed"))
             advanceUntilIdle()
@@ -173,7 +176,12 @@ abstract class TaskRepositoryContractTest {
 
             assertSeededRowsLanded(repo)
 
-            val selected = repo.observeByFilter(TaskFilter.NotDeferred).first().map { it.id.value }.toSet()
+            val selected =
+                repo
+                    .observeByFilter(TaskFilter.NotDeferred)
+                    .first()
+                    .map { it.id.value }
+                    .toSet()
 
             assertEquals(
                 setOf("undated", "dated", "finished"),
@@ -196,9 +204,12 @@ abstract class TaskRepositoryContractTest {
     fun `observeByFilter All returns every live task, the deferred ones included`() =
         runTest {
             val repo = newRepository(alice)
+            val finishedAt =
+                kotlin.time.Clock.System
+                    .now()
             repo.create(task("undated"))
             repo.create(task("dated").copy(dueDate = LocalDate(2026, 10, 5)))
-            repo.create(task("finished").copy(completedAt = kotlin.time.Clock.System.now()))
+            repo.create(task("finished").copy(completedAt = finishedAt))
             repo.create(task("someday").copy(someday = true))
             repo.create(task("trashed"))
             advanceUntilIdle()
@@ -207,7 +218,12 @@ abstract class TaskRepositoryContractTest {
 
             assertSeededRowsLanded(repo)
 
-            val selected = repo.observeByFilter(TaskFilter.All).first().map { it.id.value }.toSet()
+            val selected =
+                repo
+                    .observeByFilter(TaskFilter.All)
+                    .first()
+                    .map { it.id.value }
+                    .toSet()
 
             assertEquals(
                 setOf("undated", "dated", "finished", "someday"),
