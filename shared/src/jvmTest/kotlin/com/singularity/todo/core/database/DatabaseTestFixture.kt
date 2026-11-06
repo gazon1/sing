@@ -1,6 +1,5 @@
 package com.singularity.todo.core.database
 
-import androidx.room3.Room
 import androidx.sqlite.SQLiteConnection
 import com.singularity.todo.core.database.contract.createSqlDriver
 import java.io.Closeable
@@ -36,9 +35,10 @@ import java.nio.file.Files
  *
  * ## What the fixture owns
  *
- * The temporary directory and every database opened through it. [close] closes
- * the databases and deletes the directory. A test that needs a database asks
- * for one here and never touches a path of its own.
+ * The temporary directory, every database opened through it, and every raw
+ * connection handed out by [connect]. [close] closes them and deletes the
+ * directory. A test that needs a database asks for one here and never touches a
+ * path of its own.
  *
  * ## Why the in-memory mode is a Room builder and not a file
  *
@@ -46,13 +46,11 @@ import java.nio.file.Files
  * `Room.inMemoryDatabaseBuilder` is a JVM-only API — unreachable from the
  * `commonMain` seam that production uses. That is why the production builder
  * takes a path. It is also why this fixture, which lives in the JVM test source
- * set, can offer the in-memory mode the production seam cannot: a fresh
- * in-memory database is created at the head schema, so it needs no migration
- * registered either.
+ * set, can offer the in-memory mode the production seam cannot. It goes through
+ * the same `buildInMemoryAppDatabase` seam as everything else, so it registers
+ * the same migrations as [onDisk].
  */
-class DatabaseTestFixture private constructor(
-    private val onDisk: Boolean,
-) : Closeable {
+class DatabaseTestFixture private constructor(private val onDisk: Boolean) : Closeable {
     companion object {
         /** The name a database gets when the test does not choose one. */
         const val DEFAULT_NAME: String = "test"
@@ -83,6 +81,9 @@ class DatabaseTestFixture private constructor(
 
     /** Every database this fixture opened — [reopen] opens a second one over the same file. */
     private val opened = mutableListOf<AppDatabase>()
+
+    /** Every raw connection handed out by [connect], so [close] can close it too. */
+    private val connections = mutableListOf<SQLiteConnection>()
 
     /**
      * The directory the fixture's files live in.
@@ -128,14 +129,18 @@ class DatabaseTestFixture private constructor(
     /**
      * A second database over the same file.
      *
-     * The restart case: the first database is closed, and a new one opens the
-     * same file to read what the first one wrote. [database] would hand back
-     * the first one again, so this asks for a new instance — which the fixture
-     * closes too.
+     * The restart case: the caller closes the first database, and a new one
+     * opens the same file to read what the first one wrote. [database] would
+     * hand back the first one again, so this asks for a new instance — which
+     * replaces the cached one and is closed by the fixture too. After this call
+     * [database] returns the reopened instance, never the closed one.
      */
     fun reopen(name: String = DEFAULT_NAME): AppDatabase {
         check(onDisk) { "only a file-backed database can be reopened" }
-        return build(name).also { opened += it }
+        return build(name).also {
+            opened += it
+            databases[name] = it
+        }
     }
 
     /**
@@ -144,26 +149,29 @@ class DatabaseTestFixture private constructor(
      * For the test that needs to write the file itself before Room opens it —
      * a migration plants the schema of an older version into a file and then
      * lets Room run the chain over it — or to look at what Room wrote. The
-     * connection is the caller's to close.
+     * fixture closes the connection too, so a test can `use { }` it or leave it
+     * alone; it cannot leak it past [close].
      */
     fun connect(name: String = DEFAULT_NAME): SQLiteConnection {
         check(onDisk) { "an in-memory fixture has no file to connect to" }
-        return createSqlDriver().open(path(name))
+        return createSqlDriver().open(path(name)).also { connections += it }
     }
 
     /**
-     * Closes every database this fixture opened and deletes its directory.
+     * Closes every database and connection this fixture opened and deletes its
+     * directory.
      *
      * The databases are closed before the directory goes: a database that still
      * holds the file would keep it open on some systems, and the directory would
-     * survive the delete.
+     * survive the delete. Closing is best-effort because a test may already have
+     * closed a database or a connection itself.
      */
     override fun close() {
-        for (database in opened) {
-            database.close()
-        }
+        for (database in opened) runCatching { database.close() }
         opened.clear()
         databases.clear()
+        for (connection in connections) runCatching { connection.close() }
+        connections.clear()
         directory?.deleteRecursively()
         directory = null
     }
@@ -175,6 +183,6 @@ class DatabaseTestFixture private constructor(
             // and the registered migrations.
             AppDatabaseFactory.build(createSqlDriver(), path(name))
         } else {
-            Room.inMemoryDatabaseBuilder<AppDatabase>().setDriver(createSqlDriver()).build()
+            buildInMemoryAppDatabase(createSqlDriver())
         }
 }

@@ -142,7 +142,7 @@ class BackupRoundTripTest {
             seedSubtask(owner)
 
             val fs = JvmFileSystem()
-            val destPath = File(tempDir, "sub-task.zip").absolutePath
+            val destPath = File(fixture.directory(), "sub-task.zip").absolutePath
 
             val exported =
                 exporter(fs).export(
@@ -195,7 +195,7 @@ class BackupRoundTripTest {
             )
 
             val fs = JvmFileSystem()
-            val destPath = File(tempDir, "orphan.zip").absolutePath
+            val destPath = File(fixture.directory(), "orphan.zip").absolutePath
 
             val exported =
                 exporter(fs).export(

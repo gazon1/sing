@@ -99,7 +99,6 @@ internal suspend fun runMigrationScenario(
         // and the scenario reads the fixture as it was planted.
         val database = fixture.database()
         database.taskDao().getById("__scenario_probe__")
-        database.close()
 
         fixture.connect().use { connection ->
             for (check in expect) {
