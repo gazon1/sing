@@ -433,7 +433,7 @@ _REGISTERED: tuple[GateSpec, ...] = (
         name="the edge functions' own tests",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PATH,
-        path_cmd=("deno", "test", "supabase/functions/google-oauth-exchange/"),
+        path_cmd=("deno", "test", "infra/supabase/functions/google-oauth-exchange/"),
         # The tool is not on every machine. A gate that cannot run is reported
         # as skipped rather than as passed — and the skip is visible.
         kiwi_required=True,
@@ -1465,7 +1465,7 @@ GATE_CONTROLS: dict[str, Control] = {
     # review rounds found lived. So this control writes a row into the
     # server\'s own migration: a field no model declares, a field the server
     # may therefore write and nothing ever sends. The gate must name it.
-    'sync-allowlist-reader': Control(kind='sabotage', proves='scripts/check-sync-allowlist-regenerated.py', argv=('{python}', 'scripts/check-sync-allowlist-regenerated.py'), path='supabase/migrations/2026-10-07-sync_schema.sql', edit=Edit(kind='append', new="\n\ninsert into sync_field_allowlist (entity_type, field, writable) values ('task', 'sabotage_probe_field', true);\n"), why='a row the server\'s table holds that no model declares is a field the server may write and nothing ever writes, and it reads like a rule — the server looks the row up by name, so the row is honoured. The reader is the half of the gate that holds the names, and the other control proves only that the seed is current. The probe adds exactly that row to the migration that seeds the table, and the gate must name the field'),
+    'sync-allowlist-reader': Control(kind='sabotage', proves='scripts/check-sync-allowlist-regenerated.py', argv=('{python}', 'scripts/check-sync-allowlist-regenerated.py'), path='infra/supabase/migrations/2026-10-07-sync_schema.sql', edit=Edit(kind='append', new="\n\ninsert into sync_field_allowlist (entity_type, field, writable) values ('task', 'sabotage_probe_field', true);\n"), why='a row the server\'s table holds that no model declares is a field the server may write and nothing ever writes, and it reads like a rule — the server looks the row up by name, so the row is honoured. The reader is the half of the gate that holds the names, and the other control proves only that the seed is current. The probe adds exactly that row to the migration that seeds the table, and the gate must name the field'),
     'doc-dead-refs': Control(kind='sabotage', proves='scripts/check-doc-dead-refs.py', argv=('{python}', 'scripts/check-doc-dead-refs.py', '--strict'), path='README.md', edit=Edit(kind='append', new='\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'), why='a new dead reference must fail until baselined'),
     'issue-registry': Control(kind='sabotage', proves='scripts/check-issue-registry.py', argv=('{python}', 'scripts/check-issue-registry.py', '--quiet'), path='.specify/issues/a-delete-that-was-never-issued-was-reported-as-deleted.yaml', edit=Edit(kind='replace', old='openspec_path: openspec/changes/a-delete-that-was-never-issued-was-reported-as-deleted', new='openspec_path: openspec/changes/some-other-change', count=1), why='a registry entry that points at another change is a record of something else, and it looks like coverage: the next session reads the record, believes the change is known, and never learns what the change actually was. Four changes reached main with no entry at all, which is the same defect one step further from the surface'),
     'agents-pointers': Control(kind='sabotage', proves='scripts/check-agents-pointers.py', argv=('{python}', 'scripts/check-agents-pointers.py', '--quiet'), path='AGENTS.md', edit=Edit(kind='append', new='\nSee `docs/decisions/definitely-not-a-file.md` for the reasoning.\n'), why='a pointer that names a file that is not there sends the next session to look for it: the note that was written to remove the stop becomes the stop'),
@@ -1573,14 +1573,14 @@ GATE_CONTROLS: dict[str, Control] = {
     'provenance': Control(kind='sabotage', proves='scripts/check-provenance.py', argv=('{python}', 'scripts/check-provenance.py'), path='config/legal/provenance-registry.tsv', edit=Edit(kind='drop_lines', old='QueryTokenizer'), why='a GPL upstream named in production code with no registry row is a licence claim nobody is tracking'),
     'pro-licence-boundary': Control(kind='sabotage', proves='scripts/check-pro-licence-boundary.py', argv=('{python}', 'scripts/check-pro-licence-boundary.py'), path='shared/build.gradle.kts', edit=Edit(kind='append', new='\ndependencies { implementation("ru.ok.tracer:tracer-crash-report:1.4.0") }\n'), why='proprietary code in an Apache-2.0 module makes the published licence a claim the project cannot honour'),
     'traceability-ratchet': Control(kind='sabotage', proves='scripts/check-traceability-ratchet.py', argv=('{python}', 'scripts/check-traceability-ratchet.py'), path='scripts/src/traceability/scenarios/tasks/checklist/TASK-CHECK-01.yaml', edit=Edit(kind='regex', pattern='^targets: \\[android\\]$', repl='targets: [android, desktop]', flags='MULTILINE'), why='a scenario claiming a target nothing verifies is the one hole count that grows without anyone reading the diff'),
-    'room-schema-integrity': Control(kind='sabotage', proves='scripts/check-room-schema-integrity.py', argv=('{python}', 'scripts/check-room-schema-integrity.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt', edit=Edit(kind='regex', pattern='const val SCHEMA_VERSION = \\d+', repl='const val SCHEMA_VERSION = 1'), why='an entity change without a version bump passes every test and crashes every existing install on upgrade'),
+    'room-schema-integrity': Control(kind='sabotage', proves='scripts/check-room-schema-integrity.py', argv=('{python}', 'scripts/check-room-schema-integrity.py'), path='core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt', edit=Edit(kind='regex', pattern='const val SCHEMA_VERSION = \\d+', repl='const val SCHEMA_VERSION = 1'), why='an entity change without a version bump passes every test and crashes every existing install on upgrade'),
     'dependency-usage': Control(kind='sabotage', proves='scripts/check-dependency-usage.py', argv=('{python}', 'scripts/check-dependency-usage.py', '--quiet'), path='scripts/dependency-usage-allowlist.txt', edit=Edit(kind='drop_lines', old='kermit-koin'), why="a dependency declared, resolved and imported by nothing costs a full release's build time and ships undetected — material-kolor sat on the classpath for one"),
-    'supabase-schema-integrity': Control(kind='sabotage', proves='scripts/check-supabase-schema-integrity.py', argv=('{python}', 'scripts/check-supabase-schema-integrity.py'), path='supabase/migrations/2026-10-07-sync_schema.sql', edit=Edit(kind='append', new='\ncreate or replace function public.sync_control_probe(p_type text)\nreturns text as $$ select p_type $$ language sql;\n'), why='a function added without a fingerprint makes the header understate the schema, and the header is the part a reader trusts; the live half of #221 needs credentials and stays manual, so this is the half that can be a gate'),
+    'supabase-schema-integrity': Control(kind='sabotage', proves='scripts/check-supabase-schema-integrity.py', argv=('{python}', 'scripts/check-supabase-schema-integrity.py'), path='infra/supabase/migrations/2026-10-07-sync_schema.sql', edit=Edit(kind='append', new='\ncreate or replace function public.sync_control_probe(p_type text)\nreturns text as $$ select p_type $$ language sql;\n'), why='a function added without a fingerprint makes the header understate the schema, and the header is the part a reader trusts; the live half of #221 needs credentials and stays manual, so this is the half that can be a gate'),
     'rebase-compiles': Control(kind='sabotage', proves='scripts/check-rebase-compiles.py', argv=('{python}', 'scripts/check-rebase-compiles.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt', edit=Edit(kind='replace', old='    single<DeviceIdProvider> { get<DataStoreSessionStore>() }', new='    // single<DeviceIdProvider> { get<DataStoreSessionStore>() }', count=-1), why="an import removed from a DI module silently breaks every consumer; the compile gate detects the resulting 'unresolved reference' before jvmTest does"),
     'slow-tests-ran': Control(kind='fixture', proves='scripts/check-slow-tests-ran.py', argv=('{python}', 'scripts/check-slow-tests-ran.py', '--root', '{tmp}'), fixture='setup_slow_tests_ran', why="a test the local loop never runs is a test whose breakage nobody local ever sees: McpServerEndToEndTest was tagged slow, sat broken on main since the read surface changed the shape of its answer, and was found by CI rather than by anyone holding the tree", needs_clean_run=False, tracked_by='.github/workflows/ci.yml#Slow tests ran'),
     'edge-function-tests': Control(
         kind='fixture',
-        proves='supabase/functions/google-oauth-exchange/index_test.ts',
+        proves='infra/supabase/functions/google-oauth-exchange/index_test.ts',
         argv=('deno', 'test', '{tmp}/function'),
         fixture='setup_edge_function_tests',
         why=(
@@ -1960,7 +1960,7 @@ GATE_CONTROLS: dict[str, Control] = {
             kind='sabotage',
             proves='scripts/ci/check-migration-naming.py',
             argv=('{python}', 'scripts/ci/check-migration-naming.py',),
-            path='shared/src/commonMain/kotlin/com/singularity/todo/core/database/Migration31To32.kt',
+            path='core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Migration31To32.kt',
             edit=Edit(
                 kind='replace',
                 old='`index_notes_user_id`',
@@ -2043,6 +2043,27 @@ GATE_CONTROLS: dict[str, Control] = {
 # Each names what does the proving instead: "no control" is only acceptable when
 # something else is, and the reader has to be told what.
 GATE_EXEMPTIONS: dict[str, Control] = {
+    'scripts/check-quality-thresholds.py': Control(
+        kind='exempt',
+        proves='scripts/check-quality-thresholds.py',
+        tracked_by='scripts/check-quality-thresholds.py',
+        reason=(
+            'its subject is two committed documents: the quality page and the thresholds '
+            'the build enforces. The gate is the comparison, so a tree mutation can only '
+            'make the comparison say what it already says — the two documents disagreeing '
+            'is the failing state, and the gate reaches it without help.'
+        ),
+    ),
+    'scripts/documentation/check.py': Control(
+        kind='exempt',
+        proves='scripts/documentation/check.py',
+        tracked_by='.agents/skills/documentation-verify-concept/SKILL.md',
+        reason=(
+            'a dispatcher over the knowledge status command, not a rule about the tree: '
+            'its failing state is a stale concept, which the documentation skills create '
+            'and `stamp` repairs. Sabotaging a repository file proves nothing about it.'
+        ),
+    ),
     'scripts/check-gate-tooling-origin.py': Control(
         kind='exempt',
         proves='scripts/check-gate-tooling-origin.py',

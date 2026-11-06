@@ -27,8 +27,8 @@ its helper tools — and the gates are described here, once.
 | waiver references resolve | blocking | `scripts/check-waiver-references.py` | check-waiver-references.py — a waiver whose premise is prose is a waiver that... | — | — |
 | test-task external inputs declared | blocking | `scripts/check-test-task-inputs.py` | check-test-task-inputs.py — a test task that reads a tree must declare it as ... | — | — |
 | declared dependencies are used | blocking | `scripts/check-dependency-usage.py` | Dependency-usage gate: a declared dependency that nothing imports (#205). | — | — |
-| room schema integrity | blocking | `scripts/check-room-schema-integrity.py` | check-room-schema-integrity.py — prove the declared schema, the exported |  |  |
-| sche... | — | — |  |  |  |
+| room schema integrity | blocking | `scripts/check-room-schema-integrity.py` | check-room-schema-integrity.py — prove the declared schema, the exported
+sche... | — | — |
 | tag entity constructions include nameNormalized | blocking | `scripts/ci/check-tag-entity-normalized.py` | Fail if a TagEntity(...) construction omits nameNormalized. | — | — |
 | migration index names follow convention | blocking | `scripts/ci/check-migration-naming.py` | Cheap migration-naming checks: partial indexes must be named index_<table>_<c... | — | — |
 | gates are alive | blocking | `scripts/check-gate-liveness.py` | check-gate-liveness.py — a gate is green because it passed, or because it died? | — | — |
@@ -76,6 +76,7 @@ its helper tools — and the gates are described here, once.
 | the text-field transformation table is true | blocking | `scripts/check-text-field-transformations-table.py` | check-text-field-transformations-table.py — the skill's transformation table ... | — | — |
 | the platform reference ports are true | blocking | `scripts/check-platform-reference-ports.py` | check-platform-reference-ports.py — the platform reference against the code. | — | — |
 | doc dead refs | blocking | `scripts/check-doc-dead-refs.py` | check-doc-dead-refs.py — find references to files that no longer exist. | — | — |
+| documentation concepts are valid | advisory | `scripts/documentation/check.py` | check.py — documentation knowledge concept status checker (Phase 1a spike). | — | — |
 | doc links | blocking | `scripts/check-doc-links.sh` | doc links | — | — |
 | navigation doc matches the code | blocking | `scripts/check-navigation-doc-sync.py` | check-navigation-doc-sync.py — the navigation doc must say what the code does. | — | — |
 | DI fixture matches the definitions | blocking | `scripts/check-di-fixture-sync.py` | check-di-fixture-sync.py — the DI fixture table must match the Koin definitions. | — | — |

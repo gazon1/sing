@@ -72,7 +72,7 @@ jvmTest.dependencies {
 ## Schema lives in commonMain
 
 ```kotlin
-// shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt
+// core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt
 @Database(
     entities = [TaskEntity::class, TaskTagCrossRef::class, NoteEntity::class,
                 ProjectEntity::class, TagEntity::class, SyncOutboxEntity::class,
@@ -89,7 +89,7 @@ abstract class AppDatabase : RoomDatabase() {
 ```
 
 ```kotlin
-// shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabaseCtor.kt
+// core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabaseCtor.kt
 expect object AppDatabaseCtor : RoomDatabaseConstructor<AppDatabase>
 ```
 

@@ -967,6 +967,16 @@ longer has is a debt that was paid and whose record did not move with it.""",
     # Each of these runs somewhere else, and the place is named. A gate that
     # runs on no one reports success forever, so the reason is not decoration:
     # it says which surface runs it.
+    "documentation concepts are valid": Placement(
+        kind=PlacementKind.ELSEWHERE,
+        reason=(
+            "it reads one knowledge concept and its verified state, which needs the "
+            "concept's name — there is no static line that can supply it. The "
+            "documentation skills run `python3 scripts/documentation/check.py status "
+            "<name>` when a concept is edited; the gate is the same command."
+        ),
+        tracked_by=".agents/skills/documentation-verify-concept/SKILL.md",
+    ),
     "flaky tests are acknowledged": Placement(
         kind=PlacementKind.ELSEWHERE,
         reason=(
@@ -1002,7 +1012,7 @@ longer has is a debt that was paid and whose record did not move with it.""",
     ),
     "the edge functions' own tests": Placement(
         kind=PlacementKind.STATIC,
-        command="deno test supabase/functions/google-oauth-exchange/",
+        command="deno test infra/supabase/functions/google-oauth-exchange/",
         note="""The server half of the Google OAuth exchange, under test.
 
 The function holds a client secret, redeems a one-time code and stores a

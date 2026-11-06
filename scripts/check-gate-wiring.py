@@ -670,7 +670,7 @@ SABOTAGE_ONLY_GATES = [
     ScriptGate(
         name="sync-allowlist-reader",
         cmd=[sys.executable, "scripts/check-sync-allowlist-regenerated.py"],
-        sabotage_path="supabase/migrations/2026-10-07-sync_schema.sql",
+        sabotage_path="infra/supabase/migrations/2026-10-07-sync_schema.sql",
         sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
         why=(
             "a row the server's table holds that no model declares is a field the "

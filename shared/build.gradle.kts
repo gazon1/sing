@@ -731,6 +731,14 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
             .dir("src/jvmTest/kotlin")
             .asFile.absolutePath,
     )
+    // commonTest compiles into jvmTest, so a source-reading gate that walks only
+    // jvmTest/Kotlin reports green over a copy written in commonTest.
+    systemProperty(
+        "commonTestSources.root",
+        layout.projectDirectory
+            .dir("src/commonTest/kotlin")
+            .asFile.absolutePath,
+    )
     systemProperty(
         "jvmTestResources.root",
         layout.projectDirectory
@@ -1325,7 +1333,7 @@ tasks.register<DefaultTask>("generateSyncFieldAllowlistSql") {
     description = "Generates the sync_field_allowlist seed SQL from the derived field lists"
     group = "sync"
     inputs.file(rootProject.file("config/docs/sync-field-allowlist.json"))
-    outputs.file(rootProject.file("supabase/sync_field_allowlist_seed.sql"))
+    outputs.file(rootProject.file("infra/supabase/sync_field_allowlist_seed.sql"))
     dependsOn("exportSyncFieldAllowlist")
     doLast {
         providers.exec {

@@ -315,7 +315,7 @@ task://{taskId}   → displayed as [[Task Title]] in editor
 
 **Storage:** Links are stored as `<a href="note://...">` in `RichTextState` HTML. The richeditor library serializes `RichSpanStyle.Link` automatically.
 
-**Extraction:** `extractOutgoingLinks(html)` (in `feature/notes/domain/logic/`) parses the HTML with a regex to find all `note://` and `task://` hrefs, deduplicates, and returns `List<InternalLinkTarget>`. Persisted to `NoteEntity.outgoing_links` column on every save. The scheme and the identifier rule are not this file's — they are `shared/src/commonMain/kotlin/com/singularity/todo/core/links/InternalLinks.kt`'s, and this file only knows the *shape of the editor's output*. There used to be a second copy of this extractor, in the notes package, that returned a second type; both are gone.
+**Extraction:** `extractOutgoingLinks(html)` (in `feature/notes/domain/logic/`) parses the HTML with a regex to find all `note://` and `task://` hrefs, deduplicates, and returns `List<InternalLinkTarget>`. Persisted to `NoteEntity.outgoing_links` column on every save. The scheme and the identifier rule are not this file's — they are `core-domain/src/commonMain/kotlin/com/singularity/todo/core/links/InternalLinks.kt`'s, and this file only knows the *shape of the editor's output*. There used to be a second copy of this extractor, in the notes package, that returned a second type; both are gone.
 
 **Reading a link:** `InternalLinks.parse(url)` reads one, and `InternalLinks.findIn(text)` finds the links in a piece of text. A scheme that is not ours is not ours: `xnote://id` opens nothing.
 

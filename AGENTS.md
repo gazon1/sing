@@ -48,7 +48,7 @@ tree, ui), `feature/` (agenda, ai, archive, attachments, auth, backup, calendar,
 notes, pomodoro, profile, projects, reminders, search, settings, statistics, tags, tasks),
 `test/fakes/` (Fake-реализации, без моков). **iOS нет** — только Android + JVM.
 
-Экспорты схемы Room — каталог `shared/schemas/com.singularity.todo.core.database.AppDatabase/` (файл на версию).
+Экспорты схемы Room — каталог `core-database/schemas/com.singularity.todo.core.database.AppDatabase/` (файл на версию).
 
 ## Навигация по частым точкам
 
@@ -120,7 +120,7 @@ KOIN-W003 (graph unverifiable). Используй list composition:
 вердикт ревью. Иди туда перед запуском гейтов.
 
 **Живой стек — `docs/architecture/local-stack.md`:** рецепт подъёма Supabase
-локально, применения миграций этого репозитория (`supabase/migrations/`) и
+локально, применения миграций этого репозитория (`infra/supabase/migrations/`) и
 проверки их результата. Нужен там, где правка живёт на сервере: политики RLS
 бакета `backups` и таблица `google_calendar_grants`.
 
