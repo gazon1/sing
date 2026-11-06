@@ -2,7 +2,13 @@ package com.singularity.todo.feature.tasks.domain.logic
 
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
+import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
+import com.singularity.todo.feature.agenda.domain.model.heldBuckets
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -16,21 +22,23 @@ import kotlin.test.assertTrue
  * ## Why this file exists
  *
  * The bug the registry was written for was never the word "Inbox". It was that
- * `TaskFilter`, `TaskSelection` and the agenda's presets answer the same questions
- * under different names, and nothing checked that they stayed in step — so one word
- * could come to mean two things and the two halves of the app would quietly disagree.
+ * `TaskFilter`, `TaskSelection`, the agenda's presets and the titles the user reads
+ * answer the same questions under different names, and nothing checked that they stayed
+ * in step — so one word could come to mean two things and the two halves of the app
+ * would quietly disagree.
  *
- * So the check has two halves. The first is completeness: every name the code offers
+ * So the check has three halves. The first is completeness: every name the code offers
  * has to be in the registry, and the registry may not name anything the code does not
  * offer — otherwise a new filter could arrive with a name nobody said what it meant.
  * The second is the rule itself: a name that appears in two vocabularies has to answer
  * the same question in both of them, unless one of them is declared as the different
- * one, with a reason.
+ * one, with a reason. The third is the answers themselves: the date buckets a name
+ * holds are read out of the code, and the registry has to hold to them.
  *
  * The vocabularies are read from the code rather than from a list, so the check cannot
  * be satisfied by editing the check: the filter shapes come from the sealed
  * interface's own nested classes, the selections from the enum, the agenda's presets
- * from the object's own members.
+ * and its section headers from the presets' own selectors.
  */
 @Tag("fast")
 class TaskVocabularyTest {
@@ -67,6 +75,59 @@ class TaskVocabularyTest {
             presets,
             registered.keys,
             "every agenda preset has a name in the registry, and no other preset does",
+        )
+    }
+
+    @Test
+    fun `every date-based preset holds the buckets the registry declares`() {
+        assertEquals(
+            datePresetNames,
+            TaskVocabulary.presetBuckets.keys,
+            "the registry declares buckets for presets that are not about dates, or misses one",
+        )
+
+        TaskVocabulary.presetBuckets.forEach { (name, buckets) ->
+            val definition = datePresets.getValue(name)
+
+            assertEquals(
+                buckets,
+                definition.heldBuckets(),
+                "the '$name' preset holds different buckets than the registry says it holds",
+            )
+        }
+    }
+
+    @Test
+    fun `a section that holds a bucket is titled with that bucket's name`() {
+        presetDefinitions().forEach { (name, definition) ->
+            definition.sections.forEach { section ->
+                val held = section.selector.heldBuckets()
+                if (held.size == 1) {
+                    val bucket = held.single()
+
+                    assertEquals(
+                        TaskVocabulary.bucketTitles[bucket],
+                        section.name,
+                        "the '$name' preset's section '${section.name}' holds the $bucket bucket, " +
+                            "so that is what it has to be called",
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `every name the user reads is a section's title, and every section's title is registered`() {
+        val titles =
+            presetDefinitions()
+                .values
+                .flatMap { definition -> definition.sections.map { it.name } }
+                .toSet()
+
+        assertEquals(
+            titles,
+            registered(TaskVocabulary.Source.SECTION).keys,
+            "the names the user reads and the names the registry holds for them have to be the same set",
         )
     }
 
@@ -122,6 +183,55 @@ class TaskVocabularyTest {
             "a vocabulary cannot hold the same name twice",
         )
         return entries.associate { it.name to it.question }
+    }
+
+    /** The date buckets a definition holds, read out of its own sections. */
+    private fun AgendaDefinition.heldBuckets(): Set<RelativeBucket> =
+        sections.flatMapTo(mutableSetOf()) { it.selector.heldBuckets() }
+
+    /** The presets that are about dates, by the name the registry knows them. */
+    private val datePresets: Map<String, AgendaDefinition> =
+        mapOf(
+            "All" to AgendaPresets.All,
+            "Inbox" to AgendaPresets.Inbox,
+            "Today" to AgendaPresets.Today,
+            "Upcoming" to AgendaPresets.Upcoming,
+        )
+
+    private val datePresetNames: Set<String> = datePresets.keys
+
+    /**
+     * Every preset, by the name the registry knows it, with the arguments it needs.
+     *
+     * The presets that take an argument are built here with a throwaway argument: the
+     * sections they hold are the same whatever the argument is, and the section titles
+     * are what the registry has to answer for.
+     */
+    private fun presetDefinitions(): Map<String, AgendaDefinition> {
+        val workDay = AgendaPresets.workDayPreset(540, 1020, 720, 780)
+
+        return mapOf(
+            "All" to AgendaPresets.All,
+            "Inbox" to AgendaPresets.Inbox,
+            "Today" to AgendaPresets.Today,
+            "Upcoming" to AgendaPresets.Upcoming,
+            "byProject" to AgendaPresets.byProject(ProjectId("project")),
+            "byTag" to AgendaPresets.byTag(TagId("tag")),
+            "byTags" to AgendaPresets.byTags(setOf(TagId("tag"))),
+            "byDateRange" to AgendaPresets.byDateRange(LocalDate(2026, 1, 1), LocalDate(2026, 1, 31)),
+            "byBlocked" to AgendaPresets.byBlocked(),
+            "byInProgress" to AgendaPresets.byInProgress(),
+            "byFollowUp" to AgendaPresets.byFollowUp(),
+            "byStagnant" to AgendaPresets.byStagnant(),
+            "byOverdue" to AgendaPresets.byOverdue(),
+            "forToday" to
+                AgendaPresets.forToday(
+                    DayOfWeek.MONDAY,
+                    setOf(DayOfWeek.MONDAY),
+                    workDay,
+                ),
+            "workDayPreset" to workDay,
+        )
     }
 
     /**
