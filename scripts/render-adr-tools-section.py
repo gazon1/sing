@@ -352,7 +352,7 @@ def mcp_adr_tools() -> list[tuple[str, str]]:
 def render() -> str:
     """The block that goes between the markers. Deterministic, or it cannot be gated."""
     lines: list[str] = [BEGIN, '']
-    lines += ['#### `singularity-adr` — the ADR command line', '']
+    lines += ['### `singularity-adr` — the ADR command line', '']
     lines.append('Run it from the repository root. Every command takes `--json` for')
     lines.append('machine-readable output; exit code `2` means the command line was wrong,')
     lines.append('`1` means the operation failed.')
