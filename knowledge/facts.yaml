@@ -68,3 +68,15 @@ facts:
   - id: K-ai-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/ai.md
+  - id: K-alarms-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/alarms.md
+  - id: K-plans-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/plans.md
+  - id: K-proposals-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/proposals.md
+  - id: K-timetracking-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/timetracking.md
