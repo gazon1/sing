@@ -18,6 +18,23 @@ for a reason that has nothing to do with the tier.
 The floor of the instrumented tier is checked by its own step, where the
 report is: see `scripts/check-instrumented-test-floor.py`.
 
+The state this lane leaves for the steps after it
+------------------------------------------------
+Two artifacts outlive a run: the report directory and the file with the
+serial. Both are cleared *before* the run, not after it, because a step that
+follows reads them to answer "what did this run deliver?" — and the report of
+an earlier run answers for a run that never happened:
+
+- the report of a skipped run would be priced by the floor step, and the
+  ratchet is two-sided, so a stale report fails for a coverage drop that did
+  not happen;
+- the serial of an earlier run would pin the Maestro flows to a device that
+  is no longer attached.
+
+So the rule is one rule: the lane's state describes *this* lane. A run that
+does not happen leaves no report and no serial, and the steps after it see
+that there is nothing to price and no device to pin.
+
 Usage
 -----
     python3 scripts/android-instrumentation.py [:androidApp:connectedDebugAndroidTest]
@@ -75,6 +92,22 @@ def pick_serial(devices_output: str) -> str | None:
     return None
 
 
+def clear_lane_state() -> None:
+    """The report and the serial of an earlier run are not this run's state.
+
+    Both are cleared *before* the run, not after it: the steps that follow read
+    them to answer "what did this run deliver?", and the state of an earlier
+    run answers for a run that never happened. So a run that does not happen —
+    no device attached, or `SKIP_ADB=1` — leaves no report for the floor step
+    to price and no serial for the flows to pin.
+    """
+    shutil.rmtree(REPORT_DIR, ignore_errors=True)
+    try:
+        SERIAL_FILE.unlink()
+    except OSError:
+        pass
+
+
 def adb_devices() -> str:
     """What `adb devices` says, or an empty string when adb is not there."""
     try:
@@ -106,6 +139,10 @@ def run_gradle(task: str, serial: str) -> int:
 
 
 def main(argv: list[str]) -> int:
+    # The state of this lane describes this lane: whatever an earlier run left
+    # behind goes first, so nothing that follows can answer for it.
+    clear_lane_state()
+
     if os.environ.get("SKIP_ADB") == "1":
         print("SKIP_ADB=1 — the instrumented run is skipped.")
         return 0
@@ -123,10 +160,6 @@ def main(argv: list[str]) -> int:
         return 0
 
     print(f"Running on device: {serial}")
-    # The old report goes first: the floor step reads the report directory to
-    # decide whether there is a run to price, and a report left by an earlier
-    # run would answer for a run that never happened.
-    shutil.rmtree(REPORT_DIR, ignore_errors=True)
     code = run_gradle(task, serial)
 
     SERIAL_FILE.parent.mkdir(parents=True, exist_ok=True)

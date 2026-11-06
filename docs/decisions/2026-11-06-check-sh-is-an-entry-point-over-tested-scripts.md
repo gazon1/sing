@@ -54,6 +54,17 @@ hk's `Step.condition` cannot see environment variables, and a hook step that
 fails because nobody has a device attached is a broken hook, not an honest
 report.
 
+The device lane leaves one rule about its own state: the state describes
+*this* lane. The instrumentation step clears the report directory and the
+recorded serial before it runs, not after it, so a run that does not happen —
+no device attached, or `SKIP_ADB=1` — leaves neither behind: the floor step
+after it has no stale report to price, and the flows have no stale serial to
+pin. The pin itself is checked before it is used: a serial that no longer
+names an attached device is dropped, and the Maestro runner picks a device as
+it did before the lane was split. `SERIAL` in the environment overrides the
+file and is used as it is — that is the escape hatch for a device the script
+cannot see.
+
 The cost record has one format. hk writes `HK_TIMING_JSON`; `sgate gate-costs`
 reads that JSON directly. The converter is deleted.
 
@@ -87,6 +98,16 @@ format is a second thing to keep in step. hyperfine was considered and
 rejected: it times commands, not the steps inside an hk hook, so the per-step
 breakdown of the loop's cost — the thing the report exists for — would be lost.
 
+**A lane's state is evidence of that lane.** The floor check is a two-sided
+ratchet: a report with fewer classes than the floor fails it, and so does one
+with more. A report left by an earlier run therefore does not merely go
+unnoticed — it is priced as a coverage drop that never happened, and a green
+device lane reports a red tier. The same is true of the recorded serial: a
+pin on a device that is gone sends the flows to a device that cannot answer.
+Clearing the state before the run, and checking the pin before it is used,
+costs one `adb devices` call and keeps a skipped lane from answering for a
+run that never was.
+
 ## Consequences
 
 - `./check.sh`, `./check.sh --fast` and `./check.sh --affected` behave as
@@ -94,6 +115,11 @@ breakdown of the loop's cost — the thing the report exists for — would be lo
 - The device tier is run with `hk run device` (or `just tests::check-device`).
   `SKIP_ADB=1` runs the instrumentation step without touching a device, which
   is how the wiring is exercised on a machine that has none.
+- A device run that does not happen leaves no report and no recorded serial,
+  so the floor step reports "no instrumented report" instead of pricing an
+  earlier run, and the flows are given no pin. When the recorded device is
+  gone, the flows let the Maestro runner choose one — as they did before the
+  lane was split — unless `SERIAL` says otherwise.
 - The cost report reads hk's own record. The published baseline and
   `docs/testing/gate-costs.md` are unchanged, because the step names did not
   change.

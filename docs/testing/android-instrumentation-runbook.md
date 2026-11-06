@@ -93,6 +93,15 @@ The switches inside the steps are the caller's:
 - `MAESTRO_TAGS` (default `smoke`) and `SKIP_INSTALL=1` — which flows, and
   whether the debug build is installed first.
 
+A run that does not happen leaves nothing behind. The instrumentation step
+clears the report and the recorded device *before* it starts, so the floor
+step after it has no report of an earlier run to price — the floor is a
+two-sided ratchet, and a stale report fails it for a coverage drop that never
+happened. The flows are pinned to the recorded device only while that device
+is attached; when it is gone, the Maestro runner picks one, as it did before
+the lane was split. `SERIAL` in the environment overrides both and is used as
+it is.
+
 ## Reading a failure
 
 A red device run leaves three artifacts, and they are uploaded unconditionally —
