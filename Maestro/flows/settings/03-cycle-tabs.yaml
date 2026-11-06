@@ -79,9 +79,21 @@ tags:
     id: settings_tab_files
 - tapOn:
     id: settings_tab_dropdown
+# The dropdown holds more tabs than fit on a phone screen: the last two are
+# below its fold, and a bare tapOn cannot reach what is not drawn.
+- scrollUntilVisible:
+    element:
+      id: settings_tab_backup
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: settings_tab_backup
 - tapOn:
     id: settings_tab_dropdown
+- scrollUntilVisible:
+    element:
+      id: settings_tab_account
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: settings_tab_account

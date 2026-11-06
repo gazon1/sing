@@ -581,7 +581,10 @@ private fun SettingsTabDropdown(
             onClick = { expanded = !expanded },
             modifier =
                 Modifier
-                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                    // The anchor's own expansion is off: `menuAnchor` toggles in
+                    // the Initial pointer pass, and a second toggle here closed the
+                    // menu the anchor had just opened.
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = false)
                     .fillMaxWidth()
                     .testTag(TestTags.Settings.TAB_DROPDOWN),
         ) {

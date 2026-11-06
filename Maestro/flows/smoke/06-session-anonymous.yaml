@@ -46,9 +46,10 @@ tags:
     timeout: 10000
 - tapOn:
     id: settings_tab_dropdown
-- extendedWaitUntil:
-    visible:
+- scrollUntilVisible:
+    element:
       id: settings_tab_account
+    direction: DOWN
     timeout: 10000
 - tapOn:
     id: settings_tab_account
