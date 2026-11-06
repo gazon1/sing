@@ -14,6 +14,10 @@ betterleaks = "1.9.0"
 osv-scanner = "2.0.0"
 hk = "1.23.0"
 rumdl = "0.3.2"
-"github:mokevnin/easement" = "latest"
+# The fork, not the upstream release: the fix for a duplicated declaration
+# across components (gazon1/easement#114) is not in an upstream release yet.
+# The cargo backend installs from the fork's branch; upstream's `github:`
+# backend cannot be used because the fork publishes no GitHub releases.
+"cargo:https://github.com/gazon1/easement" = "branch:fix/duplicate-declaration-across-components"
 "github:mokevnin/heavy" = "latest"
 "npm:@sourcegraph/scip-python" = "latest"
