@@ -1,6 +1,5 @@
 package com.singularity.todo.core.observability
 
-import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import java.io.File
@@ -29,7 +28,9 @@ import java.nio.file.attribute.PosixFilePermissions
  */
 class JvmFileToolCallLog(
     private val directory: String,
-    private val processToken: String = ProcessHandle.current().pid().toString(),
+    private val processToken: String = ProcessHandle.current()
+        .pid()
+        .toString(),
     private val nowEpochMillis: () -> Long = { System.currentTimeMillis() },
 ) : ToolCallLog {
     private val dir = File(directory)
@@ -52,19 +53,17 @@ class JvmFileToolCallLog(
      */
     fun purgeExpired(retentionDays: Int = ToolCallRecordPolicy.RETENTION_DAYS) {
         val cutoff = nowEpochMillis() - retentionDays * 24L * 60L * 60L * 1000L
-        dir.listFiles()?.forEach { file ->
-            if (!file.isFile || !file.name.endsWith(SUFFIX)) return@forEach
-            if (file.lastModified() >= cutoff) return@forEach
-            runCatching { file.delete() }
-        }
+        dir.listFiles()
+            ?.forEach { file ->
+                if (!file.isFile || !file.name.endsWith(SUFFIX)) return@forEach
+                if (file.lastModified() >= cutoff) return@forEach
+                runCatching { file.delete() }
+            }
     }
 
     private fun fileFor(epochMillis: Long): File {
-        val day =
-            Instant
-                .fromEpochMilliseconds(epochMillis)
-                .toLocalDateTime(TimeZone.currentSystemDefault())
-                .date
+        val day = kotlin.time.Instant.fromEpochMilliseconds(epochMillis)
+            .toLocalDateTime(TimeZone.currentSystemDefault()).date
         return File(dir, "$day-$processToken$SUFFIX")
     }
 

@@ -53,7 +53,6 @@ import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SetImportFromGoogle
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SyncGoogleNow
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SyncNow
-import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import org.koin.compose.viewmodel.koinViewModel
@@ -87,7 +86,8 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
     // uses, for the same reason — the thing that has to run is a platform thing.
     val authorizationRequest = state.googleAuthorizationRequest
     LaunchedEffect(authorizationRequest, googleConsent) {
-        val request = authorizationRequest ?: return@LaunchedEffect
+        val request = authorizationRequest
+            ?: return@LaunchedEffect
         googleConsent.authorize(
             clientId = request.clientId,
             scopes = request.scopes,
@@ -102,21 +102,21 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
                 )
             },
         ) { result ->
-            result
-                .onSuccess { grant -> viewModel.onIntent(GoogleAuthorizationCompleted(grant)) }
+            result.onSuccess { grant -> viewModel.onIntent(GoogleAuthorizationCompleted(grant)) }
                 .onFailure { error ->
                     viewModel.onIntent(
-                        GoogleAuthorizationFailed(error.message ?: "The Google sign-in did not finish"),
+                        GoogleAuthorizationFailed(
+                            error.message
+                                ?: "The Google sign-in did not finish"
+                        ),
                     )
                 }
         }
     }
 
     Column(
-        modifier =
-            modifier
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+        modifier = modifier.padding(16.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // ─── Provider selector ───────────────────────────────────────────
@@ -198,15 +198,15 @@ private fun providerLabel(provider: CalendarProvider): String =
  * and a reader would be left comparing two formats to work out whether they meant different
  * things.
  */
-private fun formatGoogleSyncTime(at: kotlinx.datetime.Instant): String {
+private fun formatGoogleSyncTime(at: kotlin.time.Instant): String {
     val local = at.toLocalDateTime(TimeZone.currentSystemDefault())
-    val month =
-        local.month.name
-            .lowercase()
-            .replaceFirstChar { it.uppercase() }
-            .take(3)
-    val hour = local.hour.toString().padStart(2, '0')
-    val minute = local.minute.toString().padStart(2, '0')
+    val month = local.month.name.lowercase()
+        .replaceFirstChar { it.uppercase() }
+        .take(3)
+    val hour = local.hour.toString()
+        .padStart(2, '0')
+    val minute = local.minute.toString()
+        .padStart(2, '0')
     return "$month ${local.day}, ${local.year} $hour:$minute"
 }
 
@@ -342,10 +342,8 @@ private fun SystemStatusSections(
         Button(
             onClick = { onIntent(SyncNow) },
             enabled = state.status !is CalendarSyncStatus.Syncing,
-            modifier =
-                Modifier
-                    .testTag(TestTags.CalendarSync.SYSTEM_SYNC_NOW_BUTTON)
-                    .padding(top = 8.dp),
+            modifier = Modifier.testTag(TestTags.CalendarSync.SYSTEM_SYNC_NOW_BUTTON)
+                .padding(top = 8.dp),
         ) {
             Text("Sync Now")
         }
@@ -354,9 +352,7 @@ private fun SystemStatusSections(
     // ─── Info ─────────────────────────────────────────────────────────
     SettingsSection(title = "About") {
         Text(
-            text =
-                "Syncs task title, due date, due time, and recurrence to your system calendar " +
-                    "as all-day or timed events. Deep-links back to this app are embedded in the event description.",
+            text = "Syncs task title, due date, due time, and recurrence to your system calendar " + "as all-day or timed events. Deep-links back to this app are embedded in the event description.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -377,19 +373,19 @@ private fun systemStatusText(status: CalendarSyncStatus): String =
         }
 
         is CalendarSyncStatus.Idle -> {
-            val date =
-                status.lastSyncedAt?.let { ts ->
-                    val instant = Instant.fromEpochMilliseconds(ts)
-                    val local = instant.toLocalDateTime(TimeZone.currentSystemDefault())
-                    val month =
-                        local.month.name
-                            .lowercase()
-                            .replaceFirstChar { it.uppercase() }
-                            .take(3)
-                    val hour = local.hour.toString().padStart(2, '0')
-                    val minute = local.minute.toString().padStart(2, '0')
-                    "$month ${local.day}, ${local.year} $hour:$minute"
-                } ?: "Never"
+            val date = status.lastSyncedAt?.let { ts ->
+                val instant = kotlin.time.Instant.fromEpochMilliseconds(ts)
+                val local = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+                val month = local.month.name.lowercase()
+                    .replaceFirstChar { it.uppercase() }
+                    .take(3)
+                val hour = local.hour.toString()
+                    .padStart(2, '0')
+                val minute = local.minute.toString()
+                    .padStart(2, '0')
+                "$month ${local.day}, ${local.year} $hour:$minute"
+            }
+                ?: "Never"
             "Last synced: $date"
         }
 
@@ -460,17 +456,13 @@ private fun GoogleClientIdSection(
     // text while the user types it — the bridge keeps the two in step. The value
     // is a *draft* until the button says otherwise, so a keystroke never writes
     // to the keystore; only the save does.
-    val clientIdState =
-        rememberBridgedTextFieldState(
-            source = state.googleClientIdSource,
-            onTextChanged = { onIntent(SetGoogleClientId(it)) },
-        )
+    val clientIdState = rememberBridgedTextFieldState(
+        source = state.googleClientIdSource,
+        onTextChanged = { onIntent(SetGoogleClientId(it)) },
+    )
     SettingsSection(title = "Google Cloud client id") {
         Text(
-            "Create a Web application OAuth client in the Google Cloud console and paste its " +
-                "client id here. On desktop, add http://localhost as an authorised redirect URI; " +
-                "on Android the app talks to Google directly and needs no redirect URI. " +
-                "The id is not a secret; the project behind it decides whose calendar the sync writes into.",
+            "Create a Web application OAuth client in the Google Cloud console and paste its " + "client id here. On desktop, add http://localhost as an authorised redirect URI; " + "on Android the app talks to Google directly and needs no redirect URI. " + "The id is not a secret; the project behind it decides whose calendar the sync writes into.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -478,14 +470,13 @@ private fun GoogleClientIdSection(
             state = clientIdState,
             label = { Text("Client id") },
             lineLimits = TextFieldLineLimits.SingleLine,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
+            modifier = Modifier.fillMaxWidth()
+                .padding(top = 8.dp),
         )
         Button(
             onClick = { onIntent(SaveGoogleClientId) },
-            enabled = clientIdState.text.toString().isNotBlank(),
+            enabled = clientIdState.text.toString()
+                .isNotBlank(),
             modifier = Modifier.padding(top = 8.dp),
         ) {
             Text("Save client id")
@@ -512,9 +503,7 @@ private fun GoogleAccountSection(
     SettingsSection(title = "Google Account") {
         if (!state.googleConnected) {
             Text(
-                text =
-                    "Connecting asks Google for permission to read and edit your calendar. " +
-                        "The app uses it only to sync your tasks.",
+                text = "Connecting asks Google for permission to read and edit your calendar. " + "The app uses it only to sync your tasks.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp),
@@ -559,9 +548,7 @@ private fun GoogleAccountSection(
             // cannot, and the button says so before the press rather than after it.
             if (!consentSupported) {
                 Text(
-                    text =
-                        "This device cannot run the Google sign-in, so an account cannot be " +
-                            "connected here.",
+                    text = "This device cannot run the Google sign-in, so an account cannot be " + "connected here.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(bottom = 8.dp),
@@ -588,15 +575,11 @@ private fun GoogleAccountSection(
         // to replace it.
         if (!state.googleCanRenew) {
             Text(
-                text =
-                    "This connection cannot be renewed in the background, so sync will stop " +
-                        "when the current permission expires. Reconnect then to keep syncing.",
+                text = "This connection cannot be renewed in the background, so sync will stop " + "when the current permission expires. Reconnect then to keep syncing.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
-                modifier =
-                    Modifier
-                        .testTag(TestTags.CalendarSync.GOOGLE_RENEW_WARNING)
-                        .padding(bottom = 8.dp),
+                modifier = Modifier.testTag(TestTags.CalendarSync.GOOGLE_RENEW_WARNING)
+                    .padding(bottom = 8.dp),
             )
         }
 
@@ -634,10 +617,8 @@ private fun GoogleCalendarPickerSection(
                     text = "Could not read your Google calendars: ${state.googleError}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
-                    modifier =
-                        Modifier
-                            .testTag(TestTags.CalendarSync.GOOGLE_LIST_ERROR)
-                            .padding(vertical = 8.dp),
+                    modifier = Modifier.testTag(TestTags.CalendarSync.GOOGLE_LIST_ERROR)
+                        .padding(vertical = 8.dp),
                 )
             }
 
@@ -676,9 +657,7 @@ private fun GoogleImportSection(
     SettingsSection(title = "Import From Google") {
         SettingsSwitchRow(
             title = "Import events from Google",
-            subtitle =
-                "Events this app did not create are added as tasks you can edit, and " +
-                    "edits flow back. Turning this off leaves your own tasks still syncing to Google.",
+            subtitle = "Events this app did not create are added as tasks you can edit, and " + "edits flow back. Turning this off leaves your own tasks still syncing to Google.",
             testTag = TestTags.CalendarSync.GOOGLE_IMPORT_SWITCH,
             checked = state.importFromGoogle,
             onCheckedChange = { onIntent(SetImportFromGoogle(it)) },
@@ -689,15 +668,15 @@ private fun GoogleImportSection(
         // was free to drift without anything noticing. The screen would then describe a
         // window the pass does not use.
         Text(
-            text =
-                "Imports events from the past ${formatWindowBound(state.importWindow.past)} " +
-                    "to ${formatWindowBound(state.importWindow.future)}.",
+            text = "Imports events from the past ${formatWindowBound(state.importWindow.past)} " + "to ${
+                formatWindowBound(
+                    state.importWindow.future
+                )
+            }.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier =
-                Modifier
-                    .testTag(TestTags.CalendarSync.GOOGLE_IMPORT_WINDOW)
-                    .padding(top = 4.dp),
+            modifier = Modifier.testTag(TestTags.CalendarSync.GOOGLE_IMPORT_WINDOW)
+                .padding(top = 4.dp),
         )
     }
 }
@@ -740,10 +719,8 @@ private fun GoogleSyncSection(
                     text = "Sync failed: $error",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
-                    modifier =
-                        Modifier
-                            .testTag(TestTags.CalendarSync.GOOGLE_SYNC_OUTCOME)
-                            .padding(top = 4.dp),
+                    modifier = Modifier.testTag(TestTags.CalendarSync.GOOGLE_SYNC_OUTCOME)
+                        .padding(top = 4.dp),
                 )
             } else {
                 state.googleLastSyncedAt?.let { at ->
@@ -751,27 +728,22 @@ private fun GoogleSyncSection(
                         text = "Last synced ${formatGoogleSyncTime(at)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier =
-                            Modifier
-                                .testTag(TestTags.CalendarSync.GOOGLE_SYNC_OUTCOME)
-                                .padding(top = 4.dp),
+                        modifier = Modifier.testTag(TestTags.CalendarSync.GOOGLE_SYNC_OUTCOME)
+                            .padding(top = 4.dp),
                     )
                 }
             }
         } else {
             Text(
-                text =
-                    if (state.googleConnected) {
-                        "Choose a calendar above to start syncing."
-                    } else {
-                        "Connect a Google account and choose a calendar to start syncing."
-                    },
+                text = if (state.googleConnected) {
+                    "Choose a calendar above to start syncing."
+                } else {
+                    "Connect a Google account and choose a calendar to start syncing."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier =
-                    Modifier
-                        .testTag(TestTags.CalendarSync.GOOGLE_SYNC_NEEDS_CALENDAR)
-                        .padding(vertical = 4.dp),
+                modifier = Modifier.testTag(TestTags.CalendarSync.GOOGLE_SYNC_NEEDS_CALENDAR)
+                    .padding(vertical = 4.dp),
             )
         }
     }
@@ -830,9 +802,7 @@ private fun PermissionGate(onRequestPermission: () -> Unit) {
 private fun UnavailableOnThisPlatform() {
     SettingsSection(title = "System Calendar Sync") {
         Text(
-            text =
-                "System calendar sync needs Android. " +
-                    "Your tasks are unaffected — they stay in the app.",
+            text = "System calendar sync needs Android. " + "Your tasks are unaffected — they stay in the app.",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.testTag(TestTags.CalendarSync.SYSTEM_UNAVAILABLE),
         )
@@ -856,27 +826,24 @@ private fun RadioRow(
     testTag: String? = null,
 ) {
     Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable(enabled = enabled, onClick = onClick)
-                // Applied before `clickable` so the tag lands on the node that owns the
-                // click, matching how SettingsRow tags itself: one semantic node for the
-                // whole row rather than a tagged wrapper around an untagged clickable.
-                .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
-                .padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            // Applied before `clickable` so the tag lands on the node that owns the
+            // click, matching how SettingsRow tags itself: one semantic node for the
+            // whole row rather than a tagged wrapper around an untagged clickable.
+            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(selected = selected, onClick = if (enabled) onClick else null, enabled = enabled)
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color =
-                if (enabled) {
-                    MaterialTheme.colorScheme.onSurface
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+            color = if (enabled) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
             modifier = Modifier.padding(start = 8.dp),
         )
     }

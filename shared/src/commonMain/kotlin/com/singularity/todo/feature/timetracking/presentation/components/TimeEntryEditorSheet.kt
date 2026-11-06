@@ -40,6 +40,7 @@ import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Instant
 
 /**
  * Sheet for creating a manual time entry.
@@ -57,23 +58,22 @@ fun TimeEntryEditorSheet(
     // The moment the sheet opens. Required (#91): the end of a new time entry is
     // "now", and reading the system clock here made that value untestable and
     // un-overridable — the host's clock decided what a form prefilled itself with.
-    now: kotlin.time.Instant,
+    now: Instant,
     onSave: (startedAtMs: Long, endedAtMs: Long, kind: TimeEntryKind, note: String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     // Default: start = task creation time, end = now
-    val defaultStart =
-        taskStartedAtMs?.let {
-            kotlinx.datetime.Instant
-                .fromEpochMilliseconds(it)
-                .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
-        }
-    val defaultEnd =
-        now
-            .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
+    val defaultStart = taskStartedAtMs?.let {
+        Instant.fromEpochMilliseconds(it)
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+    }
+    val defaultEnd = now.toLocalDateTime(TimeZone.currentSystemDefault())
 
     var startedDate by mutableStateOf(defaultStart?.date)
-    var startedTime by mutableStateOf(defaultStart?.time ?: LocalTime(9, 0))
+    var startedTime by mutableStateOf(
+        defaultStart?.time
+            ?: LocalTime(9, 0)
+    )
     var endedDate by mutableStateOf(defaultEnd.date)
     var endedTime by mutableStateOf(defaultEnd.time)
     var kind by mutableStateOf(TimeEntryKind.Work)
@@ -122,34 +122,34 @@ fun TimeEntryEditorSheet(
     } else {
         BottomSheetHost(onDismiss = onDismiss) {
             SheetScaffold(
-                actions =
-                    SheetActions(
-                        onCancel = onDismiss,
-                        onConfirm = {
-                            val startDt = combine(startedDate, startedTime)
-                            val endDt = combine(endedDate, endedTime)
-                            if (startDt != null && endDt != null) {
-                                val startedAtMs =
-                                    startDt
-                                        .toInstant(
-                                            kotlinx.datetime.TimeZone.currentSystemDefault(),
-                                        ).toEpochMilliseconds()
-                                val endedAtMs =
-                                    endDt
-                                        .toInstant(
-                                            kotlinx.datetime.TimeZone.currentSystemDefault(),
-                                        ).toEpochMilliseconds()
-                                onSave(startedAtMs, endedAtMs, kind, noteState.text.toString().ifBlank { null })
-                            }
-                        },
-                        onClear = onDismiss,
-                    ),
+                actions = SheetActions(
+                    onCancel = onDismiss,
+                    onConfirm = {
+                        val startDt = combine(startedDate, startedTime)
+                        val endDt = combine(endedDate, endedTime)
+                        if (startDt != null && endDt != null) {
+                            val startedAtMs = startDt.toInstant(
+                                TimeZone.currentSystemDefault(),
+                            )
+                                .toEpochMilliseconds()
+                            val endedAtMs = endDt.toInstant(
+                                TimeZone.currentSystemDefault(),
+                            )
+                                .toEpochMilliseconds()
+                            onSave(
+                                startedAtMs,
+                                endedAtMs,
+                                kind,
+                                noteState.text.toString()
+                                    .ifBlank { null })
+                        }
+                    },
+                    onClear = onDismiss,
+                ),
             ) {
                 Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     // Start row
@@ -236,10 +236,8 @@ private fun DateRow(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier =
-            modifier
-                .clickable(onClick = onClick)
-                .padding(vertical = 8.dp),
+        modifier = modifier.clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
@@ -254,7 +252,8 @@ private fun DateRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = date?.toString() ?: "Select",
+                text = date?.toString()
+                    ?: "Select",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (date != null) FontWeight.Medium else FontWeight.Normal,
             )
@@ -270,10 +269,8 @@ private fun TimeRow(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier =
-            modifier
-                .clickable(onClick = onClick)
-                .padding(vertical = 8.dp),
+        modifier = modifier.clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
@@ -288,7 +285,9 @@ private fun TimeRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = time?.toString()?.take(5) ?: "Select",
+                text = time?.toString()
+                    ?.take(5)
+                    ?: "Select",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (time != null) FontWeight.Medium else FontWeight.Normal,
             )
@@ -304,7 +303,7 @@ private fun TimeEntryEditorSheetPreview() =
     PreviewThemed(darkTheme = false) {
         TimeEntryEditorSheet(
             taskStartedAtMs = 1_757_000_000_000L,
-            now = kotlinx.datetime.Instant.fromEpochMilliseconds(1_757_000_000_000L),
+            now = Instant.fromEpochMilliseconds(1_757_000_000_000L),
             onSave = { _, _, _, _ -> },
             onDismiss = noopClick,
         )
