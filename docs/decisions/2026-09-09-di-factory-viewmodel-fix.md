@@ -10,6 +10,7 @@ status: accepted
 Post-audit of the `factory`-vs-`viewModel` registrations in `TasksDiModule.kt` and `ProjectsDiModule.kt` revealed that 4 ViewModel registrations with runtime parameters were still using `factory { (p) -> VM(...) }` — the pattern that existed before the 2026-09-06 koin-vm-scoping decision.
 
 The affected registrations:
+
 - `TasksDiModule.kt:97` — `TaskEditorViewModel { (initialDueDate) → ... }`
 - `TasksDiModule.kt:123` — `TasksByProjectViewModel { (projectId) → ... }`
 - `ProjectsDiModule.kt:38` — `ProjectEditorViewModel { (projectId) → ... }`

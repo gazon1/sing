@@ -163,12 +163,14 @@ underneath it.
 its top, on both platforms.
 
 #### Scenario: The requested route is the top of the stack
+
 - **Given** the app opens the tasks graph
 - **When** the graph entry is created
 - **Then** the stack is seeded with the route the outer graph asked for
 - **And** `NavDisplay` renders that screen
 
 #### Scenario: A detail route needs no extra push
+
 - **Given** the app is on the Agenda tab
 - **And** a task with title "Buy milk" exists with due date today
 - **When** the user taps "Buy milk" in the Agenda list
@@ -177,6 +179,7 @@ its top, on both platforms.
 - **And** the editor shows "Buy milk" as title and "2026-10-03" as due date
 
 #### Scenario: The Create route needs no extra push
+
 - **Given** the user is on the Agenda tab
 - **When** they tap the floating action button
 - **Then** the tasks graph entry is seeded with the new-task route
@@ -197,17 +200,20 @@ they never opened.
 platforms.
 
 #### Scenario: Back from a task detail leaves the graph
+
 - **Given** the user is on the Agenda tab viewing the Today section
 - **When** they tap a task row
 - **Then** the tasks graph renders the task detail screen
 - **And** pressing back leaves the graph and returns to the agenda
 
 #### Scenario: The graph carries no screen underneath
+
 - **Given** the user opened a task's detail screen
 - **When** the stack the entry produced is inspected
 - **Then** it holds the detail route and nothing else
 
 #### Scenario: Opening a task from the calendar behaves the same
+
 - **Given** the user is on the Calendar tab
 - **When** they tap a task shown on a day
 - **Then** the tasks graph renders the task detail screen
@@ -229,11 +235,13 @@ is the clearest case: it is filled in on one platform and absent on the other.
 tab's date, on both platforms.
 
 #### Scenario: The Today tab's date reaches the new-task screen
+
 - **Given** the user is on the Today tab
 - **When** they tap the floating action button
 - **Then** the new-task screen opens with today's date filled in
 
 #### Scenario: The Inbox tab's empty date reaches the new-task screen
+
 - **Given** the user is on the Inbox tab
 - **When** they tap the floating action button
 - **Then** the new-task screen opens with no date filled in

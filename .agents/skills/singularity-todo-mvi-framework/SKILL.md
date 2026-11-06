@@ -24,6 +24,7 @@ Minimal local MVI framework providing base classes and utilities for ViewModels.
 ### Old → New pattern
 
 **Before (hand-rolled MVI):**
+
 ```kotlin
 class TagsViewModel(
     private val tagRepo: TagsRepository,
@@ -50,6 +51,7 @@ class TagsViewModel(
 ```
 
 **After (MviViewModel):**
+
 ```kotlin
 class TagsViewModel(
     private val tagRepo: TagsRepository,
@@ -108,10 +110,12 @@ Parameters:
 ```
 
 **Properties:**
+
 - `state: StateFlow<S>` — public read-only state
 - `events: Flow<E>` — one-shot event flow (collect to handle events)
 
 **Methods:**
+
 - `emit(event: E)` — suspend emit a one-shot event
 - `tryEmit(event: E): Boolean` — non-suspend emit (returns false if buffer full)
 - `updateState(transform: (S) → S)` — update state with transform function

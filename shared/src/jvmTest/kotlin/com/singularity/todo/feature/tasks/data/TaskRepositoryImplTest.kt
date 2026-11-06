@@ -67,19 +67,19 @@ class TaskRepositoryImplTest {
             val currentUser = FakeProfileAwareCurrentUser(authRepo, scope = backgroundScope)
             val repo = FakeTaskRepository(explicitCurrentUser = currentUser)
 
-            val taskA = makeTask(title = "Inbox A", userId = userA)
+            val taskA = makeTask(title = "Task A", userId = userA)
             repo.seed(taskA)
             advanceUntilIdle()
 
-            val resultA = repo.observeByFilter(TaskFilter.Inbox).take(1).first()
-            assertEquals(1, resultA.size, "user-a should see their inbox task")
-            assertEquals("Inbox A", resultA.first().title)
+            val resultA = repo.observeByFilter(TaskFilter.NotDeferred).take(1).first()
+            assertEquals(1, resultA.size, "user-a should see their task")
+            assertEquals("Task A", resultA.first().title)
 
             authRepo.setUserId(userB)
             advanceUntilIdle()
 
-            val resultB = repo.observeByFilter(TaskFilter.Inbox).take(1).first()
-            assertTrue(resultB.isEmpty(), "user-b should see no inbox tasks")
+            val resultB = repo.observeByFilter(TaskFilter.NotDeferred).take(1).first()
+            assertTrue(resultB.isEmpty(), "user-b should see no tasks")
         }
 
     @Test

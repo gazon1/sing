@@ -2,12 +2,10 @@
 
 package com.singularity.todo.core.database
 
-import com.singularity.todo.core.database.contract.createSqlDriver
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -32,25 +30,25 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class DesktopRestartSmokeTest {
-    private lateinit var tempDir: File
+    private lateinit var fixture: DatabaseTestFixture
     private lateinit var dbPath: String
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("singularity-restart-").toFile()
-        dbPath = File(tempDir, "singularity.db").absolutePath
+        fixture = DatabaseTestFixture.onDisk()
+        dbPath = fixture.path()
     }
 
     @AfterTest
     fun tearDown() {
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     @Test
     fun `notes created in one session survive a process restart`() =
         runTest {
             // ─── Session A: start, write, stop ───────────────────────────────
-            val sessionA = AppDatabaseFactory.build(createSqlDriver(), dbPath)
+            val sessionA = fixture.reopen()
             try {
                 val now = System.currentTimeMillis()
                 sessionA.noteDao().upsert(
@@ -111,7 +109,7 @@ class DesktopRestartSmokeTest {
             }
 
             // ─── Session B: cold start, fresh in-memory state, same file ──────
-            val sessionB = AppDatabaseFactory.build(createSqlDriver(), dbPath)
+            val sessionB = fixture.reopen()
             try {
                 // Both notes survive: the leaf ("Buy milk") and the folder ("Archive").
                 // `watchAll` only filters out soft-deleted rows — folders are not deleted.
@@ -141,13 +139,13 @@ class DesktopRestartSmokeTest {
             // (AppDatabase_Impl compares CREATE scripts via RoomOpenDelegate).
             // The first build creates the DB; the second build must validate it
             // without re-running DDL.
-            val a = AppDatabaseFactory.build(createSqlDriver(), dbPath)
+            val a = fixture.reopen()
             try {
                 // session A
             } finally {
                 a.close()
             }
-            val b = AppDatabaseFactory.build(createSqlDriver(), dbPath)
+            val b = fixture.reopen()
             try {
                 // session B
             } finally {

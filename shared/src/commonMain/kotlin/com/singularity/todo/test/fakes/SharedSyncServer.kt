@@ -4,6 +4,8 @@ package com.singularity.todo.test.fakes
 
 import com.singularity.todo.core.sync.BatchPushRequest
 import com.singularity.todo.core.sync.BatchPushResponse
+import com.singularity.todo.core.sync.DeltaPatch
+import com.singularity.todo.core.sync.FieldOp
 import com.singularity.todo.core.sync.PatchResult
 import com.singularity.todo.core.sync.SyncApiClient
 import com.singularity.todo.core.sync.SyncEvent
@@ -11,10 +13,8 @@ import com.singularity.todo.core.sync.SyncEventType
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
 import kotlin.time.Clock
 
 /**
@@ -23,11 +23,19 @@ import kotlin.time.Clock
  * Each instance wraps the same [SharedSyncServer] but is authenticated as a
  * different account, so pushes from one become pull events for the others.
  *
- * Limitation (shortcut): this is a dumb event log. It does not merge fields,
- * enforce versions, or carry entity documents in pull events — only the
- * protocol envelope. It is enough to prove a push on A reaches B's pull cursor;
- * it is not a replacement for Supabase. Upgrade when a carrier test needs
- * real cross-device merge.
+ * ## What it does and does not do
+ *
+ * It keeps the document every entity has, the way the server keeps the row, and
+ * every pull event carries that document. The client applies a pull event by
+ * decoding its payload as the entity — so an event that carried only the
+ * protocol envelope was a pull that could not be applied, and a carrier that
+ * needs a real cross-device merge could not exist.
+ *
+ * What it still does not do: merge fields, enforce versions, or resolve a
+ * conflict the way the server's per-field last-writer-wins does. It applies a
+ * patch's operations to the document it holds and hands the result on. It is
+ * enough to prove that a change made on one device reaches the other one and
+ * lands on its row; it is not a replacement for Supabase.
  *
  * ## Why it lives in `commonMain` and not in a test source set
  *
@@ -47,6 +55,14 @@ import kotlin.time.Clock
 class SharedSyncServer {
     private val mutex = Mutex()
     private val events = mutableListOf<SyncEvent>()
+
+    /**
+     * The document the server holds for each entity.
+     *
+     * Keyed by doc type and entity id, because two types may carry the same id
+     * and a row is identified by both.
+     */
+    private val documents = mutableMapOf<String, JsonObject>()
     private var lsn: Long = 0L
 
     /** One client transport authenticated as [account]. */
@@ -61,20 +77,16 @@ class SharedSyncServer {
                 request.patches.map { patch ->
                     lsn += 1
                     val newLsn = lsn
-                    val data =
-                        buildJsonObject {
-                            put("entityId", JsonPrimitive(patch.entityId))
-                            put("entityType", JsonPrimitive(patch.entityType.name))
-                            put("isDelete", JsonPrimitive(patch.isDelete))
-                            put("ops", buildJsonArray { patch.ops.forEach { op -> add(JsonPrimitive(op.toString())) } })
-                        }
+                    val key = "${patch.entityType.key}:${patch.entityId}"
+                    val document = applyPatch(documents[key] ?: JsonObject(emptyMap()), patch)
+                    if (!patch.isDelete) documents[key] = document
                     events +=
                         SyncEvent(
                             serverLsn = newLsn,
                             entityId = patch.entityId,
                             entityType = patch.entityType,
                             eventType = if (patch.isDelete) SyncEventType.DELETED else SyncEventType.UPDATED,
-                            data = data,
+                            data = document,
                             createdAt = Clock.System.now().toEpochMilliseconds(),
                             profileId = request.profileId,
                         )
@@ -82,6 +94,49 @@ class SharedSyncServer {
                 }
             BatchPushResponse(results)
         }
+
+    /**
+     * The document after the patch's operations have been applied to it.
+     *
+     * The patch is a difference, not a snapshot: it names the fields that
+     * changed and the value each one took. So the document the server holds is
+     * what the last patch was applied to, and the result is the document the
+     * next device reads.
+     */
+    private fun applyPatch(
+        base: JsonObject,
+        patch: DeltaPatch,
+    ): JsonObject {
+        if (patch.isDelete) return base
+        val fields = base.toMutableMap()
+        for (change in patch.ops) {
+            when (change.op) {
+                FieldOp.SET -> {
+                    val value = change.value
+                    if (value == null) fields.remove(change.field) else fields[change.field] = value
+                }
+
+                FieldOp.UNSET -> {
+                    fields.remove(change.field)
+                }
+
+                FieldOp.APPEND -> {
+                    val current = fields[change.field] as? JsonArray
+                    val added = change.value
+                    if (current != null && added != null) fields[change.field] = JsonArray(current + added)
+                }
+
+                FieldOp.REMOVE -> {
+                    val current = fields[change.field] as? JsonArray
+                    val removed = change.value
+                    if (current != null && removed != null) {
+                        fields[change.field] = JsonArray(current.filterNot { it == removed })
+                    }
+                }
+            }
+        }
+        return JsonObject(fields)
+    }
 
     internal suspend fun pull(
         sinceLsn: Long,

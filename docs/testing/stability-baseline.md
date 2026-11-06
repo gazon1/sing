@@ -6,6 +6,7 @@ smoke runs and recording per-flow success rates and persistent failures.
 ## Procedure
 
 1. Trigger three consecutive smoke runs on the same SHA:
+
    ```bash
    # Run 1
    gh workflow run e2e.yml -f suite=smoke --ref <sha>
@@ -21,6 +22,7 @@ smoke runs and recording per-flow success rates and persistent failures.
    ```
 
 2. Collect JUnit results from each run:
+
    ```bash
    # Download artifacts from each run
    gh run download <run1-id> -n "maestro-junit-smoke-1-<run-id>"

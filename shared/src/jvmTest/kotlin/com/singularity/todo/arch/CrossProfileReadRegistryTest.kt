@@ -91,9 +91,7 @@ class CrossProfileReadRegistryTest {
         // needs approving. The re-arm is the reason this entry exists, so pin the caller.
         val repository =
             SourceScan
-                .commonMainRoot()
-                .walkTopDown()
-                .first { it.name == "ReminderRepositoryImpl.kt" }
+                .fileNamed("ReminderRepositoryImpl.kt")
                 .readText()
         assertTrue(
             repository.contains("watchAllProfiles()"),
@@ -102,11 +100,5 @@ class CrossProfileReadRegistryTest {
         )
     }
 
-    private fun daosSource(): File {
-        val root = SourceScan.commonMainRoot()
-        val direct = root.resolve("core/database/Daos.kt")
-        if (direct.isFile) return direct
-        return root.walkTopDown().firstOrNull { it.name == "Daos.kt" }
-            ?: error("Daos.kt not found under $root — the source root this gate reads has moved")
-    }
+    private fun daosSource(): File = SourceScan.fileNamed("Daos.kt")
 }

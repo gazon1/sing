@@ -509,9 +509,12 @@ class FakeBackupRepository : BackupRepository {
         return exportResult
     }
 
-    override suspend fun import(sourcePath: String): Result<RestoreResult> {
+    override suspend fun import(
+        sourcePath: String,
+        keepExistingRows: Boolean,
+    ): Result<RestoreResult> {
         lastImportSourcePath = sourcePath
-        lastImportOptions = ImportOptions(sourcePath, UserId("test"))
+        lastImportOptions = ImportOptions(sourcePath, UserId("test"), keepExistingRows = keepExistingRows)
         return importResult
     }
 
@@ -757,6 +760,9 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
         error("not implemented")
 
     override fun watchSomeday(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
+        error("not implemented")
+
+    override fun watchNotDeferred(userId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
         error("not implemented")
 
     override fun watchByDate(
@@ -3951,6 +3957,5 @@ class FakeArchiveRepository : ArchiveRepository {
     /** When set, the archive answers with this instead of succeeding with zero rows. */
     var archiveCompletedTasksOverride: Result<Int>? = null
 
-    override suspend fun archiveCompletedTasks(): Result<Int> =
-        archiveCompletedTasksOverride ?: Result.success(0)
+    override suspend fun archiveCompletedTasks(): Result<Int> = archiveCompletedTasksOverride ?: Result.success(0)
 }

@@ -8,6 +8,7 @@ tags: [testing, desktop-compose, ui-tests, failure-bundle]
 ## Context
 
 A failing desktop flow test currently requires re-running with diagnostic flags to understand what happened. The FailureBundle (screenshot.png + db-state.txt + kermit.log) is incomplete:
+
 - No step history: which actions preceded the failure is invisible from the bundle
 - Semantics tree only as suppressed exception in JUnit XML (not a file in the bundle)
 - `awaitTag` timeout message does not distinguish "element never appeared" from "element appeared but check kept failing"
@@ -24,6 +25,7 @@ Enrich the FailureBundle so every failure is diagnosed from the bundle alone, wi
 ## Decision
 
 **Taken:**
+
 - И1 (step as report unit) — `StepRecorder` with `step(name, detail, block)` wrapper around all helpers
 - И2 (unified interception point) — `step()` as the single interception point; hooks for "before/after/on-error" are implicit in the try/catch/finally structure
 - И3 (timeout diagnostics) — poll counter + elapsed time + preserved original exception in `awaitTag` and analogues
@@ -34,6 +36,7 @@ Enrich the FailureBundle so every failure is diagnosed from the bundle alone, wi
 - `HarnessConventionTest` scan root expanded from `feature/flows/` to full `src/jvmTest/`
 
 **Not taken:**
+
 - Soft assertions (`assertAll`) — low value; defer to later
 - Allure — no JVM target (`2026-09-30-ultron-ideas-evaluation.md`); revisit if ultron issue #94 closes with a JVM target
 

@@ -83,7 +83,6 @@ data class ProfileUsage(
 )
 ```
 
-
 > **NOT IMPLEMENTED (verified 2026-10-04).** There is no `ModelPricing` type in the
 > codebase. Do not write against it. This section is kept as design intent for
 > whoever builds it — verify every other symbol in it against the code too.
@@ -138,7 +137,6 @@ internal object ModelPricing {
 > **NOT IMPLEMENTED (verified 2026-10-04).** There is no `UsageExtractor` type in the
 > codebase. Do not write against it. This section is kept as design intent for
 > whoever builds it — verify every other symbol in it against the code too.
-
 
 ## UsageExtractor — Reading Koog metaInfo
 
@@ -204,4 +202,3 @@ object UsageExtractor {
     }
 }
 ```
-

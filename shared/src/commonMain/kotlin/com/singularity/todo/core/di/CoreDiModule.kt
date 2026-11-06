@@ -37,6 +37,7 @@ import com.singularity.todo.core.backup.SupabaseBackupBucket
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.draft.DataStoreDraftStore
 import com.singularity.todo.core.draft.DraftStore
+import com.singularity.todo.core.draft.UserScopedDraftStore
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UuidIdGenerator
 import com.singularity.todo.core.network.createHttpClient
@@ -162,9 +163,26 @@ fun coreModule(): org.koin.core.module.Module =
         factory<GreetingSettingsRepository> { DataStoreGreetingSettingsRepository(get()) }
 
         // ─── Drafts ──────────────────────────────────────────────────────────
+        // The raw store: the DataStore-backed implementation of the port.
         // DraftStore uses the same per-platform DataStore<Preferences> binding.
         // Drafts are not secrets — stored in regular DataStore, not SecureStoragePort.
-        single<DraftStore> { DataStoreDraftStore(get(), Logger.withTag("DraftStore")) }
+        //
+        // Bound under its own type, not as the port: the port is bound to the
+        // user-scoped wrapper below, and a delegate resolved as the port would be
+        // that same wrapper — the store would wrap itself.
+        single { DataStoreDraftStore(get(), Logger.withTag("DraftStore")) }
+
+        // The port every caller speaks — and the only definition of it.
+        //
+        // The user-scoped wrapper prefixes every key with the current user id, so a
+        // draft is restored by the user who wrote it and by nobody else, and a
+        // cleanup removes that user's drafts only.
+        //
+        // Two definitions of this port used to exist — this one and one in the tasks
+        // module — and the later-loaded one won, so the wrapper was never built:
+        // the editor saved and restored drafts under bare keys, and a draft written
+        // by one user was restored by the next user on the same device.
+        single<DraftStore> { UserScopedDraftStore(get(), get<DataStoreDraftStore>()) }
 
         // ─── Profile wipe ─────────────────────────────────────────────────────
         // The E2E suite reaches this through the debug deep link, but the list of

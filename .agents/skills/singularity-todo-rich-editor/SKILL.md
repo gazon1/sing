@@ -8,6 +8,7 @@ description: Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes u
 ## When to Use This Skill
 
 Use when implementing or modifying the rich-text editor in `feature/notes/`. This skill covers:
+
 - Toolbar design (sticky bottom via `Scaffold.bottomBar`, overflow menu)
 - `EditorAction` sealed interface and `RichTextState.apply()`/`isActive()` extensions
 - `EditorSession` — the hoisting pattern for sharing `RichTextState` between toolbar and body
@@ -106,6 +107,7 @@ fun rememberEditorSession(
 ```
 
 **Why this pattern — and the trap it avoids:**
+
 - `RichTextState` identity has no `equals()` — `remember` keyed on `state.id` guarantees a fresh state per note
 - `EditorToolbar` (in `Scaffold.bottomBar`) and `EditorTitleAndBody` (in the content area) share the same session
 - **A `LaunchedEffect` keyed on the `RichTextState` does not fire per keystroke.** The state object is the *same instance* for the whole session, so the effect starts once and never restarts. Keying the effect on the object and expecting it to re-run on every edit is the bug that silently lost every note body: the effect ran once, dispatched the loaded content, and never ran again. The effect has to *read* the state — `snapshotFlow` re-emits whenever what it reads changes.
@@ -172,12 +174,14 @@ internal fun RichTextState.apply(action: EditorAction): RichTextState = when (ac
 ## Internal Link Picker — Generic Merged (PR #3)
 
 **`LinkResult`** (`feature/notes/LinkResult.kt`):
+
 ```kotlin
 data class LinkResult(val id: String, val title: String, val kind: LinkKind)
 enum class LinkKind { Note, Task }
 ```
 
 **Generic sheet** (`feature/notes/components/InternalLinkPickerSheet.kt`):
+
 ```kotlin
 @Composable
 fun InternalLinkPickerSheet(
@@ -189,6 +193,7 @@ fun InternalLinkPickerSheet(
 ```
 
 **NoteEditorScreen wiring:**
+
 ```kotlin
 val linkQueryFlow = remember { MutableStateFlow("") }
 InternalLinkPickerSheet(
@@ -217,6 +222,7 @@ InternalLinkPickerSheet(
 `RichTextState` paragraph tree (`RichParagraph.children`) is `internal`. Walking it from outside the library is impossible. Instead, parse the HTML output.
 
 **`OutgoingLinksExtractor.kt`** (pure function):
+
 ```kotlin
 internal fun extractOutgoingLinks(html: String): List<LinkRef> {
     val seen = mutableSetOf<LinkRef>()
@@ -238,6 +244,7 @@ sealed interface LinkRef {
 ```
 
 **Wired in `NoteEditor.persist()`** (called on every save):
+
 ```kotlin
 private suspend fun persist(html: String, title: String, id: String, navigateBack: Boolean) {
     repo.updateContent(...).getOrThrow()
@@ -319,6 +326,7 @@ richState.setHtml(html)   // HTML → internal state
 ```
 
 **`RichSpanStyle.Link`** — serializes as `<a href="url">`:
+
 ```kotlin
 // Link URL schemes used:
 note://{noteId}

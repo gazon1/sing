@@ -1,6 +1,7 @@
 # gate-tooling Specification
 
 ## Purpose
+
 The gate suite runs on a machine that has never run it, and a waiver's
 premise is a checked fact rather than a sentence. A gate that cannot run
 must not look like a gate that has nothing to report.
@@ -26,7 +27,7 @@ and they fail with an import error that reads like a broken test.
 - **Given** a checkout with uv installed
 - **When** the local tools script runs
 - **Then** one virtual environment holds every tool the gate suite shells out
-      to
+  to
 - **And** the gate CLI is importable from that environment
 
 #### Scenario: The unit tests run the scripts with a minimal environment
@@ -74,7 +75,7 @@ file but only inside a comment is not the step the reference points at.
 
 - **Given** a waived control's reference names a step in a workflow
 - **And** the step has been renamed, and the old name survives only in a
-      comment
+  comment
 - **When** the waiver gate runs
 - **Then** it fails
 - **And** it says that no step carries that name
@@ -208,7 +209,7 @@ debugging session.
 #### Scenario: The source is in a form the reader cannot parse
 
 - **Given** a description is written in a form the catalogue reader does not
-      parse
+  parse
 - **When** the catalogue is checked
 - **Then** the reader reports which form it found
 - **And** it says what a description is expected to look like

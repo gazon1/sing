@@ -8,16 +8,17 @@ import kotlinx.coroutines.flow.StateFlow
  * Provides the current task list for the Pomodoro timer screen.
  *
  * - androidMain: [AndroidPomodoroTaskListProvider][com.singularity.todo.feature.pomodoro.AndroidPomodoroTaskListProvider]
- *   — observes inbox tasks from [com.singularity.todo.feature.tasks.domain.port.TaskRepository]
+ *   — observes the tasks a focus session can be started on, from
+ *   [com.singularity.todo.feature.tasks.domain.port.TaskRepository]
  * - jvmMain: [JvmPomodoroTaskListProvider][com.singularity.todo.feature.pomodoro.JvmPomodoroTaskListProvider]
  *   — returns an empty, never-updating flow
  *
  * ## Why [isSupported] exists
  *
  * The Desktop implementation returns an empty list that never updates, and an empty
- * picker is indistinguishable from a genuinely empty Inbox: the user sees a working
- * screen with no tasks in it and concludes they have none. Android shows the real Inbox,
- * so the two platforms disagree about whether the feature works at all.
+ * picker is indistinguishable from a user who has no tasks to focus on: the user sees
+ * a working screen with no tasks in it and concludes they have none. Android shows the
+ * real list, so the two platforms disagree about whether the feature works at all.
  *
  * [isSupported] lets the screen say so instead. The same reasoning as
  * [com.singularity.todo.feature.reminders.ReminderScheduler.isSupported] — the
@@ -33,7 +34,7 @@ fun interface PomodoroTaskListProvider {
     val isSupported: Boolean get() = true
 
     /**
-     * Returns the current inbox task list as a state flow.
+     * Returns the current task list for a focus session as a state flow.
      *
      * The list is [ImmutableList]: the screen compares the focus-task row by content,
      * and a persistent collection is what makes that comparison honest. The seam is the

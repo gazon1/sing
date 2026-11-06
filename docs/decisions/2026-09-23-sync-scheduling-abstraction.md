@@ -24,6 +24,7 @@ interface SyncScheduler {
 ```
 
 **Android implementation** (`androidMain`):
+
 - Uses `WorkManager.PeriodicWorkRequestBuilder<SyncWorker>`
 - Unique work name `"com.singularity.todo.sync.SyncWorker"` with `ExistingPeriodicWorkPolicy.UPDATE`
 - `OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST` for fairness
@@ -31,6 +32,7 @@ interface SyncScheduler {
 - `WorkManager.getInstance(context).enqueueUniquePeriodicWork(...)`
 
 **JVM implementation** (`jvmMain`):
+
 - Uses `CoroutineScope.launch { while(isActive) { syncOnce(); delay(interval) } }`
 - Same `createBackgroundScope()` that `SyncRunner` uses — consistent lifecycle
 
@@ -198,6 +200,7 @@ internal class SyncEngine(
 ```
 
 DI binding in `coreModule()`:
+
 ```kotlin
 single { SyncEngine(..., get(), get(), get(), get(), get(), get(), AutoCloseableCoroutineScope(...)) }
 ```

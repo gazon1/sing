@@ -1,0 +1,25 @@
+name: Setup Android SDK platform
+description: >
+  Installs the Android platform the build declares. The runner image ships an
+  SDK, but not the minor platform the app compiles against (`compileSdk 37`,
+  minor 1), so an Android compile fails on a missing platform before it can
+  judge anything about the change.
+
+runs:
+  using: composite
+  steps:
+    - name: Install platforms;android-37.1
+      shell: bash
+      run: |
+        sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+        if [ -z "$sdk_root" ]; then
+          echo "::error::no Android SDK found (ANDROID_SDK_ROOT and ANDROID_HOME are unset)"
+          exit 1
+        fi
+        sdkmanager="$(find "$sdk_root/cmdline-tools" -name sdkmanager -type f 2>/dev/null | sort | tail -1 || true)"
+        if [ -z "$sdkmanager" ]; then
+          echo "::error::no sdkmanager under $sdk_root/cmdline-tools"
+          exit 1
+        fi
+        yes | "$sdkmanager" --licenses >/dev/null 2>&1 || true
+        "$sdkmanager" "platforms;android-37.1"

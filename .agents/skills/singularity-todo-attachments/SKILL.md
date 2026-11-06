@@ -10,6 +10,7 @@ description: 'Attachment feature pattern for the Singularity Todo KMP app. Use w
 The attachment system was initially tied to `TaskId`. **Generalization to support both `TaskId` and `NoteId` is planned for Phase 4** via `owner_id` + `owner_kind` columns.
 
 **Current state of `AttachmentEntity`:**
+
 ```kotlin
 // ⚠️ LEGACY — still uses task_id in this codebase.
 // Will be migrated to owner_id + owner_kind in Phase 4.
@@ -39,6 +40,7 @@ data class AttachmentEntity(
 ```
 
 **Target schema (Phase 4 — v4→v5):**
+
 ```kotlin
 // Target — replaces task_id with owner_id + owner_kind
 @Entity(
@@ -293,6 +295,7 @@ class AttachmentsViewModel(
 ```
 
 **DI registration (Phase 4):**
+
 ```kotlin
 // Modules.kt — use viewModel { } with runtime parameter, NOT viewModelOf
 viewModel { (owner: AttachmentOwner) ->
@@ -361,12 +364,14 @@ class AttachmentsViewModelTest {
 ## Migration: Phase 4 (v4 → v5)
 
 **Dev strategy (current — uses `fallbackToDestructive`):**
+
 - No `addMigrations(...)` needed.
 - `AppDatabaseFactory.kt` keeps `.fallbackToDestructiveMigration(dropAllTables = true)`.
 - On schema bump, local DB is wiped and recreated from scratch on each dev device.
 - Developer cleans DB manually: `adb shell pm clear com.singularity.todo`.
 
 **AutoMigrationSpec (for schema JSON generation):**
+
 ```kotlin
 // Migrations.kt
 object Migration4To5 : AutoMigrationSpec {
@@ -377,6 +382,7 @@ object Migration4To5 : AutoMigrationSpec {
 ```
 
 **AppDatabase bump:**
+
 ```kotlin
 @Database(
     entities = [..., AttachmentEntity::class],
@@ -387,6 +393,7 @@ object Migration4To5 : AutoMigrationSpec {
 ```
 
 **Prod migration (future — separate PR):**
+
 - Replace `fallbackToDestructiveMigration` with `addMigrations(MIGRATION_4_5)`.
 - Write manual migration for `ALTER TABLE attachments RENAME COLUMN task_id TO owner_id`.
 - Add `owner_kind TEXT NOT NULL DEFAULT 'task'` column.

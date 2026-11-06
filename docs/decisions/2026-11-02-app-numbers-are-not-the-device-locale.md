@@ -14,11 +14,11 @@ without a `Locale` does the same. The rule against them was already written down
 header of `core/ui/Formatters.kt`, in the words of the shared decimal formatter — but it was
 a comment in one file, and eleven other places used `String.format`:
 
-* `core/database/LocalTimeFormats.kt` — the wire format for every time in the app: the
+- `core/database/LocalTimeFormats.kt` — the wire format for every time in the app: the
   `due_time` / `start_time` / `end_time` columns, the backup files, the AI tool inputs. On an
   Arabic device it wrote `"١٤:٣٠:٠٠"`, and `Integer.parseInt` cannot read that back, so the
   value was lost on the next read.
-* five screen formatters — the agenda's work-block label, the backup stamp, the calendar grid,
+- five screen formatters — the agenda's work-block label, the backup stamp, the calendar grid,
   the pomodoro timer, the work-schedule times — each of which followed the device's decimal
   separator or digits.
 

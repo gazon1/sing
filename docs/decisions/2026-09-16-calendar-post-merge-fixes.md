@@ -94,15 +94,18 @@ Lesson: when adding a dependency to a constructor, verify it is actually used in
 ## Consequences
 
 ### Positive
+
 - Theme switching now correctly recomposes the calendar palette
 - Future developers understand which fields are stubbed vs. populated
 - Dead dependency removed from `CalendarDeps` — DI graph is now consistent
 - `CalendarDeps` matches the `AgendaDeps` pattern (project convention)
 
 ### Negative
+
 - None
 
 ### Deferred
+
 - `endTime` / `accentColor` — blocked on Room migration for `startAt`/`endAt`/`accentColor` fields in `Task`
 - `expect object Clock` rename to `PlatformClock` — deferred until a broader cleanup window
 - `TaskEditorDeps.clock` is also dead (the file's own KDoc flags it for deletion alongside `TaskEditorViewModel`)

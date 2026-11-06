@@ -9,18 +9,23 @@
 **Worktree:** `~/work/singularity-todo-time-hub` (`refactor/time-hub-ai-proposals`)
 
 ### Phase 0 — Pre-work (MR-0-A/B/C/D) ✅ COMPLETED
+
 See commit history: `67fed68f` (MR-0-A), `dbbf1d15` (MR-0-B), `70678dd2` (MR-0-C), `21d8cc80` (MR-0-D)
 
 ### Phase 1 — Time Tracking data layer (MR-1) ✅ COMPLETED
+
 See `eb85ce54` and `9a4bfd70`
 
 ### Phase 2 — Timer, Pomodoro, manual entry (MR-2) ✅ COMPLETED
+
 See `eb85ce54`
 
 ### Phase 3 — Task Detail as hub (MR-3) 🔄 IN PROGRESS
+
 `f1e292f7` (rebase fix), `419371dd` (detekt cleanup)
 
 **What was done:**
+
 - `TaskDetailExtras` partition: `timeSlotState` + `firstRun` combined in one flow, keeping coordinator at 8 inputs
 - `FirstRunResolver`: pure clock-injected logic, 8 test cases covering all resolution paths
 - `SubtasksSection`: renders direct child tasks with ExtraSectionCard, self-hides when empty
@@ -29,29 +34,35 @@ See `eb85ce54`
 - All wired in `TaskDetailViewScreen.kt` in correct block order
 
 **What went well:**
+
 - Partition pattern works: one new flow instead of growing combine arity
 - FirstRunResolver is pure and trivially testable
 - `stateIn` removal was correct per BAN-list
 
 **What didn't go well:**
+
 - Rebase introduced 120+ detekt violations from reformatting (FakeRepositories, etc.)
 - Import paths shifted after rebase — `TimeEntry` package move needed cascading import fixes
 - Desktop boot test was already failing on main (app boots to Settings tab) — pre-existing issue
 
 **Critical fixes:**
+
 - `JvmPomodoroTimer` needed 6 params (added `timeTrackingRepo` + `currentUser`)
 - `FakeRepositories.kt` restored from main to fix indentation cascade
 - `TimeEntry.kt` moved to `feature/timetracking/domain/` (package = domain)
 
 **Findings for ADR:**
+
 - Detekt `FunctionSignature` rule rejects multi-line parameter lists — code must use `param: Type,` style even for 4+ parameters
 - `LongMethod` suppression works but needs `@Suppress` annotation, not baseline
 
 ### Phase 4 — Logbook merge (MR-4) ✅ DONE
+
 `b3ae74b9` (LogbookEntry sealed interface + time entry rendering)
 Time entries + notes in one chronological stream
 
 **What was done:**
+
 - `LogbookEntry` sealed interface (`NoteEntry | TimeEntryRow`) in `TaskLogbookState.kt`
 - `TaskLogbookCollector` now takes `timeTrackingRepo`, combines notes + time entries via `combine()`, sorted by timestamp descending
 - `LogbookSection` rewritten: receives `List<LogbookEntry>`, renders both `LogbookNoteRow` and `LogbookTimeEntryRow` in day groups
@@ -59,24 +70,30 @@ Time entries + notes in one chronological stream
 - `TaskDetailViewScreen` updated: `logbookNotes` → `logbookEntries` parameter
 
 **What went well:**
+
 - Sealed interface cleanly models the two entry types with pattern matching in `when`
 - Day grouping logic reused cleanly, extracted timestamp via `when` on sealed type
 
 **What didn't go well:**
+
 - `formatElapsed` was `internal` in a different module — had to duplicate the helper
 
 **Critical fixes:**
+
 - `LogbookSection` signature: `entries: List<LogbookEntry>` — was passing `notes = ui.logbookNotes`
 - `TaskDetailCoordinator` already assigned `logbookEntries = logState.allEntries` from prior MR-3
 
 **Findings for ADR:**
+
 - `internal` functions in Compose UI modules can't be imported across feature boundaries — consider extracting shared UI helpers into `core/ui/` to avoid duplication
 
 ### Phase 5 — Insights tab (MR-5) ✅ DONE
+
 `da77c365` (Insights tab with time bucketing)
 "Time" tab in Statistics with stacked bars by day and project breakdown
 
 **What was done:**
+
 - `InsightsViewModel`: combines `timeTrackingRepo.watchEntriesInRange`, `taskRepository.observeByFilter`, `projectsRepo.observeProjectsWithCounts`; uses `mergeIntervalsWithOpen` + `splitAtMidnight` for accurate day bucketing
 - Added `watchEntriesInRange` to `TimeTrackingRepository` interface (existed in DAO and impl but not in domain interface)
 - `DayInsightsBucket` and `bucketByDay` added to `TimeBucketing.kt`; `bucketByProject` added for project-level aggregation
@@ -87,23 +104,30 @@ Time entries + notes in one chronological stream
 - Duplicate `TimeTrackingRepository.kt` in `data/` package caused interface mismatch — removed `data/` copy, impl now imports `domain.TimeTrackingRepository`
 
 **What went well:**
+
 - Adding the interface method first and then wiring through was clean
 - Tab architecture follows existing patterns (`PrimaryTabRow`, two content functions)
 
 **What didn't go well:**
+
 - ktlint auto-correct badly mangled `FakeRepositories.kt` indentation cascade (927-line diff) — had to restore from HEAD
 - The `data/TimeTrackingRepository.kt` duplicate file was a pre-existing issue
 
 **Critical fixes:**
+
 - `watchEntriesInRange` in impl was named `watchForUserInRange` — added interface method and renamed impl
 - `ProjectWithCountRow.project.id` is a `ProjectId` value class — needed `.value` for `String` map key
 
 **Findings for ADR:**
+
 - Duplicate interface files (`data/` vs `domain/`) cause subtle type resolution bugs — worth an architecture rule
+
 ### Phase 6 — Agenda section headers '+' (MR-6) ✅ DONE
+
 **Commits:** 1 (this merge commit)
 
 **What was done:**
+
 - `Section.id` (nullable, with `effectiveId` derivation) + `SectionPrefill` + `SectionEditorCard` prefill editor
 - `AgendaIntent.CreateInSection` + `AgendaUiEvent.CreateInSection`
 - `AgendaViewModel.handleCreateInSection`: saves `TaskDraft` under `section_create_draft_$sectionId` key
@@ -114,25 +138,32 @@ Time entries + notes in one chronological stream
 - `AgendaContent`: '+' button on section headers with `Icons.Default.Add`
 
 **What went well:**
+
 - Navigation wiring was systematic — followed the established `AppDestination → TasksNavGraph → TasksRoute` pattern cleanly
 - `Section.id` nullable + `effectiveId` computed property cleanly solves the backwards-compat problem
 
 **What didn't go well:**
+
 - Agent produced broken MR-7 changes that polluted the branch and had to be manually cleaned up
 - `Section.id` non-nullable was added before verifying backwards-compat impact — caused a runtime crash risk for saved agenda views
 
 **Critical fixes:**
+
 - `Section.id` changed to `String? = null` with `effectiveId: String get() = id ?: name.lowercase()` — fixes saved-agenda deserialization
 - Agent's `proposals/` package deleted (incomplete), `AppDatabase` + `PlatformModule.jvm.kt` reverted
 - `FakeTimeTrackingRepository.createManualEntry` updated to match `TimeTrackingRepository` interface (added `source` parameter)
 - `AgendaEvaluator` + `AgendaViewModel` updated to use `effectiveId` instead of `id`
 
 **Findings for ADR:**
+
 - `2026-10-02-mr6-mr7-breakage-post-mortem.md` — documents the full post-mortem including agent rules and MR-0-B prerequisite for MR-7
+
 ### Phase 7 — AI proposal data layer (MR-7) ✅ DONE
+
 **Commit:** `ab6404bc` (27 files, 6780 insertions)
 
 **What was done:**
+
 - `ai_proposal` + `ai_proposal_item` Room tables with `user_id` ownership and `@Embedded sync: SyncColumns`
 - `ProposalRepository`: CAS confirm/reject via `claimAndRead@Transaction`, fingerprint deduplication via `rejectedFingerprints` query
 - `ApplyProposalItemUseCase`: `plan() → claim() → dispatch(plan, userId) → refreshStatus()` — all validation before any claim
@@ -145,28 +176,34 @@ Time entries + notes in one chronological stream
 - `ApplyProposalItemUseCaseTest`: 17 cases — double-tap, parse-before-claim, dispatch (tags/tasks/subtasks/time entries/checklist), batch partial success, rejection fingerprints
 
 **What went well:**
+
 - `fingerprintTarget` as extension property cleanly sidesteps interface property dispatch limitation in Kotlin
 - CAS claim in `@Transaction` DAO method means double-tap protection is database-enforced, not application logic
 - Splitting DAO early kept detekt `TooManyFunctions` violation from becoming a last-minute blocker
 
 **What didn't go well:**
+
 - Agent's first MR-7 attempt produced incomplete code that had to be fully deleted and rewritten
 - `Section.id` non-nullable caused backward-compat risk for saved agendas — needed emergency fix between MR-6 and MR-7
 - Two-pass Room schema generation (v28 → generate → v29 → generate) was non-obvious
 
 **Critical fixes (MR-0穿插):**
+
 - `AgendaDefinition.Section.id` → `String? = null` with `effectiveId` computed property — fixes `MissingFieldException` for legacy saved agendas
 - `AndroidPomodoroTimer` + `JvmPomodoroTimer`: `source = TimeEntrySource.Pomodoro` (was defaulting to `Manual`)
 - `CalendarSyncWorker`: stale imports (`domain.repository` → `domain.port`, `reminders.ReminderRepository` → `reminders.domain.port.ReminderRepository`)
 - Duplicate `TimeTrackingRepository` in `data/` deleted — domain version is correct; Koin bound the right one but 3 consumers used the wrong one
 
 **Findings for ADR:**
+
 - `fingerprintTarget` must be an extension property, not an interface property — Kotlin's interface dispatch doesn't support `when(this)`
 - `encodeToByteArray()` explicitly named (not `encodeToByte()`) — Kotlin String has both overloads
 - Room `@Transaction` on a `suspend fun` that calls another `@Transaction` internally is valid — Kotlin coroutines preserve transaction semantics across suspend boundaries
+
 ### Phase 8 — Checklist sovereignty + tag suppression (MR-8) ✅ DONE
 
 **What was done:**
+
 - `ChecklistItemEntity`: added `checked_by TEXT?`, `checked_at INTEGER?`, `row_version INTEGER DEFAULT 1`; all toggle via `ChecklistDao.toggleItem` (targeted UPDATE preserving new columns)
 - `ChecklistRepositoryImpl`: `toggleItem` now writes `actor`/`checkedAt` and increments `row_version`; `addItem` seeds `row_version = 1`; `createBatch` preserves existing `checkedBy`/`checkedAt`/`rowVersion`
 - `ChecklistRepository.toggleItem(taskId, itemId, actor: String = "user")` — default `"user"` for backward compat with existing UI call sites
@@ -182,24 +219,30 @@ Time entries + notes in one chronological stream
 - `Migration29To30` (AutoMigrationSpec), schema v29 → v30
 
 **What went well:**
+
 - Default parameter `actor = "user"` on `ChecklistRepository.toggleItem` avoided updating 4 call sites in the UI layer
 - `Checked_by`/`checked_at`/`row_version` targeted UPDATE preserves columns added in future — no read-reconstruct-write
 - JSON array for `aiSuppressedTagIds` (following `outgoing_links` precedent) avoids schema migration complexity
 
 **What didn't go well:**
+
 - Detekt ran AFTER the first Kotlin compile, so `ColumnInfo(defaultValue = "1")` was not set initially — KSP rejected the migration for a NOT NULL column with no default
 - `MutableStateFlow<Map<...>>` type in `FakeChecklistDao` caused type inference failures in `setTags` block — had to separate `existingTagStrings: Set<String>` from `existingTagIds: Set<TagId>` explicitly
 
 **Critical fixes:**
+
 - `ChecklistItem.checkedBy` nullable (`String?`) — pre-existing items have no actor, no crash on read
 - `StableJson.SetSerializer(String.serializer())` — requires explicit `serializer()` import, not `decodeFromString<Set<String>>`
 - `FakeAppDatabase.FakeChecklistDao.toggleItem` — implemented the new `toggleItem` signature (was only `updateCompletionStatus`)
 
 **Findings for ADR:**
+
 - Room auto-migration requires `@ColumnInfo(defaultValue = "N")` on any added NOT NULL column — KSP validates this at compile time, not at migration time
+
 ### Phase 9 — ProposalCard + AI redirect (MR-9) ✅ DONE
 
 **What was done:**
+
 - `TaskAiSlot` now creates `AiProposal` items instead of writing directly to tasks
   - `RefineTitle` → `ProposalItemKind.SetTaskField(Title, value)`
   - `GenerateDescription` → `ProposalItemKind.SetTaskField(Description, value)`
@@ -223,22 +266,26 @@ Time entries + notes in one chronological stream
   - `ProjectDetailContent` → navigates to task detail on AI tap
 
 **What went well:**
+
 - Redirecting TaskAiSlot to proposals was clean: `execute()` now builds a proposal and saves it instead of applying writes
 - `ConfirmAllProposalItems` reports failure count (not just success) — partial batch success is normal, not an error
 - Extracting `ProposalItemRow` sub-composable kept `ProposalCard` within the 80-line limit
 
 **What didn't go well:**
+
 - `scope.launch` in `onIntent` required using `vmScope`, not a local `scope` variable — had to check how other slots reference the scope
 - `ConfirmAllProposalItems` returns `BatchResult(applied, failed)` — had to add `.failed.size` reporting since it's a normal result, not an exception
 - `extrasState` needed both adding proposals to its combine AND including `proposalsCollector?.state` in the top-level 9-input `combineStates` — two separate places
 
 **Critical fixes:**
+
 - `ApplyProposalItemUseCase` is already injected into the tasks feature via `TasksDiModule` — no circular dependency issues
 - Proposals are wired as nullable in `TaskDetailDeps` (`= null`) matching the existing AI use case pattern for test omission
 - `TaskAiSlot` was missing `ProposalItemStatus` import (caused compile failure)
 - `combineStates` 9-input overload required adding the `pack` extension and overload alongside existing 6/7/8-input helpers
 
 **Findings for ADR:**
+
 - `TaskAiSlot` creates proposals with `ProposalSource.Detail` — Card-level proposals from list screens would use `ProposalSource.Card` (separate wiring, deferred)
 - The 9-input `combineStates` was a minimal addition — proposals slot naturally belong in `extrasState` alongside `timeSlotState` and `firstRun`
 
@@ -271,6 +318,7 @@ regressions that made every desktop flow test fail or hang on the feature branch
    unresolved references.
 
 **What went well:**
+
 - The diagnostics infrastructure paid for itself: `FailureBundle` screenshot +
   thread dumps + a plain-Koin VM probe (no Compose) reproduced the spinner headlessly,
   and `DebugProbes.dumpCoroutines()` surfaced the NPE that the silent coroutine death
@@ -279,18 +327,21 @@ regressions that made every desktop flow test fail or hang on the feature branch
   immediately.
 
 **What didn't go well:**
+
 - The silent NPE masked itself three ways: no events, no error state, just a spinner.
   Coroutines that die before their first emission leave no trace without DebugProbes.
 - `-Dsingularity.*` forwarding is snapshotted by the configuration cache, so CLI flags
   were silently ignored unless `-Dorg.gradle.configuration-cache=false` was also passed.
 
 **Critical fixes:**
+
 - `FailureBundle.capture` now honours `-Dsingularity.test.screenshot=false`:
   `captureToImage` blocks on `EventQueue.invokeAndWait`, which a stuck redraw loop never
   releases — a coroutine timeout cannot cancel a blocking EDT wait. Without the skip
   flag, the diagnostic path itself hung and masked the real failure.
 
 **Findings for ADR:**
+
 - Kotlin property-initialisation order vs `init` blocks is the "unwired surface" of
   constructors: it compiles, it passes VM-level tests that never touch the property,
   and only a screen that renders the loading shell catches it. Recorded in

@@ -160,4 +160,4 @@ scripts/
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |---|---|---|
-| _(none)_ | — | — |
+| *(none)* | — | — |

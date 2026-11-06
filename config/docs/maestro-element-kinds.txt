@@ -202,3 +202,7 @@ tasks_fab button
 time_tracking_start button
 time_tracking_stop button
 top_bar_back_button button
+calendar_month_title text
+${ENTRY_ID} menu
+${DEST_ID} text
+task_item_${RUN_ID}_task_from_upcoming_tab item

@@ -373,6 +373,8 @@ class ModuleChecks(dict):
 #: not something the build can do for it. Its checks are its tests.
 TASKS: ModuleChecks = ModuleChecks({
     'shared': [':shared:jvmTest', ':shared:testAndroidHostTest', ':shared:detekt'],
+    'core-domain': [':core-domain:jvmTest', ':core-domain:detekt'],
+    'core-database': [':core-database:detekt'],
     'desktopApp': [':desktopApp:test', ':desktopApp:detekt'],
     'androidApp': [':androidApp:assembleDebug', ':androidApp:detekt'],
     'mcp-server': [':mcp-server:test', ':mcp-server:detekt'],
@@ -404,6 +406,8 @@ TASKS: ModuleChecks = ModuleChecks({
 DOWNSTREAM: dict[str, list[str]] = {
     'core-base': ['core-base', 'adr-core', 'adr-cli', 'shared', 'androidApp', 'desktopApp', 'mcp-server'],
     'adr-core': ['adr-core', 'adr-cli', 'shared', 'androidApp', 'desktopApp', 'mcp-server'],
+    'core-domain': ['core-domain', 'core-database', 'shared', 'androidApp', 'desktopApp', 'mcp-server'],
+    'core-database': ['core-database', 'shared', 'androidApp', 'desktopApp', 'mcp-server'],
     'shared': ['shared', 'androidApp', 'desktopApp', 'mcp-server'],
     'desktopApp': ['desktopApp'],
     'androidApp': ['androidApp'],
@@ -418,6 +422,8 @@ DOWNSTREAM: dict[str, list[str]] = {
 #: be repeated — not their tests, which do not read the rules.
 DETEKT_CONSUMERS: list[str] = [
     ':shared:detekt',
+    ':core-domain:detekt',
+    ':core-database:detekt',
     ':desktopApp:detekt',
     ':androidApp:detekt',
     ':core-base:detekt',
@@ -473,6 +479,8 @@ BUILD_AREAS = (
 #: pretending it checked. `scripts/compile-changed.py` holds that policy.
 COMPILE_TASKS: dict[str, list[str]] = {
     'shared': [':shared:compileKotlinJvm', ':shared:compileTestKotlinJvm'],
+    'core-domain': [':core-domain:compileKotlinJvm', ':core-domain:compileTestKotlinJvm'],
+    'core-database': [':core-database:compileKotlinJvm'],
     'core-base': [':core-base:compileKotlinJvm', ':core-base:compileTestKotlinJvm'],
     'adr-core': [':adr-core:compileKotlinJvm', ':adr-core:compileTestKotlinJvm'],
     'adr-cli': [':adr-cli:compileKotlin', ':adr-cli:compileTestKotlin'],

@@ -358,19 +358,19 @@ Every item below was read in the code or observed in a command's output.
     `just docs-audit`. (`.agents/skills/code-review-pr-workflow/SKILL.md:40-50`)
 28. All three recipes exist: `tcheck-evals` (`justfile:86` → `.just/tests/mod.just:372`),
     `docs-audit` (`.just/tests/mod.just:327`), `lint` (`.just/tests/mod.just:299`).
-28. The branch-naming types in use are `feat`, `fix`, `refactor`, `docs`, `chore`, `build`,
+29. The branch-naming types in use are `feat`, `fix`, `refactor`, `docs`, `chore`, `build`,
     `test`. (` .agents/skills/code-review-pr-workflow/SKILL.md:28-35`)
-29. The reviewer must not run Gradle, and has a 25-minute budget.
+30. The reviewer must not run Gradle, and has a 25-minute budget.
     (`.agents/skills/code-review-pr-workflow/SKILL.md:175-180,230-246`)
-30. The ADR corpus is **900** live dated ADRs, **914** including 14 archived, **917** `.md` files
+31. The ADR corpus is **900** live dated ADRs, **914** including 14 archived, **917** `.md` files
     in total under `docs/decisions/`. (command output above)
-31. `config/docs/issues-snapshot.json` is committed but read by no gate; the gate that needed it
+32. `config/docs/issues-snapshot.json` is committed but read by no gate; the gate that needed it
     was removed on 2026-10-19/2026-10-15. (command output above,
     `scripts/ci/static-gates.sh:774-778`)
-32. `check.sh` runs static gates → `androidApp:compileDebugKotlin` → `jvmTest` → `desktopApp:test`
+33. `check.sh` runs static gates → `androidApp:compileDebugKotlin` → `jvmTest` → `desktopApp:test`
     → `assembleDebug` → detekt, and times each step against a recorded cost baseline.
     (`check.sh:1-6,42-60`)
-33. There is **no root-level `test` Gradle task** — no `register("test")` / `named("test")` in any
+34. There is **no root-level `test` Gradle task** — no `register("test")` / `named("test")` in any
     `build.gradle.kts`, and the root project applies no Java plugin. (grep over `**/build.gradle.kts`;
     `build.gradle.kts:1-18`)
 

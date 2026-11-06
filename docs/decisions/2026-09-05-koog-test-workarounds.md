@@ -35,6 +35,7 @@ Two separate JVM-test classpath issues blocked Koog-based tests:
 
 - **Always** check `grep -rn "OpenAIModels" shared/src/commonMain shared/src/jvmMain shared/src/androidMain --include="*.kt"` returns only comments in `KnownModels.kt`. Anything else is a regression.
 - When adding a new AI tool, **always** bind its use case with **explicit `get<ConcreteTool>()`** if the use case's parameter is `SimpleTool<T>`:
+
   ```kotlin
   factory {
       com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase(
@@ -42,6 +43,7 @@ Two separate JVM-test classpath issues blocked Koog-based tests:
       )
   }
   ```
+
   Bare `get()` will fail at first use with `NoDefinitionFoundException`.
 - `JvmAiDiGraphTest` keeps its `LLModel` override as a safety belt — if someone reintroduces `OpenAIModels.*`, this test fails at graph-build time.
 - **Never** add capabilities to `KnownModels` unless a feature needs them — the simple form avoids the static init entirely.

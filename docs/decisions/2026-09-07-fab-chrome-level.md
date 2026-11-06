@@ -14,18 +14,22 @@ status: accepted
 FAB определён **на уровне chrome** (`AndroidShell` / `DesktopShell`) как `fabActionFor(current, navigator): FabAction?`. Screens больше не имеют локального FAB — только `AppShell.ModalShell` / `AppShell.PermanentShell` показывают `ExtendedFloatingActionButton` если `fabAction != null`.
 
 **Удалены FAB из:**
+
 - `TasksScreen` — параметр `onNavigateToCreateTask`, FAB удалён
 - `ProjectsScreen` — параметр `onNavigateToCreateProject`, FAB удалён
 - `NotesScreen` — параметр `onNavigateToCreateNote`, FAB удалён
 - `TagsScreen` — параметр `onNavigateToCreateTag`, FAB удалён (экран не подключён к навигации)
 
 **Добавлен `FabAction` в `AppShell`:**
+
 ```kotlin
 data class FabAction(val label: String, val onClick: () -> Unit)
 ```
+
 Оба shell-а (`ModalShell`, `PermanentShell`) принимают `fabAction: FabAction?` и показывают `ExtendedFloatingActionButton`.
 
 **Shell-логика:**
+
 - Android: `fabActionFor(current, navigator)` в `AndroidShell`
 - Desktop: `fabActionForDesktop(current, navigator)` в `DesktopShell`
 - `AppDestination.Notes` → FAB "Add note" → `NoteEditor()`

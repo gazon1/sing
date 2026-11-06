@@ -54,7 +54,10 @@ class TwoInstanceHarnessTest {
                 )
 
                 val taskId = TaskId("two-instance-task")
-                val userId = harness.instanceA.koin.get<ProfileAwareCurrentUser>().scopedUserId.value
+                val userId =
+                    harness.instanceA.koin
+                        .get<ProfileAwareCurrentUser>()
+                        .scopedUserId.value
                 val written =
                     harness.instanceA.koin.get<TaskRepository>().create(
                         Task(
@@ -69,11 +72,15 @@ class TwoInstanceHarnessTest {
                 assertTrue(written.isSuccess, "the write on instance A failed: ${written.exceptionOrNull()}")
 
                 assertNotNull(
-                    harness.instanceA.koin.get<TaskRepository>().get(taskId),
+                    harness.instanceA.koin
+                        .get<TaskRepository>()
+                        .get(taskId),
                     "instance A must see the row it wrote",
                 )
                 assertNull(
-                    harness.instanceB.koin.get<TaskRepository>().get(taskId),
+                    harness.instanceB.koin
+                        .get<TaskRepository>()
+                        .get(taskId),
                     "instance B must not see a row written on instance A",
                 )
             }

@@ -16,6 +16,7 @@ Post-audit of Phase 4 refactoring (`TaskDetailViewModel` → sealed `TaskDetailI
 ## Idea
 
 Apply the same `TaskDetailIntent` pattern used in Phase 4:
+
 1. `sealed interface ProjectDetailIntent` with `Routing` (screen) vs `Domain` (VM) sub-hierarchies
 2. Single `onIntent(intent: Domain)` dispatcher
 3. `@JvmInline value class ProjectDetailActions` for callback packing
@@ -27,6 +28,7 @@ Apply the same `TaskDetailIntent` pattern used in Phase 4:
 ## Decision
 
 `ProjectDetailViewModel` now has:
+
 - **`ProjectDetailIntent`** — `Routing.NavigateTo*` (screen) + `Domain.*` (VM)
 - **`onIntent(intent: Domain)`** — single dispatcher replacing 11 methods
 - **`_latestProject` StateFlow cache** — TOCTOU guard for all mutations
@@ -34,6 +36,7 @@ Apply the same `TaskDetailIntent` pattern used in Phase 4:
 - **`mutate{}` private helper** — `updateProject(id, transform)` + `_lastEditedAt` + silent failure
 
 `ProjectDetailScreen` now has:
+
 - **`ProjectDetailActions`** — single callback parameter per section
 - **Routing via `remember { ProjectDetailActions { ... } }`** — `OpenColorSheet`, `OpenIconSheet`, etc. directly set `activeSheet`; no VM event round-trip
 - **Sheet openers as routing intents** — `ActiveSheet.PickColor`, `ActiveSheet.ConfirmDelete`, etc. are `Routing` intents, not VM events

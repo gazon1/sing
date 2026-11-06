@@ -100,6 +100,7 @@ practice a non-null `active` is the only operationally meaningful path (a null s
 means "empty queue" and is the terminal case that returns `null` from `planPush`).
 
 **Fix:** make `PushPlan` sealed. Two substates:
+
 - `PushPlan.Ready(scope: SyncScope, pending: List<SyncOutboxEntity>, patches:
   List<DeltaPatch>, request: BatchPushRequest)` — non-null scope, with
   `init { require(profileId.isNotBlank()) }` on `SyncScope` or in the `Ready`
@@ -237,6 +238,7 @@ field (not `this.scope`).
 ## Extraction plan
 
 Each extraction follows the same shape:
+
 1. Create the new class with the extracted logic (copy from `SyncEngine`).
 2. Add a delegating field in `SyncEngine` so callers still use `SyncEngine`.
 3. Run `assembleDebug` — must pass.

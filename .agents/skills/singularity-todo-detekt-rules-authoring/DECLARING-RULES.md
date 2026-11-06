@@ -56,4 +56,3 @@ clean pass. Walk `node.children` explicitly instead; see
 **A failed build task's report is not evidence.** When a rule throws, or the task fails
 for any other reason, the report on disk is the previous run's. Check the task outcome
 before reading it.
-

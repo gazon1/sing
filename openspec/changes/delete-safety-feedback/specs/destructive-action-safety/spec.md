@@ -17,11 +17,13 @@ rule so the remaining sites are an implementation task rather than ten separate
 decisions.
 
 #### Scenario: A note is removed
+
 - The user removes a note
 - The user is offered a way to reverse the removal
 - Taking the offer restores the note as it was
 
 #### Scenario: Nothing is offered where reversal is impossible
+
 - The user removes something whose removal cannot be reversed
 - The user is asked to confirm first
 - Declining leaves the data untouched
@@ -38,6 +40,7 @@ confirmation that does not say what cascades is a confirmation the user cannot
 give meaningfully. They are agreeing to something they have not been told.
 
 #### Scenario: A cascading removal is confirmed with its consequences named
+
 - The user requests a removal that also affects related items
 - The confirmation names the related items and their count
 - Confirming removes them; cancelling removes nothing
@@ -55,6 +58,7 @@ need it. But a reversal offer whose expiry is invisible is a recovery path the
 user does not know they have.
 
 #### Scenario: The remaining interval is visible
+
 - A removal offers reversal
 - The offer shows how long it remains available, and the remaining time decreases
 - The offer disappears when the interval ends, and the item is then gone
@@ -73,11 +77,13 @@ data is gone with no signal — strictly worse than not offering reversal at all
 because it also removes the expectation that anything happened.
 
 #### Scenario: Failed reversal is reported
+
 - The user takes the reversal offer
 - The reversal does not succeed
 - The user is told the item could not be restored
 - The offer is not presented as having succeeded
 
 #### Scenario: The offer survives a failed attempt long enough to be useful
+
 - A reversal attempt fails
 - The user is still able to see what happened to the item

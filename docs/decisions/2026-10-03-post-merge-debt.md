@@ -45,6 +45,7 @@ self-scoped via `ProfileAwareCurrentUser`. Callers were forced to pass the ambie
 creating an eager-snapshot bug in every caller.
 
 Changes:
+
 - `ProposalRepository.watchProposalsForTask(taskId)` / `watchProposalsByStatus(status)` —
   removed `userId` param; impl uses `currentUser.scopedUserId.flatMapLatest { ... }`
 - `ProposalDiModule` — injects `ProfileAwareCurrentUser` into `ProposalRepositoryImpl`

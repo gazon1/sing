@@ -10,6 +10,7 @@ description: How to navigate from one feature's detail screen to another feature
 When a `TaskDetailScreen` shows a project chip and the user taps it, where should they go?
 
 Options:
+
 1. **IconButton adjacent to chip** — `[📁 Work] →` — explicit, discoverable, clean
 2. **Overflow menu item** — `⋮ → Open project` — discoverable but buried
 3. **`combinedClickable` on chip (long-press = pick, short-press = navigate)** — hidden, conflicts with multi-select

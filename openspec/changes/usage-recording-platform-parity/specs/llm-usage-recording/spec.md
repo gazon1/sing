@@ -36,12 +36,12 @@ platform used by users.
 - **When** the recording test runs on that source set
 - **Then** it fails
 - **And** the omission is visible as a missing binding rather than as empty
-      tables discovered later
+  tables discovered later
 
 #### Scenario: A call site bypasses the port
 
 - **Given** code that constructs an agent directly instead of resolving
-      `TextGenPort`
+  `TextGenPort`
 - **When** the recording invariant is checked
 - **Then** the direct construction is reported
 - **And** it is not left to a quarterly manual audit

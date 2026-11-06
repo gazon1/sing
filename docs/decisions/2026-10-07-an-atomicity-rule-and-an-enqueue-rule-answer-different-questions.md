@@ -21,7 +21,8 @@ only one of them had a rule.
 The unchecked one is the more expensive bug. A method that writes a row and forgets to
 enqueue looks exactly like a method that writes a row and deliberately does not: a DAO call
 and no `syncRepository.enqueue`. Nothing in the repository told them apart — which is what
-#187 was, time tracking on one platform and not the other, with every suite green.
+
+# 187 was, time tracking on one platform and not the other, with every suite green
 
 ## Idea
 

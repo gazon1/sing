@@ -124,6 +124,76 @@ class SelectorSerializerTest {
         )
     }
 
+    // ─── the names a selector is stored under ───────────────────────────────────
+
+    /**
+     * A selector written before the format named its values still reads back.
+     *
+     * A saved agenda view holds the values it was saved under. The format now
+     * names them — `today`, `active`, `high`, `next_up` — and the reader takes
+     * the old spellings too, because a view saved before the change has to keep
+     * opening.
+     */
+    @Test
+    fun `a selector written under the old names still reads back`() {
+        assertEquals(
+            Selector.DateBucket(RelativeBucket.Today),
+            json.decodeFromString(SelectorSerializer, """{"_type":"DateBucket","bucket":"Today"}"""),
+            "a view saved under the old bucket name still opens",
+        )
+        assertEquals(
+            Selector.Statuses(setOf(TaskStatus.Active)),
+            json.decodeFromString(SelectorSerializer, """{"_type":"Statuses","statuses":["Active"]}"""),
+            "a view saved under the old status name still opens",
+        )
+        assertEquals(
+            Selector.Priorities(setOf(TaskPriority.High)),
+            json.decodeFromString(SelectorSerializer, """{"_type":"Priorities","priorities":["High"]}"""),
+            "a view saved under the old priority name still opens",
+        )
+        assertEquals(
+            Selector.WorkflowState(TaskWorkflowState.NextUp),
+            json.decodeFromString(SelectorSerializer, """{"_type":"WorkflowState","state":"NextUp"}"""),
+            "a view saved under the old workflow state name still opens",
+        )
+    }
+
+    /**
+     * A selector is written under the names the format declares.
+     *
+     * The name a value is stored under is a contract of the format, not the name
+     * of the Kotlin constant — see
+     * `com.singularity.todo.core.serialization.WireNamed`. A rename of the
+     * constant must not change what a saved view says.
+     */
+    @Test
+    fun `a selector is written under the names the format declares`() {
+        assertTrue(
+            json
+                .encodeToString(SelectorSerializer, Selector.DateBucket(RelativeBucket.Today))
+                .contains("\"bucket\":\"today\""),
+            "a date bucket is stored under the name the format declares",
+        )
+        assertTrue(
+            json
+                .encodeToString(SelectorSerializer, Selector.Statuses(setOf(TaskStatus.Active)))
+                .contains("\"statuses\":[\"active\"]"),
+            "a status is stored under the name the format declares",
+        )
+        assertTrue(
+            json
+                .encodeToString(SelectorSerializer, Selector.Priorities(setOf(TaskPriority.High)))
+                .contains("\"priorities\":[\"high\"]"),
+            "a priority is stored under the name the format declares",
+        )
+        assertTrue(
+            json
+                .encodeToString(SelectorSerializer, Selector.WorkflowState(TaskWorkflowState.NextUp))
+                .contains("\"state\":\"next_up\""),
+            "a workflow state is stored under the name the format declares",
+        )
+    }
+
     // ─── MR1 legacy — Selector.Tag → Selector.Tags upgrade ─────────────────────
 
     @Test

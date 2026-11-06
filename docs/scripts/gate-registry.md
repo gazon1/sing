@@ -76,6 +76,7 @@ sche... | — | — |
 | the text-field transformation table is true | blocking | `scripts/check-text-field-transformations-table.py` | check-text-field-transformations-table.py — the skill's transformation table ... | — | — |
 | the platform reference ports are true | blocking | `scripts/check-platform-reference-ports.py` | check-platform-reference-ports.py — the platform reference against the code. | — | — |
 | doc dead refs | blocking | `scripts/check-doc-dead-refs.py` | check-doc-dead-refs.py — find references to files that no longer exist. | — | — |
+| documentation concepts are valid | advisory | `scripts/documentation/check.py` | check.py — documentation knowledge concept status checker (Phase 1a spike). | — | — |
 | doc links | blocking | `scripts/check-doc-links.sh` | doc links | — | — |
 | navigation doc matches the code | blocking | `scripts/check-navigation-doc-sync.py` | check-navigation-doc-sync.py — the navigation doc must say what the code does. | — | — |
 | DI fixture matches the definitions | blocking | `scripts/check-di-fixture-sync.py` | check-di-fixture-sync.py — the DI fixture table must match the Koin definitions. | — | — |

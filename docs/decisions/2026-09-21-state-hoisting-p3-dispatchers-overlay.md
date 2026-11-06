@@ -19,11 +19,13 @@ Additionally, Phase 2 had introduced `OverlayState<S>` and `NoteLinkSheet` seale
 ---
 
 ## Decision
+
 ### 1. Dispatchers.Unconfined: init blocks → default; fire-and-forget left alone
 
 **Problem:** `Dispatchers.Unconfined` in `init { scope.launch(Dispatchers.Unconfined) { collect{} } }` blocks causes `UncompletedCoroutinesError` in tests — `Unconfined` runs `collect{}` immediately on the test thread, blocking the test coroutine forever.
 
 **Decision:**
+
 - `NotesListViewModel.init` block: migrate `Dispatchers.Unconfined` → `scope.launch()` (default dispatcher). The `collect{}` here is a long-running collector and needs proper thread management.
 - `NoteEditor` fire-and-forget methods (`openEditor`, `saveNow`, `scheduleAutosave`, `improveNote`): **leave on `Unconfined`**. These are one-shot operations that emit to existing `StateFlow`s or `SharedFlow`s, not long-running `collect{}` loops. `Unconfined` is correct and avoids scheduler overhead.
 - `NotesListViewModel.deleteSelected`, `createNoteWithTitle`, `delete`: **leave on `Unconfined`**. Same reasoning — fire-and-forget, not `collect{}`.
@@ -31,6 +33,7 @@ Additionally, Phase 2 had introduced `OverlayState<S>` and `NoteLinkSheet` seale
 **Rationale:** The distinction between "init block with `collect{}`" vs "fire-and-forget method" is critical. Only the former causes `UncompletedCoroutinesError`. Migrating fire-and-forget methods to `Default` adds scheduler overhead for no benefit.
 
 **Consequences:**
+
 - `NotesListViewModel` init block now uses default dispatcher — correct behavior in production and tests.
 - `NoteEditor` tests added (`NoteEditorTest`) to prevent accidental migration of fire-and-forget methods to `Default`.
 
@@ -41,6 +44,7 @@ Additionally, Phase 2 had introduced `OverlayState<S>` and `NoteLinkSheet` seale
 **Problem:** Phase 3 changed `loadNote` from `first()` to `collect{}` to support live Room updates. This caused `UncompletedCoroutinesError` in tests with `backgroundScope`.
 
 **Investigation:**
+
 - `collect{}` with `scope = backgroundScope` (JVM test): `backgroundScope` runs on a separate `TestDispatcher` from `runTest`'s. `advanceUntilIdle()` drains only the test scheduler, not `backgroundScope`'s — the emission never syncs with the test assertion.
 - `collect{}` with `scope = this` (same `TestScope`): the VM's collector runs on the test's `TestDispatcher`, but `advanceUntilIdle()` completes before the `collect{}` coroutine processes the emission (FakeNotesRepository emits on a different dispatcher).
 - `first()` works reliably but doesn't react to live updates.
@@ -48,6 +52,7 @@ Additionally, Phase 2 had introduced `OverlayState<S>` and `NoteLinkSheet` seale
 **Decision:** Keep `first()`. Live Room update propagation is a secondary concern; test stability is primary.
 
 **Rationale:**
+
 - The original behavior (before Phase 3) already used `first()`.
 - `backgroundScope` doesn't solve the timing problem for `collect{}` with `advanceUntilIdle()`.
 - A proper live-update test would require controlling `FakeNotesRepository`'s emission dispatcher, which is outside the scope of this fix.
@@ -61,6 +66,7 @@ Additionally, Phase 2 had introduced `OverlayState<S>` and `NoteLinkSheet` seale
 **Problem:** `BackupUiEvent.ShowSnackbar` mixed success notifications with error events in one flow. `NotificationHost` was consuming this flow and mapping `ShowSnackbar → Notification.None`, while a separate `LaunchedEffect(events.collect{})` handled the snackbar presentation. Two collectors on the same `events` flow is error-prone.
 
 **Decision:**
+
 - Remove `BackupUiEvent.ShowSnackbar`. Success is not an error.
 - Add `BackupViewModel.snackbar: SharedFlow<String>(extraBufferCapacity = 4)` — project convention for one-shot event flows.
 - `BackupScreen`: dedicated `LaunchedEffect(snackbar) { snackbar.collect { showSnackbar } }` for snackbars; `NotificationHost` handles errors only.
@@ -69,6 +75,7 @@ Additionally, Phase 2 had introduced `OverlayState<S>` and `NoteLinkSheet` seale
 **Rationale:** Material 3 separation — dialogs (blocking/modal) via `NotificationHost` vs snackbars (transient/non-blocking) via dedicated `SnackbarHostState`. Each has its own collector and lifecycle.
 
 **Consequences:**
+
 - `BackupUiEvent` now only contains `Error` — semantic clarity.
 - `BackupViewModelTest` updated to remove `ShowSnackbar` references; new test added for snackbar emission.
 - `BackupScreen` signature changed (added `snackbar` parameter) — all call sites updated.

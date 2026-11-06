@@ -362,20 +362,32 @@ sealed interface AppDestination : AppNavKey {
         override val title: String =
             when (start) {
                 AgendaStartRoute.Inbox -> "Inbox"
+
                 // The Today destination's name lives with its definition: the tab
                 // label and the header title are the same string, so they cannot
                 // drift apart. The other branches are their own labels already.
                 AgendaStartRoute.Today -> AgendaPresets.Today.title
+
                 AgendaStartRoute.Upcoming -> "Upcoming"
+
                 is AgendaStartRoute.Project -> "Project"
+
                 is AgendaStartRoute.Tag -> "Tag"
+
                 is AgendaStartRoute.Tags -> "Tags"
+
                 AgendaStartRoute.SavedAgendaList -> "Saved views"
+
                 is AgendaStartRoute.SavedAgendaResults -> "Saved view"
+
                 is AgendaStartRoute.SavedAgendaEdit -> "Edit view"
+
                 AgendaStartRoute.SavedAgendaCreate -> "New view"
+
                 AgendaStartRoute.Blocked -> "Blocked"
+
                 AgendaStartRoute.Stagnant -> "Stagnant"
+
                 AgendaStartRoute.Overdue -> "Overdue"
             }
     }

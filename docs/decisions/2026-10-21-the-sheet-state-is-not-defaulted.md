@@ -14,7 +14,8 @@ looking at the same state. Before #824 they were not: the screen opened a sheet 
 the state it held, and the editor rendered the sheets from a state of its own, so in the
 create flow every attribute row was inert.
 
-#824 gave the editor one state and made the create screen hand it over. The fallback
+# 824 gave the editor one state and made the create screen hand it over. The fallback
+
 stayed:
 
 ```kotlin

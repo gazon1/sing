@@ -53,18 +53,21 @@ status: accepted
 ### Verification
 
 **Primary** (Maestro — not blocked by desktop nav regression):
+
 ```bash
 # Run on Android device/emulator
 maestro test Maestro/flows/agenda/04-saved-view-results.yaml
 ```
 
 **Desktop** (blocked by pre-existing nav regression):
+
 ```bash
 ./gradlew :desktopApp:test --tests "**/OpenSavedViewShowsMatchingTasksFlowTest"
 # Expected: INTERRUPTED (pre-existing desktop nav bug, not MR-11 code)
 ```
 
 **Regression gate** (must all be green):
+
 ```bash
 ./gradlew :shared:jvmTest                        # green
 ./gradlew :shared:detekt                          # green

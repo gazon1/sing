@@ -1,5 +1,7 @@
 package com.singularity.todo.mcp
 
+import org.koin.core.context.startKoin
+
 /**
  * The standalone tool server's entry point.
  *
@@ -19,4 +21,18 @@ package com.singularity.todo.mcp
  * stored active-profile state; `--profile` keeps its legacy label meaning and is
  * deprecated.
  */
-fun main(args: Array<String>): Unit = runToolServer(args)
+fun main(args: Array<String>): Unit = runToolServer(args, KoinStartup)
+
+/**
+ * The composition root of the standalone server.
+ *
+ * It lives in the launcher rather than in the shared library: the server runs in two
+ * processes, and each one starts its own container. The binding set is shared through
+ * [toolServerModules], so the two launchers cannot drift into two different graphs.
+ */
+private val KoinStartup =
+    ToolServerKoinStartup { fixedProfileId ->
+        startKoin {
+            modules(toolServerModules(fixedProfileId))
+        }
+    }

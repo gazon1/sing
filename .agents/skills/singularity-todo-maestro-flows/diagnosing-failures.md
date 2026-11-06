@@ -80,10 +80,12 @@ separates them.
 2. **Assertion failure:** read the captured hierarchy —
    `~/.maestro/tests/<timestamp>/<flow-name>/screen-hierarchy/<step>.json`.
    Extract what was actually on screen:
+
    ```bash
    grep -o '"resource-id" : "[^"]*"' <step>.json | sort -u
    grep -o '"text" : "[^"]*"' <step>.json | sort -u
    ```
+
    Compare against `Maestro/TAGS.md` — usually the id is mis-cased, below the
    fold, or on a screen the previous step never opened.
 3. **Nothing on screen but the home screen** — the app crashed earlier in the
@@ -105,6 +107,7 @@ timing variance (cold start), and a `known-bug` tag marks the flow while a real 
 is tracked.
 
 Do NOT use retry when:
+
 - Multiple flows fail simultaneously with the same selector — this is a cascade,
   not independent variance. Check `seed-task.yaml` first.
 - The failure is `Not found` rather than `Not visible` — retry does not help.
@@ -117,6 +120,7 @@ The most common cascade failure mode in this suite: `seed-task.yaml` times out,
 `seed-task.yaml`. Every other flow just used that fixture.
 
 **How to recognise it:**
+
 - 14 flows all failing with the same `Not visible: task_item_buy_milk` at the
   same step position (immediately after seed).
 - The failure appeared after a CI runner was under load (seed takes longer when
@@ -148,23 +152,40 @@ produces a cascade of failures that requires a full re-run to diagnose.
 
 ## Seed fixtures, never type them
 
-**Seed through `helpers/seed.yaml`, which drives the `DebugSeedActivity` deep-link.
-Typing a fixture into the editor does not work in this app.**
+This section is the single home for the seeding walkthrough. `SKILL.md` carries only
+what authoring a flow needs — the seed-never-type rule and the pointer here — and does
+not restate the walkthrough: a walkthrough stated in both files is a walkthrough that
+will drift.
 
-`TaskTitleRow` uses Compose's *controlled* field:
+**Seed through `helpers/seed.yaml`, which drives the `DebugSeedActivity` deep-link.
+Typing into a field works — several flows do it — but a *fixture* is seeded, not
+typed.**
+
+The task title and the description are state-backed fields: the field owns its
+text, the screen reads it.
 
 ```kotlin
-BasicTextField(value = title, onValueChange = { title = it; isDirty = true })
+BasicTextField(state = titleState, ...)
 ```
 
-Neither Maestro `inputText` nor `adb shell input text` can fill it. Injected text
-lands in the wrapped `EditText`, then the next composition writes the still-empty
-`value` back over it. `onValueChange` never fires, `isDirty` stays false, and Save
-never enables — the flow hangs on a title that looks filled in but is not in state.
+`TaskTitleRow` and `TaskDescriptionField` both take a `TextFieldState`, and the
+`NoValueBasedTextField` detekt rule keeps the value-based `value`/`onValueChange`
+shape out of the app. So what a keystroke lands in is the field's own state.
+Typing works: `tasks/create-task.yaml` types the title, asserts the text is
+visible in the field and only then saves, and other flows type into the
+saved-view name, the note body and checklist items.
 
-The probe that settles it: type, reopen the editor, assert the text. Gone, so the
-value never reached state. An `ImeAction` patch was tried and reverted — it removed
-the action `inputText` depends on and broke entry outright.
+What typing does not give you is a *fixture*. A typed value rides on the IME
+reaching the field and on the field's own state — a lost composition leaves the
+field empty while the flow carries on, which is why a flow asserts the field's
+text before it acts on it. A seeded fixture is deterministic instead: the seed
+names the row by its title, the seed replaces the row it names, and the runner
+takes the row away with the profile wipe before the next flow.
+
+The old failure — a controlled field whose empty `value` was written back over the
+injected text — and the reverted `ImeAction` experiment are recorded in
+`docs/decisions/2026-10-12-maestro-e2e-fixes.md`. The shape that caused them is
+gone; the advice to seed survives.
 
 `helpers/seed.yaml` takes a URL-encoded `QUERY`:
 

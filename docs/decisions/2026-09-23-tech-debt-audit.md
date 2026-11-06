@@ -5,7 +5,6 @@ tags: [tech-debt, audit, vm, database, tests]
 status: accepted
 ---
 
-
 > **Superseded in part (2026-09-27):** `StatefulViewModel`, `updateStateAs<T>`,
 > `onStateChanged` and `CoroutineScope.fireAndForget` were removed. See
 > [2026-09-27-mvi-single-state-entry-and-vm-sweep.md](2026-09-27-mvi-single-state-entry-and-vm-sweep.md).

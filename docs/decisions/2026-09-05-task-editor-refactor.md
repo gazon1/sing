@@ -3,6 +3,7 @@ title: Task Editor Refactor — TickTick-like single-screen editor
 date: 2026-09-05
 status: accepted
 ---
+
 # Task Editor Refactor — TickTick-like single-screen editor
 
 ## Context

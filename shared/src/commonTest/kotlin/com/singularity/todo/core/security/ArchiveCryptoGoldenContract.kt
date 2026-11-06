@@ -52,7 +52,7 @@ import kotlin.test.assertEquals
  * that declares a test method to declare a tag — and a tag on this class would
  * be a lie, because it never runs on its own. The gate scans files named
  * `*Test.kt`, an abstract contract is not a test class, and the name keeps the
- * two facts in step. Renaming the file to `ArchiveCryptoGoldenContractTest.kt`
+ * two facts in step. Adding a `Test` suffix to this file's name
  * turns that gate red, which is the correct outcome but a confusing one.
  *
  * ## What is pinned

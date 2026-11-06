@@ -14,7 +14,7 @@ import kotlin.test.assertContains
 
 /**
  * Smoke tests: verifies the kotlinx-coroutines-debug agent is active and
- * [CoroutineDiagnostics.dump] can see running coroutines.
+ * [DesktopCoroutineDiagnostics.dump] can see running coroutines.
  *
  * These do NOT test the output format — format is verified by reading actual
  * dumps during real incidents. These only confirm the agent is working.
@@ -29,7 +29,7 @@ class CoroutineDiagnosticsTest {
                     delay(Long.MAX_VALUE)
                 }
             try {
-                val dump = CoroutineDiagnostics.dump("CoroutineDiagnosticsTest", 1)
+                val dump = DesktopCoroutineDiagnostics.dump("CoroutineDiagnosticsTest", 1)
                 assertContains(dump, "SUSPENDED")
                 assertContains(dump, "CoroutineDiagnosticsTest")
             } finally {
@@ -47,7 +47,7 @@ class CoroutineDiagnosticsTest {
                     delay(Long.MAX_VALUE)
                 }
             try {
-                val dump = CoroutineDiagnostics.dump("CoroutineDiagnosticsTest", 1)
+                val dump = DesktopCoroutineDiagnostics.dump("CoroutineDiagnosticsTest", 1)
                 assertContains(dump, "SUSPENDED")
             } finally {
                 job.cancel()
@@ -62,7 +62,7 @@ class CoroutineDiagnosticsTest {
             val child1 = scope.launch { delay(Long.MAX_VALUE) }
             val child2 = scope.launch { delay(Long.MAX_VALUE) }
             try {
-                val dump = CoroutineDiagnostics.dump("CoroutineDiagnosticsTest", 1)
+                val dump = DesktopCoroutineDiagnostics.dump("CoroutineDiagnosticsTest", 1)
                 assertContains(dump, "CoroutineDiagnosticsTest")
             } finally {
                 child1.cancel()
@@ -90,7 +90,7 @@ class CoroutineDiagnosticsTest {
                     infiniteFlow.collect { }
                 }
             try {
-                val dump = CoroutineDiagnostics.dump("CoroutineDiagnosticsTest", 1)
+                val dump = DesktopCoroutineDiagnostics.dump("CoroutineDiagnosticsTest", 1)
                 assertContains(dump, "SUSPENDED")
             } finally {
                 job.cancel()

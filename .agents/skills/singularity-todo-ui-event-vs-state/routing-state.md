@@ -11,6 +11,7 @@ There are **three** kinds of UI-related data, not two:
 | **Routing state** | `remember { mutableStateOf(...) }` on screen | `activeSheet: ActiveSheet?`, `menuExpanded: Boolean` |
 
 Routing state is the **which sheet / dialog / menu is currently open**. It belongs on the screen, not in the VM, because:
+
 - It is Composable-local (only the current screen cares).
 - It has no persistence requirement (rotating the device closes the sheet).
 - Routing decisions are cheap and local (no repository call needed).
@@ -60,11 +61,13 @@ val actions = remember {
 ## When to keep `MutableStateFlow` inside a Composable
 
 Genuinely Composable-local UI affordances only:
+
 - `var activeSheet by remember { mutableStateOf<ActiveSheet?>(null) }` — UI routing, not domain
 - `var searchQuery by remember { mutableStateOf("") }` — local to a search field before submission
 - `Animatable` for one-shot UI animations (saved pill fade, etc.)
 
 What must **not** live in a Composable:
+
 - Anything derived from a VM `StateFlow` (duplicated state)
 - Domain formatting (`when (result)` that produces user-facing strings)
 - Anything other Composables on the same screen also need

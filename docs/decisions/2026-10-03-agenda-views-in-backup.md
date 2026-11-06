@@ -25,6 +25,7 @@ tags: [backup, agenda, data-loss]
 Изменения:
 
 **`core/backup/BackupPayload.kt`:**
+
 ```kotlin
 data class BackupPayload(
     val schemaVersion: Int,  // bump to 3
