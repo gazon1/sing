@@ -97,21 +97,30 @@ class TaskVocabularyTest {
         }
     }
 
+    /**
+     * A section whose title is a bucket's name holds that bucket, and only that one.
+     *
+     * The rule is about the *name*, not about the buckets: a section called "This Week"
+     * has to be the tasks of this week and nothing else. A section that holds a bucket
+     * without being called after it is a section that answers a narrower question — the
+     * work-day blocks, which are today's tasks inside a time window and are called
+     * "Work" and "Lunch" — and those are named for what they narrow, not for the bucket
+     * they narrow. The registry says what each of those titles answers.
+     */
     @Test
-    fun `a section that holds a bucket is titled with that bucket's name`() {
+    fun `a section named after a bucket holds that bucket, and only it`() {
+        val bucketByTitle = TaskVocabulary.bucketTitles.entries.associate { (bucket, title) -> title to bucket }
+
         presetDefinitions().forEach { (name, definition) ->
             definition.sections.forEach { section ->
-                val held = section.selector.heldBuckets()
-                if (held.size == 1) {
-                    val bucket = held.single()
+                val bucket = bucketByTitle[section.name] ?: return@forEach
 
-                    assertEquals(
-                        TaskVocabulary.bucketTitles[bucket],
-                        section.name,
-                        "the '$name' preset's section '${section.name}' holds the $bucket bucket, " +
-                            "so that is what it has to be called",
-                    )
-                }
+                assertEquals(
+                    setOf(bucket),
+                    section.selector.heldBuckets(),
+                    "the '$name' preset's section '${section.name}' is named after the $bucket bucket, " +
+                        "so that is the bucket it has to hold",
+                )
             }
         }
     }

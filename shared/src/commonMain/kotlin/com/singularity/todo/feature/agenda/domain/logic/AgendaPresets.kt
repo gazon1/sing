@@ -473,30 +473,34 @@ object AgendaPresets {
                 .mapIndexed { index, section -> section.copy(order = index) }
         return Today.copy(sections = sections)
     }
-
-    /**
-     * One work block of the day plan: today's tasks whose `dueTime` falls inside
-     * the inclusive window [fromMinutes]..[toMinutes].
-     *
-     * The date half of the selector is what keeps the block to today. Without it
-     * a 10:00 task due next month would be listed in today's morning.
-     */
-    private fun workBlock(
-        id: String,
-        name: String,
-        fromMinutes: Int,
-        toMinutes: Int,
-    ): Section =
-        Section(
-            id = id,
-            name = name,
-            selector =
-                Selector.AllOf(
-                    listOf(
-                        Selector.DateBucket(RelativeBucket.Today),
-                        Selector.TimeOfDay(fromMinutes, toMinutes),
-                    ),
-                ),
-            discard = true,
-        )
 }
+
+/**
+ * One work block of the day plan: today's tasks whose `dueTime` falls inside
+ * the inclusive window [fromMinutes]..[toMinutes].
+ *
+ * The date half of the selector is what keeps the block to today. Without it
+ * a 10:00 task due next month would be listed in today's morning.
+ *
+ * It is a file-level function rather than one of the object's, because the object
+ * holds every agenda the app offers and that number is what the complexity gate
+ * counts: a helper that belongs to no preset should not spend the object's budget.
+ */
+private fun workBlock(
+    id: String,
+    name: String,
+    fromMinutes: Int,
+    toMinutes: Int,
+): Section =
+    Section(
+        id = id,
+        name = name,
+        selector =
+            Selector.AllOf(
+                listOf(
+                    Selector.DateBucket(RelativeBucket.Today),
+                    Selector.TimeOfDay(fromMinutes, toMinutes),
+                ),
+            ),
+        discard = true,
+    )

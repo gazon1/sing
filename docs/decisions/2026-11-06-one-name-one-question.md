@@ -52,7 +52,10 @@ old answer — the drift test holds the registry to both.
 A drift test (`TaskVocabularyTest`) enforces the rule: it fails when a name appears in
 two vocabularies with different questions and no declared divergence, when a declared
 divergence no longer diverges (a stale declaration), and when a filter shape, selection,
-agenda preset or section header is missing from the registry.
+agenda preset or section header is missing from the registry. A section whose title is a
+bucket's name holds that bucket and only it; a section that holds a bucket *without*
+being called after it answers a narrower question — the work-day blocks, which are
+today's tasks inside a time window — and is named for what it narrows.
 
 ## Rationale
 
