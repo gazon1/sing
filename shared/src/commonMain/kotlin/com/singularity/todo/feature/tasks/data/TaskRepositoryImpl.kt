@@ -249,7 +249,7 @@ class TaskRepositoryImpl(
                 TaskSeriesShape.requireRuleLivesInSeries(item)
                 val toInsert = item.copy(userId = currentUid)
                 taskDao.upsert(toInsert.toEntity())
-                saveOutgoingLinks(toInsert.id, toInsert.description)
+                saveOutgoingLinks(toInsert.id, toInsert.description, toInsert.updatedAt.toEpochMilliseconds())
                 toInsert.tags.forEach { tagId ->
                     taskDao.upsertTagCrossRefForUser(toInsert.id.value, tagId.value, currentUid.value)
                 }
@@ -277,7 +277,7 @@ class TaskRepositoryImpl(
                 // caller's anonymous id verbatim would orphan the row.
                 val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
                 taskDao.upsert(toUpdate.toEntity())
-                saveOutgoingLinks(toUpdate.id, toUpdate.description)
+                saveOutgoingLinks(toUpdate.id, toUpdate.description, toUpdate.updatedAt.toEpochMilliseconds())
                 // The tags are NOT written here, and that is a rule rather than an
                 // omission. The tags live in the cross-ref table, and the task this
                 // path is given was read through `get()` — which does not load them,
@@ -324,7 +324,7 @@ class TaskRepositoryImpl(
                     currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
                     val toInsert = item.copy(userId = currentUid)
                     taskDao.upsert(toInsert.toEntity())
-                    saveOutgoingLinks(toInsert.id, toInsert.description)
+                    saveOutgoingLinks(toInsert.id, toInsert.description, toInsert.updatedAt.toEpochMilliseconds())
                     toInsert.tags.forEach { tagId ->
                         taskDao.upsertTagCrossRefForUser(toInsert.id.value, tagId.value, currentUid.value)
                     }
@@ -360,7 +360,7 @@ class TaskRepositoryImpl(
                             ?: throw IllegalArgumentException("Task not found: ${item.id.value}")
                         val toUpdate = item.copy(userId = currentUid)
                         taskDao.upsert(toUpdate.toEntity())
-                        saveOutgoingLinks(toUpdate.id, toUpdate.description)
+                        saveOutgoingLinks(toUpdate.id, toUpdate.description, toUpdate.updatedAt.toEpochMilliseconds())
                         // The tags are a shared field of a series, and they live in the
                         // cross-ref table rather than in the row. A batch write that carried
                         // the tags in the task but not in the database would leave the
@@ -551,7 +551,7 @@ class TaskRepositoryImpl(
     private suspend fun saveOutgoingLinks(
         id: TaskId,
         description: String?,
-        updatedAt: Long = clock.now().toEpochMilliseconds(),
+        updatedAt: Long,
     ) {
         val rows =
             taskDao.setOutgoingLinksForUser(
