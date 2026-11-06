@@ -334,7 +334,9 @@ private fun BackupScreenWrapper(onBack: () -> Unit) {
         onBack = onBack,
         onCreateBackup = {
             saveBackup.launch(
-                "singularity_backup_${System.currentTimeMillis()}.zip",
+                // FileKit appends the extension itself; a name ending in `.zip`
+                // here produced `singularity_backup_<ts>.zip.zip` on the device.
+                "singularity_backup_${System.currentTimeMillis()}",
                 "zip",
             )
         },
