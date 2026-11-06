@@ -375,6 +375,17 @@ gate advisory "git hooks path is per-worktree" sgate git_hooks_path_is_per_workt
 # partiality is part of the record, because an unwritten partiality reads as a
 # full one.
 gate blocking "hook gates are declared once" sgate hook_gates_are_declared_once
+# `scripts/src/pyproject.toml` declares the console scripts of the editable
+# install — `sgate`, `ensure-emulator` and `run-maestro`. The install belongs to
+# whichever checkout ran `pip install -e scripts/src/` last, so a bare command on
+# PATH answers with that checkout's package: another tree's gate registry,
+# another tree's Maestro flows, another tree's APK. `./sg` and `./rm` bind the
+# packages to the checkout they are invoked from, and this gate says every
+# declared script has such a wrapper — by shape, not by file name: a wrapper that
+# loads the binding by path and binds before the entry point runs. A script added
+# to the install without one is a finding here rather than a green report about
+# somebody else's tree.
+gate blocking "console-script wrappers" sgate console_script_wrappers
 gate blocking "unwired surfaces" sgate unwired_surfaces
 gate blocking "settings read by a feature" sgate settings_read_by_a_feature
 # The coverage report measures every module that is in it.

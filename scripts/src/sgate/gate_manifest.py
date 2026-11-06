@@ -317,6 +317,20 @@ does not name, a module the CI judges and the record does not list. The
 partiality is part of the record, because an unwritten partiality reads as a
 full one.""",
     ),
+    "console-script wrappers": Placement(
+        kind=PlacementKind.STATIC,
+        command='sgate console_script_wrappers',
+        note="""`scripts/src/pyproject.toml` declares the console scripts of the editable
+install — `sgate`, `ensure-emulator` and `run-maestro`. The install belongs to
+whichever checkout ran `pip install -e scripts/src/` last, so a bare command on
+PATH answers with that checkout's package: another tree's gate registry,
+another tree's Maestro flows, another tree's APK. `./sg` and `./rm` bind the
+packages to the checkout they are invoked from, and this gate says every
+declared script has such a wrapper — by shape, not by file name: a wrapper that
+loads the binding by path and binds before the entry point runs. A script added
+to the install without one is a finding here rather than a green report about
+somebody else's tree.""",
+    ),
     "unwired surfaces": Placement(
         kind=PlacementKind.STATIC,
         command='sgate unwired_surfaces',

@@ -41,6 +41,7 @@ sche... | — | — |
 | a git command that reads a tree controls its environment | blocking | `scripts/check-git-environment.py` | check-git-environment.py — a git command that reads a tree must not inherit G... | — | — |
 | the checkout can work | blocking | `scripts/check-checkout-invariants.py` | check-checkout-invariants.py — the checkout has to be able to work. | — | — |
 | hook gates are declared once | blocking | `scripts/check-hook-gates.py` | check-hook-gates.py — the hook and CI must not drift apart silently. | — | — |
+| console-script wrappers | blocking | `scripts/check-console-script-wrappers.py` | check-console-script-wrappers.py — every console script is bound to this chec... | — | — |
 | unwired surfaces | blocking | `scripts/find-unwired-surfaces.py` | Find surfaces that are fully implemented but wired to nothing. | — | — |
 | settings read by a feature | blocking | `scripts/check-dead-settings.py` | Find persisted settings that are collected, displayed, and read by no feature. | — | — |
 | coverage task list | blocking | `scripts/check-coverage-task-list.py` | check-coverage-task-list.py — the coverage report measures every module that ... | — | — |
