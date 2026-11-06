@@ -101,3 +101,15 @@ facts:
   - id: K-ui-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/ui.md
+  - id: K-coroutines-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/coroutines.md
+  - id: K-files-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/files.md
+  - id: K-ids-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/ids.md
+  - id: K-log-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/log.md
