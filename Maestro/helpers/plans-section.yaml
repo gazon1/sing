@@ -11,6 +11,11 @@
 #
 # The wait is on the section's own id, not on its header's copy: the header's
 # wording is the app's to change, the date it names is not.
+#
+# A section renders only when it holds a task, so this wait is the arrival of
+# the task in it — the container rule of the contract in seed.yaml. A flow that
+# waits for a section instead of a row says so next to the wait; this helper
+# does not scroll, so the section is still on screen for the steps that follow.
 appId: com.singularity.todo
 name: plans-section
 ---

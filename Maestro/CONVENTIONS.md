@@ -91,7 +91,7 @@ their logic.
 | Helper | When to use |
 |---|---|
 | `launch-clean.yaml` | Any flow needing a fresh app state |
-| `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link |
+| `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link; it also carries the contract for waiting for what a flow seeded |
 | `seed-task.yaml` | Any flow needing one task titled "Buy milk" |
 | `seed-and-open-task.yaml` | Seeds a task with `QUERY` and opens it from Inbox by `TASK_ID` |
 | `open-task.yaml` | Opens a task from Inbox by `TASK_ID` and waits for the editor |
@@ -109,6 +109,13 @@ their logic.
 | `plans-section-gone.yaml` | Flows asserting that a timeline section is gone |
 | `open-attachments-sheet.yaml` | Opens the task detail's attachments sheet from the "+ Add file" row |
 | `backup-create-via-saf.yaml` | Backup flows creating an archive through the system save dialog |
+
+### Waiting for what you seeded
+
+A flow waits for the entity it seeded before it asserts on it. Which waits
+count — the entity's own row, or a container that renders only because the
+entity is in it — is written down in one place: the contract at the top of
+`helpers/seed.yaml`. Read it there; do not restate it in a flow.
 
 ### Sessions
 

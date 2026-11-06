@@ -186,7 +186,9 @@ no longer needs it.
 renders only when the section has a task, and the runner wipes the content
 before the flow, so an empty agenda has no section header to find: waiting for
 one waits for nothing. Either put a task in the section first, or assert the
-affordance the flow needs next.
+affordance the flow needs next. A task the flow seeded is such a task, so a
+wait on the section that holds it is the seeded task's arrival — the rule is
+written in `helpers/seed.yaml`.
 
 **Put the tag on a node that survives the merge.** A Material3 `Card` is a
 `Surface`, and a Surface merges its descendants: a tag below the card is

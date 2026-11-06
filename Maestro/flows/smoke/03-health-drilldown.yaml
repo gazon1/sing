@@ -34,6 +34,7 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=HealthOverdue%20Task&due=-1d"
+# The row rule: this task is waited for by its own row.
 - scrollUntilVisible:
     element:
       id: "task_item_healthoverdue_task"
@@ -67,6 +68,10 @@ tags:
     timeout: 8000
 - tapOn:
     id: health_bucket_blocked
+# The container rule: the bucket's section is the arrival signal for the task
+# in it — a section renders only when the section holds a task, so this wait is
+# the seeded task arriving and not a proxy for it (the contract in
+# helpers/seed.yaml).
 - extendedWaitUntil:
     visible:
       id: agenda_section_blocked
@@ -89,6 +94,8 @@ tags:
     timeout: 8000
 - tapOn:
     id: health_bucket_stagnant
+# The container rule, as above: the section is the arrival signal for the
+# stagnant task.
 - extendedWaitUntil:
     visible:
       id: agenda_section_not_touched_in_a_while
@@ -111,6 +118,8 @@ tags:
     timeout: 8000
 - tapOn:
     id: health_bucket_overdue
+# The container rule, as above: the section is the arrival signal for the
+# overdue task.
 - extendedWaitUntil:
     visible:
       id: agenda_section_overdue
