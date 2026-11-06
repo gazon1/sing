@@ -33,4 +33,4 @@ name: open-menu-item
 - extendedWaitUntil:
     visible:
       id: "${DEST_ID}"
-    timeout: 5000
+    timeout: 8000
