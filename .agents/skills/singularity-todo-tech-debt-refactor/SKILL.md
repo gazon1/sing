@@ -148,8 +148,8 @@ git fetch origin && git merge origin/refactor/techdebt-epic1  # bring PRs 1.x in
 # Before any worktree commit (if main has broken code)
 git commit --no-verify -m "..."
 
-# Full check (no adb)
-SKIP_ADB=1 ./check.sh
+# Full check
+./check.sh
 ```
 
 ## See Also

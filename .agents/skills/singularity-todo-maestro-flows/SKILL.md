@@ -40,7 +40,7 @@ them.
 just tm                        # all flows
 just tm tags=smoke             # smoke subset
 just tm flow=Maestro/flows/tasks
-RUN_MAESTRO=1 ./check.sh       # opt-in, from the local check pipeline
+RUN_MAESTRO=1 hk run device   # opt-in, as the last step of the device lane
 ```
 
 `just tm` forwards to `run-maestro`, which picks or relaunches the

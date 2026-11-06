@@ -7,7 +7,7 @@
 #
 # The same declaration is what CI can run with `hk check --all`
 # (https://hk.jdx.dev/ci.html). See
-# docs/decisions/2026-11-05-check-sh-is-an-hk-pipeline.md.
+# docs/decisions/2026-11-06-check-sh-is-an-entry-point-over-tested-scripts.md.
 #
 # The steps that need a device are not here: they are the `device` hook, run
 # with `hk run device`. Their failure is not this loop's verdict, and CI does

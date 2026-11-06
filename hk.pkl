@@ -198,10 +198,10 @@ hooks {
     // the floor that tier has to meet, and the Maestro UI flows.
     //
     // They are a hook of their own, and not steps of the `check` hook, for
-    // the reason ADR 2026-11-05 gave while they lived in `check.sh`: they
-    // need a device, they are opt-in, and their failure is not this loop's
-    // verdict. `hk check` runs the `check` hook only, so CI does not run
-    // them either. `hk run device` runs them.
+    // the reason ADR 2026-11-06 gives: they need a device, they are opt-in,
+    // and their failure is not this loop's verdict. `hk check` runs the
+    // `check` hook only, so CI does not run them either. `hk run device` runs
+    // them.
     //
     // `exclusive` makes each step its own group, so they run one after
     // another: the floor reads the report the instrumentation leaves, and the

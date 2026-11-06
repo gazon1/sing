@@ -57,8 +57,8 @@ python3 scripts/ktlint-lint.py --format                         # format
 ./gradlew koverHtml      # HTML
 just coverage                  # = ./gradlew koverReport
 
-# Full check (no adb)
-SKIP_ADB=1 ./check.sh
+# Full check
+./check.sh
 ```
 
 ## Changing a gate
