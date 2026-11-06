@@ -17,7 +17,7 @@ state *which tasks need the skill*, not summarise its contents.
 |---|---:|---|
 | `singularity-todo-adb-screen-unlock` | 97 | How to wake and unlock a physical Android device connected via adb before UI verification. |
 | `singularity-todo-adb-workflow` | 175 | Full adb workflow for UI verification on a physical Android device connected via USB. |
-| `singularity-todo-agenda-section-design` | 141 | Agenda section design — bucket selectors, discard semantics, and LazyColumn key safety. |
+| `singularity-todo-agenda-section-design` | 147 | Agenda section design — bucket selectors, discard semantics, and LazyColumn key safety. |
 | `singularity-todo-ai-action-registry-pattern` | 309 | AI action slot-API pattern for Singularity Todo. |
 | `singularity-todo-ai-tool` | 433 | Koog AI tool creation pattern for the Singularity Todo KMP app. |
 | `singularity-todo-android-cli` | 187 | Use when working with Android CLI commands, Android Studio integration, or Journeys for Android app development. |
@@ -86,7 +86,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-task-callback-groups` | 326 | Decision tree for grouping callbacks in Composable function signatures — when to use raw lambdas (≤3 params), when to use a @JvmInline value class Action hierarchy (outgoing events), and when to avoid data class "parameter objects" that group unrelated callbacks. |
 | `singularity-todo-task-detail-ux` | 278 | Document-style vs form-style UX pattern for task detail screens. |
 | `singularity-todo-test-flaky-prevention` | 303 | Rules to prevent test flakiness in the Singularity Todo project. |
-| `singularity-todo-test-helpers` | 353 | Standardized test helpers and patterns for ViewModel tests in this project. |
+| `singularity-todo-test-helpers` | 382 | Standardized test helpers and patterns for ViewModel tests in this project. |
 | `singularity-todo-test-tag-strategy` | 273 | Decide which JUnit tag a test class carries, and how the fast/slow split is applied in Gradle, CI and local runs. |
 | `singularity-todo-testable-vm` | 474 | Testable ViewModel pattern for Singularity Todo KMP app. |
 | `singularity-todo-text-field-states` | 313 | How to add or change a text field in Singularity Todo. |
@@ -122,7 +122,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `implement-spec` | 38 | Implement the result of /to-spec and /to-tickets in code. |
 | `improve-codebase-architecture` | 69 | Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick. |
 | `loop-me` | 29 | Grill me about specs for the workflows I want to build, within this workspace. |
-| `progress-journal` | 112 | Update PROGRESS.md during and after an epic — retro entries, PR status, blockers. |
+| `progress-journal` | 112 | Track an epic's progress in its issue — retro entries, PR status, blockers. |
 | `prototype` | 25 | Build a throwaway prototype to answer a design question. |
 | `research` | 11 | Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. |
 | `retro` | 42 | Conduct a retrospective on a coding session. |
