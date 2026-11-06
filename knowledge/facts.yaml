@@ -89,3 +89,15 @@ facts:
   - id: K-nav-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/nav.md
+  - id: K-notif-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/notifications.md
+  - id: K-security-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/security.md
+  - id: K-tree-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/tree.md
+  - id: K-ui-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/ui.md
