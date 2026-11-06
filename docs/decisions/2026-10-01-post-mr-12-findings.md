@@ -16,6 +16,7 @@ status: accepted
 #### `TaskCreateIntent` — new intents
 
 Added intents for every attribute not previously represented:
+
 - `SetProject`, `SetTags`, `SetRecurrence`, `PinToggled`
 - `AddChecklistItem`, `ToggleChecklistItem`, `RemoveChecklistItem`
 - `AddAttachmentUrl`, `RemoveAttachmentUrl`
@@ -24,6 +25,7 @@ Added intents for every attribute not previously represented:
 #### `TaskDraft` / `TaskCreateUiState` — new fields
 
 Extended `TaskDraft` with:
+
 - `isPinned: Boolean = false`
 - `recurrence: RecurrenceSpec? = null`
 - `checklist: List<DraftChecklistItem>` (new draft-only serializable type)
@@ -38,6 +40,7 @@ All new intents have handlers that update the draft. `AddChecklistItem` generate
 #### `TaskEditorContent` — new rows
 
 Added explicit composable parameters and rendered rows for:
+
 - `startDate` (with `StartDateRow` composable)
 - `project` (via `TaskAttributeCard`)
 - `tags` (via `TaskAttributeCard`)
@@ -49,6 +52,7 @@ Also wired `startDate` to the full parameter overload (previously `null` in both
 #### `TaskCreateScreen` — full wiring
 
 All callbacks now pass through to the VM:
+
 - `startDate` → `SetStartDate` / `SetStartTime` intents
 - `project` → `SetProject` (project row opens `ProjectPickerSheet`)
 - `tags` → `SetTags` (tags row opens `TagsPickerSheet`)
@@ -60,6 +64,7 @@ All callbacks now pass through to the VM:
 #### `TestTags` — new constants
 
 Added to `TestTags.kt`:
+
 - `TASK_EDITOR_START_DATE_ROW`
 - `TASK_EDITOR_PROJECT_ROW`
 - `TASK_EDITOR_TAGS_ROW`

@@ -1,16 +1,18 @@
 package com.singularity.todo
 
-import com.singularity.todo.core.di.platformModule
+import com.singularity.todo.core.di.jvmPlatformModule
 import com.singularity.todo.test.helpers.testPlatformModule
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.io.TempDir
 import org.koin.core.annotation.KoinInternalApi
 import org.koin.core.module.Module
 import org.koin.dsl.koinApplication
+import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
 /**
- * Every DAO the production [platformModule] binds must also be bound by
+ * Every DAO the production [jvmPlatformModule] binds must also be bound by
  * [testPlatformModule] — the desktop flow harness builds its Koin graph from the
  * test module, and a missing DAO surfaces as `NoDefinitionFoundException` thrown
  * INSIDE composition, which Compose retries every frame: an endless redraw loop
@@ -18,14 +20,18 @@ import kotlin.test.assertTrue
  *
  * This exact failure shipped with the ai-proposal merge: `TestPlatformModule` was
  * never taught about `TimeEntryDao`/`ProposalDao`/`ProposalItemDao`. The guard
- * compares definition REGISTRATION only — nothing is resolved, so no real
- * database, DataStore file, or OS port is touched.
+ * compares definition REGISTRATION only — nothing is resolved, so no definition's
+ * factory body runs. The production module is still *constructed*, which is why it
+ * is built against a temporary application root: construction must not touch the
+ * developer's real home either.
  */
 @Tag("fast")
 class TestPlatformModuleParityTest {
     @Test
-    fun `production DAO bindings all exist in the test platform module`() {
-        val production = daoTypes(listOf(platformModule()))
+    fun `production DAO bindings all exist in the test platform module`(
+        @TempDir tempRoot: Path,
+    ) {
+        val production = daoTypes(listOf(jvmPlatformModule(tempRoot.toFile())))
         val test = daoTypes(listOf(testPlatformModule()))
         val missing = production - test
         assertTrue(
@@ -60,7 +66,9 @@ class TestPlatformModuleParityTest {
      * ## What is compared, and what is not
      *
      * Registration only, exactly as the DAO check does — nothing is resolved, so no
-     * database, DataStore file, or OS port is touched and the test stays `fast`.
+     * definition's factory body runs and the test stays `fast`. The module itself is
+     * constructed, against a temporary application root, so not even its construction
+     * can reach the real home.
      *
      * `String` is excluded because the two modules legitimately bind different ones:
      * production binds the backups directory *and* the logs directory, while the test
@@ -73,8 +81,10 @@ class TestPlatformModuleParityTest {
      * fails when production has a type the test module lacks.
      */
     @Test
-    fun `production port bindings all exist in the test platform module`() {
-        val production = portTypes(listOf(platformModule()))
+    fun `production port bindings all exist in the test platform module`(
+        @TempDir tempRoot: Path,
+    ) {
+        val production = portTypes(listOf(jvmPlatformModule(tempRoot.toFile())))
         val test = portTypes(listOf(testPlatformModule()))
         val missing = production - test
         assertTrue(
@@ -101,8 +111,10 @@ class TestPlatformModuleParityTest {
      * production names `attachment_dir` has to be named `attachment_dir` here too.
      */
     @Test
-    fun `production directory bindings all exist in the test platform module`() {
-        val production = directoryBindings(listOf(platformModule()))
+    fun `production directory bindings all exist in the test platform module`(
+        @TempDir tempRoot: Path,
+    ) {
+        val production = directoryBindings(listOf(jvmPlatformModule(tempRoot.toFile())))
         val test = directoryBindings(listOf(testPlatformModule()))
         val missing = production - test
         assertTrue(

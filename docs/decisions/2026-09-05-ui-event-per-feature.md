@@ -22,6 +22,7 @@ status: accepted
 `NotificationHost<T : UiEvent>` принимает `Flow<T>` + `mapper: (T) → Notification`.
 
 Это позволяет:
+
 - Фиче-специфичные события (TasksUiEvent.AiResult, NotesUiEvent.AiResult, ChatUiEvent.Error)
 - Generic `NotificationHost` без знания о конкретном sealed типе
 - Сохранить обратную совместимость: существующие `_events: MutableSharedFlow<UiEvent>` продолжают работать

@@ -214,7 +214,7 @@ class NavigationSmokeTest : InstrumentedTestBase() {
         var attempts = 0
         while (true) {
             val entry = device.findObject(By.res(tag))
-            if (entry != null && entry.visibleBounds.isNotEmpty) return entry
+            if (entry != null && !entry.visibleBounds.isEmpty) return entry
             if (attempts >= MENU_SCROLL_ATTEMPTS) break
             sheet.scroll(Direction.DOWN, MENU_SCROLL_PERCENT)
             attempts++

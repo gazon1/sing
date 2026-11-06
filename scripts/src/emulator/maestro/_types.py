@@ -97,7 +97,7 @@ class DeviceDeps:
     adb_on: Callable[..., str | None]
     reset_adb_server: Callable[[], None]
     wait_for_app_resumed: Callable[[str, int], bool]
-    cleanup_run_fixtures: Callable[[str, str, str, "DeviceDeps"], None]
+    cleanup_run_fixtures: Callable[[str, str, "DeviceDeps"], None]
     capture_artifacts: Callable[[str, str, Path, "DeviceDeps"], None]
     git_sha: Callable[["DeviceDeps"], str]
 

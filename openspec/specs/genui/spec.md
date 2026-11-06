@@ -1,6 +1,7 @@
 # genui Specification
 
 ## Purpose
+
 The GenUI surface's data model, where the count of the replacements that
 came from outside travels inside the value it counts, and a value and its
 count are read together.

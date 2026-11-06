@@ -63,6 +63,7 @@ interface SyncableEntity<K> {
 ```
 
 **Adding a new sync entity** requires:
+
 1. Add the 6 sync columns (`hlc`, `syncStatus`, `serverVersion`, `syncError`, `lastSyncedAt`, `deviceId`) — or use `@Embedded SyncColumns` (R6 refactoring).
 2. Implement `SyncableEntity` with `mutate()`.
 3. Add to `SyncEngine`'s entity list.

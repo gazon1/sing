@@ -5,7 +5,7 @@ import co.touchlab.kermit.Severity
 import okio.Path
 
 /**
- * Kermit initialization — must be called BEFORE [org.koin.core.context.startKoin].
+ * Kermit initialization — must be called BEFORE the Koin container starts.
  *
  * Installs [FileLogWriter] to disk on both Android and JVM, plus a console/writer
  * (colorized on JVM, platform log writer on Android). Both writers are registered

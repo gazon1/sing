@@ -1,5 +1,6 @@
 package com.singularity.todo.core.backup
 
+import com.singularity.todo.core.serialization.StableJson
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -10,15 +11,23 @@ object BackupMigrations {
     const val CURRENT = BackupFormat.SCHEMA_VERSION
 
     /**
-     * v1 → v2: Add fields that were missing from TaskDto and NoteDto in v1.
+     * v1 → v2: the fields the first version did not write.
      *
      * TaskDto gained: parentTaskId, estimateMinutes, recurrenceRule, outgoingLinks,
      *                  aiSuppressedTagIds
      * NoteDto gained:  isPinned, pinnedAt, color, sortOrder, wordCount, charCount,
      *                  outgoingLinks, taskId
      *
-     * All new fields default to null/empty-string/0 so that a v1 backup is fully
-     * restorable on a v2 client.
+     * Every field written here is one the payload's DTOs read. A key no DTO
+     * carries is dropped on decode (`ignoreUnknownKeys`), so the payload would
+     * promise a value its reader never gets — the reason this step and
+     * [TaskDto] are kept in step.
+     *
+     * `parentTaskId` is written as `null` on every task, and that is a statement
+     * about the archive rather than about the account: a v1 payload never
+     * carried the parent link, so the rows of a migrated v1 backup come back as
+     * top-level tasks. The step says so on every task instead of leaving the
+     * reader to the DTO's default, the same way the later steps do.
      */
     private val v1ToV2: (JsonObject) -> JsonObject = { payload ->
         val tasks =
@@ -183,4 +192,38 @@ object BackupMigrations {
             step(acc)
         }
     }
+}
+
+/**
+ * The payload [payloadBytes] becomes once the chain has taken them to this
+ * build's schema.
+ *
+ * ## Why the chain and the reader meet here
+ *
+ * A migration step says what an old record means by writing the fields the
+ * record's version did not carry; the payload type says what a record carries.
+ * The two only meet when the migrated JSON is decoded — and the decoder is
+ * lenient: `StableJson` ignores a key the payload type does not know, so a field
+ * a step promised can be read by nobody, and every test that reads the chain's
+ * output or a hand-built payload stays green.
+ *
+ * The importer and the test that joins the chain to the payload type both decode
+ * through here, so neither can drift from the other. The dialect is not a
+ * parameter for the same reason: the test must read the way the restore reads,
+ * leniency included, or it would be asserting on something the restore never
+ * does.
+ */
+internal fun decodeMigratedPayload(
+    payloadBytes: ByteArray,
+    from: Int,
+): BackupPayload {
+    val migrated =
+        BackupMigrations.migrate(
+            StableJson.parseToJsonElement(payloadBytes.decodeToString()).jsonObject,
+            from,
+        )
+    return StableJson.decodeFromString(
+        BackupPayload.serializer(),
+        StableJson.encodeToString(JsonObject.serializer(), migrated),
+    )
 }

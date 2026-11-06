@@ -10,11 +10,19 @@ build VARIANT="debug":
     set -euo pipefail
     case "{{VARIANT}}" in
         debug)
-            ./gw :androidApp:assembleDebug
+            if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
+                ./gw :androidApp:assembleDebug
+            else
+                ./gw :androidApp:assembleDebug
+            fi
             echo "✅ androidApp/build/outputs/apk/debug/androidApp-debug.apk"
             ;;
         release)
-            ./gw :androidApp:assembleRelease
+            if command -v heavy >/dev/null 2>&1 && [[ -z "${CI:-}" ]]; then
+                ./gw :androidApp:assembleRelease
+            else
+                ./gw :androidApp:assembleRelease
+            fi
             echo "✅ androidApp/build/outputs/apk/release/androidApp-release.apk"
             ;;
         *)

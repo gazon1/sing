@@ -25,6 +25,7 @@
 **Problem:** The desktop shell renders an AWT menu bar (File / Edit / View / Help) whose labels enter the semantics tree as plain text nodes at the top of every screen. `onNodeWithText("Edit")` therefore matched 2 nodes (menu bar label + dropdown item) and threw. Worse, the menu-bar "Edit" has **no click action**, so text-only matchers cannot disambiguate by behavior either.
 
 **Fix:** Match dropdown items by text AND click action:
+
 ```kotlin
 onAllNodes(hasText("Edit") and hasClickAction()).onFirst()
 ```
@@ -99,6 +100,7 @@ onAllNodes(hasText("Edit") and hasClickAction()).onFirst()
 ## MR-4 Summary
 
 **Suite coverage now (desktop):**
+
 - A: tab definition (3) + reachability (7) + badge policy (5) + open-task (3)
 - B: saved-views list (8)
 - C: create flow (1)
@@ -106,5 +108,6 @@ onAllNodes(hasText("Edit") and hasClickAction()).onFirst()
 - E: open-saved-view-shows-matching-tasks (1)
 
 **Not done (deferred from plan):**
+
 - Persistence-restart flow test (E): the harness recreates the Koin graph per test; simulating a restart requires a two-phase harness — deferred to backlog
 - Copy-to-profile flow test: ProfilePickerSheet interaction deferred to MR-5 Maestro journey 08

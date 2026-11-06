@@ -31,8 +31,15 @@ object AgendaPresets {
      * contains it. Without that, a task due today also matches "This Week" and
      * "This Month" and is rendered three times — which crashed the agenda's
      * `LazyColumn` on duplicate item keys, since `AgendaList` keys rows by task id
-     * alone. "This Month" is the final catch-all and deliberately does *not* discard;
-     * "No Date" sits after it but is disjoint (`dueDate == null`).
+     * alone. "This Month" deliberately does *not* discard — the month buckets are
+     * disjoint, so nothing after it can match what it holds; "No Date" sits last and
+     * is disjoint too (`dueDate == null`).
+     *
+     * The view reaches to the end of next month: "Next Month" is its last dated
+     * section. A task due after that is in no section of this view — the Calendar,
+     * the Plans timeline and a saved view with its own date range are where it is
+     * reached. The reach is decided in
+     * `docs/decisions/2026-11-05-the-wide-view-reaches-next-month.md`.
      *
      * This is the widest view there is — it holds the tasks of every other preset —
      * so it is *not* a bottom-bar tab. The three tabs are [Inbox], [Today] and
@@ -127,10 +134,22 @@ object AgendaPresets {
                     ),
             )
             section(
+                "next_month",
+                "Next Month",
+                Selector.DateBucket(RelativeBucket.NextMonth),
+                order = 6,
+                prefill =
+                    SectionPrefill(
+                        "next_month",
+                        "Next month",
+                        relativeDueDate = RelativeBucket.NextMonth,
+                    ),
+            )
+            section(
                 "no_date",
                 "No Date",
                 Selector.DateBucket(RelativeBucket.NoDate),
-                order = 6,
+                order = 7,
                 prefill = SectionPrefill("no_date", "No date"),
             )
         }
@@ -202,6 +221,14 @@ object AgendaPresets {
      * gone — the `Not` is what keeps the two tabs disjoint. "This Week" and "Next
      * Week" are disjoint ranges, so the last of them needs no `discard`; the
      * narrower buckets above them do, for the same reason as [All].
+     *
+     * The tab is a **horizon**, not the whole agenda: a task due further out than
+     * next week is deliberately in no tab. It is not lost — it is in the Plans
+     * timeline, in the Calendar, and in a saved view seeded from [All] — but the
+     * bottom bar answers "what is coming soon", and a task three weeks out is
+     * planned rather than coming up. [AgendaTabDisjointnessTest] pins that gap so
+     * it is not mistaken for a bug. See ADR
+     * `2026-11-05-the-agenda-tabs-cover-a-horizon`.
      */
     val Upcoming: AgendaDefinition =
         agenda("Upcoming") {
@@ -405,15 +432,14 @@ object AgendaPresets {
      * the tasks on a working day too (ADR
      * `2026-11-05-the-work-day-plan-sits-inside-the-today-tab`).
      *
+     * The definition is [Today] with the blocks added, title included, so the
+     * header names the Today tab on a working day and on a day off alike.
+     *
      * Each block is a [Selector.TimeOfDay] narrowed to today. A timed task due
      * on another day belongs to the tab that owns that day, not to today's plan.
      * Every block discards what it matches, so a task due today at 10:00 is
      * listed in the morning block and not again under "Today"; a task due today
      * outside the work hours falls through to "Today". Nothing is dropped.
-     *
-     * The definition is [Today] with the blocks added, title included, so the
-     * header names the tab the user is looking at whether today is a working day
-     * or not.
      *
      * Whether today is one of the user's working days is [forToday]'s question,
      * not this function's.

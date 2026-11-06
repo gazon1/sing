@@ -1,6 +1,7 @@
 # projects Specification
 
 ## Purpose
+
 The project detail screen's contract with a bridged text field — the same
 shape the note editor learned: the screen tells a replacement from a
 keystroke, and the user's unsaved edits win over an incoming one.

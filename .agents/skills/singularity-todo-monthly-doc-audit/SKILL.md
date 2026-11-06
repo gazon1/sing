@@ -26,7 +26,7 @@ Triage each finding by where it bites:
 | dead ref in a skill body | only on the path that uses it | now if the skill is one agents load, else backlog |
 | dead ref inside a supersedure banner | none — that is the point of a banner | leave it |
 | `SKILL.md` over 500 lines | the agent may skip it | split into router + leaves |
-| ADR missing `title` / `date` | digest renders it as `_(no title)_` | `./scripts/normalize-adr-frontmatter.sh --apply` |
+| ADR missing `title` / `date` | digest renders it as `_(no title)_` | `python3 scripts/normalize-adr-frontmatter.py --apply` |
 
 ## 2 — The digest is the file that matters most
 
@@ -96,7 +96,7 @@ high-traffic rules against reality:
 - `docs/CONTEXT.md` — do the domain terms still mean what they say? A term that drifted is
   worse than a missing one, because it will be used correctly-looking.
 - `ARCHITECTURE.md` §1 source tree — regenerate with
-  `./scripts/print-source-tree.sh --output /tmp/source-tree.md` and diff.
+  `python3 scripts/print-source-tree.py --output /tmp/source-tree.md` and diff.
 - `docs/SKILLS-CATALOG.md` — regenerate with `just docs-regen`; a stale catalog is worse
   than none, because it looks current.
 

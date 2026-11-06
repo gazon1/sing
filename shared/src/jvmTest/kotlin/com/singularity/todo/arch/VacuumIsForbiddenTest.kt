@@ -141,7 +141,15 @@ class VacuumIsForbiddenTest {
             "no production source root was configured — the gate would pass over zero files",
         )
         assertEquals(
-            setOf("commonMain", "androidMain", "jvmMain"),
+            setOf(
+                "shared/commonMain",
+                "shared/androidMain",
+                "shared/jvmMain",
+                "core-domain/commonMain",
+                "core-database/commonMain",
+                "core-database/androidMain",
+                "core-database/jvmMain",
+            ),
             roots.keys,
             "the set of source sets this gate reads changed. A new source set that can " +
                 "reach the database has to be read here too.",
@@ -173,17 +181,31 @@ class VacuumIsForbiddenTest {
          */
         fun sourceRoots(): Map<String, File> {
             val roots = mutableMapOf<String, File>()
-            val properties =
-                mapOf(
-                    "commonMain" to "commonMain.root",
-                    "androidMain" to "androidMain.root",
-                    "jvmMain" to "jvmMain.root",
-                )
-            properties.forEach { (sourceSet, property) ->
-                val path = System.getProperty(property) ?: return@forEach
+
+            fun add(
+                label: String,
+                path: String?,
+            ) {
+                if (path == null) return
                 val root = File(path)
-                if (root.isDirectory) roots[sourceSet] = root
+                if (root.isDirectory) roots[label] = root
             }
+
+            add("shared/commonMain", System.getProperty("commonMain.root"))
+            add("shared/androidMain", System.getProperty("androidMain.root"))
+            add("shared/jvmMain", System.getProperty("jvmMain.root"))
+            add("core-domain/commonMain", System.getProperty("coreDomain.root"))
+
+            val databaseRoot = System.getProperty("coreDatabase.root")
+            add("core-database/commonMain", databaseRoot)
+            // :core-database's platform halves sit beside commonMain:
+            // <module>/src/commonMain/kotlin -> <module>/src/<set>/kotlin.
+            databaseRoot
+                ?.let { File(it).parentFile?.parentFile }
+                ?.let { moduleSrc ->
+                    add("core-database/androidMain", File(moduleSrc, "androidMain/kotlin").path)
+                    add("core-database/jvmMain", File(moduleSrc, "jvmMain/kotlin").path)
+                }
             return roots
         }
 

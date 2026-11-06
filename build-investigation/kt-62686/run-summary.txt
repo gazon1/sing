@@ -1,0 +1,156 @@
+# Per-run outcomes, extracted from the --info logs (2026-11-05).
+# The full --info logs live in logs/ (git-ignored via `**/logs/`); regenerate them with README.md.
+
+## cycleA-force
+  i: Finished executing kotlin compiler using IN_PROCESS strategy
+  > Task :core-domain:compileKotlinJvm
+  i: Finished executing kotlin compiler using IN_PROCESS strategy
+  > Task :core-domain:compileKotlinJvm
+  i: Finished executing kotlin compiler using IN_PROCESS strategy
+  > Task :core-database:kspKotlinJvm
+  > Task :core-database:compileKotlinJvm
+  i: Finished executing kotlin compiler using IN_PROCESS strategy
+  > Task :shared:compileKotlinJvm
+  i: Finished executing kotlin compiler using IN_PROCESS strategy
+  BUILD SUCCESSFUL in 2m 20s
+  force-exit=0 wall=141s
+
+## cycleA-settle
+  > Task :core-domain:compileKotlinJvm UP-TO-DATE
+  > Task :core-database:kspKotlinJvm UP-TO-DATE
+  > Task :core-database:compileKotlinJvm UP-TO-DATE
+  > Task :shared:compileKotlinJvm UP-TO-DATE
+  BUILD SUCCESSFUL in 3s
+  settle-exit=0 wall=4s
+
+## cycleA-measured
+  > Task :core-domain:compileKotlinJvm UP-TO-DATE
+  > Task :core-database:kspKotlinJvm UP-TO-DATE
+  > Task :core-database:compileKotlinJvm UP-TO-DATE
+  > Task :shared:compileKotlinJvm
+  i: Finished executing kotlin compiler using IN_PROCESS strategy
+  BUILD SUCCESSFUL in 1m 3s
+  measured-exit=0 wall=64s
+
+## cycleB-force
+  i: Finished executing kotlin compiler using DAEMON strategy
+  > Task :core-domain:compileKotlinJvm
+  i: Finished executing kotlin compiler using DAEMON strategy
+  > Task :core-domain:compileKotlinJvm
+  i: Finished executing kotlin compiler using DAEMON strategy
+  > Task :core-database:kspKotlinJvm
+  > Task :core-database:compileKotlinJvm
+  i: Finished executing kotlin compiler using DAEMON strategy
+  > Task :shared:compileKotlinJvm
+  i: Finished executing kotlin compiler using DAEMON strategy
+  BUILD SUCCESSFUL in 1m 32s
+  force-exit=0 wall=93s
+
+## cycleB-settle
+  > Task :core-domain:compileKotlinJvm UP-TO-DATE
+  > Task :core-database:kspKotlinJvm UP-TO-DATE
+  > Task :core-database:compileKotlinJvm UP-TO-DATE
+  > Task :shared:compileKotlinJvm UP-TO-DATE
+  BUILD SUCCESSFUL in 941ms
+  settle-exit=0 wall=1s
+
+## cycleB-measured
+  > Task :core-domain:compileKotlinJvm UP-TO-DATE
+  > Task :core-database:kspKotlinJvm UP-TO-DATE
+  > Task :core-database:compileKotlinJvm UP-TO-DATE
+  > Task :shared:compileKotlinJvm
+  i: Finished executing kotlin compiler using DAEMON strategy
+  BUILD SUCCESSFUL in 54s
+  measured-exit=0 wall=54s
+
+## domain-force
+  > Task :core-domain:compileKotlinJvm
+  i: Finished executing kotlin compiler using IN_PROCESS strategy
+  BUILD SUCCESSFUL in 18s
+
+## domain-settle
+  > Task :core-domain:compileKotlinJvm UP-TO-DATE
+  BUILD SUCCESSFUL in 1s
+
+## domain-measured
+  > Task :core-domain:compileKotlinJvm
+  i: Finished executing kotlin compiler using IN_PROCESS strategy
+  BUILD SUCCESSFUL in 8s
+
+## database-force
+  > Task :core-domain:compileKotlinJvm
+  i: Finished executing kotlin compiler using IN_PROCESS strategy
+  > Task :core-database:kspKotlinJvm
+  > Task :core-database:compileKotlinJvm
+  i: Finished executing kotlin compiler using IN_PROCESS strategy
+  BUILD SUCCESSFUL in 37s
+
+## database-settle
+  > Task :core-domain:compileKotlinJvm UP-TO-DATE
+  > Task :core-database:kspKotlinJvm UP-TO-DATE
+  > Task :core-database:compileKotlinJvm UP-TO-DATE
+  BUILD SUCCESSFUL in 1s
+
+## database-measured
+  > Task :core-domain:compileKotlinJvm UP-TO-DATE
+  > Task :core-database:kspKotlinJvm
+  > Task :core-database:compileKotlinJvm
+  i: Finished executing kotlin compiler using IN_PROCESS strategy
+  BUILD SUCCESSFUL in 23s
+
+## probe-inprocess-force
+  > Task :probe:compileKotlinJvm
+  i: Finished executing kotlin compiler using IN_PROCESS strategy
+  BUILD SUCCESSFUL in 14s
+
+## probe-inprocess-settle
+  > Task :probe:compileKotlinJvm UP-TO-DATE
+  BUILD SUCCESSFUL in 670ms
+
+## probe-inprocess-measured
+  > Task :probe:compileKotlinJvm
+  i: Finished executing kotlin compiler using IN_PROCESS strategy
+  BUILD SUCCESSFUL in 1s
+
+## probe-daemon-force
+  > Task :probe:compileKotlinJvm
+  i: Finished executing kotlin compiler using DAEMON strategy
+  BUILD SUCCESSFUL in 3s
+
+## probe-daemon-settle
+  > Task :probe:compileKotlinJvm UP-TO-DATE
+  BUILD SUCCESSFUL in 608ms
+
+## probe-daemon-measured
+  > Task :probe:compileKotlinJvm
+  i: Finished executing kotlin compiler using DAEMON strategy
+  BUILD SUCCESSFUL in 1s
+
+## probejvm-inprocess-force
+  > Task :probeJvm:compileKotlin
+  i: Finished executing kotlin compiler using IN_PROCESS strategy
+  BUILD SUCCESSFUL in 1s
+
+## probejvm-inprocess-settle
+  > Task :probeJvm:compileKotlin UP-TO-DATE
+  BUILD SUCCESSFUL in 776ms
+
+## probejvm-inprocess-measured
+  > Task :probeJvm:compileKotlin
+  i: Finished executing kotlin compiler using IN_PROCESS strategy
+  BUILD SUCCESSFUL in 1s
+
+## probejvm-daemon-force
+  > Task :probeJvm:compileKotlin
+  i: Finished executing kotlin compiler using DAEMON strategy
+  BUILD SUCCESSFUL in 1s
+
+## probejvm-daemon-settle
+  > Task :probeJvm:compileKotlin UP-TO-DATE
+  BUILD SUCCESSFUL in 661ms
+
+## probejvm-daemon-measured
+  > Task :probeJvm:compileKotlin
+  i: Finished executing kotlin compiler using DAEMON strategy
+  BUILD SUCCESSFUL in 930ms
+

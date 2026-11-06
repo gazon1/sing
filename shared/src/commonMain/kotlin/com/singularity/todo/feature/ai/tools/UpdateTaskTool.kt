@@ -3,7 +3,7 @@ package com.singularity.todo.feature.ai.tools
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.ai.ToolOutputJson
-import com.singularity.todo.core.database.LocalTimeFormats
+import com.singularity.todo.core.format.LocalTimeFormats
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ReadResult

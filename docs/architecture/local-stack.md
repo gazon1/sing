@@ -13,7 +13,7 @@
 - Docker с Compose.
 - Клон инфраструктурного репозитория: `gazon1/supabase-repo-sing`. Там compose,
   `.env.example` и генератор ключей.
-- Этот репозиторий — ради миграций в `supabase/migrations/`.
+- Этот репозиторий — ради миграций в `infra/supabase/migrations/`.
 
 ## Подъём
 
@@ -43,13 +43,13 @@ docker compose up -d db auth rest storage minio minio-createbucket kong
 
 ### Два отличия от upstream-compose
 
-Файл `supabase/local-stack/docker-compose.override.yaml` в этом репозитории — это
+Файл `infra/supabase/local-stack/docker-compose.override.yaml` в этом репозитории — это
 тот же override, который лежит в инфраструктурном репозитории
 (`gazon1/supabase-repo-sing`, коммит `d3e0907`). Скопируйте его рядом с
 `docker-compose.yaml` — Compose подхватит его сам:
 
 ```bash
-cp <путь-к-этому-репозиторию>/supabase/local-stack/docker-compose.override.yaml .
+cp <путь-к-этому-репозиторию>/infra/supabase/local-stack/docker-compose.override.yaml .
 ```
 
 Что он чинит:
@@ -70,7 +70,7 @@ cp <путь-к-этому-репозиторию>/supabase/local-stack/docker-c
 из каталога этого репозитория (или с абсолютным путём):
 
 ```bash
-for sql in supabase/migrations/*.sql; do
+for sql in infra/supabase/migrations/*.sql; do
   echo "--- $sql"
   docker exec -i supabase-db psql -U postgres -d postgres -q < "$sql"
 done
@@ -84,9 +84,9 @@ done
 | `2026-10-24-backup_storage_bucket.sql` | бакет `backups` и его политики RLS |
 | `2026-10-24-google_calendar_grants.sql` | таблица грантов Google Calendar |
 
-`supabase/sync_field_allowlist_seed.sql` — описание, а не миграция: он
+`infra/supabase/sync_field_allowlist_seed.sql` — описание, а не миграция: он
 перечисляет имена полей, которые сервер принимает в патче, и лежит вне
-`supabase/migrations/` именно потому, что это описание, а не изменение
+`infra/supabase/migrations/` именно потому, что это описание, а не изменение
 живой таблицы. Живую таблицу наполняет `2026-10-07-sync_schema.sql`.
 
 ## Как проверить, что применилось

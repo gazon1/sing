@@ -366,13 +366,19 @@ class AgendaTabDisjointnessTest {
     }
 
     /**
-     * The consequence the change makes explicit: a task dated further out than
-     * next week is in no bottom-bar tab at all.
+     * The decision, pinned: a task dated further out than next week is in no
+     * bottom-bar tab at all — and that is deliberate.
      *
-     * It is in the Plans timeline, in the Calendar and in a saved view seeded
-     * from [AgendaPresets.All] — but the three tabs are a partition of the tasks
-     * the tabs cover, not of every task. This is pinned so that a later reader
-     * does not mistake the gap for a bug.
+     * The three tabs are a partition of what they cover, not of every task: they
+     * answer "what is not dated yet", "what is now or late" and "what is coming
+     * soon". A task due in three weeks is none of those; it is planned, and the
+     * Plans timeline, the Calendar and a saved view seeded from
+     * [AgendaPresets.All] are where it is seen. The wide view still holds it, so
+     * the gap is a horizon rather than a hole.
+     *
+     * See ADR `2026-11-05-the-agenda-tabs-cover-a-horizon`. Keeping this test is
+     * the acceptance criterion: the gap must stay a stated decision, not become
+     * an accidental regression in either direction.
      */
     @Test
     fun `a task due beyond next week is in no tab`() {
@@ -382,9 +388,16 @@ class AgendaTabDisjointnessTest {
             assertEquals(
                 emptyList(),
                 tabsContaining(task, tabs(workingDay)),
-                "on $label a task dated beyond next week is in no agenda tab",
+                "on $label a task dated beyond next week is in no agenda tab — the tabs cover a " +
+                    "horizon, and the answer for \"what is due later\" is the Plans timeline and the Calendar",
             )
         }
+        assertEquals(
+            listOf("This Month"),
+            sectionsContaining(AgendaPresets.All, task),
+            "the wide view is where a later task is seen, so the tab bar's horizon " +
+                "must not drop it from the agenda altogether",
+        )
     }
 
     /**

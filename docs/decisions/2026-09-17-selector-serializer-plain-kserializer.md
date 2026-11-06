@@ -14,6 +14,7 @@ kotlinx.serialization generates a `JsonContentPolymorphicSerializer` for `@Seria
 ## Idea
 
 Replace `JsonContentPolymorphicSerializer` with a plain `KSerializer<Selector>` that:
+
 1. Overrides `descriptor` with `buildClassSerialDescriptor("Selector")` to break the recursion.
 2. Overrides `serialize` to manually build `JsonObject` with `_type` for every branch — generated concrete serializers would omit the discriminator.
 3. Overrides `deserialize` to read `_type` from the JSON object and reconstruct each selector type.
@@ -25,6 +26,7 @@ Replace `JsonContentPolymorphicSerializer` with a plain `KSerializer<Selector>` 
 **Descriptor** — `buildClassSerialDescriptor("Selector")` instead of `serializer<Selector>().descriptor`, which would recurse infinitely.
 
 **serialize()** — manually constructs `JsonObject` with `_type` for all 14 branches:
+
 ```kotlin
 is Selector.Tag -> JsonObject(
     mapOf("_type" to JsonPrimitive("Tag"), "id" to JsonPrimitive(value.id.value))
@@ -43,6 +45,7 @@ encoder.encodeJsonElement(element)
 Generated serializers (e.g. `serializer<Selector.Tags>()`) do NOT add `_type`, so they cannot be used — even for types that don't need migration. Every branch must be explicit.
 
 **deserialize()** — reads `_type` from the JSON object and constructs each selector:
+
 ```kotlin
 val type = element.jsonObject["_type"]?.jsonPrimitive?.content
     ?: throw SerializationException("Missing '_type' discriminator")

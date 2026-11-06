@@ -71,14 +71,13 @@ import java.util.concurrent.atomic.AtomicInteger
  * The JVM platform bindings a desktop flow test needs, rebuilt without touching
  * the developer's machine.
  *
- * This deliberately does **not** call `platformModule()`. That module resolves the
- * SQLite path, three DataStore paths and the backups directory from
- * `System.getProperty("user.home")`, runs a settings migration against them while
- * its body is being constructed, and hands out OS-backed ports that shell out to
- * `secret-tool`, `notify-send` and `at`. `user.home` is process-global, so two
- * tests that redirect it race: one test's temp directory is deleted while the
- * other is still opening it, which surfaces as `SQLiteException` code 14
- * (`SQLITE_CANTOPEN`) in whatever test happened to lose.
+ * This deliberately does **not** call `platformModule()`. That module hands out real
+ * files under the user's home — the SQLite path, the DataStore files and the backups
+ * directory all resolve against `System.getProperty("user.home")` in production — and
+ * OS-backed ports that shell out to `secret-tool`, `notify-send` and `at`. `user.home`
+ * is process-global, so two tests that redirect it race: one test's temp directory is
+ * deleted while the other is still opening it, which surfaces as `SQLiteException` code
+ * 14 (`SQLITE_CANTOPEN`) in whatever test happened to lose.
  *
  * Instead the data layer is [FakeAppDatabase] — an in-memory implementation of the
  * same [AppDatabase] contract, same DAO interfaces, reactive through

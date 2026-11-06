@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
-# post-merge hook: regenerate DIGEST.md after a merge or pull
+# post-merge hook: run via hk (lifecycle wrapper)
 set -euo pipefail
 
-# Resolve the worktree from Git, not from this script's own path. `git worktree
-# add` runs the hook with the cwd already set to the NEW worktree, while
-# core.hooksPath may point at a different worktree's .githooks directory — so
-# deriving ROOT from ${BASH_SOURCE[0]} silently operated on the main checkout
-# and never on the worktree that was just created. Same pattern as pre-push.
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-# Run only when DIGEST.md exists locally (repo was cloned before it was gitignored)
-if [[ -f "docs/decisions/DIGEST.md" ]]; then
-    echo "=== Post-merge: regenerating DIGEST.md ==="
-    ./scripts/refresh-decisions-digest.sh
+if ! command -v hk >/dev/null 2>&1; then
+    if command -v mise >/dev/null 2>&1; then
+        echo "post-merge: hk not found — running 'mise install'..." >&2
+        mise install >&2 || true
+    fi
 fi
+
+if ! command -v hk >/dev/null 2>&1; then
+    echo "post-merge: hk is required but not found. Run 'mise install'." >&2
+    exit 0
+fi
+
+hk run post-merge "$@"

@@ -3,6 +3,7 @@ title: ADR: Pre-existing KSP Error in Main Branch
 date: 2026-09-23
 status: accepted
 ---
+
 # ADR: Pre-existing KSP Error in Main Branch
 
 **Date:** 2026-09-23
@@ -42,6 +43,7 @@ Document this pre-existing issue so it is not mistaken for a regression caused b
 ## Rationale
 
 The error message `MissingType: Element 'com.singularity.todo.core.database.AppDatabase' references a type that is not present` suggests that:
+
 1. `AppDatabase` has a reference to a type (likely a DAO, entity, or migration) that was removed or renamed
 2. Room's schema export/validation finds this orphaned reference during KSP processing
 3. The issue exists in the baseline `main` branch, predating all recent feature work

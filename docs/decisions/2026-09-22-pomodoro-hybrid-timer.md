@@ -14,6 +14,7 @@ labels: [pomodoro, android, alarms, architecture]
 ## Idea
 
 Гибридная архитектура:
+
 - **In-app 1 Hz ticker** — плавный countdown в UI, `delay()` в `viewModelScope`
 - **OS-level `setAlarmClock`** — safety net на случай kill/process death
 - **`phaseStartedAtEpochMs`** — recompute remaining time after pause/resume

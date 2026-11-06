@@ -4,7 +4,7 @@ The `content:` seam that keeps a component from growing a long parameter list.
 
 This section covers the three ways to pass behaviour into a reusable Composable, and when to use each.
 
-### The three patterns
+## The three patterns
 
 | Pattern | Signature | When to use |
 |---|---|---|
@@ -110,6 +110,7 @@ inline fun IfElse(
 ```
 
 **Usage:**
+
 ```kotlin
 // Instead of:
 if (state is NotesUiState.Empty) { EmptyState(...) }
@@ -147,6 +148,7 @@ Kotlin matters more than visual separation.
 - `TaskEditorContent.kt` — canonical slot API: `extraSections`, `bottomBar`, `menuItems`, `titleLeading` slots; `TaskEditorAttribute` with `key: Any` for recomposition stability; `TaskEditorMenuItem` as declarative list
 
 See also:
+
 - `singularity-todo-ui-event-vs-state` — full State vs Event dichotomy rationale and migration recipe
 - `singularity-todo-pure-formatters` — when to extract formatters, three flavours, testing recipes
 

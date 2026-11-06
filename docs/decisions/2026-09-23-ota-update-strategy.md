@@ -23,6 +23,7 @@ The remaining layer — Server-Driven Content (static remote content) — is def
 `AppVersionGateScreen` renders **before** the main nav graph. It observes `RemoteConfigPort.observe().minSupportedVersion` and blocks the user with a store link if `appVersion() < minSupportedVersion`. This is a hard gate — no navigation is possible until the user updates.
 
 Platform-specific `onOpenStore`:
+
 - Android: `market://details?id=com.singularity.todo`
 - Desktop: `https://github.com/singularity-todo/singularity/releases`
 
@@ -43,6 +44,7 @@ Cooldown tracking uses `SharedPreferences` (`AppUpdatePrefs`) — deliberately l
 ### Layer 3: Remote Config Flags
 
 `RemoteConfigSnapshot.modelFlags` and `mcpToolFlags` drive kill switches at runtime:
+
 - `KoogAgentService` filters `Tool` registration based on `mcpToolFlags`
 - Model selection falls back to GPT-4o Mini when a model is disabled via `modelFlags`
 

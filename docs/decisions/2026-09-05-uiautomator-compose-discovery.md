@@ -12,6 +12,7 @@ superseded-by: 2026-09-26-ui-testing-deferred
 Потребовалось написать UI-тесты, работающие на **реальном Android-устройстве** (не эмуляторе/Robolectric). Тесты должны проверять, что экран авторизации отображает поля ввода email/password и кнопки.
 
 ## Idea
+
 1. **UI Automator** — стандартный Android-фреймворк для UI-тестов на реальных устройствах.
 2. **Compose TestRule** — нативная поддержка JetBrains Compose test tags (`testTag`).
 3. **Espresso** — не подходит: несовместим с Robolectric и не видит Compose-элементы.
@@ -36,6 +37,7 @@ superseded-by: 2026-09-26-ui-testing-deferred
 ### Workaround-ы для будущего исследования
 
 1. **Добавить `contentDescription`** вместо/в дополнение к `testTag`:
+
    ```kotlin
    // Compose:
    TextField(
@@ -44,6 +46,7 @@ superseded-by: 2026-09-26-ui-testing-deferred
                           .semantics { this.contentDescription = "auth_email_input" }
    )
    ```
+
    UI Automator: `device.hasObject(By.desc("auth_email_input"))`.
 
 2. **Использовать `performInteractiveuideSnapshot()`** из AndroidX test — делает snapshot UI-дерева, но не решает проблему селекторов.

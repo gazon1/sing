@@ -47,7 +47,7 @@ import kotlin.system.exitProcess
  *
  *   External Agent ──MCP/stdio──► the tool server's JVM process
  *                                       │
- *                                       ├─ startKoin { platformModule() + domainModule() }
+ *                                       ├─ the launcher starts Koin { platformModule() + domainModule() }
  *                                       ├─ ToolRegistrar(server, tools).registerAll()
  *                                       ├─ Server.createSession(transport)
  *                                       └─ runBlocking { done.join() } — holds JVM up
@@ -69,7 +69,10 @@ import kotlin.system.exitProcess
  * the whole sequence.
  */
 @Suppress("NoRunBlocking") // the process entry point: the JVM stays up until the client leaves
-fun runToolServer(args: Array<String>): Unit =
+fun runToolServer(
+    args: Array<String>,
+    koinStartup: ToolServerKoinStartup,
+): Unit =
     runBlocking {
         // Standard output is the protocol channel and nothing else: from here on, every
         // print in this process — this application's log, a library's start-up banner —
@@ -83,7 +86,7 @@ fun runToolServer(args: Array<String>): Unit =
 
         val selection = parseProfileSelection(args)
 
-        when (val startup = startToolServer(selection)) {
+        when (val startup = startToolServer(selection, koinStartup)) {
             is ToolServerStartup.Refused -> {
                 // The refusal is a value, not an exit buried in the middle of a sequence:
                 // the client is told why on the protocol channel, and the process leaves

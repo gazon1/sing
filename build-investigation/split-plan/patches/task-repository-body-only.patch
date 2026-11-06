@@ -1,0 +1,16 @@
+diff --git a/shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/data/TaskRepositoryImpl.kt b/shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/data/TaskRepositoryImpl.kt
+index 0864a1595..a9237d112 100644
+--- a/shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/data/TaskRepositoryImpl.kt
++++ b/shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/data/TaskRepositoryImpl.kt
+@@ -90,9 +90,10 @@ class TaskRepositoryImpl(
+                 taskDao.followUpDependencyIdsForUser(id.value, uid.value),
+                 taskDao.getTagIdsForUser(id.value, uid.value),
+             ) { entity, depIds, followUpIds, tagIds ->
++                val blockedBy = depIds.map { TaskId.fromString(it) }.toSet()
+                 if (entity?.userId == uid.value) {
+                     entity.toTask(
+-                        blockedBy = depIds.map { TaskId.fromString(it) }.toSet(),
++                        blockedBy = blockedBy,
+                         followsUp = followUpIds.map { TaskId.fromString(it) }.toSet(),
+                         tags = tagIds.map { TagId.fromString(it) },
+                     )

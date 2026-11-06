@@ -21,11 +21,13 @@ beginning with the term, and **MUST NOT** return the records that do not.
 > place but not the other is how a search starts to feel arbitrary.
 
 #### Scenario: A term finds the word that begins with it
+
 - A record's searchable text holds the word "architecture"
 - A search for "arch" is made
 - The record is returned
 
 #### Scenario: A term does not find a word that contains it
+
 - A record's searchable text holds the word "airport"
 - A search for "port" is made
 - The record is not returned
@@ -41,6 +43,7 @@ A text search **SHALL** return the records of the profile that is asking, and
 > word is a leak nobody reports.
 
 #### Scenario: A search sees only the asking profile
+
 - Two profiles hold a record with the same word
 - A search for that word is made in one of them
 - Only the record of that profile is returned
@@ -57,6 +60,7 @@ NOT** be found under its old text.
 > exists in that form.
 
 #### Scenario: A renamed record follows its name
+
 - A record's text is changed
 - A search for the old text is made
 - The record is not returned
@@ -75,6 +79,7 @@ created, exactly as it returns the records written after it.
 > would conclude that the record is gone.
 
 #### Scenario: An old record is found
+
 - A record was written before the index existed
 - The index is created
 - A search for the word of that record is made
@@ -92,6 +97,7 @@ hold a second copy of it.
 > the words of the record are not.
 
 #### Scenario: The text is stored once
+
 - A record's text is stored
 - The database holds the text in the table of the record
 - The index holds the words of the text and the rows they occur in, and not the
@@ -109,6 +115,7 @@ records stored.
 > something worth searching for.
 
 #### Scenario: A search over many records stays as fast as over few
+
 - A profile holds many records
 - A search is made
 - The search reads the records that carry the word, not every record
@@ -123,6 +130,7 @@ A search whose term holds no letters or digits **SHALL** return no records.
 > it would be the opposite of an answer.
 
 #### Scenario: A term of punctuation matches nothing
+
 - A search for a term of punctuation is made
 - No records are returned
 
@@ -139,11 +147,13 @@ that hold the same words apart.
 > and the answer then depends on whether the row happened to reach the index.
 
 #### Scenario: A phrase finds the words next to each other
+
 - A record's searchable text holds "Write the quarterly report"
 - A search for "quarterly report" is made
 - The record is returned
 
 #### Scenario: A phrase does not find the same words apart
+
 - A record's searchable text holds "quarterly annual report"
 - A search for "quarterly report" is made
 - The record is not returned
@@ -160,6 +170,7 @@ that term.
 > answer it, or the term would be ignored.
 
 #### Scenario: A negated term rules the record out
+
 - Two records hold the word "alpha", and one of them holds "beta" as well
 - A search for "alpha NOT beta" is made
 - Only the record that does not hold "beta" is returned
@@ -177,6 +188,7 @@ its diacritics.
 > would be a rule with two answers.
 
 #### Scenario: A term finds the word without its diacritics
+
 - A record's searchable text holds "Café au lait"
 - A search for "cafe" is made
 - The record is returned
@@ -192,11 +204,13 @@ in, and **MUST NOT** show it in a text that does not carry the word.
 > that carries the word from a description that mentions it.
 
 #### Scenario: The matched word is shown in the title
+
 - A record's title holds the word "architecture"
 - A search for "arch" is made
 - The word in the title is shown as the match
 
 #### Scenario: A record that matched in its body does not show the word in its title
+
 - A record's title holds "The plan", and its description holds "architecture"
 - A search for "arch" is made
 - The title is shown without the word, because the title does not carry it
@@ -214,6 +228,7 @@ the text and not in its bytes.
 > position is the index's answer, and it is drawn where the index says.
 
 #### Scenario: The match in a title with an accent covers the whole word
+
 - A record's title holds "Café au lait"
 - A search for "cafe" is made
 - The emphasis covers "Café" — the whole word, and not the space after it
@@ -230,11 +245,13 @@ this is what they are doing.
 > would answer differently from one screen to another.
 
 #### Scenario: The mode is visible where the query is written
+
 - A person opens the search screen
 - The mode is shown next to the field the query is written in
 - The mode shown is the word mode, which is the default
 
 #### Scenario: The contains mode says what it costs
+
 - The contains mode is chosen
 - The surface says that this mode reads every record, and that it is slower
   than the word search
@@ -253,21 +270,25 @@ note, a project and a tag.
 > would not know which answer they got.
 
 #### Scenario: The term is found in the middle of a word
+
 - A record's title holds the word "airport"
 - A search for "port" is made in the contains mode
 - The record is returned
 
 #### Scenario: Every kind of record is matched the same way
+
 - A task, a note, a project and a tag all carry the word "airport"
 - A search for "port" is made in the contains mode
 - All four records are returned
 
 #### Scenario: The negated term follows the mode's rule
+
 - A record's title holds the word "airport"
 - A search for "NOT port" is made in the contains mode
 - The record is not returned
 
 #### Scenario: The word mode is not changed by the escape-hatch
+
 - A record's title holds the word "airport"
 - A search for "port" is made in the word mode
 - The record is not returned
@@ -286,6 +307,7 @@ and another term another way.
 > what it looks like.
 
 #### Scenario: A query means the same thing wherever it is written down
+
 - A query of "port" is written in the search screen, and the same query is
   saved
 - The saved query is read later

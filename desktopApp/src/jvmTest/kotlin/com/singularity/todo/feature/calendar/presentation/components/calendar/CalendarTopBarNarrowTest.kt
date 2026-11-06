@@ -78,12 +78,12 @@ class CalendarTopBarNarrowTest {
             // The node is the touch target, so one line is ~48 dp tall; the
             // wrapped label the bar used to draw was more than twice that.
             assertTrue(
-                control.height <= 52.dp,
-                "the Today control wrapped: it is ${control.height} tall at a 360 dp width",
+                (control.bottom - control.top) <= 52.dp,
+                "the Today control wrapped: it is ${control.bottom - control.top} tall at a 360 dp width",
             )
             assertTrue(
-                control.width >= 24.dp,
-                "the Today control was squeezed to ${control.width}",
+                (control.right - control.left) >= 24.dp,
+                "the Today control was squeezed to ${control.right - control.left}",
             )
         }
 
@@ -136,8 +136,8 @@ class CalendarTopBarNarrowTest {
 
             val title = unclippedBoundsOfTag(TestTags.CALENDAR_MONTH_TITLE)
             assertTrue(
-                title.height <= 32.dp,
-                "the period name wrapped: it is ${title.height} tall at a 360 dp width",
+                (title.bottom - title.top) <= 32.dp,
+                "the period name wrapped: it is ${title.bottom - title.top} tall at a 360 dp width",
             )
             assertTrue(
                 title.right - title.left >= 100.dp,

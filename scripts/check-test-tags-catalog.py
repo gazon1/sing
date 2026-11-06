@@ -63,8 +63,20 @@ VALIDATION_FAILURE = 1
 
 ROOT = Path(__file__).resolve().parent.parent
 
-#: The source of truth — the object every tag is declared in.
-TEST_TAGS = ROOT / "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"
+#: The source of truth — the object every tag is declared in. It moved from
+#: ``shared/`` to ``shared-ui/`` when the shared UI module was split out, so
+#: both locations are looked up and whichever exists wins.
+TEST_TAGS = next(
+    (
+        candidate
+        for candidate in (
+            ROOT / "shared-ui/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt",
+            ROOT / "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt",
+        )
+        if candidate.is_file()
+    ),
+    ROOT / "shared-ui/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt",
+)
 
 #: The golden file — the catalogue a Maestro flow may address.
 TAGS_MD = ROOT / "Maestro/TAGS.md"

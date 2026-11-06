@@ -26,7 +26,6 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.timetracking.data.TimeEntryDao
 import kotlinx.coroutines.CancellationException
-import kotlinx.serialization.json.jsonObject
 import kotlin.time.Clock
 
 /**
@@ -133,9 +132,16 @@ class BackupImporter(
                 runTransaction {
                     var merged = migrated
                     val ownerId = options.ownerId ?: options.ownerUserId
-                    val outcome = applyPayload(migrated, options.targetUserId, ownerId, now, read.attachments)
+                    // Every task id this restore will write, base and changes
+                    // together: a parent link is resolved against all of them, so
+                    // a change may name a parent the base wrote.
+                    val knownTaskIds =
+                        (migrated.tasks + decodedChanges.flatMap { it.tasks })
+                            .mapTo(HashSet()) { it.id }
+                    val outcome =
+                        applyPayload(migrated, options.targetUserId, ownerId, now, read.attachments, knownTaskIds)
                     for (changePayload in decodedChanges) {
-                        applyPayload(changePayload, options.targetUserId, ownerId, now, emptyMap())
+                        applyPayload(changePayload, options.targetUserId, ownerId, now, emptyMap(), knownTaskIds)
                         merged = merge(merged, changePayload)
                     }
                     outcome to merged
@@ -184,10 +190,10 @@ class BackupImporter(
             // unreadable payload says so.
             throw BackupPayloadError.SchemaTooOld(payload.schemaVersion)
         } else if (payload.schemaVersion < BackupFormat.SCHEMA_VERSION) {
-            val jsonObj = json.parseToJsonElement(payloadBytes.decodeToString()).jsonObject
-            val migrated = BackupMigrations.migrate(jsonObj, payload.schemaVersion)
-            val migratedBytes = json.encodeToString(migrated).encodeToByteArray()
-            json.decodeFromString(BackupPayload.serializer(), migratedBytes.decodeToString())
+            // The same decode the test that joins the chain to the payload type
+            // uses — one home, so the reader the test asserts on cannot become a
+            // lenient stand-in for the one a restore uses.
+            decodeMigratedPayload(payloadBytes, payload.schemaVersion)
         } else {
             payload
         }
@@ -230,8 +236,9 @@ class BackupImporter(
         ownerId: UserId?,
         now: Long,
         attachmentBytes: Map<String, ByteArray>,
+        knownTaskIds: Set<String>,
     ): AttachmentOutcome {
-        applyRows(payload, targetUserId, now)
+        applyRows(payload, targetUserId, now, knownTaskIds)
         applyLinks(payload)
         applyViews(payload, targetUserId, now)
         applyGroups(payload, targetUserId, now)
@@ -391,10 +398,11 @@ class BackupImporter(
         payload: BackupPayload,
         userId: UserId,
         now: Long,
+        knownTaskIds: Set<String>,
     ) {
         for (task in payload.tasks) {
             taskDao.upsert(
-                task.toEntity(userId.value).copy(
+                task.withResolvedParent(knownTaskIds).toEntity(userId.value).copy(
                     updatedAt = now,
                     createdAt = task.createdAt,
                 ),

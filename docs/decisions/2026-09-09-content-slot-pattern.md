@@ -66,6 +66,7 @@ enum class Action {
 ```
 
 `sealed class Action` enables:
+
 - **Exhaustive `when`** with smart-cast
 - **Type-safe payloads** via `data class`
 - Zero overhead (`@JvmInline`)
@@ -127,15 +128,18 @@ typealias SettingsRowTrailing = @Composable RowScope.() -> Unit
 ## Consequences
 
 ### Positive
+
 - Consistent API across all shared components
 - Easier to extend cards and editors without breaking call sites
 - Type-safe actions via `sealed class Action` with exhaustive `when`
 
 ### Negative
+
 - `value class XxxActions` indirection — harder to read at first glance
 - Migration from plain lambdas requires updating call sites
 
 ## Links
+
 - `TaskDetailActions` — canonical example (`feature/tasks/components/TaskDetailActions.kt`)
 - `EmptyState` — `actions: @Composable ColumnScope.() -> Unit` with typealias
 - `SettingsSection` — `SettingsRow` with `trailing: @Composable RowScope.() -> Unit`

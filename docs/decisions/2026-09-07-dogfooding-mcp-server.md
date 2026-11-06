@@ -12,6 +12,7 @@ tags: [mcp, dogfooding, koog, agent]
 ZCode CLI / Claude Code / Cursor может подключаться к MCP-серверу через stdio. Нам нужно, чтобы AI-агент из терминала мог управлять задачами, проектами, заметками, тегами и ADR в Singularity Todo — без UI, через тот же KMP код, который использует app.
 
 Текущие ограничения:
+
 - AI-фичи (refine_task, decompose_task и т.п.) работают только внутри запущенного приложения
 - Нет способа управлять задачами из терминала программно
 - Нет изоляции AI-агентских данных от пользовательских
@@ -19,6 +20,7 @@ ZCode CLI / Claude Code / Cursor может подключаться к MCP-се
 ## Decision
 
 Создать новый JVM-модуль `:mcp-server` (не `:cli`), который:
+
 - Подключается к Room KMP DB (single source of truth, НЕ xerial:sqlite-jdbc)
 - Экспортирует 17+ write-tools + read-tools через Koog `ToolRegistry`
 - Использует stdio transport из `io.modelcontextprotocol:kotlin-sdk:0.15.0`

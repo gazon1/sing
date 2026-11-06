@@ -2,7 +2,7 @@
 
 `infra/gen_sync_allowlist_sql.py` reads the derived sync field lists from
 `config/docs/sync-field-allowlist.json` and writes them as the rows of
-`supabase/sync_field_allowlist_seed.sql`. The gate
+`infra/supabase/sync_field_allowlist_seed.sql`. The gate
 `check-sync-allowlist-regenerated.py` compares the seed with the lists it was
 generated from, so the two cannot drift apart.
 
@@ -92,7 +92,7 @@ class GeneratorTest(unittest.TestCase):
             check=False,
         )
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        seed = self.root / "supabase/sync_field_allowlist_seed.sql"
+        seed = self.root / "infra/supabase/sync_field_allowlist_seed.sql"
         self.assertTrue(seed.is_file(), "the generator wrote no seed")
         return seed.read_text(encoding="utf-8")
 
@@ -123,7 +123,7 @@ class GeneratorTest(unittest.TestCase):
     def test_the_seed_is_a_description_and_not_a_migration(self):
         """The seed is written outside the migrations.
 
-        A file in `supabase/migrations/` is a migration to apply, and this one
+        A file in `infra/supabase/migrations/` is a migration to apply, and this one
         describes the table the server is expected to hold — the dated
         migrations are what seed the live table. A generator that wrote its
         description into the migrations would offer the server a file to
@@ -131,8 +131,8 @@ class GeneratorTest(unittest.TestCase):
         about the database.
         """
         self.generate()
-        self.assertFalse((self.root / "supabase/migrations").exists())
-        self.assertTrue((self.root / "supabase/sync_field_allowlist_seed.sql").is_file())
+        self.assertFalse((self.root / "infra/supabase/migrations").exists())
+        self.assertTrue((self.root / "infra/supabase/sync_field_allowlist_seed.sql").is_file())
 
     def test_the_repository_projection_is_read_whole(self):
         """The real projection is read whole: one row per name, and no name less.

@@ -65,7 +65,10 @@ if str(_SRC) not in sys.path:
 from sgate.commands.base import CLEAN, IO_ERROR, VALIDATION_FAILURE, run  # noqa: E402
 
 #: The Room entities live here. A table is whatever an `@Entity` declares.
+#: The database moved to `:core-database`; `shared` is kept because a handful of
+#: entities still live beside the feature that owns them.
 SHARED_MAIN = Path("shared/src/commonMain/kotlin/com/singularity/todo")
+CORE_DATABASE_MAIN = Path("core-database/src/commonMain/kotlin/com/singularity/todo")
 
 #: The wipe's own list: the map from table to the call that deletes it.
 WIPE_PLAN = SHARED_MAIN / "core/wipe/ProfileWipePlan.kt"
@@ -220,7 +223,11 @@ def _index_tables(text: str) -> dict[str, str]:
 
 
 def _kotlin_sources(root: Path) -> list[Path]:
-    return sorted((root / SHARED_MAIN).rglob("*.kt"))
+    return sorted(
+        source
+        for module in (SHARED_MAIN, CORE_DATABASE_MAIN)
+        for source in (root / module).rglob("*.kt")
+    )
 
 
 def _read(path: Path, root: Path) -> str:
@@ -387,7 +394,7 @@ def check(inv: Inventory) -> list[Finding]:
                     table=table,
                     detail=(
                         "the wipe's list claims this table, but no `DELETE FROM "
-                        f"{table}` with a WHERE clause exists in the shared sources. "
+                        f"{table}` with a WHERE clause exists in the sources the gate reads. "
                         "Either the delete is missing or it is a sweep of the live "
                         "rows."
                     ),

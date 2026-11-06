@@ -3,6 +3,12 @@ status: accepted
 date: 2026-10-31
 ---
 
+> **Superseded in part (2026-11-04):** the `TaskFilter.Inbox` filter and the AI tool's
+> `inbox` selection are now `TaskFilter.NotDeferred` and `active_not_deferred`. The old
+> `inbox` name still decodes as an alias of the latter. The tab partition and the Inbox
+> tab described here are unchanged. See
+> [2026-11-04-inbox-names-the-unscheduled-tab.md](2026-11-04-inbox-names-the-unscheduled-tab.md).
+
 # The three agenda tabs are disjoint
 
 ## Context
@@ -93,10 +99,14 @@ clock rather than pure data — the property every preset is supposed to have.
 - Negative: a task dated further out than next week is in no agenda tab. It
   is in the Plans timeline, in the Calendar, and in a saved view seeded from
   `AgendaPresets.All` — but not in the bottom bar.
-- Negative: the `TaskFilter.Inbox` filter (every open task, used by the
-  pomodoro picker and by the AI tool's `inbox` selection) is wider than the
-  Inbox tab. The two answer different questions and now say so in their
-  documentation.
+- Negative: the `TaskFilter.NotDeferred` filter (every live task that is not
+  deferred, used by the pomodoro picker and by the AI tool's `active_not_deferred`
+  selection) is wider than the Inbox tab — it holds dated and undated tasks, and
+  finished ones. The two answer different questions, and the filter no longer borrows
+  the tab's name. (This bullet named the filter `TaskFilter.Inbox` and the selection
+  `inbox` when the partition was written; ADR
+  `2026-11-04-inbox-names-the-unscheduled-tab` renamed both, and the repository read
+  now matches the name.)
 - Superseded (2026-11-05): the work-day preset no longer replaces the Today
   tab's sections. The plan is layered inside the tab, which keeps owning
   Overdue and Today on a working day — so the partition above holds for every
@@ -108,3 +118,5 @@ clock rather than pure data — the property every preset is supposed to have.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/logic/AgendaPresets.kt`
 - `shared/src/commonTest/kotlin/com/singularity/todo/feature/agenda/domain/AgendaTabDisjointnessTest.kt`
 - `.agents/skills/singularity-todo-agenda-section-design/SKILL.md`
+- `docs/decisions/2026-11-05-the-wide-view-reaches-next-month.md` — the wide
+  view's own reach, which reaches further than the bar's

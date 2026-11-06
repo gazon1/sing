@@ -22,7 +22,7 @@ The domain models (`Task`, `Note`, `Project`, `Tag`, `TagGroup`) expose only
 `serverVersion` and `hlc`. The other four fields are populated **by the server**
 and are **never written back by any `@Query` in the codebase**.
 
-[sync-columns]: ../../shared/src/commonMain/kotlin/com/singularity/todo/core/database/Entities.kt
+[sync-columns]: ../../core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Entities.kt
 
 This creates a paradox: every `toEntity()` call passes
 `SyncColumns(serverVersion, hlc)` with the other four fields at their Kotlin defaults
@@ -48,17 +48,20 @@ without setting the other fields, relying on the server to populate them.
 ## Consequences
 
 ### Positive
+
 - Sync engine retains full control over `syncStatus` / `syncError` / `lastSyncedAt` without rogue client overwrites
 - Domain models stay lean — no need to thread `deviceId` through use cases
 - No schema change required
 
 ### Negative / Known gap
+
 - `TagEntity.icon` was added in v20 but has no domain-model counterpart. It is stored
   but never restored on read (caught by `EntityMapperCompletenessTest`). This is a
   separate ADR candidate: add `icon` to `Tag`, or drop the column. Tracked as a
   Phase 0 retro finding.
 
 ## Links
+
 - Write-path primitives: `write-pipeline` skill
 - MR 0.4 `NotesRepositoryImpl.update` guard — same read-before-write pattern
 - `EntityMapperCompletenessTest` — catches any future mapper asymmetry

@@ -71,6 +71,7 @@ private fun scheduleAutosave(id: String) {
 ```
 
 **Screen side — dedup with Animatable:**
+
 ```kotlin
 @Composable
 fun NoteEditorScreen(...) {
@@ -125,6 +126,7 @@ fun NoteEditorScreen(
 ```
 
 `CollectEvents` is a thin wrapper:
+
 ```kotlin
 @Composable
 fun <T : UiEvent> CollectEvents(

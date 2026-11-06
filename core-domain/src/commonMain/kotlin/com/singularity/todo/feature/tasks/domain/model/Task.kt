@@ -1,0 +1,387 @@
+package com.singularity.todo.feature.tasks.domain.model
+
+import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.search.SearchMode
+import com.singularity.todo.core.search.Searchable
+import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.core.sync.DocType
+import com.singularity.todo.core.sync.Hlc
+import com.singularity.todo.core.sync.SyncableEntity
+import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.serializer
+import kotlin.time.Instant
+
+@Serializable
+@JvmInline
+value class TaskId(val value: String) {
+    companion object {
+        fun generate() =
+            TaskId(
+                com.singularity.todo.core.ids
+                    .nextId(),
+            )
+
+        fun fromString(value: String) = TaskId(value)
+    }
+}
+
+enum class TaskPriority {
+    None,
+    Low,
+    Medium,
+    High,
+    Urgent,
+}
+
+enum class TaskKind {
+    Task,
+    Note,
+}
+
+sealed interface TaskFilter {
+    data object Today : TaskFilter
+
+    data object Upcoming : TaskFilter
+
+    data object Someday : TaskFilter
+
+    /**
+     * Every live task that is not deferred — dated or undated.
+     *
+     * "Live" means not in the trash, and "not deferred" means the `someday` flag is
+     * clear. The repository read is `watchNotDeferred`, which says the same thing in
+     * SQL, so the name is a description of the query and not a nickname for it.
+     *
+     * This is not a completion filter: a finished task still matches, because
+     * completing a task marks it and only archiving takes it away. A caller that
+     * wants the unfinished ones narrows this filter with [TaskStatus.Active], as
+     * the AI tool's `active_not_deferred` selection does.
+     *
+     * [All] is the wider question — the deferred tasks included — so the two names
+     * answer two questions and the two reads are two queries.
+     *
+     * The agenda's Inbox tab is *narrower* than this: it holds the tasks with no
+     * due date, because it answers "what have I not scheduled yet". The filter and
+     * the tab used to share the name `Inbox`, which made the two questions look
+     * like one.
+     */
+    data object NotDeferred : TaskFilter
+
+    data object Pinned : TaskFilter
+
+    data object Trash : TaskFilter
+
+    /**
+     * Every task that is not in the trash — the deferred ones, the finished ones,
+     * the dated and the undated all included.
+     *
+     * The repository read is `watchActive`, whose only condition is
+     * `archived_at IS NULL`. The trash itself is [Trash]'s question.
+     *
+     * Narrower than this: [NotDeferred], which also excludes the deferred tasks.
+     */
+    data object All : TaskFilter
+
+    data class ByProject(val id: ProjectId) : TaskFilter
+
+    data class ByTag(val id: TagId) : TaskFilter
+
+    /**
+     * The text filter of the task list.
+     *
+     * The [mode] is the mode the text is matched in (F6) — the filter states
+     * it, so that a caller never gets an answer from a rule it did not name.
+     * There is no default: a filter that does not say which mode it searches
+     * in would be the silent difference this rule exists to remove (F8).
+     */
+    data class Search(val query: String, val mode: SearchMode) : TaskFilter
+
+    /** Calendar screen: all tasks with dueDate within [from]..[to] (inclusive). */
+    data class ByDateRange(val from: kotlinx.datetime.LocalDate, val to: kotlinx.datetime.LocalDate) : TaskFilter
+
+    /** Filters by completion status set (Active / Completed / or both = All). */
+    data class ByStatuses(val statuses: Set<TaskStatus>) : TaskFilter
+
+    /**
+     * Filters tasks that are tagged with any/all of the given [TagId]s.
+     *
+     * - [matchAll] = false (default): task must have **at least one** tag from [ids]
+     * - [matchAll] = true: task must have **all** tags from [ids]
+     *
+     * The SQL dispatch in [com.singularity.todo.feature.tasks.data.TaskRepositoryImpl]
+     * uses `watchByAnyTag` / `watchByAllTags` respectively.
+     *
+     * @param matchAll When true, tasks must be tagged with every [TagId] in [ids].
+     *                 When false (default), tasks tagged with any one of [ids] are included.
+     */
+    data class ByTags(val ids: Set<TagId>, val matchAll: Boolean = false) : TaskFilter
+
+    /**
+     * Filters tasks by priority set.
+     * A task matches if its priority is **contained in** [priorities].
+     */
+    data class ByPriorities(val priorities: Set<TaskPriority>) : TaskFilter
+
+    /**
+     * Filters tasks by title substring match (case-insensitive).
+     * Uses SQL `lower(title) LIKE lower('%' || :query || '%')` — no regular expression.
+     *
+     * Equivalent in-memory predicate for [Selector.Regexp] uses `Regex`.
+     * The SQL variant avoids loading all tasks into memory for pre-filtering.
+     */
+    data class ByRegexp(val pattern: String) : TaskFilter
+
+    /**
+     * Filters tasks by a relative date bucket evaluated against [today].
+     *
+     * The [today] parameter is required because SQL query dispatch is asynchronous —
+     * the bucket must be resolved to a concrete date range at dispatch time.
+     *
+     * @param bucket The relative bucket (Today, ThisWeek, Overdue, etc.).
+     * @param today The reference "today" used to resolve relative ranges.
+     */
+    data class ByDateBucket(val bucket: RelativeBucket, val today: kotlinx.datetime.LocalDate) : TaskFilter
+}
+
+/**
+ * The wire name of [Task.tags].
+ *
+ * The reader that checks whether a document carries the tags looks for this
+ * name, and the annotation that writes it says the same name. One fact, one
+ * place: a rename cannot leave the check behind.
+ */
+const val TAGS_WIRE_NAME = "tags"
+
+/**
+ * The wire name of [Task.blockedBy].
+ *
+ * The domain calls the field `blockedBy` — it holds the edges that block the
+ * task — and the wire calls it `dependsOn`, because the field was already in
+ * the sync allow-list and in every backup ever written under that name. The
+ * two are one fact, so the name lives in one place: the annotation that writes
+ * it and the reader that looks for it both say this constant.
+ *
+ * A rename of a wire field is a change of the protocol, and it is made here,
+ * on purpose, rather than drifting apart between two files.
+ */
+const val BLOCKED_BY_WIRE_NAME = "dependsOn"
+
+@Serializable
+data class Task(
+    val id: TaskId,
+    val title: String,
+    val description: String? = null,
+    val priority: TaskPriority = TaskPriority.None,
+    val kind: TaskKind = TaskKind.Task,
+    val projectId: ProjectId? = null,
+    val parentTaskId: TaskId? = null,
+    @SerialName(TAGS_WIRE_NAME)
+    val tags: List<TagId> = emptyList(),
+    val dueDate: kotlinx.datetime.LocalDate? = null,
+    val dueTime: kotlinx.datetime.LocalTime? = null, // "HH:mm:ss" via LocalTimeConverters / LocalTimeSerializer
+    val startDate: kotlinx.datetime.LocalDate? = null, // when the task becomes active
+    val startTime: kotlinx.datetime.LocalTime? = null,
+    val endDate: kotlinx.datetime.LocalDate? = null, // deadline / end of active window
+    val endTime: kotlinx.datetime.LocalTime? = null,
+    val accentColor: Long? = null, // ARGB color value, null = use default
+    // Task-level emoji; null = none.
+    val emoji: String? = null,
+    /**
+     * Estimated time to complete this task, in minutes.
+     * Null means no estimate has been set — distinct from 0 minutes.
+     */
+    val estimateMinutes: Int? = null,
+    val completedAt: Instant? = null,
+    val someday: Boolean = false,
+    val archivedAt: Instant? = null,
+    val isPinned: Boolean = false,
+    /**
+     * IDs of tasks that must be completed before this task can be completed.
+     * Empty set means the task is not blocked by any dependency.
+     *
+     * ## Null semantics
+     *
+     * Stored as a join table (`task_dependencies`), never as a nullable column.
+     * When loading from DB, a task with no rows in `task_dependencies` has an empty set.
+     *
+     * ## Blocking
+     *
+     * A task is **blocked** when any of its dependencies is not yet completed.
+     * Computed via [com.singularity.todo.feature.tasks.domain.logic.Blocking.isBlocked]
+     * using the full task list in scope (VM `combine`).
+     *
+     * ## Only the blocking edges are here
+     *
+     * The dependency table records the *kind* of every relationship. This set
+     * holds only the relationships that block the task: a task that "follows
+     * up" on another is not waiting for it, and reporting it as waiting is the
+     * bug this narrowing fixes. The graph itself keeps every edge — the cycle
+     * analysis, the backup export and the typed read still see them all.
+     *
+     * ## Why the serialized name is the old one
+     *
+     * The property is called [blockedBy] because that is what it holds, but the
+     * wire name stays `dependsOn`: the field is already in the sync allow-list
+     * and in every backup ever written, and the server stores documents by that
+     * name. Renaming the domain without renaming the wire would have split one
+     * concept into two names on the two sides of a boundary that cannot be
+     * renegotiated per device. The domain says what it means; the wire keeps
+     * saying what it has always said.
+     *
+     * @see 2026-09-18-task-dependencies
+     * @see 2026-10-21-blocked-completion-guard
+     */
+    @SerialName(BLOCKED_BY_WIRE_NAME)
+    val blockedBy: Set<TaskId> = emptySet(),
+    /**
+     * The tasks this one **follows up on**.
+     *
+     * The other half of the dependency table: a relation that orders or relates
+     * two pieces of work without making either wait for the other. It is not a
+     * blocker — a task that follows up on another is not blocked by it — so it
+     * is kept apart from [blockedBy] rather than folded into it.
+     *
+     * ## Why it is transient
+     *
+     * The relation is **device-local**. The cross-reference table it lives in
+     * does not sync: the wire carries the blocking projection only, and the
+     * server's dependency tables are still deferred work
+     * (`2026-10-01-typed-task-dependency-links.md`). A property that went on
+     * the wire would be a field the client wrote and the server silently
+     * dropped — the same debt the server still carries for `task.seriesId`.
+     *
+     * So it is `@Transient`: it rides with the task in memory, it is read from
+     * the local table, and it never reaches the server. The backup carries the
+     * verb, so the relation does survive a restore even though it does not
+     * survive a sync.
+     */
+    @Transient
+    val followsUp: Set<TaskId> = emptySet(),
+    /**
+     * Tag IDs that the AI has suggested removing, and which the user has suppressed.
+     * Suppressed tags are excluded from AI prompts so they are not re-proposed.
+     * The set is cleared when the user manually adds any of these tags back.
+     */
+    val aiSuppressedTagIds: Set<TagId> = emptySet(),
+    /**
+     * The recurrence rule for this task, if any.
+     * Null means the task does not repeat.
+     *
+     * Serialized as JSON string in [recurrenceRule] column.
+     *
+     * @see RecurrenceSpec
+     */
+    val recurrence: RecurrenceSpec? = null,
+    /**
+     * The series this task belongs to, or `null` when it stands alone.
+     *
+     * A series is several rows carrying the same id — one piece of work scheduled
+     * on several dates. The shared fields are edited once for the whole series;
+     * the date, the completion state, the checklist and the reminders stay with
+     * the occurrence.
+     *
+     * @see TaskSeriesId
+     * @see com.singularity.todo.feature.tasks.domain.logic.TaskSeriesPlanner
+     */
+    val seriesId: TaskSeriesId? = null,
+    /**
+     * The state the user has claimed for this task's work.
+     *
+     * Everything else on this task is either a fact about the task or a fact the
+     * app derives — overdue, blocked, recurring, pinned. This field is the one
+     * thing on the task that only the user can set, and it records what they
+     * said: this is the one I will do next, or the one I am doing now.
+     *
+     * It is independent of [completedAt]: completing a task does not change the
+     * state, and reopening it restores the state it held. It is a shared field
+     * of a series — the state describes the work, not one of its dates.
+     *
+     * @see TaskWorkflowState
+     */
+    val workflowState: TaskWorkflowState = TaskWorkflowState.Open,
+    val createdAt: Instant,
+    val updatedAt: Instant,
+    val userId: UserId,
+    /**
+     * Sync field. Server version from last sync; 0 = not yet synced.
+     * Stored in DB but not part of the constructor — loaded via mapper.
+     */
+    val serverVersion: Long = 0,
+    /** Sync field. Hybrid Logical Clock timestamp; null for local-only tasks. */
+    val hlc: Hlc? = null,
+) : SyncableEntity,
+    Searchable {
+    /**
+     * The surfaces a task is searched by (F3): its title and its description.
+     *
+     * The task knows this, so no caller has to remember it — a caller that
+     * had to remember it would eventually remember it wrong, and the record
+     * would be lost without a word.
+     */
+    override val searchableSurfaces: List<String?>
+        get() = listOf(title, description)
+
+    val isCompleted: Boolean get() = completedAt != null
+    val isTrashed: Boolean get() = archivedAt != null
+
+    /**
+     * Whether this task should appear on a user's calendar at all.
+     *
+     * One definition, because three call sites had the rule written out separately — the
+     * system-calendar worker, the Google push planner's applier, and the dirty-hash provider
+     * — and they were kept in agreement by a comment in each saying "this deliberately
+     * matches the other". A comment is not a mechanism: it does not fail when someone edits
+     * one copy, and one of the three was in `androidMain`, so the JVM suite could not have
+     * caught the divergence even if a test had tried.
+     *
+     * The failure mode is not subtle but it is user-visible in the worst way: a task on one
+     * calendar and not the other, with nothing explaining the difference.
+     *
+     * Completed and trashed are excluded. Completing a task should remove its event; trashing
+     * is how a task is deleted from the user's point of view, so keeping its event would
+     * resurrect it somewhere the user cannot see.
+     */
+    val belongsOnACalendar: Boolean get() = !isCompleted && !isTrashed
+
+    // SyncableEntity implementation
+    override val syncId: String get() = id.value
+    override val docType: DocType get() = DocType.Task
+    override val syncServerVersion: Long get() = serverVersion
+    override val syncHlc: Hlc? get() = hlc
+
+    override fun toJson(): JsonObject {
+        @Suppress("UNCHECKED_CAST")
+        val ser = serializer<Task>()
+        return StableJson.encodeToJsonElement(ser, this) as JsonObject
+    }
+}
+
+data class CreateTaskInput(
+    val title: String,
+    val description: String? = null,
+    val priority: TaskPriority = TaskPriority.None,
+    val kind: TaskKind = TaskKind.Task,
+    val projectId: ProjectId? = null,
+    val parentTaskId: TaskId? = null,
+    val tagIds: List<TagId> = emptyList(),
+    val dueDate: kotlinx.datetime.LocalDate? = null,
+    val dueTime: kotlinx.datetime.LocalTime? = null,
+    val startDate: kotlinx.datetime.LocalDate? = null,
+    val startTime: kotlinx.datetime.LocalTime? = null,
+    val endDate: kotlinx.datetime.LocalDate? = null,
+    val endTime: kotlinx.datetime.LocalTime? = null,
+    val accentColor: Long? = null,
+    val emoji: String? = null,
+    val estimateMinutes: Int? = null,
+    val someday: Boolean = false,
+    /**
+     * The recurrence rule for the new task, or null for a non-recurring task.
+     */
+    val recurrence: RecurrenceSpec? = null,
+)

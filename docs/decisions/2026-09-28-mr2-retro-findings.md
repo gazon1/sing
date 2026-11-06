@@ -38,8 +38,8 @@ at the call site so the next omitted field is not silent. `startDate`, `startTim
 ## MEDIUM — not fixed, recorded
 
 ### R6 — R1 is still open, and this MR had to work around it
-> **RESOLVED 2026-09-28 (roadmap MR-1):** This finding is the third ADR to carry the claim forward. It is not open and the three reverted attempts were chasing a premise that had expired. A probe test in MR-1 confirmed the fakes' `Unconfined` default already lets `advanceUntilIdle()` drain the chain; no fake was changed to get the slot suite onto virtual time. See `2026-09-28-mr1-test-virtualization-retro.md`.
 
+> **RESOLVED 2026-09-28 (roadmap MR-1):** This finding is the third ADR to carry the claim forward. It is not open and the three reverted attempts were chasing a premise that had expired. A probe test in MR-1 confirmed the fakes' `Unconfined` default already lets `advanceUntilIdle()` drain the chain; no fake was changed to get the slot suite onto virtual time. See `2026-09-28-mr1-test-virtualization-retro.md`.
 
 `TaskDetailViewModelTest.TitleChanged debounce saves after delay()` was red on the branch
 baseline (see the MR-1 retro). This MR deletes that file, so the red test is gone, but the
@@ -47,6 +47,7 @@ cause is not: the fakes' `FakeProfileAwareCurrentUser` still runs on `Dispatcher
 every slot test pumps with real `delay()` instead of `advanceUntilIdle()`.
 
 Three attempts at a scheduler-bound fake during this MR, all reverted:
+
 - `StandardTestDispatcher(testScheduler)` — `stateIn` starts a `SupervisorJob` the test never
   drains, so `scopedUserId` never emits and every user-scoped read returns empty.
 - `UnconfinedTestDispatcher()` — creates its own scheduler, which nothing advances; a `delay`
@@ -60,6 +61,7 @@ observers, not to the tests. Until then, real-time pumping is the working patter
 test in the repo should use it consistently rather than each discovering it.
 
 ### R7 — `UpdateTaskUseCase.invoke(task)` is still deprecated and still used
+
 > **RESOLVED 2026-09-28 (roadmap MR-1):** **Closed 2026-09-28, after a false closure.** The check
 behind that closure was a grep for `updateTask.invoke`, which finds the two-argument form
 `updateTask.invoke(id) { … }`. The offending call sites are `deps.updateTask(task.copy(…))`
@@ -74,7 +76,6 @@ production compile emits no warning for the deprecated form.
 The closure mistake is the general lesson: a compile warning is the evidence, not a grep
 over the identifier you expect. See `2026-09-28-mr5-verification.md` and
 `2026-09-28-mr5-vm-hygiene.md`.
-
 
 Five call sites in the slots read the task from `taskFlow`, `copy()` one field, and write the
 whole entity back. A concurrent remote edit to any other field is silently reverted. The

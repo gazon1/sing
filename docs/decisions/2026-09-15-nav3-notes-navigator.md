@@ -3,6 +3,7 @@ title: Nav3 Notes Navigator — Eliminate callback-passing in notes screens
 date: 2026-09-15
 status: accepted
 ---
+
 # Nav3 Notes Navigator — Eliminate callback-passing in notes screens
 
 ## Context
@@ -41,6 +42,7 @@ AppDestination.Notes (outer)
 ```
 
 `NotesNavGraph` is an `expect fun` with platform-specific `actual` implementations:
+
 - **Android**: includes `BackHandler` for system-back gesture and
   `rememberViewModelStoreNavEntryDecorator()` for per-entry VM scoping
 - **JVM**: no decorators needed (desktop has no process-death or ComponentActivity
@@ -106,6 +108,7 @@ and `NotesUiState` are defined in `feature.notes.Ids.kt` (not in
 
 The tasks feature already used this pattern (Nav3 + LocalNavigator), providing a
 proven template. The `CompositionLocal` approach means:
+
 - Screens are pure functions of route + VM state
 - Navigation logic lives in one place (`NotesNavigator`)
 - Adding a new cross-feature destination only changes `NotesNavigator`

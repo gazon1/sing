@@ -50,16 +50,16 @@ the backup format and the server.
 
 ### The domain and the column
 
-- [X] T006 Create the `TaskWorkflowState` enum in `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/TaskWorkflowState.kt` with exactly three values — `Open`, `NextUp`, `InProgress` — and `Open` as the default
-- [X] T007 Add `workflowState: TaskWorkflowState = TaskWorkflowState.Open` to `Task` in `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/Task.kt`
-- [X] T008 Add `@ColumnInfo("workflow_state") val workflowState: String = "Open"` to `TaskEntity` in `shared/src/commonMain/kotlin/com/singularity/todo/core/database/Entities.kt` — stored as the enum entry **name**, per data-model.md
-- [X] T009 Map the column in both directions in `shared/src/commonMain/kotlin/com/singularity/todo/core/database/Mappers.kt` — an unknown name reads as `Open` rather than throwing, so a row written by a build that knew a fourth state cannot make the task list unreadable
+- [X] T006 Create the `TaskWorkflowState` enum in `core-domain/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/TaskWorkflowState.kt` with exactly three values — `Open`, `NextUp`, `InProgress` — and `Open` as the default
+- [X] T007 Add `workflowState: TaskWorkflowState = TaskWorkflowState.Open` to `Task` in `core-domain/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/Task.kt`
+- [X] T008 Add `@ColumnInfo("workflow_state") val workflowState: String = "Open"` to `TaskEntity` in `core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Entities.kt` — stored as the enum entry **name**, per data-model.md
+- [X] T009 Map the column in both directions in `core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Mappers.kt` — an unknown name reads as `Open` rather than throwing, so a row written by a build that knew a fourth state cannot make the task list unreadable
 
 ### The migration — hand-written, not auto
 
-- [X] T010 Write `Migration46To47` in `shared/src/commonMain/kotlin/com/singularity/todo/core/database/Migration46To47.kt`: `ALTER TABLE tasks ADD COLUMN workflow_state TEXT NOT NULL DEFAULT 'Open'`. **Do not use `AutoMigration`** — the derived auto-migration rewrites the whole `tasks` table, and dropping it fires the foreign key that points `notes.task_id` at a task, nulling those notes. `Migration45To46` is manual for exactly this reason (`AppDatabaseFactory.kt:51-53`)
-- [X] T011 Bump `SCHEMA_VERSION` to `47` in `shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt` and register `Migration46To47()` in `AppDatabaseFactory.addMigrations` beside `Migration45To46()`, with the same comment explaining why it is manual
-- [X] T012 Regenerate the exported schema `shared/schemas/com.singularity.todo.core.database.AppDatabase/47.json` and the round-trip test `shared/src/jvmTest/kotlin/com/singularity/todo/core/database/Migration46To47Test.kt` from it
+- [X] T010 Write `Migration46To47` in `core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Migration46To47.kt`: `ALTER TABLE tasks ADD COLUMN workflow_state TEXT NOT NULL DEFAULT 'Open'`. **Do not use `AutoMigration`** — the derived auto-migration rewrites the whole `tasks` table, and dropping it fires the foreign key that points `notes.task_id` at a task, nulling those notes. `Migration45To46` is manual for exactly this reason (`AppDatabaseFactory.kt:51-53`)
+- [X] T011 Bump `SCHEMA_VERSION` to `47` in `core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt` and register `Migration46To47()` in `AppDatabaseFactory.addMigrations` beside `Migration45To46()`, with the same comment explaining why it is manual
+- [X] T012 Regenerate the exported schema `core-database/schemas/com.singularity.todo.core.database.AppDatabase/47.json` and the round-trip test `shared/src/jvmTest/kotlin/com/singularity/todo/core/database/Migration46To47Test.kt` from it
 - [X] T013 Add no index on `workflow_state` — the agenda matches in memory over the task list it has already loaded, exactly as `Selector.Blocked` matches against `blockedIds` (research.md D3)
 
 ### The backup — the shape changed, so the version changes
@@ -70,13 +70,13 @@ the backup format and the server.
 ### The wire — the server must accept the field
 
 - [X] T016 Add `workflowState` to the `task` entry's `wire` and `serverWritable` lists in `config/docs/sync-field-allowlist.json`, then regenerate with `./gw :shared:exportSyncFieldAllowlist` and `python3 infra/gen_sync_allowlist_sql.py`
-- [X] T017 Write the dated migration `supabase/migrations/2026-10-26-sync-workflow-state.sql` inserting the `task.workflowState` row into `sync_field_allowlist`. **This is not optional** — the seed file builds a fresh database, the dated migration is what an existing one gets, and without it the server silently drops the field (open issue #1050 is exactly this debt for `task.seriesId`)
+- [X] T017 Write the dated migration `infra/supabase/migrations/2026-10-26-sync-workflow-state.sql` inserting the `task.workflowState` row into `sync_field_allowlist`. **This is not optional** — the seed file builds a fresh database, the dated migration is what an existing one gets, and without it the server silently drops the field (open issue #1050 is exactly this debt for `task.seriesId`)
 
 ### The write path
 
 - [X] T018 Add `WorkflowState` to `TaskSharedField` in `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/TaskSeriesPolicy.kt` and map `SetWorkflowState` in `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/slot/TaskSharedFieldScope.kt` — the state describes *the work*, so it is shared across a series, exactly as priority is
 - [X] T019 Handle `SetWorkflowState` in `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/slot/TaskEntitySlot.kt` through the `mutate` helper, which writes through `updateTask` — or through `updateSeries`, for a task that belongs to a series. **No new repository method**: `TaskCoreDeps` states that the coordinator subscribes through `taskRepo` and *everything else writes through `updateTask`*, and a second write path for one field is what the `PassThroughUseCase` rule exists to prevent
-- [X] T020 Add `data class SetWorkflowState(val state: TaskWorkflowState) : Domain, TaskEntityIntent` to `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/state/TaskDetailIntent.kt`, route it in `TaskDetailCoordinator.kt` and handle it in `presentation/viewmodel/slot/TaskEntitySlot.kt`
+- [X] T020 Add `data class SetWorkflowState(val state: TaskWorkflowState) : Domain, TaskEntityIntent` to `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/state/TaskDetailIntent.kt`, route it in `TaskDetailCoordinator.kt` and handle it in `presentation/viewmodel/slot/TaskEntitySlot.kt`
 
 ### Verification
 
@@ -175,8 +175,8 @@ that state, and confirm the saved view's contents follow without re-saving it.
 
 ### Implementation for User Story 3
 
-- [x] T052 [P] [US3] Add `WorkflowState(state: TaskWorkflowState)` and `FollowUp` to the sealed hierarchy in `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/model/Selector.kt`, with `@SerialName("WorkflowState")` and `@SerialName("FollowUp")`
-- [x] T053 [US3] Register both in `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/model/SelectorSerializer.kt` — the `typeTag` `when`, one entry each in `RegistryHolder.leafEntries`, **`require(it.size == 14)` becomes `require(it.size == 16)`**, and `expectedTypeTags` goes from 17 entries to 19. The `init` block cannot catch a variant missing from both lists, which is how `TimeOfDay` slipped through once
+- [x] T052 [P] [US3] Add `WorkflowState(state: TaskWorkflowState)` and `FollowUp` to the sealed hierarchy in `core-domain/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/model/Selector.kt`, with `@SerialName("WorkflowState")` and `@SerialName("FollowUp")`
+- [x] T053 [US3] Register both in `core-domain/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/model/SelectorSerializer.kt` — the `typeTag` `when`, one entry each in `RegistryHolder.leafEntries`, **`require(it.size == 14)` becomes `require(it.size == 16)`**, and `expectedTypeTags` goes from 17 entries to 19. The `init` block cannot catch a variant missing from both lists, which is how `TimeOfDay` slipped through once
 - [x] T054 [US3] Add the two match branches in `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/selector/SelectorMatcher.kt` and add `followUpIds: Set<TaskId> = emptySet()` to `SelectorContext` — the workflow-state selector needs no context, the follow-up one does
 - [x] T055 [P] [US3] Add the catalogue entries in `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/selector/SelectorTemplate.kt` — including the entry that finally offers the existing `Selector.Blocked`, which has been in the hierarchy since before this feature with no way to reach it
 - [x] T056 [P] [US3] Add the matching entries in `SelectorDescriptor.kt`, `SelectorBuilder.kt` and `SelectorBadge`'s `typeDescription`

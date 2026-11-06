@@ -48,11 +48,17 @@ Single source of truth for domain vocabulary. All terms are canonicalized here �
 
 ## Inbox
 
-**Inbox** is the default task collection — all tasks not assigned to a project. It is represented as `TaskFilter.Inbox`.
+**Inbox** is the agenda tab for the tasks with no due date — the answer to "what have I
+not scheduled yet". It is `AgendaPresets.Inbox`, whose one section is called "No Date".
 
-**Also known as:** Inbox tasks, unfiled tasks
+**Not the filter.** The wider code-level set is `TaskFilter.NotDeferred`: every task
+that is not in the trash and not deferred, dated or undated, and not filtered by
+completion. The pomodoro picker reads `TaskFilter.All` — the same set the picker read
+before the rename, since the old filter's query was `watchActive` — and the AI tool's
+`active_not_deferred` selection reads the narrower one. The two used to share the name
+`Inbox`, which is why older notes call the filter "the inbox filter".
 
-**Used in:** `TaskFilter`, `TaskRepository.observeByFilter`, `AgendaEvaluator`
+**Used in:** `AgendaPresets.Inbox`, `AgendaEvaluator`, `TaskFilter.NotDeferred`, `TaskRepository.observeByFilter`
 
 ---
 
@@ -212,3 +218,22 @@ for the shared fields — a series edit rewrites every row, and that is what kee
 
 **Used in:** `Task.seriesId`, `TaskSeriesPlanner`, `TaskSharedField`, `UpdateTaskSeriesUseCase`,
 `ADR 2026-10-22-task-series-materialized-copies`
+
+---
+
+## Task vocabulary registry
+
+**TaskVocabulary** is the registry that says what question each task name answers. It
+holds every `TaskFilter` shape, every `TaskSelection` wire name and every `AgendaPresets`
+preset, each with the question it answers.
+
+**One name answers one question.** Where two vocabularies use the same word for different
+sets, the difference is declared in the registry as a divergence, with a reason — today,
+`upcoming` and `inbox`.
+
+**This page explains the terms; the registry checks the code.** `TaskVocabularyTest` fails
+when a name is missing from the registry, when a name answers two questions without a
+declared divergence, or when a declared divergence no longer diverges. See
+`ADR 2026-11-06-one-name-one-question`.
+
+**Used in:** `feature/tasks/domain/logic/TaskVocabulary.kt`, `TaskVocabularyTest`

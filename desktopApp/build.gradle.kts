@@ -132,18 +132,22 @@ sourceSets {
             testImplementation(libs.koog.agents)
             // Allure test reporting — generates JSON results for CI integration
             implementation(libs.allure.kotlin.junit5)
+            // The database classes moved out of :shared into :core-database, which
+            // :shared declares as `implementation`; the tests name it directly.
+            implementation(project(":core-database"))
         }
     }
 }
 
 dependencies {
     implementation(project(":shared"))
-            implementation(project(":shared-ui"))
 
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutines.swing)
     implementation(libs.koin.core)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
+    implementation(libs.rich.editor.compose)
     implementation(libs.compose.material)
     implementation(libs.coil.compose)
 

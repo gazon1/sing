@@ -34,6 +34,7 @@ delay(1)
 ```
 
 The rule walks `KtCallExpression` AST nodes. Exempt:
+
 - `delay(0)` and `delay(1)` (too short to matter)
 - Lines with `// detekt:allow-real-time` comment
 - Non-test source sets (detekt path filters handle this)

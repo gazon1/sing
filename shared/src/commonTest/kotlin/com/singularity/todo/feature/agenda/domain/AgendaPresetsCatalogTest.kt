@@ -29,7 +29,7 @@ import kotlin.test.assertTrue
  *
  * Tests:
  * - All presets produce valid AgendaDefinitions
- * - All has the correct 8-section structure (narrowest-first, discard on all but last two)
+ * - All has the correct 9-section structure (narrowest-first, discard on all but the last three)
  * - Inbox holds the undated tasks only
  * - Today has 2 sections
  * - Upcoming has 3 sections
@@ -53,9 +53,9 @@ class AgendaPresetsCatalogTest {
     // ─── Structure ────────────────────────────────────────────────────────
 
     @Test
-    fun `All preset has 8 sections`() {
+    fun `All preset has 9 sections`() {
         val def = AgendaPresets.All
-        assertEquals(8, def.sections.size)
+        assertEquals(9, def.sections.size)
     }
 
     @Test
@@ -74,10 +74,13 @@ class AgendaPresetsCatalogTest {
     }
 
     @Test
-    fun `All last two sections have discard false`() {
+    fun `All last three sections have discard false`() {
         val def = AgendaPresets.All
-        val lastTwo = def.sections.takeLast(2)
-        assertTrue(lastTwo.none { it.discard }, "Last two sections (ThisMonth/NoDate) must have discard=false")
+        val lastThree = def.sections.takeLast(3)
+        assertTrue(
+            lastThree.none { it.discard },
+            "Last three sections (ThisMonth/NextMonth/NoDate) must have discard=false",
+        )
     }
 
     @Test

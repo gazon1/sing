@@ -32,6 +32,7 @@ never carry a task title, a note body, or a credential. See
 ### Structured logging fields
 
 Every log entry from production must include:
+
 - `profileId` — which profile triggered the log (not user identity, just the profile)
 - `timestamp` — HLC-based, not wall-clock
 - `component` — which feature module generated the log

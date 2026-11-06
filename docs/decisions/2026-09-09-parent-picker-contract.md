@@ -51,11 +51,13 @@ private val parentOptionsFlow: StateFlow<List<ParentOption>> = combine(
 ## Rationale
 
 **Why not `List<Project>`:**
+
 - Exposes deleted projects, sub-projects, and the current project (cycle) to the UI layer — UI must know filtering rules
 - The UI shouldn't need to know that `parentId == null` means "root" or that `isDeleted` must be filtered
 - If the domain rules change, every UI consumer would break
 
 **Why `ParentOption` is correct:**
+
 - Single source of truth: the ViewModel owns the filtering logic
 - UI receives exactly what it needs: `id`, `name`, `isCurrent`
 - Cycle prevention (`it.id != project.id`) lives in one place

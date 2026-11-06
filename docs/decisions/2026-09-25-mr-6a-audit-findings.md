@@ -51,6 +51,7 @@ BackupViewModel использует 2 отдельных `MutableSharedFlow` (`
 ### 2. MutableSharedFlow в легальных местах
 
 **Файлы:**
+
 - `core/ui/EventBus.kt:42` — internal SharedFlow backend для EventBus
 - `TaskDetail.kt:56-57` — `titleEdits` и `descriptionEdits` как input channels для debounce-паттерна (не events в смысле MVI)
 
@@ -84,6 +85,7 @@ fun onIntent(intent: TaskDetailIntent.Domain) {
 ### 5. 4 VM на MviViewModel с override val vmScope
 
 После добавления `protected open val vmScope` в MviViewModel, 6 subclassов объявили `override val vmScope`:
+
 - `DraftMviViewModel`, `AuthViewModel`, `CalendarSyncViewModel`, `NotePreview`, `ProfileSwitcherViewModel`, `SyncViewModel`
 
 Это boilerplate — можно удалить `override val vmScope` из subclassов, так как `protected open` даёт доступ напрямую. Однако удаление может сломать код который полагается на то что `vmScope` — это именно `scope` переданный в конструктор (а не inherited).

@@ -30,6 +30,7 @@ val LocalAppNavigator = compositionLocalOf<NavCallbacks> {
 ### 2. `rememberNav3State` as expect/actual
 
 `Nav3StateFactory.kt` (commonMain — expect):
+
 ```kotlin
 expect @Composable
 fun rememberNav3State(): Nav3State
@@ -44,6 +45,7 @@ Both platforms now use an empty `SavedStateConfiguration { }`, which enables `re
 Both shells now take `state: Nav3State`, `navigator: Navigator`, `navCallbacks: NavCallbacks` as parameters instead of constructing them internally.
 
 `App.kt` owns construction:
+
 ```kotlin
 val state = rememberNav3State()
 val navigator = remember(state) { Navigator(state) }

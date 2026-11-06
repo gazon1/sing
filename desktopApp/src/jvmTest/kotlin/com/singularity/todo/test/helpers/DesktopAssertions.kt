@@ -447,6 +447,29 @@ fun DesktopComposeUiTest.assertContentDescriptionNotExists(desc: String) {
 }
 
 /**
+ * Waits until no node with contentDescription [desc] is *displayed*, then returns.
+ *
+ * The negative of [assertContentDescriptionDisplayed], for a thing that is still in the
+ * semantics tree but no longer on screen — the drawer's entries are the case: the sheet
+ * stays composed while the drawer is closed, sitting at negative x-coordinates, so the
+ * entry is there and simply not shown. [assertContentDescriptionNotExists] would fail on
+ * that for the wrong reason, and "does not exist" is not what a closed drawer means.
+ *
+ * Waits rather than checks once: a drawer closes with an animation, and the entry is
+ * still on screen for the first frames of it.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.assertContentDescriptionNotDisplayed(desc: String) =
+    step("assertContentDescriptionNotDisplayed", desc) {
+        waitUntil(
+            conditionDescription = "no node with contentDescription '$desc' is displayed",
+            timeoutMillis = TIMEOUT_MS,
+        ) {
+            onAllNodes(hasContentDescription(desc)).fetchSemanticsNodes().none { it.isDisplayedInItsRoot() }
+        }
+    }
+
+/**
  * Waits for the node with [tag] and asserts it is enabled.
  */
 @OptIn(ExperimentalTestApi::class)

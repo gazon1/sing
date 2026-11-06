@@ -14,6 +14,7 @@ Four VMs had `onIntent` methods with `when (intent)` branches that accessed inte
 Applied Kotlin's stdlib `with(intent) { X }` receiver pattern to replace `intent.X` with direct property access within each `when` branch.
 
 **Before:**
+
 ```kotlin
 is Intent.NameChanged -> {
     draftState.setName(intent.name)
@@ -22,6 +23,7 @@ is Intent.NameChanged -> {
 ```
 
 **After:**
+
 ```kotlin
 is Intent.NameChanged -> with(intent) {
     draftState.setName(name)
@@ -30,6 +32,7 @@ is Intent.NameChanged -> with(intent) {
 ```
 
 No new types, no new dependencies — pure Kotlin stdlib. Applied to:
+
 - `SavedAgendaViewModel` — 4 data class intents
 - `SavedAgendaListViewModel` — 2 data class intents
 - `AgendaViewModel` — 6 data class intents
