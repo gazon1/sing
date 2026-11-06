@@ -76,9 +76,10 @@ of the execution strategy; only the strategy switch differs (verified against th
 `setIncremental(...)` from `PropertiesProvider.getIncrementalJvm()`, and the
 `IN_PROCESS` branch in `TasksUtilsKt` exists only to reword an error message).
 
-**D2. A slot pool of three builds.** `scripts/gradle-slot.sh` holds one of three
-machine-wide slots for the duration of a build; `./gw` runs every build through
-it.
+**D2. Machine-wide heavy limiting.** `./gw` routes builds through the `heavy`
+semaphore (installed via `mise`) when present and not already wrapped/in CI;
+this limits concurrent heavy work across worktrees. (Earlier implementation:
+`scripts/gradle-slot.sh`, replaced by `heavy`.)
 
 **D3. Two sets of coverage floors, one per population.** Fast-only on a pull
 request, the full set on the schedule. See
@@ -317,7 +318,7 @@ reads its own budget" is a checked statement and not a search for a string.
 
 ## The slot pool
 
-`scripts/gradle-slot.sh` takes one of three machine-wide slots, held on file
+`./gw` acquires a machine-wide `heavy` slot (earlier: `scripts/gradle-slot.sh`)
 descriptor 9 with `flock(2)`.
 
 Three things about it are load-bearing and were each got wrong at least once
@@ -335,7 +336,7 @@ during the design:
   first check true, and the pool would never take a slot at all.
 
 The pool is off in CI (`GITHUB_ACTIONS=true` — one checkout per runner, and the
-jobs on it run in parallel), and off with `SINGULARITY_GRADLE_SLOTS_DIR=0`.
+jobs on it run in parallel).
 
 **What the pool does not do:** it does not limit memory. The slot is released
 when the build's client exits; the daemon it started lives on for the idle
@@ -353,7 +354,7 @@ implied by "the hook is different".
 
 ## Stopping the daemons
 
-`scripts/gradle-stop-all.sh` stops the daemons of every worktree, and
+`scripts/gradle-stop-all.sh` (if present) stops daemons of every worktree, and
 `just gradle::stop-all` is its recipe.
 
 It uses the Gradle binary **already downloaded** in the worktree's wrapper
@@ -409,7 +410,7 @@ full run produced — unreachable by construction.
 - **The slot pool serialises work across worktrees.** Three builds at a time on
   this machine; a fourth waits up to 30 minutes and then fails with exit code
   97, which is deliberately distinct from Gradle's 0 and 1 and from the 75 that
-  used to mean "busy". `SINGULARITY_GRADLE_SLOTS_DIR=0` opts out.
+  used to mean "busy". (Earlier `gradle-slot.sh` opt-out: `SINGULARITY_GRADLE_SLOTS_DIR=0`.)
 - **The rollout is ordered, and the order is part of the decision.** Changing
   `org.gradle.jvmargs` makes every live daemon incompatible: Gradle starts new
   ones and the old ones stay alive until their own idle timeout expires. So
@@ -504,7 +505,7 @@ more, and it remains open.
 - `docs/decisions/2026-10-04-gradle-daemon-isolation.md` — the isolation this
   decision does not reopen
 - `docs/decisions/2026-10-22-ci-fast-only-pr-full-on-schedule.md` — the CI half
-- `scripts/gradle-slot.sh`, `scripts/gradle-stop-all.sh` — the instruments
+- `gw`/`heavy` (replaced `scripts/gradle-slot.sh`), `scripts/gradle-stop-all.sh` — the instruments
 - `config/docs/gradle-memory-budget.properties` — the record, read by the build
 - `scripts/check-memory-budget.py` — the gate that checks the tree against it
 - `gradle.properties` — the budget itself

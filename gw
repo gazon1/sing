@@ -50,26 +50,19 @@
 #   Gradle-level stop. It is not: `timeout` signals the process group it was
 #   given, and Gradle daemons are not in it.
 #
-# BUILD SLOTS
+# BUILD LIMITING (heavy)
 #
-# Every worktree raises its own daemon, and three concurrent builds saturate
-# the CPUs (measured 2026-10-22: /proc/pressure/cpu `some avg10=48.79` — about
-# half of the time, tasks were waiting for a CPU rather than running on one).
-# So this wrapper runs the build through `scripts/gradle-slot.sh`, which holds
-# one of three machine-wide slots for the duration of the build.
+# Every worktree raises its own daemon, and concurrent builds saturate CPUs and
+# memory on shared hosts. This wrapper routes heavy builds through the
+# machine-wide `heavy` semaphore (installed via `mise`), unless already wrapped
+# (`HEAVY_HELD`/`GW_HEAVY_WRAPPED`) or running in CI.
 #
-# The slot limits CPU OVERLOAD, not memory. It is released when the build's
-# client exits; the daemon it started lives on for
-# `org.gradle.daemon.idletimeout` afterwards. The memory budget is the heap in
-# gradle.properties and each test task's `maxHeapSize` — see
-# docs/decisions/2026-10-22-gradle-memory-budget.md.
+# Memory budget is separate from concurrency limiting: see heap settings in
+# `gradle.properties`, each test task's `maxHeapSize`, and
+# `docs/decisions/2026-10-22-gradle-memory-budget.md`.
 #
-# Opt out with `SINGULARITY_GRADLE_SLOTS_DIR=0 ./gw ...`. The pool is disabled
-# automatically in CI (one checkout per runner), and when already wrapped by
-# `heavy` (via `HEAVY_HELD` or `GW_HEAVY_WRAPPED`) to avoid double queuing.
-#
-# NOT COVERED BY THE POOL: Android Studio's own Gradle sync, and a bare
-# `./gradlew`. Both bypass `gw` on purpose — see the ADR.
+# NOT COVERED: Android Studio's own Gradle sync and a bare `./gradlew`. Both
+# bypass `gw` on purpose — see the ADR.
 #
 # Proof the boundary holds: with GRADLE_USER_HOME pointed at a private
 # directory, `./gradlew --stop` takes the daemon count from 3 to 2 — exactly its
