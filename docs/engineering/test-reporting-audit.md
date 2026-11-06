@@ -40,13 +40,13 @@ Measured on the checkout at `a6feb0062`:
 | `scripts/junit-annotations.py` | GitHub `::error` / `::notice` annotations | GitHub PR UI | `<error>` testcases counted as clean passes; terminal failure of a retried test dropped; always exits 0 | No — but it should be rewritten on top of the shared reader, not kept as a third parser |
 | `scripts/ci/print-test-failures.sh` | console output | `hk.pkl` only (never CI) | parses `failure|error` only, body truncated to 500 chars, swallows parse errors, exits 0 | No — same fix as above, shared reader |
 | `scripts/src/traceability/junit_xml.py` | parsed test records | traceability matrix | correct precedence `failure > error > skipped > passed`, keeps `file` attribute; truncates messages at 2000 chars for a consumer (Kiwi TCMS) that no longer exists | Keep — it is the canonical reader |
-| `scripts/check-test-runs.py` | exit code + floor report | `hk.pkl:125`, `ci.yml:969-1000` | floors apply only to `--require`d source sets; baseline file format documented as 3-column but is 2-column; two tracked artifacts disagree on the same floors (219/4149 vs 235/4306) | No — the floor logic is a repository rule and stays custom |
+| `scripts/check-test-runs.py` | exit code + floor report | `hk.pkl:125`, `ci.yml:969-1000` | floors apply only to `--require`d source sets; baseline file format documented as 3-column but is 2-column; the floor file and the measurement file did not say which kind of number each held (see F5) | No — the floor logic is a repository rule and stays custom |
 | `config/test-populations.properties` | population names → tag filters | `build.gradle.kts:88-96`, `settings.gradle.kts:151` | uses `population=tags` + `population.property: value`, so Java's `Properties` parser advertises 4 population names, 2 of them phantom | No — but the format must be fixed; see Findings |
 | `shared/build.gradle.kts` | `shared/build/diagnostics/<Class>/coroutines.txt` | developers, CI | `AGENTS.md:101,154` documents a repo-root path that does not exist | No — the path is a contract; the doc is wrong |
 | desktop `FailureBundle.kt` | `desktopApp/build/diagnostics/<Class>/attempt-N/` | desktop CI (not uploaded) | its artifact name `desktop-diagnostics` matches no real artifact (`ci-evidence-<run_id>`) | No — bundles are the right idea; the naming and the upload step are missing |
 | android `FailureBundle.kt` | `androidApp/build/outputs/…/diagnostics/` | `android-failure-diagnostics-*` artifact | separate implementation, separate contract | Partly — a shared bundle contract is feasible; the platform capture is not |
 | `FailureContextExtension.kt` / `TestFailureDetailsWriter.kt` | per-test failure files | developers | third implementation of the same concept | Partly — same as above |
-| `scripts/step-duration-report.py` | duration report | **nobody** | orphan script, referenced only by its own docstring | Delete it |
+| `scripts/step-duration-report.py` | duration report | developer tool, documented in `.agents/skills/singularity-todo-desktop-compose-ui-tests/SKILL.md:282,289` | no *automated* caller; the skill is the caller | Keep — it is a developer tool, not an orphan |
 | `build.log` (Gradle log, `ci.yml:922`) | console log | nobody | **not uploaded by any artifact step** — a compile or task failure leaves evidence only in the run UI | No — just upload it |
 | `mcp-server/build/diagnostics/**` | directory | CI upload (`ci.yml:1302`) | **no writer exists** in `mcp-server/src` | No — remove the upload or add the writer; do not upload an empty tree |
 
@@ -91,12 +91,19 @@ no `junitparser`. CI installs it ad hoc in
 is **inert outside CI** — locally it prints a warning and exits 0
 (`scripts/junit-annotations.py:28-33`).
 
-### F5 — two tracked artifacts disagree about the same floors
+### F5 — two tracked artifacts about the same floors, and nobody said which is which
 
 `config/docs/test-runs-baseline.txt` (generated block) says `shared:jvmTest 4149 0`,
 `shared:archTest 219 0`. `build-investigation/gates-baseline.md:52`, dated the same day
-against the same tree `62bc2e012`, says **4306 / 235**. One of them is wrong and the
-disagreement is invisible because nothing cross-checks them.
+against the same tree `62bc2e012`, says **4306 / 235**.
+
+**Correction (2026-11-06): these two numbers never disagreed.** The first file is the
+**floor** — the minimum a run must reach. The second is a **measurement** of one run at
+one tree. A measurement above the floor (4306 ≥ 4149, 235 ≥ 219) is exactly what a
+healthy run looks like; reading them as two claims about the same quantity is what
+made them look contradictory. The defect was not the numbers but that neither file
+said which kind of number it held — a reader has to know that one is a threshold and
+the other is a sample. The fix is the pointer, not a regeneration.
 
 ### F6 — the baseline format is documented as 3 columns and is 2
 
@@ -162,9 +169,20 @@ property, `shared/build.gradle.kts:1029`), and desktop uses
 `ci.yml:1302` uploads `mcp-server/build/diagnostics/**`, but no code in
 `mcp-server/src/` writes to it (`grep -rn "diagnostics" mcp-server/src/` → empty).
 
-### F15 — orphan script
+### F15 — a developer tool with no automated caller
 
-`scripts/step-duration-report.py` has no callers anywhere.
+`scripts/step-duration-report.py` has no *automated* caller — nothing in `hk.pkl`,
+nothing in CI. But it is not an orphan: it is documented as a developer tool in
+`.agents/skills/singularity-todo-desktop-compose-ui-tests/SKILL.md:282,289`
+("write steps.txt for *passing* tests too — feeds `scripts/step-duration-report.py`"),
+and an ADR records its output as the evidence behind the desktop step timeouts
+(`docs/decisions/2026-10-04-desktop-test-failure-diagnostics.md:99`).
+
+**Correction (2026-11-06): the original finding said "no callers anywhere" and
+recommended deleting the script. That was wrong** — the grep that produced it
+looked for an *invocation*, not a *documented consumer*. The script stays. The real
+gap is narrower: it aggregates one run and throws the history away, which the same
+ADR already identified as the next step (keep a run history, flag p95 creep).
 
 ## What the issue itself gets wrong
 
@@ -285,7 +303,9 @@ documentation fixes and belong with the code that changed them.
 - fix `config/test-populations.properties` so it declares exactly 2 populations
   (change the format so the parser cannot invent names, and make the "unknown
   population" error list the real set);
-- delete `scripts/step-duration-report.py` (no callers);
+- keep `scripts/step-duration-report.py` — it has a documented consumer in
+  `.agents/skills/singularity-todo-desktop-compose-ui-tests/SKILL.md` (see F15). The
+  open work is the *history* the ADR already asks for, not the script's existence;
 - re-check `scripts/find-unwired-surfaces.py` afterwards, since removing a script is
   exactly the kind of change that gate reports.
 
@@ -380,5 +400,3 @@ the reporters at all.
   the same depth (#2665, #2666) — they need a separate pass on the emulator/host side.
 - Performance: no measurement of how long the reporters take on a full CI run, so the
   cost of consolidating them is estimated, not measured.
-- `build-investigation/gates-baseline.md` may be an intentional historical snapshot
-  rather than a competing floor; that was not confirmed with its author.
