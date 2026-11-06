@@ -80,3 +80,12 @@ facts:
   - id: K-timetracking-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/timetracking.md
+  - id: K-whatsnew-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/whatsnew.md
+  - id: K-gate-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/gate.md
+  - id: K-nav-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/nav.md
