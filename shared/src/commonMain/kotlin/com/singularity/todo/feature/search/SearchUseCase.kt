@@ -147,7 +147,9 @@ class SearchUseCase(
             when {
                 plan !is TextMatchPlan.Narrowed -> {
                     structuredTaskFlow.map { tasks ->
-                        tasks.map { task -> IndexedRecord(task, taskRanges(task, rule, mode)) }
+                        tasks.map { task ->
+                            IndexedRecord(task, containsRanges(task.title, SearchColumn.TITLE, rule, mode))
+                        }
                     }
                 }
 
@@ -274,13 +276,12 @@ class SearchUseCase(
                         .sortedByDescending { note -> note.updatedAt }
                         .take(SearchLimits.NOTES)
                         .map { note ->
-                            // Every surface the note is searched by, not its title
-                            // alone: the rule matched the record, and a body match
-                            // that reported no range would draw the note exactly as
-                            // an untouched one.
+                            // The note is searched by its title (F3), and the card
+                            // draws that title: the range and the text it lands on
+                            // are the same surface.
                             IndexedRecord(
                                 note,
-                                matchRanges(note.searchableSurfaces, SearchColumn.TITLE, rule, mode),
+                                containsRanges(note.title, SearchColumn.TITLE, rule, mode),
                             )
                         }
                 }
@@ -307,7 +308,7 @@ class SearchUseCase(
                         projects.map { project ->
                             IndexedRecord(
                                 project,
-                                matchRanges(project.searchableSurfaces, SearchColumn.NAME, rule, mode),
+                                containsRanges(project.name, SearchColumn.NAME, rule, mode),
                             )
                         }
                     }
@@ -339,7 +340,7 @@ class SearchUseCase(
                         tags.map { tag ->
                             IndexedRecord(
                                 tag,
-                                matchRanges(tag.searchableSurfaces, SearchColumn.NAME, rule, mode),
+                                containsRanges(tag.name, SearchColumn.NAME, rule, mode),
                             )
                         }
                     }
@@ -351,7 +352,7 @@ class SearchUseCase(
     }
 
     /**
-     * Where the matched terms are in the surfaces of a record the rule matched.
+     * Where the matched terms are in the text a result card draws.
      *
      * The index reports the position of a match — but only in the word mode,
      * and only for the words it stores. The contains mode has no index to ask:
@@ -370,61 +371,35 @@ class SearchUseCase(
      * time. So this reports positions for the mode that has no index, and the
      * word mode keeps the index's answer for the records the index read.
      *
-     * ## Why every surface, not the first one
+     * ## Why the drawn surface and not every surface
      *
-     * A note whose *body* carries the term matches the rule — [SearchMode.matches]
-     * asks the record, and the record says which surfaces it is searched by
-     * (F3). Measuring the title alone answered a different question: the record
-     * matched, the ranges held nothing, and the card drew the note as it draws a
-     * note the search never touched. So every surface is measured and every
-     * range says which surface it was measured in, and the card — which knows
-     * which surface it is drawing — picks the ones that belong to it.
+     * The card knows which text it draws, and a range belongs to the surface it
+     * was measured in: the offsets of one surface say nothing about the
+     * characters of another. Measuring the drawn surface is therefore the only
+     * answer that can be used, and it is the whole answer — a match in a
+     * surface the card does not draw (a task's description) leaves the card
+     * exactly as a match in the word mode does.
      *
-     * @param surfaces the record's searchable surfaces, in its own order; the
-     *   first is the one the card draws as the title.
-     * @param primaryColumn the column the first surface is — [SearchColumn.TITLE]
-     *   for a note, [SearchColumn.NAME] for a project or a tag.
+     * @param text the surface the card draws, or `null` when the record has none.
+     * @param column the column [text] is — [SearchColumn.TITLE] for a task or a
+     *   note, [SearchColumn.NAME] for a project or a tag.
      * @param rule the rule the record was matched by.
      * @param mode the mode the free text is matched in.
      */
-    private fun matchRanges(
-        surfaces: List<String?>,
-        primaryColumn: SearchColumn,
+    private fun containsRanges(
+        text: String?,
+        column: SearchColumn,
         rule: FreeTextRule,
         mode: SearchMode,
     ): ImmutableList<TextMatchRange> {
-        if (mode != SearchMode.Contains) return persistentListOf()
+        if (mode != SearchMode.Contains || text.isNullOrEmpty()) return persistentListOf()
         val terms = rule.positives.map { it.text }
         if (terms.isEmpty()) return persistentListOf()
-        val ranges =
-            surfaces.flatMapIndexed { index, surface ->
-                if (surface.isNullOrEmpty()) return@flatMapIndexed emptyList()
-                // The record's own order is the only order there is: its first
-                // surface is the one the card draws as the title, and everything
-                // after it is a body. A project and a tag have one surface, so
-                // this is their name and nothing else.
-                val column = if (index == 0) primaryColumn else SearchColumn.DESCRIPTION
-                TextMatch.containsSpans(surface, terms).mapNotNull { span ->
-                    span?.let { TextMatchRange(column, it.first, it.last + 1) }
-                }
-            }
-        return ranges.toImmutableList()
+        return TextMatch
+            .containsSpans(text, terms)
+            .mapNotNull { span -> span?.let { TextMatchRange(column, it.first, it.last + 1) } }
+            .toImmutableList()
     }
-
-    /**
-     * Where the matched term is in the title of a task.
-     *
-     * A task is searched by its title and its description (F3), but the card
-     * draws the title — so the title is the surface whose positions are worth
-     * reporting. A match that is only in the description leaves the card as it
-     * is, exactly as it does in the word mode.
-     */
-    private fun taskRanges(
-        task: Task,
-        rule: FreeTextRule,
-        mode: SearchMode,
-    ): ImmutableList<TextMatchRange> =
-        matchRanges(listOf(task.title), SearchColumn.TITLE, rule, mode)
 
     private fun sortTasks(
         tasks: List<IndexedRecord<Task>>,
