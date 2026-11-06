@@ -285,8 +285,7 @@ class AgendaViewModel(
                                     today = today,
                                     greeting = "",
                                 )
-                            }
-                            .combine(greetingFlow) { loaded, greeting -> loaded.copy(greeting = greeting) }
+                            }.combine(greetingFlow) { loaded, greeting -> loaded.copy(greeting = greeting) }
                     }
             }.collect { fresh ->
                 // Reconciliation goes through `updateState`, which is CAS-backed,
