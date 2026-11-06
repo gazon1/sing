@@ -67,6 +67,16 @@ working directory is what made those paths resolve. The property decides where
 the **results** go; the working directory decides where the test's own relative
 paths go. Two different questions.
 
+**Every test task that carries the agent sets the property.** `:shared` has
+three: `jvmTest`, `archTest` and `testAndroidHostTest`. The first two are
+configured together, and the third was left out of that block — so the listener
+fell back to the working-directory-relative path, and its 13 results landed in
+`shared/allure-results/`, the module root, outside `build/`. Neither the merge
+task (it collects `<module>/build/allure-results`) nor the CI upload glob ever
+looks there, so the report was quietly short of the tests CI had just run.
+The fallback is a property of the listener, not of the module: a task that
+forgets the key loses its results.
+
 **The task.** The root build has three tasks:
 
 - `allureMergeResults` (a `Sync`) collects `*-result.json` and

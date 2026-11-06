@@ -1183,6 +1183,29 @@ afterEvaluate {
     tasks.named<Test>("testAndroidHostTest") {
         jvmArgs("-Djava.library.path=${sqliteNativesDir.get().asFile.absolutePath}")
         dependsOn(extractSqliteNatives)
+        // Allure results belong in the same directory as the other tasks' —
+        // `shared/build/allure-results/`.
+        //
+        // The property is set for `jvmTest` and `archTest` further up, but this
+        // task was left out of that block, and the listener's fallback is a
+        // working-directory-relative `allure-results`: the results landed in
+        // `shared/allure-results/` — the module root, outside `build/` — where
+        // neither the report generator (it merges `<module>/build/allure-results`)
+        // nor the CI upload glob ever looks. The 13 tests this task runs were
+        // absent from the report, and nothing said so.
+        //
+        // Only the property, not `workingDir`: the working directory of this task
+        // is the module root on purpose, and the tests resolve their paths from
+        // there.
+        val allureDir =
+            layout.buildDirectory
+                .dir("allure-results")
+                .get()
+                .asFile
+        systemProperty(
+            "allure.results.directory",
+            allureDir.also { it.mkdirs() }.absolutePath,
+        )
         // commonTest is inherited by androidHostTest by default and would re-run
         // ~2600 tests already covered by :shared:jvmTest. Narrow to this source
         // set's own classes only (Robolectric platform seams).
