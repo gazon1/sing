@@ -200,7 +200,7 @@ jobs:
       # therefore restored nothing, and the job that depends on it finds no
       # emulator binary. The provisioning step below covers that case.
       - name: Restore AVD and SDK cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             ${{ needs.setup-avd.outputs.sdk_root }}/system-images
