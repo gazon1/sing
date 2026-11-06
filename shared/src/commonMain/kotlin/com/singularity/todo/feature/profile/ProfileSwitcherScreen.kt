@@ -55,11 +55,11 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
-import com.singularity.todo.core.ui.preview.PreviewProfileRepository
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.maxLengthTransformation
 import com.singularity.todo.core.ui.theme.ProfileIdentityColors
 import com.singularity.todo.core.ui.touchTarget
+import com.singularity.todo.preview.PreviewProfileRepository
 import kotlinx.collections.immutable.ImmutableList
 import org.koin.compose.viewmodel.koinViewModel
 

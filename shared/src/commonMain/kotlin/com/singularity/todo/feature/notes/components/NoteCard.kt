@@ -40,11 +40,12 @@ internal fun NoteCardContent(
     isSelected: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val noteColor = note.color
     val containerColor =
         when {
             isSelected -> MaterialTheme.colorScheme.primaryContainer
             note.isFolder -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
-            note.color != null -> Color(note.color.value).copy(alpha = 0.15f)
+            noteColor != null -> Color(noteColor.value).copy(alpha = 0.15f)
             else -> MaterialTheme.colorScheme.surface
         }
     Card(
@@ -142,6 +143,7 @@ fun NoteCard(
     body: @Composable RowScope.() -> Unit = { DefaultNoteCardBody(note, isSelected) },
     trailing: @Composable RowScope.() -> Unit = { DefaultNoteCardTrailing(note) },
 ) {
+    val noteColor = note.color
     Card(
         modifier =
             modifier
@@ -154,7 +156,7 @@ fun NoteCard(
                     when {
                         isSelected -> MaterialTheme.colorScheme.primaryContainer
                         note.isFolder -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
-                        note.color != null -> Color(note.color.value).copy(alpha = 0.15f)
+                        noteColor != null -> Color(noteColor.value).copy(alpha = 0.15f)
                         else -> MaterialTheme.colorScheme.surface
                     },
             ),

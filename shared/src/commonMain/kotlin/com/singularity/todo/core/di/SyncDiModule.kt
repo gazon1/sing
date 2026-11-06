@@ -178,7 +178,14 @@ fun syncModule(): org.koin.core.module.Module =
         // project refuses to build with.
         single {
             val engine = get<SyncEngine>()
-            SyncCoordinator(runCycle = { engine.syncOnce() }, scope = get())
+            SyncCoordinator(
+                runCycle = { engine.syncOnce() },
+                scope = get(),
+                // The bootstrapper registers the pull handlers and nothing else asks
+                // for it. Resolved here, at cycle time, so the graph's construction
+                // does not re-enter the facade factory through the repositories.
+                bootstrap = { get<SyncBootstrapper>() },
+            )
         }
 
         // SyncRunner is internal.

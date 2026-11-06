@@ -59,6 +59,7 @@ sche... | — | — |
 | detekt baseline ratchet | blocking | `scripts/check-baseline-ratchet.py` | check-baseline-ratchet.py — a detekt baseline may shrink, never grow. | — | — |
 | lint rules are declared decisions | blocking | `scripts/check-rule-intent.py` | check-rule-intent.py — a rule that reports findings must be a rule you chose. | — | — |
 | file-level suppressions explain themselves | blocking | `scripts/check-suppression-intent.py` | check-suppression-intent.py — a file-level suppression must say what it is hi... | — | — |
+| quality page states the enforced thresholds | blocking | `scripts/check-quality-thresholds.py` | check-quality-thresholds.py — the quality page must state the thresholds the ... | — | — |
 | scenario specs valid | blocking | `traceability` | scenario specs valid | — | — |
 | coverage matrix current | blocking | `traceability` | coverage matrix current | — | — |
 | coverage holes did not grow | blocking | `scripts/check-traceability-ratchet.py` | check-traceability-ratchet.py — scenario coverage holes may shrink, never grow. | — | — |
@@ -69,12 +70,14 @@ sche... | — | — |
 | maestro selectors valid | blocking | `scripts/ci/validate-maestro-selectors.py` | Validates Maestro flow id: selectors against the TestTags.kt catalogue. | — | — |
 | maestro keyboard commands have something to hide | blocking | `scripts/check-maestro-keyboard-commands.py` | check-maestro-keyboard-commands.py — a `hideKeyboard` must have something to ... | — | — |
 | maestro flows do not name a pixel | blocking | `scripts/check-maestro-screen-geometry.py` | check-maestro-screen-geometry.py — a flow must not name a pixel. | — | — |
+| maestro seeded titles are stable | blocking | `scripts/check-maestro-seeded-titles.py` | check-maestro-seeded-titles.py — a seeded fixture title carries no template v... | — | — |
 | a pull request carries the review of an agent | blocking | `scripts/ci/check-agent-review.py` | check-agent-review.py — a pull request carries the review of a separate agent. | — | — |
 | maestro results are within the floor | blocking | `scripts/ci/check-maestro-results.py` | check-maestro-results.py — measure a Maestro run against a committed floor. | — | — |
 | profile reset inventory is true | blocking | `scripts/ci/check-profile-reset-inventory.py` | check-profile-reset-inventory.py — keep the profile reset's table list true. | — | — |
 | the text-field transformation table is true | blocking | `scripts/check-text-field-transformations-table.py` | check-text-field-transformations-table.py — the skill's transformation table ... | — | — |
 | the platform reference ports are true | blocking | `scripts/check-platform-reference-ports.py` | check-platform-reference-ports.py — the platform reference against the code. | — | — |
 | doc dead refs | blocking | `scripts/check-doc-dead-refs.py` | check-doc-dead-refs.py — find references to files that no longer exist. | — | — |
+| documentation concepts are valid | advisory | `scripts/documentation/check.py` | check.py — documentation knowledge concept status checker (Phase 1a spike). | — | — |
 | doc links | blocking | `scripts/check-doc-links.sh` | doc links | — | — |
 | navigation doc matches the code | blocking | `scripts/check-navigation-doc-sync.py` | check-navigation-doc-sync.py — the navigation doc must say what the code does. | — | — |
 | DI fixture matches the definitions | blocking | `scripts/check-di-fixture-sync.py` | check-di-fixture-sync.py — the DI fixture table must match the Koin definitions. | — | — |

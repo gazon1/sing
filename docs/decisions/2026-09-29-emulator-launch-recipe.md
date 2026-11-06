@@ -12,17 +12,17 @@ launch it four times before finding a working configuration. Three failures
 were self-inflicted (flags that the existing ADR already ruled out); the fourth
 exposed a genuinely new crash.
 
-* **`-gpu swiftshader_indirect`, `-gpu off`, `-no-window`** — all SIGSEGV on
+- **`-gpu swiftshader_indirect`, `-gpu off`, `-no-window`** — all SIGSEGV on
   this host. `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md`
   documents exactly this in its dead-ends table; the flags were retried anyway
   because the ADR's failure signature (`amdgpu CS rejected`) did not match what
   was being debugged. The ADR's *resolution* row (default hardware GPU works)
   is the part that generalizes.
-* **Background-process survival** — a plain `&` child dies when the tool
+- **Background-process survival** — a plain `&` child dies when the tool
   harness's shell exits, and `pgrep -f "emulator"` matches the invoking shell,
   reporting a live emulator when there is none. A background task can also be
   reported "failed" while qemu itself survives the wrapper's exit.
-* **New crash: the emulator died ~9 minutes into a session** with `SIGABRT`,
+- **New crash: the emulator died ~9 minutes into a session** with `SIGABRT`,
   crash thread in `libandroid-webrtc.so` (`event_engine` frames in the stack) —
   the virtual camera's WebRTC stack. Distinguished from the Mesa crash by
   uptime and by the crashing library; no GPU error appears anywhere.

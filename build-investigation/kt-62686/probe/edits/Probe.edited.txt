@@ -1,0 +1,18 @@
+package probe
+
+object Probe {
+    fun greeting(name: String): String = "hello $name"
+
+    fun normalized(text: String): String = normalize(text)
+
+    private fun normalize(text: String): String {
+        val marks = MARKS
+        var result = text
+        for (mark in marks) {
+            result = result.replace(mark, "")
+        }
+        return result
+    }
+
+    private val MARKS = listOf("-", "_")
+}

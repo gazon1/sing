@@ -24,6 +24,7 @@ The URL scheme is opaque — the link text shows as `[[Title]]` via the wikilink
 `NoteEntity` gains an `outgoing_links TEXT DEFAULT '[]'` column storing a JSON array of URL strings (`["note://uuid1", "task://uuid2"]`). This enables backlink queries without parsing HTML. AutoMigration from v6 → v7 via `Migration6To7 : AutoMigrationSpec`.
 
 DAO methods added:
+
 - `NoteDao.searchByTitle(userId, q)` — title-only search for the picker
 - `NoteDao.setOutgoingLinks(id, json, updatedAt)` — persist parsed links on save
 - `NoteDao.getBacklinkNotes(noteId)` — `SELECT * FROM notes WHERE outgoing_links LIKE '%note://' || :noteId || '%'`
@@ -32,6 +33,7 @@ DAO methods added:
 ### Wiki-link Round-trip
 
 `RichEditorMarkdownHtmlPort` updated:
+
 - **toHtml**: `[[Title]]` → `<a href="note://URL-encoded-title">Title</a>`
 - **toMarkdown**: `<a href="note://...">Title</a>` → `[[Title]]` (preserves display text)
 

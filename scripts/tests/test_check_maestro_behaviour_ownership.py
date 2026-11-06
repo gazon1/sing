@@ -197,6 +197,15 @@ class RestatementTest(unittest.TestCase):
         self.assertEqual(len(found), 1)
         self.assertIn("preview-versus-editor", found[0].message)
 
+    def test_a_restatement_wrapped_across_a_line_break_is_reported(self):
+        """The skill body hard-wraps its bullets; a wrapped claim is still a claim."""
+        found = findings(
+            skill("- **A tap on a note row opens the\n  note's preview.**"),
+            runbook("- **Notes open their preview** (`note_action_edit`)."),
+        )
+        self.assertEqual(len(found), 1)
+        self.assertIn("preview-versus-editor", found[0].message)
+
     def test_a_pointer_to_the_runbook_is_not_a_restatement(self):
         found = findings(
             skill(

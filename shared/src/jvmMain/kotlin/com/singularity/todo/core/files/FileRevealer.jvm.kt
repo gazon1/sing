@@ -10,7 +10,17 @@ import java.io.File
  * JVM implementation of [FileRevealer].
  * Opens the attachments folder using [Desktop.browse] with a file:// URI.
  */
-class JvmFileRevealer : FileRevealer {
+class JvmFileRevealer(
+    /**
+     * Where [attachmentsBasePath] points. The platform module passes the same directory
+     * it binds for `AttachmentDirQualifier`, so there is one definition of where the
+     * attachments live — and a graph built on a temporary root reveals that root's
+     * attachments, not the developer's. The default keeps the production path for a
+     * caller that has no root to give.
+     */
+    private val attachmentsDirectory: String =
+        System.getProperty("user.home") + "/.singularity-todo/attachments",
+) : FileRevealer {
     override suspend fun revealAttachmentsFolder(folderPath: String): Boolean {
         val folder = File(folderPath)
         if (!folder.exists()) folder.mkdirs()
@@ -50,5 +60,5 @@ class JvmFileRevealer : FileRevealer {
         }
     }
 
-    override fun attachmentsBasePath(): String = System.getProperty("user.home") + "/.singularity-todo/attachments"
+    override fun attachmentsBasePath(): String = attachmentsDirectory
 }

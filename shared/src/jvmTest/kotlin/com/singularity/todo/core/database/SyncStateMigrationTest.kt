@@ -1,7 +1,6 @@
 package com.singularity.todo.core.database
 
 import androidx.sqlite.SQLiteConnection
-import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.sync.InMemorySyncPrefs
 import com.singularity.todo.core.sync.RoomSyncStateRepository
 import com.singularity.todo.core.sync.SyncScope
@@ -12,8 +11,6 @@ import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -40,18 +37,16 @@ import kotlin.time.Duration.Companion.minutes
 @Tag("slow")
 @Tag("slow:migration")
 class SyncStateMigrationTest {
-    private lateinit var tempDir: File
-    private lateinit var dbPath: String
+    private lateinit var fixture: DatabaseTestFixture
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("migration33to34-").toFile()
-        dbPath = File(tempDir, "fixture.db").absolutePath
+        fixture = DatabaseTestFixture.onDisk()
     }
 
     @AfterTest
     fun tearDown() {
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     private fun rawStrings(
@@ -70,8 +65,8 @@ class SyncStateMigrationTest {
     }
 
     private fun openMigrated(): AppDatabase {
-        createSqlDriver().open(dbPath).use { applyExportedSchema(33, it) }
-        return AppDatabaseFactory.build(createSqlDriver(), dbPath)
+        fixture.connect().use { applyExportedSchema(33, it) }
+        return fixture.database()
     }
 
     @Test
@@ -88,7 +83,7 @@ class SyncStateMigrationTest {
                 db.close()
             }
 
-            createSqlDriver().open(dbPath).use { connection ->
+            fixture.connect().use { connection ->
                 assertTrue(
                     "sync_state" in rawStrings(connection, "SELECT name FROM sqlite_master WHERE type = 'table'"),
                     "the sync_state table must exist at v34",

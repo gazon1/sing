@@ -15,6 +15,7 @@ The app is English-only currently. This ADR defines the approach for adding i18n
 ### When to add i18n
 
 Add i18n support when:
+
 - User-facing strings exceed 100 hardcoded strings
 - A user requests non-English support
 - The app is launched in a non-English market
@@ -73,6 +74,7 @@ val formatted = formatter.format(instant)
 ### RTL support
 
 When Arabic or Hebrew support is added:
+
 - Use `Modifier.layoutDirection` for explicit RTL
 - Test at 100% and 200% font scaling
 - Verify icons flip correctly (arrows, chevrons)

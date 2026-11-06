@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-maestro-flows
-description: Author and run Maestro UI flows for the Android app. Covers seeding fixtures through the DebugSeedActivity deep-link instead of typing into the editor, why Compose's controlled BasicTextField cannot be filled by Maestro, selector conventions (TestTags over text), adaptive scrolling (scrollUntilVisible instead of hardcoded swipe), Maestro 2.10 syntax quirks, the edit-build-install-run loop, phone-viewport constraints, diagnosing an element that exists in code but is unreachable on screen, menu navigation patterns, animation timing, and app behaviour facts flows encode. Use when writing, fixing, or debugging Maestro YAML under Maestro/, when asked to "add a UI test", or when a flow fails on device.
+description: Author and run Maestro UI flows for the Android app. Covers seeding fixtures through the DebugSeedActivity deep-link rather than typing them, why a fixture is seeded rather than typed, selector conventions (TestTags over text), adaptive scrolling (scrollUntilVisible instead of hardcoded swipe), Maestro 2.10 syntax quirks, the edit-build-install-run loop, phone-viewport constraints, diagnosing an element that exists in code but is unreachable on screen, menu navigation patterns, animation timing, and app behaviour facts flows encode. Use when writing, fixing, or debugging Maestro YAML under Maestro/, when asked to "add a UI test", or when a flow fails on device.
 ---
 
 # Maestro UI Flows
@@ -40,7 +40,7 @@ them.
 just tm                        # all flows
 just tm tags=smoke             # smoke subset
 just tm flow=Maestro/flows/tasks
-RUN_MAESTRO=1 ./check.sh       # opt-in, from the local check pipeline
+RUN_MAESTRO=1 hk run device   # opt-in, as the last step of the device lane
 ```
 
 `just tm` forwards to `run-maestro`, which picks or relaunches the
@@ -133,7 +133,7 @@ the row it names, so the title is the same in every run and the flow asserts on
 it (`task_item_<slug>`). A per-run value belongs to a title the flow *types*
 itself, not to a seeded one.
 
-The walkthrough — why typing a fixture into the editor does not work, the
+The walkthrough — why a fixture is seeded rather than typed, the
 `seed.yaml` query keys, the seed replacing the row it names, the run id and the
 runner's cleanup wipe — is in the runbook:
 [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them).
@@ -163,6 +163,7 @@ Use `scrollUntilVisible` with a direction for anything that might be below the f
 ```
 
 **Direction convention:**
+
 - `direction: DOWN` — target item is near the bottom of the sheet (most menu items)
 - `direction: UP` — target item is at the top; Maestro scrolls from the centre,
   so UP works for items that are above the centre but below the visible top
@@ -172,6 +173,7 @@ Use `scrollUntilVisible` with a direction for anything that might be below the f
 load.
 
 The old hardcoded swipe pattern is retired:
+
 ```yaml
 # OLD — do not use. Breaks on phone viewports (y=1600 is out-of-bounds on 640px height).
 - swipe:
@@ -190,12 +192,14 @@ tapOn id: <target_item>
 ```
 
 **Items requiring scroll on phone viewport** (below the fold on 320×640):
+
 - `menu_notes`, `menu_statistics`, `menu_ai_chat` — Destinations section, below fold
 - `menu_settings`, `menu_profiles`, `menu_quick_search` — Account section, visible
   without scroll on most screens BUT `menu_settings` still uses scrollUntilVisible
   in existing flows for consistency and robustness
 
 **Items that are always visible without scrolling:**
+
 - `menu_archive`, `menu_search` — visible on most phone screens
 
 ### `wm size` changes the logical size, not the physical one
@@ -242,6 +246,12 @@ step time, not at authoring time:
   month on screen — the year wildcard keeps the flow valid past the turn of the year.
 - **Pre-filled fields append.** `inputText` does not clear, so a field seeded
   with "Today" becomes "TodayFocus". `eraseText` first.
+- **This list is syntax only.** What *the app itself* does — which editor
+  autosaves, what the system back key does on each screen, which screens are
+  reachable — is not here: it lives in the runbook's
+  [app behaviour facts](diagnosing-failures.md#app-behaviour-facts-flows-encode),
+  the single home for it. Read that one section before deciding between `back`
+  and a top-bar control, and add to it rather than to this list.
 - **Day cells in a calendar grid are `text:`-addressable** — the number is
   unique within one month, so a full-string match is unambiguous. The mode
   control is labelled with the current mode ("Day", "4 days", "Week", "Month")
@@ -258,11 +268,11 @@ step time, not at authoring time:
   UI state will flake on CI with 2 000 ms.
 - **Never sleep.** Use `extendedWaitUntil` with a bounded timeout. Cold start
   genuinely needs ~8s (Koin + Room + DataStore migrations + calendar sync).
-- **`hideKeyboard` is a commit, not a dismiss.** In this app it triggers the
-  editor's autosave-on-dismiss and closes the screen. Never place it before the
-  `task_editor_save` tap — it saves and navigates away, and the following step
-  fails on a screen that is already gone. Use it only when leaving an editor is
-  the intent, and assert on the destination.
+- **`hideKeyboard` is a commit, not a dismiss.** Never place it before the
+  `task_editor_save` tap — the following step fails on a screen that is already
+  gone. Use it only when leaving an editor is the intent, and assert on the
+  destination. Why it commits is app behaviour, kept in the runbook's
+  [app behaviour facts](diagnosing-failures.md#app-behaviour-facts-flows-encode).
 
 ## Test data: ASCII only
 
@@ -310,7 +320,7 @@ in this file, and when an identifier that section names no longer exists in the
 source.
 
 - [Seed fixtures, never type them](diagnosing-failures.md#seed-fixtures-never-type-them) —
-  why typing a fixture into the editor does not work, the `seed.yaml` query keys,
+  why a fixture is seeded rather than typed, the `seed.yaml` query keys,
   the seed replacing the row it names, the run id and the runner's cleanup wipe,
   and why `launch-clean` does not clear the database.
 - [App behaviour facts flows encode](diagnosing-failures.md#app-behaviour-facts-flows-encode) —

@@ -8,11 +8,13 @@ status: accepted
 ## Context
 
 Tags need grouping. Orgzly uses `:work:`, `:urgent:` namespaces. Users want to:
+
 1. Organize tags into named groups (e.g. `:work:`, `:urgent:`) with a shared color.
 2. Inherit entire groups into projects — all tags in the group become visible to tasks in that project.
 3. Tags in a group can still be assigned individually to tasks.
 
 Three orthogonal concerns:
+
 1. **Tag grouping**: `Tag.groupId: TagGroupId?` links a tag to its group.
 2. **Project inheritance**: `project_tag_groups(project_id, tag_group_id)` join table — a project inherits all tags from assigned groups.
 3. **Merge semantics**: effective tags = task's own tags + inherited group tags (deduplicated, own tags take priority).
@@ -20,6 +22,7 @@ Three orthogonal concerns:
 ## Decision
 
 **`TagGroup` domain model:**
+
 ```kotlin
 @Serializable
 @JvmInline value class TagGroupId(val value: String)
@@ -38,6 +41,7 @@ data class TagGroup(
 ```
 
 **`Tag.groupId` replaces `parentId`** (dead schema, removed in migration v20):
+
 ```kotlin
 data class Tag(
     val id: TagId,
@@ -49,6 +53,7 @@ data class Tag(
 ```
 
 **Join table** — `ProjectInheritedTagGroupCrossRef`:
+
 ```kotlin
 @Entity(
     tableName = "project_tag_groups",
@@ -62,6 +67,7 @@ data class ProjectInheritedTagGroupCrossRef(
 ```
 
 **`EffectiveTagsResolver`** — pure resolver combining own tags + inherited group tags:
+
 ```kotlin
 class EffectiveTagsResolver(
     private val tagRepo: TagsRepository,
@@ -75,6 +81,7 @@ class EffectiveTagsResolver(
 Uses `LinkedHashSet` to preserve insertion order and deduplicate: own tags added first, group tags appended. If the same tag ID appears in both, own tags take priority (first-seen wins).
 
 **`TagGroupRepository`** — full CRUD + inheritance management:
+
 ```kotlin
 interface TagGroupRepository {
     fun observeAll(): Flow<List<TagGroup>>
@@ -90,12 +97,14 @@ interface TagGroupRepository {
 ```
 
 **Migration v20 (MR-9)**:
+
 - `tags.parent_id` dropped via `@DeleteColumn` (was already nullable, dead schema)
 - `tags.group_id TEXT DEFAULT NULL` added (Room auto-detects from schema diff)
 - `tag_groups` table added (new)
 - `project_tag_groups` join table added (new)
 
 **Use cases** (MR-10):
+
 - `CreateTagGroupUseCase` — validates name non-blank, color set
 - `UpdateTagGroupUseCase` — validates name non-blank
 - `DeleteTagGroupUseCase` — soft deletes the group, clears `groupId` on member tags

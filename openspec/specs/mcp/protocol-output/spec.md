@@ -17,11 +17,13 @@ the protocol's stream is something a caller can hold. A bare `PrintStream` says 
 about which stream it is, and a caller who is handed one has to know where it came from.
 
 #### Scenario: A writer is given the protocol's output
+
 - A part of the server writes a protocol message
 - It is given the protocol's output, not a stream it found
 - The message reaches the client
 
 #### Scenario: The protocol's output is the original standard output
+
 - The server starts
 - The protocol's output is the stream standard output was before the server started
 - A client reads the protocol's messages from it
@@ -38,6 +40,7 @@ standard output. It should not be the reason the application's log is somewhere 
 defence that everything leans on is not a defence.
 
 #### Scenario: The logger writes to standard error
+
 - The logger is configured
 - Standard output has not been redirected
 - A log line reaches standard error, and nothing reaches standard output
@@ -54,6 +57,7 @@ cannot parse. A library's start-up banner is enough to lose the tool access enti
 nothing in the test suite would see it — the tests speak to the server in-process.
 
 #### Scenario: A print after the reservation
+
 - The protocol's output has been taken
 - Something prints to standard output
 - Nothing reaches the protocol channel, and the print reaches standard error

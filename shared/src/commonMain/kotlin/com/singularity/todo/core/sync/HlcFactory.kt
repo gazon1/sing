@@ -78,7 +78,7 @@ open class HlcFactory(
      * That is not a cosmetic collision. The HLC is the ordering key that resolves
      * conflicts, so two edits carrying an identical timestamp have no order between them,
      * and which one wins stops being a decision the code makes and becomes whichever the
-     * server saw first. Now that `supabase/migrations/` carries `server_version` and the
+     * server saw first. Now that `infra/supabase/migrations/` carries `server_version` and the
      * optimistic-concurrency path is being built on this, that ambiguity would decide real
      * data.
      *

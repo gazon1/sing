@@ -252,7 +252,7 @@ class MapTest(unittest.TestCase):
         # than letting `shared/schemas/` creep back into READ_TREES and select
         # gates that never open the file.
         selected, reasons = self.map(
-            ['shared/schemas/com.singularity.todo.core.database.AppDatabase/47.json'],
+            ['core-database/schemas/com.singularity.todo.core.database.AppDatabase/47.json'],
         )
         self.assertEqual([], selected)
         self.assertTrue(any('no test class claims it' in reason for reason in reasons))

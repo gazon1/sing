@@ -17,11 +17,13 @@ so that a leftover from an older layout can be cleaned up. "Provably" is the ope
 Any other outcome is a doubt, and a doubt is not evidence.
 
 #### Scenario: A database that is not the application's is cleaned up
+
 - The file is a valid database and carries no application bookkeeping marker
 - The probe removes the file and its companion files
 - The application recreates the database with the current schema
 
 #### Scenario: The application's own database is left alone
+
 - The file is a valid database and carries the application's bookkeeping marker
 - The probe leaves the file untouched
 - The application's data is intact
@@ -40,21 +42,25 @@ cost of leaving a stale file is one confusing startup; the cost of deleting the 
 is the user's data.
 
 #### Scenario: A corrupted file is kept
+
 - The file is not a valid database
 - The probe leaves the file byte-for-byte as it found it
 - The startup records what it saw instead of deleting anything
 
 #### Scenario: A locked file is kept
+
 - The database is held by another process
 - The probe leaves the file and its companion files untouched
 - The startup records that the database was busy
 
 #### Scenario: An empty file is kept
+
 - The file has no content
 - The probe leaves it in place
 - The startup does not treat emptiness as proof of anything
 
 #### Scenario: The companion files survive with the database
+
 - The probe did not delete the database file
 - The companion files are still present
 - Nothing is removed that the probe did not remove for a stated reason
@@ -72,6 +78,7 @@ timing. A tool server that is running with a broken container answers some reque
 refuses others, which is worse than a tool server that is simply not there.
 
 #### Scenario: The tool server fails to start
+
 - The startup fails
 - No container is left running and no database handle is left open
 - The caller receives a diagnostic that says what happened

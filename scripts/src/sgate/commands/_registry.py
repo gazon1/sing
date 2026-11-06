@@ -246,9 +246,12 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
     ":mcp-server:jar": GradleTaskParity(
         scope="ci",
         why=(
-            "McpServerEndToEndTest resolves build/libs/mcp-server.jar and skips "
-            "itself when the jar is absent. Building it is a CI concern; the "
-            "local loop validates compilation, not the packaged artifact."
+            "The end-to-end test spawns build/libs/mcp-server.jar, and the test "
+            "task now builds that JAR before the suite runs, so the artefact is "
+            "never missing and the test never skips itself. CI names it anyway: "
+            "the invocation stays self-contained and the artefact it measures is "
+            "visible in the log. The local loop does not run the module's tests "
+            "(see `:mcp-server:test`), so it never needs the packaged artifact."
         ),
     ),
     ":pro:detekt": GradleTaskParity(
@@ -430,7 +433,7 @@ _REGISTERED: tuple[GateSpec, ...] = (
         name="the edge functions' own tests",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PATH,
-        path_cmd=("deno", "test", "supabase/functions/google-oauth-exchange/"),
+        path_cmd=("deno", "test", "infra/supabase/functions/google-oauth-exchange/"),
         # The tool is not on every machine. A gate that cannot run is reported
         # as skipped rather than as passed — and the skip is visible.
         kiwi_required=True,
@@ -728,6 +731,12 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-suppression-intent.py"),
     ),
+    GateSpec(
+        name="quality page states the enforced thresholds",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-quality-thresholds.py"),
+    ),
     # ── Scenario traceability ──────────────────────────────────────────────────────
     # These two used to be `cmd_type=CmdType.PATH, path_cmd=("traceability", …)`.
     # There is no `traceability` executable: `[project.scripts]` in
@@ -806,6 +815,16 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-maestro-screen-geometry.py"),
     ),
+    # The seed replaces the row its title names, so a title holding `${RUN_ID}`
+    # names a row that has never existed: the seed creates a new one instead of
+    # updating the old, and every run leaves its own behind. The rule lived in
+    # the decision record and in the flow configuration; nothing read the flows.
+    GateSpec(
+        name="maestro seeded titles are stable",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-maestro-seeded-titles.py"),
+    ),
     GateSpec(
         name="a pull request carries the review of an agent",
         mode=GateMode.BLOCKING,
@@ -877,6 +896,13 @@ _REGISTERED: tuple[GateSpec, ...] = (
         # stop anything: the references it names keep pointing at the wrong
         # place until a reader follows one and finds nothing.
         script_args=("--strict",),
+    ),
+    GateSpec(
+        name="documentation concepts are valid",
+        mode=GateMode.ADVISORY,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/documentation/check.py"),
+        script_args=("verify", "--quiet"),
     ),
     # doc links: the lychee gate. A shell gate, like `detekt registrations`
     # above — lychee is a Rust binary, not a Python script, and the wrapper
@@ -1093,7 +1119,7 @@ _REGISTERED: tuple[GateSpec, ...] = (
             why=(
                 "the gate reads the instrumented run's report, and the report exists "
                 "only where the emulator ran: in CI that is the device-tests workflow, "
-                "and locally it is the optional adb step of check.sh. It cannot live "
+                "and locally it is the optional `device` hook step of hk.pkl. It cannot live "
                 "in the shared registry — the static CI job has no build output at all, "
                 "so a gate there would fail on every run for want of a report. The CI "
                 "invocation is therefore not visible to the parity check, which reads "
@@ -1484,7 +1510,7 @@ GATE_CONTROLS: dict[str, Control] = {
     # review rounds found lived. So this control writes a row into the
     # server\'s own migration: a field no model declares, a field the server
     # may therefore write and nothing ever sends. The gate must name it.
-    'sync-allowlist-reader': Control(kind='sabotage', proves='scripts/check-sync-allowlist-regenerated.py', argv=('{python}', 'scripts/check-sync-allowlist-regenerated.py'), path='supabase/migrations/2026-10-07-sync_schema.sql', edit=Edit(kind='append', new="\n\ninsert into sync_field_allowlist (entity_type, field, writable) values ('task', 'sabotage_probe_field', true);\n"), why='a row the server\'s table holds that no model declares is a field the server may write and nothing ever writes, and it reads like a rule — the server looks the row up by name, so the row is honoured. The reader is the half of the gate that holds the names, and the other control proves only that the seed is current. The probe adds exactly that row to the migration that seeds the table, and the gate must name the field'),
+    'sync-allowlist-reader': Control(kind='sabotage', proves='scripts/check-sync-allowlist-regenerated.py', argv=('{python}', 'scripts/check-sync-allowlist-regenerated.py'), path='infra/supabase/migrations/2026-10-07-sync_schema.sql', edit=Edit(kind='append', new="\n\ninsert into sync_field_allowlist (entity_type, field, writable) values ('task', 'sabotage_probe_field', true);\n"), why='a row the server\'s table holds that no model declares is a field the server may write and nothing ever writes, and it reads like a rule — the server looks the row up by name, so the row is honoured. The reader is the half of the gate that holds the names, and the other control proves only that the seed is current. The probe adds exactly that row to the migration that seeds the table, and the gate must name the field'),
     'doc-dead-refs': Control(kind='sabotage', proves='scripts/check-doc-dead-refs.py', argv=('{python}', 'scripts/check-doc-dead-refs.py', '--strict'), path='README.md', edit=Edit(kind='append', new='\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'), why='a new dead reference must fail until baselined'),
     'issue-registry': Control(kind='sabotage', proves='scripts/check-issue-registry.py', argv=('{python}', 'scripts/check-issue-registry.py', '--quiet'), path='.specify/issues/a-delete-that-was-never-issued-was-reported-as-deleted.yaml', edit=Edit(kind='replace', old='openspec_path: openspec/changes/a-delete-that-was-never-issued-was-reported-as-deleted', new='openspec_path: openspec/changes/some-other-change', count=1), why='a registry entry that points at another change is a record of something else, and it looks like coverage: the next session reads the record, believes the change is known, and never learns what the change actually was. Four changes reached main with no entry at all, which is the same defect one step further from the surface'),
     'agents-pointers': Control(kind='sabotage', proves='scripts/check-agents-pointers.py', argv=('{python}', 'scripts/check-agents-pointers.py', '--quiet'), path='AGENTS.md', edit=Edit(kind='append', new='\nSee `docs/decisions/definitely-not-a-file.md` for the reasoning.\n'), why='a pointer that names a file that is not there sends the next session to look for it: the note that was written to remove the stop becomes the stop'),
@@ -1592,14 +1618,14 @@ GATE_CONTROLS: dict[str, Control] = {
     'provenance': Control(kind='sabotage', proves='scripts/check-provenance.py', argv=('{python}', 'scripts/check-provenance.py'), path='config/legal/provenance-registry.tsv', edit=Edit(kind='drop_lines', old='QueryTokenizer'), why='a GPL upstream named in production code with no registry row is a licence claim nobody is tracking'),
     'pro-licence-boundary': Control(kind='sabotage', proves='scripts/check-pro-licence-boundary.py', argv=('{python}', 'scripts/check-pro-licence-boundary.py'), path='shared/build.gradle.kts', edit=Edit(kind='append', new='\ndependencies { implementation("ru.ok.tracer:tracer-crash-report:1.4.0") }\n'), why='proprietary code in an Apache-2.0 module makes the published licence a claim the project cannot honour'),
     'traceability-ratchet': Control(kind='sabotage', proves='scripts/check-traceability-ratchet.py', argv=('{python}', 'scripts/check-traceability-ratchet.py'), path='scripts/src/traceability/scenarios/tasks/checklist/TASK-CHECK-01.yaml', edit=Edit(kind='regex', pattern='^targets: \\[android\\]$', repl='targets: [android, desktop]', flags='MULTILINE'), why='a scenario claiming a target nothing verifies is the one hole count that grows without anyone reading the diff'),
-    'room-schema-integrity': Control(kind='sabotage', proves='scripts/check-room-schema-integrity.py', argv=('{python}', 'scripts/check-room-schema-integrity.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt', edit=Edit(kind='regex', pattern='const val SCHEMA_VERSION = \\d+', repl='const val SCHEMA_VERSION = 1'), why='an entity change without a version bump passes every test and crashes every existing install on upgrade'),
+    'room-schema-integrity': Control(kind='sabotage', proves='scripts/check-room-schema-integrity.py', argv=('{python}', 'scripts/check-room-schema-integrity.py'), path='core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt', edit=Edit(kind='regex', pattern='const val SCHEMA_VERSION = \\d+', repl='const val SCHEMA_VERSION = 1'), why='an entity change without a version bump passes every test and crashes every existing install on upgrade'),
     'dependency-usage': Control(kind='sabotage', proves='scripts/check-dependency-usage.py', argv=('{python}', 'scripts/check-dependency-usage.py', '--quiet'), path='scripts/dependency-usage-allowlist.txt', edit=Edit(kind='drop_lines', old='kermit-koin'), why="a dependency declared, resolved and imported by nothing costs a full release's build time and ships undetected — material-kolor sat on the classpath for one"),
-    'supabase-schema-integrity': Control(kind='sabotage', proves='scripts/check-supabase-schema-integrity.py', argv=('{python}', 'scripts/check-supabase-schema-integrity.py'), path='supabase/migrations/2026-10-07-sync_schema.sql', edit=Edit(kind='append', new='\ncreate or replace function public.sync_control_probe(p_type text)\nreturns text as $$ select p_type $$ language sql;\n'), why='a function added without a fingerprint makes the header understate the schema, and the header is the part a reader trusts; the live half of #221 needs credentials and stays manual, so this is the half that can be a gate'),
+    'supabase-schema-integrity': Control(kind='sabotage', proves='scripts/check-supabase-schema-integrity.py', argv=('{python}', 'scripts/check-supabase-schema-integrity.py'), path='infra/supabase/migrations/2026-10-07-sync_schema.sql', edit=Edit(kind='append', new='\ncreate or replace function public.sync_control_probe(p_type text)\nreturns text as $$ select p_type $$ language sql;\n'), why='a function added without a fingerprint makes the header understate the schema, and the header is the part a reader trusts; the live half of #221 needs credentials and stays manual, so this is the half that can be a gate'),
     'rebase-compiles': Control(kind='sabotage', proves='scripts/check-rebase-compiles.py', argv=('{python}', 'scripts/check-rebase-compiles.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt', edit=Edit(kind='replace', old='    single<DeviceIdProvider> { get<DataStoreSessionStore>() }', new='    // single<DeviceIdProvider> { get<DataStoreSessionStore>() }', count=-1), why="an import removed from a DI module silently breaks every consumer; the compile gate detects the resulting 'unresolved reference' before jvmTest does"),
     'slow-tests-ran': Control(kind='fixture', proves='scripts/check-slow-tests-ran.py', argv=('{python}', 'scripts/check-slow-tests-ran.py', '--root', '{tmp}'), fixture='setup_slow_tests_ran', why="a test the local loop never runs is a test whose breakage nobody local ever sees: McpServerEndToEndTest was tagged slow, sat broken on main since the read surface changed the shape of its answer, and was found by CI rather than by anyone holding the tree", needs_clean_run=False, tracked_by='.github/workflows/ci.yml#Slow tests ran'),
     'edge-function-tests': Control(
         kind='fixture',
-        proves='supabase/functions/google-oauth-exchange/index_test.ts',
+        proves='infra/supabase/functions/google-oauth-exchange/index_test.ts',
         argv=('deno', 'test', '{tmp}/function'),
         fixture='setup_edge_function_tests',
         why=(
@@ -1664,6 +1690,12 @@ GATE_CONTROLS: dict[str, Control] = {
     'openspec-stale': Control(kind='sabotage', proves='scripts/check-openspec-stale.py', argv=('{python}', 'scripts/check-openspec-stale.py'), path='openspec/changes/detekt-rule-has-positive-control', edit=Edit(kind='age_dir', days=30), why='an active change nobody has returned to in three weeks is a decision deferred past the point of usefulness'),
     'rule-intent': Control(kind='sabotage', proves='scripts/check-rule-intent.py', argv=('{python}', 'scripts/check-rule-intent.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>TotallyMadeUpRule:Probe.kt:1</ID>\n  </CurrentIssues>', count=1), why='a rule producing findings that nobody declared means it is running on detekt\'s defaults, unchosen. The edit is the one the twin in check-gate-wiring.py applies: the two copies of a control are the same control until one of them is edited, and the copy that rotted here named a detekt.yml pattern that has not been in the file since the rules were reorganised — so the registry described a sabotage that would have raised "matched nothing" if it had ever been the copy that ran'),
     'suppression-intent': Control(kind='sabotage', proves='scripts/check-suppression-intent.py', argv=('{python}', 'scripts/check-suppression-intent.py'), path='shared/src/jvmMain/kotlin/com/singularity/todo/feature/pomodoro/JvmPomodoroTimer.kt', edit=Edit(kind='strip_suppression_reason'), why='a file-level suppression with no recorded reason switches a rule off for every future call in that file'),
+    # quality-thresholds: the sabotage puts back the value the page actually
+    # carried — `TooManyFunctions` claiming a file default of 10 — so the control
+    # reproduces the drift the gate exists to catch rather than an invented one.
+    # It edits the DEFAULT column, and the unit tests prove the Here column
+    # separately: a single control can only prove one of the two comparisons.
+    'quality-thresholds': Control(kind='sabotage', proves='scripts/check-quality-thresholds.py', argv=('{python}', 'scripts/check-quality-thresholds.py'), path='docs/architecture/quality.md', edit=Edit(kind='replace', old='allowedFunctionsPerFile=11', new='allowedFunctionsPerFile=10', count=1), why='the page stated a detekt default that the pinned detekt does not ship, and nothing compared the two — a stated default that disagrees with the jar the build resolves is a claim the next reader trusts'),
     'workflow-exit-status': Control(
         kind='sabotage',
         proves='scripts/check-workflow-exit-status.py',
@@ -1924,6 +1956,27 @@ GATE_CONTROLS: dict[str, Control] = {
                 "a dismissal that precedes the input saves an empty draft and closes the editor — the flow passes and the user's words are gone"
             ),
         ),
+        # A seeded title that carries the run id names a row the seed can never
+        # replace: the runner mints a fresh id on every attempt, so the row the
+        # title names has never existed, each run creates a fresh row instead of
+        # updating the old one, and the rows of earlier runs stay behind. The
+        # probe stamps the id onto a real seed call, which is the state the gate
+        # exists to reject.
+        'maestro-seeded-titles': Control(
+            kind='sabotage',
+            proves='scripts/check-maestro-seeded-titles.py',
+            argv=('{python}', 'scripts/check-maestro-seeded-titles.py',),
+            path='Maestro/flows/attachments/01-add-url.yaml',
+            edit=Edit(
+                kind='replace',
+                old='QUERY: "task=AttachTestTask2026"',
+                new='QUERY: "task=${RUN_ID}_AttachTestTask2026"',
+                count=1,
+            ),
+            why=(
+                "a seeded title that carries the run id names a row the seed can never replace — each run creates a fresh row instead of updating the old one, and the rows of earlier runs stay behind"
+            ),
+        ),
         # A tag row that carries no normalized name is a tag that cannot be found
         # by the name a person typed: the lookup goes by the normalized form, and
         # the row has none. The gate reads the Kotlin sources, so the sabotage
@@ -1952,7 +2005,7 @@ GATE_CONTROLS: dict[str, Control] = {
             kind='sabotage',
             proves='scripts/ci/check-migration-naming.py',
             argv=('{python}', 'scripts/ci/check-migration-naming.py',),
-            path='shared/src/commonMain/kotlin/com/singularity/todo/core/database/Migration31To32.kt',
+            path='core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Migration31To32.kt',
             edit=Edit(
                 kind='replace',
                 old='`index_notes_user_id`',
@@ -2035,6 +2088,27 @@ GATE_CONTROLS: dict[str, Control] = {
 # Each names what does the proving instead: "no control" is only acceptable when
 # something else is, and the reader has to be told what.
 GATE_EXEMPTIONS: dict[str, Control] = {
+    'scripts/check-quality-thresholds.py': Control(
+        kind='exempt',
+        proves='scripts/check-quality-thresholds.py',
+        tracked_by='scripts/check-quality-thresholds.py',
+        reason=(
+            'its subject is two committed documents: the quality page and the thresholds '
+            'the build enforces. The gate is the comparison, so a tree mutation can only '
+            'make the comparison say what it already says — the two documents disagreeing '
+            'is the failing state, and the gate reaches it without help.'
+        ),
+    ),
+    'scripts/documentation/check.py': Control(
+        kind='exempt',
+        proves='scripts/documentation/check.py',
+        tracked_by='.agents/skills/documentation-verify-concept/SKILL.md',
+        reason=(
+            'a dispatcher over the knowledge status command, not a rule about the tree: '
+            'its failing state is a stale concept, which the documentation skills create '
+            'and `stamp` repairs. Sabotaging a repository file proves nothing about it.'
+        ),
+    ),
     'scripts/check-gate-tooling-origin.py': Control(
         kind='exempt',
         proves='scripts/check-gate-tooling-origin.py',

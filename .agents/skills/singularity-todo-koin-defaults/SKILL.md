@@ -55,6 +55,7 @@ viewModel { AccountSettingsViewModel(get(), get()) }
 
 `SingleOfKotlinDefaultsTest` has an `ALLOWLIST` of class names that are verified safe
 by hand inspection. These are either:
+
 - **No-arg constructors** — `SavedAgendaSeedStore`, `StubAttachmentUploadService`,
   `StubRemoteBackupService` (test fakes with no-arg constructors).
 - **False positives** — class name appearing in a comment (e.g. `Impl` in an enum).
@@ -84,6 +85,7 @@ private val ALLOWLIST = setOf(
 ## Real defect found by the sweep
 
 `PatchRetryPolicy` in `SyncDiModule.kt`:
+
 ```kotlin
 open class PatchRetryPolicy(
     private val baseDelayMs: Long = 30_000L,   // no Long in the graph
@@ -91,6 +93,7 @@ open class PatchRetryPolicy(
     val maxAttempts: Int = 10,
 )
 ```
+
 `singleOf(::PatchRetryPolicy)` broke every test that resolved `AgendaViewModel`, because
 the resolution chain `AgendaViewModel → TaskRepository → SyncRepository → SyncEngine →
 PatchRetryPolicy` failed at the last step. Fixed by switching to `single { PatchRetryPolicy() }`.

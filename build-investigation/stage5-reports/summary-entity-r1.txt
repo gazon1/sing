@@ -1,0 +1,6 @@
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+Total time for Kotlin tasks: 90.072 s (88.3 % of all tasks time)
+  Source changes: Known(modified=[/home/max/.commandcode/worktrees/singularity_cllone_kmp-d5855506b1fb/core-domain-cut/shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/data/TaskRepositoryImpl.kt, /home/max/.commandcode/worktrees/singularity_cllone_kmp-d5855506b1fb/core-domain-cut/shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/data/TaskRepositoryImpl.kt], removed=[], forDependencies=false)
+  Classpath changes info passed from Gradle task: NoChanges
+  REBUILD_REASON: Incremental compilation might be incorrect (KT-62686)
+  Source changes: Known(modified=[/home/max/.commandcode/worktrees/singularity_cllone_kmp-d5855506b1fb/core-domain-cut/core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Entities.kt, /home/max/.commandcode/worktrees/singularity_cllone_kmp-d5855506b1fb/core-domain-cut/core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Entities.kt], removed=[], forDependencies=false)

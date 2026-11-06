@@ -39,7 +39,6 @@
 .agents/skills/singularity-todo-task-callback-groups/SKILL.md:feature/notes/components/NoteCardActions.kt
 .agents/skills/singularity-todo-task-callback-groups/SKILL.md:feature/tasks/components/TaskDetailActions.kt
 .agents/skills/singularity-todo-task-detail-ux/SKILL.md:TaskDetailViewModel.kt
-.agents/skills/singularity-todo-tech-debt-refactor/SKILL.md:RunInLifecycle.kt
 .agents/skills/singularity-todo-test-tag-strategy/SKILL.md:docs/decisions/2026-09-26-junit-tag-default-semantics.md
 .agents/skills/singularity-todo-testable-vm/SKILL.md:feature/tasks/presentation/viewmodel/TaskDetailViewModel.kt
 .agents/skills/tdd/SKILL.md:GLOSSARY.md

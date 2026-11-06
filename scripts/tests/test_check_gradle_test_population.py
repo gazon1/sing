@@ -351,9 +351,9 @@ class TheGateStillSees(unittest.TestCase):
         self.assertIn('test-capable', out)
         self.assertIn('koverMarkdownTable', out)
 
-    def test_check_sh_is_a_surface_and_reports_its_default(self):
-        _, out = run_gate({'check.sh': './gw :shared:jvmTest\n./gw :desktopApp:test\n'})
-        self.assertIn('check.sh', out)
+    def test_the_local_pipeline_is_a_surface_and_reports_its_default(self):
+        _, out = run_gate({'hk.pkl': './gw :shared:jvmTest\n./gw :desktopApp:test\n'})
+        self.assertIn('hk.pkl', out)
         self.assertIn('note:', out)
 
 

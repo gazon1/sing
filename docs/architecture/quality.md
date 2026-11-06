@@ -1,8 +1,11 @@
 # Quality rules
 
 > **Reference, not a procedure.** This describes the thresholds and rules this
-> repository actually enforces. It goes stale whenever the config changes, so a
-> change to a threshold updates this file in the same commit.
+> repository actually enforces. `scripts/check-quality-thresholds.py` reads the
+> table below and compares every stated value with `config/detekt/detekt.yml`
+> and with the default configuration the pinned detekt ships, so a value that
+> drifts is a finding rather than a sentence nobody checks. A change to a
+> threshold still updates this file in the same commit.
 
 ## The thresholds this repository uses
 
@@ -10,19 +13,26 @@ Detekt's defaults are stricter than this code wants in some places and looser in
 others. The config is `config/detekt/detekt.yml`; the reasons live in comments
 *inside* that file, and this page is the index of them.
 
+The two value columns are a comma-separated list of `option=value` pairs, named
+as detekt names them — `active=off` for a rule that is switched off — because the
+gate compares them with the config rather than reading them as prose. *Here* is
+what the config in force does, including the shipped default for any option the
+config leaves alone; *Detekt default* is what the pinned detekt ships for that
+rule.
+
 | Rule | Here | Detekt default | Why |
 |---|---|---|---|
-| `LongMethod` | 80 lines | 60 | The house shape of a ViewModel handler is a `when` over the intents, and those are longer than 60 lines. |
-| `CyclomaticComplexMethod` | 20 | 14 | The same handlers. A method at 21 is a method to split — the ceiling is high enough to stop a mechanism from being split for the sake of a number. |
-| `TooManyFunctions` | 25 per file, 16 per class, 13 per interface | 10/11/11 | A ViewModel has one handler per intent; the interface of a repository *is* its contract. The file limit is the one that catches accidental bloat. |
-| `LongParameterList` | 8 (data classes ignored) | 6 | The canonical constructors are wide on purpose. |
-| `NestedBlockDepth` | 5 | 4 | |
-| `LargeClass` | 600 lines | 600 | |
-| `ReturnCount` | 4 | 2 | |
-| `max_line_length` | 120 | 120 | ktlint owns it, through `.editorconfig`; detekt's own `MaxLineLength` is off. |
-| `WildcardImport` | off | on | ktlint owns it: `standard:no-wildcard-imports`. |
-| `UnusedImport` | off | off | ktlint owns it: `standard:no-unused-imports` — experimental, so `.editorconfig` enables it by name. Detekt's rule was on here and reported none of the imports ktlint found. |
-| `TrailingWhitespace` | off | off | ktlint owns it: `standard:no-trailing-spaces`. Detekt's rule was on here too — the ktlint takeover left it on, and it was switched off with the other two. |
+| `LongMethod` | `allowedLines=80` | `allowedLines=60` | The house shape of a ViewModel handler is a `when` over the intents, and those are longer than 60 lines. |
+| `CyclomaticComplexMethod` | `allowedComplexity=20` | `allowedComplexity=14` | The same handlers. A method at 21 is a method to split — the ceiling is high enough to stop a mechanism from being split for the sake of a number. |
+| `TooManyFunctions` | `allowedFunctionsPerFile=25, allowedFunctionsPerClass=16, allowedFunctionsPerInterface=13` | `allowedFunctionsPerFile=11, allowedFunctionsPerClass=11, allowedFunctionsPerInterface=11` | A ViewModel has one handler per intent; the interface of a repository *is* its contract. The file limit is the one that catches accidental bloat, and it is the limit that carries the largest raise. |
+| `LongParameterList` | `allowedFunctionParameters=8, allowedConstructorParameters=8, ignoreDataClasses=true` | `allowedFunctionParameters=5, allowedConstructorParameters=6, ignoreDataClasses=true` | The canonical constructors are wide on purpose. |
+| `NestedBlockDepth` | `allowedDepth=5` | `allowedDepth=4` | |
+| `LargeClass` | `allowedLines=600` | `allowedLines=600` | |
+| `ReturnCount` | `max=4` | `max=2` | |
+| `MaxLineLength` | `active=off` | `active=on` | ktlint owns line length: `.editorconfig` sets `max_line_length = 120`, and detekt's own rule is off so the two tools cannot argue about one line. |
+| `WildcardImport` | `active=off` | `active=on` | ktlint owns it: `standard:no-wildcard-imports`. |
+| `UnusedImport` | `active=off` | `active=off` | ktlint owns it: `standard:no-unused-imports` — experimental, so `.editorconfig` enables it by name. Detekt's rule was on here and reported none of the imports ktlint found. |
+| `TrailingWhitespace` | `active=off` | `active=off` | ktlint owns it: `standard:no-trailing-spaces`. Detekt's rule was on here too — the ktlint takeover left it on, and it was switched off with the other two. |
 
 `config/detekt/baseline-*.xml` holds what is already known. **The baseline only ever
 shrinks** — a new finding is a finding, not a line to add to the baseline.

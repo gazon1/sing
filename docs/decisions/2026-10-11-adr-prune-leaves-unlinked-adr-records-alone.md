@@ -11,6 +11,7 @@ issue: 537
 `adr prune` shows 208 ADR records that are not cited by any other ADR or by `DIGEST.md`. The command prints them and exits. It does not delete them.
 
 The original impulse was to clean up the corpus: records that nobody links to are, by definition, records nobody found useful. But citation is not the same as usefulness. A record can be:
+
 - Correct and sound, but never needed again because the decision it records was never revisited
 - The result of work that was superseded but not yet formally linked
 - Simply unloved by coincidence — the right person never needed to cite it
@@ -24,6 +25,7 @@ To close a record, an ADR must be superseded: write a new ADR naming the old one
 ## Rationale
 
 A command that can destroy a record of a decision must earn that capability separately from one that merely reports what it found. Deletion is irreversible; reporting is not. The distinction matters because a record that looks unloved may be:
+
 - The only evidence of a decision that was made correctly and simply never needed to be revisited
 - A record that someone spent real time writing, and whose deletion would erase that work silently
 

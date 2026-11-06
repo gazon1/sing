@@ -27,6 +27,7 @@ unzip -l koin-annotations-jvm-4.2.2.jar | grep "org/koin/core/annotation/.*\.cla
 Real annotations present in 4.x: `ComponentScan`, `Configuration`, `Factory`, `KoinApplication`, `KoinViewModel`, `Module`, `Monitor`, `Named`, `Property`, `PropertyValue`, `Qualifier`, `Scope`, `ScopeId`, `Scoped`, `@Singleton` (yes, with the "on" suffix), `ViewModelScope`.
 
 **Critical absences:**
+
 - `@Single` (no "on" suffix) — does NOT exist. Aspirational examples used this name.
 - `@IntoSet` — does NOT exist. This was a Koin 2.x feature for `Set<T>` aggregation that was not carried forward into 4.x annotations.
 - `koin-annotations-compiler` artifact — does NOT exist for 4.x. The compiler is now shipped as `io.insert-koin:koin-gradle-plugin` (a Gradle plugin, not a KSP processor dependency).

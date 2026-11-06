@@ -44,6 +44,7 @@ The `scope` (`AutoCloseableCoroutineScope`) is closed when the `Application` is 
 `SyncEngine` is a `single {}` that lives for the process lifetime. The session-watching coroutine is cancelled when the `Application` scope is cancelled (process death or explicit `Application.close()`). There is no requirement for account-reset or scope-switching without process death.
 
 If `SyncScopeProvider.current` can emit a new scope (signing in as a different user) without process death, the old session-watching coroutine would continue running until the engine is recreated. This would require either:
+
 1. Making `SyncEngine` closeable/recreatable, or
 2. Adding `close()` to `SyncEngine` and calling it when the sync scope changes.
 

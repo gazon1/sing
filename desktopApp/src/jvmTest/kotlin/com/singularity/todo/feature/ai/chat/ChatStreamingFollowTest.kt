@@ -200,7 +200,9 @@ class ChatStreamingFollowTest {
         viewModel: ChatViewModel,
         expected: String,
     ) = waitUntil(timeoutMillis = TIMEOUT_MS) {
-        viewModel.stateFlow.value.messages.lastOrNull()?.content == expected
+        viewModel.stateFlow.value.messages
+            .lastOrNull()
+            ?.content == expected
     }
 
     /**

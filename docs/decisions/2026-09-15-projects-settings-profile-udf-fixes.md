@@ -44,6 +44,7 @@ Registered `AccountSettingsViewModel` in `Modules.kt` alongside other profile bi
 ### 4. `TagPickerSheet` — extract `TagPickerViewModel`
 
 Created `TagPickerViewModel` (new file) owning:
+
 - `tags: StateFlow<List<Tag>>` — reactive list via `settingsRepo.userId.flatMapLatest { tagsRepo.watchTags(it) }`
 - `selected: StateFlow<Set<String>>` — selection set
 - `isCreating: StateFlow<Boolean>` — inline-create form visibility

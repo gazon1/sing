@@ -30,18 +30,21 @@ cross-feature action must be edited in two places and the platforms can drift.
 `PlatformParityTest` (end-to-end behaviour).
 
 #### Scenario: Tab activation
+
 - The user is on the Agenda top-level destination
 - They activate a different bottom-bar tab
 - That tab becomes active with its own back stack restored
 - The previous tab's stack is preserved for return
 
 #### Scenario: Cross-feature open keeps the origin underneath
+
 - The user is on the Calendar top-level destination viewing a day
 - They open a task shown on that day
 - The tasks feature opens showing that task, on top of the calendar's stack
 - Back returns to the calendar day view
 
 #### Scenario: Menu destination activation
+
 - The user is on any top-level destination
 - They activate a menu destination (for example Search)
 - That destination becomes active
@@ -60,12 +63,14 @@ closes the current screen instead of opening the requested one.
 **Test coverage:** desktop `NavigationFlowTest` (project → task from the Plans tab).
 
 #### Scenario: Project list → task detail
+
 - The user is on the Plans top-level destination with a project open
 - They tap a task in that project
 - The task detail opens
 - Back returns to the project
 
 #### Scenario: Task detail → linked note
+
 - The user has a task detail open
 - They tap a note linked to the task
 - The note preview opens
@@ -82,6 +87,7 @@ the requested target, and **SHALL** leave the back stack unchanged.
 **Test coverage:** `NavigationPolicyTest` (invalid-target case).
 
 #### Scenario: Bare start screen requested
+
 - The user is on any screen
 - A bare start screen of a nested feature is requested as an app-level target
 - The open fails with a message naming the source context and the target
@@ -99,11 +105,13 @@ family **SHALL** break compilation.
 of the classification itself.
 
 #### Scenario: New route added
+
 - A developer adds a new navigation key
 - The code is compiled
 - Compilation fails until the new key is assigned a feature family
 
 #### Scenario: Classification drives the open decision
+
 - Two keys of the same feature family are involved in an open request
 - The policy resolves to an in-place push (no feature switch)
 - Two keys of different feature families are involved in an open request
@@ -124,11 +132,13 @@ the mistake surfaces only at runtime, deep inside the opened screen.
 inventory); Android `assembleDebug` + Maestro smoke (restore).
 
 #### Scenario: Wrong identifier type rejected
+
 - A route addresses a task
 - A note identifier is supplied for it
 - The build fails
 
 #### Scenario: Restore after process death
+
 - Android has restored the back stack after process death
 - A restored route carries an entity identifier
 - The restored identifier equals the identifier before process death
@@ -145,11 +155,13 @@ destination; reselecting the already-active tab **SHALL NOT** alter any stack.
 `NavigationFlowTest` (back inside features).
 
 #### Scenario: Back inside a feature
+
 - A feature stack holds two entries
 - The user presses Back
 - The top entry is removed and the one below it is shown
 
 #### Scenario: Back at a tab root
+
 - The active top-level destination is at its stack root and a different destination was
   active before it
 - The user presses Back
@@ -157,6 +169,7 @@ destination; reselecting the already-active tab **SHALL NOT** alter any stack.
 - The default destination is NOT shown
 
 #### Scenario: Tab reselect
+
 - The active tab is displayed
 - The user taps it again
 - No stack change occurs
@@ -171,6 +184,7 @@ and on Desktop.
 **Test coverage:** desktop `PlatformParityTest`.
 
 #### Scenario: Identical pair, identical outcome
+
 - The same current context and target are used
 - The open is requested on Android and on Desktop
 - Both resolve to the same action
@@ -195,26 +209,31 @@ checks), `Nav3StateDeepLinkTest` (the stack and the tab), `DeepLinkGraphTest`
 (the registry resolves from the real DI graph).
 
 #### Scenario: A task link opens the task on its tab
+
 - A link `singularity://task/{taskId}` arrives
 - The task detail is opened on the Agenda tab
 - The Agenda tab's stack holds the tab and the task screen, in that order
 
 #### Scenario: Back from a linked screen returns to the tab's own screen
+
 - A link opened a task detail on the Agenda tab
 - The user presses Back
 - The Agenda tab's own screen is shown
 
 #### Scenario: A link on another tab switches to it
+
 - A link names a screen on a tab that is not the active one
 - The named tab becomes active
 - That tab's stack holds the tab and the screen, in that order
 
 #### Scenario: An unknown link changes nothing
+
 - A link arrives that matches no registered link
 - The app stays where it is
 - No stack is rebuilt
 
 #### Scenario: The first matching link wins
+
 - Two registered links would accept the same URI
 - The one that comes first in the list is the one that opens
 
@@ -236,11 +255,13 @@ format, and the link stopped opening with no error anywhere.
 its own).
 
 #### Scenario: The producer and the matcher agree
+
 - The calendar sync writes a link from the spec
 - The matcher parses a link with the same spec
 - The identifier that goes in is the identifier that comes out
 
 #### Scenario: There is one parser
+
 - A link is found inside a free-text description
 - The identifier is read by the spec, not by a second hand-written parser
 
@@ -261,11 +282,13 @@ feature; an entry point that parses it is a second grammar.
 argument, extra path segment — no match).
 
 #### Scenario: A link with the wrong authority is not a link
+
 - An intent carries `?email=` and `?token=` but its authority is not the one the
   magic link declares
 - Nothing is opened
 
 #### Scenario: A malformed link is not a crash
+
 - A link arrives that cannot be read as a URI
 - The app opens on its start tab
 - No exception reaches the user
@@ -286,11 +309,13 @@ was nobody's job.
 `NestedEntryViewModelScopeTest` (the decorator is on both platforms).
 
 #### Scenario: A new screen inside a nested graph is registered once
+
 - A screen is added to a feature's nested graph
 - It is added to that graph's entry provider — one file
 - It opens on both platforms without a second edit
 
 #### Scenario: The platforms cannot drift apart
+
 - A platform difference is needed
 - It is expressed as a seam
 - The graph itself stays one implementation
@@ -310,11 +335,13 @@ reuses the first one's state, with the first one's parameters.
 **Test coverage:** `NestedEntryViewModelScopeTest`.
 
 #### Scenario: Two screens of one graph keep their own state
+
 - A graph shows two screens, each with a ViewModel of the same class
 - The second screen resolves its own ViewModel
 - It does not reuse the first one's state or its parameters
 
 #### Scenario: The scope is the same on every platform
+
 - The graph runs on Android and on Desktop
 - Both scope the ViewModel store per entry
 - Neither platform resolves a ViewModel from the store of whatever is above it
@@ -335,10 +362,12 @@ gap in one of them looks deliberate.
 **Test coverage:** `AgendaContextMenuParityTest`.
 
 #### Scenario: The same surface is offered everywhere it applies
+
 - A task can be acted on from any task list
 - Every task list offers the same actions
 - The gesture that opens them differs per platform, and only the gesture does
 
 #### Scenario: A surface that does not apply is not offered
+
 - A screen lists saved views rather than tasks
 - It offers no task actions

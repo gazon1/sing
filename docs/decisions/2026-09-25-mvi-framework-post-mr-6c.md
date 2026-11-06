@@ -8,7 +8,6 @@ deciders: Singularity Developer
 
 # Post-MR-6d Audit: MVI Framework Migration — Final Status
 
-
 > **Superseded in part (2026-09-27):** `StatefulViewModel`, `updateStateAs<T>`,
 > `onStateChanged` and `CoroutineScope.fireAndForget` were removed. See
 > [2026-09-27-mvi-single-state-entry-and-vm-sweep.md](2026-09-27-mvi-single-state-entry-and-vm-sweep.md).
@@ -30,6 +29,7 @@ After completing MR-6c (SearchVM + ProjectsVM), MR-6d-early (TOCTOU fixes), and 
 ### MR-6d: TaskDetailVM + ProjectDetailVM (full migration)
 
 **TaskDetailVM** (`TaskDetail.kt`):
+
 - `ViewModel()` → `MviViewModel<TaskDetailUiState, TaskDetailIntent.Domain, TaskDetailUiEvent>`
 - `TaskDetailIntent` extends `MviIntent`, `TaskDetailUiEvent` extends `MviEvent`
 - Removed `_events Channel`, `_state MutableStateFlow` — uses inherited `state` and `events` from MviViewModel
@@ -40,6 +40,7 @@ After completing MR-6c (SearchVM + ProjectsVM), MR-6d-early (TOCTOU fixes), and 
 - **TOCTOU fully fixed**: every launched coroutine re-reads `_latestTask.value` inside the coroutine body
 
 **ProjectDetailVM** (`ProjectDetailViewModel.kt`):
+
 - Same pattern: `MviViewModel<ProjectDetailUiState, ProjectDetailIntent.Domain, ProjectDetailUiEvent>`
 - Removed `_events Channel`, `state` property — uses inherited `state` and `events`
 - All `scope.launch/fireAndForget` → `vmScope.launch/fireAndForget`
@@ -68,6 +69,7 @@ private val _snackbar = MutableSharedFlow<String>(extraBufferCapacity = 4)
 ```
 
 Screen (`BackupScreen`) subscribes to both flows separately. Migrating to MviViewModel requires:
+
 1. Adding `ShowSnackbar(String)` to `BackupUiEvent`
 2. Unifying snackbar into single event channel
 3. Updating screen to handle snackbar via event mapping

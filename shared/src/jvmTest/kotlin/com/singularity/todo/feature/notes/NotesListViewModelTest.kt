@@ -8,6 +8,7 @@ import com.singularity.todo.feature.notes.NotesUiState
 import com.singularity.todo.feature.notes.presentation.NotesIntent
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import com.singularity.todo.test.fakes.FakeNotesRepository
+import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -26,6 +27,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -39,6 +41,15 @@ import kotlin.test.assertTrue
 private class FailingTemplatesRepository : FakeNotesRepository() {
     /** Arms the failure: the next emission of the template flow throws. */
     var failOnNextEmission = false
+
+    /**
+     * The throwable the failure carries.
+     *
+     * The report has to carry this exact instance — the one the repository threw —
+     * so a test can tell "the cause reached the reporter" from "something was
+     * reported about a cause".
+     */
+    var failure: Throwable = IllegalStateException("templates unavailable")
 
     /**
      * How many times the template flow has been collected.
@@ -56,7 +67,7 @@ private class FailingTemplatesRepository : FakeNotesRepository() {
             .watchTemplates()
             .onStart { templateObservations++ }
             .map { templates ->
-                if (failOnNextEmission) throw IllegalStateException("templates unavailable")
+                if (failOnNextEmission) throw failure
                 templates
             }
 }
@@ -321,6 +332,46 @@ class NotesListViewModelTest {
             assertEquals("groceries", failed.searchQuery.text, "a failure must not clear the query")
             assertEquals(NoteFilter.Pinned, failed.filter, "a failure must not reset the filter chip")
             assertEquals(NoteSortOrder.TitleAsc, failed.sortOrder, "a failure must not reset the sort order")
+        }
+
+    /**
+     * A stopped observation must hand the *cause* to the reporter.
+     *
+     * The screen can only show a message; the message alone says nothing about
+     * why the list stopped, and the throwable that explains it is the thing the
+     * reporter exists for. So the report has to carry the original throwable —
+     * the very instance the repository threw, not a copy of it — under this
+     * screen's own key.
+     */
+    @Test
+    fun `a failed observation reports the original cause`() =
+        runTest {
+            val repo = FailingTemplatesRepository()
+            val reporter = RecordingCrashReportingPort()
+            val vm =
+                NotesListViewModel(
+                    repo = repo,
+                    crashReporter = reporter,
+                    scope = testScope(backgroundScope),
+                )
+            advanceUntilIdle()
+            runCurrent()
+
+            val failure = IllegalStateException("templates unavailable")
+            repo.failure = failure
+            repo.failOnNextEmission = true
+            repo.createWithContent(NoteId("n-fail"), "Trigger", "", "").getOrThrow()
+            advanceUntilIdle()
+            runCurrent()
+
+            assertIs<NotesUiState.Error>(vm.stateFlow.value)
+
+            val reported = reporter.reports.single { it.second == "notes.observe_failed" }
+            assertSame(
+                failure,
+                reported.first,
+                "the reporter must receive the throwable the repository threw",
+            )
         }
 
     // ── The retry ────────────────────────────────────────────────────────────

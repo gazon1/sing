@@ -1,6 +1,7 @@
 # navigation-and-menu Specification
 
 ## Purpose
+
 The app's navigation frame: the bottom navigation bar, and the menu that opens from it.
 
 The menu is the place the frame has room for things the bar does not — a hierarchy, and screens

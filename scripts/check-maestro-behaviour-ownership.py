@@ -175,6 +175,36 @@ CODE_SPAN = re.compile(r"`([^`]+)`")
 #: What a code name looks like, once the placeholder is cut off.
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
+#: A line that opens a new Markdown block rather than continuing the one above it.
+BLOCK_START = re.compile(r"^\s*(?:[-*+]\s|#{1,6}\s|\||>|```|\d+\.\s)")
+
+#: Blocks whose following line is a new block, not a hard-wrapped continuation.
+NOT_CONTINUABLE = re.compile(r"^\s*(?:#{1,6}\s|\||>|```)")
+
+
+def claims(text: str) -> list[tuple[int, str]]:
+    """The skill body's blocks, with a hard-wrapped bullet folded into one line.
+
+    The skill body wraps its bullets, and a claim split across a line break is
+    still a restatement. A line continues the block above it unless it is blank
+    or starts a new Markdown block; the first line's number is the one reported.
+    """
+    folded: list[tuple[int, str]] = []
+    in_fence = False
+    for number, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            folded.append((number, line))
+        elif in_fence or not stripped or BLOCK_START.match(line):
+            folded.append((number, line))
+        elif folded and folded[-1][1].strip() and not NOT_CONTINUABLE.match(folded[-1][1]):
+            start, previous = folded[-1]
+            folded[-1] = (start, previous + " " + stripped)
+        else:
+            folded.append((number, line))
+    return folded
+
 
 def restatements(root: Path) -> list[Finding]:
     """The behaviours the skill body states, which the runbook owns."""
@@ -188,14 +218,14 @@ def restatements(root: Path) -> list[Finding]:
             )
         ]
     findings: list[Finding] = []
-    for number, line in enumerate(skill.read_text(encoding="utf-8").splitlines(), start=1):
+    for number, claim in claims(skill.read_text(encoding="utf-8")):
         for marker in MARKERS:
-            if marker.pattern.search(line):
+            if marker.pattern.search(claim):
                 findings.append(
                     Finding(
                         BLOCKING,
                         f"{SKILL.as_posix()}: line {number} restates an app behaviour "
-                        f"the runbook owns ({marker.kind}) — {marker.why}: {line.strip()}",
+                        f"the runbook owns ({marker.kind}) — {marker.why}: {claim.strip()}",
                     )
                 )
     return findings
@@ -379,8 +409,10 @@ def stale_identifiers(root: Path) -> list[Finding]:
     source = product_source(root)
     findings: list[Finding] = []
     seen: set[str] = set()
+    spans = 0
     for offset, line in enumerate(text.splitlines()):
         for span in CODE_SPAN.findall(line):
+            spans += 1
             identifier = identifier_of(span)
             if not is_code_name(identifier) or identifier in seen:
                 continue
@@ -396,7 +428,7 @@ def stale_identifiers(root: Path) -> list[Finding]:
                     "addresses nothing, and this is the place it was promised from",
                 )
             )
-    if not seen:
+    if not spans:
         findings.append(
             Finding(
                 BLOCKING,

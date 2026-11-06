@@ -151,7 +151,6 @@ goes through the path that owns the tags. No blocker. What was open:
    inconsistent therefore stays that way until a write that moves something
    touches it. The code was right; the ADR now says it.
 
-
 ## What was done about it
 
 - The ADR carries a frontmatter block now — `title`, `date`, `status`,

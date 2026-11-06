@@ -689,18 +689,20 @@ gate blocking "gates speak the JSON contract" python3 scripts/check-gate-json-co
 # them at its own time. So the meta-gate stays where the results are: after the tests,
 # in check.sh and in ci.yml's `tests` job.
 #
-# Lint-rule governance: one gate for six checks over one subject.
+# Lint-rule governance: one gate for seven checks over one subject.
 #
 #   - the generated detekt.yml is current;
 #   - the generated rule table is current;
 #   - every rule has a registration;
 #   - the baseline does not grow silently;
 #   - a lint rule states the decision it implements;
-#   - a suppression says why it is there.
+#   - a suppression says why it is there;
+#   - the quality page states the thresholds the config and the pinned detekt
+#     actually enforce.
 #
 # Six CI rows for one subject became one. Each check keeps its own script, its
 # own unit tests and its own positive control — a control proves that a check
-# can fail, and one control for six checks would prove only that something in
+# can fail, and one control for seven checks would prove only that something in
 # them can fail.
 gate blocking "detekt governance is consistent" python3 scripts/check-detekt-governance.py
 # detekt-rules branch coverage floor: 60% (below 2026-10-15 measured 65.6%, 725/1105).
@@ -868,7 +870,7 @@ gate blocking "screen state collections" python3 scripts/check-screen-state-coll
 #
 # The tool is Deno, and it is not on every machine: the gate is skipped where
 # Deno is absent, and the skip says so rather than passing quietly.
-gate blocking "the edge functions' own tests" deno test supabase/functions/google-oauth-exchange/
+gate blocking "the edge functions' own tests" deno test infra/supabase/functions/google-oauth-exchange/
 #
 # A `hideKeyboard` is a BACK keypress when there is no keyboard to hide.
 #
@@ -892,6 +894,20 @@ gate blocking "maestro keyboard commands have something to hide" python3 scripts
 # A swipe may be a share of the screen, or the element that scrolls. Both mean
 # the same gesture on every display.
 gate blocking "maestro flows do not name a pixel" python3 scripts/check-maestro-screen-geometry.py
+#
+# A seeded title names the row the seed replaces, so it carries no run id.
+#
+# The runner mints a fresh `${RUN_ID}` on every attempt, and the seed replaces
+# the row its title names: `task=${RUN_ID}_MyFixture` therefore names a row that
+# has never existed. The seed creates a new task instead of updating the old
+# one, and every run leaves its own row behind — the litter the replace-in-place
+# rule exists to remove. The failure is reported under the run id too
+# (`"r5869995730 PinnedTask2026" is visible`), which is a fixture whose name
+# nobody can read.
+#
+# A title a flow *types* into the editor is the flow's own row and reaches no
+# seed, so the run id there stays available. The gate reads `QUERY` lines only.
+gate blocking "maestro seeded titles are stable" python3 scripts/check-maestro-seeded-titles.py
 # The grammar of a link has a home: TaskLinkSpec for a deep link, core/links/InternalLinks.kt for an internal one. A second copy of it is a link that opens nothing.
 gate blocking "the link grammar has one home" sgate the_link_grammar_has_one_home
 # The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.

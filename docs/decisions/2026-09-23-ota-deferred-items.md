@@ -26,6 +26,7 @@ update/
 ```
 
 `RemoteConfigSnapshot.updateStoreType: UpdateStoreType` selects:
+
 - `GOOGLE_PLAY` → `GooglePlayUpdateStore`
 - `RUSTORE` → `RuStoreUpdateStore` (browser fallback; SDK hook documented in class KDoc)
 - `SAMSUNG` → `DirectUrlUpdateStore` (browser fallback until Samsung SDK added)

@@ -1,0 +1,29 @@
+# curves: bare: a=0.20 b=0.01708 R2=1.000, compose: a=0.22 b=0.01956 R2=1.000, compose-koin: a=0.40 b=0.02040 R2=1.000
+# Gate B: fit on N=[100, 250, 500], predict N=1237 (x2.5 beyond the fit) -> 25.6s vs measured 25.6s (-0.1%)
+# parity: compose-koin curve at N=1238 -> 25.7s vs :shared 60.055s (-57.3%)
+# history: 1428 commits, 798 usable, 561 with an unresolvable path
+# ABI-classified: 334 of 798 usable commits (42%) touch a declaration line
+
+# raw model (parity is off, see above — ratios are the comparable part)
+scenario	bracket	serial_med	serial_p80	serial_mean	par_med	par_p80	vs_S0_p80	vs_S0_mean	modules
+S0	body-only	25.7	25.7	25.7	25.7	25.7	+0%	+0%	1
+S0	all-abi	25.7	25.7	25.7	25.7	25.7	+0%	+0%	1
+S0	classified	25.7	25.7	25.7	25.7	25.7	+0%	+0%	1
+S1	body-only	2.5	4.5	3.1	1.9	3.1	-83%	-88%	38
+S1	all-abi	25.7	32.8	22.4	12.9	16.6	+28%	-13%	38
+S1	classified	3.7	27.8	11.7	3.1	14.0	+8%	-54%	38
+S2	body-only	2.0	4.1	2.7	1.6	3.1	-84%	-90%	74
+S2	all-abi	15.2	30.4	17.4	7.7	15.3	+18%	-32%	74
+S2	classified	3.3	19.5	9.4	2.5	9.8	-24%	-63%	74
+
+# model calibrated to the measured baseline (x2.3)
+scenario	bracket	serial_med	serial_p80	serial_mean	par_med	par_p80	vs_S0_p80	vs_S0_mean	modules
+S0	body-only	60.1	60.1	60.1	60.1	60.1	+0%	+0%	1
+S0	all-abi	60.1	60.1	60.1	60.1	60.1	+0%	+0%	1
+S0	classified	60.1	60.1	60.1	60.1	60.1	+0%	+0%	1
+S1	body-only	5.8	10.5	7.2	4.6	7.2	-83%	-88%	38
+S1	all-abi	60.1	76.8	52.5	30.1	38.8	+28%	-13%	38
+S1	classified	8.7	65.1	27.4	7.2	32.8	+8%	-54%	38
+S2	body-only	4.7	9.5	6.3	3.8	7.2	-84%	-90%	74
+S2	all-abi	35.6	71.1	40.8	18.1	35.8	+18%	-32%	74
+S2	classified	7.8	45.6	22.1	5.9	23.0	-24%	-63%	74

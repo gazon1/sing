@@ -72,7 +72,7 @@ jvmTest.dependencies {
 ## Schema lives in commonMain
 
 ```kotlin
-// shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt
+// core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt
 @Database(
     entities = [TaskEntity::class, TaskTagCrossRef::class, NoteEntity::class,
                 ProjectEntity::class, TagEntity::class, SyncOutboxEntity::class,
@@ -89,7 +89,7 @@ abstract class AppDatabase : RoomDatabase() {
 ```
 
 ```kotlin
-// shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabaseCtor.kt
+// core-database/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabaseCtor.kt
 expect object AppDatabaseCtor : RoomDatabaseConstructor<AppDatabase>
 ```
 
@@ -305,6 +305,7 @@ class Migration10To11 : AutoMigrationSpec
         db.execSQL("ALTER TABLE projects_v11 RENAME TO projects")
     }
 }
+
 ```
 
 The Room KSP plugin exports the new schema to `schemas/com.singularity.todo.core.database.AppDatabase/11.json`.
@@ -330,3 +331,4 @@ The Room KSP plugin exports the new schema to `schemas/com.singularity.todo.core
   `@ColumnInfo`, otherwise Room's exported schema omits the default and the
   round-trip check fails.
 - Migration tests are `@Tag("slow")`; run them with `-Ptest.tags=slow`.
+```

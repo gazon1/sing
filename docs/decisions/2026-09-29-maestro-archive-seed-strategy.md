@@ -22,6 +22,7 @@ same session without `clearState: true`. The restore flow asserts that a
 none of the data itself.
 
 This coupling means:
+
 - Running `11-archive-restore-smoke` in isolation fails (no archived task).
 - The smoke set must run `10-archive-task-smoke` before `11-archive-restore-smoke`
   in the same `maestro test` invocation, in order.

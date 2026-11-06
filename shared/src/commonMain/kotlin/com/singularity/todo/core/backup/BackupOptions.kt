@@ -31,10 +31,13 @@ class ImportOptionsBuilder {
     var targetUserId: UserId? = null
     var ownerId: UserId? = null
 
+    /** Whether the rows the account already holds are left alone — see [ImportOptions.keepExistingRows]. */
+    var keepExistingRows: Boolean = false
+
     fun build(): ImportOptions {
         val s = sourcePath ?: error("sourcePath required")
         val u = targetUserId ?: error("targetUserId required")
-        return ImportOptions(s, u, ownerId, ownerId)
+        return ImportOptions(s, u, ownerId, ownerId, keepExistingRows = keepExistingRows)
     }
 }
 
@@ -76,6 +79,39 @@ data class ImportOptions(
      * existed carries none, and is restored exactly as it always was.
      */
     val entries: List<ByteArray> = emptyList(),
+    /**
+     * Whether the rows the account already holds are left alone.
+     *
+     * ## What it changes
+     *
+     * False — today's behaviour, and the default — is the archive winning: every
+     * row an archive carries is written over whatever the account holds, and a
+     * row a change says was removed is taken out. An archive restored over an
+     * account that was edited since replaces it with the archive's older rows.
+     *
+     * True writes only the rows the account does not have. A row that is already
+     * there keeps the account's version, bytes included for an attachment, and
+     * **nothing is removed**: a restore that keeps what is there cannot honour a
+     * change that says a row is gone, because that row is one of the rows it was
+     * asked to leave alone.
+     *
+     * ## What it reports
+     *
+     * [RestoreResult.keptEntityCounts] says what was left alone, by kind, so the
+     * caller can tell "the account has all of this already" from "the restore
+     * did nothing". [RestoreResult.entityCounts] keeps its meaning — the merged
+     * archive. The two are answers to different questions and not a sum: a
+     * change that says a row was removed takes it out of the archive's counts,
+     * while a kept row is counted as kept.
+     *
+     * ## Where the net is drawn
+     *
+     * A row is the unit, not an account: the rows that hang off a kept row — a
+     * tag link, a checklist item, a reminder — are rows of their own, and they
+     * are written when the account does not have them. So a kept task can gain
+     * the archive's tags while its own title stays as it was.
+     */
+    val keepExistingRows: Boolean = false,
 )
 
 fun exportOptions(block: ExportOptionsBuilder.() -> Unit): ExportOptions = ExportOptionsBuilder().apply(block).build()
