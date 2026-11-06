@@ -47,3 +47,12 @@ facts:
   - id: K-profile-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/profile.md
+  - id: K-archive-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/archive.md
+  - id: K-auth-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/auth.md
+  - id: K-settings-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/settings.md
