@@ -149,3 +149,18 @@ facts:
   - id: K-seed-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/seed.md
+  - id: K-version-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/version.md
+  - id: K-wipe-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/wipe.md
+  - id: K-work-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/work.md
+  - id: K-text-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/text.md
+  - id: K-transport-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/transport.md
