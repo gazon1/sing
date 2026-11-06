@@ -147,12 +147,11 @@ class TagsViewModel(
                 .map { tags ->
                     if (tags.isEmpty()) TagsUiState.Empty else TagsUiState.Content(tags.toImmutableList())
                 }.catch { e ->
-                    // The collection stopped: a defect, not a user-actionable error, so the
-                    // cause goes to the reporter as well as to the screen. The message
-                    // alone would hide the throwable that explains why the list is empty.
-                    // The failure crossed a channel hop, and a channel carries a *copy*
-                    // of the throwable: the original is its cause. Reporting the copy
-                    // would file a throwable that never existed.
+                    // The collection stopped: a defect, not a user-actionable error, so
+                    // the cause goes to the reporter as well as to the screen. The
+                    // failure crossed a channel hop, and a channel carries a *copy* of
+                    // the throwable — the original is its cause, so the copy is
+                    // unwrapped before it is reported.
                     val reported = e.cause ?: e
                     crashReporter.report(reported, OBSERVE_FAILED)
                     updateState {

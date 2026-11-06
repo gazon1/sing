@@ -229,11 +229,9 @@ class NotesListViewModel(
                     onFailure = { cause ->
                         // The collection stopped: a defect, not a user-actionable error, so
                         // the cause goes to the reporter as well as to the screen. The
-                        // message alone would hide the throwable that explains why the
-                        // list is empty.
-                        // The failure crossed a channel hop, and a channel carries a
-                        // *copy* of the throwable: the original is its cause. Reporting
-                        // the copy would file a throwable that never existed.
+                        // failure crossed a channel hop, and a channel carries a *copy*
+                        // of the throwable — the original is its cause, so the copy is
+                        // unwrapped before it is reported.
                         val reported = cause.cause ?: cause
                         crashReporter.report(reported, OBSERVE_FAILED)
                         setState(
