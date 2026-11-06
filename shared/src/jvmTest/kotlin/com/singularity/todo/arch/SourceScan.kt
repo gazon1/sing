@@ -109,6 +109,15 @@ internal object SourceScan {
      */
     fun jvmTestSourcesRoot(): File = propertyRoot("jvmTestSources.root")
 
+    /**
+     * Root of this module's `commonTest` sources, as set by the `jvmTest` task.
+     *
+     * `commonTest` compiles into `:shared:jvmTest`, so a rule that reads only
+     * `jvmTest` would report green over a copy written in `commonTest`. Same
+     * property-not-relative-path reason as [jvmTestSourcesRoot].
+     */
+    fun commonTestSourcesRoot(): File = propertyRoot("commonTestSources.root")
+
     /** Root of this module's `jvmTest` resources, as set by the `jvmTest` task. */
     fun jvmTestResourcesRoot(): File = propertyRoot("jvmTestResources.root")
 

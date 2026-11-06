@@ -110,7 +110,7 @@ fi
 echo "=== Check: DAO mutations include userId ==="
 # Find DAO @Query UPDATE/DELETE statements that lack 'user_id' guard
 # Skip known-safe tables (syncOutbox, settings, etc.) and the new *ForUser variants
-if grep -B1 "UPDATE.*SET\|DELETE FROM" shared/src/commonMain/kotlin/com/singularity/todo/core/database/Daos.kt | grep "suspend fun" | grep -v "ForUser\|syncOutbox\|settings\|app_state\|preferences\|llm_usage" | grep -v "WHERE.*user_id"; then
+if grep -B1 "UPDATE.*SET\|DELETE FROM" core-database/src/commonMain/kotlin/com/singularity/todo/core/database/Daos.kt | grep "suspend fun" | grep -v "ForUser\|syncOutbox\|settings\|app_state\|preferences\|llm_usage" | grep -v "WHERE.*user_id"; then
     echo "❌ FAIL: DAO mutation without user_id WHERE clause — see singularity-todo-repository-architecture"
 else
     echo "✅ PASS"

@@ -91,6 +91,8 @@ SOURCE_ROOTS = [
     "adr-cli/src",
     "adr-core/src",
     "core-base/src",
+    "core-database/src",
+    "core-domain/src",
     "mcp-server/src",
     "pro/src",
     "tools/unwritten-properties/src",

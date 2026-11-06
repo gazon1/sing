@@ -963,7 +963,11 @@ class AgendaViewModelTest {
             val after = awaitGreeting(vm, "Good afternoon")
 
             assertEquals(before.sections, after.sections, "a greeting change must not rebuild the task list")
-            assertEquals(selected.selectedTaskIds, after.selectedTaskIds, "a greeting change must not drop the selection")
+            assertEquals(
+                selected.selectedTaskIds,
+                after.selectedTaskIds,
+                "a greeting change must not drop the selection",
+            )
             assertTrue(after.isSelectionMode, "a greeting change must not leave selection mode")
         }
 

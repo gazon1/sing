@@ -27,7 +27,7 @@ import kotlin.test.assertTrue
  */
 @Tag("slow")
 @Tag("slow:data")
-class AppDatabaseFactoryJvmTest {
+class JvmDatabaseSeamTest {
     private lateinit var fixture: DatabaseTestFixture
     private lateinit var dbPath: String
     private lateinit var db: AppDatabase

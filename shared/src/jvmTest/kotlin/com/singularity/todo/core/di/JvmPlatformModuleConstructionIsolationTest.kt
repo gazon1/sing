@@ -35,7 +35,11 @@ class JvmPlatformModuleConstructionIsolationTest {
         val app = koinApplication { modules(listOf(jvmPlatformModule(tempRoot.toFile()))) }
         try {
             assertTrue(
-                tempRoot.toFile().listFiles().orEmpty().isEmpty(),
+                tempRoot
+                    .toFile()
+                    .listFiles()
+                    .orEmpty()
+                    .isEmpty(),
                 "building the graph created ${tempRoot.toFile().list()?.toList()} " +
                     "before anything was used",
             )
@@ -55,11 +59,12 @@ class JvmPlatformModuleConstructionIsolationTest {
     ) {
         val app = koinApplication { modules(listOf(jvmPlatformModule(tempRoot.toFile()))) }
         try {
-            val directories = listOf(
-                BackupDirQualifier,
-                LogDirQualifier,
-                AttachmentDirQualifier,
-            ).map { qualifier -> app.koin.get<String>(qualifier) }
+            val directories =
+                listOf(
+                    BackupDirQualifier,
+                    LogDirQualifier,
+                    AttachmentDirQualifier,
+                ).map { qualifier -> app.koin.get<String>(qualifier) }
 
             directories.forEach { directory ->
                 assertTrue(

@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
  * [androidx.sqlite.execSQL].
  *
  * End-to-end execution on a real [androidx.sqlite.driver.bundled.BundledSQLiteDriver]
- * is verified by [AppDatabaseFactoryJvmTest].
+ * is verified by [JvmDatabaseSeamTest].
  */
 @Tag("slow")
 @Tag("slow:data")

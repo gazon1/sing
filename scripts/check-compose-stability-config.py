@@ -1302,10 +1302,16 @@ def check_register_parameters(
 )
 @click.option(
     "--source-root",
+    "source_roots_option",
     type=click.Path(path_type=pathlib.Path),
-    default=ROOT / "shared" / "src" / "commonMain" / "kotlin",
+    multiple=True,
+    default=(
+        ROOT / "shared" / "src" / "commonMain" / "kotlin",
+        ROOT / "core-domain" / "src" / "commonMain" / "kotlin",
+        ROOT / "core-database" / "src" / "commonMain" / "kotlin",
+    ),
     show_default=True,
-    help="the Kotlin sources the project-namespace entries are resolved against",
+    help="the Kotlin source roots project-namespace entries are resolved against (repeatable)",
 )
 @click.option(
     "--root",
@@ -1332,7 +1338,7 @@ def check_register_parameters(
 def cli(
     ctx: click.Context,
     conf: pathlib.Path,
-    source_root: pathlib.Path,
+    source_roots_option: tuple[pathlib.Path, ...],
     root: pathlib.Path,
     register: pathlib.Path,
     debt_baseline: pathlib.Path,
@@ -1350,7 +1356,9 @@ def cli(
         )
         raise ctx.exit(VALIDATION_FAILURE)
 
-    sources = kotlin_sources(source_root)
+    sources = [
+        source for source_root in source_roots_option for source in kotlin_sources(source_root)
+    ]
     declarations = declared_declarations(sources)
     findings = check_entries(entries, declarations, imported_types(sources))
     findings += check_contract_honesty(entries, declarations)

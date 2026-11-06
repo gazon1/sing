@@ -395,8 +395,8 @@ row makes adds frequent, which is exactly the usage that finds the collision.
 ## D17 — The server allowlist row is added by a dated migration
 
 **Decision**: `task.workflowState` is added to `config/docs/sync-field-allowlist.json`,
-`supabase/sync_field_allowlist_seed.sql` is regenerated from it, and a dated migration in
-`supabase/migrations/` inserts the row into the server's `sync_field_allowlist` table.
+`infra/supabase/sync_field_allowlist_seed.sql` is regenerated from it, and a dated migration in
+`infra/supabase/migrations/` inserts the row into the server's `sync_field_allowlist` table.
 
 **Rationale**: The client derives the wire field list from the model, so the field is on
 the wire the moment it is on `Task`. Whether the **server** accepts it is a separate

@@ -4,7 +4,7 @@
 --
 -- This file DESCRIBES the field table the server is expected to hold; it is
 -- not a migration to apply. The live table is seeded by the dated
--- migrations in supabase/migrations/, which the gate reads statement by
+-- migrations in infra/supabase/migrations/, which the gate reads statement by
 -- statement — and whatever it cannot read there it reports, so a row of the
 -- table it did not see is a failure with a name on it, not a row that
 -- quietly disappears. Applying this file on a database

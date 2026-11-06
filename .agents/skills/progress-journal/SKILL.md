@@ -1,18 +1,18 @@
 ---
 name: progress-journal
-description: Update PROGRESS.md during and after an epic — retro entries, PR status, blockers.
+description: Track an epic's progress in its issue — retro entries, PR status, blockers.
 ---
 
 # Progress Journal
 
 ## When to use
 
-During an epic with multiple PRs, update `PROGRESS.md` after each PR merge. Update retro findings immediately after the retro meeting.
+During an epic with multiple PRs, update the epic's issue after each PR merge. Update retro findings immediately after the retro meeting. The tables below go in the issue body or in its status comment — there is no separate progress file.
 
 ## Prerequisites
 
-- `PROGRESS.md` exists at repo root
-- Epic is tracked in PROGRESS.md (in-progress status)
+- The epic has an issue (the tracker is the ledger — `docs/agents/issue-tracker.md`)
+- The issue carries the in-progress status
 
 ## Step-by-step
 
@@ -108,6 +108,6 @@ Each retro answers:
 ## Common pitfalls
 
 1. **Editing retro after merge** — retro entries are append-only after PR merge. Do not edit an already-merged retro.
-2. **Missing bidirectional links** — retro ADRs reference PROGRESS.md entry; PROGRESS.md entry references the retro ADR.
+2. **Missing bidirectional links** — retro ADRs reference the epic's issue entry; the issue entry references the retro ADR.
 3. **Forgetting blockers** — always note blockers and deferred items with the ADR that records them.
 4. **Non-atomic retro** — each PR gets its own retro section, even if the PR is small. This creates a complete audit trail.

@@ -103,6 +103,7 @@ class HkConfigTest(unittest.TestCase):
             root.mkdir()
             subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=root, check=True, env=sandbox_env(root))
             shutil.copy(MISE, root / 'mise.toml')
+            shutil.copy(HK_PKL, root / 'hk.pkl')
             (root / 'scripts').mkdir()
             shutil.copy(GENERATOR, root / 'scripts' / 'generate-hk-pkl.sh')
             subprocess.run(

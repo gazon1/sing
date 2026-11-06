@@ -91,8 +91,7 @@ import java.io.File
  * Database layout mirrors `PlatformModule.android.kt`: one [AppDatabase] singleton, all
  * DAOs wired through Koin.
  */
-actual fun platformModule(): Module =
-    jvmPlatformModule(applicationRoot = File(System.getProperty("user.home")))
+actual fun platformModule(): Module = jvmPlatformModule(applicationRoot = File(System.getProperty("user.home")))
 
 /**
  * The JVM platform bindings, with every file rooted at [applicationRoot].
@@ -103,6 +102,7 @@ actual fun platformModule(): Module =
  * real home. `user.home` is process-global and cannot be redirected per test: two tests
  * that set it race for it. Passing the root is what makes isolation possible.
  */
+@Suppress("LongMethod") // one binding list; splitting it would only move the lines
 fun jvmPlatformModule(applicationRoot: File): Module =
     module {
         // `~/.singularity-todo`, under whichever root this module was given.

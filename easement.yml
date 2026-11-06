@@ -14,7 +14,7 @@ no_cycles: true
 
 uncovered_ok:
   - { name: "Maestro/helpers/scripts/**", because: "Maestro test helpers with no tsconfig" }
-  - { name: "supabase/functions/**", because: "Deno edge functions live in their own project" }
+  - { name: "infra/supabase/functions/**", because: "Deno edge functions live in their own project" }
   - { name: "infra/gen_sync_allowlist_sql.py", because: "one-off infra script with no project file" }
 
 components:
@@ -30,7 +30,6 @@ components:
   mcp-server: { in: mcp-server }
   pro: { in: pro }
   shared: { in: shared }
-  supabase: { in: supabase }
 
 rules:
   adr-cli: { may_depend_on: [adr-core, core-base], because: "CLI sits on top of adr-core and core-base" }

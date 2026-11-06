@@ -137,8 +137,10 @@ fun todayAt(
     clock: Clock,
     zone: TimeZone,
 ): LocalDate =
-    clock.now()
-        .toLocalDateTime(zone).date
+    clock
+        .now()
+        .toLocalDateTime(zone)
+        .date
 
 /**
  * Today's [LocalDate] in [zone], read from the system clock.
@@ -146,15 +148,13 @@ fun todayAt(
  * NoDirectClockSystemRule exemption: this is the intentional single call site.
  * If you move this function, update isAllowedPath() in NoDirectClockSystemRule.kt.
  */
-internal fun todayAt(zone: TimeZone): LocalDate =
-    todayAt(Clock.System, zone)
+internal fun todayAt(zone: TimeZone): LocalDate = todayAt(Clock.System, zone)
 
 /** The local wall-clock time at a kotlinx-datetime [Instant] in [zone]. */
 fun localTimeAt(
     instant: Instant,
     zone: TimeZone = TimeZone.currentSystemDefault(),
-): LocalDateTime =
-    instant.toLocalDateTime(zone)
+): LocalDateTime = instant.toLocalDateTime(zone)
 
 /**
  * The local wall-clock [LocalDateTime] for the current instant from [clock] in [zone].
@@ -169,11 +169,12 @@ fun localTimeAt(
     clock: Clock,
     zone: TimeZone = TimeZone.currentSystemDefault(),
 ): LocalDateTime =
-    Instant.fromEpochMilliseconds(
-        clock.now()
-            .toEpochMilliseconds()
-    )
-        .toLocalDateTime(zone)
+    Instant
+        .fromEpochMilliseconds(
+            clock
+                .now()
+                .toEpochMilliseconds(),
+        ).toLocalDateTime(zone)
 
 /**
  * The current local wall-clock time, to the second.
@@ -189,8 +190,7 @@ fun localTimeAt(
  * NoDirectClockSystemRule exemption: this is the intentional single call site.
  * If you move this function, update isAllowedPath() in NoDirectClockSystemRule.kt.
  */
-fun nowInSystemZone(): LocalDateTime =
-    localTimeAt(Clock.System.now())
+fun nowInSystemZone(): LocalDateTime = localTimeAt(Clock.System.now())
 
 /**
  * Computes milliseconds until the next local midnight after [today] in [zone].
@@ -205,8 +205,10 @@ private fun delayUntilNextMidnight(
     today: LocalDate,
     zone: TimeZone,
 ): Long {
-    val tomorrowMidnight = today.plus(1, DateTimeUnit.DAY)
-        .atStartOfDayIn(zone)
+    val tomorrowMidnight =
+        today
+            .plus(1, DateTimeUnit.DAY)
+            .atStartOfDayIn(zone)
     val now = clock.now()
     return (tomorrowMidnight - now).inWholeMilliseconds
 }
@@ -222,5 +224,4 @@ private fun delayUntilNextMidnight(
  * on 2026-10-05 to say what it costs the caller; the old name read like a neutral
  * accessor, and 17 sites used it as one.
  */
-fun systemToday(): LocalDate =
-    todayAt(TimeZone.currentSystemDefault())
+fun systemToday(): LocalDate = todayAt(TimeZone.currentSystemDefault())

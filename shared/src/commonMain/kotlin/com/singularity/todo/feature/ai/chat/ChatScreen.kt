@@ -496,7 +496,7 @@ private suspend fun LazyListState.slideToContentEnd(
             if (animate) animateScrollBy(remaining) else scrollBy(remaining)
         }
         return MoveOutcome.Landed
-    } catch (preempted: CancellationException) {
+    } catch (_: CancellationException) {
         // A reader's drag outranks this move and cancels it. That ends the move, not the follower:
         // the mover is still collecting, and the next token is served as usual. Nothing is
         // recorded about where the list now sits — the reader put it there, and the next request

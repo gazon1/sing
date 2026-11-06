@@ -107,7 +107,7 @@ class FakeDraftStore : DraftStore {
 
 ## 2. StableJson — centralized serialization config
 
-**Location:** `shared/src/commonMain/kotlin/com/singularity/todo/core/serialization/StableJson.kt`
+**Location:** `core-domain/src/commonMain/kotlin/com/singularity/todo/core/serialization/StableJson.kt`
 
 All JSON encoding/decoding goes through this single config:
 

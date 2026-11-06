@@ -18,5 +18,5 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: google/osv-scanner-action@v1
+      - uses: google/osv-scanner-action/osv-scanner-action@v2.7.0
         continue-on-error: true

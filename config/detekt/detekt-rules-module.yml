@@ -100,7 +100,7 @@ complexity:
     allowedComplexity: 20      # bumped from default 14
   TooManyFunctions:
     active: true
-    allowedFunctionsPerFile: 25  # bumped from default 10
+    allowedFunctionsPerFile: 25  # bumped from default 11
     # Bumped from the default 11 because of `CalendarSyncViewModel`, which reached 13 by
     # covering two genuinely different providers: the system calendar and Google. Its
     # handlers are one `private fun` per intent, which is the house shape — the rule that

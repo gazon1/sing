@@ -152,6 +152,8 @@ fun NotePreviewScreen(
 
 // ─── Content ─────────────────────────────────────────────────────────────────
 
+// A preview is one column of sections; splitting it would only move the lines.
+@Suppress("LongMethod")
 @Composable
 fun NotePreviewScreenContent(
     state: NotePreviewState,
