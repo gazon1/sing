@@ -74,6 +74,12 @@ a "Later" section to close the gap: the relative buckets have no open-ended
 range, and a catch-all section would make Upcoming the wide view under a tab
 name.
 
+On a working day with work hours configured, the Today tab keeps these two
+sections and adds the user's work blocks between them (Overdue, the blocks,
+then the rest of today), so the partition and horizon hold for that
+configuration too — see ADR
+`2026-11-05-the-work-day-plan-sits-inside-the-today-tab`.
+
 Two rules keep the tabs apart:
 
 - **A tab never repeats another's bucket.** `Upcoming` used to open with

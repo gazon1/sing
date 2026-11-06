@@ -3,6 +3,7 @@ package com.singularity.todo.core.database
 import com.singularity.todo.core.format.LocalTimeFormats
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.core.serialization.parseWireNameOrNull
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -123,9 +124,11 @@ fun String?.toProjectIdOrNull(): ProjectId? = this?.takeIf { it.isNotBlank() }?.
  * must not make the task unreadable: a row written by a build that knew a
  * fourth state reads back as [TaskWorkflowState.Open] — "nothing claimed" —
  * rather than throwing on every list load.
+ *
+ * The name the format gives the state (`open`, `next_up`, `in_progress`) is read
+ * as well, so a row written under either spelling says what it says.
  */
-fun String.toWorkflowState(): TaskWorkflowState =
-    TaskWorkflowState.entries.firstOrNull { it.name == this } ?: TaskWorkflowState.Open
+fun String.toWorkflowState(): TaskWorkflowState = parseWireNameOrNull<TaskWorkflowState>(this) ?: TaskWorkflowState.Open
 
 /**
  * Converts a [TaskEntity] to a domain [Task].

@@ -103,16 +103,13 @@ internal object BackupRows {
 }
 
 /** The key of a link table's row: the two ids it joins. */
-private fun TaskTagDto.linkKey(): String = "$taskId$LINK_SEPARATOR$tagId"
+private fun TaskTagDto.linkKey(): String = taskId.link(tagId)
 
 /** The key of a link table's row: the two ids it joins. */
-private fun TaskDependencyDto.linkKey(): String = "$taskId$LINK_SEPARATOR$dependsOnTaskId"
+private fun TaskDependencyDto.linkKey(): String = taskId.link(dependsOnTaskId)
 
 /** The key of a link table's row: the two ids it joins. */
-private fun ProjectTagGroupDto.linkKey(): String = "$projectId$LINK_SEPARATOR$tagGroupId"
-
-/** The character that joins the two halves of a link table's key. */
-private const val LINK_SEPARATOR = "\u0000"
+private fun ProjectTagGroupDto.linkKey(): String = projectId.link(tagGroupId)
 
 /**
  * A local, non-cryptographic fingerprint of [text].

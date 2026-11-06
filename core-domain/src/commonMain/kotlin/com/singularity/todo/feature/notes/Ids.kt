@@ -3,6 +3,7 @@ package com.singularity.todo.feature.notes
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.search.Searchable
 import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.core.serialization.WireNamed
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncableEntity
@@ -64,17 +65,20 @@ value class NoteColor(val value: Int) {
  * - [Plain]: regular user notes
  * - [Daily]: one note per day, keyed by date (journal/daily-log)
  * - [Template]: note used as a template for creating other notes
+ *
+ * The wire name is a contract, not the constant's name — see
+ * [com.singularity.todo.core.serialization.WireNamed].
  */
 @Serializable
-enum class NoteKind {
+enum class NoteKind(override val wireName: String) : WireNamed {
     /** Regular note. */
-    Plain,
+    Plain("plain"),
 
     /** Daily journal note, one per day. */
-    Daily,
+    Daily("daily"),
 
     /** Template note used to create new notes from. */
-    Template,
+    Template("template"),
 }
 
 /**

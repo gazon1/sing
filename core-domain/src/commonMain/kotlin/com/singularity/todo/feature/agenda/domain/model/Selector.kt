@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.agenda.domain.model
 
+import com.singularity.todo.core.serialization.WireNamed
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -16,18 +17,23 @@ import kotlin.time.Duration.Companion.days
  * Used for preset sections like "Today", "This Week", "Overdue", etc.
  * The actual date range for each bucket is computed by [RelativeBucket.toDateRange]
  * using the provided `today`.
+ *
+ * The wire name is a contract, not the constant's name: a saved agenda view
+ * holds the bucket it was saved under, and renaming the constant must not
+ * change what that view says. See
+ * [com.singularity.todo.core.serialization.WireNamed].
  */
 @Serializable
-enum class RelativeBucket {
-    Today,
-    Yesterday,
-    Tomorrow,
-    ThisWeek,
-    NextWeek,
-    ThisMonth,
-    NextMonth,
-    Overdue,
-    NoDate,
+enum class RelativeBucket(override val wireName: String) : WireNamed {
+    Today("today"),
+    Yesterday("yesterday"),
+    Tomorrow("tomorrow"),
+    ThisWeek("this_week"),
+    NextWeek("next_week"),
+    ThisMonth("this_month"),
+    NextMonth("next_month"),
+    Overdue("overdue"),
+    NoDate("no_date"),
 }
 
 /**

@@ -58,6 +58,7 @@ __all__ = [
     "TestCaseResult",
     "parse_junit_file",
     "parse_junit_file_strict",
+    "parse_junit_text",
     "iter_result_files",
     "MESSAGE_LIMIT",
 ]
@@ -149,6 +150,17 @@ def _classify(case: ET.Element) -> tuple[str, ET.Element | None]:
     if node is not None:
         return "skipped", node
     return "passed", None
+
+
+def parse_junit_text(text: str) -> list[TestCaseResult]:
+    """Parse one JUnit XML document held in memory.
+
+    The text twin of :func:`parse_junit_file_strict`: a reporter that already
+    has the document parses it through the same code, so the repository keeps
+    one reader instead of one reader per entry point. Raises
+    ``ET.ParseError`` on a malformed document, like its file twin.
+    """
+    return _results_from_root(ET.fromstring(text))
 
 
 def parse_junit_file_strict(path: Path) -> list[TestCaseResult]:

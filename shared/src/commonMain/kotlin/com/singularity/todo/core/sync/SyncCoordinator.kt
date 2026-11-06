@@ -45,6 +45,19 @@ import kotlinx.coroutines.launch
 internal class SyncCoordinator(
     private val runCycle: suspend () -> SyncOutcome,
     private val scope: AutoCloseableCoroutineScope,
+    /**
+     * Resolves the pull-handler bootstrapper before the first cycle.
+     *
+     * Nothing in the graph asks for `SyncBootstrapper`, and a Koin singleton is
+     * created only when something does. Without this the bootstrapper is never
+     * instantiated, no per-type handler is registered, and every pulled event is
+     * dropped as an unknown type with the cursor held back.
+     *
+     * A provider rather than a constructor argument: the bootstrapper reaches
+     * the repositories, and the repositories reach the sync facade, so resolving
+     * it while the graph is being built re-enters the facade's own factory.
+     */
+    private val bootstrap: () -> Unit = {},
     private val log: Logger = Logger.withTag("SyncCoordinator"),
 ) {
     /**
@@ -123,6 +136,7 @@ internal class SyncCoordinator(
     @Suppress("TooGenericExceptionCaught") // a cycle may throw anything; the consumer must outlive it
     private suspend fun runCycleCatching(): SyncOutcome =
         try {
+            bootstrap()
             runCycle()
         } catch (e: CancellationException) {
             throw e

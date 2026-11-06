@@ -1,8 +1,9 @@
 ---
 title: "The local verification loop is declared in hk.pkl, and check.sh is its entry point"
 date: 2026-11-05
-status: accepted
+status: superseded
 tags: ["tooling", "gates", "ci"]
+superseded-by: 2026-11-06-check-sh-is-an-entry-point-over-tested-scripts
 ---
 
 # The local verification loop is declared in hk.pkl, and check.sh is its entry point

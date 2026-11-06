@@ -1,6 +1,10 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.feature.notes.NoteKind
+import com.singularity.todo.feature.tasks.domain.model.TaskKind
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -247,6 +251,98 @@ class BackupMigrationsTest {
     }
 
     /**
+     * v7 → v8: the values are named by contract, not by the constant's name.
+     *
+     * A v7 payload spelled a task's priority `High` and its workflow state
+     * `NextUp` — the name of the Kotlin constant. The step rewrites them into the
+     * names the format declares, so the payload that comes out of the chain is the
+     * payload this build writes.
+     */
+    @Test
+    fun theV7ToV8StepRenamesTheValues() {
+        val text =
+            """{"schemaVersion":7,"tasks":[{"id":"t1","title":"A task","priority":"High",""" +
+                """"kind":"Task","workflowState":"NextUp"}],"notes":[{"id":"n1","title":"A note","kind":"Daily"}]}"""
+        val original = payload(text)
+        val result = BackupMigrations.migrate(original, 7, 8)
+
+        assertEquals("8", result.string("schemaVersion"))
+
+        val task = result.taskAt(0)
+        assertEquals("high", task.string("priority"), "the priority is named by the format")
+        assertEquals("task", task.string("kind"), "the kind is named by the format")
+        assertEquals("next_up", task.string("workflowState"), "the workflow state is named by the format")
+        assertEquals("daily", result.noteAt(0).string("kind"), "the note kind is named by the format")
+    }
+
+    /**
+     * The step rewrites the spellings the format declares, and not a spelling of
+     * its own.
+     *
+     * The step's tables are literal — a format is frozen — so they can drift away
+     * from the enums that declare the same names. This reads every value the
+     * enums declare and says what the step makes of it.
+     */
+    @Test
+    fun theStepRewritesTheNamesTheEnumsDeclare() {
+        TaskPriority.entries.forEach { priority ->
+            val result =
+                BackupMigrations.migrate(
+                    payload("""{"schemaVersion":7,"tasks":[{"id":"t1","priority":"${priority.name}"}]}"""),
+                    7,
+                    8,
+                )
+            assertEquals(
+                priority.wireName,
+                result.taskAt(0).string("priority"),
+                "the step must rewrite ${priority.name} the way the enum declares it",
+            )
+        }
+
+        TaskKind.entries.forEach { kind ->
+            val result =
+                BackupMigrations.migrate(
+                    payload("""{"schemaVersion":7,"tasks":[{"id":"t1","kind":"${kind.name}"}]}"""),
+                    7,
+                    8,
+                )
+            assertEquals(
+                kind.wireName,
+                result.taskAt(0).string("kind"),
+                "the step must rewrite ${kind.name} the way the enum declares it",
+            )
+        }
+
+        TaskWorkflowState.entries.forEach { state ->
+            val result =
+                BackupMigrations.migrate(
+                    payload("""{"schemaVersion":7,"tasks":[{"id":"t1","workflowState":"${state.name}"}]}"""),
+                    7,
+                    8,
+                )
+            assertEquals(
+                state.wireName,
+                result.taskAt(0).string("workflowState"),
+                "the step must rewrite ${state.name} the way the enum declares it",
+            )
+        }
+
+        NoteKind.entries.forEach { kind ->
+            val result =
+                BackupMigrations.migrate(
+                    payload("""{"schemaVersion":7,"notes":[{"id":"n1","kind":"${kind.name}"}]}"""),
+                    7,
+                    8,
+                )
+            assertEquals(
+                kind.wireName,
+                result.noteAt(0).string("kind"),
+                "the step must rewrite ${kind.name} the way the enum declares it",
+            )
+        }
+    }
+
+    /**
      * Every version the chain covers reaches the version this build writes.
      *
      * The chain used to skip v2 and v5: a payload written at either version
@@ -321,7 +417,7 @@ class BackupMigrationsTest {
 
         val task = result.taskAt(0)
         assertEquals("null", task.string("parentTaskId"), "the first step filled in the fields v1 did not have")
-        assertEquals("Open", task.string("workflowState"), "the last step that touches a task said what it means")
+        assertEquals("open", task.string("workflowState"), "the last step that touches a task said what it means")
         assertEquals("BLOCKS", result.dependencyAt(0).string("verb"), "the edge says what it means")
     }
 
@@ -460,9 +556,9 @@ class BackupMigrationsTest {
         assertEquals(2, payload.tasks.size, "the chain keeps every task it was given")
         payload.tasks.forEach { task ->
             assertEquals(
-                "Open",
+                "open",
                 task.workflowState,
-                "v5→v6 says a task written before the state existed claims nothing, and every row carries Open",
+                "v5→v6 says a task written before the state existed claims nothing, and v7→v8 names it `open`",
             )
             assertNull(
                 task.estimateMinutes,

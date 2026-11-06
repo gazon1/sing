@@ -5,10 +5,14 @@ status: accepted
 ---
 
 > **Superseded in part (2026-11-04):** the `TaskFilter.Inbox` filter and the AI tool's
-> `inbox` selection are now `TaskFilter.NotDeferred` and `active_not_deferred`. The old
-> `inbox` name still decodes as an alias of the latter. The tab partition and the Inbox
-> tab described here are unchanged. See
+> `inbox` selection are now `TaskFilter.NotDeferred` and `active_not_deferred`. The tab
+> partition and the Inbox tab described here are unchanged. See
 > [2026-11-04-inbox-names-the-unscheduled-tab.md](2026-11-04-inbox-names-the-unscheduled-tab.md).
+>
+> **Superseded in part (2026-11-06):** the `inbox` alias is gone — the wire no longer
+> answers to that word, and a caller that sends it is refused rather than given a
+> wider answer than the one it asked for. See
+> [2026-11-06-one-name-one-question.md](2026-11-06-one-name-one-question.md).
 
 # Domain Glossary Policy
 

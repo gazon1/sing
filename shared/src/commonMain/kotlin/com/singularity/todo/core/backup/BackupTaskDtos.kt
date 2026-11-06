@@ -9,6 +9,9 @@ import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.toLocalTimeOrNull
 import com.singularity.todo.core.database.toWorkflowState
 import com.singularity.todo.core.format.LocalTimeFormats
+import com.singularity.todo.core.serialization.parseWireName
+import com.singularity.todo.feature.tasks.domain.model.TaskKind
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
 import kotlinx.datetime.LocalTime
 import kotlinx.serialization.Serializable
@@ -24,8 +27,17 @@ data class TaskDto(
     val id: String,
     val title: String,
     val description: String? = null,
-    val priority: String = "None",
-    val kind: String = "Task",
+    /**
+     * How urgent the task is, under the name the format gives it: `none`, `low`,
+     * `medium`, `high` or `urgent`.
+     *
+     * The name is a contract of the format, not the name of the Kotlin constant —
+     * see [com.singularity.todo.core.serialization.WireNamed]. A payload written
+     * before the format named its values (`None`) is still read.
+     */
+    val priority: String = "none",
+    /** `task` or `note` — the kind of row this is, under the format's own name. */
+    val kind: String = "task",
     val projectId: String? = null,
     /**
      * The id of the task this one is a child of; `null` for a top-level task.
@@ -62,14 +74,16 @@ data class TaskDto(
      */
     val seriesId: String? = null,
     /**
-     * The state the user claimed for this task's work — `Open`, `NextUp` or
-     * `InProgress`.
+     * The state the user claimed for this task's work — `open`, `next_up` or
+     * `in_progress`.
      *
-     * A backup written before the field existed restores as `Open`, which is what
+     * A backup written before the field existed restores as `open`, which is what
      * "nothing claimed" means. A name this build does not know restores as
-     * `Open` too, rather than failing the restore.
+     * `open` too, rather than failing the restore. The spelling is the format's
+     * own — see [com.singularity.todo.core.serialization.WireNamed] — and a
+     * payload that spells it the old way (`Open`) is still read.
      */
-    val workflowState: String = "Open",
+    val workflowState: String = "open",
     /** Wikilink targets of this task, stored as a list in JSON and as a JSON array column in Room. */
     val outgoingLinks: List<String> = emptyList(),
     val aiSuppressedTagIds: List<String> = emptyList(),
@@ -82,8 +96,8 @@ fun TaskEntity.toDto(): TaskDto =
         id = id,
         title = title,
         description = description,
-        priority = priority.name,
-        kind = kind.name,
+        priority = priority.wireName,
+        kind = kind.wireName,
         projectId = projectId,
         parentTaskId = parentTaskId,
         dueDate = dueDate,
@@ -101,7 +115,7 @@ fun TaskEntity.toDto(): TaskDto =
         estimateMinutes = estimateMinutes,
         recurrenceRule = recurrenceRule,
         seriesId = seriesId,
-        workflowState = workflowState,
+        workflowState = workflowState.toWorkflowState().wireName,
         outgoingLinks = decodeLinkList(outgoingLinks), // JSON string → List
         aiSuppressedTagIds = decodeLinkList(aiSuppressedTagIds), // JSON string → List
         createdAt = createdAt,
@@ -114,11 +128,9 @@ fun TaskDto.toEntity(userId: String): TaskEntity =
         title = title,
         description = description,
         priority =
-            com.singularity.todo.feature.tasks.domain.model.TaskPriority
-                .valueOf(priority),
+            parseWireName<TaskPriority>(priority),
         kind =
-            com.singularity.todo.feature.tasks.domain.model.TaskKind
-                .valueOf(kind),
+            parseWireName<TaskKind>(kind),
         projectId = projectId,
         parentTaskId = parentTaskId,
         dueDate = dueDate,
@@ -136,6 +148,8 @@ fun TaskDto.toEntity(userId: String): TaskEntity =
         estimateMinutes = estimateMinutes,
         recurrenceRule = recurrenceRule,
         seriesId = seriesId,
+        // The column keeps the database's own spelling of the state; the payload
+        // speaks the format's. The two are read back by the same tolerant reader.
         workflowState = workflowState.toWorkflowState().name,
         outgoingLinks = encodeLinkList(outgoingLinks), // List → JSON string
         aiSuppressedTagIds = encodeLinkList(aiSuppressedTagIds), // List → JSON string

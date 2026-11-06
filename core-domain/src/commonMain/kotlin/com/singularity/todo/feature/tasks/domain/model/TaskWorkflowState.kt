@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.domain.model
 
+import com.singularity.todo.core.serialization.WireNamed
 import kotlinx.serialization.Serializable
 
 /**
@@ -40,13 +41,13 @@ import kotlinx.serialization.Serializable
  * @see com.singularity.todo.feature.tasks.domain.model.Task
  */
 @Serializable
-enum class TaskWorkflowState {
+enum class TaskWorkflowState(override val wireName: String) : WireNamed {
     /** Nothing claimed. The default for every task, existing or new. */
-    Open,
+    Open("open"),
 
     /** The user marked this as the one they will do next. */
-    NextUp,
+    NextUp("next_up"),
 
     /** The user is working on this now. */
-    InProgress,
+    InProgress("in_progress"),
 }

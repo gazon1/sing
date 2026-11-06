@@ -199,6 +199,42 @@ hooks {
     }
   }
 
+  ["device"] {
+    // The steps that need hardware: the instrumented tier on a real device,
+    // the floor that tier has to meet, and the Maestro UI flows.
+    //
+    // They are a hook of their own, and not steps of the `check` hook, for
+    // the reason ADR 2026-11-06 gives: they need a device, they are opt-in,
+    // and their failure is not this loop's verdict. `hk check` runs the
+    // `check` hook only, so CI does not run them either. `hk run device` runs
+    // them.
+    //
+    // `exclusive` makes each step its own group, so they run one after
+    // another: the floor reads the report the instrumentation leaves, and the
+    // flows run on the device the instrumentation used.
+    fix = false
+    stash = "none"
+
+    steps {
+      ["android instrumentation"] {
+        exclusive = true
+        check = "python3 scripts/android-instrumentation.py :androidApp:connectedDebugAndroidTest"
+      }
+
+      ["instrumented floor"] {
+        exclusive = true
+        depends = "android instrumentation"
+        check = "if [ -d androidApp/build/outputs/androidTest-results/connected ]; then python3 scripts/check-instrumented-test-floor.py; else echo 'no instrumented report — the floor has nothing to check'; fi"
+      }
+
+      ["maestro flows"] {
+        exclusive = true
+        depends = "instrumented floor"
+        check = "python3 scripts/maestro-flows.py"
+      }
+    }
+  }
+
   ["post-checkout"] {
     fix = false
     stash = "none"

@@ -34,6 +34,9 @@ RUNNER = REPO / "scripts" / "checkout-entry.py"
 JUST_TESTS = REPO / ".just" / "tests" / "mod.just"
 JUST_TRACEABILITY = REPO / ".just" / "traceability" / "mod.just"
 CHECK_SH = REPO / "check.sh"
+#: The Maestro lane lives in its own script since the `device` hook moved it
+#: out of `check.sh` (ADR 2026-11-06).
+MAESTRO_FLOWS = REPO / "scripts" / "maestro-flows.py"
 
 #: The bare console scripts, as they are written on a line of their own. A
 #: recipe that calls one of them measures whichever checkout was installed last.
@@ -113,8 +116,27 @@ class RmWrapperTest(unittest.TestCase):
                 f"{path.name} does not go through the wrapper at all",
             )
 
-    def test_the_check_script_goes_through_the_wrapper(self) -> None:
-        """`check.sh` runs the Maestro lane too, and it must be this checkout's."""
+    def test_the_maestro_step_goes_through_the_wrapper(self) -> None:
+        """The Maestro lane runs `./rm`, so the flows are this checkout's."""
+        text = MAESTRO_FLOWS.read_text(encoding="utf-8")
+        for line in text.splitlines():
+            stripped = line.strip()
+            self.assertIsNone(
+                BARE_CALL.match(stripped),
+                f"maestro-flows.py calls the installed package instead of the wrapper: {stripped!r}",
+            )
+        self.assertIn(
+            "./rm",
+            text,
+            "maestro-flows.py does not go through the wrapper at all",
+        )
+
+    def test_the_check_script_does_not_run_the_maestro_lane(self) -> None:
+        """The lane moved to the `device` hook; `check.sh` no longer calls it.
+
+        The loop's verdict is not the device's verdict, so the device steps are
+        a hook of their own (`hk run device`).
+        """
         text = CHECK_SH.read_text(encoding="utf-8")
         for line in text.splitlines():
             stripped = line.strip()
@@ -122,10 +144,10 @@ class RmWrapperTest(unittest.TestCase):
                 BARE_CALL.match(stripped),
                 f"check.sh calls the installed package instead of the wrapper: {stripped!r}",
             )
-        self.assertIn(
+        self.assertNotIn(
             "./rm",
             text,
-            "check.sh does not go through the wrapper at all",
+            "check.sh still runs the Maestro lane",
         )
 
     def test_it_refuses_when_a_package_does_not_resolve_here(self) -> None:

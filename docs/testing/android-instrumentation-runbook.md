@@ -69,6 +69,39 @@ recreated label with a different colour looks like a different label in the
 pull request's sidebar, and a person deciding whether to add it will notice that
 before they notice that it is missing.
 
+## Running the tier locally
+
+The device tier is a hook of its own in `hk.pkl`, not a step of the local loop:
+
+```bash
+hk run device            # or: just tests::check-device
+```
+
+It runs three steps, one after another: `scripts/android-instrumentation.py`
+(the instrumented suite on the attached device), the floor check against the
+report that step leaves, and `scripts/maestro-flows.py` (the Maestro flows on
+the same device).
+
+The hook is not part of `hk check`, so no profile runs it and CI does not run
+it: the tier needs hardware, and its verdict is not the loop's verdict.
+
+The switches inside the steps are the caller's:
+
+- `SKIP_ADB=1` — the instrumentation step does not touch adb at all. This is
+  how the wiring is exercised on a machine with no device attached.
+- `RUN_MAESTRO=1` — the flows run. Without it the step says so and passes.
+- `MAESTRO_TAGS` (default `smoke`) and `SKIP_INSTALL=1` — which flows, and
+  whether the debug build is installed first.
+
+A run that does not happen leaves nothing behind. The instrumentation step
+clears the report and the recorded device *before* it starts, so the floor
+step after it has no report of an earlier run to price — the floor is a
+two-sided ratchet, and a stale report fails it for a coverage drop that never
+happened. The flows are pinned to the recorded device only while that device
+is attached; when it is gone, the Maestro runner picks one, as it did before
+the lane was split. `SERIAL` in the environment overrides both and is used as
+it is.
+
 ## Reading a failure
 
 A red device run leaves three artifacts, and they are uploaded unconditionally —

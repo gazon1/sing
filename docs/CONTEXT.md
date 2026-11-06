@@ -58,6 +58,12 @@ before the rename, since the old filter's query was `watchActive` — and the AI
 `active_not_deferred` selection reads the narrower one. The two used to share the name
 `Inbox`, which is why older notes call the filter "the inbox filter".
 
+**The wire does not answer to it.** The AI tool's selection was named `inbox` while it
+meant "not deferred", and the alias that kept decoding it was removed on 2026-11-06: the
+word belongs to the agenda's tab, so nothing else may answer to it. A caller that sends
+`inbox` gets an error rather than a wider answer than the one it asked for. See
+`ADR 2026-11-06-one-name-one-question`.
+
 **Used in:** `AgendaPresets.Inbox`, `AgendaEvaluator`, `TaskFilter.NotDeferred`, `TaskRepository.observeByFilter`
 
 ---
@@ -224,12 +230,13 @@ for the shared fields — a series edit rewrites every row, and that is what kee
 ## Task vocabulary registry
 
 **TaskVocabulary** is the registry that says what question each task name answers. It
-holds every `TaskFilter` shape, every `TaskSelection` wire name and every `AgendaPresets`
-preset, each with the question it answers.
+holds every `TaskFilter` shape, every `TaskSelection` wire name, every `AgendaPresets`
+preset and every agenda section title, each with the question it answers.
 
 **One name answers one question.** Where two vocabularies use the same word for different
 sets, the difference is declared in the registry as a divergence, with a reason — today,
-`upcoming` and `inbox`.
+`today` and `upcoming`. The third divergence, `inbox`, is gone: the wire no longer
+answers to it (see below).
 
 **This page explains the terms; the registry checks the code.** `TaskVocabularyTest` fails
 when a name is missing from the registry, when a name answers two questions without a

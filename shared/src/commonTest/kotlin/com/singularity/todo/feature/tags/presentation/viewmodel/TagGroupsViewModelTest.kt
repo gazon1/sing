@@ -3,6 +3,8 @@ package com.singularity.todo.feature.tags.presentation.viewmodel
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.domain.model.CreateTagGroupInput
 import com.singularity.todo.feature.tags.domain.model.TagGroup
@@ -14,9 +16,13 @@ import com.singularity.todo.feature.tags.domain.usecase.DeleteTagGroupUseCase
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -27,6 +33,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 
@@ -55,7 +62,7 @@ class TagGroupsViewModelTest {
     @AfterTest
     fun cleanup() = fakeRepo.clear()
 
-    private fun TestScope.createVm(): TagGroupsViewModel {
+    private fun TestScope.createVm(reporter: CrashReportingPort = NoOpCrashReportingPort()): TagGroupsViewModel {
         val authRepo = FakeAuthRepository(Session.Anonymous(UserId("user-a")))
         val currentUser = FakeProfileAwareCurrentUser(authRepo, scope = backgroundScope)
         advanceUntilIdle()
@@ -68,6 +75,7 @@ class TagGroupsViewModelTest {
                     currentUser = currentUser,
                 ),
             deleteTagGroup = DeleteTagGroupUseCase(fakeRepo),
+            crashReporter = reporter,
             // backgroundScope owns the VM's lifecycle: runTest cancels it when
             // the body completes, which terminates the observeAll() collector —
             // it never completes on its own, and a TestScope-owned scope makes
@@ -116,6 +124,35 @@ class TagGroupsViewModelTest {
             assertTrue(
                 state.message.isNotBlank(),
                 "Error must carry a user-presentable message, got \"${state.message}\"",
+            )
+        }
+
+    /**
+     * The reporter receives the throwable the repository threw.
+     *
+     * The observation fails inside a channel hop, and a channel carries a *copy*
+     * of the throwable — the original is the copy's cause. Reporting the copy
+     * would file a throwable that never existed, so the identity is what this
+     * asserts: the reporter has to receive the very instance the repository
+     * threw, not a look-alike carrying the same message.
+     */
+    @Test
+    fun `a failed observation reports the original cause`() =
+        runTest {
+            val failure = IllegalStateException("the tag groups are unavailable")
+            val reporter = RecordingCrashReportingPort()
+            fakeRepo.failWith(failure)
+
+            val vm = createVm(reporter)
+            runCurrent()
+
+            assertIs<TagGroupsUiState.Error>(vm.stateFlow.value)
+
+            val reported = reporter.reports.single { it.second == "tag_groups.observe_failed" }
+            assertSame(
+                failure,
+                reported.first,
+                "the reporter must receive the throwable the repository threw",
             )
         }
 
@@ -209,9 +246,14 @@ class TagGroupsViewModelTest {
             }
 
             override fun observeAll(): Flow<List<TagGroup>> =
-                groups.map { list ->
-                    failure?.let { throw it }
-                    list
+                // The hop is the point of this fake. Production observes through
+                // `observeForCurrentUser`, which is a `flatMapLatest`, and a channel
+                // carries a *copy* of the throwable — the original is the copy's
+                // cause. A fake that threw in place would hand the reporter the
+                // original and prove nothing about the unwrap.
+                groups.flatMapLatest { list ->
+                    val error = failure
+                    if (error != null) flow<List<TagGroup>> { throw error } else flowOf(list)
                 }
 
             override suspend fun create(input: CreateTagGroupInput): Result<TagGroup> {

@@ -289,6 +289,30 @@ class TaskDocumentWriteTest {
         }
 
     @Test
+    fun `a pulled document keeps the timestamp it carries`() =
+        runTest {
+            val repo = repo()
+            val older = Instant.fromEpochMilliseconds(1_700_000_000_000)
+            repo.create(task("t1", updatedAt = older)).getOrThrow()
+            advanceUntilIdle()
+
+            repo.upsert(
+                TaskDocument(
+                    task = repo.get(TaskId("t1"))!!,
+                    tags = null,
+                    blockedBy = null,
+                ),
+            )
+            advanceUntilIdle()
+
+            assertEquals(
+                older.toEpochMilliseconds(),
+                db.taskDao().getByIdForUser("t1", alice.value)?.updatedAt,
+                "the document's timestamp is the state it carries, not the wall clock",
+            )
+        }
+
+    @Test
     fun `a document that says nothing about the dependencies leaves them alone`() =
         runTest {
             val repo = repo()

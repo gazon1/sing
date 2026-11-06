@@ -66,8 +66,10 @@ encodes the precedence `failure > error > skipped > passed` and preserves the
   counts clean passes and skipped tests separately — a skipped test did not
   run, and a summary that counts it as a pass claims more than the run did —
   and turns a parse error into an `::warning`.
-- `scripts/ci/print-test-failures.sh` calls the same reader and prints the
-  message, the full stack trace and the retry note.
+- `scripts/print-test-failures.py` calls the same reader and prints the
+  message, the full stack trace and the retry note;
+  `scripts/ci/print-test-failures.sh` stays a thin shim over it, so `hk.pkl`
+  and the CI paths keep calling the name they already call.
 - `scripts/measure-flake-rate.py` counts flaky failures through the reader
   instead of its own ET parser.
 - `junitparser` is gone: the ad-hoc install in CI, the preflight check and the
@@ -128,7 +130,9 @@ differently in CI and on a developer machine. The standard library's
 ## Links
 
 - `scripts/src/traceability/junit_xml.py`, `scripts/junit-annotations.py`,
-  `scripts/ci/print-test-failures.sh`, `scripts/measure-flake-rate.py`
-- `scripts/tests/test_junit_reporting.py`, `scripts/tests/test_junit_xml.py`
+  `scripts/print-test-failures.py`, `scripts/ci/print-test-failures.sh`,
+  `scripts/measure-flake-rate.py`
+- `scripts/tests/test_junit_reporting.py`, `scripts/tests/test_junit_xml.py`,
+  `scripts/tests/test_print_test_failures.py`
 - `docs/engineering/test-reporting-audit.md` — the audit that found the
   divergence (findings F1–F3)

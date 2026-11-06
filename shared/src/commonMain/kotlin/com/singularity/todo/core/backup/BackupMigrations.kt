@@ -2,10 +2,13 @@ package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.serialization.StableJson
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 object BackupMigrations {
     const val CURRENT = BackupFormat.SCHEMA_VERSION
@@ -160,6 +163,100 @@ object BackupMigrations {
         JsonObject(payload + mapOf("schemaVersion" to JsonPrimitive(7)))
     }
 
+    /**
+     * v7 → v8: the values are named by contract, not by the constant's name.
+     *
+     * A v7 payload spelled a task's priority `High` and its workflow state
+     * `NextUp`: the name of the Kotlin constant. That made the format a hostage
+     * to the code — rename the constant and the backups stop meaning what they
+     * meant. A v8 payload spells the same values `high` and `next_up`, like
+     * every other name that travels off the device.
+     *
+     * The step rewrites the spellings rather than leaving the reader to know
+     * both, so the payload that comes out of the chain is the payload this build
+     * writes. The tables are literal: a format is frozen, and a step that read
+     * its spellings off the enums would rewrite an old backup into whatever the
+     * code says today.
+     */
+    private val v7ToV8: (JsonObject) -> JsonObject = { payload ->
+        val tasks =
+            payload["tasks"]?.jsonArray?.map { task ->
+                val obj = task.jsonObject
+                JsonObject(
+                    obj +
+                        mapOf(
+                            "priority" to JsonPrimitive(spelled(obj["priority"], TASK_PRIORITY_SPELLINGS, "none")),
+                            "kind" to JsonPrimitive(spelled(obj["kind"], TASK_KIND_SPELLINGS, "task")),
+                            "workflowState" to
+                                JsonPrimitive(spelled(obj["workflowState"], WORKFLOW_STATE_SPELLINGS, "open")),
+                        ),
+                )
+            } ?: emptyList()
+        val notes =
+            payload["notes"]?.jsonArray?.map { note ->
+                val obj = note.jsonObject
+                JsonObject(obj + mapOf("kind" to JsonPrimitive(spelled(obj["kind"], NOTE_KIND_SPELLINGS, "plain"))))
+            } ?: emptyList()
+        JsonObject(
+            payload +
+                mapOf(
+                    "tasks" to JsonArray(tasks),
+                    "notes" to JsonArray(notes),
+                    "schemaVersion" to JsonPrimitive(8),
+                ),
+        )
+    }
+
+    /** The v7 spellings of a task's priority, and the v8 ones. */
+    private val TASK_PRIORITY_SPELLINGS =
+        mapOf(
+            "None" to "none",
+            "Low" to "low",
+            "Medium" to "medium",
+            "High" to "high",
+            "Urgent" to "urgent",
+        )
+
+    /** The v7 spellings of a task's kind, and the v8 ones. */
+    private val TASK_KIND_SPELLINGS =
+        mapOf(
+            "Task" to "task",
+            "Note" to "note",
+        )
+
+    /** The v7 spellings of a task's workflow state, and the v8 ones. */
+    private val WORKFLOW_STATE_SPELLINGS =
+        mapOf(
+            "Open" to "open",
+            "NextUp" to "next_up",
+            "InProgress" to "in_progress",
+        )
+
+    /** The v7 spellings of a note's kind, and the v8 ones. */
+    private val NOTE_KIND_SPELLINGS =
+        mapOf(
+            "Plain" to "plain",
+            "Daily" to "daily",
+            "Template" to "template",
+        )
+
+    /**
+     * The v8 spelling of the value [element] carries.
+     *
+     * A value the table does not know is kept as it is: the reader accepts both
+     * spellings, so an unknown one is still read for what it says. A field that
+     * is not there at all gets [fallback] — the spelling of the value the row
+     * would have had.
+     */
+    private fun spelled(
+        element: JsonElement?,
+        spellings: Map<String, String>,
+        fallback: String,
+    ): String {
+        val raw = element?.jsonPrimitive?.contentOrNull ?: return fallback
+        return spellings[raw] ?: raw
+    }
+
     // Map<fromVersion, transform>
     private val migrations: Map<Int, (JsonObject) -> JsonObject> =
         mapOf(
@@ -169,6 +266,7 @@ object BackupMigrations {
             4 to v4ToV5,
             5 to v5ToV6,
             6 to v6ToV7,
+            7 to v7ToV8,
         )
 
     /**

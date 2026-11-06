@@ -509,9 +509,12 @@ class FakeBackupRepository : BackupRepository {
         return exportResult
     }
 
-    override suspend fun import(sourcePath: String): Result<RestoreResult> {
+    override suspend fun import(
+        sourcePath: String,
+        keepExistingRows: Boolean,
+    ): Result<RestoreResult> {
         lastImportSourcePath = sourcePath
-        lastImportOptions = ImportOptions(sourcePath, UserId("test"))
+        lastImportOptions = ImportOptions(sourcePath, UserId("test"), keepExistingRows = keepExistingRows)
         return importResult
     }
 
@@ -2140,11 +2143,26 @@ class FakeProjectsRepository(
     var observeAllIncludingClosedCalls: Int = 0
         private set
 
+    /**
+     * The throwable the next observation fails with.
+     *
+     * Taken when the list is asked for, not when it is collected: the caller asks
+     * for a list per subscription, so the failure belongs to the ask. Null by
+     * default, so an existing test changes nothing.
+     */
+    var observeAllFailure: Throwable? = null
+
     override fun observeAll(): Flow<List<Project>> {
         observeAllCalls++
+        val failure = observeAllFailure
+        observeAllFailure = null
         return currentUser.observeForCurrentUser { uid ->
-            store.state.map { list ->
-                list.values.filter { it.userId == uid && !it.isDeleted && it.closedAt == null }
+            if (failure != null) {
+                flow<List<Project>> { throw failure }
+            } else {
+                store.state.map { list ->
+                    list.values.filter { it.userId == uid && !it.isDeleted && it.closedAt == null }
+                }
             }
         }
     }
@@ -2477,8 +2495,29 @@ class FakeTagsRepository(
     var observeAllCalls: Int = 0
         private set
 
+    /**
+     * When set, the next observation of the tag list fails with this.
+     *
+     * The failure has to come from the same place a real one would — inside the
+     * flow, and across the same hop — so a caller is checked against a failure it
+     * really receives, and the throwable it receives is the very instance a test
+     * holds.
+     */
+    var observeAllFailure: Throwable? = null
+
     override fun observeAll(): Flow<List<com.singularity.todo.feature.tags.Tag>> {
         observeAllCalls++
+        val failure = observeAllFailure
+        observeAllFailure = null
+        if (failure != null) {
+            // The same hop the real observation takes: `observeForCurrentUser` opens
+            // a channel, and a channel carries a *copy* of the throwable — the
+            // original is the copy's cause. A failure that skipped the hop would
+            // never exercise what a caller does with that copy.
+            return currentUser.observeForCurrentUser {
+                flow<List<com.singularity.todo.feature.tags.Tag>> { throw failure }
+            }
+        }
         return currentUser.observeForCurrentUser { uid ->
             store.state
                 .onStart { emit(store.state.value) }

@@ -16,7 +16,10 @@
 
 package com.singularity.todo.feature.agenda.domain.model
 
+import com.singularity.todo.core.serialization.parseWireNameOrNull
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.KSerializer
@@ -27,6 +30,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.serializer
@@ -84,14 +88,12 @@ private class RegistryHolder {
                         JsonObject(
                             mapOf(
                                 "_type" to JsonPrimitive("DateBucket"),
-                                "bucket" to JsonPrimitive((s as Selector.DateBucket).bucket.name),
+                                "bucket" to JsonPrimitive((s as Selector.DateBucket).bucket.wireName),
                             ),
                         )
                     },
                     decode = { obj ->
-                        Selector.DateBucket(
-                            bucket = Json.decodeFromJsonElement(serializer(), obj.getValue("bucket")),
-                        )
+                        Selector.DateBucket(bucket = obj.bucket())
                     },
                 ),
             )
@@ -146,14 +148,12 @@ private class RegistryHolder {
                             mapOf(
                                 "_type" to JsonPrimitive("Statuses"),
                                 "statuses" to
-                                    JsonArray((s as Selector.Statuses).statuses.map { JsonPrimitive(it.name) }),
+                                    JsonArray((s as Selector.Statuses).statuses.map { JsonPrimitive(it.wireName) }),
                             ),
                         )
                     },
                     decode = { obj ->
-                        Selector.Statuses(
-                            statuses = Json.decodeFromJsonElement(serializer(), obj.getValue("statuses")),
-                        )
+                        Selector.Statuses(statuses = obj.statuses())
                     },
                 ),
             )
@@ -167,7 +167,7 @@ private class RegistryHolder {
                                 "_type" to JsonPrimitive("Priorities"),
                                 "priorities" to
                                     JsonArray(
-                                        (s as Selector.Priorities).priorities.map { JsonPrimitive(it.name) },
+                                        (s as Selector.Priorities).priorities.map { JsonPrimitive(it.wireName) },
                                     ),
                                 "atMost" to JsonPrimitive(s.atMost),
                             ),
@@ -175,7 +175,7 @@ private class RegistryHolder {
                     },
                     decode = { obj ->
                         Selector.Priorities(
-                            priorities = Json.decodeFromJsonElement(serializer(), obj.getValue("priorities")),
+                            priorities = obj.priorities(),
                             atMost = obj["atMost"]?.let { Json.decodeFromJsonElement(serializer(), it) } ?: true,
                         )
                     },
@@ -240,14 +240,12 @@ private class RegistryHolder {
                         JsonObject(
                             mapOf(
                                 "_type" to JsonPrimitive("WorkflowState"),
-                                "state" to JsonPrimitive((s as Selector.WorkflowState).state.name),
+                                "state" to JsonPrimitive((s as Selector.WorkflowState).state.wireName),
                             ),
                         )
                     },
                     decode = { obj ->
-                        Selector.WorkflowState(
-                            state = Json.decodeFromJsonElement(serializer(), obj.getValue("state")),
-                        )
+                        Selector.WorkflowState(state = obj.workflowState())
                     },
                 ),
             )
@@ -423,6 +421,50 @@ private class RegistryHolder {
         }.also { require(it.size == 3) { "Expected 3 composite entries, got ${it.size}" } }
 
     val allEntries: Map<String, SelectorEntry> = leafEntries + compositeEntries
+}
+
+/**
+ * The value a selector field carries, read as text.
+ *
+ * A selector is stored under the names the format declares, not under the names
+ * of the Kotlin constants — see
+ * [com.singularity.todo.core.serialization.WireNamed]. The reader takes both
+ * spellings, so a view saved before the format named its values still opens.
+ */
+private fun JsonObject.wireValue(key: String): String = getValue(key).jsonPrimitive.content
+
+/** The date bucket a selector carries, under either spelling. */
+private fun JsonObject.bucket(): RelativeBucket {
+    val raw = wireValue("bucket")
+    return parseWireNameOrNull<RelativeBucket>(raw)
+        ?: throw SerializationException("unknown date bucket: $raw")
+}
+
+/** The statuses a selector carries, under either spelling. */
+private fun JsonObject.statuses(): Set<TaskStatus> {
+    val raw = getValue("statuses").jsonArray.map { it.jsonPrimitive.content }
+    return raw
+        .map { value ->
+            parseWireNameOrNull<TaskStatus>(value)
+                ?: throw SerializationException("unknown task status: $value")
+        }.toSet()
+}
+
+/** The priorities a selector carries, under either spelling. */
+private fun JsonObject.priorities(): Set<TaskPriority> {
+    val raw = getValue("priorities").jsonArray.map { it.jsonPrimitive.content }
+    return raw
+        .map { value ->
+            parseWireNameOrNull<TaskPriority>(value)
+                ?: throw SerializationException("unknown task priority: $value")
+        }.toSet()
+}
+
+/** The workflow state a selector carries, under either spelling. */
+private fun JsonObject.workflowState(): TaskWorkflowState {
+    val raw = wireValue("state")
+    return parseWireNameOrNull<TaskWorkflowState>(raw)
+        ?: throw SerializationException("unknown workflow state: $raw")
 }
 
 /**

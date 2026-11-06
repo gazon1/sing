@@ -7,6 +7,12 @@ tags: [tasks, naming, agenda, ai]
 
 # Inbox names the unscheduled tab; the wider filter is NotDeferred
 
+> **Superseded in part (2026-11-06):** the `inbox` alias is gone. The wire no longer
+> answers to that word — a caller that sends it is refused rather than given a wider
+> answer than the one it asked for. The names themselves, the tab partition and the
+> filter's new name stand. See
+> [2026-11-06-one-name-one-question.md](2026-11-06-one-name-one-question.md).
+
 ## Context
 
 Two different sets were called Inbox. The agenda tab `AgendaPresets.Inbox` holds the
@@ -31,8 +37,9 @@ callers and the model-facing vocabulary.
 The tab keeps the name Inbox. The filter becomes `TaskFilter.NotDeferred`, and the AI
 selection becomes `active_not_deferred` (`TaskSelection.ACTIVE_NOT_DEFERRED`,
 `@SerialName("active_not_deferred")`), described as every unfinished task that is not
-deferred, dated or undated. The old `inbox` name still decodes as that selection, so a
-caller that sends it keeps working.
+deferred, dated or undated. The old `inbox` name decoded as that selection at first,
+so a caller that sent it kept working; the alias was removed on 2026-11-06, and a
+caller that sends it now gets an error (see the note above).
 
 ## Rationale
 
@@ -69,11 +76,11 @@ them apart.
   it hides work the user chose to keep visible, and a session on a deferred task is
   the user's call to make.
 - The AI tool's selection vocabulary has `active_not_deferred` and no `inbox` of its
-  own; `inbox` is a read-only alias that decodes as `active_not_deferred`. A caller
-  that sends `inbox` gets that selection rather than an error, and the old name drains
-  out of the wire one caller at a time. A test pins both directions, because an alias
-  nobody checks is an alias that stops working silently.
-- The alias buys the *selection*, and nothing else. A cursor names the selection it was
+  own. `inbox` was a read-only alias that decoded as `active_not_deferred` until
+  2026-11-06; it is gone now, and a caller that sends it is refused rather than given
+  a wider answer than the one it asked for. A test pins both directions, because a name
+  that quietly stops decoding is a break nobody notices until a caller is refused.
+- The wire name buys the *selection*, and nothing else. A cursor names the selection it was
   reading by its wire name, so renaming the constant does not invalidate the cursors
   already handed out; a cursor issued by a build that keyed the fingerprint on the
   constant's name is refused with a warning rather than paging a different list. The
