@@ -76,7 +76,7 @@ class ProjectsViewModel(
     private val projectReview: ProjectReviewUseCase? = null,
     private val deleteProject: DeleteProjectUseCase,
     private val clock: Clock = Clock.System,
-    crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ProjectsUiState, ProjectsIntent, ProjectsUiEvent>(
         initialState =
@@ -111,6 +111,15 @@ class ProjectsViewModel(
             reloadOn(
                 trigger = reloadTrigger,
                 onFailure = { cause ->
+                    // The collection stopped: a defect, not a user-actionable error, so
+                    // the cause goes to the reporter as well as to the screen. The
+                    // message alone would hide the throwable that explains why the
+                    // list is empty.
+                    // The failure crossed a channel hop, and a channel carries a *copy*
+                    // of the throwable: the original is its cause. Reporting the copy
+                    // would file a throwable that never existed.
+                    val reported = cause.cause ?: cause
+                    crashReporter.report(reported, OBSERVE_FAILED)
                     // The failure carries the query and the sort order: the screen still
                     // shows the search field and the sort control, and a state that
                     // reset them would clear what the user had typed. The closed
@@ -118,7 +127,7 @@ class ProjectsViewModel(
                     // screen, and a failure is not a reason to take them away.
                     setState(
                         ProjectsUiState.Error(
-                            message = cause.toMessage(),
+                            message = reported.toMessage(),
                             searchQuery = _searchQuery.value,
                             sortOrder = _sortOrder.value,
                             closedProjects = closedProjectsOnScreen().toImmutableList(),
@@ -269,5 +278,13 @@ class ProjectsViewModel(
          * (F7), so a search for "cafe" finds "Café" here as well.
          */
         val PROJECT_LIST_SEARCH_MODE: SearchMode = SearchMode.Contains
+
+        /**
+         * The observation of the project list stopped.
+         *
+         * A fixed label, never the query or the sort order: the key leaves the
+         * device, and the state that carries them is the user's.
+         */
+        private const val OBSERVE_FAILED = "projects.observe_failed"
     }
 }

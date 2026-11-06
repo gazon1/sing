@@ -97,6 +97,14 @@ class NotesListViewModel(
 
         private const val DELETE_FAILED = "notes.delete_failed"
         private const val RESTORE_FAILED = "notes.restore_failed"
+
+        /**
+         * The observation of the notes list stopped.
+         *
+         * A fixed label, never the query, the filter or the sort order: the key
+         * leaves the device, and the state that carries them is the user's.
+         */
+        private const val OBSERVE_FAILED = "notes.observe_failed"
     }
 
     // [filterFlow] and [sortOrderFlow] are inputs to the collector below, not public
@@ -219,9 +227,18 @@ class NotesListViewModel(
                 reloadOn(
                     trigger = retryTrigger,
                     onFailure = { cause ->
+                        // The collection stopped: a defect, not a user-actionable error, so
+                        // the cause goes to the reporter as well as to the screen. The
+                        // message alone would hide the throwable that explains why the
+                        // list is empty.
+                        // The failure crossed a channel hop, and a channel carries a
+                        // *copy* of the throwable: the original is its cause. Reporting
+                        // the copy would file a throwable that never existed.
+                        val reported = cause.cause ?: cause
+                        crashReporter.report(reported, OBSERVE_FAILED)
                         setState(
                             NotesUiState.Error(
-                                message = cause.toMessage("Could not load notes"),
+                                message = reported.toMessage("Could not load notes"),
                                 filter = filterFlow.value,
                                 sortOrder = sortOrderFlow.value,
                                 searchQuery = searchQueryFlow.value,

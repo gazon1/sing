@@ -108,6 +108,14 @@ class TagsViewModel(
 
         private const val DELETE_FAILED = "tags.delete_failed"
         private const val RESTORE_FAILED = "tags.restore_failed"
+
+        /**
+         * The observation of the tag list stopped.
+         *
+         * A fixed label, never the tag names: the key leaves the device, and the
+         * names are the user's.
+         */
+        private const val OBSERVE_FAILED = "tags.observe_failed"
     }
 
     // ── Undo-delete state ────────────────────────────────────────────────────────
@@ -139,9 +147,17 @@ class TagsViewModel(
                 .map { tags ->
                     if (tags.isEmpty()) TagsUiState.Empty else TagsUiState.Content(tags.toImmutableList())
                 }.catch { e ->
+                    // The collection stopped: a defect, not a user-actionable error, so the
+                    // cause goes to the reporter as well as to the screen. The message
+                    // alone would hide the throwable that explains why the list is empty.
+                    // The failure crossed a channel hop, and a channel carries a *copy*
+                    // of the throwable: the original is its cause. Reporting the copy
+                    // would file a throwable that never existed.
+                    val reported = e.cause ?: e
+                    crashReporter.report(reported, OBSERVE_FAILED)
                     updateState {
                         TagsUiState.Error(
-                            e.toMessage(),
+                            reported.toMessage(),
                         )
                     }
                 }.collect { newState -> updateState { newState } }
