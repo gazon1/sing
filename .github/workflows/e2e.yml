@@ -72,7 +72,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       - name: Validate Maestro selectors
         run: |
           # A venv, not the system environment: the runner's /usr is
