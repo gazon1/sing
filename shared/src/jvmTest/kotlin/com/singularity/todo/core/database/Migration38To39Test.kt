@@ -2,11 +2,8 @@ package com.singularity.todo.core.database
 
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
-import com.singularity.todo.core.database.contract.createSqlDriver
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -36,18 +33,16 @@ import kotlin.test.assertNull
 @Tag("slow")
 @Tag("slow:migration")
 class Migration38To39Test {
-    private lateinit var tempDir: File
-    private lateinit var dbPath: String
+    private lateinit var fixture: DatabaseTestFixture
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("migration38to39-").toFile()
-        dbPath = File(tempDir, "fixture.db").absolutePath
+        fixture = DatabaseTestFixture.onDisk()
     }
 
     @AfterTest
     fun tearDown() {
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     /** A profile as it existed at v38: no owner, because the column did not exist. */
@@ -100,7 +95,7 @@ class Migration38To39Test {
     @Test
     fun `an existing profile survives the upgrade`() =
         runTest {
-            createSqlDriver().open(dbPath).use { connection ->
+            fixture.connect().use { connection ->
                 applyExportedSchema(38, connection)
                 seedProfile(connection, "p-default", "Personal")
                 seedProfile(connection, "p-work", "Work")
@@ -115,7 +110,7 @@ class Migration38To39Test {
     @Test
     fun `an existing profile is unowned after the upgrade, not guessed at`() =
         runTest {
-            createSqlDriver().open(dbPath).use { connection ->
+            fixture.connect().use { connection ->
                 applyExportedSchema(38, connection)
                 seedProfile(connection, "p-default", "Personal")
 
@@ -131,7 +126,7 @@ class Migration38To39Test {
     @Test
     fun `a profile written after the upgrade keeps the owner it was given`() =
         runTest {
-            createSqlDriver().open(dbPath).use { connection ->
+            fixture.connect().use { connection ->
                 applyExportedSchema(38, connection)
                 Migration38To39().migrate(connection)
 
@@ -151,7 +146,7 @@ class Migration38To39Test {
     @Test
     fun `a profile may be created unowned after the upgrade too`() =
         runTest {
-            createSqlDriver().open(dbPath).use { connection ->
+            fixture.connect().use { connection ->
                 applyExportedSchema(38, connection)
                 Migration38To39().migrate(connection)
 

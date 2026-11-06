@@ -1,10 +1,8 @@
 @file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 
-package com.singularity.todo.test.helpers
+package com.singularity.todo.core.database
 
-import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.NoteEntity
-import com.singularity.todo.core.database.SCHEMA_VERSION
+import androidx.sqlite.execSQL
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -12,8 +10,7 @@ import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -31,11 +28,12 @@ import kotlin.test.assertTrue
 class DatabaseTestFixtureTest {
     @Test
     fun `file-backed mode keeps a real database file until the fixture closes`() {
-        val fixture = DatabaseTestFixture.fileBacked()
-        val databasePath = assertNotNull(fixture.databasePath)
-        val directory = assertNotNull(fixture.directory)
+        val fixture = DatabaseTestFixture.onDisk()
+        val databasePath = fixture.path()
+        val directory = fixture.directory()
 
         try {
+            fixture.database()
             assertTrue(File(databasePath).isFile, "expected a database file at $databasePath")
             assertTrue(directory.isDirectory, "expected the fixture's directory at $directory")
         } finally {
@@ -47,42 +45,36 @@ class DatabaseTestFixtureTest {
     }
 
     @Test
-    fun `file-backed mode runs the prepare hook before Room opens the file`() {
-        var preparedPath: String? = null
-        var existedWhenPrepared = true
+    fun `a file written through connect is the file Room opens afterwards`() =
+        runTest {
+            DatabaseTestFixture.onDisk().use { fixture ->
+                fixture.connect().use { connection ->
+                    connection.execSQL("CREATE TABLE seeded (id INTEGER PRIMARY KEY, value TEXT)")
+                    connection.execSQL("INSERT INTO seeded VALUES (1, 'kept')")
+                }
 
-        val fixture =
-            DatabaseTestFixture.fileBacked { path ->
-                preparedPath = path
-                existedWhenPrepared = File(path).exists()
+                assertEquals(
+                    listOf("kept"),
+                    fixture.database().textColumn("SELECT value FROM seeded"),
+                    "a migration seeds the file before Room opens it; the same file must come back",
+                )
             }
-
-        try {
-            assertEquals(fixture.databasePath, preparedPath)
-            assertFalse(existedWhenPrepared, "the hook ran after Room created the file")
-            assertTrue(File(assertNotNull(preparedPath)).isFile)
-        } finally {
-            fixture.close()
         }
-    }
 
     @Test
     fun `in-memory mode creates no database file and no WAL sidecar`() =
         runTest {
             DatabaseTestFixture.inMemory().use { fixture ->
-                assertNull(fixture.databasePath)
-                assertNull(fixture.directory)
-
                 assertEquals(
                     listOf(""),
-                    fixture.database.textColumn(
+                    fixture.database().textColumn(
                         "SELECT file FROM pragma_database_list WHERE name = 'main'",
                     ),
                     "an in-memory database must not be backed by a file",
                 )
                 assertEquals(
                     listOf("memory"),
-                    fixture.database.textColumn("SELECT journal_mode FROM pragma_journal_mode"),
+                    fixture.database().textColumn("SELECT journal_mode FROM pragma_journal_mode"),
                     "an in-memory database must not use the WAL journal that leaves a -wal sidecar",
                 )
             }
@@ -91,30 +83,84 @@ class DatabaseTestFixtureTest {
     @Test
     fun `in-memory mode is not behind the file-backed one - same version, same schema, usable DAOs`() =
         runTest {
-            val fileBacked = DatabaseTestFixture.fileBacked()
+            val fileBacked = DatabaseTestFixture.onDisk()
             val inMemory = DatabaseTestFixture.inMemory()
 
             try {
                 assertEquals(
                     listOf(SCHEMA_VERSION.toLong()),
-                    fileBacked.database.longColumn("PRAGMA user_version"),
+                    fileBacked.database().longColumn("PRAGMA user_version"),
                 )
                 assertEquals(
-                    fileBacked.database.longColumn("PRAGMA user_version"),
-                    inMemory.database.longColumn("PRAGMA user_version"),
+                    fileBacked.database().longColumn("PRAGMA user_version"),
+                    inMemory.database().longColumn("PRAGMA user_version"),
                 )
                 assertEquals(
-                    fileBacked.database.schemaSnapshot(),
-                    inMemory.database.schemaSnapshot(),
+                    fileBacked.database().schemaSnapshot(),
+                    inMemory.database().schemaSnapshot(),
                     "the in-memory database must carry the full current schema",
                 )
 
-                val notes = inMemory.database.noteDao()
+                val notes = inMemory.database().noteDao()
                 notes.upsert(note())
                 assertEquals(1, notes.watchAll("u1").first().size)
             } finally {
                 inMemory.close()
                 fileBacked.close()
+            }
+        }
+
+    // The whole jvmTest suite runs in one JVM, so two in-memory fixtures that shared a
+    // database would let a test see another test's rows. Each fixture owns its driver.
+    @Test
+    fun `two in-memory fixtures do not share state`() =
+        runTest {
+            DatabaseTestFixture.inMemory().use { first ->
+                DatabaseTestFixture.inMemory().use { second ->
+                    first.database().noteDao().upsert(note())
+
+                    assertEquals(
+                        1,
+                        first
+                            .database()
+                            .noteDao()
+                            .watchAll("u1")
+                            .first()
+                            .size,
+                    )
+                    assertEquals(
+                        0,
+                        second
+                            .database()
+                            .noteDao()
+                            .watchAll("u1")
+                            .first()
+                            .size,
+                        "an in-memory database must not be shared with another fixture",
+                    )
+                }
+            }
+        }
+
+    // Reopening has to replace the cache: otherwise `database()` keeps handing back the
+    // first, already-closed instance — the footgun the restart tests hit.
+    @Test
+    fun `reopen replaces the cached database so database() never returns a closed one`() =
+        runTest {
+            DatabaseTestFixture.onDisk().use { fixture ->
+                fixture.database().noteDao().upsert(note())
+
+                val reopened = fixture.reopen()
+
+                assertSame(reopened, fixture.database())
+                assertEquals(
+                    1,
+                    reopened
+                        .noteDao()
+                        .watchAll("u1")
+                        .first()
+                        .size,
+                )
             }
         }
 

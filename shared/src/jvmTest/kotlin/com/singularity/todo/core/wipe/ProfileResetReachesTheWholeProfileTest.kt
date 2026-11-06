@@ -1,14 +1,13 @@
 package com.singularity.todo.core.wipe
 
-import androidx.sqlite.SQLiteDriver
 import com.singularity.todo.core.attachments.AttachmentEntity
 import com.singularity.todo.core.attachments.AttachmentStorage
 import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationEntity
 import com.singularity.todo.core.config.RemoteConfigCacheEntity
 import com.singularity.todo.core.database.AgendaViewEntity
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.ChecklistItemEntity
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.database.LlmUsageEntity
 import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.database.ProfileEntity
@@ -22,7 +21,6 @@ import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskReminderEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
-import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.files.JvmFileSystem
@@ -56,7 +54,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -100,25 +97,20 @@ class ProfileResetReachesTheWholeProfileTest {
     private val ownerId = "owner-1"
     private val profileId = "profile-1"
 
-    private lateinit var tempDir: File
-    private lateinit var driver: SQLiteDriver
-    private lateinit var dbPath: String
+    private lateinit var fixture: DatabaseTestFixture
     private lateinit var db: AppDatabase
     private lateinit var currentUser: ProfileAwareCurrentUser
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("singularity-reset-").toFile()
-        dbPath = File(tempDir, "singularity.db").absolutePath
-        driver = createSqlDriver()
-        db = AppDatabaseFactory.build(driver, dbPath)
+        fixture = DatabaseTestFixture.onDisk()
+        db = fixture.database()
         currentUser = FakeProfileAwareCurrentUser(initialUserId = alice)
     }
 
     @AfterTest
     fun tearDown() {
-        db.close()
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     // ─── The claim ──────────────────────────────────────────────────────────────
@@ -333,7 +325,7 @@ class ProfileResetReachesTheWholeProfileTest {
      * fact about the table, so it is asked of the table.
      */
     private fun countRows(table: String): Int {
-        val connection = driver.open(dbPath)
+        val connection = fixture.connect()
         try {
             val statement = connection.prepare("SELECT count(*) FROM $table")
             try {
@@ -728,7 +720,7 @@ class ProfileResetReachesTheWholeProfileTest {
                     calendarImportEventDao = db.calendarImportEventDao(),
                     calendarSyncTaskMapDao = db.calendarSyncTaskMapDao(),
                     googleEventShadowDao = db.googleEventShadowDao(),
-                    attachmentStorage = AttachmentStorage(fs = JvmFileSystem(), dir = tempDir.absolutePath),
+                    attachmentStorage = AttachmentStorage(fs = JvmFileSystem(), dir = fixture.directory().absolutePath),
                 ),
             draftStore = FakeDraftStore(),
             currentUser = currentUser,

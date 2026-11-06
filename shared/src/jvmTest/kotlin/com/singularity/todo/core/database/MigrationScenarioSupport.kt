@@ -2,9 +2,6 @@ package com.singularity.todo.core.database
 
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
-import com.singularity.todo.core.database.contract.createSqlDriver
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.assertEquals
 
 /**
@@ -71,10 +68,8 @@ internal suspend fun runMigrationScenario(
     seed: List<MigrationSeed>,
     expect: List<MigrationExpect>,
 ) {
-    val directory = Files.createTempDirectory("room-scenario-$from-").toFile()
-    val dbPath = File(directory, "fixture.db").absolutePath
-    try {
-        createSqlDriver().open(dbPath).use { connection ->
+    DatabaseTestFixture.onDisk().use { fixture ->
+        fixture.connect().use { connection ->
             applyExportedSchema(from, connection)
             for (item in seed) {
                 when (item) {
@@ -102,11 +97,10 @@ internal suspend fun runMigrationScenario(
         // table exists in every version, and the row does not, so the read
         // returns nothing and changes nothing. Without it the chain never runs
         // and the scenario reads the fixture as it was planted.
-        val database = AppDatabaseFactory.build(createSqlDriver(), dbPath)
+        val database = fixture.database()
         database.taskDao().getById("__scenario_probe__")
-        database.close()
 
-        createSqlDriver().open(dbPath).use { connection ->
+        fixture.connect().use { connection ->
             for (check in expect) {
                 val actual = firstText(connection, check.sql)
                 assertEquals(
@@ -117,8 +111,6 @@ internal suspend fun runMigrationScenario(
                 )
             }
         }
-    } finally {
-        directory.deleteRecursively()
     }
 }
 

@@ -2,13 +2,11 @@
 
 package com.singularity.todo.core.database
 
-import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -30,21 +28,20 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class AppDatabaseFactoryJvmTest {
-    private lateinit var tempDir: File
+    private lateinit var fixture: DatabaseTestFixture
     private lateinit var dbPath: String
     private lateinit var db: AppDatabase
 
     @BeforeTest
     fun setUp() {
-        tempDir = Files.createTempDirectory("singularity-test-").toFile()
-        dbPath = File(tempDir, "singularity.db").absolutePath
-        db = AppDatabaseFactory.build(createSqlDriver(), dbPath)
+        fixture = DatabaseTestFixture.onDisk()
+        dbPath = fixture.path()
+        db = fixture.database()
     }
 
     @AfterTest
     fun tearDown() {
-        db.close()
-        tempDir.deleteRecursively()
+        fixture.close()
     }
 
     @Test
