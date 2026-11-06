@@ -164,3 +164,24 @@ facts:
   - id: K-transport-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/transport.md
+  - id: K-analytics-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/analytics.md
+  - id: K-appearance-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/appearance.md
+  - id: K-config-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/config.md
+  - id: K-datastore-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/datastore.md
+  - id: K-network-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/network.md
+  - id: K-llm-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/llm.md
+  - id: K-repository-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/repository.md
