@@ -218,3 +218,22 @@ for the shared fields — a series edit rewrites every row, and that is what kee
 
 **Used in:** `Task.seriesId`, `TaskSeriesPlanner`, `TaskSharedField`, `UpdateTaskSeriesUseCase`,
 `ADR 2026-10-22-task-series-materialized-copies`
+
+---
+
+## Task vocabulary registry
+
+**TaskVocabulary** is the registry that says what question each task name answers. It
+holds every `TaskFilter` shape, every `TaskSelection` wire name and every `AgendaPresets`
+preset, each with the question it answers.
+
+**One name answers one question.** Where two vocabularies use the same word for different
+sets, the difference is declared in the registry as a divergence, with a reason — today,
+`upcoming` and `inbox`.
+
+**This page explains the terms; the registry checks the code.** `TaskVocabularyTest` fails
+when a name is missing from the registry, when a name answers two questions without a
+declared divergence, or when a declared divergence no longer diverges. See
+`ADR 2026-11-06-one-name-one-question`.
+
+**Used in:** `feature/tasks/domain/logic/TaskVocabulary.kt`, `TaskVocabularyTest`
