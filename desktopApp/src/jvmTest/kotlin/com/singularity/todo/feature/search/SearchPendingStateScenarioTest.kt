@@ -295,8 +295,7 @@ class SearchPendingStateScenarioTest {
 
         override fun observeAll(): Flow<List<SavedSearch>> = searches
 
-        override fun observe(id: SavedSearchId): Flow<SavedSearch?> =
-            flowOf(searches.value.find { it.id == id })
+        override fun observe(id: SavedSearchId): Flow<SavedSearch?> = flowOf(searches.value.find { it.id == id })
 
         override suspend fun currentUserId(): String = TestUsers.DEFAULT.value
 
@@ -317,7 +316,6 @@ class SearchPendingStateScenarioTest {
             name: String,
         ): SavedSearch? = searches.value.find { it.name == name }
     }
-
 }
 
 /**
