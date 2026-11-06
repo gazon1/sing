@@ -64,16 +64,17 @@ class SyncIncoming01ScenarioTest {
 
                 // A creates the task and pushes it to the shared server.
                 val taskId = TaskId(TASK_ID)
-                tasksA.create(
-                    Task(
-                        id = taskId,
-                        title = ORIGINAL_TITLE,
-                        description = null,
-                        userId = tasksA.currentUserId(),
-                        createdAt = Clock.System.now(),
-                        updatedAt = Clock.System.now(),
-                    ),
-                ).getOrThrow()
+                tasksA
+                    .create(
+                        Task(
+                            id = taskId,
+                            title = ORIGINAL_TITLE,
+                            description = null,
+                            userId = tasksA.currentUserId(),
+                            createdAt = Clock.System.now(),
+                            updatedAt = Clock.System.now(),
+                        ),
+                    ).getOrThrow()
                 deviceA.koin.get<SyncRepository>().syncOnce()
 
                 // B pulls it, so the two devices hold the same task.
