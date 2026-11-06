@@ -51,11 +51,12 @@ locally through `mise`, in CI through the fork's action.
   ```
 
 - The CI gate runs the fork's action, over the diff against the base of the
-  repository:
+  repository, and pins the same release:
 
   ```yaml
   - uses: gazon1/easement@main
     with:
+      version: 0.5.1
       diff: origin/main
   ```
 
@@ -83,7 +84,10 @@ compiled it — a minute of CPU per fresh install, and a toolchain that had to
 be present before the gate could run.
 
 **The pin names a version, not a branch.** `0.5.1` is exactly the artefact that
-was checked. A branch pin would follow the fork's `main` silently.
+was checked. A branch pin would follow the fork's `main` silently. The CI
+action pins the version too: left at its default (`latest`), the gate would
+follow the fork's next release while the laptop stayed on `0.5.1` — two
+judges again, which is the defect this decision exists to remove.
 
 ## Consequences
 
@@ -99,8 +103,8 @@ was checked. A branch pin would follow the fork's `main` silently.
   toolchain.
 - When upstream merges #114 and cuts a release, both pins go back to
   `"github:mokevnin/easement" = "latest"` and the CI action goes back to
-  `mokevnin/easement@main`. The fork's release stays where it is; it is not
-  deleted.
+  `mokevnin/easement@main` without a `version` input. The fork's release stays
+  where it is; it is not deleted.
 - The gate over `--diff origin/main` reports `0 violation(s)` on this tree:
   2795 files, 11320 internal deps. The two names that the defect turned into
   violations are evidence gaps, which is what they are.
