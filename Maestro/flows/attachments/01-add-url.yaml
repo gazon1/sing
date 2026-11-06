@@ -1,5 +1,5 @@
 # Attachments: adding a URL attachment makes it appear on the task.
-# прогнан на устройстве: нет (2026-11-04) — прогон на устройстве не выполнялся
+# прогнан на устройстве: да (2026-11-06) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: attachments-add-url
 tags:
@@ -30,12 +30,12 @@ tags:
     timeout: 5000
 
 # Open the attachments sheet via the "+ Add file" row.
-# The row is at the bottom of the task, below the fold. UP is the direction that
-# brings what is below into view; DOWN moves the content down and away from it.
+# The row is at the bottom of the task, below the fold. DOWN scrolls the content
+# up so what is below comes into view; UP moves it the other way.
 - scrollUntilVisible:
     element:
       id: attachments_add_file_row
-    direction: UP
+    direction: DOWN
     timeout: 8000
 - tapOn:
     id: attachments_add_file_row
