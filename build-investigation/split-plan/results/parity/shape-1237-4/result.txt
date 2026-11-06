@@ -1,0 +1,29 @@
+module=module
+task=:module:compileKotlinJvm
+strategy=in-process
+commit=bd6644995f36d7b820c851b2f0063bf5d96a0b18
+patch=
+gradle_exit=0
+task_s=38.767
+wall_ms=39398
+--- tasks executed ---
+> Task :module:checkJvmMainComposeLibrariesCompatibility
+> Task :module:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :module:compileKotlinJvm
+> Task :module:convertXmlValueResourcesForCommonMain NO-SOURCE
+> Task :module:convertXmlValueResourcesForJvmMain NO-SOURCE
+> Task :module:copyNonXmlValueResourcesForCommonMain NO-SOURCE
+> Task :module:copyNonXmlValueResourcesForJvmMain NO-SOURCE
+> Task :module:generateActualResourceCollectorsForJvmMain SKIPPED
+> Task :module:generateComposeResClass SKIPPED
+> Task :module:generateExpectResourceCollectorsForCommonMain SKIPPED
+> Task :module:generateResourceAccessorsForCommonMain SKIPPED
+> Task :module:generateResourceAccessorsForJvmMain SKIPPED
+> Task :module:kmpPartiallyResolvedDependenciesChecker
+> Task :module:prepareComposeResourcesTaskForCommonMain NO-SOURCE
+> Task :module:prepareComposeResourcesTaskForJvmMain NO-SOURCE
+--- host ---
+before loadavg=2.75 3.66 3.39 cpu_pressure=some avg10=0.15 avg60=0.11 avg300=0.26 total=1079608060;full avg10=0.00 avg60=0.00 avg300=0.00 total=0; gradle_daemons=2 kotlin_daemons=0
+0
+after loadavg=2.44 3.47 3.33 cpu_pressure=some avg10=0.01 avg60=0.09 avg300=0.24 total=1079752158;full avg10=0.00 avg60=0.00 avg300=0.00 total=0; gradle_daemons=2 kotlin_daemons=0
+0
