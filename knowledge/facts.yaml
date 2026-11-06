@@ -17,3 +17,9 @@ facts:
   - id: K-reminders-001
     owner_type: knowledge
     canonical_ref: knowledge/architecture/reminders.md
+  - id: K-pomodoro-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/pomodoro.md
+  - id: K-calsync-001
+    owner_type: knowledge
+    canonical_ref: knowledge/architecture/calendar-sync.md
