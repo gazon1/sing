@@ -43,6 +43,9 @@ payload of a tool call does not travel with the event at all, a failure is the
 absence of the completion event rather than an event of its own, and the
 outcome semantics are verified behaviourally rather than by asserting literals.
 
-Those properties are stated in the spec delta, and the spec delta did not change
-in the move that made this re-issue necessary — so the pass still speaks for the
-contract the digest records.
+Those properties are stated across the change's documents — the spec delta
+carries the rule that the raw payload does not travel, the proposal names the
+four kinds, and the change's `design.md` says why the vocabulary is that small
+and why a failure is the absence of the completion event. None of those
+documents changed in the move that made this re-issue necessary, and the
+contract the digest records is the one the pass speaks for.
