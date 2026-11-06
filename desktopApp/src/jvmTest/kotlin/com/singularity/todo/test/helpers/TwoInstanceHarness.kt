@@ -129,20 +129,26 @@ class TwoInstanceHarness private constructor(
             val tempDir = Files.createTempDirectory("singularity-two-instance-").toFile()
             val server = SharedSyncServer()
             val built = mutableListOf<Instance>()
+            var completed = false
             return try {
                 built += buildInstance("A", tempDir, server, account)
                 built += buildInstance("B", tempDir, server, account)
-                TwoInstanceHarness(
-                    instanceA = built[0].handle,
-                    instanceB = built[1].handle,
-                    applications = built.map { it.application },
-                    databases = built.map { it.database },
-                    tempDir = tempDir,
-                ).also { it.awaitIdentitySettled() }
-            } catch (failure: Throwable) {
-                built.forEach { it.close() }
-                tempDir.deleteRecursively()
-                throw failure
+                val harness =
+                    TwoInstanceHarness(
+                        instanceA = built[0].handle,
+                        instanceB = built[1].handle,
+                        applications = built.map { it.application },
+                        databases = built.map { it.database },
+                        tempDir = tempDir,
+                    )
+                harness.awaitIdentitySettled()
+                completed = true
+                harness
+            } finally {
+                if (!completed) {
+                    built.forEach { it.close() }
+                    tempDir.deleteRecursively()
+                }
             }
         }
 
