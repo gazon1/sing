@@ -44,7 +44,11 @@ hermetic, so the hook's own tests say something about the hook.
   use. An empty set of carried files — a branch whose commits are already on
   some remote, which `git log --not --remotes` then drops — falls back to the
   history of the pushed commit: a gate that judges too much only costs time,
-  while a gate that judges too little lets a defect through.
+  while a gate that judges too little lets a defect through. The scope itself
+  was completed on 2026-11-09: the carried files are read merge-aware and
+  unescaped, the tree decides which of them the suite judges, and a changed
+  helper reaches the modules that import it
+  (`2026-11-09-the-push-scope-is-what-the-tree-carries.md`).
 - **A push that touches no test of the suite skips the step**, and says so:
   `gate suite tests: SKIPPED (the push touches no test of the gate suite)`.
   Nothing of the suite can be broken by what such a push carries.
@@ -108,6 +112,8 @@ hermetic, so the hook's own tests say something about the hook.
 
 ## Links
 
+- ADR `docs/decisions/2026-11-09-the-push-scope-is-what-the-tree-carries.md`
+  — the scope of the push: merge-aware, unescaped, and decided by the tree.
 - ADR `docs/decisions/2026-11-07-the-formatting-gate-judges-the-sources-the-push-touches.md`
   — the same principle applied to the formatting gate.
 - ADR `docs/decisions/2026-10-23-the-local-verdict-judges-what-the-change-reaches.md`

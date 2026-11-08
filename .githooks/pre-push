@@ -302,6 +302,34 @@ keep_suite_log() {
     echo "   the whole log is at $kept"
 }
 
+# promise_touched_files <git-log range…> — the files those commits carry.
+#
+# `git log --name-only` shows what each commit changed, and it says nothing
+# about a MERGE commit: the diff of a merge is computed against its parents,
+# and the plain log does not show it. A file that a merge introduced —
+# a file born in the resolution of a merge — is therefore invisible to it,
+# and a gate that judges only what the plain log names does not judge that
+# file at all. `--diff-merges=first-parent` shows every merge against the
+# mainline it builds on, which is exactly what such a push carries.
+#
+# Git older than 2.31 does not know the option; `--cc` (the combined diff)
+# is the old way of seeing what a merge introduced, and it is the fallback.
+#
+# `core.quotePath=false` keeps a path with non-ASCII letters readable: the
+# default escapes them (`"f/Caf\303\251.kt"`), and the escaped form matches
+# no pattern the gates use — the file is in the push and no gate sees it.
+promise_touched_files() {
+    local touched=""
+    if touched="$(git -c core.quotePath=false log --diff-merges=first-parent \
+        --name-only --pretty=format: "$@" 2>/dev/null)"; then
+        printf '%s\n' "$touched" | sed '/^$/d' | sort -u
+        return 0
+    fi
+    git -c core.quotePath=false log --cc --name-only --pretty=format: "$@" 2>/dev/null \
+        | sed '/^$/d' | sort -u || true
+    return 0
+}
+
 # ── Structural gates (seconds, no Gradle) ────────────────────────────────
 #
 # Both gates run against the TREE THAT IS BEING PUSHED. The gate scripts are
@@ -391,9 +419,9 @@ for i in "${!PUSH_REFS[@]}"; do
     # them to the ref it names. Then the history of the pushed commit is the
     # answer: a gate that judges too much only costs time, while a gate that
     # judges too little lets a defect through.
-    PROMISE_TOUCHED="$(git log --name-only --pretty=format: "${PROMISE_RANGE[@]}" 2>/dev/null || true)"
-    if [ -z "$(printf '%s\n' "$PROMISE_TOUCHED" | sed '/^$/d')" ]; then
-        PROMISE_TOUCHED="$(git log --name-only --pretty=format: "$local_sha" 2>/dev/null || true)"
+    PROMISE_TOUCHED="$(promise_touched_files "${PROMISE_RANGE[@]}")"
+    if [ -z "$PROMISE_TOUCHED" ]; then
+        PROMISE_TOUCHED="$(promise_touched_files "$local_sha")"
     fi
     # Touched Markdown files (newline-delimited), for gates that check only the
     # pushed .md set (rumdl). Written to a temp file when needed via @TOUCHED_MD@.
@@ -527,14 +555,26 @@ for i in "${!PUSH_REFS[@]}"; do
                         ;;
                     if-touched:*)
                         step_touched=0
+                        step_pattern_list=""
                         IFS=',' read -r -a step_patterns <<< "${step_condition#if-touched:}"
                         for step_pattern in "${step_patterns[@]}"; do
+                            if [ -z "$step_pattern_list" ]; then
+                                step_pattern_list="$step_pattern"
+                            else
+                                step_pattern_list="$step_pattern_list, $step_pattern"
+                            fi
                             if promise_touched "$step_pattern"; then
                                 step_touched=1
                                 break
                             fi
                         done
                         if [ "$step_touched" = "0" ]; then
+                            # A gate that did not run says so. A step that is
+                            # skipped without a word is a step the reader
+                            # cannot tell apart from a step that was never
+                            # reached — and the difference is the whole
+                            # answer of a scoped gate.
+                            step_note="the push touches no file matching $step_pattern_list"
                             step_skip=1
                         fi
                         ;;
@@ -699,20 +739,63 @@ EOF
     # same scope the formatting gate has — the change reaches these tests and
     # not the others, and a failure in a module the push does not touch is
     # upstream's debt, not this push's.
+    #
+    # Two things decide the scope besides the file names.
+    #
+    # The TREE decides what exists. A module this push deletes, or renames
+    # away, is not in the tree any more — and a name the tree does not hold
+    # is a name the runner turns into a failed test: the push would be
+    # blocked by a module that is not there.
+    #
+    # The IMPORTERS decide the scope of a helper. A file under scripts/tests/
+    # that is not a test module is a helper of the suite, and the modules
+    # that import it are reached by a change to it: the helper is not a test,
+    # but the tests it carries are.
     suite_modules=""
     suite_module_args=()
     suite_unittest_args=()
-    while IFS= read -r suite_module; do
+    suite_candidates=""
+    suite_helpers=""
+    while IFS= read -r suite_path; do
+        [ -n "$suite_path" ] || continue
+        suite_name="${suite_path##*/}"
+        suite_name="${suite_name%.py}"
+        case "$suite_name" in
+            test_*)
+                if [ -f "$tree/scripts/tests/$suite_name.py" ]; then
+                    suite_candidates="$suite_candidates $suite_name"
+                fi
+                ;;
+            *)
+                suite_helpers="$suite_helpers $suite_name"
+                ;;
+        esac
+    done <<EOF
+$(printf '%s\n' "$PROMISE_TOUCHED" | grep -E '^scripts/tests/[^/]+\.py$' || true)
+EOF
+    for suite_helper in $suite_helpers; do
+        while IFS= read -r suite_importer; do
+            [ -n "$suite_importer" ] || continue
+            suite_importer_name="${suite_importer##*/}"
+            suite_importer_name="${suite_importer_name%.py}"
+            # Only the test modules of the suite are run: a helper that
+            # imports another helper is not a module of the suite, and a
+            # module without tests is a module the runner reports as
+            # "NO TESTS RAN" — a failure the push did not cause.
+            case "$suite_importer_name" in
+                test_*) suite_candidates="$suite_candidates $suite_importer_name" ;;
+            esac
+        done <<EOF
+$(grep -rlE "(from|import)[[:space:]]+${suite_helper}([[:space:]]|\.|$)" \
+    "$tree/scripts/tests" 2>/dev/null || true)
+EOF
+    done
+    for suite_module in $(printf '%s\n' $suite_candidates | sort -u); do
         [ -n "$suite_module" ] || continue
         suite_modules="$suite_modules $suite_module"
         suite_module_args+=(--module "$suite_module")
         suite_unittest_args+=("scripts.tests.$suite_module")
-    done <<EOF
-$(printf '%s\n' "$PROMISE_TOUCHED" \
-    | grep -E '^scripts/tests/test_[^/]*\.py$' \
-    | sed -E 's|.*/||; s|\.py$||' \
-    | sort -u || true)
-EOF
+    done
     if [ ! -d "$tree/scripts/tests" ]; then
         echo "   gate suite tests: SKIPPED (the pushed tree does not have them)"
     elif [ "${#suite_module_args[@]}" -eq 0 ]; then

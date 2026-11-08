@@ -786,6 +786,100 @@ class PrePushHookTest(unittest.TestCase):
         self.assertIn('test_gate_red', output)
         self.assertIn('gate suite tests: FAILED', output)
 
+    def test_a_module_the_push_deletes_does_not_block_the_push(self):
+        """A module the push deletes is not a module the push breaks.
+
+        The step judges the modules of the suite the push carries, and the
+        tree is what the push carries: a module this push deletes is not in
+        the tree any more. A name the tree does not hold is a name the
+        runner turns into a failed test — and the push would be blocked by a
+        module that is not there.
+
+        The push carries the commit that created the module as well: the
+        name of a deleted module is in the history of the push, and a step
+        that reads the history and not the tree judges a module that is
+        gone.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/tests/test_gate_green.py', GREEN_GATE_TEST)
+        self._write('scripts/tests/test_gate_other.py', GREEN_GATE_TEST)
+        self._commit('a gate suite with two passing modules')
+
+        (self.repo / 'scripts/tests/test_gate_green.py').unlink()
+        self._commit('one of the modules is gone')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertNotIn(
+            '_FailedTest',
+            output,
+            'the step judged a module the tree does not hold:\n' + output,
+        )
+        self.assertIn('test_gate_other', output)
+
+    def test_a_module_the_push_renames_is_judged_under_its_new_name(self):
+        """A rename is a deletion and an addition, and the addition is the one.
+
+        The old name is not in the tree any more, so it is not a module to
+        judge; the new name is, and it is judged under the name the tree
+        gives it.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/tests/test_gate_green.py', GREEN_GATE_TEST)
+        self._commit('a gate suite with one passing module')
+
+        _git('mv', 'scripts/tests/test_gate_green.py', 'scripts/tests/test_gate_renamed.py', cwd=self.repo)
+        self._commit('the module has a new name')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn('test_gate_renamed', output)
+        self.assertNotIn(
+            '_FailedTest',
+            output,
+            'the step judged a module the tree does not hold:\n' + output,
+        )
+
+    def test_a_helper_the_push_changes_reaches_the_modules_that_import_it(self):
+        """A helper of the suite is not a test, but the change reaches its importers.
+
+        The scope of the step is the change the push carries: a helper under
+        scripts/tests/ is part of the suite, and the modules that import it
+        are judged by it.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/tests/helper_mod.py', 'def helper():\n    return 1\n')
+        self._write(
+            'scripts/tests/test_uses_helper.py',
+            'import unittest\n\nfrom helper_mod import helper\n\n\n'
+            'class UsesHelperTest(unittest.TestCase):\n'
+            '    def test_it_passes(self):\n'
+            '        self.assertEqual(1, helper())\n',
+        )
+        self._commit('a helper and a test that uses it')
+        first = self._push()
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+
+        self._write('scripts/tests/helper_mod.py', 'def helper():\n    return 1\n\n\ndef other():\n    return 2\n')
+        self._commit('the helper changed')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn(
+            'test_uses_helper',
+            output,
+            'the step did not reach the module the changed helper serves:\n' + output,
+        )
+
     def test_the_push_prints_the_ci_verdict_of_the_commit_it_pushes(self):
         """The CI verdict is a line of the push, not a thing to remember to ask for.
 
@@ -1309,6 +1403,90 @@ class PrePushHookTest(unittest.TestCase):
 
 
     # ── the formatting gate ───────────────────────────────────────────────
+
+    def _a_remote_that_holds_the_formatting_gate(self) -> pathlib.Path:
+        """A remote whose tree carries the formatting gate and a clean source."""
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/ktlint-lint.py', KTLINT_STANDIN)
+        self._write('shared/src/main/kotlin/Clean.kt', CLEAN_SOURCE)
+        self._commit('a clean source and the formatting gate')
+        first = self._push()
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+        return self.tmp / 'ktlint-files.txt'
+
+    def test_a_file_born_in_a_merge_is_judged_by_the_formatting_gate(self):
+        """A merge carries files that no commit of the range shows.
+
+        `git log --name-only` says nothing about a merge commit: the diff of
+        a merge is computed against its parents, and the plain log does not
+        show it. A file that a merge introduced is therefore invisible to it
+        — and a gate that judges only what the plain log names does not
+        judge that file at all. The push of such a merge carries the file,
+        so the gate has to judge it.
+        """
+        log = self._a_remote_that_holds_the_formatting_gate()
+
+        # Two branches add the same file, and the merge resolves the
+        # conflict by hand. The resolution also creates a file that neither
+        # parent has: that file is born in the merge commit.
+        _git('checkout', '-q', '-b', 'side', cwd=self.repo)
+        self._write('shared/src/main/kotlin/Contested.kt', 'package com.example\n\nclass ContestedSide\n')
+        self._commit('the side branch adds the contested file')
+        _git('checkout', '-q', 'main', cwd=self.repo)
+        self._write('shared/src/main/kotlin/Contested.kt', 'package com.example\n\nclass ContestedMain\n')
+        self._commit('the mainline adds the contested file')
+        # The merge conflicts: that is the point — the resolution is a file
+        # the merge alone carries.
+        subprocess.run(
+            ['git', 'merge', 'side'],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=_clean_git_env(),
+        )
+        self._write('shared/src/main/kotlin/Contested.kt', 'package com.example\n\nclass ContestedResolved\n')
+        self._write(
+            'shared/src/main/kotlin/BornInMerge.kt',
+            'package com.example\n\nclass BornInMerge\n' + FORMATTING_DEFECT + '\n',
+        )
+        self._commit('the merge resolves the conflict and adds a file of its own')
+
+        result = self._push(env={KTLINT_LOG_ENV: str(log)})
+
+        output = result.stdout + result.stderr
+        judged = log.read_text(encoding='utf-8').split() if log.exists() else []
+        self.assertIn(
+            'shared/src/main/kotlin/BornInMerge.kt',
+            judged,
+            'the formatting gate did not judge the file the merge introduced:\n' + output,
+        )
+        self.assertNotEqual(0, result.returncode, output)
+        self.assertIn('ktlint gate: FAILED', output)
+
+    def test_a_source_with_a_non_ascii_name_is_judged_by_the_formatting_gate(self):
+        """A path with non-ASCII letters is a path.
+
+        Git escapes such a path by default (`"f/Caf\\303\\251.kt"`), and the
+        escaped form matches no pattern the gates use: the file is in the
+        push and no gate sees it.
+        """
+        log = self._a_remote_that_holds_the_formatting_gate()
+
+        self._write('shared/src/main/kotlin/Café.kt', CLEAN_SOURCE)
+        self._commit('a source whose name is not ASCII')
+
+        result = self._push(env={KTLINT_LOG_ENV: str(log)})
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        judged = log.read_text(encoding='utf-8').split() if log.exists() else []
+        self.assertIn(
+            'shared/src/main/kotlin/Café.kt',
+            judged,
+            'the formatting gate did not judge the source with the non-ASCII name:\n' + output,
+        )
 
     def _a_remote_that_holds_a_formatting_defect(self) -> pathlib.Path:
         """A remote whose tree holds a source with a formatting defect.
