@@ -97,6 +97,18 @@ CI_DETEKT_RE = re.compile(r':([\w-]+):detekt')
 #: A detekt task named in the hook — a list written into the hook is drift.
 HOOK_DETEKT_RE = re.compile(r':[\w-]+:detekt')
 
+#: The scope of the gate-suite step has to come from the variable the hook
+#: fills with the files the push carries. The NAME of the variable alone is a
+#: string, and a string sits on a line that computes something else just as
+#: happily as on the line that computes the scope.
+SCOPE_FROM_THE_PUSH = re.compile(r'"\$PROMISE_TOUCHED"')
+
+#: The tree decides what exists: a module the push deletes is not in the tree
+#: any more. That has to be a real existence test against the tree's test
+#: directory — a line that merely MENTIONS the directory is a sentence about
+#: the tree, not a question asked of it.
+TREE_EXISTENCE = re.compile(r'-\s*f\s+"?\$tree/scripts/tests/')
+
 
 def load_module_graph():
     """The module graph — scripts/changed-modules.py — loaded by path.
@@ -481,14 +493,14 @@ def collect_errors(
             'blocks a push that has nothing to do with it',
         )
     elif not any(
-        'PROMISE_TOUCHED' in line and 'scripts/tests/' in line for line in hook_code
+        SCOPE_FROM_THE_PUSH.search(line) and 'scripts/tests/' in line for line in hook_code
     ):
         errors.append(
             'the gate suite step does not derive its scope from what the push touches — '
             'the modules it judges have to be the ones the push carries, and the push '
             'says which those are',
         )
-    elif not any('tree/scripts/tests' in line for line in hook_code):
+    elif not any(TREE_EXISTENCE.search(line) for line in hook_code):
         errors.append(
             'the gate suite step does not ask the tree what exists — a module the push '
             'deletes or renames away is not in the tree any more, and a name the tree '

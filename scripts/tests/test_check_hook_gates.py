@@ -400,6 +400,73 @@ class HookGatesTest(unittest.TestCase):
             errors,
         )
 
+    def _errors_of_the_real_hook(self, hook: str) -> list[str]:
+        """The errors of a copy of the REAL hook, mutated as the caller mutated it.
+
+        The fixture's hook names the tree's test directory once, so a search
+        for that name catches a mutation there. The real hook names it more
+        than once — and a check that any of those lines satisfies cannot tell
+        a hook that ASKS the tree from a hook that mentions it. So the
+        mutation is measured on the real hook, where the other mentions are.
+        """
+        path = self.tmp / 'pre-push-under-test'
+        path.write_text(hook, encoding='utf-8')
+        declared, tree_rules, machinery = mod.declared_hook_scripts()
+        errors, _ = mod.collect_errors(
+            mod.REGISTRY,
+            path,
+            mod.CI_WORKFLOW,
+            mod.load_module_graph(),
+            declared,
+            tree_rules,
+            mod.CI_DETEKT_SCRIPT,
+            machinery,
+            mod.PRE_PUSH_DECLARATION,
+            mod.PRE_PUSH_ENVIRONMENT,
+            mod.PRE_PUSH_ENVIRONMENT_CANON,
+        )
+        return errors
+
+    def test_a_real_hook_that_stops_asking_the_tree_what_exists_is_an_error(self):
+        """The existence check has to be a question, not a mention.
+
+        Replacing the question with a constant leaves the hook mentioning
+        the tree's test directory in two other places — and a check that
+        reads those as the question passes a hook that judges modules the
+        tree does not hold.
+        """
+        hook = mod.HOOK.read_text(encoding='utf-8')
+        mutated = hook.replace(
+            'if [ -f "$tree/scripts/tests/$suite_name.py" ]; then',
+            'if [ -n "$suite_name" ]; then',
+        )
+        self.assertNotEqual(hook, mutated, 'the premise: the real hook asks the tree')
+
+        errors = self._errors_of_the_real_hook(mutated)
+
+        self.assertTrue(
+            any('does not ask the tree what exists' in err for err in errors),
+            errors,
+        )
+
+    def test_a_real_hook_whose_scope_is_computed_from_a_name_is_an_error(self):
+        """The scope has to come from the variable, not from its name.
+
+        A line that writes the variable's NAME computes nothing: the scope
+        comes from whatever the line reads, and a name on a line is a
+        sentence about the scope.
+        """
+        hook = mod.HOOK.read_text(encoding='utf-8')
+        mutated = hook.replace('"$PROMISE_TOUCHED"', 'PROMISE_TOUCHED')
+        self.assertNotEqual(hook, mutated, 'the premise: the real hook reads the variable')
+
+        errors = self._errors_of_the_real_hook(mutated)
+
+        self.assertTrue(
+            any('does not derive its scope from what the push touches' in err for err in errors),
+            errors,
+        )
+
     def test_a_formatting_gate_that_is_not_given_the_touched_sources_is_an_error(self):
         """The condition says WHEN the gate runs; the arguments say WHAT it judges.
 
