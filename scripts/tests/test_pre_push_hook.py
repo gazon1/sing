@@ -880,6 +880,51 @@ class PrePushHookTest(unittest.TestCase):
             'the step did not reach the module the changed helper serves:\n' + output,
         )
 
+    def test_a_helper_the_push_changes_reaches_a_test_behind_another_helper(self):
+        """The walk follows the chain of helpers to the test it serves.
+
+        A helper that imports another helper is not a test module — but the
+        test module it serves is reached by the change just the same, two
+        steps away. A walk that stops at the first helper judges nothing,
+        and the push goes out with a broken helper.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/tests/helper_a.py', 'def helper():\n    return 1\n')
+        self._write(
+            'scripts/tests/helper_b.py',
+            'from helper_a import helper as helper_a\n\n\ndef helper():\n    return helper_a() + 1\n',
+        )
+        self._write(
+            'scripts/tests/test_uses_b.py',
+            'import unittest\n\nfrom helper_b import helper\n\n\n'
+            'class UsesBTest(unittest.TestCase):\n'
+            '    def test_it_passes(self):\n'
+            '        self.assertEqual(2, helper())\n',
+        )
+        self._commit('a helper, a helper that uses it, and a test that uses that one')
+        first = self._push()
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+
+        # The change breaks the helper two steps away from the test.
+        self._write('scripts/tests/helper_a.py', 'def helper():\n    return 41\n')
+        self._commit('the helper changed')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertNotEqual(
+            0,
+            result.returncode,
+            'the walk stopped at the helper and judged nothing:\n' + output,
+        )
+        self.assertIn(
+            'test_uses_b',
+            output,
+            'the step did not reach the test behind the changed helper:\n' + output,
+        )
+        self.assertIn('gate suite tests: FAILED', output)
+
     def test_the_push_prints_the_ci_verdict_of_the_commit_it_pushes(self):
         """The CI verdict is a line of the push, not a thing to remember to ask for.
 

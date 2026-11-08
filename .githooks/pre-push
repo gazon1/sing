@@ -773,22 +773,40 @@ EOF
     done <<EOF
 $(printf '%s\n' "$PROMISE_TOUCHED" | grep -E '^scripts/tests/[^/]+\.py$' || true)
 EOF
-    for suite_helper in $suite_helpers; do
-        while IFS= read -r suite_importer; do
-            [ -n "$suite_importer" ] || continue
-            suite_importer_name="${suite_importer##*/}"
-            suite_importer_name="${suite_importer_name%.py}"
-            # Only the test modules of the suite are run: a helper that
-            # imports another helper is not a module of the suite, and a
-            # module without tests is a module the runner reports as
-            # "NO TESTS RAN" — a failure the push did not cause.
-            case "$suite_importer_name" in
-                test_*) suite_candidates="$suite_candidates $suite_importer_name" ;;
+    # The importers of a helper are reached by a change to it — and the
+    # importers of an importer are reached too. A helper that imports
+    # another helper is not a test module, but the test module it serves
+    # is two steps away from the change, and the change reaches it just
+    # the same: the walk follows the chain until it runs out of names.
+    #
+    # A chain that ends in a test module is a test the push has to answer
+    # for. A chain that ends in nothing is a change the suite cannot
+    # measure, and the step says so instead of guessing.
+    suite_seen_helpers=""
+    while [ -n "$suite_helpers" ]; do
+        suite_next_helpers=""
+        for suite_helper in $suite_helpers; do
+            case " $suite_seen_helpers " in
+                *" $suite_helper "*) continue ;;
             esac
-        done <<EOF
+            suite_seen_helpers="$suite_seen_helpers $suite_helper"
+            while IFS= read -r suite_importer; do
+                [ -n "$suite_importer" ] || continue
+                suite_importer_name="${suite_importer##*/}"
+                suite_importer_name="${suite_importer_name%.py}"
+                case "$suite_importer_name" in
+                    # A test module of the suite: the change reaches it, and
+                    # it is judged.
+                    test_*) suite_candidates="$suite_candidates $suite_importer_name" ;;
+                    # A helper that imports a helper: the walk goes on.
+                    *) suite_next_helpers="$suite_next_helpers $suite_importer_name" ;;
+                esac
+            done <<EOF
 $(grep -rlE "(from|import)[[:space:]]+${suite_helper}([[:space:]]|\.|$)" \
     "$tree/scripts/tests" 2>/dev/null || true)
 EOF
+        done
+        suite_helpers="$suite_next_helpers"
     done
     for suite_module in $(printf '%s\n' $suite_candidates | sort -u); do
         [ -n "$suite_module" ] || continue
