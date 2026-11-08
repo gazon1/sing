@@ -390,6 +390,47 @@ class PrePushHookTest(unittest.TestCase):
         _git('config', 'commit.gpgsign', 'false', cwd=self.repo)
         # The hook under test travels with the repository.
         _git('init', '-q', '--bare', str(self.remote), cwd=self.tmp)
+        # The architecture check the hook runs last: the fixture's tree does
+        # not carry the tool, and a hook that cannot find it says so and
+        # stops the push. On a machine that has the tool, the step runs the
+        # real one against the fixture's tree — and the answer is then the
+        # machine's, not the fixture's. The fixture installs a stand-in, so
+        # the answer is the fixture's on every machine.
+        self.stub_bin = self.tmp / 'stub-bin'
+        self.stub_bin.mkdir()
+        self.easement_log = self.tmp / 'easement.log'
+        easement = self.stub_bin / 'easement'
+        easement.write_text(
+            '#!/usr/bin/env bash\n'
+            f'printf "%s\\n" "$*" >> "{self.easement_log}"\n'
+            'exit 0\n',
+            encoding='utf-8',
+        )
+        easement.chmod(0o755)
+        # The semaphore the hook runs the detekt verdict under. The hook asks
+        # for it by name and falls back to running the verdict directly when
+        # it is not there — but a machine that HAS it may have a shim that
+        # cannot resolve a version (mise says "No version is set for shim"),
+        # and the verdict then fails for a reason that has nothing to do with
+        # the code. The stand-in does what the hook needs of the semaphore:
+        # it runs the command after the separator.
+        heavy = self.stub_bin / 'heavy'
+        heavy.write_text(
+            '#!/usr/bin/env bash\n'
+            'while [ "$#" -gt 0 ]; do\n'
+            '    if [ "$1" = "--" ]; then shift; break; fi\n'
+            '    shift\n'
+            'done\n'
+            'exec "$@"\n',
+            encoding='utf-8',
+        )
+        heavy.chmod(0o755)
+        # The stand-in is on the PATH of everything the fixture runs, so
+        # every push the fixture makes finds it — the push that carries the
+        # hook, and the push the hook's own steps make.
+        self._original_path = os.environ.get('PATH', '')
+        os.environ['PATH'] = f'{self.stub_bin}{os.pathsep}{self._original_path}'
+        self.addCleanup(os.environ.__setitem__, 'PATH', self._original_path)
 
     def _write(self, relative: str, content: str, *, executable: bool = False) -> pathlib.Path:
         path = self.repo / relative
@@ -552,6 +593,27 @@ class PrePushHookTest(unittest.TestCase):
 
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn('=== Pre-push OK ===', result.stdout + result.stderr)
+
+    def test_the_architecture_check_still_runs(self):
+        """The stand-in does not stand in for the step — it stands in for the tool.
+
+        The hook runs the architecture check last, against the tree that is
+        being pushed. The fixture's tree does not carry the tool, so the
+        fixture installs one — and a stand-in that made the step disappear
+        would be a step nobody runs any more, so the hook's own answer is
+        checked: the step ran, and it ran against the pushed tree.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn('easement: OK', output)
+        ran = self.easement_log.read_text(encoding='utf-8') if self.easement_log.exists() else ''
+        self.assertIn('check', ran, 'the architecture check did not run:\n' + output)
 
     def test_a_hook_that_answers_for_no_gate_fails_the_push(self):
         """A hook that ran no gate and said OK checked a tree it never looked at.
