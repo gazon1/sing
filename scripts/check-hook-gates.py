@@ -417,6 +417,7 @@ def collect_errors(
     # cannot happen. The record says so, and the step has to be the scoped
     # one: a claim nothing checks is a claim that decays.
     ktlint = registry.get('ktlint', {}) if isinstance(registry.get('ktlint'), dict) else {}
+    hook_code = code_lines(hook_path.read_text(encoding='utf-8')) if hook_path.is_file() else []
     ktlint_partiality = ktlint.get('partiality', '')
     if not ktlint_partiality or 'CI' not in ktlint_partiality:
         errors.append(
@@ -435,6 +436,21 @@ def collect_errors(
             f'the formatting gate judges every Kotlin source of the tree — it has to be scoped '
             f'to the sources the push touches, or a formatting defect in a file the push does '
             f'not carry blocks a push that has nothing to do with it',
+        )
+    elif '@TOUCHED_KT@' not in ktlint_step.args:
+        # The condition says WHEN the gate runs; the arguments say WHAT it
+        # judges. A gate that runs only for the sources the push touches and
+        # is handed the whole tree judges every source of the tree — and the
+        # condition hides it, because the step runs.
+        errors.append(
+            f'the formatting gate is not given the sources the push touches — it has to be '
+            f'handed them (@TOUCHED_KT@), or it judges the whole tree while the record says '
+            f'it judges the sources the push carries',
+        )
+    elif not any('@TOUCHED_KT@' in line for line in hook_code):
+        errors.append(
+            f'the hook does not expand @TOUCHED_KT@ — the sources the push touches have to '
+            f'reach the formatting gate as its arguments, or the gate judges nothing at all',
         )
 
     # The gate suite is partial too, in the same way.
@@ -463,6 +479,20 @@ def collect_errors(
             'the gate suite step runs the whole suite — it has to be scoped to the test '
             'modules the push touches, or a failure in a module the push does not carry '
             'blocks a push that has nothing to do with it',
+        )
+    elif not any(
+        'PROMISE_TOUCHED' in line and 'scripts/tests/' in line for line in hook_code
+    ):
+        errors.append(
+            'the gate suite step does not derive its scope from what the push touches — '
+            'the modules it judges have to be the ones the push carries, and the push '
+            'says which those are',
+        )
+    elif not any('tree/scripts/tests' in line for line in hook_code):
+        errors.append(
+            'the gate suite step does not ask the tree what exists — a module the push '
+            'deletes or renames away is not in the tree any more, and a name the tree '
+            'does not hold is a name the runner turns into a failed test',
         )
     if not any('touches no test of the gate suite' in line for line in hook_code):
         errors.append(

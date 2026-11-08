@@ -143,11 +143,17 @@ class HookGatesTest(unittest.TestCase):
             'python3 "$REPO_ROOT/'
             + DECLARATION
             + '" --verify-decided "$decided_labels"\n'
-            'suite_module_args+=(--module "$suite_module")\n'
+            'suite_scope="$(printf \'%s\\n\' "$PROMISE_TOUCHED" | grep -E \'^scripts/tests/[^/]+\\.py$\')"\n'
+            'if [ -f "$tree/scripts/tests/$suite_module.py" ]; then\n'
+            '    suite_module_args+=(--module "$suite_module")\n'
+            'fi\n'
             'python3 "$tree/scripts/run-gate-tests.py" "${suite_module_args[@]}"\n'
             'echo "   gate suite tests: SKIPPED (the push touches no test of the gate suite)"\n'
             'python3 "$REPO_ROOT/scripts/ci-verdict.py" "$sha"\n'
             'python3 "$REPO_ROOT/scripts/pre-push-verdict.py" --sha "$sha"\n'
+            'if [ "$step_arg" = "@TOUCHED_KT@" ]; then\n'
+            '    step_argv+=("$step_touched_kt")\n'
+            'fi\n'
         )
 
     @staticmethod
@@ -353,6 +359,81 @@ class HookGatesTest(unittest.TestCase):
         errors = self._errors()
         self.assertTrue(
             any('no scope and no skip' in err for err in errors),
+            errors,
+        )
+
+    def test_a_gate_suite_that_does_not_derive_its_scope_from_the_push_is_an_error(self):
+        """The scope of the step is what the push carries.
+
+        The record says the hook judges the test modules the push touches —
+        so the step has to read what the push touched. A step that takes its
+        scope from anywhere else judges something else, and the record no
+        longer says what the hook does.
+        """
+        hook = self._hook().replace(
+            'suite_scope="$(printf \'%s\\n\' "$PROMISE_TOUCHED" | grep -E \'^scripts/tests/[^/]+\\.py$\')"',
+            'suite_scope="$(printf \'%s\\n\' "$EVERY_MODULE" | grep -E \'^scripts/tests/[^/]+\\.py$\')"',
+        )
+        self.hook_path.write_text(hook, encoding='utf-8')
+        errors = self._errors()
+        self.assertTrue(
+            any('does not derive its scope from what the push touches' in err for err in errors),
+            errors,
+        )
+
+    def test_a_gate_suite_that_does_not_ask_the_tree_what_exists_is_an_error(self):
+        """The tree is what the push carries, and the tree says what exists.
+
+        A module the push deletes or renames away is not in the tree any
+        more, and a name the tree does not hold is a name the runner turns
+        into a failed test — so a step that does not ask the tree blocks
+        pushes by modules that are not there.
+        """
+        hook = self._hook().replace(
+            'if [ -f "$tree/scripts/tests/$suite_module.py" ]; then',
+            'if [ -n "$suite_module" ]; then',
+        )
+        self.hook_path.write_text(hook, encoding='utf-8')
+        errors = self._errors()
+        self.assertTrue(
+            any('does not ask the tree what exists' in err for err in errors),
+            errors,
+        )
+
+    def test_a_formatting_gate_that_is_not_given_the_touched_sources_is_an_error(self):
+        """The condition says WHEN the gate runs; the arguments say WHAT it judges.
+
+        A gate that runs only for the sources the push touches and is handed
+        the whole tree judges every source of the tree — and the condition
+        hides it, because the step runs.
+        """
+        original = mod.PRE_PUSH_STEPS
+        self.addCleanup(setattr, mod, 'PRE_PUSH_STEPS', original)
+        mod.PRE_PUSH_STEPS = tuple(
+            step for step in original if step.script != 'scripts/ktlint-lint.py'
+        ) + (types.SimpleNamespace(
+            script='scripts/ktlint-lint.py',
+            when='if-script;if-touched:\\.kts?$',
+            args=('--root', '@TREE@'),
+        ),)
+
+        errors = self._errors()
+
+        self.assertTrue(
+            any('not given the sources the push touches' in err for err in errors),
+            errors,
+        )
+
+    def test_a_hook_that_does_not_expand_the_touched_sources_is_an_error(self):
+        """The sources have to reach the gate, not only decide that it runs."""
+        hook = self._hook().replace(
+            'if [ "$step_arg" = "@TOUCHED_KT@" ]; then',
+            'if [ "$step_arg" = "@SOMETHING_ELSE@" ]; then',
+        )
+        self.hook_path.write_text(hook, encoding='utf-8')
+        errors = self._errors()
+        self.assertTrue(
+            any('does not expand @TOUCHED_KT@' in err for err in errors),
             errors,
         )
 
