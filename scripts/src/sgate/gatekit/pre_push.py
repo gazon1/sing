@@ -45,7 +45,10 @@ class PrePushStep:
     The fields say what the block used to say:
 
     * ``script`` — the script, relative to the repository root.
-    * ``args`` — its arguments. ``@TREE@`` stands for the tree being pushed.
+    * ``args`` — its arguments. ``@TREE@`` stands for the tree being pushed,
+      ``@TOUCHED_MD@`` for the file the Markdown files the push touches are
+      written to, and ``@TOUCHED_KT@`` for the Kotlin sources the push
+      touches — that one expands into as many arguments as it has files.
     * ``script_from`` — which copy of the script runs: ``tree`` (the pushed
       tree's own copy) or ``repo`` (this checkout's copy).
     * ``pythonpath_from`` — which copy of the sgate package is on
@@ -281,17 +284,27 @@ PRE_PUSH_STEPS: tuple[PrePushStep, ...] = (
     # it skips itself when the pushed tree predates the tool — a branch cut
     # before this change has no formatting rules to violate.
     #
+    # It judges the Kotlin sources the PUSH TOUCHES, not the whole tree: a
+    # formatting defect in a file the push does not carry is CI's to find,
+    # and a push blocked by such a defect is a push that cannot happen.
+    # The file list travels as the script's positional arguments, which it
+    # has taken since it was written — so a branch whose copy of the script
+    # is older than this step still understands the call.
+    #
     # The script skips itself when ktlint is not installed and says so: a
     # gate that cannot run must not become a reason a push cannot happen,
     # and CI runs the same check either way.
     PrePushStep(
         label="ktlint gate",
         script="scripts/ktlint-lint.py",
-        args=("--root", "@TREE@"),
+        args=("--root", "@TREE@", "@TOUCHED_KT@"),
         script_from="tree",
         pythonpath_from="none",
-        when="if-script",
-        message="pre-push FAILED — the Kotlin sources in the tree of @REF@ are not formatted.",
+        when=r"if-script;if-touched:\.kts?$",
+        message=(
+            "pre-push FAILED — the Kotlin sources the push of @REF@ touches "
+            "are not formatted."
+        ),
         hint="Format them with: just ktlint-fix (or push with --no-verify).",
         show_output=True,
     ),
@@ -336,7 +349,9 @@ def pre_push_step_table() -> str:
 
     The separator is a character that appears in none of the fields, and the
     arguments are separated by spaces — an argument with a space in it would
-    be two arguments, so no argument may have one.
+    be two arguments, so no argument may have one. A placeholder that stands
+    for a list of files is written as one word and expands into as many
+    arguments as the list has files.
     """
     lines = []
     for step in PRE_PUSH_STEPS:

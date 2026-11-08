@@ -22,7 +22,10 @@ code still matches the record, in both directions:
   - the detekt modules the record says CI judges are the ones CI judges;
   - those modules are the ones the module graph knows about;
   - the partiality is stated: the hook judges what the change reaches, CI
-    judges everything.
+    judges everything;
+  - the same for the formatting gate: the hook judges the Kotlin sources the
+    push touches, CI judges every source of the tree, and the step that runs
+    is the scoped one.
 
 The decision this gate enforces is recorded in
 `docs/decisions/2026-10-23-the-local-verdict-judges-what-the-change-reaches.md`.
@@ -57,6 +60,7 @@ from sgate.commands._registry import (  # noqa: E402
     PRE_PUSH_ENVIRONMENT_CANON,
 )
 from sgate.commands.base import run  # noqa: E402
+from sgate.gatekit.pre_push import PRE_PUSH_STEPS  # noqa: E402
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
@@ -81,6 +85,11 @@ HOOK_SCRIPT_RE = re.compile(
 #: This gate: the hook names it in the message it prints when the declaration
 #: cannot be read, and a gate that named itself would be a gate about nothing.
 GATE_SELF = 'scripts/check-hook-gates.py'
+
+#: The formatting gate. The hook judges the Kotlin sources the push touches and
+#: CI judges every source of the tree, so the record has to say so and the step
+#: has to be the scoped one.
+KTLINT_SCRIPT = 'scripts/ktlint-lint.py'
 
 #: A detekt task named in the CI workflow.
 CI_DETEKT_RE = re.compile(r':([\w-]+):detekt')
@@ -398,6 +407,34 @@ def collect_errors(
         errors.append(
             'the record does not state the partiality — the hook judges what the change reaches '
             'and CI judges everything, so the difference has to be written down',
+        )
+
+    # The formatting gate is partial too, and in the same way.
+    #
+    # The hook judges the Kotlin sources the push touches; CI judges every
+    # source of the tree. A formatting defect in a file the push does not
+    # touch is CI's to find — a push blocked by such a defect is a push that
+    # cannot happen. The record says so, and the step has to be the scoped
+    # one: a claim nothing checks is a claim that decays.
+    ktlint = registry.get('ktlint', {}) if isinstance(registry.get('ktlint'), dict) else {}
+    ktlint_partiality = ktlint.get('partiality', '')
+    if not ktlint_partiality or 'CI' not in ktlint_partiality:
+        errors.append(
+            'the record does not state the partiality of the formatting gate — the hook judges '
+            'the Kotlin sources the push touches and CI judges every source of the tree, so '
+            'the difference has to be written down',
+        )
+    ktlint_step = next((step for step in PRE_PUSH_STEPS if step.script == KTLINT_SCRIPT), None)
+    if ktlint_step is None:
+        errors.append(
+            f'the hook does not run {KTLINT_SCRIPT} — the record says the hook judges the '
+            f'formatting of the sources the push touches',
+        )
+    elif 'if-touched:' not in ktlint_step.when:
+        errors.append(
+            f'the formatting gate judges every Kotlin source of the tree — it has to be scoped '
+            f'to the sources the push touches, or a formatting defect in a file the push does '
+            f'not carry blocks a push that has nothing to do with it',
         )
 
     facts = {

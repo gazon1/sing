@@ -15,6 +15,9 @@ agreement and expects the gate to say so:
   - a hook that does not read the declaration;
   - a detekt module named in the hook itself;
   - a record that does not state the partiality;
+  - a record that does not state the partiality of the formatting gate, and a
+    formatting step that judges the whole tree instead of the sources the push
+    touches;
   - a delegate the hook does not call.
 """
 
@@ -22,6 +25,7 @@ import importlib.util
 import json
 import pathlib
 import tempfile
+import types
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -104,6 +108,14 @@ class HookGatesTest(unittest.TestCase):
                 'judged_by_ci': [f':{module}:detekt' for module in sorted(GRAPH_MODULES)],
                 'judged_by_ci_outside_the_module_graph': {},
                 'partiality': 'The hook judges what the change reaches; CI judges everything.',
+            },
+            'ktlint': {
+                'judged_by_the_hook': 'the Kotlin sources the push touches',
+                'judged_by_ci': 'every Kotlin source of the tree',
+                'partiality': (
+                    'The hook judges the sources the push touches; CI judges every '
+                    'source of the tree.'
+                ),
             },
         }
 
@@ -272,6 +284,51 @@ class HookGatesTest(unittest.TestCase):
         self.registry_path.write_text(json.dumps(registry), encoding='utf-8')
         errors = self._errors()
         self.assertTrue(any('partiality' in err for err in errors), errors)
+
+    def test_a_record_without_the_partiality_of_the_formatting_gate_is_an_error(self):
+        """The formatting gate is partial too, and the record has to say so."""
+        registry = self._registry()
+        registry['ktlint']['partiality'] = ''
+        self.registry_path.write_text(json.dumps(registry), encoding='utf-8')
+        errors = self._errors()
+        self.assertTrue(
+            any('formatting gate' in err for err in errors),
+            errors,
+        )
+
+    def test_a_formatting_gate_that_judges_the_whole_tree_is_an_error(self):
+        """The claim and the check are the same change.
+
+        The record says the hook judges the sources the push touches — and the
+        step that runs has to be the scoped one. A record that claims a
+        narrowing the code does not have is a claim nothing checks.
+        """
+        original = mod.PRE_PUSH_STEPS
+        self.addCleanup(setattr, mod, 'PRE_PUSH_STEPS', original)
+        mod.PRE_PUSH_STEPS = tuple(
+            step for step in original if step.script != 'scripts/ktlint-lint.py'
+        ) + (types.SimpleNamespace(script='scripts/ktlint-lint.py', when='if-script'),)
+
+        errors = self._errors()
+
+        self.assertTrue(
+            any('formatting gate judges every Kotlin source' in err for err in errors),
+            errors,
+        )
+
+    def test_a_formatting_gate_that_is_not_run_at_all_is_an_error(self):
+        original = mod.PRE_PUSH_STEPS
+        self.addCleanup(setattr, mod, 'PRE_PUSH_STEPS', original)
+        mod.PRE_PUSH_STEPS = tuple(
+            step for step in original if step.script != 'scripts/ktlint-lint.py'
+        )
+
+        errors = self._errors()
+
+        self.assertTrue(
+            any('does not run scripts/ktlint-lint.py' in err for err in errors),
+            errors,
+        )
 
     def test_a_delegate_the_hook_does_not_call_is_an_error(self):
         self.hook_path.write_text(

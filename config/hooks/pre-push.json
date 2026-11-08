@@ -25,6 +25,11 @@
       ":pro:detekt": "the source-available pro catalogue — a separate build that only exists with -PwithPro, so the module graph does not know it and the hook does not judge it. CI runs it in the pro job."
     }
   },
+  "ktlint": {
+    "judged_by_the_hook": "the Kotlin sources the pushed commits touch — the same 'touched' the other `if-touched` gates use, so a push that carries no Kotlin source pays nothing for the formatting check",
+    "judged_by_ci": "every Kotlin source of the tree — `python3 scripts/ktlint-lint.py --require` in the `detekt` job",
+    "partiality": "The hook judges the Kotlin sources the push touches. CI judges every Kotlin source of the tree. A formatting defect in a file the push does not touch is CI's to find — so the local verdict is partial, and it says so instead of reading as full."
+  },
   "test_verdicts": {
     "judged_by_ci": [
       ":tools:unwritten-properties:test"

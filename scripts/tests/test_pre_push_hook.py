@@ -133,6 +133,52 @@ sys.exit(0)
 SOURCE = 'package com.example\n\nclass Example\n' + VIOLATION + '\n'
 CLEAN_SOURCE = 'package com.example\n\nclass Example\n'
 
+#: The marker a formatted source does not carry. The formatting gate of the
+#: fixture is a stand-in that judges the files it is given — the way the real
+#: one does — and nothing else.
+FORMATTING_DEFECT = 'FORMATTING_DEFECT'
+
+#: The environment variable the stand-in writes the files it was given to.
+KTLINT_LOG_ENV = 'KTLINT_LOG'
+
+#: A stand-in for the formatting script.
+#:
+#: The real script needs the ktlint binary, and the question these cases ask
+#: is not what ktlint says about a file but WHICH files the gate is given: a
+#: gate that judged the whole tree would be given a file with a defect that
+#: the push does not touch, and the push would not go out. The stand-in
+#: judges the files it is given, and writes them down so the test can ask.
+KTLINT_STANDIN = '''#!/usr/bin/env python3
+"""A stand-in for the formatting gate: it judges the files it was given."""
+import os
+import pathlib
+import sys
+
+files = []
+args = sys.argv[1:]
+while args:
+    arg = args.pop(0)
+    if arg == '--root':
+        args.pop(0)
+        continue
+    files.append(arg)
+
+log = os.environ.get('{log_env}')
+if log:
+    pathlib.Path(log).write_text('\\n'.join(files) + '\\n', encoding='utf-8')
+
+for path in files:
+    candidate = pathlib.Path(path)
+    if not candidate.is_file():
+        continue
+    if '{defect}' in candidate.read_text(encoding='utf-8'):
+        print(path + ':1:1: standard:no-consecutive-comments: not formatted', file=sys.stderr)
+        raise SystemExit(1)
+
+print('ktlint-lint: checking ' + str(len(files)) + ' file(s).')
+raise SystemExit(0)
+'''.format(log_env=KTLINT_LOG_ENV, defect=FORMATTING_DEFECT)
+
 # The environment variable the probe writes what it saw to. The hook inherits
 # the environment of the push, so the probe inside the pushed tree can tell
 # the test outside what the git environment looked like from in there.
@@ -417,8 +463,21 @@ class PrePushHookTest(unittest.TestCase):
         _git('add', '-A', cwd=self.repo)
         _git('commit', '-q', '-m', message, cwd=self.repo)
 
+    def _commit(self, message: str) -> None:
+        """Commit what the fixture holds — the source and the gate travel with it."""
+        _git('add', '-A', cwd=self.repo)
+        _git('commit', '-q', '-m', message, cwd=self.repo)
+
     def _push(self, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
-        _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
+        # The remote is added once: a fixture that pushes twice must not fail
+        # on a remote that is already there.
+        subprocess.run(
+            ['git', 'remote', 'add', 'origin', str(self.remote)],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         push_env = _clean_git_env()
         if env:
             push_env.update(env)
@@ -1078,6 +1137,85 @@ class PrePushHookTest(unittest.TestCase):
             'environment of the hook:\n' + output,
         )
         self.assertEqual(0, result.returncode, output)
+
+
+    # ── the formatting gate ───────────────────────────────────────────────
+
+    def _a_remote_that_holds_a_formatting_defect(self) -> pathlib.Path:
+        """A remote whose tree holds a source with a formatting defect.
+
+        The defect is in every tree the later pushes carry, and in none of the
+        commits those pushes carry: it is the defect the tree came with — the
+        upstream defect that used to block every push of the branch.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write(
+            'shared/src/main/kotlin/Legacy.kt',
+            'package com.example\n\n' + FORMATTING_DEFECT + '\n',
+        )
+        self._commit('a source with a formatting defect')
+        first = self._push()
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+
+        # The gate of the pushes that follow is the stand-in, and they touch
+        # one clean source.
+        self._write('scripts/ktlint-lint.py', KTLINT_STANDIN)
+        self._write('shared/src/main/kotlin/Clean.kt', CLEAN_SOURCE)
+        self._commit('a clean source and the formatting gate')
+        return self.tmp / 'ktlint-files.txt'
+
+    def test_a_formatting_defect_the_push_does_not_touch_does_not_block_the_push(self):
+        """A push is not blocked by a formatting defect it does not carry.
+
+        The formatting gate judges the Kotlin sources the push touches. The
+        tree this push carries holds a source with a defect that the push
+        does not touch, and the push goes out.
+
+        The gate is a stand-in that judges the files it is given and writes
+        them down: a gate that judged the whole tree would be given the file
+        with the defect, and the push would not go out.
+        """
+        log = self._a_remote_that_holds_a_formatting_defect()
+
+        result = self._push(env={KTLINT_LOG_ENV: str(log)})
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        judged = log.read_text(encoding='utf-8').split() if log.exists() else []
+        self.assertEqual(
+            ['shared/src/main/kotlin/Clean.kt'],
+            sorted(judged),
+            'the formatting gate judged ' + repr(judged) + ' — it has to judge the '
+            'sources the push touches, and only them:\n' + output,
+        )
+
+    def test_a_formatting_defect_the_push_touches_still_blocks_the_push(self):
+        """The narrowing does not make the gate deaf.
+
+        A source the push touches and a defect in it are a finding the push
+        does not go out with — the gate judges what the change reaches, and
+        that includes the change itself.
+        """
+        log = self._a_remote_that_holds_a_formatting_defect()
+        self._write(
+            'shared/src/main/kotlin/New.kt',
+            'package com.example\n\n' + FORMATTING_DEFECT + '\n',
+        )
+        self._commit('a source with a formatting defect')
+
+        result = self._push(env={KTLINT_LOG_ENV: str(log)})
+
+        output = result.stdout + result.stderr
+        self.assertNotEqual(0, result.returncode, output)
+        self.assertIn('ktlint gate: FAILED', output)
+        judged = log.read_text(encoding='utf-8').split() if log.exists() else []
+        self.assertIn('shared/src/main/kotlin/New.kt', judged)
+        self.assertNotIn(
+            'shared/src/main/kotlin/Legacy.kt',
+            judged,
+            'the formatting gate was given a source the push does not touch',
+        )
 
 
 class HookGitEnvironmentTest(unittest.TestCase):

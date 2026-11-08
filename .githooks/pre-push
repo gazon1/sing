@@ -389,6 +389,11 @@ for i in "${!PUSH_REFS[@]}"; do
     # pushed .md set (rumdl). Written to a temp file when needed via @TOUCHED_MD@.
     PROMISE_TOUCHED_MD="$(printf '%s\n' "$PROMISE_TOUCHED" | grep -E '\.md$' | sed '/^$/d' || true)"
     PROMISE_TOUCHED_MD_FILE=""
+    # Touched Kotlin sources (newline-delimited), for the formatting gate: the
+    # gate judges the files this push carries, not the whole tree. A formatting
+    # defect in a file the push does not touch is CI's to find — a push is not
+    # blocked by a defect it does not carry.
+    PROMISE_TOUCHED_KT="$(printf '%s\n' "$PROMISE_TOUCHED" | grep -E '\.kts?$' | sed '/^$/d' || true)"
 
     # promise_touched <pattern> — did this push touch a path matching pattern?
     #
@@ -550,6 +555,20 @@ for i in "${!PUSH_REFS[@]}"; do
             fi
             step_argv=()
             for step_arg in $step_args; do
+                if [ "$step_arg" = "@TOUCHED_KT@" ]; then
+                    # The Kotlin sources the push touches travel as one
+                    # argument per file: the formatting script takes the files
+                    # it has to check positionally, and an EMPTY list would
+                    # mean "every source of the tree" to it — which is why the
+                    # step only runs when the push touches a Kotlin source.
+                    while IFS= read -r step_touched_kt; do
+                        [ -n "$step_touched_kt" ] || continue
+                        step_argv+=("$step_touched_kt")
+                    done <<EOF
+$PROMISE_TOUCHED_KT
+EOF
+                    continue
+                fi
                 step_arg="${step_arg//@TREE@/$tree}"
                 step_arg="${step_arg//@BASE@/${remote_sha:-$ZERO_SHA}}"
                 step_arg="${step_arg//@TOUCHED_MD@/$PROMISE_TOUCHED_MD_FILE}"
