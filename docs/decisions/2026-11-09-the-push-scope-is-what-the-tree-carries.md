@@ -40,6 +40,18 @@ modules that import it are reached by a change to it. The scope named test
 files only, so a change to `scripts/tests/git_sandbox.py` — imported by six
 modules — judged nothing.
 
+A review of this change found two more gaps in the scope it introduced, both
+of them ways for the scope to disagree with the tree:
+
+- **The walk stopped at the first helper.** A helper that imports another
+  helper is not a test module, and the walk dropped it — so the test module
+  two steps away from the change never entered the scope. A push that broke a
+  shared helper passed the gate.
+- **A module without test cases was a failure.** The runner answers with
+  `NO TESTS RAN` when the modules it was given hold no test cases at all.
+  That is the absence of a measurement, and the step read it as a failure of
+  the tree: a push that added a placeholder module was blocked for it.
+
 ## Idea
 
 The scope of a push is the tree the push carries, and the history is only the
@@ -60,9 +72,15 @@ and let the tree decide what exists.
   scope is judged when the pushed tree still holds it. A module the push
   deletes, or renames away, is not judged: there is nothing of it to run, and
   a name the tree does not hold is a failed test.
-- **A helper of the suite reaches its importers.** A changed file under
-  `scripts/tests/` that is not a test module is a helper, and the modules that
-  import it are in scope.
+- **A helper of the suite reaches its importers, and their importers.** A changed
+  file under `scripts/tests/` that is not a test module is a helper, and the
+  modules that import it are in scope. A helper that imports another helper is
+  walked through as well: the test module it serves is two steps away from the
+  change, and the change reaches it just the same.
+- **A module with no test cases is not a failure.** The runner answers with
+  `NO TESTS RAN` when nothing was measured, and the step reads that answer as
+  "skipped" rather than as a failure of the tree: a module without tests cannot
+  fail, and a push must not be blocked by one.
 - **A step that did not run says so.** A gate skipped because the push
   touches nothing it judges prints `SKIPPED` with the reason — a step that is
   skipped in silence is a step the reader cannot tell from a step that was
@@ -71,7 +89,8 @@ and let the tree decide what exists.
   scope in these terms, and `scripts/check-hook-gates.py` checks it against the
   code: the formatting step has to be handed the sources the push touches
   (`@TOUCHED_KT@`), the gate-suite step has to derive its scope from what the
-  push touched and has to ask the tree what exists.
+  push touched and has to ask the tree what exists — with a question, not with
+  a mention of the directory the question would be asked of.
 
 ## Rationale
 
@@ -83,7 +102,11 @@ and let the tree decide what exists.
   judging the history, and the history is not what goes out.
 - **A helper is part of the suite.** The suite is not only its test modules;
   it is the modules they import. A change to a helper reaches its importers,
-  so it reaches them.
+  so it reaches them — and a helper's importers reach the tests they serve,
+  so the walk goes on until it runs out of names.
+- **The absence of a measurement is not a failure.** A module without test
+  cases has nothing to fail with. A gate that reads "nothing was measured"
+  as "the tree is broken" blocks pushes for a defect that does not exist.
 - **Silence is not an answer.** "OK" and "skipped" are different verdicts, and
   the reader of a push is owed the difference.
 
@@ -93,7 +116,8 @@ and let the tree decide what exists.
 - A push that carries a path with non-ASCII letters is judged by that path.
 - A push that deletes or renames a test module is not blocked by that module.
 - A push that changes a helper of the suite is judged by the modules that
-  import it.
+  import it — directly or through another helper.
+- A push that touches a module with no test cases is not blocked by it.
 - A gate the push does not reach prints `SKIPPED` and the reason.
 - `scripts/check-hook-gates.py` fails when the formatting step is not handed
   the touched sources, when the gate-suite step does not derive its scope from
