@@ -123,12 +123,41 @@ fi
 exit 0
 """.format(marker=VIOLATION)
 
-# A gate stub that passes. The real gates read the repository; the hook only
-# needs them to succeed, and the point of these tests is the detekt verdict.
+#: A gate stub that passes. The real gates read the repository; the hook only
+#: needs them to succeed, and the point of these tests is the detekt verdict.
 PASSING_PYTHON_GATE = """#!/usr/bin/env python3
 import sys
 sys.exit(0)
 """
+
+#: A test of the gate suite that passes.
+GREEN_GATE_TEST = """import unittest
+
+
+class GreenGateTest(unittest.TestCase):
+    def test_it_passes(self):
+        self.assertTrue(True)
+"""
+
+#: A test of the gate suite that fails — unless the tree carries the marker.
+#:
+#: The marker is what makes the case possible: a module that is red in the
+#: tree without the push having touched it. The module is green when it is
+#: committed, the push that carries it goes out, and the marker goes away in
+#: a later commit — so the module is red in the tree and the push that made
+#: it red never touched the module.
+RED_GATE_TEST = """import pathlib
+import unittest
+
+
+class RedGateTest(unittest.TestCase):
+    def test_it_fails(self):
+        marker = pathlib.Path(__file__).resolve().parents[2] / 'red-marker.txt'
+        self.assertTrue(marker.exists(), 'the marker is gone')
+"""
+
+#: The file whose absence makes the red module red.
+RED_GATE_MARKER = 'red-marker.txt'
 
 SOURCE = 'package com.example\n\nclass Example\n' + VIOLATION + '\n'
 CLEAN_SOURCE = 'package com.example\n\nclass Example\n'
@@ -678,6 +707,84 @@ class PrePushHookTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, output)
         self.assertIn('gate suite tests: OK', output)
         self.assertIn('the tree has no runner', output)
+
+    def _a_tree_with_a_gate_suite(self) -> None:
+        """A tree whose gate suite holds a passing module and a failing one.
+
+        The failing module fails because a marker is gone — so it is green
+        when it is committed and red afterwards, and the commit that made it
+        red does not have to touch the module. The remote holds the tree
+        before that commit, so the push that follows carries the red module
+        without carrying the commit that made it red.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/tests/test_gate_green.py', GREEN_GATE_TEST)
+        self._write('scripts/tests/test_gate_red.py', RED_GATE_TEST)
+        self._write(RED_GATE_MARKER, 'the marker is here\n')
+        self._commit('a gate suite with a passing module and a failing one')
+        first = self._push()
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+
+    def _the_failing_module_is_red(self) -> None:
+        """The premise: the module the push does not touch is red.
+
+        A case about a module that is not red proves nothing, so the test
+        says so: the module is run here, in the tree the push carries, and it
+        fails.
+        """
+        red = subprocess.run(
+            [sys.executable, '-m', 'unittest', 'scripts.tests.test_gate_red'],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+            env=_clean_git_env(),
+        )
+        self.assertNotEqual(0, red.returncode, 'the premise: the module is not red')
+
+    def test_a_failing_module_the_push_does_not_touch_does_not_block_the_push(self):
+        """The gate suite's step judges the modules the push touches.
+
+        The tree carries a module of the gate suite that is red, and this push
+        touches another module of it. The red module is upstream's debt: it
+        is red in CI, where the whole suite runs, and it is not this push's
+        to carry.
+        """
+        self._a_tree_with_a_gate_suite()
+        (self.repo / RED_GATE_MARKER).unlink()
+        self._write('scripts/tests/test_gate_green.py', GREEN_GATE_TEST + '\n# this push touches this module\n')
+        self._commit('the marker is gone and the passing module changed')
+        self._the_failing_module_is_red()
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn('test_gate_green', output)
+        self.assertNotIn(
+            'test_gate_red',
+            output,
+            'the gate suite step judged a module the push does not touch:\n' + output,
+        )
+
+    def test_a_failing_module_the_push_touches_blocks_the_push(self):
+        """The narrowing does not make the step deaf.
+
+        A module the push touches and a failure in it are a finding the push
+        does not go out with — the step judges what the change reaches, and
+        that includes the change itself.
+        """
+        self._a_tree_with_a_gate_suite()
+        (self.repo / RED_GATE_MARKER).unlink()
+        self._write('scripts/tests/test_gate_red.py', RED_GATE_TEST + '\n# this push touches this module\n')
+        self._commit('the marker is gone and the failing module changed')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertNotEqual(0, result.returncode, output)
+        self.assertIn('test_gate_red', output)
+        self.assertIn('gate suite tests: FAILED', output)
 
     def test_the_push_prints_the_ci_verdict_of_the_commit_it_pushes(self):
         """The CI verdict is a line of the push, not a thing to remember to ask for.

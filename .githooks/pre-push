@@ -384,7 +384,17 @@ for i in "${!PUSH_REFS[@]}"; do
     # The files the pushed commits touch. `git log --name-only` rather than
     # `git diff`: the range is the pushed commits, and a file that a commit
     # touched is a file this push carries.
+    #
+    # An empty range means the commits are already on some remote — a branch
+    # pushed under another name, or a mirror — and `git log --not --remotes`
+    # drops every commit a remote already has, while the push still carries
+    # them to the ref it names. Then the history of the pushed commit is the
+    # answer: a gate that judges too much only costs time, while a gate that
+    # judges too little lets a defect through.
     PROMISE_TOUCHED="$(git log --name-only --pretty=format: "${PROMISE_RANGE[@]}" 2>/dev/null || true)"
+    if [ -z "$(printf '%s\n' "$PROMISE_TOUCHED" | sed '/^$/d')" ]; then
+        PROMISE_TOUCHED="$(git log --name-only --pretty=format: "$local_sha" 2>/dev/null || true)"
+    fi
     # Touched Markdown files (newline-delimited), for gates that check only the
     # pushed .md set (rumdl). Written to a temp file when needed via @TOUCHED_MD@.
     PROMISE_TOUCHED_MD="$(printf '%s\n' "$PROMISE_TOUCHED" | grep -E '\.md$' | sed '/^$/d' || true)"
@@ -644,6 +654,13 @@ EOF
     # They run against the tree being pushed, like every other gate here: the
     # CI job that runs them runs the pushed tree's copies.
     #
+    # The scope is the tests the push touches. A push that carries two test
+    # modules is judged by those two modules, and a failure in a module it
+    # does not carry is upstream's debt: it is red in CI, where the whole
+    # suite runs, and it is not this push's to carry. The same partiality the
+    # formatting gate has, and for the same reason — a gate that judges
+    # everything is a gate that a broken base can refuse to let through.
+    #
     # Git exports GIT_DIR (and GIT_WORK_TREE, GIT_INDEX_FILE, GIT_COMMON_DIR)
     # for the hook it runs. A test that creates a repository of its own
     # inherits those, and `git init` then reinitialises THIS repository
@@ -677,20 +694,43 @@ EOF
     # hook failed on the *log*, not on the suite.
     suite_log="$(mktemp "${TMPDIR:-/tmp}/pre-push-gate-suite-XXXXXX.log")"
     suite_log_kept="$REPO_ROOT/build/diagnostics/pre-push-gate-suite-$(date +%Y%m%d-%H%M%S)-$i.log"
+    # The modules of the suite this push touches: the test files the push
+    # carries, named the way the suite names its modules. The scope is the
+    # same scope the formatting gate has — the change reaches these tests and
+    # not the others, and a failure in a module the push does not touch is
+    # upstream's debt, not this push's.
+    suite_modules=""
+    suite_module_args=()
+    suite_unittest_args=()
+    while IFS= read -r suite_module; do
+        [ -n "$suite_module" ] || continue
+        suite_modules="$suite_modules $suite_module"
+        suite_module_args+=(--module "$suite_module")
+        suite_unittest_args+=("scripts.tests.$suite_module")
+    done <<EOF
+$(printf '%s\n' "$PROMISE_TOUCHED" \
+    | grep -E '^scripts/tests/test_[^/]*\.py$' \
+    | sed -E 's|.*/||; s|\.py$||' \
+    | sort -u || true)
+EOF
     if [ ! -d "$tree/scripts/tests" ]; then
         echo "   gate suite tests: SKIPPED (the pushed tree does not have them)"
+    elif [ "${#suite_module_args[@]}" -eq 0 ]; then
+        # The push reaches no test of the suite: nothing of it can be broken
+        # by what this push carries. The suite as a whole is CI's answer.
+        echo "   gate suite tests: SKIPPED (the push touches no test of the gate suite)"
     elif [ ! -f "$tree/scripts/run-gate-tests.py" ]; then
         # A tree that predates the runner has no runner. The plain `unittest`
-        # runs the same tests — and a push of an old branch is not blocked by
+        # runs the same modules — and a push of an old branch is not blocked by
         # a file that branch does not have.
         if (cd "$tree" && without_hook_git_env \
             GATE_SUITE_INSIDE_HOOK=1 \
             PYTHONPATH="$tree/scripts/src" \
-            python3 -m unittest discover -s scripts/tests >"$suite_log" 2>&1); then
-            echo "   gate suite tests: OK (the tree has no runner — plain unittest)"
+            python3 -m unittest "${suite_unittest_args[@]}") >"$suite_log" 2>&1; then
+            echo "   gate suite tests: OK (${suite_modules# }) — the tree has no runner, plain unittest"
             rm -f "$suite_log"
         else
-            echo "   gate suite tests: FAILED"
+            echo "   gate suite tests: FAILED (${suite_modules# })"
             GATES_FAILED=1
             report_failed_tests "$suite_log"
             keep_suite_log "$suite_log" "$suite_log_kept"
@@ -700,11 +740,11 @@ EOF
     elif (cd "$tree" && without_hook_git_env \
         GATE_SUITE_INSIDE_HOOK=1 \
         PYTHONPATH="$tree/scripts/src" \
-        python3 "$tree/scripts/run-gate-tests.py" >"$suite_log" 2>&1); then
-        echo "   gate suite tests: OK"
+        python3 "$tree/scripts/run-gate-tests.py" "${suite_module_args[@]}") >"$suite_log" 2>&1; then
+        echo "   gate suite tests: OK (${suite_modules# })"
         rm -f "$suite_log"
     else
-        echo "   gate suite tests: FAILED"
+        echo "   gate suite tests: FAILED (${suite_modules# })"
         GATES_FAILED=1
         report_failed_tests "$suite_log"
         echo ""

@@ -56,9 +56,21 @@ What stays a refusal: this checkout's own package cannot be imported. Then the
 suite would measure *something* that is not this tree, and a run that measures
 the wrong tree is not a red run — it is no run at all.
 
+A run of named modules
+----------------------
+
+`--module` runs one module and leaves the rest of the suite alone. The hook
+that calls this runner judges the change that is being pushed, and a change
+that touches two test modules is judged by those two: a failure in a module
+the change does not touch is upstream's debt, and the suite as a whole is
+CI's — the `Gate tooling` job runs every module. The whole suite stays the
+default of this runner, because the report the runner leaves is about the
+whole suite, and CI is the place that judges it.
+
 Usage:
     python3 scripts/run-gate-tests.py
     python3 scripts/run-gate-tests.py --junit-xml build/diagnostics/gate-tests/junit.xml
+    python3 scripts/run-gate-tests.py --module test_pre_push_hook
 
 Exit codes:
     0 — every test passed
@@ -467,15 +479,28 @@ def refuse_unmeasurable_tooling(original_env: dict[str, str]) -> bool:
     return True
 
 
-def run(tests_dir: pathlib.Path, junit_xml: pathlib.Path | None) -> int:
+def run(
+    tests_dir: pathlib.Path,
+    junit_xml: pathlib.Path | None,
+    modules: tuple[str, ...] = (),
+) -> int:
     """The gate scripts' own tests, and the report they leave.
 
     @param tests_dir where the tests live.
     @param junit_xml where the report is written; `None` writes no report.
+    @param modules the test modules to run; empty runs every module the
+        directory holds.
     """
     loader = unittest.TestLoader()
     try:
-        suite = loader.discover(start_dir=str(tests_dir), top_level_dir=str(tests_dir))
+        if modules:
+            # The named modules are imported by their own names, so the
+            # directory they live in has to be importable: it is put on the
+            # path the way `discover` puts it there for the whole suite.
+            sys.path.insert(0, str(tests_dir))
+            suite = loader.loadTestsFromNames(list(modules))
+        else:
+            suite = loader.discover(start_dir=str(tests_dir), top_level_dir=str(tests_dir))
     except (ImportError, OSError) as exc:
         # The tests are not there, or not readable. The report says so — a
         # report that is missing in the case where the run is broken is the
@@ -559,6 +584,16 @@ def main() -> int:
         default=None,
         help="Write the JUnit XML report to this path.",
     )
+    parser.add_argument(
+        "--module",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help=(
+            "Run this test module instead of the whole suite. May be repeated. "
+            "The module's name is its file name without the .py suffix."
+        ),
+    )
     args = parser.parse_args()
 
     # The environment as it was, before this runner binds anything: the origin
@@ -579,7 +614,7 @@ def main() -> int:
             file=sys.stderr,
         )
     print(f"run-gate-tests: measured {local}", file=sys.stderr)
-    return run(args.tests_dir, args.junit_xml)
+    return run(args.tests_dir, args.junit_xml, tuple(args.module))
 
 
 if __name__ == "__main__":

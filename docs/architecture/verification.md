@@ -82,6 +82,12 @@
   не несёт, не должен блокировать пуш. Разница записана в `config/hooks/pre-push.json`,
   и `scripts/check-hook-gates.py` сверяет её с кодом. ADR
   `2026-11-07-the-formatting-gate-judges-the-sources-the-push-touches.md`.
+- **Шаг сьюта гейтов тоже частичен.** Хук гоняет только те модули
+  `scripts/tests/`, которых касается пуш (`scripts/run-gate-tests.py --module`),
+  и пропускает шаг, если пуш не трогает ни одного теста сьюта; полный сьют
+  гоняет CI-джоба `Gate tooling`. Падение в модуле, который пуш не несёт, —
+  это долг upstream, а не этого пуша. ADR
+  `2026-11-08-the-gate-suite-judges-the-modules-the-push-touches.md`.
 - **Сьют гейтов внутри хука не гоняет тест хука.** Pre-push запускает юнит-тесты
   гейтов в пушимом дереве — то есть **внутри хука**. Один из этих тестов
   (`test_pre_push_hook`) сам гоняет хук через настоящий push: без маркера сьют

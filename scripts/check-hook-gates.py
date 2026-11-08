@@ -437,6 +437,39 @@ def collect_errors(
             f'not carry blocks a push that has nothing to do with it',
         )
 
+    # The gate suite is partial too, in the same way.
+    #
+    # The hook judges the test modules the push touches; CI judges the whole
+    # suite. A failure in a module the push does not carry is upstream's debt
+    # — it is red in CI, and it is not this push's to carry. The record says
+    # so, and the step has to be the scoped one: a claim nothing checks is a
+    # claim that decays.
+    gate_suite = registry.get('gate_suite', {}) if isinstance(registry.get('gate_suite'), dict) else {}
+    gate_suite_partiality = gate_suite.get('partiality', '')
+    if not gate_suite_partiality or 'CI' not in gate_suite_partiality:
+        errors.append(
+            'the record does not state the partiality of the gate suite — the hook judges '
+            'the test modules the push touches and CI judges the whole suite, so the '
+            'difference has to be written down',
+        )
+    hook_code = code_lines(hook_path.read_text(encoding='utf-8')) if hook_path.is_file() else []
+    if not any('run-gate-tests.py' in line for line in hook_code):
+        errors.append(
+            'the hook does not run the gate suite — the record says the hook judges the '
+            'test modules the push touches',
+        )
+    elif not any('--module' in line for line in hook_code):
+        errors.append(
+            'the gate suite step runs the whole suite — it has to be scoped to the test '
+            'modules the push touches, or a failure in a module the push does not carry '
+            'blocks a push that has nothing to do with it',
+        )
+    if not any('touches no test of the gate suite' in line for line in hook_code):
+        errors.append(
+            'the gate suite step has no scope and no skip — the hook has to say which '
+            'modules it judges and skip the step when the push touches none of them',
+        )
+
     facts = {
         'hook_scripts': len(declared - tree_rules) + len(tree_rules),
         'ci_modules': len(recorded) + len(outside_modules),

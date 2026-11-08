@@ -30,6 +30,11 @@
     "judged_by_ci": "every Kotlin source of the tree — `python3 scripts/ktlint-lint.py --require` in the `detekt` job",
     "partiality": "The hook judges the Kotlin sources the push touches. CI judges every Kotlin source of the tree. A formatting defect in a file the push does not touch is CI's to find — so the local verdict is partial, and it says so instead of reading as full."
   },
+  "gate_suite": {
+    "judged_by_the_hook": "the test modules of the gate suite the push touches — the test files under `scripts/tests/` the pushed commits carry, run through `scripts/run-gate-tests.py --module`",
+    "judged_by_ci": "every module of the gate suite — the `Gate tooling` job runs the whole suite",
+    "partiality": "The hook judges the test modules the push touches. CI judges every module of the suite. A failure in a module the push does not carry is upstream's debt — it is red in CI, where the whole suite runs, and it is not this push's to carry. A push that touches no test of the suite pays nothing for it."
+  },
   "test_verdicts": {
     "judged_by_ci": [
       ":tools:unwritten-properties:test"

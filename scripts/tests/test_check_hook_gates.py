@@ -117,6 +117,14 @@ class HookGatesTest(unittest.TestCase):
                     'source of the tree.'
                 ),
             },
+            'gate_suite': {
+                'judged_by_the_hook': 'the test modules of the gate suite the push touches',
+                'judged_by_ci': 'every module of the gate suite',
+                'partiality': (
+                    'The hook judges the test modules the push touches; CI judges every '
+                    'module of the suite.'
+                ),
+            },
         }
 
     @staticmethod
@@ -135,7 +143,9 @@ class HookGatesTest(unittest.TestCase):
             'python3 "$REPO_ROOT/'
             + DECLARATION
             + '" --verify-decided "$decided_labels"\n'
-            'python3 "$tree/scripts/run-gate-tests.py"\n'
+            'suite_module_args+=(--module "$suite_module")\n'
+            'python3 "$tree/scripts/run-gate-tests.py" "${suite_module_args[@]}"\n'
+            'echo "   gate suite tests: SKIPPED (the push touches no test of the gate suite)"\n'
             'python3 "$REPO_ROOT/scripts/ci-verdict.py" "$sha"\n'
             'python3 "$REPO_ROOT/scripts/pre-push-verdict.py" --sha "$sha"\n'
         )
@@ -293,6 +303,68 @@ class HookGatesTest(unittest.TestCase):
         errors = self._errors()
         self.assertTrue(
             any('formatting gate' in err for err in errors),
+            errors,
+        )
+
+    def test_a_record_without_the_partiality_of_the_gate_suite_is_an_error(self):
+        """The gate suite is partial too, and the record has to say so."""
+        registry = self._registry()
+        registry['gate_suite']['partiality'] = ''
+        self.registry_path.write_text(json.dumps(registry), encoding='utf-8')
+        errors = self._errors()
+        self.assertTrue(
+            any('partiality of the gate suite' in err for err in errors),
+            errors,
+        )
+
+    def test_a_gate_suite_that_judges_the_whole_suite_is_an_error(self):
+        """The claim and the check are the same change.
+
+        The record says the hook judges the test modules the push touches —
+        and the step that runs has to be the scoped one. A record that claims
+        a narrowing the code does not have is a claim nothing checks.
+        """
+        self.hook_path.write_text(
+            '#!/usr/bin/env bash\n'
+            'python3 "$tree/scripts/run-gate-tests.py"\n'
+            'echo "   gate suite tests: SKIPPED (the push touches no test of the gate suite)"\n',
+            encoding='utf-8',
+        )
+        errors = self._errors()
+        self.assertTrue(
+            any('gate suite step runs the whole suite' in err for err in errors),
+            errors,
+        )
+
+    def test_a_gate_suite_step_without_a_skip_is_an_error(self):
+        """A scope nobody can see is a scope nobody can rely on.
+
+        The step has to say that it judges nothing when the push touches no
+        test of the suite — otherwise "SKIPPED" and "OK" look the same to the
+        reader, and a step that judged nothing reads as a step that judged
+        everything.
+        """
+        self.hook_path.write_text(
+            '#!/usr/bin/env bash\n'
+            'suite_module_args+=(--module "$suite_module")\n'
+            'python3 "$tree/scripts/run-gate-tests.py" "${suite_module_args[@]}"\n',
+            encoding='utf-8',
+        )
+        errors = self._errors()
+        self.assertTrue(
+            any('no scope and no skip' in err for err in errors),
+            errors,
+        )
+
+    def test_a_gate_suite_that_is_not_run_at_all_is_an_error(self):
+        self.hook_path.write_text(
+            '#!/usr/bin/env bash\n'
+            'python3 "$REPO_ROOT/scripts/ci-verdict.py" "$sha"\n',
+            encoding='utf-8',
+        )
+        errors = self._errors()
+        self.assertTrue(
+            any('does not run the gate suite' in err for err in errors),
             errors,
         )
 
