@@ -338,6 +338,13 @@ promise_touched_files() {
 
 GATES_FAILED=0
 
+# The exit code that says "no test ran". `unittest` answers with it, and
+# `scripts/run-gate-tests.py` carries the same number as its own
+# `NO_TESTS_RAN`. It is the absence of a measurement, not a failure of the
+# tree: a module that holds no test cases cannot fail, and a push must not
+# be blocked by one.
+NO_TESTS_RAN=5
+
 echo "=== Pre-push — structural gates (against the pushed tree) ==="
 
 if [ "${#PUSH_REFS[@]}" -eq 0 ]; then
@@ -824,11 +831,19 @@ EOF
         # A tree that predates the runner has no runner. The plain `unittest`
         # runs the same modules — and a push of an old branch is not blocked by
         # a file that branch does not have.
-        if (cd "$tree" && without_hook_git_env \
+        suite_rc=0
+        (cd "$tree" && without_hook_git_env \
             GATE_SUITE_INSIDE_HOOK=1 \
             PYTHONPATH="$tree/scripts/src" \
-            python3 -m unittest "${suite_unittest_args[@]}") >"$suite_log" 2>&1; then
+            python3 -m unittest "${suite_unittest_args[@]}") >"$suite_log" 2>&1 || suite_rc=$?
+        if [ "$suite_rc" -eq 0 ]; then
             echo "   gate suite tests: OK (${suite_modules# }) — the tree has no runner, plain unittest"
+            rm -f "$suite_log"
+        elif [ "$suite_rc" -eq "$NO_TESTS_RAN" ]; then
+            # No test ran: the modules the push touches hold no test cases.
+            # That is the absence of a measurement, not a failure of the
+            # tree — a module without tests cannot fail.
+            echo "   gate suite tests: SKIPPED (the modules the push touches hold no test cases)"
             rm -f "$suite_log"
         else
             echo "   gate suite tests: FAILED (${suite_modules# })"
@@ -838,19 +853,30 @@ EOF
             echo ""
             echo "pre-push FAILED — the gate suite's own tests do not pass in the tree of $local_ref."
         fi
-    elif (cd "$tree" && without_hook_git_env \
-        GATE_SUITE_INSIDE_HOOK=1 \
-        PYTHONPATH="$tree/scripts/src" \
-        python3 "$tree/scripts/run-gate-tests.py" "${suite_module_args[@]}") >"$suite_log" 2>&1; then
-        echo "   gate suite tests: OK (${suite_modules# })"
-        rm -f "$suite_log"
     else
-        echo "   gate suite tests: FAILED (${suite_modules# })"
-        GATES_FAILED=1
-        report_failed_tests "$suite_log"
-        echo ""
-        echo "pre-push FAILED — the gate suite's own tests do not pass in the tree of $local_ref."
-        keep_suite_log "$suite_log" "$suite_log_kept"
+        suite_rc=0
+        (cd "$tree" && without_hook_git_env \
+            GATE_SUITE_INSIDE_HOOK=1 \
+            PYTHONPATH="$tree/scripts/src" \
+            python3 "$tree/scripts/run-gate-tests.py" "${suite_module_args[@]}") >"$suite_log" 2>&1 || suite_rc=$?
+        if [ "$suite_rc" -eq 0 ]; then
+            echo "   gate suite tests: OK (${suite_modules# })"
+            rm -f "$suite_log"
+        elif [ "$suite_rc" -eq "$NO_TESTS_RAN" ]; then
+            # The runner answers with NO_TESTS_RAN when the modules it was
+            # given hold no test cases at all. The absence of a measurement
+            # is not a failure the push caused, and a push must not be
+            # blocked by it.
+            echo "   gate suite tests: SKIPPED (the modules the push touches hold no test cases)"
+            rm -f "$suite_log"
+        else
+            echo "   gate suite tests: FAILED (${suite_modules# })"
+            GATES_FAILED=1
+            report_failed_tests "$suite_log"
+            echo ""
+            echo "pre-push FAILED — the gate suite's own tests do not pass in the tree of $local_ref."
+            keep_suite_log "$suite_log" "$suite_log_kept"
+        fi
     fi
 
     # ── easement: architecture boundary check (against the pushed tree) ──

@@ -39,6 +39,7 @@ the tests take well under a second and need no build.
 
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -924,6 +925,58 @@ class PrePushHookTest(unittest.TestCase):
             'the step did not reach the test behind the changed helper:\n' + output,
         )
         self.assertIn('gate suite tests: FAILED', output)
+
+    def test_a_module_the_push_touches_that_holds_no_test_cases_does_not_block_the_push(self):
+        """A module without tests cannot fail.
+
+        The runner answers with NO TESTS RAN when the modules it was given
+        hold no test cases at all. That is the absence of a measurement, not
+        a failure of the tree — and a push that adds a placeholder module
+        must not be blocked by it.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/tests/test_gate_green.py', GREEN_GATE_TEST)
+        self._write('scripts/tests/test_placeholder.py', '"""A module with no test cases yet."""\n')
+        self._commit('a gate suite with a passing module and a placeholder')
+        first = self._push()
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+
+        # The push touches the placeholder alone: the runner has nothing to
+        # measure, and nothing to fail.
+        self._write(
+            'scripts/tests/test_placeholder.py',
+            '"""A module with no test cases yet."""\n\n# touched by this push\n',
+        )
+        self._commit('the placeholder changed')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertNotIn(
+            'gate suite tests: FAILED',
+            output,
+            'the push was blocked by a module that holds no test cases:\n' + output,
+        )
+
+    def test_the_hook_and_the_runner_agree_on_the_code_that_means_no_test_ran(self):
+        """The hook reads the runner's answer, and the answer is a number.
+
+        The runner says "nothing was measured" with an exit code, and the
+        hook reads that code as "skipped" rather than as a failure. The
+        number lives in the runner — so a runner that changes it without the
+        hook changing would turn every empty module back into a blocked push.
+        """
+        hook_code = re.search(
+            r'^NO_TESTS_RAN=(\d+)$', HOOK.read_text(encoding='utf-8'), re.MULTILINE,
+        )
+        runner_code = re.search(
+            r'^NO_TESTS_RAN = (\d+)$', GATE_TEST_RUNNER.read_text(encoding='utf-8'), re.MULTILINE,
+        )
+        self.assertIsNotNone(hook_code, 'the hook does not name the code it reads')
+        self.assertIsNotNone(runner_code, 'the runner does not name the code it answers with')
+        self.assertEqual(runner_code.group(1), hook_code.group(1))
 
     def test_the_push_prints_the_ci_verdict_of_the_commit_it_pushes(self):
         """The CI verdict is a line of the push, not a thing to remember to ask for.
