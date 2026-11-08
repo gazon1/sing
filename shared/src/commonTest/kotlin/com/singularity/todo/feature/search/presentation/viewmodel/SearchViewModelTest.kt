@@ -16,6 +16,7 @@ import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
 import com.singularity.todo.feature.search.query.ProjectLookup
 import com.singularity.todo.feature.search.query.ProjectLookupResult
 import com.singularity.todo.feature.search.query.Query
+import com.singularity.todo.feature.search.query.QueryParseException
 import com.singularity.todo.feature.search.query.ResolvedSearchQuery
 import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.SimpleFilter
@@ -50,6 +51,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -105,7 +107,9 @@ class SearchViewModelTest {
         fakeSavedSearchRepo.clear()
     }
 
-    private fun TestScope.createVm(): SearchViewModel {
+    private fun TestScope.createVm(
+        parseQuery: (String) -> Query = { input -> SingularityQueryParser(input).parse() },
+    ): SearchViewModel {
         val authRepo = FakeAuthRepository(Session.Anonymous(UserId("user-a")))
         val currentUser = FakeProfileAwareCurrentUser(authRepo, scope = backgroundScope)
         advanceUntilIdle()
@@ -127,7 +131,7 @@ class SearchViewModelTest {
                 ),
             savedSearchRepo = fakeSavedSearchRepo,
             taskRepo = fakeTaskRepo,
-            parseQuery = { input -> SingularityQueryParser(input).parse() },
+            parseQuery = parseQuery,
             clock = FakeClock(NOW),
             scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
         )
@@ -432,7 +436,7 @@ class SearchViewModelTest {
             runCurrent()
 
             val state = vm.stateFlow.value
-            assertEquals(SearchContent.IdlePrompt, searchContent(state.query.text, state.results))
+            assertEquals(SearchContent.IdlePrompt, searchContent(state.query.text, state.results, state.isSearching))
         }
 
     @Test
@@ -446,7 +450,7 @@ class SearchViewModelTest {
             runCurrent()
 
             val state = vm.stateFlow.value
-            assertEquals(SearchContent.NoResults, searchContent(state.query.text, state.results))
+            assertEquals(SearchContent.NoResults, searchContent(state.query.text, state.results, state.isSearching))
         }
 
     @Test
@@ -460,8 +464,91 @@ class SearchViewModelTest {
             runCurrent()
 
             val state = vm.stateFlow.value
-            assertEquals(SearchContent.Results, searchContent(state.query.text, state.results))
+            assertEquals(SearchContent.Results, searchContent(state.query.text, state.results, state.isSearching))
             assertEquals(listOf("Buy milk"), state.results.tasks.map { it.record.title })
+        }
+
+    @Test
+    fun `a query that has not run yet does not report an empty answer`() =
+        runTest {
+            val vm = createVmWithRealSearch()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnQueryChange("milk"))
+            runCurrent()
+
+            val state = vm.stateFlow.value
+            assertEquals(
+                SearchContent.Searching,
+                searchContent(state.query.text, state.results, state.isSearching),
+                "the query has not run yet — the screen must not report an empty answer",
+            )
+        }
+
+    @Test
+    fun `a query that cannot be parsed does not leave the screen waiting for an answer`() =
+        runTest {
+            val vm = createVm(parseQuery = { _ -> throw QueryParseException("bad query", 0) })
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnQueryChange("???"))
+            runCurrent()
+
+            val state = vm.stateFlow.value
+            assertFalse(
+                state.isSearching,
+                "a query that cannot run must not leave the screen waiting for an answer",
+            )
+            assertEquals(
+                SearchContent.NoResults,
+                searchContent(state.query.text, state.results, state.isSearching),
+            )
+        }
+
+    @Test
+    fun `changing the mode after a query that cannot be parsed leaves no spinner behind`() =
+        runTest {
+            val vm = createVm(parseQuery = { _ -> throw QueryParseException("bad query", 0) })
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnQueryChange("???"))
+            runCurrent()
+            assertFalse(vm.stateFlow.value.isSearching)
+
+            vm.onIntent(SearchIntent.OnModeChange(SearchMode.Contains))
+            advanceTimeBy(400L)
+            runCurrent()
+
+            // The mode is part of the question, but the text still does not parse:
+            // the pipeline emits no answer for it, so nothing would ever lower a
+            // raised flag. The screen must not wait for an answer nobody asked for.
+            assertFalse(
+                vm.stateFlow.value.isSearching,
+                "a mode change cannot ask a question that did not parse — no answer is coming",
+            )
+            assertEquals(SearchMode.Contains, vm.stateFlow.value.mode)
+        }
+
+    @Test
+    fun `asking the same question again does not start a search nothing will answer`() =
+        runTest {
+            val vm = createVmWithRealSearch()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnQueryChange("milk"))
+            advanceTimeBy(400L)
+            runCurrent()
+            assertFalse(vm.stateFlow.value.isSearching)
+
+            // The same text and the same mode parse to the same request, which the
+            // pipeline deduplicates: no answer is coming, so no pending state may be
+            // raised for it.
+            vm.onIntent(SearchIntent.OnQueryChange("milk"))
+            runCurrent()
+            assertFalse(
+                vm.stateFlow.value.isSearching,
+                "an unchanged question is not asked again, so nothing is pending",
+            )
         }
 
     // ─── The mode ──────────────────────────────────────────────────────────────
