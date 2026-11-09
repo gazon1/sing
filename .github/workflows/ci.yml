@@ -308,6 +308,16 @@ jobs:
       # exactly its business. The condition is computed in the `changes` job
       # (`needs.changes.outputs.gates`) and carried here as a plain value, so
       # the shell asks the job and not a second copy of the corpus.
+      #
+      # And when the phase does run, it is scoped to the gates this change can
+      # have broken: a control proves that one gate can fail, and that proof
+      # belongs to the gate's own script and to the file its control edits.
+      # A change that touches neither cannot have broken the control, so the
+      # phase proves the affected gates and says which ones it skipped. When
+      # the scope cannot be read — no base ref, no merge-base, an empty
+      # change — the phase proves every gate, because a scope nobody can read
+      # is not a scope.
+      # ADR: docs/decisions/2026-11-09-the-control-phase-proves-the-affected-gates.md
       - name: Script gates (sgate run-all)
         env:
           WITH_CONTROLS: ${{ needs.changes.outputs.gates == 'true' || github.event_name == 'schedule' }}
