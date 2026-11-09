@@ -17,6 +17,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
+ * The one line a section shows when it has nothing to show.
+ *
+ * A section that is empty and says so reads as deliberate; a section that is empty
+ * and says nothing reads as a leftover. The line states the emptiness and points
+ * at the way in — the add-row the section draws under it.
+ */
+@Composable
+internal fun EmptySectionHint(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier,
+    )
+}
+
+/**
  * Reusable card wrapper for task detail extra sections (tags, checklist, attachments, etc.).
  */
 @Composable

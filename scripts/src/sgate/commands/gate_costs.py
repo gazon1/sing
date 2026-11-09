@@ -18,7 +18,7 @@ committed record of what the loop cost.
 The three facts
 ---------------
 *Measurement* — ``sgate run-all`` writes the duration of every gate it ran, and
-``check.sh`` writes the duration of every Gradle step it ran. Both are the runs that
+hk writes the duration of every step of the loop it ran. Both are the runs that
 happened anyway; nothing is executed twice to be timed.
 
 *Baseline* — ``config/docs/gate-benchmarks.json`` holds the recorded samples and the
@@ -183,8 +183,8 @@ def _same_environment(left: dict[str, object], right: dict[str, object]) -> bool
 def read_measurement() -> dict[str, object]:
     """The cycle that was measured: the gates that ran and the steps that ran.
 
-    Two files, two producers: ``run-all`` writes the gates, ``check.sh`` writes the
-    Gradle steps. Neither is asked to know about the other — one is the static suite,
+    Two files, two producers: ``run-all`` writes the gates, hk writes the steps of
+    the loop. Neither is asked to know about the other — one is the static suite,
     the other is the build — and this command is the only place that puts them side by
     side.
     """
@@ -223,33 +223,36 @@ def _read_gate_run() -> dict[str, int]:
 
 
 def _read_steps() -> dict[str, int]:
-    """The per-step durations ``check.sh`` recorded, in milliseconds.
+    """The per-step durations hk recorded, in milliseconds.
 
-    The format is one ``name<TAB>milliseconds`` line per step. It is written by a
-    shell script that measures a Gradle invocation, and a shell script should not have
-    to know JSON to hand over a number.
+    The record is hk's own: ``HK_TIMING_JSON`` names the file hk writes after
+    the hook, and it holds ``{"steps": {"<name>": {"wall_time_ms": N}}}``. The
+    loop does not translate it — the tool that measured the steps is the one
+    that wrote them down, and the cost report reads what it wrote.
+
+    A record that cannot be read is an unpriced cycle, not a failed one.
     """
-    path = sgate.repo.CYCLE_STEPS_TXT
+    path = sgate.repo.CYCLE_STEPS_JSON
     if not path.is_file():
         return {}
-    measured: dict[str, int] = {}
     try:
-        text = path.read_text(encoding="utf-8")
-    except OSError as exc:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
         logger.warning(f"could not read the cycle steps at {path}: {exc}")
         return {}
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
+    if not isinstance(document, dict):
+        return {}
+    steps = document.get("steps")
+    if not isinstance(steps, dict):
+        return {}
+    measured: dict[str, int] = {}
+    for name, entry in steps.items():
+        if not isinstance(name, str) or not isinstance(entry, dict):
             continue
-        name, _, value = line.partition("\t")
-        name = name.strip()
-        try:
-            milliseconds = int(value.strip())
-        except ValueError:
+        duration = entry.get("wall_time_ms")
+        if isinstance(duration, bool) or not isinstance(duration, (int, float)):
             continue
-        if name and milliseconds >= 0:
-            measured[name] = milliseconds
+        measured[name] = int(duration)
     return measured
 
 

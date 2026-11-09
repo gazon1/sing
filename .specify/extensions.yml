@@ -26,7 +26,7 @@ hooks:
       optional: false
       enabled: true
     - id: refresh-digest
-      command: ./scripts/refresh-decisions-digest.sh
+      command: python3 scripts/refresh-decisions-digest.py
       description: "Refresh DIGEST.md after ADR changes"
       optional: true
       enabled: true

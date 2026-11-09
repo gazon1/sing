@@ -6,8 +6,11 @@ tags:
   - scenario:PLANS-10
 ---
 - runFlow: ../../helpers/launch-clean.yaml
-- tapOn:
-    id: nav_tab_plans
+- runFlow:
+    file: ../../helpers/open-menu-item.yaml
+    env:
+      ENTRY_ID: menu_plans
+      DEST_ID: plans_screen
 - extendedWaitUntil:
     visible:
       id: plans_empty_state

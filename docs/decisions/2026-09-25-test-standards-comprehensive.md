@@ -16,6 +16,7 @@ epic: refactor/test-suite-acceleration
 Phase 0–4 of `refactor/test-suite-acceleration` (git worktree: `junit6-spike`) performed a comprehensive overhaul of the test infrastructure for the Singularity Todo KMP project (Android + JVM Desktop).
 
 ## Decision
+
 ### D1: JUnit Jupiter 5.11+ is the test platform
 
 JUnit 4 is retired. All new tests use Jupiter API:
@@ -44,6 +45,7 @@ Tests are tagged at class level:
 ```
 
 Gradle filtering:
+
 ```kotlin
 // gradle.properties
 test.tags=fast   # default

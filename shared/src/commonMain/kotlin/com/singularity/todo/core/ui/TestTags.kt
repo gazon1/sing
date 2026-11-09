@@ -72,9 +72,6 @@ object TestTags {
     const val AUTH_TOGGLE_MODE_BUTTON = "auth_toggle_mode_button"
     const val AUTH_CONTINUE_OFFLINE_BUTTON = "auth_continue_offline_button"
     const val AUTH_ERROR_TEXT = "auth_error_text"
-
-    /** A neutral "you have to do something" message, as opposed to a failure. */
-    const val AUTH_MESSAGE_TEXT = "auth_message_text"
     const val AUTH_LOADING = "auth_loading"
     const val AUTH_CONFIRMATION_HEADLINE = "auth_confirmation_headline"
     const val AUTH_CONFIRMATION_EMAIL = "auth_confirmation_email"
@@ -177,6 +174,9 @@ object TestTags {
 
     /** Empty state of the proposals screen. */
     const val PROPOSALS_EMPTY = "proposals_empty"
+
+    /** The stack of pending AI proposals on the task detail. */
+    const val TASK_DETAIL_PROPOSALS_SECTION = "task_detail_proposals_section"
 
     /** The "connect an account" entry in the menu. */
     const val MENU_ATTACH_ACCOUNT = "menu_attach_account"
@@ -339,6 +339,14 @@ object TestTags {
     const val TASK_CHECKLIST_SECTION = "task_checklist_section"
 
     /**
+     * The line the checklist section shows when it has no items.
+     *
+     * The section itself stays on screen — it carries the add-row — so the empty
+     * state has to say what it is rather than leave a count over nothing.
+     */
+    const val CHECKLIST_EMPTY_HINT = "checklist_empty_hint"
+
+    /**
      * Text input of the inline add-row in the task detail's checklist section.
      *
      * Separate from [CHECKLIST_ADD_INPUT], which belongs to the checklist sheet:
@@ -384,6 +392,9 @@ object TestTags {
 
     /** The subtasks section container in the task detail view. */
     const val SUBTASKS_SECTION = "subtasks_section"
+
+    /** The line the subtasks section shows when it has no subtasks. */
+    const val SUBTASKS_EMPTY_HINT = "subtasks_empty_hint"
 
     /** Text input for entering a new subtask title in the subtasks section. */
     const val SUBTASK_ADD_INPUT = "subtask_add_input"
@@ -461,6 +472,23 @@ object TestTags {
      */
     const val AGENDA_MERGE_SERIES_BUTTON = "agenda_merge_series_button"
     const val AGENDA_SAVE_CURRENT_BUTTON = "agenda_save_current_button"
+
+    /**
+     * The agenda's time-of-day greeting.
+     *
+     * It lives in the screen body, not in the bar's title slot: on Android the shared
+     * bar wrapper draws no bar of its own and drops a screen's title slot, so a
+     * greeting drawn there was never seen on Android at all — only on desktop.
+     */
+    const val AGENDA_GREETING = "agenda_greeting"
+
+    /**
+     * The line at the end of the Upcoming tab that says where a task dated beyond
+     * next week is seen. It is the user-facing half of the decision recorded in
+     * `2026-11-05-the-agenda-tabs-cover-a-horizon`.
+     */
+    const val AGENDA_HORIZON_NOTE = "agenda_horizon_note"
+
     const val SAVED_AGENDA_LIST_BACK = "saved_agenda_list_back"
     const val SAVED_AGENDA_CREATE_FAB = "saved_agenda_create_fab"
     const val SAVED_AGENDA_NAME_INPUT = "saved_agenda_name_input"
@@ -654,6 +682,12 @@ object TestTags {
     /** "No results found" empty state in the search screen (shown when query has no matches). */
     const val SEARCH_EMPTY_RESULTS = "search_empty_results"
 
+    /** The "Clear" button of the search field — one tap empties the query. */
+    const val SEARCH_CLEAR_BUTTON = "search_clear_button"
+
+    /** The progress indicator of the search screen, shown while the query is running. */
+    const val SEARCH_LOADING = "search_loading"
+
     /**
      * The shared result/error dialog raised by `NotificationHost`.
      *
@@ -662,6 +696,15 @@ object TestTags {
      * device), so a flow matching the text either rots or silently stops matching.
      */
     const val RESULT_DIALOG = "result_dialog"
+
+    /**
+     * The button that closes the shared result/error dialog.
+     *
+     * The label is "OK" — which reads "ОК" on this project's Russian device — so a
+     * flow that matched the words would wait forever. The dialog can be raised by
+     * an event the screen presents, so the flow has to be able to close it again.
+     */
+    const val RESULT_DIALOG_CONFIRM = "result_dialog_confirm"
 
     /** "Archive is empty" empty state title on the archive list screen. */
     const val ARCHIVE_EMPTY = "archive_empty"
@@ -685,6 +728,16 @@ object TestTags {
 
     /** "No projects yet" empty text in the project picker sheet. */
     const val PROJECT_PICKER_EMPTY = "project_picker_empty"
+
+    /**
+     * The dismiss control on the project editor's icon and parent picker sheets.
+     *
+     * Both sheets are modal, and both could only be closed by picking a value or
+     * by tapping the scrim — so "cancel without changing anything" had no name a
+     * test or a screen reader could address. This tag names the control that
+     * dismisses a picker without picking.
+     */
+    const val PROJECT_PICKER_DISMISS = "project_picker_dismiss"
 
     /** "No projects yet" empty state title on the projects list screen. */
     const val PROJECTS_LIST_EMPTY = "projects_list_empty"
@@ -788,14 +841,43 @@ object TestTags {
     }
 
     /**
-     * Saved searches row — long-press context menu items.
+     * Saved searches row — the per-chip selector and the long-press menu's items.
      *
-     * Desktop gap: `DropdownMenu` renders in a separate layer that the desktop
-     * Compose test API cannot reach. These tags are for Android/Maestro.
+     * The menu is a `DropdownMenu`, a popup: desktop composes it in two windows while
+     * it animates, so a single-node selector refuses to choose and a press goes
+     * through `clickTagFirst`. The chip needs its own selector because a long press is
+     * the only way the menu opens, and the chip's label is the user's saved name.
      */
     object SavedSearches {
         const val SEARCH_MENU_RENAME = "search_menu_rename"
         const val SEARCH_MENU_DELETE = "search_menu_delete"
+
+        /**
+         * The "Rename" button inside [SEARCH_MENU_RENAME]'s row.
+         *
+         * The menu row itself does nothing when pressed — the inline text field and
+         * this button are what commit the rename — so a press addressed by the row's
+         * tag would animate the menu and change nothing. This is the press that
+         * actually opens the rename dialog, and the label alone is ambiguous: the row
+         * draws the word "Rename" twice.
+         */
+        const val SEARCH_MENU_RENAME_BUTTON = "search_menu_rename_button"
+
+        /**
+         * The chip for one saved search, addressed by the name the chip draws.
+         *
+         * The chip is the only control the rename flow starts from — a long press
+         * opens the menu that offers it — and without a selector the desktop harness
+         * has nothing to press. The name is the address because it is what the chip
+         * shows and what a test controls, the way `taskItem` addresses a row by its
+         * title; two saved searches sharing a name share a tag, which a test that
+         * seeds its own fixture never sees.
+         */
+        fun chip(name: String) = "saved_search_chip_${slug(name)}"
+
+        /** Confirm button of the rename dialog — the marker that the dialog is up. */
+        const val RENAME_DIALOG_CONFIRM = "search_rename_dialog_confirm"
+
         const val SAVE_CHIP = "search_save_chip"
         const val SAVE_DIALOG_CONFIRM = "search_save_dialog_confirm"
     }
@@ -1018,8 +1100,7 @@ object TestTags {
     // ─── Time tracking ─────────────────────────────────────────────────────
 
     /**
-     * Start/stop chip of [com.singularity.todo.feature.timetracking.presentation
-     * .components.TimeTrackingSection] on the task detail screen.
+     * Start/stop chip of the time-tracking section on the task detail screen.
      *
      * These two were added, removed and are now back, and the round trip is the
      * point worth keeping in mind. They were added for a desktop carrier that a
@@ -1069,6 +1150,9 @@ object TestTags {
      * observable.
      */
     const val LOGBOOK_EMPTY = "logbook_empty"
+
+    /** The line the logbook shows when it has neither notes nor time entries. */
+    const val LOGBOOK_EMPTY_HINT = "logbook_empty_hint"
 
     /** The "+" button that opens the note editor with the task already attached. */
     const val LOGBOOK_ADD_NOTE_BUTTON = "logbook_add_note_button"
@@ -1226,6 +1310,15 @@ object TestTags {
     /** The message field of the AI chat screen. */
     const val CHAT_INPUT = "chat_input"
 
+    /**
+     * The message list of the AI chat screen.
+     *
+     * A list, not a message: the follow-the-tail policy is a property of the scroll
+     * container, so a test about it has to address the container itself. Which messages
+     * are on screen is asked of their text, not of this tag.
+     */
+    const val CHAT_MESSAGES = "chat_messages"
+
     // ─── Calendar ──────────────────────────────────────────────────────────
 
     /**
@@ -1265,6 +1358,32 @@ object TestTags {
      * the app to a sentence.
      */
     const val CALENDAR_MONTH_TITLE = "calendar_month_title"
+
+    /**
+     * The bar's control strip: the view-mode trigger, the mini-calendar toggle,
+     * the month pager and "Today".
+     *
+     * One tag on the strip so a layout test can say where the strip sits — that
+     * it ends at the bar's right edge on a wide window, and that it stays inside
+     * the window at a phone width — without addressing the individual controls.
+     * The strip does not scroll: it is laid out at the size of its controls and
+     * the bar around it is what gives way, so "where it sits" is a claim about
+     * the bar's layout and not about any one button. No Maestro flow uses this
+     * tag today; it exists for [CalendarTopBarNarrowTest] and is in the
+     * catalogue so a flow that needs it can be written against a documented id.
+     */
+    const val CALENDAR_CONTROLS = "calendar_controls"
+
+    /**
+     * The control that brings the calendar back to today's period.
+     *
+     * The label is the app's word ("Today"); a test that measured the label's
+     * node by its words would pin the app to that word, and the tag lets a
+     * layout test measure the control that the word used to be — the one that
+     * wrapped one letter per line at 360 dp. No flow taps it today; a flow that
+     * does should use this id rather than the word.
+     */
+    const val CALENDAR_TODAY = "calendar_today"
 
     /**
      * A day cell of the calendar's day grid — the cell that holds one day.

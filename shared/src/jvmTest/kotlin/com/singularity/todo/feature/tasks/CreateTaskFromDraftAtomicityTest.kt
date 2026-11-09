@@ -2,11 +2,13 @@
 
 package com.singularity.todo.feature.tasks
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.database.RoomUnitOfWork
-import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ids.UserId
@@ -19,11 +21,11 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.tasks.domain.state.DraftChecklistItem
+import com.singularity.todo.feature.tasks.domain.state.DueDateOption
+import com.singularity.todo.feature.tasks.domain.state.TaskDraft
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
-import com.singularity.todo.feature.tasks.presentation.state.DraftChecklistItem
-import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
-import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import com.singularity.todo.test.fakes.FakeAttachmentRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeClock
@@ -35,8 +37,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -54,26 +54,24 @@ import kotlin.time.Instant
  */
 @Tag("slow")
 @Tag("slow:data")
+@Epic("Tasks")
+@Feature("Tasks")
 class CreateTaskFromDraftAtomicityTest {
     private val alice = UserId("alice")
     private val today = LocalDate(2026, 6, 15)
     private val clock = FakeClock(Instant.parse("2026-06-15T10:00:00Z"))
 
-    private val tempDirLazy = lazy { Files.createTempDirectory("singularity-create-atomic-").toFile() }
-    private val tempDir: File by tempDirLazy
+    private val fixtureLazy = lazy { DatabaseTestFixture.inMemory() }
+    private val fixture: DatabaseTestFixture by fixtureLazy
     private val dbLazy =
         lazy {
-            AppDatabaseFactory.build(
-                driver = createSqlDriver(),
-                dbPath = File(tempDir, "tasks.db").absolutePath,
-            )
+            fixture.database()
         }
     private val db: AppDatabase by dbLazy
 
     @AfterTest
     fun tearDown() {
-        if (dbLazy.isInitialized()) db.close()
-        if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
+        if (fixtureLazy.isInitialized()) fixture.close()
     }
 
     /**

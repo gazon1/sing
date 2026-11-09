@@ -73,6 +73,25 @@ fun rememberSpotlightTour(
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf(SpotlightTourState()) }
 
+    // The one way the tour starts again on demand. The controller handle and the store's
+    // replay request both go through it, so "Show tips again" and `replay()` cannot drift
+    // apart, and there is a single place that answers "which anchors are laid out now".
+    val replayNow = {
+        machine.startIfEligible(
+            alreadySeen = true,
+            force = true,
+            anchors = steps.associate { it.anchor to registry[it.anchor] },
+        )
+    }
+
+    // Ending the tour is one action however it happened: reaching the last step by
+    // advancing and pressing Skip both mean "this version has been shown". Keeping the
+    // record in one place is what stops the two endings from disagreeing again.
+    val finishNow: suspend () -> Unit = {
+        machine.finish()
+        settingsStore.markSpotlightSeen(contentVersion)
+    }
+
     // Republish from the machine whenever either the step or the target's bounds move.
     // Recomputing only on machine changes would freeze the hole in place while the
     // window resized, which is the one case where a stale overlay is most visible.
@@ -104,26 +123,26 @@ fun rememberSpotlightTour(
             }
     }
 
+    // "Show tips again" clears the stored version, which on its own is invisible while
+    // this screen stays composed in its navigation stack — the eligibility effect above
+    // has already made its one read. This is what turns the settings action into a tour
+    // on screen now. A request made while this screen is not composed is dropped, and the
+    // cleared version is what the next composition's read sees.
+    LaunchedEffect(settingsStore, steps, registry) {
+        settingsStore.spotlightReplayRequests.collect { replayNow() }
+    }
+
     return SpotlightTourController(
         state = state,
         registry = registry,
         onAdvance = {
-            scope.launch { machine.advance(steps.associate { it.anchor to registry[it.anchor] }) }
-        },
-        onFinish = {
             scope.launch {
-                machine.finish()
-                settingsStore.markSpotlightSeen(contentVersion)
+                if (machine.advance(steps.associate { it.anchor to registry[it.anchor] })) {
+                    finishNow()
+                }
             }
         },
-        onReplay = {
-            scope.launch {
-                machine.startIfEligible(
-                    alreadySeen = true,
-                    force = true,
-                    anchors = steps.associate { it.anchor to registry[it.anchor] },
-                )
-            }
-        },
+        onFinish = { scope.launch { finishNow() } },
+        onReplay = replayNow,
     )
 }

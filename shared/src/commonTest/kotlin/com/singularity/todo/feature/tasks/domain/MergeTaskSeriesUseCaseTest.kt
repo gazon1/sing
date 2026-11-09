@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.domain
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -23,6 +26,8 @@ import kotlin.test.assertTrue
  * both.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class MergeTaskSeriesUseCaseTest {
     private val alice = UserId("alice")
     private val first = TaskSeriesId("series-1")

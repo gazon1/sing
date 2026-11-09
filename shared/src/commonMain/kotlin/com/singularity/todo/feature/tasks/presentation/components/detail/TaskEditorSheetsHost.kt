@@ -12,9 +12,9 @@ import com.singularity.todo.feature.checklist.components.ChecklistEditorSheet
 import com.singularity.todo.feature.tags.components.TagsPickerSheet
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesPlanner
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
+import com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.components.ProjectPickerSheet
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
-import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -22,6 +22,9 @@ import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.priority
 
 /**
  * Hosts all bottom sheets for [TaskEditorContent].
@@ -99,7 +102,7 @@ fun TaskEditorSheetsHost(
         // ── Priority ─────────────────────────────────────────────────────────
         is TaskEditorSheet.Priority -> {
             TaskEditorSheetHost(
-                title = "Приоритет",
+                title = stringResource(Res.string.priority),
                 onClose = onSheetDismiss,
             ) {
                 TaskEditorPrioritySheet(

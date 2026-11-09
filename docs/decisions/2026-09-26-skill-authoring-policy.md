@@ -82,6 +82,7 @@ Bullets of frequent mistakes.
 ### Deprecation
 
 A skill is deprecated by adding:
+
 ```yaml
 status: deprecated
 Alternative: skill-name-that-replaces-this  # slug of replacement, if any

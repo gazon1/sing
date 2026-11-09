@@ -1,13 +1,16 @@
 package com.singularity.todo.feature.tasks.domain
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
+import com.singularity.todo.feature.tasks.domain.state.DueDateOption
+import com.singularity.todo.feature.tasks.domain.state.TaskDraft
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
-import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
-import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import com.singularity.todo.test.fakes.FakeAttachmentRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
@@ -36,6 +39,8 @@ import kotlin.time.Instant
  * the rule survives the create, and that a rule together with picked dates loses.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class CreateTaskFromDraftUseCaseTest {
     private val today = LocalDate(2026, 6, 15)
     private val clock = FakeClock(Instant.parse("2026-06-15T10:00:00Z"))

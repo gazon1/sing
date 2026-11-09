@@ -85,6 +85,7 @@ fun RenameSearchDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.mapTestTagsAsResourceIds(),
         title = { Text("Rename Search") },
         text = {
             OutlinedTextField(
@@ -102,6 +103,7 @@ fun RenameSearchDialog(
                         .toString()
                         .trim()
                         .isNotBlank(),
+                modifier = Modifier.testTag(TestTags.SavedSearches.RENAME_DIALOG_CONFIRM),
             ) {
                 Text("Rename")
             }

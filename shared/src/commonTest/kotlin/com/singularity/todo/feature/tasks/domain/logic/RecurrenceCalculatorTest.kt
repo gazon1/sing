@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.domain.logic
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly
@@ -15,6 +18,8 @@ import org.junit.jupiter.params.provider.MethodSource
 import kotlin.test.assertEquals
 
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain logic")
 class RecurrenceCalculatorTest {
     companion object {
         private fun d(

@@ -1,6 +1,7 @@
 # notification-targeting Specification
 
 ## Purpose
+
 A notification is a promise that tapping it takes you somewhere. A reminder set on a
 task is a promise that the task is where you left it; a reminder set from a saved
 agenda view is a promise that the view is where you left it, and the reminder has to
@@ -32,11 +33,13 @@ stored reminder carries that view; a test that posts the notification for it and
 asserts the target survives into the payload.
 
 #### Scenario: A reminder set from a saved view remembers it
+
 - The user is on a saved agenda view
 - The user sets a reminder on a task shown there
 - The stored reminder records that saved view
 
 #### Scenario: A reminder set outside any saved view carries no target
+
 - The user sets a reminder on a task from a screen that is not a saved view
 - The stored reminder records no saved view
 - The notification is posted without a target
@@ -57,11 +60,13 @@ the storage of the target is decoration.
 that the payload a reminder notification carries is the one the registry matches.
 
 #### Scenario: Tapping a targeted notification opens the view
+
 - A reminder raised from a saved view has fired
 - The user taps the notification
 - The saved view opens, in the tab it belongs to
 
 #### Scenario: Tapping an untargeted notification opens the app
+
 - A reminder raised outside any saved view has fired
 - The user taps the notification
 - The app opens at its usual entry point, without a failed target
@@ -81,6 +86,7 @@ to "no target", not to a crash or a blank screen.
 been deleted and asserts the app still opens.
 
 #### Scenario: The saved view is deleted before the reminder fires
+
 - A reminder was raised from a saved view
 - The saved view is deleted
 - The reminder fires and its notification is posted

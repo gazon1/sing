@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.format.formatPadded
 import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.platformVerticalScrollbar
 import com.singularity.todo.feature.calendar.domain.logic.dayOfWeekShort
 import com.singularity.todo.feature.calendar.domain.logic.isoLocalDate
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
@@ -123,7 +124,10 @@ fun TimeGridView(
         }
 
         // Hourly grid
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize().platformVerticalScrollbar(listState),
+        ) {
             items(24, key = { it }) { hour ->
                 HourRow(
                     hour = hour,

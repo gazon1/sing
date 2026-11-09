@@ -10,9 +10,15 @@ tags:
     file: ../../helpers/seed.yaml
     env:
       QUERY: "task=Late%20task&due=-1d"
-- tapOn:
-    id: nav_tab_plans
+- runFlow:
+    file: ../../helpers/open-menu-item.yaml
+    env:
+      ENTRY_ID: menu_plans
+      DEST_ID: plans_screen
 # The overdue section is above the dated ones: the first section on the screen.
+# It is the arrival signal for the seeded task: a section header renders only
+# when the section holds a task, so this wait is the overdue task arriving and
+# not a proxy for it (the contract in helpers/seed.yaml).
 - extendedWaitUntil:
     visible:
       id: plans_section_overdue

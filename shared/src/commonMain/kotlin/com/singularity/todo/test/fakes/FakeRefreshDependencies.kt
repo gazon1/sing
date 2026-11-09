@@ -93,6 +93,21 @@ class FakeSyncRepository(var outcome: SyncOutcome = COMPLETED, private val log: 
     private val _status = MutableStateFlow<SyncEngineStatus>(SyncEngineStatus.Idle)
     override val status: StateFlow<SyncEngineStatus> = _status
 
+    /**
+     * Reports the given state as the engine's status, so a test can drive the
+     * indicator through the states it has to render.
+     *
+     * The indicator is fed by [status], which had no way to be moved from
+     * outside until this method existed. The other fake
+     * (`com.singularity.todo.core.sync.FakeSyncRepository`) already offers the
+     * same method, but it lives in the shared module's *test* source set and the
+     * desktop module cannot see it — which is why this fake is in the main
+     * artifact in the first place.
+     */
+    fun setStatus(status: SyncEngineStatus) {
+        _status.value = status
+    }
+
     private val _lastPush = MutableStateFlow<Result<PushSummary>?>(null)
     override val lastPush: StateFlow<Result<PushSummary>?> = _lastPush
 

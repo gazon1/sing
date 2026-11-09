@@ -53,7 +53,6 @@ import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SetImportFromGoogle
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SyncGoogleNow
 import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncIntent.SyncNow
-import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import org.koin.compose.viewmodel.koinViewModel
@@ -87,7 +86,9 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
     // uses, for the same reason — the thing that has to run is a platform thing.
     val authorizationRequest = state.googleAuthorizationRequest
     LaunchedEffect(authorizationRequest, googleConsent) {
-        val request = authorizationRequest ?: return@LaunchedEffect
+        val request =
+            authorizationRequest
+                ?: return@LaunchedEffect
         googleConsent.authorize(
             clientId = request.clientId,
             scopes = request.scopes,
@@ -106,7 +107,10 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
                 .onSuccess { grant -> viewModel.onIntent(GoogleAuthorizationCompleted(grant)) }
                 .onFailure { error ->
                     viewModel.onIntent(
-                        GoogleAuthorizationFailed(error.message ?: "The Google sign-in did not finish"),
+                        GoogleAuthorizationFailed(
+                            error.message
+                                ?: "The Google sign-in did not finish",
+                        ),
                     )
                 }
         }
@@ -198,15 +202,21 @@ private fun providerLabel(provider: CalendarProvider): String =
  * and a reader would be left comparing two formats to work out whether they meant different
  * things.
  */
-private fun formatGoogleSyncTime(at: kotlinx.datetime.Instant): String {
+private fun formatGoogleSyncTime(at: kotlin.time.Instant): String {
     val local = at.toLocalDateTime(TimeZone.currentSystemDefault())
     val month =
         local.month.name
             .lowercase()
             .replaceFirstChar { it.uppercase() }
             .take(3)
-    val hour = local.hour.toString().padStart(2, '0')
-    val minute = local.minute.toString().padStart(2, '0')
+    val hour =
+        local.hour
+            .toString()
+            .padStart(2, '0')
+    val minute =
+        local.minute
+            .toString()
+            .padStart(2, '0')
     return "$month ${local.day}, ${local.year} $hour:$minute"
 }
 
@@ -379,17 +389,24 @@ private fun systemStatusText(status: CalendarSyncStatus): String =
         is CalendarSyncStatus.Idle -> {
             val date =
                 status.lastSyncedAt?.let { ts ->
-                    val instant = Instant.fromEpochMilliseconds(ts)
+                    val instant = kotlin.time.Instant.fromEpochMilliseconds(ts)
                     val local = instant.toLocalDateTime(TimeZone.currentSystemDefault())
                     val month =
                         local.month.name
                             .lowercase()
                             .replaceFirstChar { it.uppercase() }
                             .take(3)
-                    val hour = local.hour.toString().padStart(2, '0')
-                    val minute = local.minute.toString().padStart(2, '0')
+                    val hour =
+                        local.hour
+                            .toString()
+                            .padStart(2, '0')
+                    val minute =
+                        local.minute
+                            .toString()
+                            .padStart(2, '0')
                     "$month ${local.day}, ${local.year} $hour:$minute"
-                } ?: "Never"
+                }
+                    ?: "Never"
             "Last synced: $date"
         }
 
@@ -485,7 +502,10 @@ private fun GoogleClientIdSection(
         )
         Button(
             onClick = { onIntent(SaveGoogleClientId) },
-            enabled = clientIdState.text.toString().isNotBlank(),
+            enabled =
+                clientIdState.text
+                    .toString()
+                    .isNotBlank(),
             modifier = Modifier.padding(top = 8.dp),
         ) {
             Text("Save client id")
@@ -559,9 +579,7 @@ private fun GoogleAccountSection(
             // cannot, and the button says so before the press rather than after it.
             if (!consentSupported) {
                 Text(
-                    text =
-                        "This device cannot run the Google sign-in, so an account cannot be " +
-                            "connected here.",
+                    text = "This device cannot run the Google sign-in, so an account cannot be " + "connected here.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(bottom = 8.dp),
@@ -690,8 +708,11 @@ private fun GoogleImportSection(
         // window the pass does not use.
         Text(
             text =
-                "Imports events from the past ${formatWindowBound(state.importWindow.past)} " +
-                    "to ${formatWindowBound(state.importWindow.future)}.",
+                "Imports events from the past ${formatWindowBound(state.importWindow.past)} " + "to ${
+                    formatWindowBound(
+                        state.importWindow.future,
+                    )
+                }.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier =
@@ -830,9 +851,7 @@ private fun PermissionGate(onRequestPermission: () -> Unit) {
 private fun UnavailableOnThisPlatform() {
     SettingsSection(title = "System Calendar Sync") {
         Text(
-            text =
-                "System calendar sync needs Android. " +
-                    "Your tasks are unaffected — they stay in the app.",
+            text = "System calendar sync needs Android. " + "Your tasks are unaffected — they stay in the app.",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.testTag(TestTags.CalendarSync.SYSTEM_UNAVAILABLE),
         )

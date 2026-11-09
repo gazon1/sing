@@ -81,7 +81,6 @@ import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreviewStat
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Clock
@@ -98,7 +97,6 @@ private sealed interface NotePreviewSheet {
 
 // ─── Screen entry ──────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotePreviewScreen(
     route: NotesRoute.Preview,
@@ -154,7 +152,8 @@ fun NotePreviewScreen(
 
 // ─── Content ─────────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalRichTextApi::class)
+// A preview is one column of sections; splitting it would only move the lines.
+@Suppress("LongMethod")
 @Composable
 fun NotePreviewScreenContent(
     state: NotePreviewState,
@@ -279,7 +278,8 @@ fun NotePreviewScreenContent(
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                         // Body: read-only RichText with internal link interception
-                        if (note.bodyHtml.isNullOrBlank()) {
+                        val bodyHtml = note.bodyHtml
+                        if (bodyHtml.isNullOrBlank()) {
                             Text(
                                 text = "No content",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -288,7 +288,7 @@ fun NotePreviewScreenContent(
                             )
                         } else {
                             NotePreviewBody(
-                                html = note.bodyHtml,
+                                html = bodyHtml,
                                 modifier = Modifier.padding(horizontal = 16.dp),
                                 onNavigateToNote = onNavigateToNote,
                                 onNavigateToTask = onNavigateToTask,
@@ -503,7 +503,7 @@ private fun NotePreviewLoadingPreview() =
         )
     }
 
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 private fun NotePreviewLoadedPreview() =
     NotesPreviewWrapper {

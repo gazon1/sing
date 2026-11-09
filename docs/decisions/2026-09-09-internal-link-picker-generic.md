@@ -16,6 +16,7 @@ Additionally, it had two separate tabs (Notes / Tasks) that performed two sequen
 **Generic sheet in `feature/notes/components/`.**
 
 `LinkResult` and `LinkKind` moved to `feature/notes/LinkResult.kt`:
+
 ```kotlin
 data class LinkResult(
     val id: String,
@@ -26,6 +27,7 @@ enum class LinkKind { Note, Task }
 ```
 
 The sheet signature is now caller-driven:
+
 ```kotlin
 @Composable
 fun InternalLinkPickerSheet(
@@ -37,6 +39,7 @@ fun InternalLinkPickerSheet(
 ```
 
 The caller (NoteEditorScreen) provides `onSearch` that merges results:
+
 ```kotlin
 onSearch = { q ->
     val notes = linkRepo.searchNotes(currentUser.scopedUserId.value, q)
@@ -52,12 +55,14 @@ The sheet no longer imports any feature domain type. The `core/ui/components/` l
 ## Consequences
 
 ### Positive
+
 - `core/ui/components/` is now free of feature-domain imports
 - Single search + merged results = better UX (one tap instead of tab switching)
 - Sheet is reusable by any feature that needs internal linking (e.g. TaskEditor)
 - Icon per `LinkKind` makes the list scannable
 
 ### Negative
+
 - Caller must provide `MutableStateFlow<String>` and inject `InternalLinkRepository` and `ProfileAwareCurrentUser` — slightly more boilerplate at call site
 - Search debouncing (300ms) is now the caller's responsibility (implemented inside the sheet via `LaunchedEffect`)
 

@@ -2,7 +2,7 @@
 
 Primitives in `core/ui/components/` that every screen consumes.
 
-### Catalogue
+## Catalogue
 
 | Component | Purpose | Replaces |
 |---|---|---|
@@ -117,6 +117,7 @@ sealed interface UiEvent {
 ```
 
 **ViewModel side:**
+
 ```kotlin
 private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 4)
 val events: SharedFlow<UiEvent> = _events.asSharedFlow()
@@ -131,6 +132,7 @@ fun refineTask(task: Task) = viewModelScope.launch {
 ```
 
 **Screen side:**
+
 ```kotlin
 @Composable
 fun TasksScreen(...) {
@@ -188,6 +190,7 @@ The same issue occurs with any lambda over a sealed interface — always use a t
 ### `CollectEvents` vs `LaunchedEffect`
 
 Always use `CollectEvents(flow) { … }` instead of `LaunchedEffect(Unit) { vm.events.collectLatest { … } }`. Reasons:
+
 - The `flow` is the `LaunchedEffect` key — if the VM is recreated with a new flow, the collector restarts automatically
 - Saves one line of plumbing per screen
 - Makes the intent obvious: "collect events from this source"
@@ -218,11 +221,13 @@ Always use `CollectEvents(flow) { … }` instead of `LaunchedEffect(Unit) { vm.e
 **Why:** `core/` is loaded before any feature module and has no knowledge of domain entities. Introducing feature imports creates a hard circular dependency boundary and breaks modularity.
 
 **If a component needs feature-specific data:**
+
 1. Define a generic data class in the feature layer (e.g. `LinkResult` in `feature/notes/`)
 2. Pass it as a constructor parameter / callback to the shared component
 3. Keep the shared component purely presentational
 
 **Correct example — generic picker:**
+
 ```
 feature/notes/
 └── components/InternalLinkPickerSheet.kt   ← feature-specific, knows about LinkResult
@@ -231,6 +236,7 @@ NoteEditorScreen.kt                       ← imports InternalLinkPickerSheet, p
 ```
 
 **Wrong example — feature types in core:**
+
 ```
 core/ui/components/
 └── InternalLinkPickerSheet.kt           ← imported Note/Task from feature/notes

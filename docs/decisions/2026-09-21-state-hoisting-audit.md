@@ -46,7 +46,7 @@ Introduce two reusable base classes in `core/ui/components`:
 - `OverlayState<S : Any>` — coordinates sheet + overflow menu + snackbar via
   `mutableStateOf`; `rememberOverlayState<S>()` factory.
 - `FormState<T : Any>` — abstract form holder with `value` + `update { copy() }`
-  + concrete `Saver` per subclass via `listSaver` (no generic erasure issues).
+  - concrete `Saver` per subclass via `listSaver` (no generic erasure issues).
 - Add `@Stable` annotations to 8 existing holders:
   `DialogState`, `EditorSession`, `DraftState` (SavedAgendaVM), `TaskDetailDraftState`,
   `ProjectDetailDraftState`, `EditorAction`, `NotesActions`, `TaskCardActions`,
@@ -115,6 +115,7 @@ Bonus fix: `NotePreview` changed from `Flow.collect { }` to `Flow.first()` —
 ## Consequences
 
 **Positive:**
+
 - Testability — `NotePreviewTest`, `LoginFormStateTest`, `OverlayStateTest`,
   `FormStateTest` added.
 - Recomposition skip — `@Stable` on 11 holders.
@@ -123,6 +124,7 @@ Bonus fix: `NotePreview` changed from `Flow.collect { }` to `Flow.first()` —
 - `Dispatchers.Default` fixes flaky VM tests.
 
 **Negative:**
+
 - 4 PRs instead of 1 (review overhead).
 - Pre-work required 3-4 hours before any visible feature change.
 - `OverlayState` (Phase 1) is not yet saved across process death — acceptable

@@ -16,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
+import com.singularity.todo.core.ui.theme.mutedTextColor
 
 /**
  * The mark that says "this row is one date of a series".

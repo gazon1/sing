@@ -20,13 +20,13 @@ import com.singularity.todo.feature.calendar.domain.logic.headerLabel
 import com.singularity.todo.feature.calendar.domain.logic.toLocalDate
 import com.singularity.todo.feature.calendar.domain.logic.yearMonthForPage
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
+import com.singularity.todo.feature.calendar.domain.state.CalendarIntent
+import com.singularity.todo.feature.calendar.domain.state.CalendarUiState
 import com.singularity.todo.feature.calendar.presentation.components.calendar.CalendarSelectionBar
 import com.singularity.todo.feature.calendar.presentation.components.calendar.CalendarTopBar
 import com.singularity.todo.feature.calendar.presentation.components.calendar.MiniCalendarPanel
 import com.singularity.todo.feature.calendar.presentation.components.calendar.MonthGridView
 import com.singularity.todo.feature.calendar.presentation.components.calendar.TimeGridView
-import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
-import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
 import kotlinx.datetime.LocalDate
 
 /**

@@ -24,7 +24,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,6 +83,10 @@ import kotlin.system.exitProcess
  *   from the Koin graph (#91). Required: the calendar anchor and the FAB prefill are
  *   decided here, and reading the host's wall clock here made a test's fixed `Clock`
  *   reach every ViewModel and none of the shell.
+ * @param onCloseRequest what a back with nothing left to pop does — the Desktop half of
+ *   the Android shell bar's `goBack()`/`activity.finish()` pair (#1523). Supplied by the
+ *   host through [LocalWindowCloseRequest]; the no-op default keeps a shell mounted
+ *   without a window (a test, a preview) from ending a process it does not own.
  */
 @Composable
 fun DesktopShellNav3Root(
@@ -91,6 +94,7 @@ fun DesktopShellNav3Root(
     navigator: Navigator,
     navCallbacks: NavCallbacks,
     today: kotlinx.datetime.LocalDate,
+    onCloseRequest: () -> Unit = {},
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -106,7 +110,17 @@ fun DesktopShellNav3Root(
         topMostRoute as? AppDestination
             ?: current
 
-    val appEntryProvider = createJvmEntryProvider(navCallbacks, today)
+    // A back that has nothing left to pop leaves the app, as it does on Android, where the
+    // same `goBack()` result finishes the activity. The window is the host's, so the shell
+    // asks for the close instead of ending the process itself. Both back paths — the one
+    // `NavDisplay` invokes and the one the screens' own back arrows call — are this value,
+    // so a single press cannot pop and close at once.
+    val shellCallbacks =
+        remember(navCallbacks, navigator, onCloseRequest) {
+            navCallbacks.copy(goBack = { desktopBack(navigator, onCloseRequest) })
+        }
+
+    val appEntryProvider = createJvmEntryProvider(shellCallbacks, today)
 
     // The projects the drawer shows as a tree — the same tree the Android sheet
     // shows, drawn by the same composable.
@@ -190,19 +204,10 @@ fun DesktopShellNav3Root(
             }
         }
 
-    // #445 blank-screen diagnostic — TEMPORARY: to be replaced with proper CI alerting.
-    // Wraps NavDisplay so the composable call-chain includes toDecoratedEntries (a @Composable).
-    // The LaunchedEffect inside fires on topLevelRoute changes and warns if the active route
-    // has no entries — which would render a silently blank NavDisplay with no error.
+    // The blank-tree diagnostic (REQ-DN-004) is recorded inside `toDecoratedEntries`,
+    // before its unresolvable-entry fallback: that is the one place that still sees the
+    // empty stacks, and it runs whether or not the tree has anything to draw into.
     val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
-    LaunchedEffect(state.topLevelRoute) {
-        if (navDisplayEntries.isEmpty()) {
-            println(
-                "WARNING [blank-screen] topLevelRoute=${state.topLevelRoute} has 0 entries. " +
-                    "Check that the entryProvider covers this route.",
-            )
-        }
-    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -356,7 +361,7 @@ fun DesktopShellNav3Root(
                 CompositionLocalProvider(LocalNav3State provides state) {
                     NavDisplay(
                         entries = navDisplayEntries,
-                        onBack = { navigator.goBack() },
+                        onBack = shellCallbacks.goBack,
                         modifier = Modifier.padding(padding),
                     )
                 }
@@ -396,6 +401,25 @@ private fun openGitHub() {
         // Desktop browsing not supported on this platform (including HeadlessException
         // which is an Error in headless CI environments with no display)
     }
+}
+
+/**
+ * The Desktop shell's one back policy: pop, or — when [Navigator.goBack] reports there is
+ * nothing left to pop — ask the host to close the window.
+ *
+ * The Android shell bar pairs the same result with `activity.finish()`
+ * (`ShellNavigationIcon`); this function is the Desktop half of that parity, and it is
+ * the only place the pairing is written, so the `NavDisplay` back and every screen's back
+ * arrow cannot drift apart.
+ *
+ * @param navigator the app's single navigation facade.
+ * @param onCloseRequest what the host does with a close — the window's own close path.
+ */
+internal fun desktopBack(
+    navigator: Navigator,
+    onCloseRequest: () -> Unit,
+) {
+    if (!navigator.goBack()) onCloseRequest()
 }
 
 internal fun handleDesktopShortcut(

@@ -26,6 +26,17 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
 import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
 import kotlinx.collections.immutable.ImmutableSet
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.marking_blocked
+import singularity_todo.shared.generated.resources.marking_follow_up
+import singularity_todo.shared.generated.resources.marking_in_progress
+import singularity_todo.shared.generated.resources.marking_next_up
+import singularity_todo.shared.generated.resources.marking_no_date
+import singularity_todo.shared.generated.resources.marking_overdue
+import singularity_todo.shared.generated.resources.marking_pinned
+import singularity_todo.shared.generated.resources.marking_recurring
+import singularity_todo.shared.generated.resources.task_completed
 
 /**
  * How many markings a row shows before it says how many it left out.
@@ -128,17 +139,18 @@ private fun TaskMarking.icon(): ImageVector =
  * The icons are distinct, but distinctness is a claim about pixels; this is
  * the claim about the fact, and it is the one a screen reader gets to read.
  */
+@Composable
 private fun TaskMarking.contentDescription(): String =
     when (this) {
-        TaskMarking.InProgress -> "Задача в работе"
-        TaskMarking.NextUp -> "Следующая задача"
-        TaskMarking.Blocked -> "Задача заблокирована зависимостями"
-        TaskMarking.FollowUp -> "Задача продолжает другую"
-        TaskMarking.Pinned -> "Задача закреплена"
-        TaskMarking.Recurring -> "Повторяющаяся задача"
-        TaskMarking.Overdue -> "Просроченная задача"
-        TaskMarking.NoDate -> "Задача без даты"
-        TaskMarking.Completed -> "Задача выполнена"
+        TaskMarking.InProgress -> stringResource(Res.string.marking_in_progress)
+        TaskMarking.NextUp -> stringResource(Res.string.marking_next_up)
+        TaskMarking.Blocked -> stringResource(Res.string.marking_blocked)
+        TaskMarking.FollowUp -> stringResource(Res.string.marking_follow_up)
+        TaskMarking.Pinned -> stringResource(Res.string.marking_pinned)
+        TaskMarking.Recurring -> stringResource(Res.string.marking_recurring)
+        TaskMarking.Overdue -> stringResource(Res.string.marking_overdue)
+        TaskMarking.NoDate -> stringResource(Res.string.marking_no_date)
+        TaskMarking.Completed -> stringResource(Res.string.task_completed)
     }
 
 /**

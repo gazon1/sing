@@ -49,11 +49,13 @@ and runs as part of the standard JVM test suite.
 ## Consequences
 
 ### Positive
+
 - Any future mapper that drops a column fails the build, not production
 - The allowlist documents known gaps (e.g. `TagEntity.icon`) and forces a decision
 - Positive control test ensures the rule itself doesn't silently stop detecting
 
 ### Negative
+
 - Test requires manual synchronization when schema changes — a comment in the test
   file reminds authors to update `ENTITY_PARAMS` when adding/removing columns
 - `ChecklistItemEntity` is excluded because its `toItem()` mapper is private and
@@ -61,6 +63,7 @@ and runs as part of the standard JVM test suite.
   via `existing?.createdAt` in `toEntity()`)
 
 ## Links
+
 - Konsist spec: `arch/EntityMapperCompletenessTest.kt`
 - MR 0.2: fixed `estimateMinutes` gap and duplicate `toProject`
 - MR 0.5: added the Konsist test

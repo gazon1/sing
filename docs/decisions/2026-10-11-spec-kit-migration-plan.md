@@ -535,6 +535,7 @@ specify init . --integration generic --integration-options="--commands-dir .agen
 ```
 
 **Installed files:**
+
 - `.specify/` — spec-kit root (workflows, templates, constitutions, extensions)
 - `.agent/commands/` — `/speckit-*` slash commands for AI agent
 - `.github/workflows/adr-gate.yml` — GitHub Actions CI pipeline
@@ -586,12 +587,14 @@ No migration needed — old stubs and new workflows coexist.
 | **Execution** | Both OpenSpec + spec-kit | OpenSpec commands called as spec-kit workflow steps |
 
 **Why not replace OpenSpec with spec-kit:**
+
 - OpenSpec schema (`adr-workflow`) is the source of truth for 575 existing stubs
 - OpenSpec has deep ADR corpus knowledge (status vocabulary, supersedes graph)
 - Migrating stubs = rewriting 575 files unnecessarily
 - spec-kit workflows call `openspec validate` and `adr validate` as shell hooks
 
 **Why not replace spec-kit with OpenSpec:**
+
 - OpenSpec has no workflow automation (no hooks, no human checkpoints, no fan-out)
 - spec-kit's AI agent integration (`/speckit-*` commands) is the primary interface
 - 38 native integrations vs OpenSpec's generic approach

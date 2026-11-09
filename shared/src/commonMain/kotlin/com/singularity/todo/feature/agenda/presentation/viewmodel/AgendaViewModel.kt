@@ -1,12 +1,14 @@
 package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.coroutines.ReloadTrigger
+import com.singularity.todo.core.coroutines.reloadOn
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
-import com.singularity.todo.core.platform.localTimeAt
+import com.singularity.todo.core.platform.localHourFlow
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.text.FieldOwnedText
@@ -26,20 +28,20 @@ import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
+import com.singularity.todo.feature.tasks.domain.state.DueDateOption
+import com.singularity.todo.feature.tasks.domain.state.TaskDraft
 import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
-import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
-import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -155,23 +157,50 @@ class AgendaViewModel(
      */
     private val deleteSequence = AtomicInt(0)
 
-    // Non-null default breaks the tie before computeGreeting() finishes.
-    // "Good evening" is the most common outcome; the computed value replaces it within
-    // the same runCurrent() window in tests, so there is no flash of the wrong greeting.
-
     /**
-     * Drives the greeting computation.
+     * The greeting as the clock and the configured hours define it, right now.
      *
-     * Uses [MutableStateFlow] so the value is observable from tests without a Compose
-     * runtime. Initialized in [init] rather than inside the `collect` block so tests
-     * can drain it with a bounded number of [runCurrent] calls — no `advanceUntilIdle`
-     * (which hangs on the infinite [todayFlow] loop) and no `runBlocking` (forbidden
-     * by [NoRunBlockingRule]).
+     * Three inputs, because the value depends on all three: the hour boundary the
+     * user configured for the morning, the one for the afternoon, and the hour it is
+     * — each observed rather than read once. [localHourFlow] re-emits at every hour
+     * boundary, so a screen left open across noon follows it; the settings flows
+     * re-emit on a change made in Settings, so the user does not have to leave the
+     * agenda to see their own configuration.
      *
-     * @see <docs/decisions/2026-10-18-greeting-init-no-runblocking.md>
+     * ## One writer, and it is the state builder
+     * This flow is an *input* of the `combine` that produces every
+     * [AgendaUiState.Loaded], so the greeting travels inside the emission that carries
+     * it. It deliberately does not publish into the state on a path of its own: two
+     * writers — one for the greeting, one for the task list — race across
+     * `flatMapLatest`'s channel hop, and a list emission built from an earlier greeting
+     * can land *after* the greeting did and revert the screen to the hour before the
+     * boundary. Nothing repairs that until the next hour or the next settings change,
+     * which is the defect this whole change exists to remove, made intermittent.
+     *
+     * A failed read degrades to the empty greeting. That is the promise the one-shot
+     * computation made, kept: no greeting, never a stale one, and never an exception
+     * escaping a collector nobody is watching.
      */
-    private val _greeting = MutableStateFlow("Good evening")
-    val greeting: StateFlow<String> = _greeting.asStateFlow()
+    private val greetingFlow: Flow<String> =
+        combine(
+            deps.greetingSettings.morningEndHour,
+            deps.greetingSettings.afternoonEndHour,
+            localHourFlow(deps.clock, deps.timeZone.current()),
+        ) { morningEnd, afternoonEnd, hour ->
+            when {
+                hour < morningEnd -> "Good morning"
+                hour < afternoonEnd -> "Good afternoon"
+                else -> "Good evening"
+            }
+        }.catch {
+            // A failed read degrades to the empty greeting and ends the observation, as
+            // the one-shot computation did: no greeting, never a stale one, never an
+            // exception escaping a collector nobody is watching. Ending the flow is safe
+            // here because it is an *input* of the combine that builds every `Loaded`:
+            // `combine` keeps the last value of an input that has completed, so the
+            // agenda's list keeps updating with "no greeting" attached.
+            emit("")
+        }
 
     /**
      * The task list the current evaluation was made against.
@@ -185,108 +214,99 @@ class AgendaViewModel(
     private val latestTasks = MutableStateFlow<List<Task>>(emptyList())
 
     /**
-     * Increments to re-run the collection in [init] after a failure or a retry.
+     * The request to re-run the collection in [init] after a failure or a retry.
      *
      * The collection this triggers has to outlive a failure, or the retry has
-     * nothing to restart — see where the catch sits in [init].
+     * nothing to restart — the trigger keeps the failure handling *inside* the
+     * attempt it applies to, which is what [reloadOn] is for.
      */
-    private val _reloadTrigger = MutableStateFlow(0)
+    private val reloadTrigger = ReloadTrigger()
 
     init {
-        // Greeting is computed once at load from greetingSettings and the current clock hour.
-        // It does not change during the lifetime of this ViewModel instance.
-        // Launched here (not inside the collector) so tests can drain it with runCurrent:
-        // the collect chain and the greeting computation are independent coroutines on the
-        // same scope, and runCurrent advances one pending task per call, so the greeting
-        // computation completes in 3-4 calls before the collect callback reads _greeting.value.
         scope.launch {
-            _greeting.value = computeGreeting()
-        }
-
-        scope.launch {
-            _reloadTrigger
-                .flatMapLatest { _ ->
-                    todayFlow(deps.clock, deps.timeZone.current())
-                        .flatMapLatest { today ->
-                            // The projects are observed alongside the tasks: the row needs its
-                            // project's name and colour, and the lookup includes closed projects
-                            // so a badge never vanishes because the project was finished. The
-                            // projects are resolved here — once per list build — and ride on the
-                            // row item, so no row looks a project up.
-                            combine(
-                                deps.taskRepo
-                                    .observeByFilter(TaskFilter.All)
-                                    .distinctUntilChanged(), // skip recompute when task list unchanged
-                                deps.projectsRepository.observeAllIncludingClosed(),
-                            ) { tasks, projects -> tasks to projects }
-                                .onEach { (tasks, _) -> latestTasks.value = tasks }
-                                .map { (tasks, projects) ->
-                                    val projectsById = projects.associateBy { it.id.value }
-                                    AgendaUiState.Loaded(
-                                        sections =
-                                            AgendaEvaluator
-                                                .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
-                                                .toImmutableList(),
-                                        today = today,
-                                        greeting = _greeting.value,
-                                    )
-                                }
-                        }
-                        // The catch sits INSIDE the trigger's branch, and that is the whole
-                        // difference between a retry that works and one that does not.
-                        //
-                        // A catch placed after this branch — on the trigger's own chain —
-                        // ends the collection it handled the exception in: the trigger's
-                        // subscriber is gone, and the Retry intent then bumps a trigger
-                        // nobody is listening to any more. The screen sits on the spinner
-                        // for ever and the user's second attempt does nothing.
-                        //
-                        // Here the failure ends only this attempt. The catch reports the
-                        // cause, publishes the error state and emits nothing, so the
-                        // collector below — whose input is a *loaded* agenda — never sees
-                        // an error mistaken for one. The trigger stays armed, and the next
-                        // increment starts a fresh attempt.
-                        .catch { cause ->
-                            // The collection stopped: a defect, not a user-actionable error, so the
-                            // cause goes to the reporter as well as to the screen. The message alone
-                            // would hide the throwable that explains why the agenda is empty.
-                            crashReporter.report(cause, AGENDA_LOAD_FAILED)
-                            setState(AgendaUiState.Error(message = cause.toMessage("Could not load agenda")))
-                        }
-                }.collect { fresh ->
-                    // Reconciliation goes through `updateState`, which is CAS-backed,
-                    // because this collector and the selection handlers both write and
-                    // the scope is multi-threaded. Reading `_state.value` and then
-                    // `setState`-ing the result — which is what this used to do —
-                    // is a read-modify-write that can drop a concurrent selection.
-                    updateState { current ->
-                        val previous = (current as? AgendaUiState.Loaded)?.selectedTaskIds ?: persistentSetOf()
-                        // A task that has left the agenda — completed or deleted
-                        // elsewhere — must not stay selected: the id would otherwise
-                        // ride along into a later bulk delete.
-                        val kept = previous.intersect(fresh.taskIds()).toImmutableSet()
-                        fresh.copy(
-                            isSelectionMode = kept.isNotEmpty(),
-                            selectedTaskIds = kept,
-                        )
+            // The failure handling sits INSIDE the trigger's branch, and that is the
+            // whole difference between a retry that works and one that does not.
+            //
+            // A catch placed after this branch — on the trigger's own chain — ends
+            // the collection it handled the exception in: the trigger's subscriber
+            // is gone, and the Retry intent then bumps a trigger nobody is listening
+            // to any more. The screen sits on the spinner for ever and the user's
+            // second attempt does nothing.
+            //
+            // [reloadOn] keeps the handling inside the attempt it applies to: the
+            // failure ends only this attempt, the cause is reported, the error state
+            // is published and nothing is emitted, so the collector below — whose
+            // input is a *loaded* agenda — never sees an error mistaken for one.
+            // The trigger stays armed, and the next increment starts a fresh attempt.
+            reloadOn(
+                trigger = reloadTrigger,
+                onFailure = { cause ->
+                    // The collection stopped: a defect, not a user-actionable error, so the
+                    // cause goes to the reporter as well as to the screen. The message alone
+                    // would hide the throwable that explains why the agenda is empty.
+                    val reported = cause.cause ?: cause
+                    crashReporter.report(reported, AGENDA_LOAD_FAILED)
+                    setState(AgendaUiState.Error(message = reported.toMessage("Could not load agenda")))
+                },
+            ) {
+                todayFlow(deps.clock, deps.timeZone.current())
+                    .flatMapLatest { today ->
+                        // The projects are observed alongside the tasks: the row needs its
+                        // project's name and colour, and the lookup includes closed projects
+                        // so a badge never vanishes because the project was finished. The
+                        // projects are resolved here — once per list build — and ride on the
+                        // row item, so no row looks a project up.
+                        // The greeting rides alongside the list instead of being copied
+                        // into a Loaded that the list builds. `combine` re-emits when
+                        // either side changes, so a greeting change republishes the
+                        // *same* `sections` instance — nothing is re-evaluated and the
+                        // selection survives — and a task change republishes with the
+                        // greeting [_greeting] holds now. Copied at map time instead, a
+                        // greeting computed between the map and the CAS below was
+                        // overwritten by the older snapshot, and because the settings flow
+                        // does not re-emit there was nothing left to correct it: the
+                        // agenda kept the old greeting. Reading it as an input makes a
+                        // settings change a *new emission*, so the state converges on the
+                        // newest greeting whatever the interleaving.
+                        combine(
+                            deps.taskRepo
+                                .observeByFilter(TaskFilter.All)
+                                .distinctUntilChanged(), // skip recompute when task list unchanged
+                            deps.projectsRepository.observeAllIncludingClosed(),
+                        ) { tasks, projects -> tasks to projects }
+                            .onEach { (tasks, _) -> latestTasks.value = tasks }
+                            .map { (tasks, projects) ->
+                                val projectsById = projects.associateBy { it.id.value }
+                                AgendaUiState.Loaded(
+                                    sections =
+                                        AgendaEvaluator
+                                            .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
+                                            .toImmutableList(),
+                                    today = today,
+                                    greeting = "",
+                                )
+                            }.combine(greetingFlow) { loaded, greeting -> loaded.copy(greeting = greeting) }
                     }
+            }.collect { fresh ->
+                // Reconciliation goes through `updateState`, which is CAS-backed,
+                // because this collector and the selection handlers both write and
+                // the scope is multi-threaded. Reading `_state.value` and then
+                // `setState`-ing the result — which is what this used to do —
+                // is a read-modify-write that can drop a concurrent selection.
+                updateState { current ->
+                    val previous = (current as? AgendaUiState.Loaded)?.selectedTaskIds ?: persistentSetOf()
+                    // A task that has left the agenda — completed or deleted
+                    // elsewhere — must not stay selected: the id would otherwise
+                    // ride along into a later bulk delete.
+                    val kept = previous.intersect(fresh.taskIds()).toImmutableSet()
+                    fresh.copy(
+                        isSelectionMode = kept.isNotEmpty(),
+                        selectedTaskIds = kept,
+                    )
                 }
+            }
         }
     }
-
-    /** Computes the time-of-day greeting from [greetingSettings] and the current clock hour. */
-    private suspend fun computeGreeting(): String =
-        runCatchingCancellable {
-            val morningEnd = deps.greetingSettings.morningEndHour.first()
-            val afternoonEnd = deps.greetingSettings.afternoonEndHour.first()
-            // localTimeAt(Clock, TimeZone) hides the kotlinx-datetime bridge internally.
-            val hour = localTimeAt(deps.clock, deps.timeZone.current()).hour
-            when {
-                hour < morningEnd -> "Good morning"
-                hour < afternoonEnd -> "Good afternoon"
-                else -> "Good evening"
-            }
-        }.getOrElse { "" }
 
     private fun AgendaUiState.Loaded.taskIds(): Set<TaskId> =
         sections.flatMapTo(mutableSetOf()) { section -> section.tasks.map { it.task.id } }
@@ -434,7 +454,7 @@ class AgendaViewModel(
 
             is AgendaIntent.Retry -> {
                 setState(AgendaUiState.Loading)
-                _reloadTrigger.value = _reloadTrigger.value + 1
+                reloadTrigger.reload()
             }
         }
     }

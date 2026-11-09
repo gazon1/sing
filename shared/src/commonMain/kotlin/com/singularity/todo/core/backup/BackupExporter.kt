@@ -233,9 +233,13 @@ class BackupExporter(
      *
      * The rows that changed — the new ones and the ones whose content changed —
      * together with the rows that are gone, as a [BackupDelta] beside the
-     * snapshot. When the change cannot be carried that way, **nothing** is written
-     * and the chain starts again from this snapshot: an attachment carries bytes
-     * that an entry does not.
+     * snapshot. Whether there is a change to write is decided by the **row
+     * index**: the rows this export found against the rows the last export
+     * recorded. That comparison is the only one that sees a removal, because a
+     * change that only removes rows carries no rows of its own. When the change
+     * cannot be carried that way, **nothing** is written and the chain starts
+     * again from this snapshot: an attachment carries bytes that an entry does
+     * not.
      *
      * ## When the chain starts again
      *
@@ -260,9 +264,18 @@ class BackupExporter(
             }
 
             is BackupDeltaPlan.Entry -> {
-                if (plan.payload.hasNoChanges()) {
-                    // Nothing changed: there is no change to write, and an empty
-                    // entry would only make the chain longer than the account.
+                // The question "is there anything to write?" is asked of the
+                // row index, not of the payload. A change that only *removes*
+                // rows carries no rows of its own — the payload's lists are all
+                // empty and its `removals` are the whole of it — so a payload
+                // that looks empty says nothing about whether the account
+                // moved. The index remembers the rows the last export wrote,
+                // removals included, and it is the one comparison that cannot
+                // answer "nothing changed" for an account that lost a row.
+                if (previous == index) {
+                    // The rows are the rows the last export wrote: there is no
+                    // change to write, and an empty entry would only make the
+                    // chain longer than the account.
                     cursors.save(
                         options.userId!!,
                         state.copy(cursor = now, rows = index),

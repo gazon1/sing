@@ -88,7 +88,7 @@ steps:
   - id: digest-refresh
     type: shell
     description: "Refresh DIGEST.md after ADR changes"
-    run: ./scripts/refresh-decisions-digest.sh 2>&1
+    run: python3 scripts/refresh-decisions-digest.py 2>&1
     continue_on_error: true
 
   - id: converge

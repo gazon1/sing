@@ -58,7 +58,7 @@ From it:
 python3 infra/gen_sync_allowlist_sql.py
 
 # 3. the dated migration that actually inserts the row
-#    supabase/migrations/<date>-sync-workflow-state.sql
+#    infra/supabase/migrations/<date>-sync-workflow-state.sql
 ```
 
 **The dated migration is not optional.** The seed file is what a fresh database is built
@@ -113,7 +113,7 @@ backup.
 | File | What it holds |
 |---|---|
 | `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncContract.kt` | the derived wire and server field lists — **unchanged**, the derivation picks the field up by itself |
-| `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/Task.kt` | the model the derivation reads — **+ `workflowState`** |
+| `core-domain/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/Task.kt` | the model the derivation reads — **+ `workflowState`** |
 | `config/docs/sync-field-allowlist.json` | the exported list — **+ `task.workflowState`** |
-| `supabase/sync_field_allowlist_seed.sql` | generated from the exported list |
-| `supabase/migrations/<date>-sync-workflow-state.sql` | **NEW** — the row for an existing database |
+| `infra/supabase/sync_field_allowlist_seed.sql` | generated from the exported list |
+| `infra/supabase/migrations/<date>-sync-workflow-state.sql` | **NEW** — the row for an existing database |

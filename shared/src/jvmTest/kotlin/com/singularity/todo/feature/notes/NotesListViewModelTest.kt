@@ -8,10 +8,12 @@ import com.singularity.todo.feature.notes.NotesUiState
 import com.singularity.todo.feature.notes.presentation.NotesIntent
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import com.singularity.todo.test.fakes.FakeNotesRepository
+import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -25,6 +27,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -39,11 +42,34 @@ private class FailingTemplatesRepository : FakeNotesRepository() {
     /** Arms the failure: the next emission of the template flow throws. */
     var failOnNextEmission = false
 
+    /**
+     * The throwable the failure carries.
+     *
+     * The report has to carry this exact instance — the one the repository threw —
+     * so a test can tell "the cause reached the reporter" from "something was
+     * reported about a cause".
+     */
+    var failure: Throwable = IllegalStateException("templates unavailable")
+
+    /**
+     * How many times the template flow has been collected.
+     *
+     * A collection, not an emission: one attempt of the reload path subscribes
+     * once, so a Retry that really re-observed the list shows up here as a
+     * second observation. A store write inside one attempt emits again without
+     * moving this count, which is what makes it say "observed" and not "emitted".
+     */
+    var templateObservations = 0
+        private set
+
     override fun watchTemplates(): Flow<List<Note>> =
-        super.watchTemplates().map { templates ->
-            if (failOnNextEmission) throw IllegalStateException("templates unavailable")
-            templates
-        }
+        super
+            .watchTemplates()
+            .onStart { templateObservations++ }
+            .map { templates ->
+                if (failOnNextEmission) throw failure
+                templates
+            }
 }
 
 /**
@@ -57,9 +83,9 @@ class NotesListViewModelTest {
 
     private val fakeNotesRepo = FakeNotesRepository()
 
-    private fun TestScope.createVm() =
+    private fun TestScope.createVm(repo: FakeNotesRepository = fakeNotesRepo) =
         NotesListViewModel(
-            repo = fakeNotesRepo,
+            repo = repo,
             scope = testScope(backgroundScope),
         )
 
@@ -306,6 +332,141 @@ class NotesListViewModelTest {
             assertEquals("groceries", failed.searchQuery.text, "a failure must not clear the query")
             assertEquals(NoteFilter.Pinned, failed.filter, "a failure must not reset the filter chip")
             assertEquals(NoteSortOrder.TitleAsc, failed.sortOrder, "a failure must not reset the sort order")
+        }
+
+    /**
+     * A stopped observation must hand the *cause* to the reporter.
+     *
+     * The screen can only show a message; the message alone says nothing about
+     * why the list stopped, and the throwable that explains it is the thing the
+     * reporter exists for. So the report has to carry the original throwable —
+     * the very instance the repository threw, not a copy of it — under this
+     * screen's own key.
+     */
+    @Test
+    fun `a failed observation reports the original cause`() =
+        runTest {
+            val repo = FailingTemplatesRepository()
+            val reporter = RecordingCrashReportingPort()
+            val vm =
+                NotesListViewModel(
+                    repo = repo,
+                    crashReporter = reporter,
+                    scope = testScope(backgroundScope),
+                )
+            advanceUntilIdle()
+            runCurrent()
+
+            val failure = IllegalStateException("templates unavailable")
+            repo.failure = failure
+            repo.failOnNextEmission = true
+            repo.createWithContent(NoteId("n-fail"), "Trigger", "", "").getOrThrow()
+            advanceUntilIdle()
+            runCurrent()
+
+            assertIs<NotesUiState.Error>(vm.stateFlow.value)
+
+            val reported = reporter.reports.single { it.second == "notes.observe_failed" }
+            assertSame(
+                failure,
+                reported.first,
+                "the reporter must receive the throwable the repository threw",
+            )
+        }
+
+    // ── The retry ────────────────────────────────────────────────────────────
+
+    // The error state's Retry button used to do nothing the user could see: the
+    // failed collection had ended the ViewModel's subscription to the reload
+    // trigger, so the trigger the Retry intent bumped was one nobody listened to.
+    // These tests drive the failure first and then assert the repository was
+    // observed *again*, because a retry that only rewrote the state would pass a
+    // test that only looked at the state.
+
+    /**
+     * A Retry after a failed load observes the notes again and leaves the error.
+     *
+     * The second subscription succeeds, which is the only way the test can tell
+     * "the retry ran" from "the screen stayed where it was".
+     */
+    @Test
+    fun `a retry after a failed load observes the notes again`() =
+        runTest {
+            val repo = FailingTemplatesRepository()
+            val vm = createVm(repo)
+            advanceUntilIdle()
+            runCurrent()
+
+            vm.onIntent(NotesIntent.SetFilter(NoteFilter.Pinned))
+            vm.onIntent(NotesIntent.SetSortOrder(NoteSortOrder.TitleAsc))
+            vm.onIntent(NotesIntent.SearchQueryChanged("groceries"))
+            advanceTimeBy(searchDebounceMs + 1)
+            advanceUntilIdle()
+            runCurrent()
+            assertIs<NotesUiState.Content>(vm.stateFlow.value)
+
+            // The repository fails on the next emission, with the user's choices in force.
+            repo.failOnNextEmission = true
+            repo.createWithContent(NoteId("n-fail"), "Trigger", "", "").getOrThrow()
+            advanceUntilIdle()
+            runCurrent()
+
+            val failed = assertIs<NotesUiState.Error>(vm.stateFlow.value)
+            assertEquals("groceries", failed.searchQuery.text, "a failure must not clear the query")
+            assertEquals(NoteFilter.Pinned, failed.filter, "a failure must not reset the filter chip")
+            assertEquals(NoteSortOrder.TitleAsc, failed.sortOrder, "a failure must not reset the sort order")
+
+            val observationsAtFailure = repo.templateObservations
+            repo.failOnNextEmission = false
+            vm.onIntent(NotesIntent.Retry)
+            runCurrent()
+            advanceTimeBy(searchDebounceMs + 1)
+            advanceUntilIdle()
+            runCurrent()
+
+            assertEquals(
+                observationsAtFailure + 1,
+                repo.templateObservations,
+                "Retry must observe the notes again, not only change the state",
+            )
+            assertIs<NotesUiState.Content>(
+                vm.stateFlow.value,
+                "the retry must leave the error state — the screen must not stay on the spinner",
+            )
+        }
+
+    /**
+     * A retry that fails again lands in the error state, not on the spinner.
+     *
+     * The state Retry writes is a promise that a load is running. When that load
+     * fails the promise is broken, and the error state has to replace it — a
+     * spinner that never resolves is the defect this path exists to prevent.
+     */
+    @Test
+    fun `a retry that fails again lands in the error state`() =
+        runTest {
+            val repo = FailingTemplatesRepository()
+            repo.failOnNextEmission = true
+            val vm = createVm(repo)
+            advanceUntilIdle()
+            runCurrent()
+
+            assertIs<NotesUiState.Error>(vm.stateFlow.value)
+            assertEquals(1, repo.templateObservations)
+
+            vm.onIntent(NotesIntent.Retry)
+            advanceUntilIdle()
+            runCurrent()
+
+            assertEquals(
+                2,
+                repo.templateObservations,
+                "Retry must observe the notes again even when it fails again",
+            )
+            assertIs<NotesUiState.Error>(
+                vm.stateFlow.value,
+                "a failed retry must land in the error state, not on the spinner",
+            )
         }
 
     // ── Delete / Undo ──────────────────────────────────────────────────

@@ -29,7 +29,7 @@ import singularity_todo.shared.generated.resources.reset_priority
 
 /**
  * Renders the priority attribute row in the task editor.
- * Tapping the row opens the [com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet.Priority] sheet.
+ * Tapping the row opens the [com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet.Priority] sheet.
  *
  * @param priority Current priority value.
  * @param onPriorityClick Called when the row is tapped to open the priority picker sheet.

@@ -1,0 +1,19 @@
+# Seeds a task and opens its detail, so a flow starts on the row it owns.
+#
+# Usage:
+#   - runFlow:
+#       file: ../../helpers/seed-and-open-task.yaml
+#       env:
+#         QUERY: "task=AttachTestTask2026"
+#         TASK_ID: task_item_attachtesttask2026
+appId: com.singularity.todo
+name: seed-and-open-task
+---
+- runFlow:
+    file: seed.yaml
+    env:
+      QUERY: "${QUERY}"
+- runFlow:
+    file: open-task.yaml
+    env:
+      TASK_ID: "${TASK_ID}"

@@ -16,6 +16,7 @@ During a documentation audit (PR-0), the `detekt-rules/` module was found to hav
 5. **`PassThroughUseCaseProvider`** — same as above
 
 Additionally, two orphan rule files existed without any provider class:
+
 - `NoCombineSideEffectRule.kt`
 - `NoGlobalScopeLaunchRule.kt`
 

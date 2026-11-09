@@ -9,6 +9,15 @@ indent_style = space
 indent_size = 4
 
 [*.{kt,kts}]
+# detekt's `UnusedImport` is off (ADR 2026-11-03-the-formatting-rules-have-one-owner:
+# ktlint owns the formatting, detekt keeps the semantics), so this ktlint rule is
+# the one that catches an unused import. It is an experimental ktlint rule, which
+# means it is off unless it is enabled by name — without this line an unused
+# import would be caught by nothing at all. The rule id has to be exactly right
+# too: ktlint ignores a `ktlint_*` property it does not know, so a mistyped or
+# renamed id switches the rule off without a word.
+ktlint_standard_no-unused-imports = enabled
+
 # 120, not 140: the ktlint rule `max-line-length` runs at 120, and detekt's own
 # `MaximumLineLength` (config/detekt/detekt.yml) runs at the same number. The
 # two must agree or --format fights the gate.

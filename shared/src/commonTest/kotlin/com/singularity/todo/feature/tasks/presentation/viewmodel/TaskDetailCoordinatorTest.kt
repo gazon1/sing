@@ -2,6 +2,9 @@
 
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
@@ -23,10 +26,10 @@ import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskCollaborationDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailExtras
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiEvent
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailUiState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.SlotFakes
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TEST_USER
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.task
@@ -54,6 +57,8 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Presentation")
 class TaskDetailCoordinatorTest {
     private fun coordinator(
         fakes: SlotFakes,

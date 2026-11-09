@@ -12,6 +12,7 @@ The Singularity Todo KMP project (560+ Kotlin files across `shared`, `androidApp
 ## Idea
 
 Adopt three complementary Kotlin quality tools:
+
 - **detekt 1.23.8** (stable 1.x line) for static analysis: logic, complexity, naming, performance, exceptions, style.
 - **ktlint 12.x** (bundled via `detekt-formatting` plugin) for formatting and imports. One Gradle task (`detektFormat`) fixes both.
 - **kotlinx-kover 0.9.9** (latest stable) for code coverage measurement on `shared` and `desktopApp`.
@@ -37,6 +38,7 @@ Rationale: running ktlint separately from detekt would double-report formatting 
 ### Configuration
 
 Single shared `config/detekt/detekt.yml` used by both `shared` and `desktopApp`. Key rule adjustments for day-1 noise reduction:
+
 - `MagicNumber`, `MatchingDeclarationName`, `MaxLineLength`, `UndocumentedPublicClass`, `UndocumentedPublicFunction` — disabled
 - `LongMethod`, `LongParameterList`, `ComplexMethod`, `TooManyFunctions` — thresholds bumped
 - `WildcardImport` — enabled (ktlint will clean up)
@@ -46,6 +48,7 @@ Single shared `config/detekt/detekt.yml` used by both `shared` and `desktopApp`.
 ### Baseline strategy
 
 Run `detektBaseline` once during setup to capture all existing violations in:
+
 - `config/detekt/baseline-shared.xml`
 - `config/detekt/baseline-desktopApp.xml`
 

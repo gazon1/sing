@@ -10,6 +10,7 @@ tags: [mcp, error-handling, json-rpc]
 ## Context
 
 MCP-сервер должен возвращать ошибки в формате, понятном AI-агентам (Claude Code, ZCode, Cursor). JSON-RPC 2.0 определяет:
+
 - `-32603 Internal Error` — баг сервера
 - `-32602 Invalid Params` — плохой input
 - `-32601 Method not found` — нет такого tool
@@ -21,6 +22,7 @@ MCP-сервер должен возвращать ошибки в формат�
 **Two-tier error model:**
 
 **Tier 1 — Business errors** (agent-readable, returned as `CallToolResult(isError = true)`):
+
 ```kotlin
 // mcp-server/src/main/kotlin/com/singularity/todo/mcp/errors/McpToolError.kt
 sealed interface McpToolError {
@@ -34,6 +36,7 @@ sealed interface McpToolError {
 The case classes contain exactly the fields the agent needs to self-correct: which field failed, which resource was missing, what the duplicate was about, or which resource is off-limits.
 
 **Tier 2 — Internal errors** (agent should stop and report, JSON-RPC `-32603`):
+
 ```kotlin
 sealed interface McpToolError {
     data class Internal(val message: String, val cause: Throwable? = null) : McpToolError
@@ -41,6 +44,7 @@ sealed interface McpToolError {
 ```
 
 **Error mapper** — maps the sealed `McpToolError` to a `CallToolResult` or throws:
+
 ```kotlin
 // mcp-server/src/main/kotlin/com/singularity/todo/mcp/errors/ErrorMapper.kt
 object ErrorMapper {
@@ -67,6 +71,7 @@ object ErrorMapper {
 ```
 
 **MCP tool result for business errors** (Tier 1):
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -81,6 +86,7 @@ object ErrorMapper {
 ```
 
 **MCP error response for internal errors** (Tier 2):
+
 ```json
 {
   "jsonrpc": "2.0",

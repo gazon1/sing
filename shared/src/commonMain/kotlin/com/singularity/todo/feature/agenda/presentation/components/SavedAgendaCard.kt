@@ -30,9 +30,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
-import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
+import com.singularity.todo.preview.PreviewSamples
 
 /**
  * A card representing a single saved agenda view.
@@ -87,12 +87,17 @@ fun SavedAgendaCard(
                 )
             }
 
-            IconButton(onClick = { menuExpanded = true }) {
+            // The tag sits on the button, not on the "⋮" label: the label carries
+            // no click action of its own, so a test that addressed the label had to
+            // inject a click and hope the enclosing button received it.
+            IconButton(
+                onClick = { menuExpanded = true },
+                modifier = Modifier.testTag(TestTags.SAVED_AGENDA_OVERFLOW_BUTTON),
+            ) {
                 Text(
                     text = "⋮",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.testTag(TestTags.SAVED_AGENDA_OVERFLOW_BUTTON),
                 )
                 DropdownMenu(
                     expanded = menuExpanded,

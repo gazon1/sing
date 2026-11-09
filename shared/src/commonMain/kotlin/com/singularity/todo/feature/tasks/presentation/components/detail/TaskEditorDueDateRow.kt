@@ -21,8 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.formatRussianDateList
-import com.singularity.todo.core.ui.components.formatRussianDueDateWithTime
+import com.singularity.todo.core.ui.components.localizedDateList
+import com.singularity.todo.core.ui.components.localizedDueDateWithTime
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.collections.immutable.ImmutableList
@@ -31,11 +31,12 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import org.jetbrains.compose.resources.stringResource
 import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.add_date
 import singularity_todo.shared.generated.resources.reset_date
 
 /**
  * Renders the due date attribute row in the task editor.
- * Tapping the row opens the [com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet.Date] sheet.
+ * Tapping the row opens the [com.singularity.todo.feature.tasks.domain.state.TaskEditorSheet.Date] sheet.
  *
  * @param dueDate Current due date value, or `null` if not set.
  * @param dueDateTime Current due time value, or `null` if not set.
@@ -112,18 +113,30 @@ fun TaskEditorDueDateRow(
 }
 
 /**
- * The label of the due-date row.
+ * The label of the due-date row, in the resource locale.
  *
- * One date reads exactly as the agenda list reads it — the same date label, and
- * the time next to it. Several dates read as a list, because a row that showed
- * only the first of them would hide the fact that there are others.
+ * This row is the one that was reported as Russian next to an English screen
+ * (#1700), so both of its readings come from `composeResources`: the empty one
+ * *and* the dated one. Localising only "Add date" left the same defect behind a
+ * tap — an English placeholder that became "30 окт 2026" once a date was set.
+ *
+ * The shape is the agenda list's — weekday, day, month, year, and the time next
+ * to it. The agenda itself still renders through `formatRussianDueDate`, whose
+ * weekday and month names take no locale; localising that is a separate job
+ * (#1634, ADR `2026-11-02-app-numbers-are-not-the-device-locale`). Until it
+ * lands the two surfaces agree in Russian and differ in English, and the
+ * difference is that formatter's, not this row's.
+ *
+ * Several dates read as a list, because a row that showed only the first of them
+ * would hide the fact that there are others.
  */
+@Composable
 private fun dueDateRowLabel(
     date: LocalDate?,
     time: LocalTime?,
-    dates: List<LocalDate>,
+    dates: ImmutableList<LocalDate>,
 ): String {
-    if (date == null) return "Добавить дату"
-    if (dates.size > 1) return formatRussianDateList(dates)
-    return formatRussianDueDateWithTime(date, time)
+    if (date == null) return stringResource(Res.string.add_date)
+    if (dates.size > 1) return localizedDateList(dates)
+    return localizedDueDateWithTime(date, time)
 }

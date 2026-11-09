@@ -8,10 +8,12 @@ status: accepted
 ## Context
 
 The `checkJvmMainComposeLibrariesCompatibility` task warned at `./gradlew :desktopApp:run`:
+
 ```
 expected: 'org.jetbrains.compose.foundation:foundation:1.11.1'
 actual:   'org.jetbrains.compose.foundation:foundation:1.12.0'
 ```
+
 Plugin and all explicit libs were pinned to `composeMultiplatform = "1.11.1"` in `gradle/libs.versions.toml`. Two third-party libraries pull the 1.12.0 JetBrains compose modules transitively:
 
 - `com.mohamedrejeb.richeditor:richeditor-compose:1.2.0` — declares `requires: 1.12.0` for `foundation`, `runtime`, `material`.

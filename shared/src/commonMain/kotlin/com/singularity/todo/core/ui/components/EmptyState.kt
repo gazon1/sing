@@ -7,12 +7,17 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -32,6 +37,13 @@ typealias EmptyStateActions = @Composable ColumnScope.() -> Unit
  *
  * @param title    Primary message displayed in [MaterialTheme.typography.titleMedium].
  * @param subtitle Optional secondary message in [MaterialTheme.typography.bodyMedium].
+ * @param icon     Optional illustration drawn above the title. `null` (the default)
+ *   renders the text-only form. Material 3 empty states carry an icon or an
+ *   illustration, so a screen that has one passes it here.
+ * @param iconContentDescription Description announced for the [icon]. `null` (the
+ *   default) makes the icon decorative — the right choice when the icon only repeats
+ *   what the title already says. Give it a description only when the icon carries
+ *   meaning the title does not.
  * @param actions  Optional composable slot — e.g. a CTA button. `null` (the default)
  *   renders no action and no extra spacing below the subtitle. Placed below the
  *   subtitle with [Spacer] spacing when non-null.
@@ -43,6 +55,8 @@ fun EmptyState(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    icon: ImageVector? = null,
+    iconContentDescription: String? = null,
     actions: EmptyStateActions? = null,
     testTag: String? = null,
 ) {
@@ -51,6 +65,15 @@ fun EmptyState(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
+            icon?.let { vector ->
+                Icon(
+                    imageVector = vector,
+                    contentDescription = iconContentDescription,
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(16.dp))
+            }
             SelectableText(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
@@ -118,10 +141,11 @@ private fun EmptyStateWithActionsPreview() =
     PreviewThemed(darkTheme = false) {
         EmptyState(
             title = "No notes yet",
-            subtitle = "Create your first note to get started",
+            subtitle = "Notes keep your ideas, lists and plans in one place",
+            icon = Icons.Filled.Description,
             actions = {
                 FilledTonalButton(onClick = noopClick) {
-                    Text("Create your first note")
+                    Text("Create note")
                 }
             },
         )

@@ -136,6 +136,7 @@ private object SavedAgendaEditReducer {
 ```
 
 **The reducer is optional** — only add it when:
+
 1. The screen has local draft state that accumulates before persisting
 2. You want to write unit tests that call `reducer.reduce(state, intent)` with no mocks
 

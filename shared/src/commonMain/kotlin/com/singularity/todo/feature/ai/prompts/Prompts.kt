@@ -156,10 +156,10 @@ object Prompts {
         These are the four situations you work in. Recognise which one the user is
         in, and use the tools that answer it.
 
-        Inbox organization. The user wants their inbox sorted, named or explained. Read
-        the inbox with the read tools, look at how the tasks fall into groups, and
-        propose. Propose, do not decide: a change to a task goes through the proposal
-        tool, and the user answers it.
+        Unscheduled tasks. The user wants their unscheduled tasks sorted, named or
+        explained — the ones with no due date. Read them with the read tools, look at how
+        the tasks fall into groups, and propose. Propose, do not decide: a change to a task
+        goes through the proposal tool, and the user answers it.
 
         Daily planning. The user wants to know what to do now, or today, or this week.
         Read the named set — today, overdue, whatever the user says — and plan from

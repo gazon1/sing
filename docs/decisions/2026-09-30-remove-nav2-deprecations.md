@@ -27,6 +27,7 @@ tags: [mr, navigation, deprecation]
 ## Deferred to MR-N (future)
 
 Full removal of deprecated `AppDestination` singletons and `TasksStartRoute` variants:
+
 - Delete `Inbox`, `Today`, `Upcoming`, `TasksByProject`, `TaskDetail`, `TaskDetailCreate` from `AppDestination`
 - Delete `TasksStartRoute.Inbox`, `Today`, `Upcoming`, `ByProject`
 - Update `AppDestination.icon` to remove deprecated branches

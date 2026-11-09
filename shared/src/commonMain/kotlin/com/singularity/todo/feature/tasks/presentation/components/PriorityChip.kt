@@ -10,7 +10,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.theme.PriorityPalette
 import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
 
 /**
@@ -23,7 +22,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.priorityMeta
  * waiting to happen — the compiler will not flag it and the reviewer will not
  * notice.
  */
-fun priorityChipColor(priority: TaskPriority): Color = priorityMeta(priority, PriorityPalette.PriorityChip).color
+internal fun priorityChipColor(priority: TaskPriority): Color = priorityMeta(priority).color
 
 @Composable
 fun PriorityChip(

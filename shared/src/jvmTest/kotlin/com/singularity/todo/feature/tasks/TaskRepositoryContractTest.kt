@@ -2,10 +2,12 @@
 
 package com.singularity.todo.feature.tasks
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.AppDatabase
-import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.DatabaseTestFixture
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
@@ -28,8 +30,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import java.io.File
-import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -37,6 +37,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * Verifies that [TaskRepository] implementations satisfy the same contract,
@@ -88,6 +89,31 @@ abstract class TaskRepositoryContractTest {
                     .now(),
         )
 
+    /**
+     * Asserts that the seeded rows landed the way the tests that use them name them.
+     *
+     * A test that seeds a finished row and a deferred row without checking them pins
+     * nothing: if `create` normalised either — dropped the completion time, cleared the
+     * `someday` flag — the selection assertions would still pass while describing a
+     * different set than the one the test names. So the seeds are checked first, and
+     * the check reads the rows back rather than trusting what `create` returned.
+     */
+    private suspend fun assertSeededRowsLanded(repo: TaskRepository) {
+        val stored = repo.observeByFilter(TaskFilter.All).first().associateBy { it.id.value }
+        assertNotNull(
+            stored.getValue("finished").completedAt,
+            "the finished row was seeded with a completion time and must have kept it",
+        )
+        assertTrue(
+            stored.getValue("someday").someday,
+            "the deferred row was seeded as deferred and must have kept the someday flag",
+        )
+        assertNull(
+            stored.getValue("undated").completedAt,
+            "the undated row was seeded open and must not have gained a completion time",
+        )
+    }
+
     // ─── Creation ───────────────────────────────────────────────────────────────
 
     @Test
@@ -106,6 +132,137 @@ abstract class TaskRepositoryContractTest {
             val result = repo.create(task("t1", title = "Buy milk"))
             assertTrue(result.isSuccess)
             assertEquals("Buy milk", result.getOrNull()?.title)
+        }
+
+    /**
+     * A write keeps the timestamps the caller gave it.
+     *
+     * The seed defines a fixture's timestamps: a task stamped in the past is what
+     * the stagnant health bucket is defined by. Writing the outgoing links used to
+     * re-stamp `updated_at` with the wall clock on every write, so a seeded
+     * "stagnant" task was fresh the moment the seed returned, and the flow that
+     * asserted on it met an empty bucket instead of a fixture.
+     */
+    @Test
+    fun `create and update keep the timestamps the caller gave`() =
+        runTest {
+            val repo = newRepository(alice)
+            val seeded = Instant.fromEpochMilliseconds(1_767_225_600_000)
+            val edited = Instant.fromEpochMilliseconds(1_700_000_000_000)
+
+            val created =
+                repo
+                    .create(task("t1").copy(createdAt = seeded, updatedAt = seeded))
+                    .getOrThrow()
+            val afterCreate =
+                repo.observeByFilter(TaskFilter.All).first().single { it.id == created.id }
+            assertEquals(seeded, afterCreate.createdAt)
+            assertEquals(seeded, afterCreate.updatedAt)
+
+            repo.update(afterCreate.copy(title = "changed", updatedAt = edited)).getOrThrow()
+            val afterUpdate =
+                repo.observeByFilter(TaskFilter.All).first().single { it.id == created.id }
+            assertEquals("changed", afterUpdate.title)
+            assertEquals(edited, afterUpdate.updatedAt)
+        }
+
+    // ─── What a filter selects ──────────────────────────────────────────────────
+
+    /**
+     * Pins the set `observeByFilter(NotDeferred)` returns, because the name is a claim
+     * about that query and the AI tool's `active_not_deferred` selection rests on the
+     * same rule. The pomodoro picker does *not* read this filter — it reads `All`, whose
+     * set is pinned by the test below — so narrowing this read cannot silently empty the
+     * picker.
+     *
+     * The claim: every live task that is not deferred. Undated in, dated in, finished
+     * in — completing a task marks it and only archiving takes it away — deferred out,
+     * trashed out. If the read ever falls back to `watchActive`, or the query loses its
+     * `someday` condition, this fails rather than the filter quietly answering a
+     * different question than its name.
+     *
+     * ## Where the answer comes from
+     *
+     * The two implementations answer this question in different ways, and both are held
+     * to the same set. The in-memory fake filters the rows in memory through the
+     * domain's predicate (`TaskDomain.matchesFilter`), and the Room implementation
+     * answers from the SQL of `watchNotDeferred` (`archived_at IS NULL AND someday = 0`).
+     * The SQL is therefore exercised by the Room half of this suite, and the two halves
+     * answering the same set is what keeps the name, the query and the domain rule from
+     * drifting apart.
+     */
+    @Test
+    fun `observeByFilter NotDeferred returns the live tasks that are not deferred`() =
+        runTest {
+            val repo = newRepository(alice)
+            val finishedAt =
+                kotlin.time.Clock.System
+                    .now()
+            repo.create(task("undated"))
+            repo.create(task("dated").copy(dueDate = LocalDate(2026, 10, 5)))
+            repo.create(task("finished").copy(completedAt = finishedAt))
+            repo.create(task("someday").copy(someday = true))
+            repo.create(task("trashed"))
+            advanceUntilIdle()
+            repo.softDelete(TaskId("trashed"))
+            advanceUntilIdle()
+
+            assertSeededRowsLanded(repo)
+
+            val selected =
+                repo
+                    .observeByFilter(TaskFilter.NotDeferred)
+                    .first()
+                    .map { it.id.value }
+                    .toSet()
+
+            assertEquals(
+                setOf("undated", "dated", "finished"),
+                selected,
+                "NotDeferred is every live task that is not deferred — dated or undated, finished or not",
+            )
+        }
+
+    /**
+     * Pins the set `observeByFilter(All)` returns, so the two names cannot collapse
+     * back into one question: `All` is everything not in the trash, which is what its
+     * read (`watchActive`) does, and it is the deferred tasks that tell it apart from
+     * `NotDeferred`.
+     *
+     * The SQL is exercised by the Room half of this suite and the domain's predicate by
+     * the in-memory half; both are held to the same set, so the two answers cannot
+     * drift apart.
+     */
+    @Test
+    fun `observeByFilter All returns every live task, the deferred ones included`() =
+        runTest {
+            val repo = newRepository(alice)
+            val finishedAt =
+                kotlin.time.Clock.System
+                    .now()
+            repo.create(task("undated"))
+            repo.create(task("dated").copy(dueDate = LocalDate(2026, 10, 5)))
+            repo.create(task("finished").copy(completedAt = finishedAt))
+            repo.create(task("someday").copy(someday = true))
+            repo.create(task("trashed"))
+            advanceUntilIdle()
+            repo.softDelete(TaskId("trashed"))
+            advanceUntilIdle()
+
+            assertSeededRowsLanded(repo)
+
+            val selected =
+                repo
+                    .observeByFilter(TaskFilter.All)
+                    .first()
+                    .map { it.id.value }
+                    .toSet()
+
+            assertEquals(
+                setOf("undated", "dated", "finished", "someday"),
+                selected,
+                "All is everything not in the trash — the deferred tasks included",
+            )
         }
 
     // ─── Series ───────────────────────────────────────────────────────────────
@@ -362,6 +519,8 @@ abstract class TaskRepositoryContractTest {
  *
  * Fast (~100 ms): no SQLite, no I/O.
  */
+@Epic("Tasks")
+@Feature("Tasks")
 class FakeTaskRepositoryContractTest : TaskRepositoryContractTest() {
     override suspend fun newRepository(userId: UserId): TaskRepository {
         val auth = FakeAuthRepository(Session.Anonymous(userId))
@@ -383,25 +542,18 @@ class FakeTaskRepositoryContractTest : TaskRepositoryContractTest() {
 @Tag("slow")
 class RoomTaskRepositoryContractTest : TaskRepositoryContractTest() {
     // One database per test class, shared across all test methods — same shape as the
-    // sibling Room tests (AppDatabaseFactoryJvmTest, DesktopRestartSmokeTest).
+    // sibling Room tests (JvmDatabaseSeamTest, DesktopRestartSmokeTest).
     //
-    // A real temp FILE, not ":memory:": Room rejects the literal name ":memory:" in
-    // `databaseBuilder` and only accepts in-memory databases through
-    // `Room.inMemoryDatabaseBuilder<T>()`, which is a JVM-only API — unreachable from
-    // the commonMain `AppDatabaseFactory`. A temp file exercises the production path
-    // end to end, including `applyOnceToFile` (WAL) and the registered migrations.
-    private val tempDirLazy =
-        lazy {
-            Files.createTempDirectory("singularity-task-contract-").toFile()
-        }
-    private val tempDir: File by tempDirLazy
+    // The database comes from the fixture, and it lives in memory: this class is
+    // about the repository's behaviour, not about the file. The tests that are
+    // about the file — the migration ones, the restart one — ask the fixture for
+    // a file-backed database instead.
+    private val fixtureLazy = lazy { DatabaseTestFixture.inMemory() }
+    private val fixture: DatabaseTestFixture by fixtureLazy
 
     private val dbLazy =
         lazy {
-            AppDatabaseFactory.build(
-                driver = createSqlDriver(),
-                dbPath = File(tempDir, "tasks.db").absolutePath,
-            )
+            fixture.database()
         }
     private val db: AppDatabase by dbLazy
 
@@ -412,8 +564,7 @@ class RoomTaskRepositoryContractTest : TaskRepositoryContractTest() {
     // ran is not charged for creating a database just to close it.
     @AfterTest
     fun tearDown() {
-        if (dbLazy.isInitialized()) db.close()
-        if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
+        if (fixtureLazy.isInitialized()) fixture.close()
     }
 
     override suspend fun newRepository(userId: UserId): TaskRepository {

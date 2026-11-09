@@ -40,10 +40,12 @@ Identify **overlap** between callers — do they use the same subset?
 Can callers be split into groups with non-overlapping needs?
 
 **Group A** (uses «capability X»):
+
 - «Caller 1»
 - «Caller 2»
 
 **Group B** (uses «capability Y»):
+
 - «Caller 3»
 
 If callers fall into **≥3 non-overlapping groups** → strong case for ISP split.

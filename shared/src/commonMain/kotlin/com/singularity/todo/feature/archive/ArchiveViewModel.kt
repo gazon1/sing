@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.archive
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.coroutines.ReloadTrigger
+import com.singularity.todo.core.coroutines.reloadOn
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
@@ -12,7 +14,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -53,29 +54,43 @@ class ArchiveViewModel(
     ) {
     private val refreshing = MutableStateFlow(false)
 
+    /**
+     * The request to observe the archive again after a failure.
+     *
+     * The failure handling lives inside the attempt it applies to — see
+     * [reloadOn] — so a failed load leaves the trigger armed and the Retry
+     * intent starts a fresh subscription instead of adding a second collector.
+     */
+    private val reloadTrigger = ReloadTrigger()
+
     init {
         addCloseable(scope)
-        reload()
-    }
-
-    private fun reload() {
         scope.launch {
-            combine(
-                taskRepo.observeByFilter(TaskFilter.Trash),
-                refreshing,
-            ) { tasks: List<Task>, r: Boolean ->
-                ArchiveUiState.Content(tasks, refreshing = r) as ArchiveUiState
-            }.catch { e ->
-                // A flow that stops emitting is a defect, not a user-actionable error, so it
-                // goes to the reporter and the screen shows the message. Reporting from here
-                // rather than through catchTo: this is a Flow operator, not a suspend block
-                // that yields a Result.
-                crashReporter.report(e, ARCHIVE_OBSERVE_FAILED)
-                updateState {
-                    ArchiveUiState.Error(
-                        e.message
-                            ?: "Error",
-                    )
+            reloadOn(
+                trigger = reloadTrigger,
+                onFailure = { e ->
+                    // A flow that stops emitting is a defect, not a user-actionable error, so it
+                    // goes to the reporter and the screen shows the message. Reporting from here
+                    // rather than through catchTo: this is a Flow operator, not a suspend block
+                    // that yields a Result.
+                    // The failure crossed a channel hop, and a channel carries a *copy* of
+                    // the throwable — the original is its cause, so the copy is unwrapped
+                    // before it is reported.
+                    val reported = e.cause ?: e
+                    crashReporter.report(reported, ARCHIVE_OBSERVE_FAILED)
+                    updateState {
+                        ArchiveUiState.Error(
+                            reported.message
+                                ?: "Error",
+                        )
+                    }
+                },
+            ) {
+                combine(
+                    taskRepo.observeByFilter(TaskFilter.Trash),
+                    refreshing,
+                ) { tasks: List<Task>, r: Boolean ->
+                    ArchiveUiState.Content(tasks, refreshing = r) as ArchiveUiState
                 }
             }.collect { newState -> updateState { newState } }
         }
@@ -84,7 +99,7 @@ class ArchiveViewModel(
     override fun onIntent(intent: ArchiveIntent) {
         when (intent) {
             ArchiveIntent.Refresh -> refresh()
-            ArchiveIntent.Retry -> reload()
+            ArchiveIntent.Retry -> reloadTrigger.reload()
         }
     }
 

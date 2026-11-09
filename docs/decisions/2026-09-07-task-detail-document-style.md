@@ -88,4 +88,3 @@ Migrate to **document-style** UX:
 ## Links
 
 skill:singularity-todo-task-detail-ux, skill:singularity-todo-ui-event-vs-state, skill:singularity-todo-pure-formatters, skill:singularity-todo-adb-workflow, docs/decisions/DIGEST.md
-

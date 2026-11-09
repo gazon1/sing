@@ -47,7 +47,7 @@ import kotlin.time.Instant
  * | T11   | Following mon   | 2026-10-26   | This Month | work   |
  * | T12   | Mid month      | 2026-10-28   | This Month | –      |
  * | T13   | Month end      | 2026-10-31   | This Month | urgent |
- * | T14   | In Nov         | 2026-11-04   | This Month | home   |
+ * | T14   | In Nov         | 2026-11-04   | Next Month | home   |
  * | T15   | No date        | null          | No Date    | –      |
  * | T16   | Inbox task     | null          | No Date    | work   |
  * | T17   | Archived task  | 2026-10-14   | (archived) | –      |

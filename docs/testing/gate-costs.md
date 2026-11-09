@@ -4,8 +4,10 @@ The local loop is the sum of decisions nobody priced. This page publishes what i
 costs, so that the next decision is priced too.
 
 The numbers come from the runs that happened anyway: `sgate run-all` times every gate
-it runs, and `check.sh` times every step it runs — the Gradle ones and the ones
-that are not Gradle at all, like the formatting check. Nothing is executed twice to
+it runs, and the loop's steps are declared in `hk.pkl`, whose `HK_TIMING_JSON` records
+the wall time of every step — the Gradle ones and the ones that are not Gradle at all,
+like the formatting check. The report reads that record as it is; nothing translates
+it on the way. Nothing is executed twice to
 be measured, and the baseline in `config/docs/gate-benchmarks.json` records the
 machine the numbers came from — a duration measured on one machine says nothing about
 another, so the comparison refuses to conclude anything when the environment changed.
@@ -117,7 +119,7 @@ Recorded on 2026-11-03T15:13:39Z — cpus=16, javaHome=/usr/lib/jvm/java-25-open
 | Gate: workflow env context resolves | 920 ms |
 | Gate: workflow steps keep their exit status | 1.1 s |
 
-### The instrumented coverage run
+## The instrumented coverage run
 
 Measured on 2026-10-22 — 16 vCPU, warm Gradle cache.
 

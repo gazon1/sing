@@ -78,18 +78,42 @@ VALIDATION_FAILURE = 1
 IO_ERROR = 2
 
 
+def _indent_of(line: str) -> int:
+    """The number of leading spaces, which is what decides a line's YAML nesting."""
+    return len(line) - len(line.lstrip())
+
+
 def _drop_rule_block(lines: list[str], rule: str) -> list[str]:
     """Remove an existing `  <rule>:` block from a section, so the override replaces it.
 
     Emitting a second block with the same name is a duplicate YAML key, which detekt
     rejects outright — the same failure mode check-detekt-registrations.sh exists to catch.
+
+    A block is its own line plus the lines indented deeper than the two spaces that place
+    a rule name inside a section. A blank line belongs to it only when the block carries
+    on after it; a sibling rule, a section-level comment (indent 2) or a top-level line
+    ends it. Consuming every line that merely began with whitespace was #1971/#2042: the
+    replacement for `ReturnCount` ate the rest of the `style:` section, so every rule
+    below it vanished from the module config while `--check` still reported it current.
     """
     out: list[str] = []
     i = 0
     while i < len(lines):
         if lines[i].rstrip() == f"  {rule}:":
             i += 1
-            while i < len(lines) and (not lines[i].strip() or lines[i][:1] in (" ", "\t")):
+            while i < len(lines):
+                if not lines[i].strip():
+                    # Leave a separating blank line behind: it is not a continuation
+                    # unless something more deeply indented follows it.
+                    j = i
+                    while j < len(lines) and not lines[j].strip():
+                        j += 1
+                    if j < len(lines) and _indent_of(lines[j]) > 2:
+                        i = j
+                        continue
+                    break
+                if _indent_of(lines[i]) <= 2:
+                    break
                 i += 1
             continue
         out.append(lines[i])

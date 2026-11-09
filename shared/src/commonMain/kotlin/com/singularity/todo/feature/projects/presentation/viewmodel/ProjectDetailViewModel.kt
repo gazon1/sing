@@ -12,6 +12,10 @@ import com.singularity.todo.core.ui.debounce.Debouncer
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.state.ProjectCloseConfirmation
+import com.singularity.todo.feature.projects.domain.state.ProjectDetailIntent
+import com.singularity.todo.feature.projects.domain.state.ProjectDetailUiEvent
+import com.singularity.todo.feature.projects.domain.state.ProjectDetailUiState
 import com.singularity.todo.feature.projects.domain.usecase.CloseProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.ProjectCloseOutcome
@@ -19,10 +23,6 @@ import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.projects.presentation.model.ParentOption
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.model.TagGroupOption
-import com.singularity.todo.feature.projects.presentation.state.ProjectCloseConfirmation
-import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
-import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
-import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
 import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
@@ -292,7 +292,8 @@ class ProjectDetailViewModel(
                     },
                     // The parent stream does depend on a field, so it stays on the object.
                     _projectFlow.flatMapLatest { p ->
-                        if (p == null || p.parentId == null) flowOf(null) else projectRepo.observe(p.parentId)
+                        val parentId = p?.parentId
+                        if (p == null || parentId == null) flowOf(null) else projectRepo.observe(parentId)
                     },
                     visibilityFlow,
                 ) { project, tasks, childProjects, parent, visibility ->

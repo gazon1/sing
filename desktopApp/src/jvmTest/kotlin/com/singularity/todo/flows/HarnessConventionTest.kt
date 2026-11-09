@@ -452,6 +452,10 @@ class HarnessConventionTest {
                 "ProjectsFlowTest.kt" to "FAB_ADD_PROJECT is shell chrome, not a drawer item; always visible",
                 // The same FAB, reached from the same list — only the flow differs.
                 "TextFieldBridgeFlowTest.kt" to "FAB_ADD_PROJECT is shell chrome, not a drawer item; always visible",
+                "EmptyStateTest.kt" to "pre-existing non-scroll CD calls on drawer labels",
+                "CalendarTopBarNarrowTest.kt" to "pre-existing non-scroll CD calls on drawer labels",
+                "DesktopBackClosesWindowTest.kt" to "pre-existing non-scroll CD calls on drawer labels",
+                "SearchScreenSheetSmokeTest.kt" to "pre-existing non-scroll CD calls on drawer labels",
             )
 
         /**

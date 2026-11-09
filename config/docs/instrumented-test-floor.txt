@@ -41,8 +41,27 @@
 # floor rises so that a filtered run is not recorded as the floor, and it
 # leaves everything above the markers untouched.
 #
+# **The instrumented suite lost a class on purpose, and the floor says so.**
+# `CreateTaskFlowTest` (three tests) asserted "create a task from the FAB" on the
+# device. That scenario is owned by the desktop tier, whose flow test drives the same
+# FAB and the editor that opens from it in seconds, so the device copy was a second
+# assertion of a scenario that already had an owner. It was removed rather than kept
+# deliberately: the device tier's remaining classes are the ones that observe
+# something no other tier can (the real Keystore, the real Android shell), and this
+# one did not.
+#
+# The loss is acknowledged here rather than regenerated silently: the tier is 8
+# classes and 25 tests now. `CreateTaskFlowTest` is not back — the scenario it
+# held is owned by the desktop tier — but the tier has one class it did not have
+# before that removal: `TaskEditorDraftTest`. One of its two tests owns what only
+# a device can observe — an editor restoring a draft that outlived the process —
+# and the other holds the harness helper to its boundary: the editor's drafts are
+# cleared and the `DataStore` the app's settings share is not emptied.
+# `--update-floor --allow-drop` is the documented override for a deliberate
+# deletion; without it the tool refuses a drop, which is the point.
+#
 # GENERATED:BEGIN — rewritten by --update-floor; do not hand-edit
 classes 8
-tests 26
+tests 25
 skipped 0
 # GENERATED:END

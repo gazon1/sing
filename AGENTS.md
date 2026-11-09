@@ -11,12 +11,14 @@
 
 **`DIGEST.md` генерируется, а не лежит в репозитории.** Файла нет в свежом клоне: он
 собирается из `docs/decisions/` и лежит в `.gitignore`. Нет файла — запусти
-`./scripts/refresh-decisions-digest.sh` (или `just setup-hooks`, чтобы хуки
+`python3 scripts/refresh-decisions-digest.py` (или `just setup-hooks`, чтобы хуки
 перегенерировали его сами при checkout/merge) и прочитай его тогда.
 
-**`git fetch` — до того, как что-либо сделал, а не на пуше.** Расхождение, найденное
-в начале, стоит один rebase пустого дерева; найденное на пуше — полную перепроверку
-готовой работы, потому что чужие коммиты меняют то, на что опиралась твоя.
+**Pre-commit через hk.** Локальные проверки гонятся через `hk` (закреплён в `mise.toml`): `ktlint` → `compile-changed`.
+Файлы для ktlint выбирает hk (`glob` + `{{files}}` в `hk.pkl`), модули для компиляции — `scripts/compile-changed.py`. Изоляция unstaged-изменений — `stash = "git"` (untracked-файлы хук не прячет). ADR — `docs/decisions/2026-11-05-the-commit-runs-hk-steps-over-staged-files.md`.
+Установка: `mise install` (либо `mise exec -- git commit ...`, если `mise` не активирован). `hk.pkl` генерируется из `mise.toml` (`scripts/generate-hk-pkl.sh`), равенство генератора и файла держит `scripts/tests/test_hk_config.py`. `just setup-hooks` остаётся источником установки хуков (`core.hooksPath`), без `hk install`.
+
+**`./check.sh` — тот же декларатор.** Шаги локального цикла — `check` hook в `hk.pkl`; полосы `full` / `affected` / `fast` — профили, обёртка только выбирает профиль, пишет стоимость цикла и гоняет шаги с устройством. CI умеет тот же набор: `hk check --all`. ADR — `docs/decisions/2026-11-05-check-sh-is-an-hk-pipeline.md`.
 
 **`sgate checkout-state` — до того, как что-либо сделал, тоже.** Checkout на машине с
 несколькими клонами — общее состояние: он может нести чужие коммиты, которых нет в
@@ -27,35 +29,7 @@
 
 Замер за одну сессию (2026-10-05): два ребейза, и fetch в начале сэкономил один.
 
-Автоматизация: `scripts/session-start-check.sh` выполняет fetch + checkout-state; `scripts/gw-progress.sh` оборачивает `./gw` с отчётом прогресса.
-`main` двигается параллельными траншами — чужие изменения принимай как данность и
-перепроверяй, а не откатывай. `git fetch origin && git log --oneline HEAD..origin/main`.
-
 **Механическая защита от divergence (#268):**
-- `pre-rebase` hook (`.githooks/pre-rebase`) — блокирует rebase на локальный main,
-  который отстаёт от `origin/main`; предупреждает о неpushнутых коммитах.
-- Проверки divergence в CI больше нет: runner checkout'ит detached-коммит без трекинговой
-  ветки и без рефа `origin/main`, поэтому гейт падал на каждом прогоне настройкой раннера,
-  а не расхождением. Локально ту же проверку делает `pre-rebase` — на тот ref, на который
-  собираешься переносить коммиты.
-
-## Worktree: делегату — свой, канонический checkout — владельцу
-
-**Делегированная задача (субагент) получает свой worktree.** Канонический checkout
-принадлежит сессии, которая его заняла: две сессии в одном дереве — это две правки
-в одном рабочем дереве и ветка, занятая чужой работой.
-
-```bash
-git worktree add /home/max/work/singularity-todo-<slug> -b <slug>/<что>
-```
-
-- **Не переключай ветку в чужом worktree** — список чужих: `git worktree list` (там, где `main`,
-  ветка занята). Свою ветку — только в своём worktree.
-- `./gw` даёт worktree приватный `GRADLE_USER_HOME`: `./gradlew --stop` в одном worktree убивает
-  демоны всех остальных, а общий `~/.gradle` — общая блокировка кэша модулей.
-- **Два Gradle-вызова одновременно не запускай** — ни два своих, ни свой и чужой: блокируется
-  общий кэш, и падает не та сборка, которую ждут.
-- Свой временный worktree сноси через `git worktree remove --force <path>`; чужой — не трогай.
 
 **Правила ревью — в `CODING_STANDARDS.md`.** Файл читается на ревью, не при
 реализации: там то, что ни один гейт проверить не может (согласованность между
@@ -73,7 +47,7 @@ tree, ui), `feature/` (agenda, ai, archive, attachments, auth, backup, calendar,
 notes, pomodoro, profile, projects, reminders, search, settings, statistics, tags, tasks),
 `test/fakes/` (Fake-реализации, без моков). **iOS нет** — только Android + JVM.
 
-Экспорты схемы Room — каталог `shared/schemas/com.singularity.todo.core.database.AppDatabase/` (файл на версию).
+Экспорты схемы Room — каталог `core-database/schemas/com.singularity.todo.core.database.AppDatabase/` (файл на версию).
 
 ## Навигация по частым точкам
 
@@ -123,11 +97,12 @@ KOIN-W003 (graph unverifiable). Используй list composition:
 **Правила и рецепты тестов — `docs/architecture/tests.md`:** где живут тесты
 (`commonTest` выполняется внутри `:shared:jvmTest`), fake вместо моков, теги
 `fast`/`slow` и под-теги, харнесс ViewModel-тестов, диагностика падений
-(`build/diagnostics/<TestClass>/coroutines.txt`), BAN list, каталог тегов
+(`shared/build/diagnostics/<TestClass>/coroutines.txt`), BAN list, каталог тегов
 `Maestro/TAGS.md`, сканер тестов `scripts/scanning.py`. Иди туда, когда пишешь
 тест или разбираешь падение.
 
 Миграционные тесты помечены `@Tag("slow")`; запуск: `./gw :shared:jvmTest -Ptest.tags=slow`.
+
 ## expect/actual порты
 
 Порт — интерфейс в `commonMain`, два actual, `single<Port>` в обоих
@@ -144,10 +119,9 @@ KOIN-W003 (graph unverifiable). Используй list composition:
 вердикт ревью. Иди туда перед запуском гейтов.
 
 **Живой стек — `docs/architecture/local-stack.md`:** рецепт подъёма Supabase
-локально, применения миграций этого репозитория (`supabase/migrations/`) и
+локально, применения миграций этого репозитория (`infra/supabase/migrations/`) и
 проверки их результата. Нужен там, где правка живёт на сервере: политики RLS
 бакета `backups` и таблица `google_calendar_grants`.
-
 
 **Реестр гейтов — единственный список.** `scripts/ci/static-gates.sh` и
 `docs/scripts/gate-registry.md` генерируются из него, руками их не правь. Новый
@@ -155,6 +129,7 @@ KOIN-W003 (graph unverifiable). Используй list composition:
 `gate blocking|advisory <name> <cmd>`; `|| true` на строке `gate` запрещён.
 Branch protection требует **один** check — `CI gate`. Как зарегистрировать гейт —
 `docs/architecture/registering-a-gate.md`.
+
 ## CI/CD
 
 **CI/CD — `docs/architecture/ci.md`:** реестр гейтов и его проекции, поверхности
@@ -175,10 +150,12 @@ CI, ожидание прогона (`gh pr checks <pr> --watch --interval 60`),
 
 ## 🤖 Coroutine test failures
 
-Любой JVM-тест при падении пишет `build/diagnostics/<TestClass>/coroutines.txt` (состояние,
-контекст, job-иерархия, стектрейлы) — читай **первым**: кадры приложения раньше kotlinx указывают,
-где корутина была, умерла она там, где `lastObservedStackTrace`, а одинаковые стектрейсы — не
-доказательство утечки. ADR `2026-10-03-kotlinx-coroutines-debug.md`, разбор — шаг 5 `debugging-investigation`.
+Любой JVM-тест при падении пишет `shared/build/diagnostics/<TestClass>/coroutines.txt`
+(состояние, контекст, job-иерархия, стектрейлы) — читай **первым**: кадры приложения раньше
+kotlinx указывают, где корутина была, умерла она там, где `lastObservedStackTrace`, а одинаковые
+стектрейсы — не доказательство утечки. Desktop-тесты пишут свой бандл в
+`desktopApp/build/diagnostics/<TestClass>/`. ADR `2026-10-03-kotlinx-coroutines-debug.md`, разбор —
+шаг 5 `debugging-investigation`.
 
 ## ❌ Что НЕ делать
 
@@ -224,11 +201,15 @@ CI, ожидание прогона (`gh pr checks <pr> --watch --interval 60`),
 ## 🧠 Decision log
 
 Если задача меняет архитектуру, контракт или обнаруживает неочевидный workaround — создай запись в
-`docs/decisions/YYYY-MM-DD-<slug>.md` и пересобери digest (`./scripts/refresh-decisions-digest.sh`).
+`docs/decisions/YYYY-MM-DD-<slug>.md` и пересобери digest (`python3 scripts/refresh-decisions-digest.py`).
 **Писать:** выбор между несколькими разумными вариантами; неочевидный workaround; изменение
 контракта между слоями. **Не писать:** опечатки, форматирование, новый use case по существующему
 паттерну. Формат: frontmatter + `Context / Idea / Decision / Rationale / Consequences / Links`;
 policy — `docs/doc-maintenance.md`.
+
+## Knowledge (OKF)
+
+- Current architecture lives in `knowledge/`. Before relying on a concept, run `python3 scripts/documentation/check.py status <name>` (or `show`); if stale, re-check sources. Do not edit generated/verified state fields by hand; use `stamp` / `stamp --verified --by human:...`.
 
 ## 🗂 Skills
 
@@ -241,3 +222,13 @@ policy — `docs/doc-maintenance.md`.
 
 Issue tracker — `docs/agents/issue-tracker.md`; доменные доки — `docs/agents/domain.md` (`CONTEXT.md`
 в корне, ADR-и в `docs/decisions/`). Список снятых скиллов и причина каждого — `docs/doc-maintenance.md`.
+
+## Build/test/lint discipline (heavy)
+
+Run tests, type checks, linters and builds through the project's tasks (`just ...`), or as `heavy -- <command>` when there is no task. `heavy` is a machine-wide counting semaphore for heavy commands (installed via `mise` from `mise.toml`). `./gw` self-wraps through `heavy` when present and not in `CI` (with `HEAVY_HELD`/`GW_HEAVY_WRAPPED` guards to avoid recursion). CI needs the binary present (it runs commands at once when `CI` is set, but `heavy` must be installed). In git hooks use `heavy --timeout 300 --on-timeout run -- ...` (600s for `pre-push-verdict.py`) so busy machines slow hooks down but never fail them; wrappers fall back to running directly if `heavy` is missing.
+
+## Easement (architecture quality gate)
+
+- Use the easement skill before adding a file or an import and whenever `easement check` fails.
+- After changing code, run `easement check`; it must exit 0.
+- Never edit easement.yml, regenerate the baseline or add an `easement:disable` comment without asking a human.

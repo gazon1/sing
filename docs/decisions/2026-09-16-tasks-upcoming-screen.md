@@ -82,6 +82,7 @@ recurring items.
 ## Consequences
 
 ### Positive
+
 - `TaskFilter` remains untouched — Search feature is unaffected.
 - Single narrow Room query (`watchByDate`) reused for the new use case.
 - Pure `UpcomingTaskUiMapper` and `UpcomingFirstDayOfWeek` are unit-testable
@@ -89,11 +90,13 @@ recurring items.
 - Week-start locale handling is isolated and can be made configurable later.
 
 ### Negative
+
 - `deadlineDate` badge is rendered as a red flag + date for tasks due on the selected date.
 - `Upcoming` tab position (3rd) shifts the bottom bar order — snapshot tests
   referencing `DestinationKind.tabs` will break.
 
 ### Deferred
+
 - Locale-aware `firstDayOfWeek` (hardcoded to Monday for MVP).
 - Deadline indicator rendering in `UpcomingBadges`.
 - Week navigation via swipe on `DaySwitcherRow`.

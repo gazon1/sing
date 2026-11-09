@@ -15,8 +15,7 @@ status: accepted
 > The `TaskDetailViewModelTest` it measures was deleted outright by the slot
 > refactor, so its 16 `delay()` calls no longer exist. See
 > [2026-09-28-mr1-test-virtualization-retro.md](2026-09-28-mr1-test-virtualization-retro.md).
-
-
+>
 > **Corrected (2026-09-27):** the 60 s hang this ADR set out to fix was not a
 > dispatcher problem. The debounce collector wrote to the repository, whose
 > observation re-emitted and re-triggered it in an unbounded loop. See
@@ -81,6 +80,7 @@ Tests pass `StandardTestDispatcher(testScheduler)` as `dispatcher`. After this, 
 Replace `Clock.System.now()` calls in production code with `get<Clock>().now()`. The `single<Clock> { Clock.System }` binding already exists in `CoreDiModule.kt:206`.
 
 For `CalendarDiModule.kt:30`, the fix is:
+
 ```kotlin
 viewModel { (year, month, mode) ->
     val deps: CalendarDeps = get()
@@ -115,6 +115,7 @@ Use in `SyncRepositoryTest` and `AiProviderTest` to verify URL/headers/body with
 ### 4. Split `CoreDiModule.kt` (288 lines → ~70 lines per module)
 
 Split into:
+
 - `coreModule()` — true cross-cutting: coroutine scope, settings, clock, ids
 - `authModule()` — session, auth repository
 - `syncModule()` — sync engine, HLC, API client, repository
@@ -122,6 +123,7 @@ Split into:
 - `settingsModule()` — settings ViewModel
 
 Register with `includes()`:
+
 ```kotlin
 fun coreModule() = module {
     includes(authModule(), syncModule(), backupModule(), settingsModule())

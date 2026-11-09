@@ -3,6 +3,7 @@ package com.singularity.todo.feature.notes.presentation.screen
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
@@ -259,7 +260,10 @@ fun NoteEditorScreenContent(
             )
         },
         bottomBar = {
-            Column {
+            // The toolbar is the bottom bar, so the keyboard would cover it and
+            // the text could no longer be formatted while typing. The app runs
+            // edge to edge, so the inset has to be applied here.
+            Column(modifier = Modifier.imePadding()) {
                 EditorToolbar(
                     richTextState = session.richTextState,
                     onHtmlChange = { session.dispatchHtml() },
@@ -291,8 +295,9 @@ fun NoteEditorScreenContent(
     if (linkOverlay.sheet == NoteLinkSheet.External) {
         LinkUrlDialog(
             onConfirm = { url ->
-                session.richTextState.addLinkToSelection(url = url)
-                session.dispatchHtml()
+                // The link text is the address: there is no selection to speak for it,
+                // and the address is what the user typed.
+                session.insertLink(url = url, text = url)
                 linkOverlay.dismissAll()
             },
             onDismiss = {
@@ -310,9 +315,12 @@ fun NoteEditorScreenContent(
                 notes + tasks
             },
             onSelected = { result ->
-                val url = result.kind.urlFor(result.id)
-                session.richTextState.addLinkToSelection(url = url)
-                session.dispatchHtml()
+                // The title is what the link shows. The sheet offers a note or a task
+                // by its title, and a title it shows is a title the link can carry.
+                session.insertLink(
+                    url = result.kind.urlFor(result.id),
+                    text = result.title.ifBlank { "(Untitled)" },
+                )
             },
             onDismiss = {
                 linkOverlay.dismissAll()

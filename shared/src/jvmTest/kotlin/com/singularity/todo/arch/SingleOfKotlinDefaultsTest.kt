@@ -76,14 +76,8 @@ class SingleOfKotlinDefaultsTest {
                 """^\s*(?:val|var)\s+\w+\s*:\s*\S+\s*=\s*.+""",
             )
 
-        private fun KoFileDeclaration.packageName(): String {
-            val normalizedPath = path.replace('\\', '/')
-            val normalizedRoot = CommonMainKonsistScope.commonMainRoot.replace('\\', '/').trimEnd('/')
-            return normalizedPath
-                .removePrefix("$normalizedRoot/")
-                .substringBeforeLast('/')
-                .replace('/', '.')
-        }
+        private fun KoFileDeclaration.packageName(): String =
+            CommonMainKonsistScope.sourcePath(path).substringBeforeLast('/').replace('/', '.')
     }
 
     /**

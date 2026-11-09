@@ -1,0 +1,26 @@
+# One toolchain file for the external binaries the gate suite shells out to.
+# mise installs and pins these; CI and local runs read the same file.
+# Gradle/JVM tooling is managed by ./gw and gradle.properties, not here.
+
+[tools]
+deno = "2.9.5"
+actionlint = "1.7.7"
+shellcheck = "0.10.0"
+yamllint = "1.38.0"
+lychee = "0.24.2"
+ktlint = "1.8.0"
+typos = "1.29.0"
+betterleaks = "1.9.0"
+osv-scanner = "2.0.0"
+hk = "1.23.0"
+rumdl = "0.3.2"
+# The fork, not the upstream release: the fix for a duplicated declaration
+# across components (mokevnin/easement#114) is not in an upstream release yet.
+# The fork publishes its own release for it, so this is a download, not a build.
+"github:gazon1/easement" = "0.5.1"
+"github:mokevnin/heavy" = "latest"
+"npm:@sourcegraph/scip-python" = "latest"
+# The toolchain that builds easement from source, pinned to the version the
+# easement repository pins itself. A released binary needs no toolchain, so
+# this is the fallback for a checkout that has to build it.
+rust = "1.99.1"

@@ -40,6 +40,7 @@ import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Instant
 
 /**
  * Sheet for creating a manual time entry.
@@ -57,23 +58,24 @@ fun TimeEntryEditorSheet(
     // The moment the sheet opens. Required (#91): the end of a new time entry is
     // "now", and reading the system clock here made that value untestable and
     // un-overridable — the host's clock decided what a form prefilled itself with.
-    now: kotlin.time.Instant,
+    now: Instant,
     onSave: (startedAtMs: Long, endedAtMs: Long, kind: TimeEntryKind, note: String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     // Default: start = task creation time, end = now
     val defaultStart =
         taskStartedAtMs?.let {
-            kotlinx.datetime.Instant
+            Instant
                 .fromEpochMilliseconds(it)
-                .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
+                .toLocalDateTime(TimeZone.currentSystemDefault())
         }
-    val defaultEnd =
-        now
-            .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
+    val defaultEnd = now.toLocalDateTime(TimeZone.currentSystemDefault())
 
     var startedDate by mutableStateOf(defaultStart?.date)
-    var startedTime by mutableStateOf(defaultStart?.time ?: LocalTime(9, 0))
+    var startedTime by mutableStateOf(
+        defaultStart?.time
+            ?: LocalTime(9, 0),
+    )
     var endedDate by mutableStateOf(defaultEnd.date)
     var endedTime by mutableStateOf(defaultEnd.time)
     var kind by mutableStateOf(TimeEntryKind.Work)
@@ -132,14 +134,21 @@ fun TimeEntryEditorSheet(
                                 val startedAtMs =
                                     startDt
                                         .toInstant(
-                                            kotlinx.datetime.TimeZone.currentSystemDefault(),
+                                            TimeZone.currentSystemDefault(),
                                         ).toEpochMilliseconds()
                                 val endedAtMs =
                                     endDt
                                         .toInstant(
-                                            kotlinx.datetime.TimeZone.currentSystemDefault(),
+                                            TimeZone.currentSystemDefault(),
                                         ).toEpochMilliseconds()
-                                onSave(startedAtMs, endedAtMs, kind, noteState.text.toString().ifBlank { null })
+                                onSave(
+                                    startedAtMs,
+                                    endedAtMs,
+                                    kind,
+                                    noteState.text
+                                        .toString()
+                                        .ifBlank { null },
+                                )
                             }
                         },
                         onClear = onDismiss,
@@ -254,7 +263,9 @@ private fun DateRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = date?.toString() ?: "Select",
+                text =
+                    date?.toString()
+                        ?: "Select",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (date != null) FontWeight.Medium else FontWeight.Normal,
             )
@@ -288,7 +299,11 @@ private fun TimeRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = time?.toString()?.take(5) ?: "Select",
+                text =
+                    time
+                        ?.toString()
+                        ?.take(5)
+                        ?: "Select",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (time != null) FontWeight.Medium else FontWeight.Normal,
             )
@@ -304,7 +319,7 @@ private fun TimeEntryEditorSheetPreview() =
     PreviewThemed(darkTheme = false) {
         TimeEntryEditorSheet(
             taskStartedAtMs = 1_757_000_000_000L,
-            now = kotlinx.datetime.Instant.fromEpochMilliseconds(1_757_000_000_000L),
+            now = Instant.fromEpochMilliseconds(1_757_000_000_000L),
             onSave = { _, _, _, _ -> },
             onDismiss = noopClick,
         )

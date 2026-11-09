@@ -14,8 +14,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
+import com.singularity.todo.feature.calendar.domain.state.CalendarUiEvent
 import com.singularity.todo.feature.calendar.presentation.nav.LocalCalendarNavigator
-import com.singularity.todo.feature.calendar.presentation.state.CalendarUiEvent
 import com.singularity.todo.feature.calendar.presentation.theme.ProvideCalendarPalette
 import com.singularity.todo.feature.calendar.presentation.viewmodel.CalendarViewModel
 import kotlinx.coroutines.launch

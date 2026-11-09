@@ -26,6 +26,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,11 +41,12 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ColorSwatch
 import com.singularity.todo.core.ui.components.SettingsActionRow
 import com.singularity.todo.core.ui.components.SettingsSection
-import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.core.ui.formatDecimal
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.theme.LocalIsDarkTheme
 import com.singularity.todo.core.ui.theme.SingularityAccents
+import com.singularity.todo.core.ui.theme.accentPrimaryColor
 import com.singularity.todo.feature.settings.SettingsUiState
 import kotlinx.coroutines.launch
 
@@ -108,8 +110,14 @@ private fun AccentColorPicker(
     onSelect: (SingularityAccents) -> Unit,
 ) {
     SettingsSection(title = "Accent Color") {
-        // Live preview — mini task card showing the selected accent
+        // Live preview — mini task card showing the selected accent's palette colour,
+        // which is the colour the app will actually paint. The seed is not that colour.
         val currentAccent = selected
+        val isDark = LocalIsDarkTheme.current
+        val currentAccentColor =
+            remember(currentAccent, isDark) {
+                accentPrimaryColor(accent = currentAccent, isDark = isDark)
+            }
         Card(
             modifier =
                 Modifier
@@ -130,7 +138,7 @@ private fun AccentColorPicker(
                         Modifier
                             .size(12.dp)
                             .clip(CircleShape)
-                            .background(currentAccent.color),
+                            .background(currentAccentColor),
                 )
                 Text(
                     "Sample task",
@@ -160,8 +168,13 @@ private fun AccentSwatch(
     onClick: () -> Unit,
     testTag: String,
 ) {
+    // The swatch shows the colour the app will paint, not the seed it derives from:
+    // the palette desaturates the seed, so a seed-coloured swatch promises a colour
+    // the user never sees.
+    val isDark = LocalIsDarkTheme.current
+    val swatchColor = remember(accent, isDark) { accentPrimaryColor(accent = accent, isDark = isDark) }
     ColorSwatch(
-        color = accent.color,
+        color = swatchColor,
         name = accent.displayName,
         selected = selected,
         onClick = onClick,
@@ -172,7 +185,6 @@ private fun AccentSwatch(
             Icon(
                 imageVector = Icons.Filled.Check,
                 contentDescription = null,
-                tint = accent.color.contrastingForeground(),
                 modifier = Modifier.size(20.dp),
             )
         }

@@ -2,9 +2,12 @@
 
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
-import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
@@ -19,6 +22,8 @@ import kotlin.test.assertTrue
 /** Covers delete-with-undo, archive-with-undo, and restore. */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Presentation")
 class TaskLifecycleSlotTest {
     private fun slot(
         fakes: SlotFakes,

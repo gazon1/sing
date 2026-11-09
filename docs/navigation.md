@@ -25,7 +25,7 @@ Architecture rationale: ADR `2026-10-04-navigation-policy.md`, ADR
 
 | Container | Holds | Created by |
 |---|---|---|
-| **Top-level destination** (13 back stacks) | app-level keys | `rememberNav3State()`: `DestinationKind.tabs` (6) + `DestinationKind.menuEntries` (7) |
+| **Top-level destination** (15 back stacks) | app-level keys | `rememberNav3State()`: `DestinationKind.tabs` (4) + `DestinationKind.menuEntries` (11) |
 | **Pushed app-level sub-route** | app-level keys on top of the current top-level stack | `Navigator.open` (policy: `Push` / `ExitAndOpen`) |
 | **Inner feature route** | `TasksRoute` / `NotesRoute` / `ProjectsRoute` / `CalendarRoute` / `AgendaStartRoute` / `Settings` / `Search` | feature navigator (`backStack.add`) inside its graph |
 
@@ -38,13 +38,13 @@ polymorphic saved-state module) but are never valid app-level open targets.
 | Key | Inner content | Opened from (sources) |
 |---|---|---|
 | `AgendaGraph(Inbox / Today / Upcoming)` | `AgendaNavGraph(start = …)` | bottom bar tabs (3 instances), desktop drawer/menu, back-at-root returns to previous |
-| `Plans` | `PlansScreen` (the timeline) | bottom bar tab, desktop drawer |
-| `Pomodoro` | `PomodoroScreen` | bottom bar tab, desktop drawer/menu |
-| `Calendar` | `CalendarNavGraph(Month(today))` | menu sheet, desktop drawer — it left the tab bar |
+| `Plans` | `PlansScreen` (the timeline) | menu sheet / desktop menu |
+| `Pomodoro` | `PomodoroScreen` | menu sheet / desktop menu |
+| `Calendar` | `CalendarNavGraph(Month(today))` | bottom bar tab, desktop drawer — `Plans` and `Pomodoro` are in the menu instead |
 | `Statistics` | `StatisticsScreen` | menu sheet / desktop menu |
 | `Notes` | `NotesNavGraph(List)` | menu sheet / desktop menu |
 | `AiChat` | `ChatScreen` | menu sheet / desktop menu |
-| `Search` | `SearchNavGraph` | menu sheet, Ctrl+F, top-bar search icon |
+| `Search` | `SearchNavGraph` | menu sheet, Ctrl+F, top-bar search icon — deliberately not a tab, so the bar's fifth slot stays free for a place-shaped destination (decision `2026-11-04-the-fifth-tab-slot-stays-empty.md`) |
 | `Archive` | `ArchiveScreen` | menu sheet / desktop menu |
 | `ProfileSwitcher` | `ProfileSwitcherScreen` | menu sheet, `SettingsNavigator.openProfiles()` |
 | `Settings` | `SettingsNavGraph` | menu sheet, Ctrl+, |

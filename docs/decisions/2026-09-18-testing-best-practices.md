@@ -46,6 +46,7 @@ Tests across the project had accumulated multiple patterns that made them brittl
 ### VM testing canonical pattern
 
 Canonical VM constructor:
+
 ```kotlin
 class MyViewModel(
     private val deps: MyDeps,
@@ -80,6 +81,7 @@ val vmModule = module {
 ```
 
 Test:
+
 ```kotlin
 @Test
 fun `load succeeds`() = runTest {

@@ -23,11 +23,13 @@ Additionally, `scopeOverride` was recommended in `clean-architecture-audit` as a
 **Default:** Plain `MutableStateFlow`. No `combine`, no `stateIn` in ViewModels.
 
 **Exception:** ONLY `combine + stateIn` is permitted for pure read-through VMs that:
+
 1. Have **no intents** (sealed `*Intent` interface is empty or absent)
 2. Have **no init-mutations** (no `scope.launch {}` in `init` that modifies state)
 3. Use `stateIn(scope, sharingStarted, initialValue)` directly
 
 **Canonical pure read-through VMs** (examples, current):
+
 - `AgendaViewModel` — pure aggregation, no own intents
 - `SavedAgendaListViewModel` — pure read-through from repository
 - `ProjectsViewModel` — list-only, no own mutations

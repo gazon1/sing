@@ -169,8 +169,7 @@ fun NotificationHost(
         }
 
         is Notification.Error -> {
-            ResultDialog(
-                title = "Error",
+            ErrorResultDialog(
                 text = n.message,
                 onDismiss = { notification = null },
             )
@@ -240,8 +239,7 @@ private fun NotificationHostTextDialogPreview() =
 @Composable
 private fun NotificationHostErrorDialogDarkPreview() =
     PreviewThemed(darkTheme = true) {
-        ResultDialog(
-            title = "Error",
+        ErrorResultDialog(
             text = "Failed to save task. Please try again.",
             onDismiss = {},
         )

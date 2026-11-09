@@ -135,7 +135,7 @@ class SearchMatchHighlightScenarioTest {
             for (root in semanticsRoots()) {
                 root.visit { node ->
                     val desc = node.config.getOrNull(SemanticsProperties.ContentDescription)
-                    if (desc != null && desc.contains("Задача заблокирована зависимостями")) found = true
+                    if (desc != null && desc.contains("Task is blocked by dependencies")) found = true
                 }
             }
             assertTrue(found, "blocked marking should be rendered")

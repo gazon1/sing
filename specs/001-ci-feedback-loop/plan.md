@@ -139,6 +139,7 @@ desktopApp/
 | apptracer upload policy encoded | `python3 scripts/check-apptracer-policy.py` | `sgate apptracer_upload_policy_encoded` |
 
 **Gates already using sgate** (no change needed):
+
 - `gate advisory "ADR frontmatter drift" sgate adr_frontmatter_drift`
 - `gate advisory "backlog-issue-refs" sgate backlog_issue_refs`
 
@@ -195,6 +196,7 @@ No persistent data entities. The feature operates on transient CI artifacts:
 ### Interface Contracts
 
 No external interfaces exposed by this project. The CI pipeline is a consumer of:
+
 - Gradle test task output (JUnit XML, HTML reports)
 - GitHub API (annotations, artifacts)
 - External tools (`singularity-adr`, `openspec`, Python 3.12)

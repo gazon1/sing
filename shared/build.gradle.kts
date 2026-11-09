@@ -1,4 +1,3 @@
-import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.tasks.PathSensitivity
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -11,10 +10,6 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinxSerialization)
-    // KSP for Room annotation processing
-    alias(libs.plugins.ksp)
-    // Room 3 KSP plugin (schema export)
-    alias(libs.plugins.room3)
     // Koin Compiler Plugin — validates classic DSL (single { ... }) at compile time.
     // No @Single/@Factory annotations needed; koin-annotations 4.x is incompatible (see AGENTS.md).
     alias(libs.plugins.koin.compiler)
@@ -22,41 +17,18 @@ plugins {
 }
 
 koinCompiler {
-    // userLogs = true // uncomment to see detected definitions during development
-}
-
-// The stability contract — the list of types the Compose compiler treats as
-// stable. It is what makes a list row skip a recomposition when its task did
-// not change: an unstable parameter is compared by identity, and the Room
-// mapper builds a new instance on every read.
-//
-// The file is a single source of truth shared by every module that compiles
-// composables; `scripts/check-compose-stability-config.py` checks that the
-// names in it exist and that it is wired into each of them.
-//
-// `stabilityConfigurationFiles` (plural) rather than `stabilityConfigurationFile`
-// (singular): the singular form is deprecated and fails the build with an
-// error in this compiler version.
-val composeStabilityConfiguration: RegularFile =
-    rootProject.layout.projectDirectory.file("config/compose/stability_config.conf")
-
-composeCompiler {
-    stabilityConfigurationFiles.addAll(composeStabilityConfiguration)
-}
-
-// The contract is a compiler input, but the Compose compiler plugin passes it
-// as a plugin option — and plugin options are not part of the compile task's
-// up-to-date inputs. Without this declaration, editing the contract leaves the
-// compilation UP-TO-DATE: the new classification never reaches the bytecode,
-// and a contract change looks like it took effect when nothing changed.
-//
-// The same trap made the stability report unreliable, which is why the report
-// block below forces the compilation to re-run instead of relying on inputs.
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
-    inputs
-        .file(composeStabilityConfiguration)
-        .withPropertyName("composeStabilityConfiguration")
-        .withPathSensitivity(PathSensitivity.RELATIVE)
+    // The detector is a raw text match. This module's *test* sources build Koin
+    // applications for graph tests and name the entry point in one check, which the
+    // plugin reads as an aggregator and turns into a forced full-graph re-run on every
+    // build. A test compilation is not an aggregator, so that re-run is off here. The
+    // production entry point lives in the launch modules, not in this library.
+    // Per-module compileSafety stays on.
+    //
+    // The non-incremental edit is a different cause: the in-process execution
+    // strategy on a KMP module (KT-62686), not this flag. See ADR
+    // 2026-11-05-the-koin-plugin-forced-the-aggregator-compile-to-rerun.
+    strictSafety = false
+    strictSafetyForceOff = true
 }
 
 /** kotlinx-coroutines-debug agent for jvmTest only. */
@@ -66,60 +38,23 @@ val coroutinesDebugAgent =
         isCanBeResolved = true
     }
 
-// ---------------------------------------------------------------------------
-// Compose stability report — an audit instrument, not a build gate
-// ---------------------------------------------------------------------------
-//
-// The Compose compiler can write a report naming every composable parameter it
-// considers unstable. It is the authoritative answer to "which parameter costs
-// a recomposition", and grep cannot answer it: grep does not tell List from
-// ImmutableList, does not see parameters that arrive inside lambdas, and knows
-// nothing about slots.
-//
-// It is opt-in (`-PcomposeStabilityReport=true`) because the report is a build
-// artifact that no gate may depend on: it exists only when the compilation
-// actually ran, the jvm and android compilations write the same file names, and
-// the directory is git-ignored. Nothing in CI reads it.
-//
-// What protects the contract the report is used to design lives in the sources:
-// `scripts/check-compose-stability-config.py` (the stability contract names
-// types that exist and are wired) and the two detekt rules that forbid raw
-// collection parameters and mutable casts.
-//
-// One directory per compilation: jvm and android compile the same sources, so
-// a shared destination would have one report overwrite the other.
-val composeStabilityReportEnabled: Boolean =
-    providers.gradleProperty("composeStabilityReport").orNull?.toBoolean() ?: false
+// The stability contract.
+val composeStabilityConfiguration: RegularFile =
+    rootProject.layout.projectDirectory.file("config/compose/stability_config.conf")
 
-val composeStabilityReportsRoot: Provider<Directory> =
-    layout.buildDirectory.dir("compose_compiler_reports")
-
-// A report that was not regenerated is worse than no report: it is read as a
-// measurement of the current code and is not one. The compiler's plugin options
-// are not part of the compile task's up-to-date inputs, so a changed stability
-// contract alone does not make the task re-run — the task would be UP-TO-DATE
-// and the report on disk would still describe the previous contract.
-//
-// So when the report is asked for, the compilation is not allowed to be
-// up-to-date. The cost is one full compile, and it is paid only by whoever
-// asked for the measurement.
-if (composeStabilityReportEnabled) {
-    tasks.matching { it.name.startsWith("compileKotlin") }.configureEach {
-        outputs.upToDateWhen { false }
-    }
+composeCompiler {
+    stabilityConfigurationFiles.addAll(composeStabilityConfiguration)
 }
 
-// The compiler reads the destination from a plugin option, so the flag is
-// `-P plugin:<plugin-id>:<option>=<value>` — the id is the one the compiler
-// registers its command line processor under.
-fun composeStabilityReportArgs(target: String): List<String> =
-    listOf(
-        "-P",
-        "plugin:androidx.compose.compiler.plugins.kotlin:reportsDestination=" +
-            composeStabilityReportsRoot.get().asFile.absolutePath + "/" + target,
-    )
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
+    inputs
+        .file(composeStabilityConfiguration)
+        .withPropertyName("composeStabilityConfiguration")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
 
 kotlin {
+
     // The one JDK every target is compiled with and every consumer runs on —
     // the same 21 gradle-daemon-jvm.properties pins the daemon to. Makes the
     // choice explicit instead of inherited from whichever JDK launched Gradle
@@ -129,9 +64,6 @@ kotlin {
 
     jvm {
         compilerOptions {
-            if (composeStabilityReportEnabled) {
-                freeCompilerArgs.addAll(composeStabilityReportArgs("jvm"))
-            }
         }
     }
 
@@ -153,9 +85,6 @@ kotlin {
             freeCompilerArgs.add("-Xopt-in=kotlin.time.ExperimentalTime")
             // Suppress warning: expect/actual classes are in Beta
             freeCompilerArgs.add("-Xexpect-actual-classes")
-            if (composeStabilityReportEnabled) {
-                freeCompilerArgs.addAll(composeStabilityReportArgs("android"))
-            }
         }
         androidResources {
             enable = true
@@ -214,6 +143,13 @@ kotlin {
             // `feature/ai/tools/AdrTools.kt` hand `AdrStorage.AdrFile` back to callers.
             api(project(":adr-core"))
 
+            // The pure domain models: :shared and :core-database compile against them.
+            api(project(":core-domain"))
+
+            // Room/KSP and the persistence layer. The feature data implementations and
+            // the DI graph use the AppDatabase/DAOs; KSP runs only in :core-database.
+            implementation(project(":core-database"))
+
             // Compose
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
@@ -248,10 +184,6 @@ kotlin {
 
             // Serialization
             implementation(libs.kotlinx.serialization.json)
-
-            // Room 3 (KMP)
-            implementation(libs.androidx.room3.runtime)
-            implementation(libs.androidx.sqlite)
 
             // Koin
             implementation(libs.koin.core)
@@ -357,10 +289,6 @@ kotlin {
             // are needed — in this project's own code, which asks Google for the grant.
             implementation(libs.play.services.auth)
 
-            // Room Android
-            implementation(libs.androidx.room3.runtime)
-            implementation(libs.androidx.sqlite.bundled)
-
             // Koin Android
             implementation(libs.koin.android)
 
@@ -421,13 +349,6 @@ kotlin {
             implementation(libs.kotlin.sdk)
             implementation(libs.ktor.io.jvm)
             implementation(libs.kotlinx.io.core.jvm)
-
-            // Bundled SQLite — same driver as Android, no external native dep required.
-            implementation(libs.androidx.sqlite.bundled)
-
-            // Room JVM
-            implementation(libs.androidx.room3.runtime)
-            implementation(libs.androidx.sqlite)
 
             // Kermit Koin integration (JVM-only)
             implementation(libs.kermit.koin)
@@ -560,8 +481,8 @@ val archTest =
         // The fork count is set in the `jvmTest`/`archTest` block below, where both
         // tasks are configured together: one fork for this one, four for the rest.
         // The merge is the same — a retried class must not be counted twice by the
-        // run floor.
-        reports.junitXml.mergeReruns.set(true)
+        // run floor. `mergeReruns` itself is set for every test task in the root
+        // `build.gradle.kts`; this line only records that this task depends on it.
     }
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
@@ -706,7 +627,8 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // into one <testcase> with a <flakyFailure> child, matching desktopApp. Without it
     // a retried shared test produces two <testcase> elements, and check-test-runs.py
     // counts both — the flake-rate aggregator reads the <flakyFailure> signal instead.
-    reports.junitXml.mergeReruns.set(true)
+    // The setting itself lives in the root `build.gradle.kts`, where every test task
+    // gets it; the reader in `scripts/src/traceability/junit_xml.py` depends on it.
 
     // The architecture gates run in `archTest` — they read the whole tree, and the
     // Konsist scope they build is per-JVM. See the `archTest` task above.
@@ -775,6 +697,20 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
             .dir("src/commonMain/kotlin")
             .asFile.absolutePath,
     )
+    // The search grammar's rule and citations moved to :core-domain with core/search.
+    systemProperty(
+        "coreDomain.root",
+        rootProject.layout.projectDirectory
+            .dir("core-domain/src/commonMain/kotlin")
+            .asFile.absolutePath,
+    )
+    // The FTS DAO moved to :core-database; SearchCostDoesNotGrowTest reads it.
+    systemProperty(
+        "coreDatabase.root",
+        rootProject.layout.projectDirectory
+            .dir("core-database/src/commonMain/kotlin")
+            .asFile.absolutePath,
+    )
     // Absolute paths to :shared's own test sources and resources, for the tests that
     // read files rather than calling code.
     //
@@ -794,6 +730,14 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
         "jvmTestSources.root",
         layout.projectDirectory
             .dir("src/jvmTest/kotlin")
+            .asFile.absolutePath,
+    )
+    // commonTest compiles into jvmTest, so a source-reading gate that walks only
+    // jvmTest/Kotlin reports green over a copy written in commonTest.
+    systemProperty(
+        "commonTestSources.root",
+        layout.projectDirectory
+            .dir("src/commonTest/kotlin")
             .asFile.absolutePath,
     )
     systemProperty(
@@ -828,17 +772,28 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
             .asFile.absolutePath,
     )
     // Allure test reporting — results written to build/allure-results/
-    // allure-kotlin's `allure.results.directory` key is NOT read by allure-junit5's listener;
-    // the listener computes its results path relative to the forked JVM's working directory.
-    // Setting workingDir on the forked JVM makes it write to <module>/build/allure-results/,
-    // which is where the CI upload step and the existing .gitignore `**/build/` entry
-    // expect it. The directory is per-task to avoid collisions when tests run in parallel.
+    //
+    // The listener reads `allure.results.directory` from the SYSTEM PROPERTIES:
+    // `AllureLifecycle.getDefaultWriter()` asks `PropertiesUtils.loadAllureProperties()`,
+    // which is the classpath `allure.properties` plus `System.getProperties()`, and
+    // falls back to a working-directory-relative `allure-results` only when the key
+    // is absent. The comment that used to stand here claimed the key was NOT read
+    // and that the path was always relative to the forked JVM's working directory.
+    // That is wrong, and it cost a directory level: the results landed in
+    // `build/allure-results/allure-results/` — one level deeper than every upload
+    // glob, every report command and the CI artifact path expected.
+    //
+    // `workingDir` stays, because it answers a different question: the tests read
+    // files relative to the module, and the working directory is what made those
+    // paths resolve. The property decides where the RESULTS go; the working
+    // directory decides where the test's own relative paths go.
     val allureDir =
         layout.buildDirectory
             .dir("allure-results")
             .get()
             .asFile
-    workingDir = allureDir.also { it.mkdirs() }
+    systemProperty("allure.results.directory", allureDir.also { it.mkdirs() }.absolutePath)
+    workingDir = allureDir
     // The tests above read files OUTSIDE :shared while they run, so those trees are
     // inputs to this task whether or not they feed the compiler. Without this, editing
     // a desktopApp or mcp-server test leaves :shared:jvmTest UP-TO-DATE, and an
@@ -946,10 +901,10 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // covering it.
     systemProperty(
         "backupBucketPolicy.migration",
-        rootProject.file("supabase/migrations/2026-10-24-backup_storage_bucket.sql").absolutePath,
+        rootProject.file("infra/supabase/migrations/2026-10-24-backup_storage_bucket.sql").absolutePath,
     )
     inputs
-        .file(rootProject.file("supabase/migrations/2026-10-24-backup_storage_bucket.sql"))
+        .file(rootProject.file("infra/supabase/migrations/2026-10-24-backup_storage_bucket.sql"))
         .withPropertyName("backupBucketPolicyMigration")
         .withPathSensitivity(PathSensitivity.RELATIVE)
     // The text-field inventory in the skill, read by `TextFieldShapeConventionTest`.
@@ -1032,7 +987,7 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // The exported Room schemas, read at runtime by the generated round-trip test.
     //
     // `MigrationRoundTripSupport.schemaFile(version)` resolves
-    // `shared/schemas/com.singularity.todo.core.database.AppDatabase/<version>.json`
+    // `core-database/schemas/com.singularity.todo.core.database.AppDatabase/<version>.json`
     // and opens it. That tree is not a compile input of :shared, so the task's
     // up-to-date check did not see it: an export that changed — a re-export with
     // different columns, which is exactly the defect `check-room-schema-integrity.py`
@@ -1042,7 +997,7 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // Declared as a directory rather than per version, because the test reads one file
     // per step and the set of steps changes with the chain.
     inputs
-        .dir(layout.projectDirectory.dir("schemas"))
+        .dir(layout.projectDirectory.dir("../core-database/schemas"))
         .withPropertyName("exportedRoomSchemas")
         .withPathSensitivity(PathSensitivity.RELATIVE)
     // The positive control of UnannotatedTestMemberTest reads a committed class that is
@@ -1109,11 +1064,6 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
 dependencies {
     coroutinesDebugAgent(libs.kotlinx.coroutines.debug)
     androidRuntimeClasspath(libs.compose.ui.tooling)
-
-    // Room 3 KSP compiler — per-target so AppDatabase_Impl is generated
-    // for both Android and JVM. JVM builds the same Room DB via BundledSQLiteDriver.
-    add("kspAndroid", libs.androidx.room3.compiler)
-    add("kspJvm", libs.androidx.room3.compiler)
 
     // androidHostTest — the Android/Robolectric-capable source set. Its only content is
     // AndroidManifest.xml; every test `testAndroidHostTest` executes comes from
@@ -1233,6 +1183,29 @@ afterEvaluate {
     tasks.named<Test>("testAndroidHostTest") {
         jvmArgs("-Djava.library.path=${sqliteNativesDir.get().asFile.absolutePath}")
         dependsOn(extractSqliteNatives)
+        // Allure results belong in the same directory as the other tasks' —
+        // `shared/build/allure-results/`.
+        //
+        // The property is set for `jvmTest` and `archTest` further up, but this
+        // task was left out of that block, and the listener's fallback is a
+        // working-directory-relative `allure-results`: the results landed in
+        // `shared/allure-results/` — the module root, outside `build/` — where
+        // neither the report generator (it merges `<module>/build/allure-results`)
+        // nor the CI upload glob ever looks. The 13 tests this task runs were
+        // absent from the report, and nothing said so.
+        //
+        // Only the property, not `workingDir`: the working directory of this task
+        // is the module root on purpose, and the tests resolve their paths from
+        // there.
+        val allureDir =
+            layout.buildDirectory
+                .dir("allure-results")
+                .get()
+                .asFile
+        systemProperty(
+            "allure.results.directory",
+            allureDir.also { it.mkdirs() }.absolutePath,
+        )
         // commonTest is inherited by androidHostTest by default and would re-run
         // ~2600 tests already covered by :shared:jvmTest. Narrow to this source
         // set's own classes only (Robolectric platform seams).
@@ -1240,7 +1213,6 @@ afterEvaluate {
             "com/singularity/todo/mcp/ToolSurfaceWiringTest.class",
             "com/singularity/todo/core/di/AndroidGraphResolutionTest.class",
             "com/singularity/todo/core/notifications/AndroidNotifierTest.class",
-            "com/singularity/todo/core/observability/AndroidRecordRetentionTest.class",
             "com/singularity/todo/core/security/ArchiveCryptoGoldenAndroidTest.class",
             // The Android half of the backup decoder's budget. The decoder lives in
             // androidMain, and the JVM lane cannot reach it — so the one test that
@@ -1254,11 +1226,6 @@ afterEvaluate {
             "com/singularity/todo/core/files/AndroidFileSystemMoveTest.class",
         )
     }
-}
-
-// Room 3 KSP schema export
-room3 {
-    schemaDirectory("$projectDir/schemas")
 }
 
 // ---------------------------------------------------------------------------
@@ -1401,7 +1368,7 @@ tasks.register<DefaultTask>("generateSyncFieldAllowlistSql") {
     description = "Generates the sync_field_allowlist seed SQL from the derived field lists"
     group = "sync"
     inputs.file(rootProject.file("config/docs/sync-field-allowlist.json"))
-    outputs.file(rootProject.file("supabase/sync_field_allowlist_seed.sql"))
+    outputs.file(rootProject.file("infra/supabase/sync_field_allowlist_seed.sql"))
     dependsOn("exportSyncFieldAllowlist")
     doLast {
         providers.exec {

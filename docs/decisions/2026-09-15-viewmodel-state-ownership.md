@@ -30,6 +30,7 @@ Three categories of UI-related data, not two:
 | **Routing state** — which sheet/dialog/menu is open | `remember { mutableStateOf }` in Composable | `activeSheet: ActiveSheet?`, `menuExpanded`, `selectedTab` |
 
 Composable exceptions that are **not** domain state:
+
 - `Animatable` / `animateFloatAsState` for one-shot UI animations (saved-pill fade, etc.)
 - `MutableStateFlow<String>` used as a **write-port** — e.g. `queryFlow` in a search field that is immediately passed to a VM call. The Composable writes to it, the VM reads from it. This is a communication channel, not a duplicate of VM state.
 - Transient TextField input **before** `onValueChange` fires — a user is still typing and has not yet sent the value to the VM. Once `onValueChange` fires, the VM owns the value.

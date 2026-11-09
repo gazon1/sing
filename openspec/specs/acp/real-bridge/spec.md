@@ -1,6 +1,7 @@
 # acp/real-bridge Specification
 
 ## Purpose
+
 The application's ACP client driven against a real agent bridge — not a
 fake taught to answer what our client expects. The probe's exit code is
 the verdict, and the shapes the bridge sends are covered by a test that
@@ -23,16 +24,19 @@ to exist, and it has to be runnable by hand, because it needs a real `npx`, a re
 network and a real bridge — none of which a test may depend on.
 
 #### Scenario: The bridge answers
+
 - The script starts the bridge and drives the client against it
 - The handshake completes
 - The script exits zero, and prints what the bridge sent
 
 #### Scenario: The bridge does not answer
+
 - The script starts the bridge and drives the client against it
 - The handshake does not complete
 - The script exits one, and prints why
 
 #### Scenario: The build fails before the probe runs
+
 - The script starts the build that runs the probe
 - The build fails, and no probe ran
 - The script says the probe did not run, and exits with the build's own code
@@ -50,6 +54,7 @@ next bridge that announces something new will find the client unprepared — whi
 very thing the probe was run to find out.
 
 #### Scenario: The bridge announces something the fake never sent
+
 - The probe records the shape the bridge used
 - The fake agent sends that shape too
 - A test covers the client's reading of it

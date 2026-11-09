@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.tasks.domain
 
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
+
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesPlanner
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
@@ -23,6 +26,8 @@ import kotlin.time.Instant
  * Pure domain: no database, no repository, no Compose.
  */
 @Tag("fast")
+@Epic("Tasks")
+@Feature("Domain")
 class TaskSeriesPlannerTest {
     private val userId = UserId("test-user")
     private val now = Instant.fromEpochMilliseconds(1_700_000_000_000)

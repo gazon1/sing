@@ -116,8 +116,8 @@ that it does.
 
 | File | What changes |
 |---|---|
-| `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/model/Selector.kt` | **+ `WorkflowState`**, **+ `FollowUp`** |
-| `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/model/SelectorSerializer.kt` | **+ 2 registry entries**, **leaf count 14 → 16**, **type tags 17 → 19** |
+| `core-domain/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/model/Selector.kt` | **+ `WorkflowState`**, **+ `FollowUp`** |
+| `core-domain/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/model/SelectorSerializer.kt` | **+ 2 registry entries**, **leaf count 14 → 16**, **type tags 17 → 19** |
 | `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/selector/SelectorMatcher.kt` | **+ 2 match branches**, **+ `followUpIds`** in `SelectorContext` |
 | `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/selector/SelectorTemplate.kt` | **+ catalogue entries**, including the one that finally offers `Blocked` |
 | `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/data/SavedAgendaViewsRepositoryImpl.kt` | **+ the undecodable-view guard** |

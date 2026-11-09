@@ -26,12 +26,14 @@ val StableJson: Json = Json {
 ## When to use StableJson
 
 Use `StableJson` for **any** persistent serialization:
+
 - Draft stores (`DraftStore<T>`)
 - Backup/restore payloads
 - Sync payloads
 - Any `kotlinx.serialization` encode/decode in `core/` or `feature/`
 
 Do **not** use `StableJson` for:
+
 - Network API responses (those have their own schema requirements)
 - Ephemeral in-memory caching that doesn't survive process death
 
@@ -55,6 +57,7 @@ value class TaskId(val value: String)
 ```
 
 **Always use `@Serializable` on `enum class`** when the enum is stored in a field of a serializable class:
+
 ```kotlin
 @Serializable
 enum class TaskPriority { None, Low, Medium, High, Urgent }
@@ -63,6 +66,7 @@ enum class TaskPriority { None, Low, Medium, High, Urgent }
 ## Migrating a local Json block
 
 **Before:**
+
 ```kotlin
 private val json = Json {
     encodeDefaults = true
@@ -71,12 +75,14 @@ private val json = Json {
 ```
 
 **After:**
+
 ```kotlin
 import com.singularity.todo.core.serialization.StableJson
 // use StableJson directly
 ```
 
 **Files that had copies (already migrated):**
+
 - `core/sync/SyncEngine.kt`
 - `core/backup/BackupImporter.kt`
 - `core/backup/BackupExporter.kt`
@@ -131,6 +137,7 @@ sealed interface Selector {
 ```
 
 **If you get `classDiscriminator` errors** when encoding a sealed interface:
+
 1. Check that ALL concrete leaves are `@Serializable` (abstract leaves can't be instantiated)
 2. Check that `Selector` itself is NOT `@Serializable` (only the leaves)
 3. For `data class` leaves inside sealed interfaces, `@SerialName` must be explicit if the class name is ambiguous
@@ -140,9 +147,11 @@ sealed interface Selector {
 ## AgendaEngine `@Serializable` checklist
 
 When adding a new `Selector` variant:
+
 1. Add `@Serializable` to the data class/data object
 2. Add `@SerialName("...")` if the class name is compound (e.g. `DateRange` → `@SerialName("date_range")`)
 3. Add a test in `AgendaPresetsTest`:
+
    ```kotlin
    @Test
    fun `Selector.DateRange round-trips`() {
@@ -152,7 +161,6 @@ When adding a new `Selector` variant:
        assertEquals(s, decoded)
    }
    ```
-
 
 ## Value classes in @Serializable models
 

@@ -23,7 +23,7 @@ import kotlin.test.assertEquals
  * That collision is the defect rather than a side effect of it. The HLC is the ordering key
  * conflict resolution uses, so two edits carrying an identical timestamp have no order
  * between them, and which one wins stops being something the code decides. This matters more
- * now than it did: `supabase/migrations/2026-10-07-sync_schema.sql` carries `server_version`,
+ * now than it did: `infra/supabase/migrations/2026-10-07-sync_schema.sql` carries `server_version`,
  * so the optimistic-concurrency path is being built directly on the ordering this produces.
  *
  * ## Why real threads and not the test scheduler

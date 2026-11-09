@@ -1,5 +1,5 @@
 # Attachments: an attachment persists after app restart.
-# прогнан на устройстве: нет (2026-11-04) — прогон на устройстве не выполнялся
+# прогнан на устройстве: да (2026-11-06) — realme RMX3938, 0O65321F32204DD5
 appId: com.singularity.todo
 name: attachments-persistence
 tags:
@@ -8,35 +8,11 @@ tags:
 ---
 # Seed a task and add an attachment.
 - runFlow:
-    file: ../../helpers/seed.yaml
+    file: ../../helpers/seed-and-open-task.yaml
     env:
       QUERY: "task=PersistenceTask2026"
-
-- tapOn:
-    id: nav_tab_inbox
-- extendedWaitUntil:
-    visible:
-      id: task_item_persistencetask2026
-    timeout: 8000
-- tapOn:
-    id: task_item_persistencetask2026
-- extendedWaitUntil:
-    visible:
-      id: task_editor_title_input
-    timeout: 5000
-# The row is at the bottom of the task, below the fold. UP is the direction that
-# brings what is below into view; DOWN moves the content down and away from it.
-- scrollUntilVisible:
-    element:
-      id: attachments_add_file_row
-    direction: UP
-    timeout: 8000
-- tapOn:
-    id: attachments_add_file_row
-- extendedWaitUntil:
-    visible:
-      id: attachments_url_input
-    timeout: 5000
+      TASK_ID: task_item_persistencetask2026
+- runFlow: ../../helpers/open-attachments-sheet.yaml
 - tapOn:
     id: attachments_url_input
 - inputText: "https://example.com/persist"
@@ -55,24 +31,17 @@ tags:
     timeout: 30000
 
 # Navigate to the task again.
-- tapOn:
-    id: nav_tab_inbox
-- extendedWaitUntil:
-    visible:
-      id: task_item_persistencetask2026
-    timeout: 8000
-- tapOn:
-    id: task_item_persistencetask2026
-- extendedWaitUntil:
-    visible:
-      id: task_editor_title_input
-    timeout: 5000
-# The row is at the bottom of the task, below the fold. UP is the direction that
-# brings what is below into view; DOWN moves the content down and away from it.
+- runFlow:
+    file: ../../helpers/open-task.yaml
+    env:
+      TASK_ID: task_item_persistencetask2026
+
+# The row is at the bottom of the task, below the fold. DOWN scrolls the content
+# up so what is below comes into view; UP moves it the other way.
 - scrollUntilVisible:
     element:
       id: attachments_add_file_row
-    direction: UP
+    direction: DOWN
     timeout: 8000
 
 # Verify the attachment is still present.

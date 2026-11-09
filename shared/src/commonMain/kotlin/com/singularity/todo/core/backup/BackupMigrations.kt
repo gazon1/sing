@@ -1,24 +1,36 @@
 package com.singularity.todo.core.backup
 
+import com.singularity.todo.core.serialization.StableJson
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 object BackupMigrations {
     const val CURRENT = BackupFormat.SCHEMA_VERSION
 
     /**
-     * v1 → v2: Add fields that were missing from TaskDto and NoteDto in v1.
+     * v1 → v2: the fields the first version did not write.
      *
      * TaskDto gained: parentTaskId, estimateMinutes, recurrenceRule, outgoingLinks,
      *                  aiSuppressedTagIds
      * NoteDto gained:  isPinned, pinnedAt, color, sortOrder, wordCount, charCount,
      *                  outgoingLinks, taskId
      *
-     * All new fields default to null/empty-string/0 so that a v1 backup is fully
-     * restorable on a v2 client.
+     * Every field written here is one the payload's DTOs read. A key no DTO
+     * carries is dropped on decode (`ignoreUnknownKeys`), so the payload would
+     * promise a value its reader never gets — the reason this step and
+     * [TaskDto] are kept in step.
+     *
+     * `parentTaskId` is written as `null` on every task, and that is a statement
+     * about the archive rather than about the account: a v1 payload never
+     * carried the parent link, so the rows of a migrated v1 backup come back as
+     * top-level tasks. The step says so on every task instead of leaving the
+     * reader to the DTO's default, the same way the later steps do.
      */
     private val v1ToV2: (JsonObject) -> JsonObject = { payload ->
         val tasks =
@@ -151,6 +163,100 @@ object BackupMigrations {
         JsonObject(payload + mapOf("schemaVersion" to JsonPrimitive(7)))
     }
 
+    /**
+     * v7 → v8: the values are named by contract, not by the constant's name.
+     *
+     * A v7 payload spelled a task's priority `High` and its workflow state
+     * `NextUp`: the name of the Kotlin constant. That made the format a hostage
+     * to the code — rename the constant and the backups stop meaning what they
+     * meant. A v8 payload spells the same values `high` and `next_up`, like
+     * every other name that travels off the device.
+     *
+     * The step rewrites the spellings rather than leaving the reader to know
+     * both, so the payload that comes out of the chain is the payload this build
+     * writes. The tables are literal: a format is frozen, and a step that read
+     * its spellings off the enums would rewrite an old backup into whatever the
+     * code says today.
+     */
+    private val v7ToV8: (JsonObject) -> JsonObject = { payload ->
+        val tasks =
+            payload["tasks"]?.jsonArray?.map { task ->
+                val obj = task.jsonObject
+                JsonObject(
+                    obj +
+                        mapOf(
+                            "priority" to JsonPrimitive(spelled(obj["priority"], TASK_PRIORITY_SPELLINGS, "none")),
+                            "kind" to JsonPrimitive(spelled(obj["kind"], TASK_KIND_SPELLINGS, "task")),
+                            "workflowState" to
+                                JsonPrimitive(spelled(obj["workflowState"], WORKFLOW_STATE_SPELLINGS, "open")),
+                        ),
+                )
+            } ?: emptyList()
+        val notes =
+            payload["notes"]?.jsonArray?.map { note ->
+                val obj = note.jsonObject
+                JsonObject(obj + mapOf("kind" to JsonPrimitive(spelled(obj["kind"], NOTE_KIND_SPELLINGS, "plain"))))
+            } ?: emptyList()
+        JsonObject(
+            payload +
+                mapOf(
+                    "tasks" to JsonArray(tasks),
+                    "notes" to JsonArray(notes),
+                    "schemaVersion" to JsonPrimitive(8),
+                ),
+        )
+    }
+
+    /** The v7 spellings of a task's priority, and the v8 ones. */
+    private val TASK_PRIORITY_SPELLINGS =
+        mapOf(
+            "None" to "none",
+            "Low" to "low",
+            "Medium" to "medium",
+            "High" to "high",
+            "Urgent" to "urgent",
+        )
+
+    /** The v7 spellings of a task's kind, and the v8 ones. */
+    private val TASK_KIND_SPELLINGS =
+        mapOf(
+            "Task" to "task",
+            "Note" to "note",
+        )
+
+    /** The v7 spellings of a task's workflow state, and the v8 ones. */
+    private val WORKFLOW_STATE_SPELLINGS =
+        mapOf(
+            "Open" to "open",
+            "NextUp" to "next_up",
+            "InProgress" to "in_progress",
+        )
+
+    /** The v7 spellings of a note's kind, and the v8 ones. */
+    private val NOTE_KIND_SPELLINGS =
+        mapOf(
+            "Plain" to "plain",
+            "Daily" to "daily",
+            "Template" to "template",
+        )
+
+    /**
+     * The v8 spelling of the value [element] carries.
+     *
+     * A value the table does not know is kept as it is: the reader accepts both
+     * spellings, so an unknown one is still read for what it says. A field that
+     * is not there at all gets [fallback] — the spelling of the value the row
+     * would have had.
+     */
+    private fun spelled(
+        element: JsonElement?,
+        spellings: Map<String, String>,
+        fallback: String,
+    ): String {
+        val raw = element?.jsonPrimitive?.contentOrNull ?: return fallback
+        return spellings[raw] ?: raw
+    }
+
     // Map<fromVersion, transform>
     private val migrations: Map<Int, (JsonObject) -> JsonObject> =
         mapOf(
@@ -160,6 +266,7 @@ object BackupMigrations {
             4 to v4ToV5,
             5 to v5ToV6,
             6 to v6ToV7,
+            7 to v7ToV8,
         )
 
     /**
@@ -183,4 +290,38 @@ object BackupMigrations {
             step(acc)
         }
     }
+}
+
+/**
+ * The payload [payloadBytes] becomes once the chain has taken them to this
+ * build's schema.
+ *
+ * ## Why the chain and the reader meet here
+ *
+ * A migration step says what an old record means by writing the fields the
+ * record's version did not carry; the payload type says what a record carries.
+ * The two only meet when the migrated JSON is decoded — and the decoder is
+ * lenient: `StableJson` ignores a key the payload type does not know, so a field
+ * a step promised can be read by nobody, and every test that reads the chain's
+ * output or a hand-built payload stays green.
+ *
+ * The importer and the test that joins the chain to the payload type both decode
+ * through here, so neither can drift from the other. The dialect is not a
+ * parameter for the same reason: the test must read the way the restore reads,
+ * leniency included, or it would be asserting on something the restore never
+ * does.
+ */
+internal fun decodeMigratedPayload(
+    payloadBytes: ByteArray,
+    from: Int,
+): BackupPayload {
+    val migrated =
+        BackupMigrations.migrate(
+            StableJson.parseToJsonElement(payloadBytes.decodeToString()).jsonObject,
+            from,
+        )
+    return StableJson.decodeFromString(
+        BackupPayload.serializer(),
+        StableJson.encodeToString(JsonObject.serializer(), migrated),
+    )
 }

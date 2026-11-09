@@ -43,25 +43,30 @@ The requirement it replaces asked for a real provider-side identity. That descri
 mechanism rather than a need, and the need is that the work is not lost.
 
 #### Scenario: Working with no account needs no server
+
 - The user creates tasks, notes and projects with no account
 - No request reaches the identity provider, and no failure is reported
 - The work is on the device and is available after the app is restarted
 
 #### Scenario: The account-less session survives a restart
+
 - The app is closed and reopened with no account signed in
 - The same data is present and belongs to the same owner
 - The user is not offered a new, empty session alongside it
 
 #### Scenario: The choice is offered, and both answers work
+
 - A session with no account holds data, and the user signs in
 - The user is told how much data there is and asked whether to keep it in the account
 - Keeping it attributes the work to the account; discarding it deletes it
 
 #### Scenario: Declining the choice is not the same as a failed sign-in
+
 - The user signs in successfully and then chooses to discard the account-less data
 - The sign-in stands, and only the account-less data is gone
 
 #### Scenario: Nothing to choose is not a question
+
 - A session with no account holds no data
 - Signing in does not ask the user anything
 
@@ -76,15 +81,18 @@ This is stated separately from the switch because the two are different operatio
 different costs, and the difference is easy to lose.
 
 #### Scenario: Signing out with nothing pending
+
 - The user signs out
 - The credentials are removed and the local data stays
 - Signing in again finds the work
 
 #### Scenario: Signing out with no network
+
 - The device is offline
 - Signing out still completes, and the local data stays
 
 #### Scenario: Signing out does not wait for the server
+
 - The provider is unreachable
 - The session is still ended, and nothing is reported as lost
 
@@ -100,30 +108,36 @@ The user SHALL be told what the device is doing before the switch begins, and a 
 that cannot complete SHALL leave both accounts exactly as they were.
 
 #### Scenario: The switch delivers before it erases
+
 - The departing account has queued changes and the network is up
 - Those changes reach the server under the departing account
 - Only then is the departing account's local data removed
 
 #### Scenario: A switch that cannot deliver is refused
+
 - The departing account has queued changes and the network is down
 - Nothing is erased and the new sign-in does not proceed
 - The user is told the switch needs the network, and their work is still there
 
 #### Scenario: A refused switch leaves no half-finished state
+
 - A switch was refused for want of network
 - The device still holds the departing account's complete data, and no part of the
   incoming account's
 
 #### Scenario: The whole of the departing account goes, including every profile
+
 - The departing account has more than one profile
 - All of its local data is removed, not only the profile that was active
 
 #### Scenario: The switch says what it is waiting for
+
 - A switch is in progress
 - The user is shown that the queued work is being delivered, and cannot be mistaken for a
   hang
 
 #### Scenario: A switch with nothing queued still erases
+
 - The departing account has no queued changes
 - Its local data is still removed, and the switch completes without waiting
 
@@ -136,15 +150,18 @@ behalf of another account, and a response that arrives after the account it was
 requested under is gone SHALL NOT change local state.
 
 #### Scenario: A response arriving after a sign-out changes nothing
+
 - A push is in flight and the user signs out
 - The response is discarded; the queued rows stay queued
 - Nothing is recorded as delivered
 
 #### Scenario: A response arriving after a switch changes nothing
+
 - A push is in flight and the user signs in as somebody else
 - The response is discarded rather than settled against the new account
 
 #### Scenario: Queued work belongs to the account that created it
+
 - Two accounts have used the device
 - Each account's queued changes are delivered only under that account
 

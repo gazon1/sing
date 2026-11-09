@@ -43,7 +43,7 @@ bash scripts/ci/preflight-gate-tools.sh                   # what is still missin
 
 `scripts/ci/setup-local-tools.sh` creates `$HOME/.venvs/singularity-todo-$(basename "$PWD")`
 (one venv per checkout — override with `SINGULARITY_TOOLS_VENV`), installs the local `scripts/src` package **editable**
-plus `junitparser` and `yamllint==1.38.0` into it, and puts the pinned
+plus `yamllint==1.38.0` into it, and puts the pinned
 `lychee-bin==0.24.2`, `shellcheck-py==0.11.0.1` and the `actionlint` v1.7.7
 release binary in a **shared store**, one copy per version on the machine
 (`~/.venvs/_tools/<tool>-<version>/bin/<tool>`), with the venv's own copies as
@@ -147,6 +147,7 @@ are only present when a coroutine test actually died.
 ## Adding a new module (e.g. mcp-server, androidApp)
 
 **1. Add plugins to module's `build.gradle.kts`:**
+
 ```kotlin
 plugins {
     alias(libs.plugins.kotlinJvm)         // or kotlinMultiplatform, androidApplication, etc.
@@ -158,6 +159,7 @@ plugins {
 ```
 
 **2. Add `dependencies` block (no `detektPlugins` — formatting is ktlint's):**
+
 ```kotlin
 dependencies {
     // ... existing deps ...
@@ -165,6 +167,7 @@ dependencies {
 ```
 
 **3. Add inline detekt config (do NOT use `config.setFrom`):**
+
 ```kotlin
 detekt {
     buildUponDefaultConfig = true
@@ -188,11 +191,13 @@ depends on them itself. A test task nobody added there is a test task whose
 execution never reaches the coverage number.
 
 **5. Generate baseline:**
+
 ```bash
 ./gradlew :module:detektBaseline
 ```
 
 **6. Add module to CI workflow** (`.github/workflows/ci.yml`):
+
 ```yaml
 - name: Check module
   run: |
@@ -215,38 +220,50 @@ execution never reaches the coverage number.
 ## Common issues
 
 ### detekt 2.x config errors (wrong property names)
+
 ```
 Property 'complexity>TooManyFunctions>allowedFunctions' is misspelled
 ```
+
 In detekt 2.x, `TooManyFunctions` uses `allowedFunctionsPerFile` (not `allowedFunctions`). Always use the **exact property names** from `config/validation` errors.
 
 ### ktlint rules not firing
+
 ```
 0 number of total findings
 ```
+
 The ktlint rules live in **`.editorconfig`**, not in `config/detekt/detekt.yml` — detekt owns the semantics only. Run `just ktlint` (or `python3 scripts/ktlint-lint.py`) and read the rule ID it reports: rule IDs are **kebab-case** (`no-wildcard-imports`), not PascalCase.
 
 ### "Property 'ktlint' is misspelled" error
+
 ```
 Property 'ktlint' is misspelled or does not exist.
 Allowed properties: [comments, complexity, config, console-reports, coroutines, empty-blocks, exceptions, naming, performance, potential-bugs, processors, style]
 ```
+
 This is a **stale config**: a `ktlint:` section was left in `config/detekt/detekt.yml`. The formatting layer is the standalone ktlint CLI — the section does not belong in detekt's config any more. Delete it and configure ktlint in `.editorconfig`.
 
 ### Configuration cache errors
+
 ```
 error writing value of type 'ExistingNamedDomainObjectProvider'
 ```
+
 This is a known detekt 2.x + Gradle 9.x CC incompatibility. Use `--no-configuration-cache` flag or wait for a fix in a later detekt version.
 
 ### "detekt was compiled with Kotlin X but is currently running with Y"
+
 You are running the wrong detekt version. Stable 1.23.x supports Kotlin 2.0.x. For Kotlin 2.4.x use **detekt 2.0.0-alpha.6** (compiled against Kotlin 2.4.10).
 
 ### "Plugin not found" for detekt in submodule
+
 ```
 Plugin [id: 'detekt'] was not found in any of the following sources
 ```
+
 You used `id("detekt")` instead of `alias(libs.plugins.detekt)`. The `detekt` plugin ID is registered in `gradle/libs.versions.toml` under `[plugins]` and must be referenced via the version catalog:
+
 ```kotlin
 // WRONG
 id("detekt")

@@ -10,6 +10,7 @@ tags: [multi-profile, llm-usage, observability, dogfooding]
 ## Context
 
 AI-агенты (ZCode, Claude Code) используют токены при генерации задач и заметок. Нужно:
+
 1. **Изоляция данных** — AI-агентские задачи не мешают пользовательским
 2. **Usage observability** — видеть сколько токенов жрёт каждый вызов и агрегированно
 3. **Per-profile настройки** — разные AI-провайдеры для разных профилей
@@ -21,6 +22,7 @@ AI-агенты (ZCode, Claude Code) используют токены при г
 ### Multi-Profile
 
 **Доменная модель:**
+
 ```kotlin
 @JvmInline
 value class ProfileId(val value: String) {
@@ -42,6 +44,7 @@ data class Profile(
 ```
 
 **ProfileAwareCurrentUser** — оборачивает `CurrentUser`:
+
 ```kotlin
 class ProfileAwareCurrentUser(
     private val currentUser: CurrentUser,
@@ -60,6 +63,7 @@ class ProfileAwareCurrentUser(
 **Результат:** scoped userId = `"ai-agent/u123"` для ai-agent профиля, `"u123"` для default.
 
 **ProfileRepository:**
+
 ```kotlin
 interface ProfileRepository {
     val activeProfileId: StateFlow<ProfileId>
@@ -78,6 +82,7 @@ interface ProfileRepository {
 ### LLM Usage Tracking
 
 **Room entity:**
+
 ```kotlin
 @Entity(tableName = "llm_usage")
 data class LlmUsageEntity(
@@ -98,6 +103,7 @@ data class LlmUsageEntity(
 **Migration v7→v8:** AutoMigrationSpec добавляет таблицу.
 
 **UsageRecorder port:**
+
 ```kotlin
 interface UsageRecorder {
     suspend fun record(event: ToolUsageEvent)
@@ -118,6 +124,7 @@ data class ToolUsageEvent(
 ```
 
 **Pricing table (pure Kotlin, pricing last updated: 2026-09-07):**
+
 ```kotlin
 object ModelPricing {
     val PRICE_PER_1M_INPUT_TOKENS = mapOf(
@@ -134,6 +141,7 @@ object ModelPricing {
 ```
 
 **UsageExtractor** — вызывается после каждого LLM-вызова:
+
 ```kotlin
 fun extract(
     metaInfo: ResponseMetaInfo?,
@@ -147,6 +155,7 @@ fun extract(
 ```
 
 **AI Usage Screen** (Settings → AI Usage):
+
 - Header card: total tokens, total cost, date range
 - Daily sparkline (7 days)
 - Per-tool breakdown: table of tool → calls, tokens, cost

@@ -414,6 +414,7 @@ Every subclass overrides everything meaningful anyway. The base covers only the 
 ### What to do instead
 
 **For test fakes:** Use `InMemoryStore<E>` as a composition helper:
+
 ```kotlin
 class FakeTaskRepository : TaskRepository {
     private val store = InMemoryStore<Task>(keyOf = { it.id.value })
@@ -423,12 +424,14 @@ class FakeTaskRepository : TaskRepository {
 ```
 
 **For typed IDs:** Use `@JvmInline value class` directly — no shared interface needed:
+
 ```kotlin
 @JvmInline value class TaskId(val value: String)
 @JvmInline value class ProjectId(val value: String)
 ```
 
 **For validation:** Use `Either<AppError.Validation, T>` in a domain object, not a marker interface:
+
 ```kotlin
 object TasksDomain {
     fun validate(input: CreateTaskInput): Either<AppError.Validation, CreateTaskInput> { ... }
