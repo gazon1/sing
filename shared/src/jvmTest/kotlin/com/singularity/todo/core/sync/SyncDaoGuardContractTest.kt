@@ -91,6 +91,8 @@ import kotlin.test.fail
  * tables before the default can address a row. The shelf's `insert` requires an owner
  * in Kotlin, exactly as the outbox's does.
  */
+@Tag("slow")
+@Tag("slow:data")
 abstract class SyncDaoGuardContractTest {
     /** The shelf under test. */
     protected abstract val deadLetterDao: SyncDeadLetterDao
