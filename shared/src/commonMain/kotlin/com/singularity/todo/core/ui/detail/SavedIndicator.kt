@@ -40,20 +40,18 @@ fun SavedIndicator(
         label = "savedAlpha",
     )
 
-    if (alpha > 0f) {
-        Row(
-            modifier =
-                modifier
-                    .padding(horizontal = 8.dp)
-                    .alpha(alpha),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Saved",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Medium,
-            )
-        }
+    Row(
+        modifier =
+            modifier
+                .padding(horizontal = 8.dp)
+                .alpha(alpha),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "Saved",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }

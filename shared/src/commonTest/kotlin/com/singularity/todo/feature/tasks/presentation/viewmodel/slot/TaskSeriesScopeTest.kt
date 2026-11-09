@@ -2,12 +2,11 @@
 
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
-import io.qameta.allure.Epic
-import io.qameta.allure.Feature
-
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
+import io.qameta.allure.Epic
+import io.qameta.allure.Feature
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -72,7 +71,8 @@ class TaskSeriesScopeTest {
                     children = fakes.children(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                )
             runCurrent()
 
             slot.onIntent(TaskDetailIntent.Domain.SetPriority(TaskPriority.High))
@@ -106,7 +106,8 @@ class TaskSeriesScopeTest {
                     children = fakes.children(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                )
             runCurrent()
 
             slot.onIntent(TaskDetailIntent.Domain.SetDueDate(LocalDate(2026, 10, 6)))
@@ -141,7 +142,8 @@ class TaskSeriesScopeTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                )
             runCurrent()
 
             slot.onIntent(TaskDetailIntent.Domain.TitleChanged("Pay the rent in full"))
@@ -177,7 +179,8 @@ class TaskSeriesScopeTest {
                     children = fakes.children(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                )
             runCurrent()
 
             slot.onIntent(TaskDetailIntent.Domain.SetPriority(TaskPriority.Low))

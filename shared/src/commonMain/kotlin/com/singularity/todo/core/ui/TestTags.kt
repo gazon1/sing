@@ -228,6 +228,14 @@ object TestTags {
     const val TASK_EDITOR_MORE_MENU = "task_editor_more_menu"
     const val TASK_EDITOR_AI_BUTTON = "task_editor_ai_button"
 
+    /**
+     * The "Saved" pill of the task detail.
+     *
+     * The detail stores its inline title and description edits silently, so this is the
+     * only thing on the screen that says a debounced write landed.
+     */
+    const val TASK_DETAIL_SAVED_INDICATOR = "task_detail_saved_indicator"
+
     /** Confirm (✓) button in task-editor sheet hosts (recurrence picker, etc.). */
     const val SHEET_CONFIRM = "sheet_confirm"
 
@@ -650,6 +658,7 @@ object TestTags {
     const val NOTE_EDITOR_TITLE_INPUT = "note_editor_title_input"
     const val NOTE_EDITOR_BODY = "note_editor_body"
     const val NOTE_EDITOR_SAVE = "note_editor_save"
+    const val NOTE_EDITOR_BACK = "note_editor_back"
     const val NOTE_EDITOR_NOTIFICATION_HOST = "note_editor_notification_host"
 
     /**

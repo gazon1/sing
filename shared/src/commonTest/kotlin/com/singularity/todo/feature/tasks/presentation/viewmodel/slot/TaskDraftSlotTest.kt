@@ -2,10 +2,9 @@
 
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
+import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import io.qameta.allure.Epic
 import io.qameta.allure.Feature
-
-import com.singularity.todo.feature.tasks.domain.state.TaskDetailIntent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -38,7 +37,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
 
             assertEquals("", slot.state.value.title.value)
         }
@@ -54,7 +55,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
 
             slot.seed("Original", "Body")
 
@@ -73,7 +76,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
 
             slot.seed("Original", "Body")
             slot.onIntent(TaskDetailIntent.Domain.TitleChanged("User edit"))
@@ -94,7 +99,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "")
             runCurrent()
 
@@ -117,7 +124,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "")
             runCurrent()
 
@@ -144,7 +153,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "Old")
             runCurrent()
 
@@ -173,7 +184,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "")
             runCurrent()
 
@@ -214,7 +227,9 @@ class TaskDraftSlotTest {
                     context = fakes.context(),
                     scope = testSlotScope(backgroundScope),
                     taskFlow = source.state,
-                ) {}
+                    onError = {},
+                    onSaved = {},
+                )
             slot.seed("Original", "")
             runCurrent()
 
@@ -227,5 +242,60 @@ class TaskDraftSlotTest {
             assertEquals("🎯", saved.emoji, "an unrelated field must survive a debounced title write")
         }
 }
+
+@Test
+fun `a task-field change after a saved title edit does not replay the edit or pulse again`() =
+    runTest {
+        val fakes = SlotFakes()
+        fakes.taskRepo.seed(task("t1", title = "Original"))
+        val source = TaskSource(task("t1", title = "Original"))
+        var saved = 0
+        val slot =
+            TaskDraftSlot(
+                core = fakes.core(),
+                context = fakes.context(),
+                scope = testSlotScope(backgroundScope),
+                taskFlow = source.state,
+                onError = {},
+                onSaved = { saved++ },
+            )
+        slot.seed("Original", "")
+        runCurrent()
+
+        slot.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited"))
+        advanceTimeBy(DEBOUNCE_PLUS_SETTLE)
+        runCurrent()
+        assertEquals(1, saved)
+        assertEquals(
+            "Edited",
+            fakes.taskRepo.tasks.value["t1"]
+                ?.title,
+        )
+        val afterFirstWrite =
+            fakes.taskRepo.tasks.value["t1"]
+                ?.updatedAt
+
+        // An unrelated task change (e.g. priority) emits a new task row. The
+        // previous debounced title edit must not be replayed against it: that
+        // would rewrite the title and report a save the user did not make.
+        source.emit(
+            source.state.value!!.copy(priority = com.singularity.todo.feature.tasks.domain.model.TaskPriority.High),
+        )
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        assertEquals(1, saved, "no extra save pulse for an unrelated task change")
+        assertEquals(
+            afterFirstWrite,
+            fakes.taskRepo.tasks.value["t1"]
+                ?.updatedAt,
+            "no redundant rewrite",
+        )
+        assertEquals(
+            "Edited",
+            fakes.taskRepo.tasks.value["t1"]
+                ?.title,
+        )
+    }
 
 private const val DEBOUNCE_PLUS_SETTLE = 400L
