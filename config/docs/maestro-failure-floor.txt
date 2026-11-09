@@ -42,5 +42,10 @@
 # debt the floor does not know about until it is re-measured and the number
 # below is raised deliberately.
 
+# Re-measured 2026-11-09, smoke scope only, same device: 28 flows, 4 failed, and
+# the floor was 7 at the time. The smoke number below is that run's. `full` is
+# still the 2026-10-22 number: the whole catalogue has not been re-run since, and
+# a scope nobody measured keeps the number somebody did.
+
 full 30
-smoke 7
+smoke 4
