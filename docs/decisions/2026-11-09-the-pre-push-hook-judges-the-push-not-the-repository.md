@@ -110,6 +110,13 @@ shrink, never grow (`2026-10-01-ci-quality-ratchet.md`,
 - **No base, no ratchet.** When the comparison cannot be made, the finding
   counts as the push's own. The ratchet is a way of not blocking on somebody
   else's debt, not a way of skipping a gate.
+- **A run that failed without reporting anything said nothing.** The exit code
+  of each run is part of what is compared, not only the text it printed. A
+  gate that exits nonzero and prints nothing broke — it did not find
+  something — and a broken run cannot say what the other tree has. Two broken
+  runs used to compare as equal (both outputs empty), so the push was accepted
+  on the strength of a gate that validated neither tree. Now such a comparison
+  cannot be made, and it stops the push.
 
 The rule is recorded in `config/hooks/pre-push.json` (section `ratchet`), the
 comparison is done by `scripts/pre-push-ratchet.py` — a tool, not a gate: it
@@ -161,6 +168,10 @@ judges nothing about the tree, it only compares two answers — and
   push's, and the push has to fix it — even when the finding was there
   before. That is the price of touching a file, and it is the same price CI
   charges.
+- **A gate that breaks blocks the push.** A run that failed without reporting
+  anything is neither a finding nor a pass, and the ratchet does not read it
+  as either: the comparison cannot be made, so the push stops and the hook
+  says that the comparison could not be made.
 
 ## Links
 

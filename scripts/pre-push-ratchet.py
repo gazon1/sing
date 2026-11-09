@@ -21,12 +21,18 @@ push's, and the push stops.
 
 Two things can be compared, and they are compared here:
 
-  - `outputs` — the text of two runs of the same gate. The findings of the
-    pushed tree are compared with the findings of the base tree, and what is
-    left over — what the base does not have — is the push's own.
+  - `outputs` — the text of two runs of the same gate, together with the exit
+    code of each run. The findings of the pushed tree are compared with the
+    findings of the base tree, and what is left over — what the base does not
+    have — is the push's own.
   - `tests` — the JUnit report of the gate suite's own tests. The tests that
     failed on the pushed tree are re-run on the base tree, one by one, and a
     test that fails on the base as well is pre-existing.
+
+The exit codes matter as much as the text. A run that failed without printing
+anything did not find anything — it broke — and a broken run says nothing
+about the tree it ran on. A comparison that could not be made is not
+"pre-existing": it is a comparison that failed, and the caller stops the push.
 
 The comparison is deliberately coarse about *where* a finding is and exact
 about *what* it is: a finding's position in a file moves when the file moves,
@@ -35,14 +41,15 @@ are what identify it.
 
 Usage:
     python3 scripts/pre-push-ratchet.py outputs --pushed FILE --base FILE \\
-        [--pushed-tree PATH] [--base-tree PATH]
+        --pushed-rc N --base-rc N [--pushed-tree PATH] [--base-tree PATH]
     python3 scripts/pre-push-ratchet.py tests --report FILE --base-tree PATH
 
 Exit codes:
     0 — the push carries nothing of its own
     1 — the push carries findings of its own (they are printed)
     2 — the comparison could not be made (the base is missing, the report is
-        unreadable) — the caller must treat this as "the push carries findings"
+        unreadable, a run failed without reporting anything) — the caller
+        must treat this as "the push carries findings"
 """
 
 from __future__ import annotations
@@ -176,11 +183,33 @@ def compare_outputs(
     base: str,
     pushed_tree: str | None,
     base_tree: str | None,
-) -> list[str]:
-    """The findings the pushed tree has and the base tree does not."""
-    pushed_lines = collections.Counter(normalize(read_text(pushed), pushed_tree))
-    base_lines = collections.Counter(normalize(read_text(base), base_tree))
-    return list((pushed_lines - base_lines).elements())
+    pushed_rc: int,
+    base_rc: int,
+) -> list[str] | None:
+    """The findings the pushed tree has and the base tree does not.
+
+    `None` when the two runs cannot be compared. A run that failed without
+    reporting anything did not find anything — it broke — and a broken run
+    says nothing about the tree it ran on, so it cannot say what the other
+    tree has. A comparison that could not be made must never be read as
+    "pre-existing": that would accept a push on the strength of a gate that
+    never validated anything.
+    """
+    pushed_lines = normalize(read_text(pushed), pushed_tree)
+    base_lines = normalize(read_text(base), base_tree)
+
+    if pushed_rc == 0:
+        # The gate passed on the pushed tree: it found nothing of its own.
+        return []
+    if not pushed_lines:
+        return None
+    if base_rc == 0:
+        # The base gate passed: it has no findings, so every finding the
+        # pushed tree has is the push's own.
+        return pushed_lines
+    if not base_lines:
+        return None
+    return list((collections.Counter(pushed_lines) - collections.Counter(base_lines)).elements())
 
 
 def failing_test_ids(report: str) -> list[str]:
@@ -249,7 +278,21 @@ def run_tests_on_base(base_tree: str, test_ids: list[str]) -> set[str]:
 
 def cmd_outputs(args: argparse.Namespace) -> int:
     """Compare two captured outputs of the same gate."""
-    new = compare_outputs(args.pushed, args.base, args.pushed_tree, args.base_tree)
+    new = compare_outputs(
+        args.pushed,
+        args.base,
+        args.pushed_tree,
+        args.base_tree,
+        args.pushed_rc,
+        args.base_rc,
+    )
+    if new is None:
+        print(
+            "pre-push-ratchet: the two runs cannot be compared — a run failed "
+            "without reporting anything, so the gate broke instead of "
+            "reporting a finding"
+        )
+        return 2
     if not new:
         return 0
     for line in new:
@@ -266,7 +309,15 @@ def cmd_tests(args: argparse.Namespace) -> int:
         return 2
 
     if not pushed_ids:
-        return 0
+        # The report names no failing test, so the failure that brought the
+        # caller here is not a test failure: the report cannot account for
+        # it, and a comparison that could not be made must not be read as
+        # "the push carries nothing of its own".
+        print(
+            "pre-push-ratchet: the report names no failing test — the failure "
+            "is not a test failure, so the comparison cannot be made"
+        )
+        return 2
 
     base_failed = run_tests_on_base(args.base_tree, pushed_ids)
     new = [test_id for test_id in pushed_ids if not any(covers(test_id, f) for f in base_failed)]
@@ -284,6 +335,8 @@ def main(argv: list[str] | None = None) -> int:
     outputs = sub.add_parser("outputs", help="compare two captured outputs of one gate")
     outputs.add_argument("--pushed", required=True, help="the output of the run on the pushed tree")
     outputs.add_argument("--base", required=True, help="the output of the run on the base tree")
+    outputs.add_argument("--pushed-rc", required=True, type=int, help="the exit code of the pushed tree's run")
+    outputs.add_argument("--base-rc", required=True, type=int, help="the exit code of the base tree's run")
     outputs.add_argument("--pushed-tree", default=None, help="the path of the pushed tree")
     outputs.add_argument("--base-tree", default=None, help="the path of the base tree")
     outputs.set_defaults(func=cmd_outputs)

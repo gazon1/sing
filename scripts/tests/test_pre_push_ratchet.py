@@ -20,7 +20,10 @@ The properties:
   - the failing tests of the gate suite are compared by their own id, and a
     test that fails on the base tree as well is pre-existing;
   - a comparison that cannot be made says so (exit 2), and the caller treats
-    it as "the push carries findings" — the safe direction.
+    it as "the push carries findings" — the safe direction;
+  - a run that failed without reporting anything did not find anything, so
+    the two runs cannot be compared — the exit code of each run is part of
+    what is compared, not only the text it printed.
 """
 
 import importlib.util
@@ -102,26 +105,57 @@ class CompareOutputsTest(unittest.TestCase):
     def test_a_finding_the_base_has_as_well_is_not_the_push_s_own(self):
         pushed = self._write('pushed.log', 'A.kt:1:1: rule\n')
         base = self._write('base.log', 'A.kt:9:9: rule\n')
-        new = mod.compare_outputs(str(pushed), str(base), None, None)
+        new = mod.compare_outputs(str(pushed), str(base), None, None, 1, 1)
         self.assertEqual([], new)
 
     def test_a_finding_the_base_does_not_have_is_the_push_s_own(self):
         pushed = self._write('pushed.log', 'A.kt:1:1: rule\n')
         base = self._write('base.log', '')
-        new = mod.compare_outputs(str(pushed), str(base), None, None)
+        new = mod.compare_outputs(str(pushed), str(base), None, None, 1, 0)
         self.assertEqual(['A.kt: rule'], new)
 
     def test_a_finding_that_changed_is_the_push_s_own(self):
         """The same file, a different rule: that is a different finding."""
         pushed = self._write('pushed.log', 'A.kt:1:1: rule\n')
         base = self._write('base.log', 'A.kt:1:1: other\n')
-        new = mod.compare_outputs(str(pushed), str(base), None, None)
+        new = mod.compare_outputs(str(pushed), str(base), None, None, 1, 1)
         self.assertEqual(['A.kt: rule'], new)
 
     def test_a_missing_output_is_the_push_s_own(self):
         """A file that cannot be read says nothing about what it held."""
         pushed = self._write('pushed.log', 'A.kt:1:1: rule\n')
-        new = mod.compare_outputs(str(pushed), str(self.tmp / 'absent.log'), None, None)
+        new = mod.compare_outputs(str(pushed), str(self.tmp / 'absent.log'), None, None, 1, 0)
+        self.assertEqual(['A.kt: rule'], new)
+
+    def test_a_gate_that_passed_carries_nothing(self):
+        """A gate that passed found nothing, so there is nothing to compare."""
+        pushed = self._write('pushed.log', 'A.kt:1:1: rule\n')
+        base = self._write('base.log', 'A.kt:1:1: rule\n')
+        self.assertEqual([], mod.compare_outputs(str(pushed), str(base), None, None, 0, 1))
+
+    def test_a_pushed_run_that_failed_without_reporting_anything_cannot_be_compared(self):
+        """A gate that broke did not find anything — it said nothing.
+
+        Both runs failing without printing anything used to compare as equal,
+        and the push was accepted on the strength of a gate that validated
+        neither tree. A comparison that could not be made is not a comparison
+        that found nothing new.
+        """
+        pushed = self._write('pushed.log', '')
+        base = self._write('base.log', '')
+        self.assertIsNone(mod.compare_outputs(str(pushed), str(base), None, None, 1, 1))
+
+    def test_a_base_run_that_failed_without_reporting_anything_cannot_be_compared(self):
+        """The base tree broke as well, so it cannot account for anything."""
+        pushed = self._write('pushed.log', 'A.kt:1:1: rule\n')
+        base = self._write('base.log', '')
+        self.assertIsNone(mod.compare_outputs(str(pushed), str(base), None, None, 1, 1))
+
+    def test_a_base_that_passed_makes_every_finding_the_push_s_own(self):
+        """The base gate passed: it has no findings of its own."""
+        pushed = self._write('pushed.log', 'A.kt:1:1: rule\n')
+        base = self._write('base.log', '0 blocking finding(s)\n')
+        new = mod.compare_outputs(str(pushed), str(base), None, None, 1, 0)
         self.assertEqual(['A.kt: rule'], new)
 
 
@@ -245,7 +279,10 @@ class CommandLineTest(unittest.TestCase):
         pushed.write_text('A.kt:1:1: rule\n', encoding='utf-8')
         base = self.tmp / 'base.log'
         base.write_text('A.kt:4:4: rule\n', encoding='utf-8')
-        result = self._run('outputs', '--pushed', str(pushed), '--base', str(base))
+        result = self._run(
+            'outputs', '--pushed', str(pushed), '--base', str(base),
+            '--pushed-rc', '1', '--base-rc', '1',
+        )
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
 
     def test_outputs_names_what_the_push_adds(self):
@@ -253,9 +290,42 @@ class CommandLineTest(unittest.TestCase):
         pushed.write_text('A.kt:1:1: rule\n', encoding='utf-8')
         base = self.tmp / 'base.log'
         base.write_text('', encoding='utf-8')
-        result = self._run('outputs', '--pushed', str(pushed), '--base', str(base))
+        result = self._run(
+            'outputs', '--pushed', str(pushed), '--base', str(base),
+            '--pushed-rc', '1', '--base-rc', '0',
+        )
         self.assertEqual(1, result.returncode)
         self.assertIn('A.kt: rule', result.stdout)
+
+    def test_outputs_returns_two_when_the_gate_failed_without_reporting_anything(self):
+        """The gate broke in both trees: the two answers cannot be compared.
+
+        This is the fail-open the review found. Both runs exited nonzero
+        without printing anything, the two normalised outputs were equal
+        (both empty), and the comparison reported nothing new — so the push
+        was accepted on the strength of a gate that validated neither tree.
+        """
+        pushed = self.tmp / 'pushed.log'
+        pushed.write_text('', encoding='utf-8')
+        base = self.tmp / 'base.log'
+        base.write_text('', encoding='utf-8')
+        result = self._run(
+            'outputs', '--pushed', str(pushed), '--base', str(base),
+            '--pushed-rc', '1', '--base-rc', '1',
+        )
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+
+    def test_outputs_returns_two_when_the_base_gate_failed_without_reporting_anything(self):
+        """The base tree broke too, so it cannot account for the findings."""
+        pushed = self.tmp / 'pushed.log'
+        pushed.write_text('A.kt:1:1: rule\n', encoding='utf-8')
+        base = self.tmp / 'base.log'
+        base.write_text('', encoding='utf-8')
+        result = self._run(
+            'outputs', '--pushed', str(pushed), '--base', str(base),
+            '--pushed-rc', '1', '--base-rc', '1',
+        )
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
 
     def test_tests_returns_two_when_the_report_cannot_be_read(self):
         result = self._run(
@@ -266,6 +336,24 @@ class CommandLineTest(unittest.TestCase):
             str(self.tmp),
         )
         self.assertEqual(2, result.returncode)
+
+    def test_tests_returns_two_when_the_report_names_no_failing_test(self):
+        """A suite that failed without a failing test cannot be compared.
+
+        The report is empty of failures, so it cannot say which test the
+        failure belongs to — and a comparison that could not be made must
+        not be read as "the push carries nothing of its own".
+        """
+        report = self.tmp / 'report.xml'
+        report.write_text('<testsuites></testsuites>\n', encoding='utf-8')
+        result = self._run(
+            'tests',
+            '--report',
+            str(report),
+            '--base-tree',
+            str(self.tmp),
+        )
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
 
 
 if __name__ == '__main__':

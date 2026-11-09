@@ -191,6 +191,20 @@ if os.path.exists('bad.txt'):
 sys.exit(0)
 """
 
+#: A gate that falls over without saying anything.
+#:
+#: The ratchet compares what the gate said, and it has to tell "the gate found
+#: a finding" from "the gate broke": a run that exits nonzero and prints
+#: nothing found nothing at all, so the two trees cannot be compared and the
+#: push stops. It stands in for the version-catalog gate — the step that
+#: always runs — so the case does not depend on which paths the push touched.
+SILENT_GATE_SCRIPT = MARKER_GATE_SCRIPT
+SILENT_GATE = """#!/usr/bin/env python3
+import sys
+
+sys.exit(1)
+"""
+
 SOURCE = 'package com.example\n\nclass Example\n' + VIOLATION + '\n'
 CLEAN_SOURCE = 'package com.example\n\nclass Example\n'
 
@@ -1586,6 +1600,32 @@ class PrePushHookTest(unittest.TestCase):
         self.assertNotEqual(0, result.returncode, output)
         self.assertIn('version-catalog gate: FAILED', output)
         self.assertIn('what this push adds:', output)
+
+    def test_a_gate_that_broke_without_saying_anything_blocks_the_push(self):
+        """A gate that fell over is not a gate that found nothing.
+
+        The ratchet compares what the gate said. A run that exits nonzero
+        without printing anything said nothing — it broke — and two broken
+        runs used to compare as equal (both outputs empty), so the push was
+        accepted on the strength of a gate that validated neither tree.
+
+        The comparison cannot be made, and a comparison that could not be
+        made stops the push.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write(SILENT_GATE_SCRIPT, SILENT_GATE)
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+        first = self._push('--no-verify')
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+        self._commit_source(CLEAN_SOURCE + '\n// a change of its own\n', 'a change')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertNotEqual(0, result.returncode, output)
+        self.assertIn('version-catalog gate: FAILED', output)
+        self.assertNotIn('PRE-EXISTING', output)
 
     def test_easement_is_skipped_when_the_tree_does_not_declare_it(self):
         """The tree's own declaration decides whether it has this gate.

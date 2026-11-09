@@ -11,6 +11,7 @@
     "rule": "A push must not make a gate redder than the base it starts from.",
     "base": "the commit the branch forked from — the merge-base of the trunk and the pushed commit. SGATE_BASE_REF names it when the caller knows better; refs/remotes/<remote>/main, origin/main and main are the fallbacks.",
     "how": "a gate that fails on the pushed tree is run again in the base tree, and the two answers are compared. What the base does not have, the push brought; what the base has as well is the trunk's finding. The gate suite's own tests are compared by their failing test ids, re-run one by one in the base tree.",
+    "execution_status": "The exit code of each run is part of what is compared, not only the text it printed. A run that failed without reporting anything broke rather than found something, and a broken run cannot say what the other tree has — so the comparison cannot be made, and a comparison that could not be made stops the push.",
     "what_it_is_not": "The gate still reads the whole tree, on both sides. The ratchet decides whether a finding STOPS THE PUSH — it never decides whether the finding is there. CI still judges the whole tree, and the trunk's findings are the trunk's CI run to report.",
     "tool": "scripts/pre-push-ratchet.py — a tool, not a gate: it judges nothing about the tree, it only compares two answers.",
     "no_base": "a push with no base is judged as if everything in the tree were new — the safe direction."

@@ -392,7 +392,7 @@ promise_touched_files() {
 
 ratchet_outputs() {
     python3 "$REPO_ROOT/scripts/pre-push-ratchet.py" outputs \
-        --pushed "$1" --base "$2" \
+        --pushed "$1" --base "$2" --pushed-rc "$3" --base-rc "$4" \
         --pushed-tree "$tree" --base-tree "$base_tree"
 }
 
@@ -742,6 +742,7 @@ EOF
             step_hint="${step_hint//@TREE@/$tree}"
 
             step_failed=0
+            step_rc=0
             if [ "$step_show_output" = "yes" ]; then
                 # The output is captured and shown only when the gate fails:
                 # the gate CLI writes a DEBUG line per loaded module, and a
@@ -757,6 +758,7 @@ EOF
                     >"$PROMISE_OUT" 2>&1; then
                     echo "   $step_label: OK"
                 else
+                    step_rc=$?
                     step_failed=1
                 fi
             else
@@ -765,6 +767,7 @@ EOF
                     2>&1 | tee "$PROMISE_OUT"; then
                     echo "   $step_label: OK"
                 else
+                    step_rc=$?
                     step_failed=1
                 fi
             fi
@@ -806,11 +809,17 @@ EOF
                     # there: without the comparison the finding is the push's.
                     if [ -f "$base_step_path" ]; then
                         base_out="$(mktemp "${TMPDIR:-/tmp}/pre-push-base-step-XXXXXX")"
+                        # The exit code of the base run is kept: a run that
+                        # failed without printing anything did not find
+                        # anything, it broke, and a broken base cannot account
+                        # for the pushed tree's findings.
+                        base_rc=0
                         (cd "$base_tree" && without_hook_git_env \
                             ${base_step_env[@]+"${base_step_env[@]}"} python3 "$base_step_path" \
-                            ${base_step_argv[@]+"${base_step_argv[@]}"}) >"$base_out" 2>&1 || true
+                            ${base_step_argv[@]+"${base_step_argv[@]}"}) >"$base_out" 2>&1 || base_rc=$?
                         step_ratchet_out="$(mktemp "${TMPDIR:-/tmp}/pre-push-ratchet-XXXXXX")"
-                        if ratchet_outputs "$PROMISE_OUT" "$base_out" >"$step_ratchet_out" 2>&1; then
+                        if ratchet_outputs "$PROMISE_OUT" "$base_out" "$step_rc" "$base_rc" \
+                            >"$step_ratchet_out" 2>&1; then
                             step_ratchet_rc=0
                         else
                             step_ratchet_rc=$?
@@ -829,7 +838,11 @@ EOF
                         sed '/DEBUG/d' "$PROMISE_OUT" | sed 's/^/   /'
                     fi
                     if [ -n "$step_ratchet_out" ] && [ -s "$step_ratchet_out" ]; then
-                        echo "   what this push adds:"
+                        if [ "$step_ratchet_rc" = "2" ]; then
+                            echo "   the comparison could not be made:"
+                        else
+                            echo "   what this push adds:"
+                        fi
                         sed 's/^/     /' "$step_ratchet_out"
                     fi
                     echo "$step_hint"
@@ -1073,7 +1086,11 @@ EOF
                 GATES_FAILED=1
                 report_failed_tests "$suite_log"
                 if [ -n "$suite_ratchet_out" ] && [ -s "$suite_ratchet_out" ]; then
-                    echo "   the failing tests this push adds:"
+                    if [ "$suite_ratchet_rc" = "2" ]; then
+                        echo "   the comparison could not be made:"
+                    else
+                        echo "   the failing tests this push adds:"
+                    fi
                     sed 's/^/     /' "$suite_ratchet_out"
                 fi
                 echo ""
