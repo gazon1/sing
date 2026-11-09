@@ -126,4 +126,36 @@ class BackupFailureTest {
         assertEquals(fallback.code, failure.code)
         assertEquals(fallback.message, failure.message, "a failure with nothing to say says the fallback")
     }
+
+    /**
+     * The raw SQLite sentence names a constraint, not what the person can do.
+     * A restore that trips one carries a row whose reference is missing.
+     */
+    @Test
+    fun `a foreign-key failure says the restore was cancelled, not what SQLite said`() {
+        val failure =
+            backupFailure(
+                IllegalStateException("Error code: 787, message: FOREIGN KEY constraint failed"),
+                fallback,
+            )
+
+        assertEquals(FOREIGN_KEY_CONSTRAINT, failure.code)
+        assertFalse(
+            failure.message.contains("SQLite", ignoreCase = true) ||
+                failure.message.contains("FOREIGN KEY", ignoreCase = true),
+            "the person is told what happened, not the database's own words: ${failure.message}",
+        )
+        assertTrue(
+            failure.message.contains("cancelled", ignoreCase = true),
+            "the sentence says the import did not happen: ${failure.message}",
+        )
+    }
+
+    @Test
+    fun `an archive from another app says it is not ours`() {
+        val failure = backupFailure(BackupPayloadError.ForeignArchive("another-app"), fallback)
+
+        assertEquals(FOREIGN_ARCHIVE, failure.code)
+        assertEquals("That file is not a Singularity backup", failure.message)
+    }
 }

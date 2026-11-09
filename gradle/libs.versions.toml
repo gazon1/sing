@@ -153,6 +153,9 @@ kover = "0.9.11"
 kotlinSdk = "0.16.0"
 kotlinxIo = "0.9.2"
 
+# The importer CLI's argument parser. A JVM library, used only by :import-cli.
+clikt = "5.1.0"
+
 [libraries]
 # Kotlin / Build
 jvm-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -340,6 +343,9 @@ acp-model = { module = "com.agentclientprotocol:acp-model", version.ref = "acp" 
 kotlin-sdk = { module = "io.modelcontextprotocol:kotlin-sdk", version.ref = "kotlinSdk" }
 kotlinx-io-core-jvm = { module = "org.jetbrains.kotlinx:kotlinx-io-core-jvm", version.ref = "kotlinxIo" }
 ktor-io-jvm = { module = "io.ktor:ktor-io-jvm", version.ref = "ktor" }
+
+# The importer CLI's argument parser. A JVM library, used only by :import-cli.
+clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
 
 # Lint / Quality tools
 detekt-api = { module = "dev.detekt:detekt-api", version.ref = "detekt" }

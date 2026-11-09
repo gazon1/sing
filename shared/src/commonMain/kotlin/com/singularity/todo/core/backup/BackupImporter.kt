@@ -146,9 +146,27 @@ class BackupImporter(
                     val existing =
                         if (options.keepExistingRows) existingRowKeys(options.targetUserId, ownerId) else null
                     val outcome =
-                        applyPayload(migrated, options.targetUserId, ownerId, now, read.attachments, knownTaskIds, existing, kept)
+                        applyPayload(
+                            migrated,
+                            options.targetUserId,
+                            ownerId,
+                            now,
+                            read.attachments,
+                            knownTaskIds,
+                            existing,
+                            kept,
+                        )
                     for (changePayload in decodedChanges) {
-                        applyPayload(changePayload, options.targetUserId, ownerId, now, emptyMap(), knownTaskIds, existing, kept)
+                        applyPayload(
+                            changePayload,
+                            options.targetUserId,
+                            ownerId,
+                            now,
+                            emptyMap(),
+                            knownTaskIds,
+                            existing,
+                            kept,
+                        )
                         merged = merge(merged, changePayload)
                     }
                     outcome to merged
@@ -470,8 +488,9 @@ class BackupImporter(
      * travel. The removals are dropped whole: a restore that keeps what is there
      * cannot take a row out, because the row it would take out is one of the
      * rows it was asked to leave alone.
+     *
+     * Keep in sync with BackupEntityKind.entries / existingRowKeys / KeptRows.counts.
      */
-    // Keep in sync with BackupEntityKind.entries / existingRowKeys / KeptRows.counts.
     private fun withoutExistingRows(
         payload: BackupPayload,
         existing: Map<BackupEntityKind, Set<String>>,
@@ -535,9 +554,13 @@ class BackupImporter(
                     kept.add(kind, rowKey)
                     true
                 }
+
                 // An earlier payload in this same restore wrote it (e.g. the base): do
                 // not re-insert — plain @Insert link rows would collide on their PK.
-                kept.wasWritten(kind, rowKey) -> true
+                kept.wasWritten(kind, rowKey) -> {
+                    true
+                }
+
                 else -> {
                     kept.markWritten(kind, rowKey)
                     false
@@ -560,25 +583,27 @@ class BackupImporter(
         // Compile canary: if a BackupEntityKind is added, update this exhaustive when,
         // existingRowKeys(), withoutExistingRows(), counts(), and the DAO/export reads.
         @Suppress("unused")
-        private fun allKindsHandled(kind: BackupEntityKind): Unit = when (kind) {
-            BackupEntityKind.TASK_TAGS,
-            BackupEntityKind.TASK_DEPENDENCIES,
-            BackupEntityKind.CHECKLIST_ITEMS,
-            BackupEntityKind.PROJECT_TAG_GROUPS,
-            BackupEntityKind.ATTACHMENT_ANNOTATIONS,
-            BackupEntityKind.ATTACHMENTS,
-            BackupEntityKind.AGENDA_VIEWS,
-            BackupEntityKind.SAVED_SEARCHES,
-            BackupEntityKind.TASK_REMINDERS,
-            BackupEntityKind.PROJECT_REMINDERS,
-            BackupEntityKind.TIME_ENTRIES,
-            BackupEntityKind.TAGS,
-            BackupEntityKind.TAG_GROUPS,
-            BackupEntityKind.TASKS,
-            BackupEntityKind.NOTES,
-            BackupEntityKind.PROJECTS,
-            BackupEntityKind.PROFILES -> Unit
-        }
+        private fun allKindsHandled(kind: BackupEntityKind): Unit =
+            when (kind) {
+                BackupEntityKind.TASK_TAGS,
+                BackupEntityKind.TASK_DEPENDENCIES,
+                BackupEntityKind.CHECKLIST_ITEMS,
+                BackupEntityKind.PROJECT_TAG_GROUPS,
+                BackupEntityKind.ATTACHMENT_ANNOTATIONS,
+                BackupEntityKind.ATTACHMENTS,
+                BackupEntityKind.AGENDA_VIEWS,
+                BackupEntityKind.SAVED_SEARCHES,
+                BackupEntityKind.TASK_REMINDERS,
+                BackupEntityKind.PROJECT_REMINDERS,
+                BackupEntityKind.TIME_ENTRIES,
+                BackupEntityKind.TAGS,
+                BackupEntityKind.TAG_GROUPS,
+                BackupEntityKind.TASKS,
+                BackupEntityKind.NOTES,
+                BackupEntityKind.PROJECTS,
+                BackupEntityKind.PROFILES,
+                -> Unit
+            }
 
         fun add(
             kind: BackupEntityKind,
@@ -587,12 +612,17 @@ class BackupImporter(
             keys.getOrPut(kind) { mutableSetOf() }.add(key)
         }
 
-        fun markWritten(kind: BackupEntityKind, key: String) {
+        fun markWritten(
+            kind: BackupEntityKind,
+            key: String,
+        ) {
             written.getOrPut(kind) { mutableSetOf() }.add(key)
         }
 
-        fun wasWritten(kind: BackupEntityKind, key: String): Boolean =
-            written[kind]?.contains(key) == true
+        fun wasWritten(
+            kind: BackupEntityKind,
+            key: String,
+        ): Boolean = written[kind]?.contains(key) == true
 
         fun counts(): EntityCounts {
             val c = BackupEntityKind.entries.associateWith { size(it) }
@@ -620,7 +650,11 @@ class BackupImporter(
         }
 
         private fun assertAllKindsCounted(c: Map<BackupEntityKind, Int>) {
-            for (kind in BackupEntityKind.entries) require(kind in c) { "BackupEntityKind.$kind missing from kept counts" }
+            for (kind in BackupEntityKind.entries) {
+                require(
+                    kind in c,
+                ) { "BackupEntityKind.$kind missing from kept counts" }
+            }
         }
 
         private fun Map<BackupEntityKind, Int>.value(kind: BackupEntityKind): Int = getValue(kind)
@@ -628,7 +662,13 @@ class BackupImporter(
         private fun size(kind: BackupEntityKind): Int = keys[kind]?.size ?: 0
     }
 
-    /** The rows that carry the account itself: tasks, notes, projects and tags. */
+    /**
+     * The rows that carry the account itself: tasks, projects, notes and tags.
+     *
+     * The projects land before the notes because `notes.project_id` is a foreign key:
+     * a note that belongs to a project the archive brings with it fails to insert
+     * otherwise ("FOREIGN KEY constraint failed"). Tasks go first for the same reason.
+     */
     private suspend fun applyRows(
         payload: BackupPayload,
         userId: UserId,
@@ -643,14 +683,6 @@ class BackupImporter(
                 ),
             )
         }
-        for (note in payload.notes) {
-            noteDao.upsert(
-                note.toEntity(userId.value).copy(
-                    updatedAt = now,
-                    createdAt = note.createdAt,
-                ),
-            )
-        }
         for (project in payload.projects) {
             projectDao.upsert(
                 project.toEntity(userId.value).copy(
@@ -659,13 +691,42 @@ class BackupImporter(
                 ),
             )
         }
+        for (note in payload.notes) {
+            noteDao.upsert(
+                note.toEntity(userId.value).copy(
+                    updatedAt = now,
+                    createdAt = note.createdAt,
+                ),
+            )
+        }
+        // The tags, with names made unique the way the account's index demands.
+        // `tags` carries a unique `(user_id, name_normalized)`, and two tags of the
+        // same name are legitimate on the way in: a foreign backup can hold both,
+        // and one of them may already be in the account under another id. The
+        // second row keeps its id and its links and takes a numbered name;
+        // dropping it would take the tasks tagged with it along.
+        val owners =
+            tagDao
+                .listAllForUser(userId.value)
+                .associateTo(HashMap()) { it.nameNormalized to it.id }
         for (tag in payload.tags) {
-            tagDao.upsert(
+            var entity =
                 tag.toEntity(userId.value).copy(
                     updatedAt = now,
                     createdAt = tag.createdAt,
-                ),
-            )
+                )
+            val owner = owners[entity.nameNormalized]
+            if (owner != null && owner != entity.id) {
+                val base = entity.name.trim()
+                var n = 2
+                // A re-import is stable: the row may already own the numbered
+                // name an earlier restore gave it.
+                while (owners["$base ($n)".lowercase()]?.let { it != entity.id } == true) n++
+                val name = "$base ($n)"
+                entity = entity.copy(name = name, nameNormalized = name.lowercase())
+            }
+            owners[entity.nameNormalized] = entity.id
+            tagDao.upsert(entity)
         }
     }
 

@@ -116,7 +116,7 @@ class BackupDomainTest {
         val manifest =
             BackupManifest(
                 formatVersion = 1,
-                appName = "test",
+                appName = BackupFormat.APP_NAME,
                 appVersion = "1.0",
                 createdAtEpochMillis = 0,
                 userIdHash = "hash",
@@ -128,5 +128,29 @@ class BackupDomainTest {
         result.onFailure {
             assertTrue(it is BackupPayloadError.ChecksumMismatch)
         }
+    }
+
+    /**
+     * An archive from another app is refused even when its versions look familiar:
+     * the versions only describe rows written by this app.
+     */
+    @Test
+    fun validateManifestRejectsForeignArchive() {
+        val manifest =
+            BackupManifest(
+                formatVersion = 1,
+                appName = "another-app",
+                appVersion = "1.0",
+                createdAtEpochMillis = 0,
+                userIdHash = "hash",
+                schemaVersion = BackupFormat.SCHEMA_VERSION,
+                entityCounts = EntityCounts(),
+                payloadChecksum = BackupDomain.sha256Hex("{}".toByteArray()),
+            )
+        val result = BackupDomain.validateManifest(manifest, "{}".toByteArray())
+        result.onFailure {
+            assertTrue(it is BackupPayloadError.ForeignArchive, "a foreign app name must be refused: $it")
+        }
+        assertTrue(result.isFailure, "a foreign archive was accepted")
     }
 }
