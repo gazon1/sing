@@ -2,6 +2,7 @@
 title: "The Compose compiler plugin is why :shared never compiles incrementally"
 date: 2026-10-29
 status: superseded
+superseded-by: 2026-11-05-the-koin-plugin-forced-the-aggregator-compile-to-rerun
 tags: ["build", "performance", "compose"]
 ---
 

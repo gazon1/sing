@@ -1,8 +1,8 @@
 ---
 title: Known gaps in Google sync, and the two ways this feature drifts
 date: 2026-10-05
-status: open
-status-was: proposed
+status: deferred
+status-was: open
 slug: google-sync-known-gaps-and-field-drift
 ---
 
@@ -16,6 +16,13 @@ somewhere in this feature.
 > outcomes, and `GoogleSyncPass` makes the guard testable. See
 > `2026-10-06-google-sync-failures-were-shaped-like-skips.md` for what fixing them turned up.
 > Item 2's screen-side half was also closed in the same change.
+>
+> **Deferred 2026-11-09.** Items 2 (server-side half), 4 and 5 are still open —
+> `desiredEventFor` still reads one task per event per pass
+> (`GoogleTaskApplier.kt`), and the screen-side copy of the import window is
+> still a literal. The record of the gaps stands; the fixing does not.
+> Revisit when the next Google-sync defect is written down: each of these
+> three is a way that defect arrives.
 
 ## Open items
 
