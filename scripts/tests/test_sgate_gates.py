@@ -295,6 +295,61 @@ class TestTheRunnerReadsTheVerdict(unittest.TestCase):
         self.assertTrue(result.passed)
 
 
+class TestTheRunnerAsksTheGateForItsContract(unittest.TestCase):
+    """`run-all` asks the gate it dispatched whether it spoke the contract.
+
+    A gate dispatched through `sgate` was asked for `--json`, so its stdout IS
+    the contract. The runner holds that stdout, so it is the one place that can
+    say "this was not a verdict" — without running the gate a second time to
+    find out.
+
+    And a gate that raised instead of reporting is a broken gate, not a gate
+    that found something: the two are red, but only one of them is a defect in
+    the gate, and the report has to tell them apart.
+    """
+
+    @staticmethod
+    def _judge(head: str, stdout: str, stderr: str = "", exit_code: int = 0):
+        from sgate.commands.run_all import _judge as judge
+
+        return judge(
+            head=head,
+            stdout=stdout,
+            stderr=stderr,
+            exit_code=exit_code,
+            gate_name="a gate",
+        )
+
+    def test_a_dispatched_gate_that_prints_prose_is_red(self):
+        passed, error, _ = self._judge("sgate", "all good")
+        self.assertFalse(passed)
+        self.assertIn("no JSON document", error)
+
+    def test_a_dispatched_gate_that_prints_the_document_is_green(self):
+        passed, error, payload = self._judge("sgate", '{"gate": "x", "passed": true}')
+        self.assertTrue(passed)
+        self.assertEqual(error, "")
+        self.assertTrue(payload)
+
+    def test_a_plain_script_is_judged_by_its_exit_code(self):
+        """A gate run as a plain script has no contract, so prose is not a violation."""
+        passed, error, _ = self._judge("python3", "all good")
+        self.assertTrue(passed)
+        self.assertEqual(error, "")
+
+    def test_a_gate_that_died_is_red_even_when_it_exits_zero(self):
+        passed, error, _ = self._judge(
+            "python3", "", stderr="Traceback (most recent call last):\nNameError: name 'x'\n"
+        )
+        self.assertFalse(passed)
+        self.assertIn("died instead of reporting", error)
+
+    def test_a_gate_that_found_something_is_not_reported_as_dead(self):
+        passed, error, _ = self._judge("python3", "FAIL: something is wrong", exit_code=1)
+        self.assertFalse(passed)
+        self.assertNotIn("died", error)
+
+
 if __name__ == "__main__":
     unittest.main()
 

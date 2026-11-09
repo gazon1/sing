@@ -157,6 +157,93 @@ FAILURE_LINE = re.compile(
     r'::error|violation'
 )
 
+#: What a gate that died instead of reporting leaves on stderr. A gate that
+#: finds a violation prints "FAIL" or "ERROR"; a gate that raises prints a
+#: traceback. The two are different failures — one is the gate working, the
+#: other is the gate broken — and a report that calls them the same thing
+#: sends the reader to the wrong place.
+#:
+#: The list is the one the liveness probe used, kept here because the runner is
+#: where the verdict is now taken: the probe re-ran every gate to ask this
+#: question, and the answer was already in the output the run had captured.
+TRACEBACK_MARKERS = (
+    "Traceback (most recent call last)",
+    "NameError:",
+    "AttributeError:",
+    "TypeError:",
+    "ImportError:",
+    "ModuleNotFoundError:",
+    "FileNotFoundError:",
+    "UnboundLocalError:",
+    "SyntaxError:",
+    "IndentationError:",
+)
+
+
+def _died_instead_of_reporting(stderr: str) -> str:
+    """The traceback line when the gate died, and an empty string when it did not.
+
+    A gate that raises is not a gate that found something. Both are red, but
+    only one of them is a defect in the gate.
+    """
+    for marker in TRACEBACK_MARKERS:
+        for line in stderr.splitlines():
+            if marker in line:
+                return line.strip()
+    return ""
+
+
+def _judge(
+    *,
+    head: str,
+    stdout: str,
+    stderr: str,
+    exit_code: int,
+    gate_name: str,
+) -> tuple[bool, str, bool | None]:
+    """The gate's verdict: whether it passed, why it did not, and the payload's own.
+
+    Three rules, in the order they can contradict each other:
+
+    1. **The contract.** A gate dispatched through `sgate` was asked for
+       `--json`, so its stdout IS the contract: one JSON object carrying a
+       verdict. A stdout that is not that document — a line of prose in front of
+       it, an annotation, a debug print — leaves the consumer with nothing to
+       read, and a document that says nothing is not a pass. A gate run as a
+       plain script prints human text, and its exit code is all there is.
+
+    2. **The gate's own verdict.** A gate that reports `passed: false` and
+       exits 0 is red; a gate that reports `passed: true` and exits non-zero is
+       red too.
+
+    3. **Died instead of reported.** A gate that raised looks exactly like a
+       gate that reported "clean" to anything that only reads the exit code.
+
+    The runner is the one place that can apply all three: it asked for the
+    document, it holds the stdout and the stderr, and it knows the exit code.
+    A separate probe re-ran every gate to ask the same questions, and cost a
+    second execution of the whole corpus.
+    """
+    payload = _read_gate_payload(stdout, gate_name)
+    passed = payload.honest_pass(exit_code) if payload is not None else exit_code == CLEAN
+    error = ""
+    if payload is not None and not payload.passed and exit_code == CLEAN:
+        # The gate said it failed and still exited 0. That is the case the
+        # verdict exists for, and the report has to name it: a row reading
+        # "exit=0" on a failing gate reads like a bug in the table.
+        error = "the gate's own payload says it failed, and it exited 0"
+
+    if head == "sgate" and payload is None:
+        passed = False
+        error = "the gate printed no JSON document with a verdict on stdout"
+
+    died = _died_instead_of_reporting(stderr)
+    if died:
+        passed = False
+        error = f"the gate died instead of reporting: {died}"
+
+    return passed, error, payload.passed if payload is not None else None
+
 
 def _load_static_gates() -> list[tuple[str, str, str]]:
     """Load gate registry from static-gates.sh.
@@ -325,14 +412,15 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
         #
         # A gate run as a plain script prints human text, so there is no
         # payload to read and the exit code is the only verdict there is.
-        payload = _read_gate_payload(_decode(result.stdout), display_name)
-        passed = payload.honest_pass(rc) if payload is not None else rc == CLEAN
-        error = ""
-        if payload is not None and not payload.passed and rc == CLEAN:
-            # The gate said it failed and still exited 0. That is the case the
-            # verdict exists for, and the report has to name it: a row reading
-            # "exit=0" on a failing gate reads like a bug in the table.
-            error = "the gate's own payload says it failed, and it exited 0"
+        stdout_text = _decode(result.stdout)
+        stderr_text = _decode(result.stderr)
+        passed, error, payload_passed = _judge(
+            head=head,
+            stdout=stdout_text,
+            stderr=stderr_text,
+            exit_code=rc,
+            gate_name=display_name,
+        )
 
         return GateResult(
             name=display_name,
@@ -341,9 +429,9 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
             exit_code=rc,
             duration_ms=duration_ms,
             error=error,
-            stdout=_decode(result.stdout),
-            stderr=_decode(result.stderr),
-            payload_passed=payload.passed if payload is not None else None,
+            stdout=stdout_text,
+            stderr=stderr_text,
+            payload_passed=payload_passed,
         )
 
     except subprocess.TimeoutExpired:
