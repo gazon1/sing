@@ -1,6 +1,7 @@
 ---
-status: accepted
+status: superseded
 date: 2026-10-20
+superseded-by: 2026-11-09-the-gate-tooling-is-installed-by-mise
 ---
 
 # The toolchain pins live in one file, and the preflight runs in CI too
