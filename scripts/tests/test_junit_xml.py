@@ -233,9 +233,22 @@ class ResultFileSelectionTest(unittest.TestCase):
             self.assertEqual([p.name for p in iter_result_files(pathlib.Path(tmp))],
                              ["TEST-a.xml", "TEST-b.xml", "TEST-c.xml"])
 
-    def test_non_matching_files_are_ignored(self):
+    def test_a_flow_named_report_is_selected(self):
+        """Maestro names its reports after the flow, not after a test class.
+
+        A glob that only knows Gradle's `TEST-*.xml` naming sees none of
+        them, and the Maestro traceability matrix came out empty that way —
+        a suite that ran everything and reported nothing.
+        """
         with tempfile.TemporaryDirectory() as tmp:
-            _write(pathlib.Path(tmp), "<testsuite/>", name="other.xml")
+            _write(pathlib.Path(tmp), '<testsuite><testcase name="flow"/></testsuite>',
+                   name="agenda-login.xml")
+            self.assertEqual([p.name for p in iter_result_files(pathlib.Path(tmp))],
+                             ["agenda-login.xml"])
+
+    def test_non_xml_files_are_ignored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _write(pathlib.Path(tmp), "<testsuite/>", name="other.txt")
             self.assertEqual(iter_result_files(pathlib.Path(tmp)), [])
 
 
