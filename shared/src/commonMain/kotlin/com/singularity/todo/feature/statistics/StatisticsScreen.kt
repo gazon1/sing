@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -235,20 +236,23 @@ private fun TasksTabContent(state: StatisticsUiState) {
 @Composable
 private fun TasksBarChart(buckets: ImmutableList<DayBucket>) {
     val bars =
-        buckets.map { bucket ->
-            DayBar(
-                label = LocalDate.parse(bucket.date).day.toString(),
-                // Overdue is painted from the base and completed above it: the
-                // segment the user is asked to act on starts at the baseline.
-                // The bar is scaled against the stack (DayBarChart), so the
-                // busiest day's completed segment can no longer push the amber
-                // one off the top of the chart and hide it.
-                segments =
-                    listOf(
-                        BarSegment(bucket.overdueCount.toFloat(), DataStatusColors.Overdue),
-                        BarSegment(bucket.completedCount.toFloat(), DataStatusColors.Completed),
-                    ),
-            )
+        remember(buckets) {
+            buckets
+                .map { bucket ->
+                    DayBar(
+                        label = LocalDate.parse(bucket.date).day.toString(),
+                        // Overdue is painted from the base and completed above it: the
+                        // segment the user is asked to act on starts at the baseline.
+                        // The bar is scaled against the stack (DayBarChart), so the
+                        // busiest day's completed segment can no longer push the amber
+                        // one off the top of the chart and hide it.
+                        segments =
+                            listOf(
+                                BarSegment(bucket.overdueCount.toFloat(), DataStatusColors.Overdue),
+                                BarSegment(bucket.completedCount.toFloat(), DataStatusColors.Completed),
+                            ),
+                    )
+                }.toImmutableList()
         }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -389,11 +393,14 @@ private fun InsightsStackedBarChart(
     modifier: Modifier = Modifier,
 ) {
     val bars =
-        buckets.map { bucket ->
-            DayBar(
-                label = LocalDate.parse(bucket.date).day.toString(),
-                segments = listOf(BarSegment(bucket.totalMs.toFloat(), DataStatusColors.Completed)),
-            )
+        remember(buckets) {
+            buckets
+                .map { bucket ->
+                    DayBar(
+                        label = LocalDate.parse(bucket.date).day.toString(),
+                        segments = listOf(BarSegment(bucket.totalMs.toFloat(), DataStatusColors.Completed)),
+                    )
+                }.toImmutableList()
         }
 
     Card(modifier = modifier) {

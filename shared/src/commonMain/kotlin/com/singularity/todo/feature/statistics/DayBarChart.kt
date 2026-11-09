@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlinx.collections.immutable.ImmutableList
 
 /** One part of a bar, painted upward from the base. */
 internal data class BarSegment(val value: Float, val color: Color)
@@ -56,7 +57,7 @@ private val MAX_BAR_SPACING = 8.dp
  */
 @Composable
 internal fun DayBarChart(
-    bars: List<DayBar>,
+    bars: ImmutableList<DayBar>,
     chartHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
@@ -117,7 +118,7 @@ internal fun DayBarChart(
  */
 @Composable
 private fun DayLabels(
-    bars: List<DayBar>,
+    bars: ImmutableList<DayBar>,
     spacing: Dp,
 ) {
     val stride = labelStride(bars.size)
