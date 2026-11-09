@@ -217,16 +217,6 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
             "and the suite job names it now, so it is declared rather than hidden."
         ),
     ),
-    ":androidApp:test": GradleTaskParity(
-        scope="ci",
-        why=(
-            "CI runs it in the suite; the local loop compiles the Android app "
-            "(`:androidApp:compileDebugKotlin`, `:androidApp:assembleDebug`) and runs "
-            "the instrumentation tier on a device, but not the unit-test task. Same "
-            "reason as `:mcp-server:test`: CI names the task now, so the asymmetry "
-            "is declared."
-        ),
-    ),
     ":androidApp:connectedDebugAndroidTest": GradleTaskParity(
         scope="covered",
         why=(

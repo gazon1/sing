@@ -711,8 +711,9 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      # The suite compiles and runs the Android target (`:shared:testAndroidHostTest`,
-      # `:androidApp:test`), so the platform the build declares has to be present.
+      # The suite compiles and runs the Android target
+      # (`:shared:testAndroidHostTest`), so the platform the build declares has
+      # to be present.
       - uses: ./.github/actions/setup-android-sdk
 
       # Same action as the static job, one reason: this job runs
@@ -804,10 +805,18 @@ jobs:
       # The coverage entry point (`koverReport`) used to be what put them into
       # this invocation: it dependsOn :shared:jvmTest,
       # :shared:testAndroidHostTest, :desktopApp:test, :mcp-server:test and
-      # :androidApp:test (build.gradle.kts:390-399). That is a second copy of
-      # the list that has to stay in step with kover's — and it is exactly how
-      # kover silently stops measuring a module. Naming the tasks here is the
+      # :androidApp:test (build.gradle.kts:589-599). The two lists overlap and
+      # are NOT copies: each names the tasks it runs — this one also runs
+      # :shared:archTest, :core-domain:jvmTest and :detekt-rules:test, and
+      # kover also aggregates :adr-core:jvmTest. Naming the tasks here is the
       # list itself, and the coverage job keeps the aggregate.
+      #
+      # :androidApp:test is not named here: the task is NO-SOURCE — the module
+      # has no JVM unit-test source set, its suite is `src/androidTest/`, which
+      # needs a device. It stays in kover's list, where it also contributes no
+      # data; `scripts/check-coverage-task-list.py` is the gate that answers the
+      # real question — does a project in the coverage denominator have a test
+      # source set with files in it.
       #
       # :mcp-server:jar is REQUIRED in this same invocation. McpServerEndToEndTest
       # resolves build/libs/mcp-server.jar, and the test task builds that JAR before
@@ -904,12 +913,12 @@ jobs:
       # `scripts/check-waiver-references.py` requires an anchor to resolve to a
       # STEP NAME — not to a name this file used to carry.
       - name: Gradle (tests)
-        # `:androidApp:test` is NO-SOURCE and runs zero tests: the module has
-        # no JVM unit-test source set — its suite is `src/androidTest/`, which
-        # needs a device and cannot run here. The task stays in this list so the
-        # list stays a copy of `koverReport`'s (build.gradle.kts:388-399), and
-        # `scripts/check-coverage-task-list.py` is the gate that answers the
-        # real question — does a project in the coverage denominator have a
+        # `:androidApp:test` is NOT named here: the task is NO-SOURCE and runs
+        # zero tests — the module has no JVM unit-test source set, its suite is
+        # `src/androidTest/`, which needs a device and cannot run here. Naming
+        # it would add a line that runs nothing and imply a suite that does not
+        # exist. `scripts/check-coverage-task-list.py` is the gate that answers
+        # the real question — does a project in the coverage denominator have a
         # test source set with files in it.
         run: |
           set -o pipefail
@@ -923,7 +932,6 @@ jobs:
             :shared:testAndroidHostTest \
             :desktopApp:test \
             :mcp-server:test \
-            :androidApp:test \
             :detekt-rules:test \
             :tools:unwritten-properties:test \
             -Ptest.population="$TEST_POPULATION" \

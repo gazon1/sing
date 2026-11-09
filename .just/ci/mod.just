@@ -100,7 +100,6 @@ tests:
             :shared:testAndroidHostTest \
             :desktopApp:test \
             :mcp-server:test \
-            :androidApp:test \
             :detekt-rules:test \
             :tools:unwritten-properties:test \
             -Ptest.population="$population" \
@@ -115,7 +114,6 @@ tests:
             :shared:testAndroidHostTest \
             :desktopApp:test \
             :mcp-server:test \
-            :androidApp:test \
             :detekt-rules:test \
             :tools:unwritten-properties:test \
             -Ptest.population="$population" \
