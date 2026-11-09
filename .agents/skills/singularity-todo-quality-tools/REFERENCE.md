@@ -27,29 +27,31 @@ the same way. A `|| true` *inside a helper function* is fine and is not flagged
 
 **Gates that need a binary.** Three gates shell out to a tool that is not part
 of the Python venv: `actionlint` and `yamllint` (inline in the registry) and
-`lychee` (behind `scripts/check-doc-links.sh`). CI installs them pinned through
-`.github/actions/setup-python-tools`; locally they must be on `PATH`, and a
-missing one is a **loud failure, not a skip** — a gate that cannot run looks
-exactly like a gate that has nothing to report.
+`lychee` (behind `scripts/check-doc-links.sh`). CI installs them through mise
+(see `mise.toml`, which holds the pinned versions); locally they must be on
+`PATH`, and a missing one is a **loud failure, not a skip** — a gate that cannot
+run looks exactly like a gate that has nothing to report.
 
-Locally the whole gate toolchain comes from **one uv bootstrap**, the same
-shape CI uses:
+Locally the whole gate toolchain comes from **mise plus one uv bootstrap**, the
+same shape CI uses:
 
 ```bash
-bash scripts/ci/setup-local-tools.sh                      # uv venv + the pinned tools
+mise install                                                 # the pinned binaries
+bash scripts/ci/setup-local-tools.sh                        # uv venv + the gate suite
 export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"   # the venv's bin
-bash scripts/ci/preflight-gate-tools.sh                   # what is still missing
+bash scripts/ci/preflight-gate-tools.sh                     # what is still missing
 ```
 
-`scripts/ci/setup-local-tools.sh` creates `$HOME/.venvs/singularity-todo-$(basename "$PWD")`
-(one venv per checkout — override with `SINGULARITY_TOOLS_VENV`), installs the local `scripts/src` package **editable**
-plus `yamllint==1.38.0` into it, and puts the pinned
-`lychee-bin==0.24.2`, `shellcheck-py==0.11.0.1` and the `actionlint` v1.7.7
-release binary in a **shared store**, one copy per version on the machine
-(`~/.venvs/_tools/<tool>-<version>/bin/<tool>`), with the venv's own copies as
-symlinks into it. The binaries are identical in every checkout and expensive
-(`lychee` alone is 303 MB — one copy per checkout was 8.9 GB of the same bytes),
-so they are shared; the checkout's own code is not, and never is.
+`mise.toml` is the one place the versions are written down: mise installs the
+binaries from it, on this machine and on a runner, so the local run and the CI
+run of a gate use the same bytes. `scripts/ci/setup-local-tools.sh` creates
+`$HOME/.venvs/singularity-todo-$(basename "$PWD")` (one venv per checkout —
+override with `SINGULARITY_TOOLS_VENV`), installs the local `scripts/src`
+package **editable** into it, and links the mise-installed binaries into the
+venv's `bin`, so one PATH serves both the gate suite and the tools it shells out
+to. The binaries are shared by mise across checkouts — they are identical
+everywhere and expensive (`lychee` alone is 303 MB) — while the checkout's own
+code is not shared, and never is.
 
 Two details that are not negotiable:
 

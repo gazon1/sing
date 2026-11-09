@@ -121,7 +121,8 @@
   Полный линт — `just lint` (ktlint + detekt).
 - **Markdown (rumdl, opt-in/advisory).** Конфиг — `.rumdl.toml` (respect-gitignore,
   исключены генерируемые/архивные деревья; часть шумных правил отключена). Пин —
-  `rumdl` в `mise.toml` (и `config/toolchain-versions.env`, где применимо). Ежедневно:
+  `rumdl` в `mise.toml` — единственном месте, где записаны версии гейтового
+  тулинга. Ежедневно:
   по изменённым файлам — `just mdcheck-changed` / `just mdfmt-changed`; по всему дереву —
   `just mdcheck` / `just mdfmt` (массивный автофикс — только отдельным format-only коммитом).
   `just lint` md не включает (осознанно, по скорости/политике). Локально: hk pre-commit

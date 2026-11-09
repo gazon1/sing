@@ -479,7 +479,7 @@ than the PyYAML the duplicate-key gate uses, so a defect one parser accepts
 silently still fails here. Its config (.yamllint.yml) is structure-only: the
 default profile was 213/220 line-length noise, and a gate that is red on the
 day it lands is a gate nobody reads. Both binaries must be on PATH — CI's
-static job installs them (pinned in config/toolchain-versions.env) through
+static job installs them (pinned in mise.toml) through
 .github/actions/setup-python-tools; a missing binary is a loud 127, not a
 skip, because an unreachable gate is worse than an absent one.
 
@@ -519,8 +519,8 @@ fixed, not accepted.
 
 The binary must be on PATH, for the same reason actionlint needs shellcheck:
 a gate that cannot run looks exactly like a gate that has nothing to report.
-CI installs it pinned (config/toolchain-versions.env holds the version; the
-PyPI wheel of the upstream Rust binary) through .github/actions/setup-python-tools.""",
+CI installs it pinned (mise.toml holds the version) through
+.github/actions/setup-python-tools.""",
     ),
     "navigation doc matches the code": Placement(
         kind=PlacementKind.STATIC,
