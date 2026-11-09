@@ -174,7 +174,7 @@ def _write_environment(
         "device": deps.device_model(serial),
         "serial": serial,
         "apk": deps.apk_sha_from_device(serial),
-        "commit": deps.git_sha(),
+        "commit": deps.git_sha(deps),
         "shard": shard,
         "shards": shards,
     }
@@ -433,7 +433,7 @@ def main(
 
     # ── APK provenance ─────────────────────────────────────────────────────────
     if not allow_stale_apk:
-        expected_sha = deps.git_sha()
+        expected_sha = deps.git_sha(deps)
         installed_sha = deps.apk_sha_from_device(serial)
         if not installed_sha:
             logger.error("Cannot read build id from installed APK.")
