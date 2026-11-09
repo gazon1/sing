@@ -440,7 +440,7 @@ private fun SettingsNavRail(
         // different sections, or the same sections in a different order.
         SETTINGS_MENU_ROWS.forEach { row ->
             when (row) {
-                is SettingsMenuRow.Group ->
+                is SettingsMenuRow.Group -> {
                     Text(
                         text = row.group.title,
                         style = MaterialTheme.typography.labelSmall,
@@ -450,6 +450,7 @@ private fun SettingsNavRail(
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                                 .testTag(TestTags.settingsGroup(row.group.title)),
                     )
+                }
 
                 is SettingsMenuRow.Tab -> {
                     val tab = row.tab
@@ -584,7 +585,7 @@ private fun SettingsTabSheet(
                 // under them, in the rail's order.
                 SETTINGS_MENU_ROWS.forEach { row ->
                     when (row) {
-                        is SettingsMenuRow.Group ->
+                        is SettingsMenuRow.Group -> {
                             Text(
                                 text = row.group.title,
                                 style = MaterialTheme.typography.labelSmall,
@@ -594,8 +595,9 @@ private fun SettingsTabSheet(
                                         .padding(horizontal = 8.dp, vertical = 4.dp)
                                         .testTag(TestTags.settingsGroup(row.group.title)),
                             )
+                        }
 
-                        is SettingsMenuRow.Tab ->
+                        is SettingsMenuRow.Tab -> {
                             NavigationDrawerItem(
                                 label = { Text(row.tab.label) },
                                 selected = row.tab == selectedTab,
@@ -612,6 +614,7 @@ private fun SettingsTabSheet(
                                         .fillMaxWidth()
                                         .testTag(TestTags.settingsTab(row.tab.name)),
                             )
+                        }
                     }
                 }
             }

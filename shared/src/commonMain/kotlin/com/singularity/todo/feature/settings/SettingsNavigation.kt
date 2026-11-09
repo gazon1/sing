@@ -57,10 +57,7 @@ internal val SettingsTab.icon: ImageVector
  * A named group of settings tabs — the unit the wide nav rail shows as a
  * heading and the narrow-screen menu shows as a header.
  */
-internal data class SettingsGroup(
-    val title: String,
-    val tabs: List<SettingsTab>,
-)
+internal data class SettingsGroup(val title: String, val tabs: List<SettingsTab>)
 
 /**
  * The settings groups, in the order both layouts show them.

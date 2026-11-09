@@ -60,7 +60,6 @@ import com.singularity.todo.core.ui.textfields.maxLengthTransformation
 import com.singularity.todo.core.ui.theme.ProfileIdentityColors
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.profile.presentation.ProfileAvatar
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.preview.PreviewProfileRepository
 import kotlinx.collections.immutable.ImmutableList
 import org.koin.compose.viewmodel.koinViewModel
